@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { createBus, readInput, type Bus } from "./input";
+import { clearInput, createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
@@ -410,6 +410,7 @@ function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number
         reset();
       }}
       onPointerCancel={reset}
+      onLostPointerCapture={reset}
     >
       <div
         ref={knob}
@@ -894,10 +895,14 @@ export function Arena({
     const onKeyUp = (event: KeyboardEvent) => {
       bus.keys.delete(event.code);
     };
-    const clearHeld = () => {
-      bus.keys.clear();
-      bus.fireCanvas = false;
-      bus.fireButton = false;
+    const clearHeld = () => clearInput(bus);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") return;
+      clearHeld();
+      if (!onlineRef.current) {
+        pausedRef.current = true;
+        setPaused(true);
+      }
     };
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
@@ -911,6 +916,9 @@ export function Arena({
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", clearHeld);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("orientationchange", resize);
+    window.visualViewport?.addEventListener("resize", resize);
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
@@ -1400,6 +1408,9 @@ export function Arena({
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", clearHeld);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("orientationchange", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);

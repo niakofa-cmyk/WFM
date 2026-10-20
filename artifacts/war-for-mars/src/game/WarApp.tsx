@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Arena, type StrikeResult, type OnlineRoom } from "./Arena";
-import { armGyro } from "./gyro";
+import { armGyro, disarmGyro } from "./gyro";
 import { applyBuy, applyDock, dockValue, GOODS, scrapValue, winBid, type GoodId } from "./market";
 import { applyRefit, loadSave, refitCost, writeSave, type Save } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
@@ -372,6 +372,7 @@ export function WarApp() {
         onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}
         onGyro={() => {
           if (save.gyro) {
+            disarmGyro();
             setSave((prev) => ({ ...prev, gyro: false }));
             return;
           }
@@ -575,6 +576,7 @@ export function WarApp() {
           }
           onClick={() => {
             if (save.gyro) {
+              disarmGyro();
               setSave((prev) => ({ ...prev, gyro: false }));
               return;
             }

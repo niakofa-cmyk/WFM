@@ -757,7 +757,7 @@ function triggerUlt(match: Match, c: Craft) {
     pushFx(match, { k: "mark", x: marked ? marked.x : c.x, z: marked ? marked.z : c.z });
   } else if (c.ship === "sentinel") {
     c.shield = c.shieldMax;
-    c.guard = Math.max(c.guard, 1.35);
+    c.guard = Math.max(c.guard, 0.8);
     pushFx(match, { k: "guard", x: c.x, z: c.z });
   } else if (c.ship === "splitter") {
     for (const e of opposing(match, c)) if (e.alive) e.jam = Math.max(e.jam, 3.2);

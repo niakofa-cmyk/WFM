@@ -161,7 +161,7 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     radius: 1.55,
     ultName: "Proximity Ward",
     ultShort: "WARD",
-    ultCd: 9,
+    ultCd: 12,
   },
   splitter: {
     id: "splitter",

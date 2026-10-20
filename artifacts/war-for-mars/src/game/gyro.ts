@@ -29,6 +29,15 @@ export function resetGyro() {
   pitch = 0;
 }
 
+export function disarmGyro() {
+  if (typeof window !== "undefined" && listening) {
+    window.removeEventListener("deviceorientation", onOrient);
+    window.removeEventListener("orientationchange", resetGyro);
+  }
+  listening = false;
+  resetGyro();
+}
+
 export async function armGyro(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   const ctor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
@@ -37,13 +46,18 @@ export async function armGyro(): Promise<boolean> {
   if (typeof ctor?.requestPermission === "function") {
     try {
       const result = await ctor.requestPermission();
-      if (result !== "granted") return false;
+      if (result !== "granted") {
+        disarmGyro();
+        return false;
+      }
     } catch {
+      disarmGyro();
       return false;
     }
   }
   if (!listening) {
     window.addEventListener("deviceorientation", onOrient);
+    window.addEventListener("orientationchange", resetGyro);
     listening = true;
   }
   resetGyro();

@@ -49,6 +49,28 @@ export function createBus(scheme: Scheme): Bus {
   };
 }
 
+export function clearInput(bus: Bus) {
+  bus.keys.clear();
+  bus.override = null;
+  bus.steerOverride = null;
+  bus.leftX = 0;
+  bus.leftY = 0;
+  bus.rightX = 0;
+  bus.rightY = 0;
+  bus.fireCanvas = false;
+  bus.fireButton = false;
+  bus.ultPulse = false;
+  bus.lockPulse = false;
+  bus.evadePulse = 0;
+  bus.presetPulse = null;
+  bus.gyroYaw = 0;
+  bus.gyroPitch = 0;
+  bus.qWas = false;
+  bus.eWas = false;
+  bus.fWas = false;
+  bus.rWas = false;
+}
+
 function clamp(n: number): number {
   return Math.max(-1, Math.min(1, n));
 }
