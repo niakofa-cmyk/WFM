@@ -417,8 +417,16 @@ export async function startWingSocketServer(
         const interrupted =
           room?.phase === "active" && !room.wing.match.over && socket.readyState === WebSocket.OPEN;
         if (interrupted) {
-          send(socket, { type: "interrupted", reason: "server_restart" });
-          socket.close(4002, "server_restart");
+          const shutdownTimer = setTimeout(() => socket.terminate(), 5_000);
+          shutdownTimer.unref();
+          socket.once("close", () => clearTimeout(shutdownTimer));
+          socket.send(
+            JSON.stringify({ type: "interrupted", reason: "server_restart" }),
+            (error) => {
+              if (error) socket.terminate();
+              else socket.close(4002, "server_restart");
+            },
+          );
         } else {
           socket.close(1001, "Server shutting down");
         }

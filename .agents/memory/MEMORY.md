@@ -4,3 +4,4 @@
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
 - [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
 - [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
+- [Socket shutdown checks](replit-socket-shutdown.md) — direct Node SIGTERM delivers the notice; a managed workflow restart may abruptly close clients instead.
