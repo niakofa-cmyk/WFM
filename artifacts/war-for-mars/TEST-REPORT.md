@@ -1,8 +1,8 @@
-# WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
+# WAR FOR MARS — Build, Multiplayer, Progression, Campaign, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Code commit verified:** `fa1d75e7d7d4fb9acd13925d08430a25bbf8fe9b`
-**Result:** Workspace typecheck, all 40 automated tests, production builds, and the seeded ship diagnostic pass. The lockfile and dependencies are unchanged from the prior frozen-install verification. Production database and real phone/account runs are not available in this workspace.
+**Code commit verified:** `2ef9a37e9ddeae23946299f0f4394856d1c99d1c`
+**Result:** Workspace typecheck, all 41 automated tests, and production builds pass. The Step 5 account/progression and Step 6 campaign audits are **PARTIAL**: local server-side checks pass, but production account flows are unavailable and the campaign remains a four-sortie foundation rather than a fully playtested single-player experience.
 
 ## Reproduction
 
@@ -68,4 +68,27 @@ No physical Android or iPhone test run was performed. Android Chrome and iOS Saf
 - **Step 3 — eight-ship balance:** lock/homing symmetry is corrected and seeded diagnostics are documented; the balance gate remains open pending human-versus-human and human-versus-AI playtests.
 - **Step 4 — authoritative online 5v5:** local ten-client, room-isolation, reconnect, and seeded impairment tests pass. Ten real human clients, WAN paths, sustained server load, and cross-device consistency remain **NOT CERTIFIED**.
 - **Step 5 — independent lobbies and controlled launch:** PASS for invite-code rooms, ready-up, team assignment, host launch, full-room handling, and late-join rejection. Disconnected-room and 15-minute idle cleanup are implemented; the long timeout was not timed in a test.
+- **Step 5 — secure accounts, progression, and rewards:** **PARTIAL.** Local auth guards, database-backed ownership checks, server reward replay, and duplicate-claim protection pass. Production authentication and account recovery are not verified because no production deployment is configured. Replay adjudication still consumes client-submitted input, so this is not complete anti-cheat protection.
+- **Step 6 — single-player campaign:** **PARTIAL.** The four-sortie chain, server-gated unlocks, technology unlocks, and persistent world operations are implemented and automated checks pass. A complete, human-playtested campaign and production-account progression flow are not certified.
 - **Mobile physical-device certification:** **NOT RUN** on Android Chrome or iOS Safari; see `MOBILE-CERTIFICATION.md`.
+
+## Step 5–6: account, progression, and campaign verification
+
+This verification was run on code commit `2ef9a37e9ddeae23946299f0f4394856d1c99d1c` with Node.js `v24.13.0` and pnpm `10.26.1`.
+
+| Area | Result | Evidence and limit |
+| --- | --- | --- |
+| Local authentication boundary | PASS | Clerk middleware is mounted before API routes; protected profile, progression, strike, market, and world requests without a signed-in user returned HTTP 401. This does not verify a real sign-in session. |
+| Private profile and run ownership | PASS in development DB | A new two-user regression test confirms refitting player A leaves player B's credits unchanged, and player B cannot claim player A's strike run (404). This tests service/database isolation, not two authenticated production sessions. |
+| Server-owned progression and reward retries | PASS in development DB | Forged client balances/clears are rejected by strict request schemas. Strike setup and seed are stored server-side; the server re-simulates submitted inputs, computes credits and campaign advancement, and records claims transactionally. An identical retry returns the prior result; a changed replay returns 409; stale profile revisions are rejected. |
+| Replay abuse resistance | PARTIAL | Replay length, input shape/ranges, one-shot release transitions, post-match frames, mission unlocks, and duplicate claims are checked. Inputs still originate from the client, so valid-but-manipulated or automated play cannot be ruled out. |
+| Production auth, account recovery, and cross-device flow | NOT VERIFIED | Replit deployment status reported no active deployment. No production account was created or tested, and no production database was modified. |
+| Campaign and persistent progression | PARTIAL | The campaign has four linked sorties (Contact, Beacon, Warden, Cage), briefing/intel text, server-enforced sortie and tech unlocks, and server-owned refits/rewards. Development tests cover persistent discoveries, quests, reputation, and shared world events. A complete campaign playthrough, meaningful in-match story choices/events, and production-account synchronization remain unverified. |
+
+Reproduce the local checks with:
+
+```sh
+pnpm run typecheck && pnpm test && pnpm run build
+```
+
+Result: typecheck passed; API/server 35/35 and game client 6/6 tests passed; all workspace production builds passed. The full log for the new account-isolation test is included in the local test run for this commit.
