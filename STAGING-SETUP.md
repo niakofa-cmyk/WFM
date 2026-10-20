@@ -40,6 +40,8 @@ The automated suite is supporting evidence, not a substitute for connecting to t
 
 ## Promotion gate
 
-`STAGING-TEST-RESULTS.json` remains `PENDING` until every required staging check passes. A promotion pull request must come from `staging`, record the exact tested source commit, include the completed report, and contain no application-code changes after that tested commit. GitHub Actions checks the evidence. Main-branch protection must require both **Verify workspace** and **Verify staging evidence** before merging.
+`STAGING-TEST-RESULTS.json` remains `PENDING` until every required staging check passes. A promotion pull request must come from `staging`, record the exact tested source commit, include the completed report, and contain no application-code changes after that tested commit. GitHub Actions checks the evidence.
+
+The `main` branch is protected: changes require a pull request and passing **Verify workspace** and **Verify staging evidence** checks. Direct pushes are blocked, and administrators are subject to the same checks. The staging evidence check is intentionally pending until the separate Repl is created and the live tests pass.
 
 A staging pass is **not** production certification. Production authentication, database schema changes, rollback/recovery, and production data handling require a separate review and approval before the production Repl is published or updated.
