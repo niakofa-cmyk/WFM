@@ -17,10 +17,12 @@ const requiredTests = [
   "ordinaryDisconnectReconnect",
   "roomInviteReadyAndTeamAssignment",
   "tenClientMatchCompletion",
+  "networkImpairmentHarness",
 ];
 const allowedPostTestFiles = new Set([
   "STAGING-TEST-RESULTS.json",
   "STAGING-TEST-REPORT.md",
+  "docs/staging-network-impairment-evidence.json",
 ]);
 const failures = [];
 

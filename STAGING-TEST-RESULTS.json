@@ -2,11 +2,18 @@
   "overallStatus": "PENDING",
   "testedSourceCommit": "",
   "environment": {
-    "separateRepl": false,
+    "separateRepl": true,
     "inviteOnlyDeployment": false,
-    "separateStagingDatabase": false,
-    "stagingOnlyAuthentication": false,
-    "productionDataUntouched": false
+    "separateStagingDatabase": true,
+    "stagingOnlyAuthentication": true,
+    "productionDataUntouched": true
+  },
+  "environmentEvidence": {
+    "separateRepl": "Owner confirmed this WFM staging branch is in a separate Repl.",
+    "inviteOnlyDeployment": "PENDING: deployment settings are not yet configured; no deployment exists.",
+    "separateStagingDatabase": "Owner confirmed schema was applied to this Repl's initially empty development database.",
+    "stagingOnlyAuthentication": "Owner confirmed this Repl's own managed Clerk setup was enabled.",
+    "productionDataUntouched": "Owner confirmed no production credentials, player data, or resources were copied or changed; this Repl is unpublished."
   },
   "tests": {
     "signupAndSignin": "PENDING",
@@ -20,7 +27,8 @@
     "freshRoomRequiredAfterRestart": "PENDING",
     "ordinaryDisconnectReconnect": "PENDING",
     "roomInviteReadyAndTeamAssignment": "PENDING",
-    "tenClientMatchCompletion": "PENDING"
+    "tenClientMatchCompletion": "PENDING",
+    "networkImpairmentHarness": "PENDING"
   },
   "evidenceFiles": [],
   "productionReadiness": "NOT_CLAIMED"
