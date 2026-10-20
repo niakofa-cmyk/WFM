@@ -1,52 +1,40 @@
-# WAR FOR MARS — Reproducible Build and Combat Report
+# WAR FOR MARS — Reproducible Build, Ship Balance, and Mobile Test Report
 
 **Test date:** 2026-10-20
-**Source commit tested:** `2074199fd271b2ee3b0bce13544792f3981730e2`
-**Result:** Clean-checkout workspace build and tests passed. Actual-phone acceptance remains outstanding.
+**Source commit tested:** `f66d0107ba3793cae1ed2af424689191d4bdfa4e`
+**Result:** Clean-checkout build and automated tests pass. The ship balance gate is open, and physical Android/iOS certification has not been run.
 
-## Reproduction environment and commands
+## Reproduction
 
-- Node.js `v24.13.0`
-- pnpm `10.26.1`
-- Fresh detached worktree at the source commit above
-- `pnpm install --frozen-lockfile` — PASS; lockfile was current across all 10 workspace projects.
-- `pnpm run typecheck` — PASS.
-- `pnpm run build` — PASS; workspace builds completed.
-- `pnpm --filter @workspace/api-server run build:socket` — PASS.
-- `pnpm test` — PASS; 15 passed, 0 failed.
-
-The game build also completed directly with `pnpm --filter @workspace/war-for-mars run build`. The API package build emits both `dist/index.mjs` and `dist/socket.mjs`.
-
-## Evidence
+The source commit was tested from a detached clean Git worktree with Node.js `v24.13.0` and pnpm `10.26.1`.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Six-minute Strike | PASS | Automated 60 Hz simulation reached 360 seconds and resolved the tied-integrity result. |
-| Flight controls | PASS | Unit tests verify eased turning and stronger counter-thrust than coasting. |
-| Enemy targeting | PASS | Tests verify escort priority, exposed-target selection, and projectile lead interception. |
-| Match comprehension | PASS | Tests cover relay capture/contest callouts and team-relative outcomes/reasons. |
-| Weapon/cooldown band | PASS | All eight ships meet the tested 16–22 sustained-DPS and 7–12 second ultimate-cooldown bands. |
-| Ten-client server smoke | PASS | Ten live clients filled seats 0–9 across two 5-seat teams; input sequence 1 was acknowledged. |
-| Room isolation | PASS | A second live room kept its own `lastSeq` at 0 while the first room acknowledged input 1. |
-| Multiplayer and reward tests | PASS | Existing server tests plus new combat tests: 15 total, no failures. |
-| API runtime | PASS | API health returned HTTP 200; socket process listened on port 8099. |
+| `pnpm install --frozen-lockfile` | PASS | Lockfile current; clean install resolved all 10 workspace projects and reused 538 packages without downloads. |
+| `pnpm run typecheck` | PASS | Shared libraries and all artifact/script TypeScript checks completed. |
+| `pnpm test` | PASS | 20 tests: API/server 16/16 and game controls 4/4; zero failures. |
+| `pnpm run build` | PASS | Workspace production build completed from the clean worktree. |
+| `pnpm --filter @workspace/api-server run build:socket` | PASS | API and WebSocket bundles built. |
+| `git diff --check` | PASS | No whitespace errors in the tested source commit. |
 
-The server and client combat engines were compared after the changes; their only remaining difference is the server-only AI control branch for the unoccupied player seat. Ship balance data matches in both copies.
+The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warning threshold. Build succeeds; physical-device performance is not inferred from this size.
 
-## Combat changes included in the tested commit
+## Multiplayer and combat evidence
 
-- Flight controls now ease steering input, coast more gradually, and respond more strongly to counter-thrust.
-- AI prioritizes the escort objective, favors exposed targets, and leads moving targets based on projectile speed.
-- Sustained damage values were brought into a narrower band; cooldowns for the support and ram abilities were shortened modestly.
-- The in-match HUD labels shield and hull, reports relay ownership/capture progress/contesting, and explains the result from each team’s perspective.
-- The debrief states the specific reason the match ended.
+- Automated WebSocket test: ten clients fill a room, reconnect, and remain isolated from a second room.
+- Six-minute Strike, sequenced input acknowledgement, empty-seat AI fill, and reconnect behavior are covered by the passing API tests.
+- The ship harness tested 160 seeded 1v1 duels in each cohort, both seat orientations, plus mobility and isolated ability drills. Run with `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`.
+- Results are in `SHIP-CERTIFICATION.md`. Mandjet and Sentinel-G scored high; Tripura, Duskbreaker, and Splitter Ring scored low; Glide Knife is at or just below the review threshold. This 1v1 scripted diagnostic is not a 5v5 or human-play balance pass.
+- A first harness incorrectly omitted lock opportunities; after correcting lock and velocity-led aim, Sundara moved from an invalid 0% result to 50% in both cohorts. No ship-stat change from this certification was accepted.
 
-## Physical-device status
+## Mobile evidence and limits
 
-**Not tested on physical phones.** No physical device or device farm was available to this run. A browser viewport and WebSocket smoke test do not verify real-device frame rate, touch behavior, memory use, or audio. The two-phone procedure is in `PHONE-PLAYTEST-CHECKLIST.md`; it still needs a hardware run.
+The four automated mobile-control tests pass: combined touch actions, input clearing on lost focus, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup.
 
-## Known limits
+No physical Android phone or iPhone was available. Android Chrome and iOS Safari frame rate, frame pacing, memory, thermal behavior, full six-minute play, and hands-on touch controls remain **NOT RUN**. The evidence matrix and acceptance procedure are in `MOBILE-CERTIFICATION.md`; the tactile checklist is `PHONE-PLAYTEST-CHECKLIST.md`.
 
-- The game JavaScript bundle is 762.99 kB minified (209.29 kB gzip), above Vite’s 500 kB warning threshold. It builds successfully but has not been measured on a phone.
-- Replay outcomes and reward amounts are recomputed by the API server; credits and campaign progress remain in local storage rather than an authenticated persistent account ledger.
-- Multiplayer room state is held in process memory and ends when the socket server restarts.
+## Current disposition
+
+- **Reproducible build and automated tests:** PASS on the source commit above.
+- **Eight-ship measurements and balancing process:** documented; **balance gate not passed** until high/low outliers receive human 5v5 review and follow-up cohorts.
+- **Physical mobile certification:** **NOT RUN** on Android Chrome or iOS Safari; do not mark Step 4 complete.
