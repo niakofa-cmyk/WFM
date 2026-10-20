@@ -2,3 +2,4 @@
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
+- [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
