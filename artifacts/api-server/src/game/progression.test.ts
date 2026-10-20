@@ -138,6 +138,58 @@ test("progression request schemas reject client-authored balances and campaign c
 });
 
 test(
+  "player profiles and strike claims are isolated by user id",
+  { skip: !process.env.DATABASE_URL },
+  async () => {
+    const firstUser = `test_isolation_${randomUUID()}`;
+    const secondUser = `test_isolation_${randomUUID()}`;
+    const selection = {
+      shipId: "mandjet",
+      faction: "accord",
+      scheme: "arc",
+      pace: "practice",
+      mission: "contact",
+      tech: null,
+    } as const;
+
+    try {
+      const [firstInitial, secondInitial] = await Promise.all([
+        getPlayerProfile(firstUser),
+        getPlayerProfile(secondUser),
+      ]);
+      assert.equal(firstInitial.credits, 90);
+      assert.equal(secondInitial.credits, 90);
+
+      await db
+        .update(playerProgressTable)
+        .set({ credits: 400 })
+        .where(eq(playerProgressTable.userId, firstUser));
+      const firstRefit = await applyPlayerAction(firstUser, {
+        idempotencyKey: randomUUID(),
+        action: "refit",
+      });
+      assert.equal(firstRefit.profile.credits, 280);
+      assert.equal((await getPlayerProfile(secondUser)).credits, 90);
+
+      const firstRun = await startPlayerStrike(firstUser, selection);
+      await assert.rejects(
+        claimPlayerStrike(secondUser, firstRun.runId, []),
+        (error: unknown) => error instanceof ProgressionError && error.status === 404,
+      );
+      const secondProfile = await getPlayerProfile(secondUser);
+      assert.equal(secondProfile.credits, 90);
+      assert.equal(secondProfile.cleared, 0);
+    } finally {
+      for (const userId of [firstUser, secondUser]) {
+        await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
+        await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
+        await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
+      }
+    }
+  },
+);
+
+test(
   "server progression owns credits, rejects locked missions, and claims each replay once",
   { skip: !process.env.DATABASE_URL },
   async () => {
