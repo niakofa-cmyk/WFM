@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "WAR FOR MARS"
+description = "A space-combat game where players fly faction ships, hold orbital relays, and fight as a 5v5 wing with AI filling open seats."
+version = "1.0.0"
+id = "artifacts/war-for-mars"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21474
+
+[services.development]
+run = "pnpm --filter @workspace/war-for-mars run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/war-for-mars", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/war-for-mars/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21474"
+BASE_PATH = "/"

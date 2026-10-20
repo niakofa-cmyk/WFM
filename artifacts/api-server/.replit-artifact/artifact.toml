@@ -30,3 +30,29 @@ NODE_ENV = "production"
 
 [services.production.health.startup]
 path = "/api/healthz"
+
+[[services]]
+localPort = 8081
+name = "Wing Socket"
+paths = ["/ws", "/healthz"]
+
+[services.development]
+run = "pnpm --filter @workspace/api-server run dev:socket"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["node", "--enable-source-maps", "artifacts/api-server/dist/socket.mjs"]
+
+[services.production.run.env]
+PORT = "8081"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/healthz"
