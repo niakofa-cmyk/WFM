@@ -32,4 +32,6 @@ test("ship certification covers all eight ships and opposing role groups", () =>
   assert.match(report, /Results by opposing role/);
   assert.match(report, /Mandjet/);
   assert.match(report, /Sentinel-G/);
+  assert.match(report, /Seed cohort:\*\* 0–0/);
+  assert.match(report, /1v1 scripted-pilot diagnostic/);
 });

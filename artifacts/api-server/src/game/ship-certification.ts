@@ -449,9 +449,14 @@ function addResult(
   roleRow.losses += Number(!won && !drawn);
 }
 
-export function runShipCertification(options: { seeds?: number; durationSeconds?: number } = {}): ShipCertificationRow[] {
+export function runShipCertification(options: {
+  seeds?: number;
+  durationSeconds?: number;
+  seedOffset?: number;
+} = {}): ShipCertificationRow[] {
   const seeds = Math.max(1, Math.floor(options.seeds ?? 5));
   const durationSeconds = Math.max(10, options.durationSeconds ?? 360);
+  const seedOffset = Math.max(0, Math.floor(options.seedOffset ?? 0));
   const mutableRows = new Map<ShipId, MutableRow>(
     (Object.keys(SHIPS) as ShipId[]).map((shipId) => [shipId, emptyRow(shipId)]),
   );
@@ -461,7 +466,8 @@ export function runShipCertification(options: { seeds?: number; durationSeconds?
   for (const accordShip of accordShips) {
     for (const ussfShip of ussfShips) {
       for (let sample = 0; sample < seeds; sample += 1) {
-        const seed = 0x5100 + sample * 97 + accordShips.indexOf(accordShip) * 17 + ussfShips.indexOf(ussfShip) * 31;
+        const seed = 0x5100 + (sample + seedOffset) * 97
+          + accordShips.indexOf(accordShip) * 17 + ussfShips.indexOf(ussfShip) * 31;
         const directions: Array<[ShipId, ShipId]> = [
           [accordShip, ussfShip],
           [ussfShip, accordShip],
@@ -530,7 +536,12 @@ function wdl(record: RoleRecord) {
   return `${record.wins}-${record.draws}-${record.losses} (${rate.toFixed(0)}%)`;
 }
 
-export function formatShipCertification(rows: ShipCertificationRow[], seeds = 5, durationSeconds = 360) {
+export function formatShipCertification(
+  rows: ShipCertificationRow[],
+  seeds = 5,
+  durationSeconds = 360,
+  seedOffset = 0,
+) {
   const matchesPerShip = rows[0]?.matches ?? 0;
   const table = rows.map((row) => {
     const survival = `${row.avgFirstLifeSeconds.toFixed(0)} s / ${(row.alivePercent * 100).toFixed(0)}%`;
@@ -579,14 +590,14 @@ export function formatShipCertification(rows: ShipCertificationRow[], seeds = 5,
   return [
     "# WAR FOR MARS — Eight-Ship Certification",
     "",
-    `**Run:** ${new Date().toISOString().slice(0, 10)} · **Seeds per pairing:** ${seeds} · **Duration cap:** ${durationSeconds}s · **Matches per ship:** ${matchesPerShip}`,
-    "**Status:** Repeatable simulation certification; not a substitute for human playtesting.",
+    `**Run:** ${new Date().toISOString().slice(0, 10)} · **Seeds per pairing:** ${seeds} · **Seed cohort:** ${seedOffset}–${seedOffset + seeds - 1} · **Duration cap:** ${durationSeconds}s · **Matches per ship:** ${matchesPerShip}`,
+    "**Status:** Measurements are repeatable; balance and human playability are not certified by this report.",
     "",
     "## Method",
     "",
     `- Every Accord ship was tested against every USSF ship: 16 cross-faction pairs, each mirrored by swapping which ship starts in the player seat, for ${seeds} fixed seeds per pair.`,
-    "- Each duel used one standardized scripted pilot per side: lead aiming, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions.",
-    "- At five seeds this yields 160 six-minute-cap duels and 40 appearances per ship. Same seed and matchup are used in both seat orientations.",
+    "- Each 1v1 duel used one standardized scripted pilot per side: velocity-led aiming, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Lock-capable ships receive a lock opportunity.",
+    `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * 2 * seeds} appearances per ship. The same seed and matchup are used in both seat orientations.`,
     "- Damage is summed from landed hit events; first-life survival is censored at match end for pilots that survive; alive percentage includes respawn downtime; movement and turn rate are also measured in isolated throttle/turn probes.",
     "- Ability effects are measured in a separate stationary-target drill so support/control abilities are not misrepresented as direct damage.",
     "",
@@ -604,7 +615,7 @@ export function formatShipCertification(rows: ShipCertificationRow[], seeds = 5,
     "| --- | ---: | ---: | ---: | ---: | ---: |",
     ...roleTable,
     "",
-    "Cells show W-D-L (score rate). A dash means that role was not represented on the opposing faction.",
+    "Cells show W-D-L (score rate). Each role currently maps to a single opposing-faction ship, so a role cell is effectively one ship matchup, not a broad role sample.",
     "",
     "## Balancing process and review flags",
     "",
@@ -618,7 +629,7 @@ export function formatShipCertification(rows: ShipCertificationRow[], seeds = 5,
     "",
     "## Limits",
     "",
-    "- This is a deterministic scripted-pilot benchmark, not a human win rate or proof that every ship feels equally fun.",
+    "- This is a deterministic 1v1 scripted-pilot diagnostic, not a 5v5 Strike result, human win rate, or proof that every ship feels equally fun.",
     "- The ability drill measures one controlled effect per ability; it does not measure ability value over a full match.",
     "- Phone touch controls, Android Chrome/iOS Safari behavior, frame rate, memory, and thermal performance require the separate device certification.",
     "",
@@ -626,6 +637,16 @@ export function formatShipCertification(rows: ShipCertificationRow[], seeds = 5,
 }
 
 if (process.argv[1]?.endsWith("/ship-certification.ts")) {
-  const rows = runShipCertification();
-  process.stdout.write(formatShipCertification(rows));
+  const readOption = (name: string, fallback: number) => {
+    const arg = process.argv.slice(2).find((value) => value.startsWith(`--${name}=`));
+    if (!arg) return fallback;
+    const value = Number(arg.slice(name.length + 3));
+    if (!Number.isFinite(value)) throw new Error(`Invalid --${name} value`);
+    return value;
+  };
+  const seeds = Math.max(1, Math.floor(readOption("seeds", 5)));
+  const durationSeconds = Math.max(10, Math.floor(readOption("duration", 360)));
+  const seedOffset = Math.max(0, Math.floor(readOption("seed-offset", 0)));
+  const rows = runShipCertification({ seeds, durationSeconds, seedOffset });
+  process.stdout.write(formatShipCertification(rows, seeds, durationSeconds, seedOffset));
 }
