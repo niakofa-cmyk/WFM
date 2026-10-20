@@ -75,22 +75,25 @@ test(
         (error: unknown) => error instanceof ProgressionError && error.status === 400,
       );
 
+      await db
+        .update(playerProgressTable)
+        .set({ credits: 400 })
+        .where(eq(playerProgressTable.userId, userId));
       const firstRun = await startPlayerStrike(userId, selection);
       assert.ok(firstRun.seed > 0);
       assert.equal(firstRun.config.seed, firstRun.seed);
       assert.equal(firstRun.config.refit, 0);
 
-      const purchase = {
+      const refit = {
         idempotencyKey: randomUUID(),
-        action: "buy" as const,
-        goodId: "salt" as const,
+        action: "refit" as const,
       };
-      const bought = await applyPlayerAction(userId, purchase);
-      assert.equal(bought.profile.credits, 50);
-      assert.equal(bought.profile.hold, "salt");
-      const boughtAgain = await applyPlayerAction(userId, purchase);
-      assert.equal(boughtAgain.profile.credits, 50);
-      assert.equal(boughtAgain.replayed, true);
+      const refitted = await applyPlayerAction(userId, refit);
+      assert.equal(refitted.profile.credits, 280);
+      assert.equal(refitted.profile.refit, 1);
+      const refittedAgain = await applyPlayerAction(userId, refit);
+      assert.equal(refittedAgain.profile.credits, 280);
+      assert.equal(refittedAgain.replayed, true);
 
       const staleClaim = await claimPlayerStrike(userId, firstRun.runId, []);
       assert.deepEqual(staleClaim, { error: "profile_changed" });
@@ -128,13 +131,13 @@ test(
       const firstClaim = await claimPlayerStrike(userId, currentRun.runId, replay);
       assert.equal("error" in firstClaim, false);
       if ("error" in firstClaim) return;
-      assert.equal(firstClaim.profile.credits, 50 + firstClaim.gain);
+      assert.equal(firstClaim.profile.credits, 280 + firstClaim.gain);
       assert.equal(firstClaim.replayed, false);
 
       const retry = await claimPlayerStrike(userId, currentRun.runId, replay);
       assert.equal("error" in retry, false);
       if ("error" in retry) return;
-      assert.equal(retry.profile.credits, 50 + firstClaim.gain);
+      assert.equal(retry.profile.credits, 280 + firstClaim.gain);
       assert.equal(retry.replayed, true);
       await assert.rejects(
         claimPlayerStrike(userId, currentRun.runId, [{

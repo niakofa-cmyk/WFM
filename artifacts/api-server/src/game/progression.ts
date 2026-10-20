@@ -197,8 +197,7 @@ export async function applyPlayerAction(
   userId: string,
   input: {
     idempotencyKey: string;
-    action: "buy" | "dock" | "refit";
-    goodId?: GoodId | null;
+    action: "refit";
   },
 ) {
   return db.transaction(async (tx) => {
@@ -214,7 +213,7 @@ export async function applyPlayerAction(
       );
     if (previous) {
       const previousResult = previous.result as { action?: string; goodId?: string | null };
-      if (previousResult.action !== input.action || previousResult.goodId !== (input.goodId ?? null)) {
+      if (previousResult.action !== input.action) {
         throw new ProgressionError("This request key was already used for a different action.", 409);
       }
       return {
@@ -230,41 +229,19 @@ export async function applyPlayerAction(
       };
     }
 
-    let credits = profile.credits;
     let refit = profile.refit;
-    let hold = profile.hold as GoodId | null;
-    let paid = profile.paid;
-    let amount = 0;
-    let kind: "market_buy" | "market_dock" | "refit";
-    if (input.action === "buy") {
-      if (!input.goodId) throw new ProgressionError("Choose a cargo type before buying.", 400);
-      if (hold) throw new ProgressionError("Dock the current cargo before buying another load.", 400);
-      amount = -profile.prices[input.goodId];
-      if (credits < -amount) throw new ProgressionError("Not enough credits for that cargo.", 400);
-      credits += amount;
-      hold = input.goodId;
-      paid = -amount;
-      kind = "market_buy";
-    } else if (input.action === "dock") {
-      if (!hold) throw new ProgressionError("There is no cargo to sell.", 400);
-      amount = Math.round(paid * 0.7);
-      credits += amount;
-      hold = null;
-      paid = 0;
-      kind = "market_dock";
-    } else {
-      if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
-      const cost = 120 * (refit + 1);
-      if (credits < cost) throw new ProgressionError("Not enough credits for this refit.", 400);
-      amount = -cost;
-      credits += amount;
-      refit += 1;
-      kind = "refit";
+    if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
+    const amount = -120 * (refit + 1);
+    if (profile.credits < -amount) {
+      throw new ProgressionError("Not enough credits for this refit.", 400);
     }
+    const credits = profile.credits + amount;
+    const kind = "refit" as const;
+    refit += 1;
 
     const [updated] = await tx
       .update(playerProgressTable)
-      .set({ credits, refit, hold, paid, revision: profile.revision + 1, updatedAt: new Date() })
+      .set({ credits, refit, revision: profile.revision + 1, updatedAt: new Date() })
       .where(eq(playerProgressTable.userId, userId))
       .returning();
     if (!updated) throw new Error("Player profile could not be updated.");
@@ -283,7 +260,7 @@ export async function applyPlayerAction(
       amount,
       balanceBefore: profile.credits,
       balanceAfter: credits,
-      result: { action: input.action, goodId: input.goodId ?? null },
+      result: { action: input.action },
     });
     return { profile: toProfile(updated), transaction: transactionResult, replayed: false };
   });

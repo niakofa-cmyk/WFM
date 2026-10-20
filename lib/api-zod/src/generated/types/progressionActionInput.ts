@@ -6,11 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProgressionActionInputAction } from './progressionActionInputAction';
-import type { ProgressionActionInputGoodId } from './progressionActionInputGoodId';
 
 export interface ProgressionActionInput {
   idempotencyKey: string;
   action: ProgressionActionInputAction;
-  /** @nullable */
-  goodId?: ProgressionActionInputGoodId;
 }

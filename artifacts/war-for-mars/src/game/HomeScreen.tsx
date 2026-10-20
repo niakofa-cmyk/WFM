@@ -16,6 +16,7 @@ type HomeProps = {
   refitLabel: string;
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
+  onGalaxy: () => void;
   onOnline: (roomCode: string) => void;
   roomCode: string;
   onRoomCode: (roomCode: string) => void;
@@ -87,6 +88,7 @@ function MainMenu({
   onlineStatus,
   offlineAvailable,
   onOfflineStrike,
+  onGalaxy,
   ship,
 }: HomeProps) {
   const items: { action: MenuAction; label: string; detail: string }[] = [
@@ -161,6 +163,15 @@ function MainMenu({
             <span className="text-xs text-muted">{item.detail}</span>
           </button>
         ))}
+        <button
+          type="button"
+          data-testid="button-open-galaxy"
+          onClick={onGalaxy}
+          className="h-14 border border-solar/50 bg-void/70 px-3 text-left"
+        >
+          <span className="block font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
+          <span className="text-xs text-muted">World event · locations · side operations</span>
+        </button>
       </div>
     </div>
   );

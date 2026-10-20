@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Arena, type StrikeResult, type OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
-import { dockValue, GOODS, scrapValue, winBid, type GoodId } from "./market";
 import {
   defaultSave,
   loadDevicePreferences,
@@ -28,6 +27,8 @@ import {
   type TechId,
 } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import { MarketPanel } from "./MarketPanel";
+import { GalaxyScreen } from "./GalaxyScreen";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
@@ -79,10 +80,14 @@ export function WarApp() {
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-  const actionKeyRef = useRef<{ key: string; action: "buy" | "dock" | "refit"; goodId?: GoodId } | null>(null);
+  const actionKeyRef = useRef<string | null>(null);
+  const [galaxyOpen, setGalaxyOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const syncCredits = useCallback((credits: number) => {
+    setSave((previous) => previous.credits === credits ? previous : { ...previous, credits });
+  }, []);
   const [roomCode, setRoomCode] = useState(
     () => new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "",
   );
@@ -422,14 +427,6 @@ export function WarApp() {
     }));
   };
 
-  const buy = (id: GoodId) => {
-    void performAction("buy", id);
-  };
-
-  const sellDock = () => {
-    void performAction("dock");
-  };
-
   const start = async () => {
     if (shell === MenuState.LOADING || startingRun) return;
     if (pendingClaim) {
@@ -467,25 +464,20 @@ export function WarApp() {
     }
   };
 
-  const performAction = async (action: "buy" | "dock" | "refit", goodId?: GoodId) => {
+  const performRefit = async () => {
     if (actionBusy) return;
     if (pendingClaim) {
       setActionError("Retry the pending sortie verification before changing the yard ledger.");
       return;
     }
-    const previousKey = actionKeyRef.current;
-    const idempotencyKey =
-      previousKey?.action === action && previousKey.goodId === goodId
-        ? previousKey.key
-        : crypto.randomUUID();
-    actionKeyRef.current = { key: idempotencyKey, action, goodId };
+    const idempotencyKey = actionKeyRef.current ?? crypto.randomUUID();
+    actionKeyRef.current = idempotencyKey;
     setActionBusy(true);
     setActionError("");
     try {
       const result = await sendProgressionAction({
         idempotencyKey,
-        action,
-        goodId: goodId ?? null,
+        action: "refit",
       });
       setSave((previous) =>
         saveFromProfile(result.profile, { gyro: previous.gyro, drilled: previous.drilled }),
@@ -782,6 +774,10 @@ export function WarApp() {
     );
   }
 
+  if (galaxyOpen) {
+    return <GalaxyScreen onBack={() => setGalaxyOpen(false)} />;
+  }
+
   if (shell !== MenuState.HANGAR && shell !== MenuState.GAMEPLAY) {
     return (
       <div className="relative">
@@ -799,6 +795,7 @@ export function WarApp() {
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost}
         onAction={act}
+        onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
         roomCode={roomCode}
         onRoomCode={setRoomCode}
@@ -832,7 +829,7 @@ export function WarApp() {
         onTech={(id: TechId) =>
           setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
         }
-        onRefit={() => void performAction("refit")}
+        onRefit={() => void performRefit()}
       />
       {pendingClaim || campaignError || actionError ? (
         <aside className="fixed bottom-3 left-3 z-50 max-w-[min(92vw,32rem)] border border-alert/60 bg-void/95 p-3 shadow-xl">
@@ -855,8 +852,6 @@ export function WarApp() {
       </div>
     );
   }
-
-  const held = save.hold ? GOODS.find((good) => good.id === save.hold) : null;
 
   return (
     <main className="mx-auto flex h-dvh max-w-3xl flex-col px-4 pt-5">
@@ -1109,59 +1104,17 @@ export function WarApp() {
         </button>
       </div>
 
-      <section className="border border-bone/15 bg-panel px-3 py-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="font-hud text-sm tracking-widest text-solar">PHOBOS YARD</p>
-          <p className="text-xs text-muted">One crate. Prices move after each strike.</p>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {GOODS.map((good) => {
-            const price = save.prices[good.id];
-            const mine = save.hold === good.id;
-            return (
-              <button
-                key={good.id}
-                type="button"
-               disabled={actionBusy || (!mine && (save.hold != null || save.credits < price))}
-                onClick={() => buy(good.id)}
-                className={
-                  mine
-                    ? "border border-solar px-2 py-2 text-left"
-                    : "border border-bone/15 px-2 py-2 text-left disabled:opacity-40"
-                }
-              >
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="font-hud text-sm text-bone">{good.name}</span>
-                  <span className="font-hud text-sm text-solar">{price}</span>
-                </span>
-                <span className="mt-1 block text-xs text-muted">
-                  {mine ? "In the hold" : `Win pays ${winBid(price)}`}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-muted">
-          {held
-            ? `${held.name} is aboard. A held disc pays ${winBid(save.prices[held.id])}. A loss scraps it for ${scrapValue(save.paid)}. The dock will take it now for ${dockValue(save.paid)}.`
-            : "Buy a crate before you launch. Come back with the disc and the yard pays above the board."}
+      <MarketPanel onCredits={syncCredits} />
+      {actionError ? (
+        <p role="alert" className="border border-alert/40 bg-alert/10 px-3 py-2 text-sm text-bone">
+          {actionError}
         </p>
-        {held ? (
-          <button
-            type="button"
-            disabled={actionBusy}
-            className="mt-2 h-10 border border-bone/25 px-3 font-hud text-sm tracking-widest text-bone"
-            onClick={sellDock}
-          >
-            Sell to the dock · {dockValue(save.paid)}
-          </button>
-        ) : null}
-      </section>
+      ) : null}
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-bone/15 bg-void py-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-hud text-xl text-solar">{save.credits} CR</p>
+          <p className="font-hud text-xl text-solar">{save.credits.toLocaleString()} CR</p>
           <button
             type="button"
             className="h-11 border border-bone/25 px-3 font-hud tracking-widest text-bone"
@@ -1173,7 +1126,7 @@ export function WarApp() {
             type="button"
             disabled={actionBusy || save.refit >= 5 || save.credits < cost}
             className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
-            onClick={() => void performAction("refit")}
+            onClick={() => void performRefit()}
           >
             {save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
           </button>

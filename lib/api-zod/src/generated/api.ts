@@ -18,6 +18,15 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Check database readiness
+ */
+export const GetReadinessResponse = zod.object({
+  "status": zod.enum(['ready', 'unavailable']),
+  "database": zod.boolean()
+})
+
+
+/**
  * @summary Get the authenticated player's progression
  */
 export const getGameProfileResponseCreditsMin = 0;
@@ -66,8 +75,7 @@ export const GetGameProfileResponse = zod.object({
  */
 export const ApplyProgressionActionBody = zod.object({
   "idempotencyKey": zod.string().uuid(),
-  "action": zod.enum(['buy', 'dock', 'refit']),
-  "goodId": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullish()
+  "action": zod.enum(['refit'])
 })
 
 export const applyProgressionActionResponseProfileCreditsMin = 0;
@@ -112,7 +120,7 @@ export const ApplyProgressionActionResponse = zod.object({
 }),
   "transaction": zod.object({
   "id": zod.string().uuid(),
-  "kind": zod.enum(['market_buy', 'market_dock', 'refit']),
+  "kind": zod.enum(['refit']),
   "amount": zod.number().int(),
   "balanceBefore": zod.number().int(),
   "balanceAfter": zod.number().int()
@@ -312,3 +320,447 @@ export const ClaimStrikeResponse = zod.object({
 }),
   "replayed": zod.boolean()
 })
+
+
+/**
+ * @summary Get the shared station market and the player's holdings
+ */
+export const getMarketResponseCreditsMin = 0;
+
+export const getMarketResponseInventoryItemQuantityMin = 0;
+
+
+
+export const getMarketResponseListingsItemStockMin = 0;
+
+
+export const getMarketResponseListingsItemDemandScoreMin = -100;
+export const getMarketResponseListingsItemDemandScoreMax = 100;
+
+export const getMarketResponseListingsItemModifierBpsMin = 5000;
+export const getMarketResponseListingsItemModifierBpsMax = 20000;
+
+export const getMarketResponseListingsItemRevisionMin = 0;
+
+export const getMarketResponseTransactionsItemQuantityMax = 50;
+
+
+
+export const getMarketResponseTransactionsItemBalanceBeforeMin = 0;
+
+export const getMarketResponseTransactionsItemBalanceAfterMin = 0;
+
+export const getMarketResponseTransactionsItemInventoryBeforeMin = 0;
+
+export const getMarketResponseTransactionsItemInventoryAfterMin = 0;
+
+export const getMarketResponseTransactionsItemStockBeforeMin = 0;
+
+export const getMarketResponseTransactionsItemStockAfterMin = 0;
+
+export const getMarketResponseTransactionsItemMarketRevisionMin = 0;
+
+
+
+export const GetMarketResponse = zod.object({
+  "credits": zod.number().int().min(getMarketResponseCreditsMin),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(getMarketResponseInventoryItemQuantityMin)
+})),
+  "listings": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "name": zod.string(),
+  "basePrice": zod.number().int().min(1),
+  "price": zod.number().int().min(1),
+  "stock": zod.number().int().min(getMarketResponseListingsItemStockMin),
+  "targetStock": zod.number().int().min(1),
+  "demandScore": zod.number().int().min(getMarketResponseListingsItemDemandScoreMin).max(getMarketResponseListingsItemDemandScoreMax),
+  "modifierBps": zod.number().int().min(getMarketResponseListingsItemModifierBpsMin).max(getMarketResponseListingsItemModifierBpsMax),
+  "revision": zod.number().int().min(getMarketResponseListingsItemRevisionMin),
+  "updatedAt": zod.coerce.date()
+})),
+  "transactions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "side": zod.enum(['buy', 'sell']),
+  "quantity": zod.number().int().min(1).max(getMarketResponseTransactionsItemQuantityMax),
+  "unitPrice": zod.number().int().min(1),
+  "total": zod.number().int().min(1),
+  "balanceBefore": zod.number().int().min(getMarketResponseTransactionsItemBalanceBeforeMin),
+  "balanceAfter": zod.number().int().min(getMarketResponseTransactionsItemBalanceAfterMin),
+  "inventoryBefore": zod.number().int().min(getMarketResponseTransactionsItemInventoryBeforeMin),
+  "inventoryAfter": zod.number().int().min(getMarketResponseTransactionsItemInventoryAfterMin),
+  "stockBefore": zod.number().int().min(getMarketResponseTransactionsItemStockBeforeMin),
+  "stockAfter": zod.number().int().min(getMarketResponseTransactionsItemStockAfterMin),
+  "marketRevision": zod.number().int().min(getMarketResponseTransactionsItemMarketRevisionMin),
+  "createdAt": zod.coerce.date()
+})),
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Atomically buy or sell goods against shared market state
+ */
+export const tradeMarketBodyQuantityMax = 50;
+
+
+
+export const TradeMarketBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "side": zod.enum(['buy', 'sell']),
+  "quantity": zod.number().int().min(1).max(tradeMarketBodyQuantityMax)
+})
+
+export const tradeMarketResponseMarketCreditsMin = 0;
+
+export const tradeMarketResponseMarketInventoryItemQuantityMin = 0;
+
+
+
+export const tradeMarketResponseMarketListingsItemStockMin = 0;
+
+
+export const tradeMarketResponseMarketListingsItemDemandScoreMin = -100;
+export const tradeMarketResponseMarketListingsItemDemandScoreMax = 100;
+
+export const tradeMarketResponseMarketListingsItemModifierBpsMin = 5000;
+export const tradeMarketResponseMarketListingsItemModifierBpsMax = 20000;
+
+export const tradeMarketResponseMarketListingsItemRevisionMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemQuantityMax = 50;
+
+
+
+export const tradeMarketResponseMarketTransactionsItemBalanceBeforeMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemBalanceAfterMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemInventoryBeforeMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemInventoryAfterMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemStockBeforeMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemStockAfterMin = 0;
+
+export const tradeMarketResponseMarketTransactionsItemMarketRevisionMin = 0;
+
+export const tradeMarketResponseTransactionQuantityMax = 50;
+
+
+
+export const tradeMarketResponseTransactionBalanceBeforeMin = 0;
+
+export const tradeMarketResponseTransactionBalanceAfterMin = 0;
+
+export const tradeMarketResponseTransactionInventoryBeforeMin = 0;
+
+export const tradeMarketResponseTransactionInventoryAfterMin = 0;
+
+export const tradeMarketResponseTransactionStockBeforeMin = 0;
+
+export const tradeMarketResponseTransactionStockAfterMin = 0;
+
+export const tradeMarketResponseTransactionMarketRevisionMin = 0;
+
+
+
+export const TradeMarketResponse = zod.object({
+  "market": zod.object({
+  "credits": zod.number().int().min(tradeMarketResponseMarketCreditsMin),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(tradeMarketResponseMarketInventoryItemQuantityMin)
+})),
+  "listings": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "name": zod.string(),
+  "basePrice": zod.number().int().min(1),
+  "price": zod.number().int().min(1),
+  "stock": zod.number().int().min(tradeMarketResponseMarketListingsItemStockMin),
+  "targetStock": zod.number().int().min(1),
+  "demandScore": zod.number().int().min(tradeMarketResponseMarketListingsItemDemandScoreMin).max(tradeMarketResponseMarketListingsItemDemandScoreMax),
+  "modifierBps": zod.number().int().min(tradeMarketResponseMarketListingsItemModifierBpsMin).max(tradeMarketResponseMarketListingsItemModifierBpsMax),
+  "revision": zod.number().int().min(tradeMarketResponseMarketListingsItemRevisionMin),
+  "updatedAt": zod.coerce.date()
+})),
+  "transactions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "side": zod.enum(['buy', 'sell']),
+  "quantity": zod.number().int().min(1).max(tradeMarketResponseMarketTransactionsItemQuantityMax),
+  "unitPrice": zod.number().int().min(1),
+  "total": zod.number().int().min(1),
+  "balanceBefore": zod.number().int().min(tradeMarketResponseMarketTransactionsItemBalanceBeforeMin),
+  "balanceAfter": zod.number().int().min(tradeMarketResponseMarketTransactionsItemBalanceAfterMin),
+  "inventoryBefore": zod.number().int().min(tradeMarketResponseMarketTransactionsItemInventoryBeforeMin),
+  "inventoryAfter": zod.number().int().min(tradeMarketResponseMarketTransactionsItemInventoryAfterMin),
+  "stockBefore": zod.number().int().min(tradeMarketResponseMarketTransactionsItemStockBeforeMin),
+  "stockAfter": zod.number().int().min(tradeMarketResponseMarketTransactionsItemStockAfterMin),
+  "marketRevision": zod.number().int().min(tradeMarketResponseMarketTransactionsItemMarketRevisionMin),
+  "createdAt": zod.coerce.date()
+})),
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+})
+}),
+  "transaction": zod.object({
+  "id": zod.string().uuid(),
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "side": zod.enum(['buy', 'sell']),
+  "quantity": zod.number().int().min(1).max(tradeMarketResponseTransactionQuantityMax),
+  "unitPrice": zod.number().int().min(1),
+  "total": zod.number().int().min(1),
+  "balanceBefore": zod.number().int().min(tradeMarketResponseTransactionBalanceBeforeMin),
+  "balanceAfter": zod.number().int().min(tradeMarketResponseTransactionBalanceAfterMin),
+  "inventoryBefore": zod.number().int().min(tradeMarketResponseTransactionInventoryBeforeMin),
+  "inventoryAfter": zod.number().int().min(tradeMarketResponseTransactionInventoryAfterMin),
+  "stockBefore": zod.number().int().min(tradeMarketResponseTransactionStockBeforeMin),
+  "stockAfter": zod.number().int().min(tradeMarketResponseTransactionStockAfterMin),
+  "marketRevision": zod.number().int().min(tradeMarketResponseTransactionMarketRevisionMin),
+  "createdAt": zod.coerce.date()
+}),
+  "replayed": zod.boolean()
+})
+
+
+/**
+ * @summary Get persistent map, discoveries, reputation, quests, and world event
+ */
+export const getWorldResponseReputationAccordMin = 0;
+
+export const getWorldResponseReputationUssfMin = 0;
+
+export const getWorldResponseLocationsItemXMin = 0;
+export const getWorldResponseLocationsItemXMax = 100;
+
+export const getWorldResponseLocationsItemYMin = 0;
+export const getWorldResponseLocationsItemYMax = 100;
+
+export const getWorldResponseLocationsItemUnlockAfterMin = 0;
+export const getWorldResponseLocationsItemUnlockAfterMax = 4;
+
+export const getWorldResponseQuestsItemRequiredClearMin = 0;
+export const getWorldResponseQuestsItemRequiredClearMax = 4;
+
+export const getWorldResponseQuestsItemRewardCreditsMin = 0;
+
+export const getWorldResponseQuestsItemReputationRewardMin = 0;
+
+
+
+export const GetWorldResponse = zod.object({
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+}),
+  "reputation": zod.object({
+  "accord": zod.number().int().min(getWorldResponseReputationAccordMin),
+  "ussf": zod.number().int().min(getWorldResponseReputationUssfMin)
+}),
+  "locations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "x": zod.number().int().min(getWorldResponseLocationsItemXMin).max(getWorldResponseLocationsItemXMax),
+  "y": zod.number().int().min(getWorldResponseLocationsItemYMin).max(getWorldResponseLocationsItemYMax),
+  "unlockAfter": zod.number().int().min(getWorldResponseLocationsItemUnlockAfterMin).max(getWorldResponseLocationsItemUnlockAfterMax),
+  "unlocked": zod.boolean(),
+  "explored": zod.boolean(),
+  "description": zod.string(),
+  "services": zod.array(zod.string())
+})),
+  "discoveries": zod.array(zod.string()),
+  "quests": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "requiredClear": zod.number().int().min(getWorldResponseQuestsItemRequiredClearMin).max(getWorldResponseQuestsItemRequiredClearMax),
+  "requiredLocation": zod.string(),
+  "status": zod.enum(['locked', 'available', 'accepted', 'ready', 'claimed']),
+  "rewardCredits": zod.number().int().min(getWorldResponseQuestsItemRewardCreditsMin),
+  "reputationReward": zod.number().int().min(getWorldResponseQuestsItemReputationRewardMin)
+}))
+})
+
+
+/**
+ * @summary Record a one-time server-validated location discovery
+ */
+export const ExploreLocationParams = zod.object({
+  "locationId": zod.coerce.string()
+})
+
+export const ExploreLocationBody = zod.object({
+  "idempotencyKey": zod.string().uuid()
+})
+
+export const exploreLocationResponseWorldReputationAccordMin = 0;
+
+export const exploreLocationResponseWorldReputationUssfMin = 0;
+
+export const exploreLocationResponseWorldLocationsItemXMin = 0;
+export const exploreLocationResponseWorldLocationsItemXMax = 100;
+
+export const exploreLocationResponseWorldLocationsItemYMin = 0;
+export const exploreLocationResponseWorldLocationsItemYMax = 100;
+
+export const exploreLocationResponseWorldLocationsItemUnlockAfterMin = 0;
+export const exploreLocationResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const exploreLocationResponseWorldQuestsItemRequiredClearMin = 0;
+export const exploreLocationResponseWorldQuestsItemRequiredClearMax = 4;
+
+export const exploreLocationResponseWorldQuestsItemRewardCreditsMin = 0;
+
+export const exploreLocationResponseWorldQuestsItemReputationRewardMin = 0;
+
+export const exploreLocationResponseReputationGainMin = 0;
+
+
+
+export const ExploreLocationResponse = zod.object({
+  "world": zod.object({
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+}),
+  "reputation": zod.object({
+  "accord": zod.number().int().min(exploreLocationResponseWorldReputationAccordMin),
+  "ussf": zod.number().int().min(exploreLocationResponseWorldReputationUssfMin)
+}),
+  "locations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "x": zod.number().int().min(exploreLocationResponseWorldLocationsItemXMin).max(exploreLocationResponseWorldLocationsItemXMax),
+  "y": zod.number().int().min(exploreLocationResponseWorldLocationsItemYMin).max(exploreLocationResponseWorldLocationsItemYMax),
+  "unlockAfter": zod.number().int().min(exploreLocationResponseWorldLocationsItemUnlockAfterMin).max(exploreLocationResponseWorldLocationsItemUnlockAfterMax),
+  "unlocked": zod.boolean(),
+  "explored": zod.boolean(),
+  "description": zod.string(),
+  "services": zod.array(zod.string())
+})),
+  "discoveries": zod.array(zod.string()),
+  "quests": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "requiredClear": zod.number().int().min(exploreLocationResponseWorldQuestsItemRequiredClearMin).max(exploreLocationResponseWorldQuestsItemRequiredClearMax),
+  "requiredLocation": zod.string(),
+  "status": zod.enum(['locked', 'available', 'accepted', 'ready', 'claimed']),
+  "rewardCredits": zod.number().int().min(exploreLocationResponseWorldQuestsItemRewardCreditsMin),
+  "reputationReward": zod.number().int().min(exploreLocationResponseWorldQuestsItemReputationRewardMin)
+}))
+}),
+  "newlyExplored": zod.boolean(),
+  "reputationGain": zod.number().int().min(exploreLocationResponseReputationGainMin)
+})
+
+
+/**
+ * @summary Accept or claim a persistent side quest
+ */
+export const ActOnWorldQuestParams = zod.object({
+  "questId": zod.coerce.string()
+})
+
+export const ActOnWorldQuestBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "action": zod.enum(['accept', 'claim'])
+})
+
+export const actOnWorldQuestResponseWorldReputationAccordMin = 0;
+
+export const actOnWorldQuestResponseWorldReputationUssfMin = 0;
+
+export const actOnWorldQuestResponseWorldLocationsItemXMin = 0;
+export const actOnWorldQuestResponseWorldLocationsItemXMax = 100;
+
+export const actOnWorldQuestResponseWorldLocationsItemYMin = 0;
+export const actOnWorldQuestResponseWorldLocationsItemYMax = 100;
+
+export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin = 0;
+export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMin = 0;
+export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMax = 4;
+
+export const actOnWorldQuestResponseWorldQuestsItemRewardCreditsMin = 0;
+
+export const actOnWorldQuestResponseWorldQuestsItemReputationRewardMin = 0;
+
+export const actOnWorldQuestResponseCreditsMin = 0;
+
+export const actOnWorldQuestResponseRewardCreditsMin = 0;
+
+
+
+export const ActOnWorldQuestResponse = zod.object({
+  "world": zod.object({
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+}),
+  "reputation": zod.object({
+  "accord": zod.number().int().min(actOnWorldQuestResponseWorldReputationAccordMin),
+  "ussf": zod.number().int().min(actOnWorldQuestResponseWorldReputationUssfMin)
+}),
+  "locations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "x": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemXMin).max(actOnWorldQuestResponseWorldLocationsItemXMax),
+  "y": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemYMin).max(actOnWorldQuestResponseWorldLocationsItemYMax),
+  "unlockAfter": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin).max(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax),
+  "unlocked": zod.boolean(),
+  "explored": zod.boolean(),
+  "description": zod.string(),
+  "services": zod.array(zod.string())
+})),
+  "discoveries": zod.array(zod.string()),
+  "quests": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "requiredClear": zod.number().int().min(actOnWorldQuestResponseWorldQuestsItemRequiredClearMin).max(actOnWorldQuestResponseWorldQuestsItemRequiredClearMax),
+  "requiredLocation": zod.string(),
+  "status": zod.enum(['locked', 'available', 'accepted', 'ready', 'claimed']),
+  "rewardCredits": zod.number().int().min(actOnWorldQuestResponseWorldQuestsItemRewardCreditsMin),
+  "reputationReward": zod.number().int().min(actOnWorldQuestResponseWorldQuestsItemReputationRewardMin)
+}))
+}),
+  "credits": zod.number().int().min(actOnWorldQuestResponseCreditsMin),
+  "rewardCredits": zod.number().int().min(actOnWorldQuestResponseRewardCreditsMin),
+  "replayed": zod.boolean()
+})
+
+

@@ -20,14 +20,23 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ExploreLocationResult,
   GameProfile,
   HealthStatus,
+  MarketSnapshot,
+  MarketTradeInput,
+  MarketTradeResult,
   ProgressionActionInput,
   ProgressionActionResult,
+  ReadinessCheckResponse,
   StrikeClaimInput,
   StrikeClaimResult,
   StrikeRun,
-  StrikeStartInput
+  StrikeStartInput,
+  WorldExploreInput,
+  WorldQuestActionInput,
+  WorldQuestActionResult,
+  WorldState
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -123,6 +132,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetReadinessUrl = () => {
+
+
+
+
+  return `/api/readyz`
+}
+
+/**
+ * @summary Check database readiness
+ */
+export const getReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<ReadinessCheckResponse> => {
+
+  return customFetch<ReadinessCheckResponse>(getGetReadinessUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReadinessQueryKey = () => {
+    return [
+    `/api/readyz`
+    ] as const;
+    }
+
+
+export const getGetReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getReadiness>>, TError = ErrorType<ReadinessCheckResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReadinessQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReadiness>>> = ({ signal }) => getReadiness({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReadiness>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getReadiness>>>
+export type GetReadinessQueryError = ErrorType<ReadinessCheckResponse>
+
+
+/**
+ * @summary Check database readiness
+ */
+
+export function useGetReadiness<TData = Awaited<ReturnType<typeof getReadiness>>, TError = ErrorType<ReadinessCheckResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReadinessQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -476,3 +562,424 @@ export const useClaimStrike = <TError = ErrorType<void>,
       > => {
       return useMutation(getClaimStrikeMutationOptions(options));
     }
+
+export const getGetMarketUrl = () => {
+
+
+
+
+  return `/api/market`
+}
+
+/**
+ * @summary Get the shared station market and the player's holdings
+ */
+export const getMarket = async ( options?: Parameters<typeof customFetch>[1]): Promise<MarketSnapshot> => {
+
+  return customFetch<MarketSnapshot>(getGetMarketUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketQueryKey = () => {
+    return [
+    `/api/market`
+    ] as const;
+    }
+
+
+export const getGetMarketQueryOptions = <TData = Awaited<ReturnType<typeof getMarket>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarket>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarket>>> = ({ signal }) => getMarket({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarket>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketQueryResult = NonNullable<Awaited<ReturnType<typeof getMarket>>>
+export type GetMarketQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the shared station market and the player's holdings
+ */
+
+export function useGetMarket<TData = Awaited<ReturnType<typeof getMarket>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarket>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTradeMarketUrl = () => {
+
+
+
+
+  return `/api/market/trades`
+}
+
+/**
+ * @summary Atomically buy or sell goods against shared market state
+ */
+export const tradeMarket = async (marketTradeInput: MarketTradeInput, options?: Parameters<typeof customFetch>[1]): Promise<MarketTradeResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MarketTradeResult>(getTradeMarketUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(marketTradeInput)
+  }
+);}
+
+
+
+
+
+export const getTradeMarketMutationKey = () => ['tradeMarket'] as const;
+
+export const getTradeMarketMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tradeMarket>>, TError,TradeMarketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tradeMarket>>, TError,TradeMarketMutationVariables, TContext> => {
+
+const mutationKey = getTradeMarketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tradeMarket>>, TradeMarketMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  tradeMarket(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TradeMarketMutationResult = NonNullable<Awaited<ReturnType<typeof tradeMarket>>>
+    export type TradeMarketMutationBody = BodyType<MarketTradeInput>
+    export type TradeMarketMutationError = ErrorType<void>
+    export type TradeMarketMutationVariables = {data: BodyType<MarketTradeInput>}
+
+    /**
+ * @summary Atomically buy or sell goods against shared market state
+ */
+export const useTradeMarket = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tradeMarket>>, TError,TradeMarketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tradeMarket>>,
+        TError,
+        TradeMarketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTradeMarketMutationOptions(options));
+    }
+
+export const getGetWorldUrl = () => {
+
+
+
+
+  return `/api/world`
+}
+
+/**
+ * @summary Get persistent map, discoveries, reputation, quests, and world event
+ */
+export const getWorld = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldState> => {
+
+  return customFetch<WorldState>(getGetWorldUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldQueryKey = () => {
+    return [
+    `/api/world`
+    ] as const;
+    }
+
+
+export const getGetWorldQueryOptions = <TData = Awaited<ReturnType<typeof getWorld>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorld>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorld>>> = ({ signal }) => getWorld({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorld>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldQueryResult = NonNullable<Awaited<ReturnType<typeof getWorld>>>
+export type GetWorldQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get persistent map, discoveries, reputation, quests, and world event
+ */
+
+export function useGetWorld<TData = Awaited<ReturnType<typeof getWorld>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorld>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExploreLocationUrl = (locationId: string,) => {
+
+
+
+
+  return `/api/world/locations/${locationId}/explore`
+}
+
+/**
+ * @summary Record a one-time server-validated location discovery
+ */
+export const exploreLocation = async (locationId: string,
+    worldExploreInput: WorldExploreInput, options?: Parameters<typeof customFetch>[1]): Promise<ExploreLocationResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ExploreLocationResult>(getExploreLocationUrl(locationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(worldExploreInput)
+  }
+);}
+
+
+
+
+
+export const getExploreLocationMutationKey = () => ['exploreLocation'] as const;
+
+export const getExploreLocationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exploreLocation>>, TError,ExploreLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exploreLocation>>, TError,ExploreLocationMutationVariables, TContext> => {
+
+const mutationKey = getExploreLocationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exploreLocation>>, ExploreLocationMutationVariables> = (props) => {
+          const {locationId,data} = props ?? {};
+
+          return  exploreLocation(locationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExploreLocationMutationResult = NonNullable<Awaited<ReturnType<typeof exploreLocation>>>
+    export type ExploreLocationMutationBody = BodyType<WorldExploreInput>
+    export type ExploreLocationMutationError = ErrorType<void>
+    export type ExploreLocationMutationVariables = {locationId: string;data: BodyType<WorldExploreInput>}
+
+    /**
+ * @summary Record a one-time server-validated location discovery
+ */
+export const useExploreLocation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exploreLocation>>, TError,ExploreLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof exploreLocation>>,
+        TError,
+        ExploreLocationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExploreLocationMutationOptions(options));
+    }
+
+export const getActOnWorldQuestUrl = (questId: string,) => {
+
+
+
+
+  return `/api/world/quests/${questId}/actions`
+}
+
+/**
+ * @summary Accept or claim a persistent side quest
+ */
+export const actOnWorldQuest = async (questId: string,
+    worldQuestActionInput: WorldQuestActionInput, options?: Parameters<typeof customFetch>[1]): Promise<WorldQuestActionResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WorldQuestActionResult>(getActOnWorldQuestUrl(questId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(worldQuestActionInput)
+  }
+);}
+
+
+
+
+
+export const getActOnWorldQuestMutationKey = () => ['actOnWorldQuest'] as const;
+
+export const getActOnWorldQuestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnWorldQuest>>, TError,ActOnWorldQuestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof actOnWorldQuest>>, TError,ActOnWorldQuestMutationVariables, TContext> => {
+
+const mutationKey = getActOnWorldQuestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actOnWorldQuest>>, ActOnWorldQuestMutationVariables> = (props) => {
+          const {questId,data} = props ?? {};
+
+          return  actOnWorldQuest(questId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActOnWorldQuestMutationResult = NonNullable<Awaited<ReturnType<typeof actOnWorldQuest>>>
+    export type ActOnWorldQuestMutationBody = BodyType<WorldQuestActionInput>
+    export type ActOnWorldQuestMutationError = ErrorType<void>
+    export type ActOnWorldQuestMutationVariables = {questId: string;data: BodyType<WorldQuestActionInput>}
+
+    /**
+ * @summary Accept or claim a persistent side quest
+ */
+export const useActOnWorldQuest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnWorldQuest>>, TError,ActOnWorldQuestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof actOnWorldQuest>>,
+        TError,
+        ActOnWorldQuestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getActOnWorldQuestMutationOptions(options));
+    }
+

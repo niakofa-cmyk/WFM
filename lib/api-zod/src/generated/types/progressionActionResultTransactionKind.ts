@@ -10,7 +10,5 @@ export type ProgressionActionResultTransactionKind = typeof ProgressionActionRes
 
 
 export const ProgressionActionResultTransactionKind = {
-  market_buy: 'market_buy',
-  market_dock: 'market_dock',
   refit: 'refit',
 } as const;

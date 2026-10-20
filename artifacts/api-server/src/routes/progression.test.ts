@@ -11,7 +11,7 @@ test("profile and reward routes reject unauthenticated and forged progression re
   if (!address || typeof address === "string") throw new Error("Test server did not bind a TCP port.");
   const baseUrl = `http://127.0.0.1:${address.port}/api`;
   try {
-    const [profile, action, start, legacyClaim] = await Promise.all([
+    const [profile, action, start, legacyClaim, market, trade, world, explore, quest] = await Promise.all([
       fetch(`${baseUrl}/game/profile`),
       fetch(`${baseUrl}/game/profile/actions`, {
         method: "POST",
@@ -36,11 +36,38 @@ test("profile and reward routes reject unauthenticated and forged progression re
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ gain: 9_999_999, cleared: 4 }),
       }),
+      fetch(`${baseUrl}/market`),
+      fetch(`${baseUrl}/market/trades`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: randomUUID(),
+          goodId: "salt",
+          side: "buy",
+          quantity: 1,
+        }),
+      }),
+      fetch(`${baseUrl}/world`),
+      fetch(`${baseUrl}/world/locations/rust-disc/explore`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ idempotencyKey: randomUUID() }),
+      }),
+      fetch(`${baseUrl}/world/quests/rust-recording/actions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ idempotencyKey: randomUUID(), action: "accept" }),
+      }),
     ]);
     assert.equal(profile.status, 401);
     assert.equal(action.status, 401);
     assert.equal(start.status, 401);
     assert.equal(legacyClaim.status, 401);
+    assert.equal(market.status, 401);
+    assert.equal(trade.status, 401);
+    assert.equal(world.status, 401);
+    assert.equal(explore.status, 401);
+    assert.equal(quest.status, 401);
   } finally {
     server.close();
     await once(server, "close");

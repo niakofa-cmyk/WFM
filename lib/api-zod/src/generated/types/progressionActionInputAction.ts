@@ -10,7 +10,5 @@ export type ProgressionActionInputAction = typeof ProgressionActionInputAction[k
 
 
 export const ProgressionActionInputAction = {
-  buy: 'buy',
-  dock: 'dock',
   refit: 'refit',
 } as const;

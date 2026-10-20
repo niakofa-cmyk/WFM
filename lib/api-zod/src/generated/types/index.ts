@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './exploreLocationResult';
 export * from './gameProfile';
 export * from './gameProfileFaction';
 export * from './gameProfileHold';
@@ -15,13 +16,22 @@ export * from './gameProfileScheme';
 export * from './gameProfileShipId';
 export * from './gameProfileTech';
 export * from './healthStatus';
+export * from './inventoryHolding';
+export * from './marketListing';
 export * from './marketPrices';
+export * from './marketSnapshot';
+export * from './marketTradeInput';
+export * from './marketTradeInputSide';
+export * from './marketTradeResult';
+export * from './marketTransaction';
+export * from './marketTransactionSide';
 export * from './progressionActionInput';
 export * from './progressionActionInputAction';
-export * from './progressionActionInputGoodId';
 export * from './progressionActionResult';
 export * from './progressionActionResultTransaction';
 export * from './progressionActionResultTransactionKind';
+export * from './readinessCheckResponse';
+export * from './readinessCheckResponseStatus';
 export * from './strikeClaimInput';
 export * from './strikeClaimResult';
 export * from './strikeClaimResultOutcome';
@@ -43,3 +53,15 @@ export * from './strikeStartInputShipId';
 export * from './strikeStartInputTech';
 export * from './strikeStepInput';
 export * from './strikeStepInputPreset';
+export * from './tradeGoodId';
+export * from './worldEvent';
+export * from './worldExploreInput';
+export * from './worldLocation';
+export * from './worldLocationKind';
+export * from './worldQuest';
+export * from './worldQuestActionInput';
+export * from './worldQuestActionInputAction';
+export * from './worldQuestActionResult';
+export * from './worldQuestStatus';
+export * from './worldState';
+export * from './worldStateReputation';

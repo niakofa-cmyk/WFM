@@ -6,13 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * @nullable
- */
-export type ProgressionActionInputGoodId = typeof ProgressionActionInputGoodId[keyof typeof ProgressionActionInputGoodId] | null;
+export type TradeGoodId = typeof TradeGoodId[keyof typeof TradeGoodId];
 
 
-export const ProgressionActionInputGoodId = {
+export const TradeGoodId = {
   salt: 'salt',
   iron: 'iron',
   dust: 'dust',

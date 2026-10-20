@@ -9,6 +9,19 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ReadinessCheckResponseStatus = typeof ReadinessCheckResponseStatus[keyof typeof ReadinessCheckResponseStatus];
+
+
+export const ReadinessCheckResponseStatus = {
+  ready: 'ready',
+  unavailable: 'unavailable',
+} as const;
+
+export interface ReadinessCheckResponse {
+  status: ReadinessCheckResponseStatus;
+  database: boolean;
+}
+
 export type GameProfileFaction = typeof GameProfileFaction[keyof typeof GameProfileFaction];
 
 
@@ -128,37 +141,18 @@ export type ProgressionActionInputAction = typeof ProgressionActionInputAction[k
 
 
 export const ProgressionActionInputAction = {
-  buy: 'buy',
-  dock: 'dock',
   refit: 'refit',
-} as const;
-
-/**
- * @nullable
- */
-export type ProgressionActionInputGoodId = typeof ProgressionActionInputGoodId[keyof typeof ProgressionActionInputGoodId] | null;
-
-
-export const ProgressionActionInputGoodId = {
-  salt: 'salt',
-  iron: 'iron',
-  dust: 'dust',
-  resin: 'resin',
 } as const;
 
 export interface ProgressionActionInput {
   idempotencyKey: string;
   action: ProgressionActionInputAction;
-  /** @nullable */
-  goodId?: ProgressionActionInputGoodId;
 }
 
 export type ProgressionActionResultTransactionKind = typeof ProgressionActionResultTransactionKind[keyof typeof ProgressionActionResultTransactionKind];
 
 
 export const ProgressionActionResultTransactionKind = {
-  market_buy: 'market_buy',
-  market_dock: 'market_dock',
   refit: 'refit',
 } as const;
 
@@ -439,3 +433,238 @@ export interface StrikeClaimResult {
   profile: GameProfile;
   replayed: boolean;
 }
+
+export type TradeGoodId = typeof TradeGoodId[keyof typeof TradeGoodId];
+
+
+export const TradeGoodId = {
+  salt: 'salt',
+  iron: 'iron',
+  dust: 'dust',
+  resin: 'resin',
+} as const;
+
+export type MarketTradeInputSide = typeof MarketTradeInputSide[keyof typeof MarketTradeInputSide];
+
+
+export const MarketTradeInputSide = {
+  buy: 'buy',
+  sell: 'sell',
+} as const;
+
+export interface MarketTradeInput {
+  idempotencyKey: string;
+  goodId: TradeGoodId;
+  side: MarketTradeInputSide;
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  quantity: number;
+}
+
+export interface MarketListing {
+  goodId: TradeGoodId;
+  name: string;
+  /** @minimum 1 */
+  basePrice: number;
+  /** @minimum 1 */
+  price: number;
+  /** @minimum 0 */
+  stock: number;
+  /** @minimum 1 */
+  targetStock: number;
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
+  demandScore: number;
+  /**
+     * @minimum 5000
+     * @maximum 20000
+     */
+  modifierBps: number;
+  /** @minimum 0 */
+  revision: number;
+  updatedAt: string;
+}
+
+export interface InventoryHolding {
+  goodId: TradeGoodId;
+  /** @minimum 0 */
+  quantity: number;
+}
+
+export type MarketTransactionSide = typeof MarketTransactionSide[keyof typeof MarketTransactionSide];
+
+
+export const MarketTransactionSide = {
+  buy: 'buy',
+  sell: 'sell',
+} as const;
+
+export interface MarketTransaction {
+  id: string;
+  goodId: TradeGoodId;
+  side: MarketTransactionSide;
+  /**
+     * @minimum 1
+     * @maximum 50
+     */
+  quantity: number;
+  /** @minimum 1 */
+  unitPrice: number;
+  /** @minimum 1 */
+  total: number;
+  /** @minimum 0 */
+  balanceBefore: number;
+  /** @minimum 0 */
+  balanceAfter: number;
+  /** @minimum 0 */
+  inventoryBefore: number;
+  /** @minimum 0 */
+  inventoryAfter: number;
+  /** @minimum 0 */
+  stockBefore: number;
+  /** @minimum 0 */
+  stockAfter: number;
+  /** @minimum 0 */
+  marketRevision: number;
+  createdAt: string;
+}
+
+export interface WorldEvent {
+  eventId: string;
+  title: string;
+  description: string;
+  cycleDate: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface MarketSnapshot {
+  /** @minimum 0 */
+  credits: number;
+  inventory: InventoryHolding[];
+  listings: MarketListing[];
+  transactions: MarketTransaction[];
+  event: WorldEvent;
+}
+
+export interface MarketTradeResult {
+  market: MarketSnapshot;
+  transaction: MarketTransaction;
+  replayed: boolean;
+}
+
+export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];
+
+
+export const WorldLocationKind = {
+  station: 'station',
+  relay: 'relay',
+  moon: 'moon',
+  ruins: 'ruins',
+} as const;
+
+export interface WorldLocation {
+  id: string;
+  name: string;
+  kind: WorldLocationKind;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  x: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  y: number;
+  /**
+     * @minimum 0
+     * @maximum 4
+     */
+  unlockAfter: number;
+  unlocked: boolean;
+  explored: boolean;
+  description: string;
+  services: string[];
+}
+
+export type WorldQuestStatus = typeof WorldQuestStatus[keyof typeof WorldQuestStatus];
+
+
+export const WorldQuestStatus = {
+  locked: 'locked',
+  available: 'available',
+  accepted: 'accepted',
+  ready: 'ready',
+  claimed: 'claimed',
+} as const;
+
+export interface WorldQuest {
+  id: string;
+  title: string;
+  description: string;
+  /**
+     * @minimum 0
+     * @maximum 4
+     */
+  requiredClear: number;
+  requiredLocation: string;
+  status: WorldQuestStatus;
+  /** @minimum 0 */
+  rewardCredits: number;
+  /** @minimum 0 */
+  reputationReward: number;
+}
+
+export type WorldStateReputation = {
+  /** @minimum 0 */
+  accord: number;
+  /** @minimum 0 */
+  ussf: number;
+};
+
+export interface WorldState {
+  event: WorldEvent;
+  reputation: WorldStateReputation;
+  locations: WorldLocation[];
+  discoveries: string[];
+  quests: WorldQuest[];
+}
+
+export interface WorldExploreInput {
+  idempotencyKey: string;
+}
+
+export type WorldQuestActionInputAction = typeof WorldQuestActionInputAction[keyof typeof WorldQuestActionInputAction];
+
+
+export const WorldQuestActionInputAction = {
+  accept: 'accept',
+  claim: 'claim',
+} as const;
+
+export interface WorldQuestActionInput {
+  idempotencyKey: string;
+  action: WorldQuestActionInputAction;
+}
+
+export interface ExploreLocationResult {
+  world: WorldState;
+  newlyExplored: boolean;
+  /** @minimum 0 */
+  reputationGain: number;
+}
+
+export interface WorldQuestActionResult {
+  world: WorldState;
+  /** @minimum 0 */
+  credits: number;
+  /** @minimum 0 */
+  rewardCredits: number;
+  replayed: boolean;
+}
+

@@ -20,6 +20,9 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "market_buy",
   "market_dock",
   "refit",
+  "world_exploration",
+  "quest_accept",
+  "quest_reward",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {
@@ -40,6 +43,7 @@ export const playerProgressTable = pgTable("player_progress", {
   cleared: integer("cleared").notNull().default(0),
   tech: text("tech"),
   drilled: boolean("drilled").notNull().default(false),
+  inventoryMigrated: boolean("inventory_migrated").notNull().default(false),
   revision: integer("revision").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

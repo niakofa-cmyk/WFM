@@ -26,6 +26,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /readyz:
+    get:
+      operationId: getReadiness
+      tags: [health]
+      summary: Check database readiness
+      responses:
+        "200":
+          description: API and database are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessCheckResponse"
+        "503":
+          description: API is running but the database is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessCheckResponse"
   /game/profile:
     get:
       operationId: getGameProfile
@@ -125,6 +143,128 @@ paths:
           description: Run not found for this player
         "409":
           description: Run expired or profile changed after the run began
+  /market:
+    get:
+      operationId: getMarket
+      tags: [progression]
+      summary: Get the shared station market and the player's holdings
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Shared price book, inventory, and recent transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketSnapshot"
+        "401":
+          description: Authentication required
+  /market/trades:
+    post:
+      operationId: tradeMarket
+      tags: [progression]
+      summary: Atomically buy or sell goods against shared market state
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketTradeInput"
+      responses:
+        "200":
+          description: Stored transaction and refreshed shared market
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketTradeResult"
+        "400":
+          description: Invalid or unaffordable trade
+        "401":
+          description: Authentication required
+        "409":
+          description: Idempotency key conflict
+  /world:
+    get:
+      operationId: getWorld
+      tags: [progression]
+      summary: Get persistent map, discoveries, reputation, quests, and world event
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Player view of the persistent universe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldState"
+        "401":
+          description: Authentication required
+  /world/locations/{locationId}/explore:
+    post:
+      operationId: exploreLocation
+      tags: [progression]
+      summary: Record a one-time server-validated location discovery
+      security:
+        - ClerkSession: []
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldExploreInput"
+      responses:
+        "200":
+          description: Updated persistent world state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreLocationResult"
+        "400":
+          description: Location is not unlocked
+        "401":
+          description: Authentication required
+        "404":
+          description: Unknown location
+  /world/quests/{questId}/actions:
+    post:
+      operationId: actOnWorldQuest
+      tags: [progression]
+      summary: Accept or claim a persistent side quest
+      security:
+        - ClerkSession: []
+      parameters:
+        - name: questId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldQuestActionInput"
+      responses:
+        "200":
+          description: Updated quest and world state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldQuestActionResult"
+        "400":
+          description: Quest is locked, incomplete, or already claimed
+        "401":
+          description: Authentication required
+        "404":
+          description: Unknown quest
 components:
   securitySchemes:
     ClerkSession:
@@ -139,6 +279,15 @@ components:
           type: string
       required:
         - status
+    ReadinessCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, unavailable]
+        database:
+          type: boolean
+      required: [status, database]
     GameProfile:
       type: object
       required: [credits, faction, shipId, scheme, refit, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
@@ -163,8 +312,7 @@ components:
       required: [idempotencyKey, action]
       properties:
         idempotencyKey: { type: string, format: uuid }
-        action: { type: string, enum: [buy, dock, refit] }
-        goodId: { type: [string, "null"], enum: [salt, iron, dust, resin, null] }
+        action: { type: string, enum: [refit] }
     ProgressionActionResult:
       type: object
       required: [profile, transaction]
@@ -175,7 +323,7 @@ components:
           required: [id, kind, amount, balanceBefore, balanceAfter]
           properties:
             id: { type: string, format: uuid }
-            kind: { type: string, enum: [market_buy, market_dock, refit] }
+            kind: { type: string, enum: [refit] }
             amount: { type: integer }
             balanceBefore: { type: integer }
             balanceAfter: { type: integer }
@@ -258,4 +406,162 @@ components:
         iron: { type: integer, minimum: 1 }
         dust: { type: integer, minimum: 1 }
         resin: { type: integer, minimum: 1 }
+    TradeGoodId:
+      type: string
+      enum: [salt, iron, dust, resin]
+    MarketTradeInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, goodId, side, quantity]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        goodId: { $ref: "#/components/schemas/TradeGoodId" }
+        side: { type: string, enum: [buy, sell] }
+        quantity: { type: integer, minimum: 1, maximum: 50 }
+    MarketListing:
+      type: object
+      required: [goodId, name, basePrice, price, stock, targetStock, demandScore, modifierBps, revision, updatedAt]
+      properties:
+        goodId: { $ref: "#/components/schemas/TradeGoodId" }
+        name: { type: string }
+        basePrice: { type: integer, minimum: 1 }
+        price: { type: integer, minimum: 1 }
+        stock: { type: integer, minimum: 0 }
+        targetStock: { type: integer, minimum: 1 }
+        demandScore: { type: integer, minimum: -100, maximum: 100 }
+        modifierBps: { type: integer, minimum: 5000, maximum: 20000 }
+        revision: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    InventoryHolding:
+      type: object
+      required: [goodId, quantity]
+      properties:
+        goodId: { $ref: "#/components/schemas/TradeGoodId" }
+        quantity: { type: integer, minimum: 0 }
+    MarketTransaction:
+      type: object
+      required: [id, goodId, side, quantity, unitPrice, total, balanceBefore, balanceAfter, inventoryBefore, inventoryAfter, stockBefore, stockAfter, marketRevision, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        goodId: { $ref: "#/components/schemas/TradeGoodId" }
+        side: { type: string, enum: [buy, sell] }
+        quantity: { type: integer, minimum: 1, maximum: 50 }
+        unitPrice: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 1 }
+        balanceBefore: { type: integer, minimum: 0 }
+        balanceAfter: { type: integer, minimum: 0 }
+        inventoryBefore: { type: integer, minimum: 0 }
+        inventoryAfter: { type: integer, minimum: 0 }
+        stockBefore: { type: integer, minimum: 0 }
+        stockAfter: { type: integer, minimum: 0 }
+        marketRevision: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    WorldEvent:
+      type: object
+      required: [eventId, title, description, cycleDate, startsAt, endsAt]
+      properties:
+        eventId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        cycleDate: { type: string, format: date }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    MarketSnapshot:
+      type: object
+      required: [credits, inventory, listings, transactions, event]
+      properties:
+        credits: { type: integer, minimum: 0 }
+        inventory:
+          type: array
+          items: { $ref: "#/components/schemas/InventoryHolding" }
+        listings:
+          type: array
+          items: { $ref: "#/components/schemas/MarketListing" }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/MarketTransaction" }
+        event: { $ref: "#/components/schemas/WorldEvent" }
+    MarketTradeResult:
+      type: object
+      required: [market, transaction, replayed]
+      properties:
+        market: { $ref: "#/components/schemas/MarketSnapshot" }
+        transaction: { $ref: "#/components/schemas/MarketTransaction" }
+        replayed: { type: boolean }
+    WorldLocation:
+      type: object
+      required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [station, relay, moon, ruins] }
+        x: { type: integer, minimum: 0, maximum: 100 }
+        y: { type: integer, minimum: 0, maximum: 100 }
+        unlockAfter: { type: integer, minimum: 0, maximum: 4 }
+        unlocked: { type: boolean }
+        explored: { type: boolean }
+        description: { type: string }
+        services:
+          type: array
+          items: { type: string }
+    WorldQuest:
+      type: object
+      required: [id, title, description, requiredClear, requiredLocation, status, rewardCredits, reputationReward]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        requiredClear: { type: integer, minimum: 0, maximum: 4 }
+        requiredLocation: { type: string }
+        status: { type: string, enum: [locked, available, accepted, ready, claimed] }
+        rewardCredits: { type: integer, minimum: 0 }
+        reputationReward: { type: integer, minimum: 0 }
+    WorldState:
+      type: object
+      required: [event, reputation, locations, discoveries, quests]
+      properties:
+        event: { $ref: "#/components/schemas/WorldEvent" }
+        reputation:
+          type: object
+          required: [accord, ussf]
+          properties:
+            accord: { type: integer, minimum: 0 }
+            ussf: { type: integer, minimum: 0 }
+        locations:
+          type: array
+          items: { $ref: "#/components/schemas/WorldLocation" }
+        discoveries:
+          type: array
+          items: { type: string }
+        quests:
+          type: array
+          items: { $ref: "#/components/schemas/WorldQuest" }
+    WorldExploreInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+    WorldQuestActionInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, action]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        action: { type: string, enum: [accept, claim] }
+    ExploreLocationResult:
+      type: object
+      required: [world, newlyExplored, reputationGain]
+      properties:
+        world: { $ref: "#/components/schemas/WorldState" }
+        newlyExplored: { type: boolean }
+        reputationGain: { type: integer, minimum: 0 }
+    WorldQuestActionResult:
+      type: object
+      required: [world, credits, rewardCredits, replayed]
+      properties:
+        world: { $ref: "#/components/schemas/WorldState" }
+        credits: { type: integer, minimum: 0 }
+        rewardCredits: { type: integer, minimum: 0 }
+        replayed: { type: boolean }
 
