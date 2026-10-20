@@ -6,8 +6,8 @@ This report separates automated control/lifecycle checks from Android Chrome and
 
 ## Build under test
 
-- Source commit: `e00d591620a50c015aa3275453dd012bc6633344`
-- Automated checks: workspace typecheck, all 37 automated tests, and production builds passed.
+- Source commit: `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
+- Automated checks: workspace typecheck, all 40 automated tests, and production builds passed.
 - Physical-device test date / tester: not run
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
