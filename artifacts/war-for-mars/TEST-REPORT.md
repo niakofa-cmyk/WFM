@@ -18,7 +18,7 @@ Verified on the exact source commit above using Node.js `v24.13.0` and pnpm `10.
 | `pnpm --filter @workspace/db run push` | PASS | Non-forced Drizzle push against development PostgreSQL 16.10; all 10 expected tables and 4 enum types are present. No production database is configured here. |
 | Unauthenticated API guards | PASS | Protected profile, market, world, travel, strike, and reward routes returned HTTP 401. |
 | Public sign-up route | RENDERED | Clerk sign-up form appeared in a 402×874 development preview; the page showed development keys. No account was created or signed in. |
-| GitHub Actions workspace quality | FAILED on prior push; local rerun PASS | The failed run reproduced as a reconnect input-ordering race. The exact workspace command now passes on the source commit above; a remote rerun is pending push. |
+| GitHub Actions workspace quality | PASS | The corrected code passed on [`00acd93`](https://github.com/niakofa-cmyk/WFM/commit/00acd93bff2eb75d9236641259b6f39647c7d6b9) ([run 39485700573](https://github.com/niakofa-cmyk/WFM/actions/runs/39485700573)); latest main `3941128` also passed ([run 39486144312](https://github.com/niakofa-cmyk/WFM/actions/runs/39486144312)). |
 
 The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
 
