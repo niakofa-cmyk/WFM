@@ -26,12 +26,17 @@ test("ship certification covers all eight ships and opposing role groups", () =>
     assert.ok(row.timeTo90PercentSpeed > 0);
     assert.ok(row.handlingTurnDegreesPerSecond > 0);
     assert.ok(row.abilityEffect.length > 12);
+    assert.equal(row.aiStrike.matches, 1);
+    assert.ok(Number.isFinite(row.aiStrike.winRate));
+    assert.ok(Number.isFinite(row.aiStrike.alivePercent));
+    assert.ok(Number.isFinite(row.aiStrike.avgRelayLead));
   }
 
   const report = formatShipCertification(rows, 1, 10);
   assert.match(report, /Results by opposing role/);
+  assert.match(report, /Full 5v5 Strike/);
   assert.match(report, /Mandjet/);
   assert.match(report, /Sentinel-G/);
   assert.match(report, /Seed cohort:\*\* 0–0/);
-  assert.match(report, /1v1 scripted-pilot diagnostic/);
+  assert.match(report, /1v1 outcomes are scripted-pilot diagnostics/);
 });

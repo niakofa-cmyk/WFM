@@ -35,6 +35,13 @@ type DuelResult = {
   turnRadians: [number, number];
 };
 
+type AiStrikeResult = {
+  winner: "you" | "foe" | "draw";
+  duration: number;
+  aliveSeconds: number;
+  relayLead: number;
+};
+
 type RoleRecord = { matches: number; wins: number; draws: number; losses: number };
 type MutableRow = {
   shipId: ShipId;
@@ -50,6 +57,15 @@ type MutableRow = {
   distance: number;
   turnRadians: number;
   opponentRoles: Record<string, RoleRecord>;
+  aiStrike: {
+    matches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    aliveSeconds: number;
+    totalSeconds: number;
+    relayLead: number;
+  };
 };
 
 export type ShipCertificationRow = {
@@ -73,6 +89,15 @@ export type ShipCertificationRow = {
   handlingTurnDegreesPerSecond: number;
   abilityEffect: string;
   opponentRoles: Record<string, RoleRecord>;
+  aiStrike: {
+    matches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    winRate: number;
+    alivePercent: number;
+    avgRelayLead: number;
+  };
 };
 
 function configureCraft(craft: Craft, shipId: ShipId, team: "you" | "foe", ai: boolean) {
@@ -268,6 +293,43 @@ function runDuel(playerShip: ShipId, opponentShip: ShipId, seed: number, duratio
   };
 }
 
+function runAiFilledStrike(shipId: ShipId, seed: number, durationSeconds: number): AiStrikeResult {
+  const faction = SHIPS[shipId].faction;
+  const match = createMatch(shipId, faction, 0, "strike", {
+    goal: "disc",
+    disc: "dust",
+    seed,
+    allyCount: 4,
+    foeCount: 5,
+  });
+  match.limit = durationSeconds;
+  match.player.ai = true;
+  match.player.human = null;
+  const maxTicks = Math.ceil(durationSeconds / TICK);
+  let aliveSeconds = 0;
+
+  for (let tick = 0; tick < maxTicks && !match.over; tick += 1) {
+    const aliveBefore = match.player.alive;
+    step(match, IDLE, TICK);
+    if (aliveBefore && match.player.alive) aliveSeconds += TICK;
+    match.fx.length = 0;
+  }
+
+  let winner: AiStrikeResult["winner"] = "draw";
+  if (match.over === "win") winner = "you";
+  else if (match.over === "loss") winner = "foe";
+  else if (match.youBar > match.foeBar) winner = "you";
+  else if (match.foeBar > match.youBar) winner = "foe";
+
+  return {
+    winner,
+    duration: Math.max(TICK, match.time),
+    aliveSeconds,
+    relayLead: match.relays.filter((relay) => relay.own === 1).length
+      - match.relays.filter((relay) => relay.own === -1).length,
+  };
+}
+
 function movementProbe(shipId: ShipId) {
   const faction = SHIPS[shipId].faction;
   const { match, player } = createDuel(shipId, faction === "accord" ? "duskbreaker" : "mandjet", 0x4d4f, 12);
@@ -420,6 +482,15 @@ function emptyRow(shipId: ShipId): MutableRow {
     distance: 0,
     turnRadians: 0,
     opponentRoles: Object.fromEntries(ROLES.map((role) => [role, { matches: 0, wins: 0, draws: 0, losses: 0 }])),
+    aiStrike: {
+      matches: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      aliveSeconds: 0,
+      totalSeconds: 0,
+      relayLead: 0,
+    },
   };
 }
 
@@ -498,6 +569,23 @@ export function runShipCertification(options: {
     }
   }
 
+  const allShips = Object.keys(SHIPS) as ShipId[];
+  for (let shipIndex = 0; shipIndex < allShips.length; shipIndex += 1) {
+    const shipId = allShips[shipIndex];
+    const squad = mutableRows.get(shipId)!.aiStrike;
+    for (let sample = 0; sample < seeds; sample += 1) {
+      const seed = 0xA100 + (sample + seedOffset) * 127 + shipIndex * 53;
+      const result = runAiFilledStrike(shipId, seed, durationSeconds);
+      squad.matches += 1;
+      squad.wins += Number(result.winner === "you");
+      squad.draws += Number(result.winner === "draw");
+      squad.losses += Number(result.winner === "foe");
+      squad.aliveSeconds += result.aliveSeconds;
+      squad.totalSeconds += result.duration;
+      squad.relayLead += result.relayLead;
+    }
+  }
+
   return (Object.keys(SHIPS) as ShipId[]).map((shipId) => {
     const ship = SHIPS[shipId];
     const row = mutableRows.get(shipId)!;
@@ -526,6 +614,15 @@ export function runShipCertification(options: {
       handlingTurnDegreesPerSecond: movement.turnDegreesPerSecond,
       abilityEffect: `${ability.effect}; ${ability.cooldownSeconds}s cooldown`,
       opponentRoles: row.opponentRoles,
+      aiStrike: {
+        matches: row.aiStrike.matches,
+        wins: row.aiStrike.wins,
+        draws: row.aiStrike.draws,
+        losses: row.aiStrike.losses,
+        winRate: (row.aiStrike.wins + row.aiStrike.draws * 0.5) / Math.max(1, row.aiStrike.matches),
+        alivePercent: row.aiStrike.aliveSeconds / Math.max(1, row.aiStrike.totalSeconds),
+        avgRelayLead: row.aiStrike.relayLead / Math.max(1, row.aiStrike.matches),
+      },
     };
   });
 }
@@ -598,6 +695,7 @@ export function formatShipCertification(
     `- Every Accord ship was tested against every USSF ship: 16 cross-faction pairs, each mirrored by swapping which ship starts in the player seat, for ${seeds} fixed seeds per pair.`,
     "- Each 1v1 duel used one standardized scripted pilot per side: velocity-led aiming, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Lock-capable ships receive a lock opportunity.",
     `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * 2 * seeds} appearances per ship. The same seed and matchup are used in both seat orientations.`,
+    `- Each ship also gets ${seeds} full 5v5 Strike simulations on the dust field, with all ten seats run by the production AI. Those AI pilots do not activate ultimates; the 1v1 drills cover scripted ability use.`,
     "- Damage is summed from landed hit events; first-life survival is censored at match end for pilots that survive; alive percentage includes respawn downtime; movement and turn rate are also measured in isolated throttle/turn probes.",
     "- Ability effects are measured in a separate stationary-target drill so support/control abilities are not misrepresented as direct damage.",
     "",
@@ -608,6 +706,14 @@ export function formatShipCertification(
     ...table,
     "",
     "*Score rate counts a draw as half a win. Damage is per duel. First-life survival is capped at the match duration; alive percentage accounts for respawns.",
+    "",
+    "## Full 5v5 Strike — production AI",
+    "",
+    "| Focal ship / role | W-D-L | Score rate | Focal-seat alive time | Average relay lead at end |",
+    "| --- | ---: | ---: | ---: | ---: |",
+    ...rows.map((row) => `| ${row.name} (${row.role}) | ${row.aiStrike.wins}-${row.aiStrike.draws}-${row.aiStrike.losses} | ${(row.aiStrike.winRate * 100).toFixed(1)}% | ${(row.aiStrike.alivePercent * 100).toFixed(0)}% | ${row.aiStrike.avgRelayLead.toFixed(2)} |`),
+    "",
+    "These are AI-vs-AI full-strike results with the focal ship in the player slot; they include rocks, objectives, respawns, and the current team rosters. They are not human 5v5 results, and the production AI does not use ultimate abilities.",
     "",
     "## Results by opposing role",
     "",
@@ -629,7 +735,7 @@ export function formatShipCertification(
     "",
     "## Limits",
     "",
-    "- This is a deterministic 1v1 scripted-pilot diagnostic, not a 5v5 Strike result, human win rate, or proof that every ship feels equally fun.",
+    "- The 1v1 outcomes are scripted-pilot diagnostics. The 5v5 cohort is AI-vs-AI and does not use ultimates. Neither is a human 5v5 result or proof that every ship feels equally useful.",
     "- The ability drill measures one controlled effect per ability; it does not measure ability value over a full match.",
     "- Phone touch controls, Android Chrome/iOS Safari behavior, frame rate, memory, and thermal performance require the separate device certification.",
     "",
