@@ -1295,7 +1295,8 @@ export function Arena({
           bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
         );
       }
-      const locked = match.enemies.find((enemy) => enemy.id === match.lockId && enemy.alive);
+      const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;
+      const locked = hostiles.find((enemy) => enemy.id === player.lockTargetId && enemy.alive);
       bracket.visible = Boolean(locked);
       if (locked) {
         bracket.position.set(locked.x, 0.2, locked.z);

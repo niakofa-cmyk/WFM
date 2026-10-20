@@ -184,7 +184,9 @@ export function createWing(seed = 1) {
       const lead = slots[0].isConnected ? (slots[0].buffered ?? IDLE) : IDLE;
       for (let slotId = 1; slotId < MAX_PLAYERS; slotId += 1) {
         const slot = slots[slotId];
-        craftFor(slotId).human = slot.isConnected ? (slot.buffered ?? IDLE) : null;
+        const craft = craftFor(slotId);
+        craft.ai = !slot.isConnected;
+        craft.human = slot.isConnected ? (slot.buffered ?? IDLE) : null;
       }
       step(match, lead, TICK_DT);
       for (const slot of slots) {

@@ -101,6 +101,54 @@ test("duel certification applies the same integrity penalty to both pilots", () 
   assert.equal(playerMatch.youBar, 91);
 });
 
+test("each team keeps an independent lock and Sundara homing tracks either side", () => {
+  const match = createMatch("sundara", "accord", 0, "strike", {
+    seed: 33,
+    allyCount: 1,
+    foeCount: 1,
+  });
+  match.allies = [];
+  const player = match.player;
+  const opponent = match.enemies[0];
+  opponent.ship = "sundara";
+  opponent.ai = false;
+  opponent.human = { ...idle, fire: true };
+  opponent.fireCd = 0;
+  opponent.yaw = 0;
+  player.x = 30;
+  player.fireCd = 0;
+  player.lockTargetId = opponent.id;
+  opponent.lockTargetId = player.id;
+  match.lockId = opponent.id;
+
+  step(match, { ...idle, fire: true }, 1 / 30);
+
+  const playerShot = match.bullets.find((bullet) => bullet.faction === player.faction);
+  const opponentShot = match.bullets.find((bullet) => bullet.faction === opponent.faction);
+  assert.equal(playerShot?.homeId, opponent.id);
+  assert.equal(opponentShot?.homeId, player.id);
+  assert.ok(Math.abs(opponentShot?.vx ?? 0) > 0, "the opposing shot should turn toward its own lock target");
+});
+
+test("Duskbreaker auto-lock is available to human pilots on either team", () => {
+  const match = createMatch("duskbreaker", "accord", 0, "strike", {
+    seed: 34,
+    allyCount: 1,
+    foeCount: 1,
+  });
+  match.allies = [];
+  const opponent = match.enemies[0];
+  opponent.ship = "duskbreaker";
+  opponent.ai = false;
+  opponent.human = { ...idle, ult: true };
+
+  step(match, { ...idle, ult: true }, 1 / 30);
+
+  assert.equal(match.player.lockTargetId, opponent.id);
+  assert.equal(opponent.lockTargetId, match.player.id);
+  assert.equal(match.lockId, opponent.id);
+});
+
 test("AI lead point intercepts a crossing ship instead of aiming behind it", () => {
   const point = leadAimPoint(
     0,

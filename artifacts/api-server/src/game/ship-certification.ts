@@ -178,9 +178,8 @@ function policyInput(match: Match, craft: Craft, target: Craft, targetMotion: Cr
   const range = Math.hypot(target.x - craft.x, target.z - craft.z);
   const targetYaw = aimYaw(craft.x, craft.z, target.x, target.z);
   const steeringError = wrap(targetYaw - craft.yaw);
-  const needsLock = craft.id === match.player.id
-    && (craft.ship === "sundara" || craft.ship === "duskbreaker")
-    && match.lockId !== target.id
+  const needsLock = (craft.ship === "sundara" || craft.ship === "duskbreaker")
+    && craft.lockTargetId !== target.id
     && Math.abs(steeringError) < 0.4;
   const shotPoint = leadAimPoint(craft.x, craft.z, targetMotion, ship.shotSpeed);
   const shotError = wrap(aimYaw(craft.x, craft.z, shotPoint.x, shotPoint.z) - craft.yaw);
@@ -402,6 +401,7 @@ function abilityTrial(shipId: ShipId) {
   opponent.shieldMax = 100_000;
   opponent.shield = 100_000;
   match.lockId = opponent.id;
+  player.lockTargetId = opponent.id;
 
   const ramTest = shipId === "shakuna" || shipId === "glide";
   opponent.z = player.z - 12;
@@ -681,17 +681,18 @@ export function formatShipCertification(
     "# WAR FOR MARS — Eight-Ship Certification",
     "",
     `**Run:** ${new Date().toISOString().slice(0, 10)} · **Seeds per pairing:** ${seeds} · **Seed cohort:** ${seedOffset}–${seedOffset + seeds - 1} · **Duration cap:** ${durationSeconds}s · **Matches per ship:** ${matchesPerShip}`,
-    "**Status:** Diagnostic only. The simulator stores lock/homing state on the player match, so opposing-seat lock use is not equivalent; no ship balance certification is claimed.",
+    "**Status:** Scripted-pilot diagnostic only. Per-craft lock and homing now work symmetrically for both sides; no human balance certification is claimed.",
     "",
     "## Method",
     "",
     `- Every Accord ship was tested against every USSF ship: 16 cross-faction pairs, with each ship measured as the controlled focal pilot in its own player-seat trial, for ${seeds} fixed seeds per pair.`,
-    "- Each 1v1 duel uses a standardized scripted pilot for both sides: velocity-led aim, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Only the focal/player-seat result is counted because lock and homing state are player-seat-only in this simulator.",
+    "- Each 1v1 duel uses a standardized scripted pilot for both sides: velocity-led aim, the same fire/turn/lock policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Per-craft lock state and homing target lookup are enabled for both pilots; the focal ship's result is counted.",
     "- The duel harness normalizes both pilots to 5 shield-regeneration points per second and a symmetric 9-point integrity loss on death; normal game defaults are unchanged.",
-    `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * seeds} scored appearances per ship. The same seed and matchup are used for the two focal-ship trials.`,
+    `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * seeds} scored appearances per ship. Each cross-faction matchup is run with both ships as focal pilots using the same seed.`,
     `- Each ship also gets ${seeds} full 5v5 Strike simulations on the dust field, with all ten seats run by the production AI. Those AI pilots do not activate ultimates; the 1v1 drills cover scripted ability use.`,
     "- Damage is summed from landed hit events; first-life survival is censored at match end for pilots that survive; alive percentage includes respawn downtime; movement and turn rate are also measured in isolated throttle/turn probes.",
     "- Ability effects are measured in a separate stationary-target drill so support/control abilities are not misrepresented as direct damage.",
+    "- Each role cell maps to one ship, so role-level scores describe a specific matchup rather than a broad role sample.",
     "",
     "## Results",
     "",

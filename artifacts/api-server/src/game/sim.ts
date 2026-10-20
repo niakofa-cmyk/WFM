@@ -14,7 +14,7 @@ export type Craft = {
   fireCd: number; ultCd: number; alive: boolean; respawn: number; cloak: number;
   boost: number; boostDmg: number; rammed: boolean; untargetable: number; root: number; jam: number;
   dmgMul: number; dmgMulT: number; nextCrit: boolean; recover: number; hurtT: number; guard: number;
-  evadeCd: number; radius: number; ace: boolean; human: StepInput | null;
+  evadeCd: number; radius: number; ace: boolean; human: StepInput | null; lockTargetId: number | null;
 };
 
 export type Bullet = {
@@ -317,7 +317,8 @@ function craft(ship: ShipId, ai: boolean, team: "you" | "foe", x: number, z: num
     evadeCd: 0,
     radius: def.radius,
     ace: false,
-    human: null
+    human: null,
+    lockTargetId: null
   };
 }
 export function createMatch(shipId: ShipId, faction: Faction, refit: number, pace: Pace = "practice", setup: MatchSetup = {}): Match {
@@ -479,6 +480,12 @@ function pushFx(match: Match, fx: Fx) {
   if (match.fx.length > 28) match.fx.shift();
   match.fx.push(fx);
 }
+function clearLocksForCraft(match: Match, target: Craft) {
+  for (const pilot of [match.player, ...match.allies, ...match.enemies]) {
+    if (pilot.id === target.id || pilot.lockTargetId === target.id) pilot.lockTargetId = null;
+  }
+  match.lockId = match.player.lockTargetId;
+}
 function kill(match: Match, c: Craft) {
   if (!c.alive) return;
   c.alive = false;
@@ -487,6 +494,7 @@ function kill(match: Match, c: Craft) {
   c.respawn = 3.4;
   c.cloak = 0;
   c.boost = 0;
+  clearLocksForCraft(match, c);
   pushFx(match, {
     k: "boom",
     x: c.x,
@@ -496,13 +504,11 @@ function kill(match: Match, c: Craft) {
   if (c.team === "foe") {
     match.kills += 1;
     match.foeBar = Math.max(0, match.foeBar - (match.symmetricDuelDeathPenalty ?? (strike ? 8 : 14)));
-    if (match.lockId === c.id) match.lockId = null;
     pushFx(match, { k: "down", name: SHIPS[c.ship].name });
   } else if (c.ai) match.youBar = Math.max(0, match.youBar - (strike ? 6 : 12));
   else {
     match.deaths += 1;
     match.youBar = Math.max(0, match.youBar - (match.symmetricDuelDeathPenalty ?? (strike ? 10 : 18)));
-    match.lockId = null;
   }
   if (c.ace) match.over = "win";
 }
@@ -684,7 +690,7 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
     dmg,
     faction: c.faction,
     r: def.id === "sundara" ? .72 : .34,
-    homeId: !c.ai && def.id === "sundara" ? match.lockId : null,
+    homeId: !c.ai && def.id === "sundara" ? c.lockTargetId : null,
     own: !c.ai
   });
   pushFx(match, {
@@ -702,6 +708,7 @@ function flyHuman(match: Match, c: Craft, input: StepInput, dt: number) {
   moveCraft(match, c, input.yaw, input.throttle, input.strafe, dt, 1);
   if (input.fire) fire(match, c, 1);
   if (input.ult) triggerUlt(match, c);
+  if (input.lock) cycleLock(match, c);
   c.human = null;
 }
 function triggerUlt(match: Match, c: Craft) {
@@ -746,7 +753,7 @@ function triggerUlt(match: Match, c: Craft) {
   } else if (c.ship === "duskbreaker") {
     c.dmgMul = 1.5;
     c.dmgMulT = 3.2;
-    if (c.id === match.player.id && match.lockId == null) {
+    if (!c.ai && c.lockTargetId == null) {
       let best = null;
       let bestAbs = 1;
       for (const e of opposing(match, c)) {
@@ -757,9 +764,9 @@ function triggerUlt(match: Match, c: Craft) {
           best = e;
         }
       }
-      if (best && bestAbs < .7) match.lockId = best.id;
+      if (best && bestAbs < .7) setLockTarget(match, c, best.id);
     }
-    const marked = opposing(match, c).find((e) => e.id === match.lockId && e.alive);
+    const marked = opposing(match, c).find((e) => e.id === c.lockTargetId && e.alive);
     pushFx(match, { k: "mark", x: marked ? marked.x : c.x, z: marked ? marked.z : c.z });
   } else if (c.ship === "sentinel") {
     c.shield = c.shieldMax;
@@ -777,21 +784,24 @@ function triggerUlt(match: Match, c: Craft) {
     pushFx(match, { k: "ram", x: c.x, z: c.z, yaw: c.yaw });
   }
 }
-function cycleLock(match: Match) {
-  const player = match.player;
-  const alive = match.enemies.filter((e) => e.alive);
+function setLockTarget(match: Match, pilot: Craft, targetId: number | null) {
+  pilot.lockTargetId = targetId;
+  if (pilot.id === match.player.id) match.lockId = targetId;
+}
+function cycleLock(match: Match, pilot: Craft) {
+  const alive = opposing(match, pilot).filter((e) => e.alive);
   if (alive.length === 0) {
-    match.lockId = null;
+    setLockTarget(match, pilot, null);
     return;
   }
-  const cone = alive.filter((e) => Math.abs(wrap(aimYaw(player.x, player.z, e.x, e.z) - player.yaw)) < .4);
+  const cone = alive.filter((e) => Math.abs(wrap(aimYaw(pilot.x, pilot.z, e.x, e.z) - pilot.yaw)) < .4);
   const pool = cone.length > 0 ? cone : alive;
-  const idx = pool.findIndex((e) => e.id === match.lockId);
-  if (pool.length === 1 && pool[0].id === match.lockId) {
-    match.lockId = null;
+  const idx = pool.findIndex((e) => e.id === pilot.lockTargetId);
+  if (pool.length === 1 && pool[0].id === pilot.lockTargetId) {
+    setLockTarget(match, pilot, null);
     return;
   }
-  match.lockId = pool[(idx + 1) % pool.length].id;
+  setLockTarget(match, pilot, pool[(idx + 1) % pool.length].id);
 }
 function visibleHostiles(match: Match, e: Craft) {
   return (e.team === "foe" ? [match.player, ...match.allies] : match.enemies)
@@ -985,7 +995,7 @@ export function step(match: Match, input: StepInput, dt: number) {
     player.pitch += (wantPitch - player.pitch) * Math.min(1, dt * 7);
     if (input.fire) fire(match, player, wepMul(match.pips.wep));
     if (input.ult) triggerUlt(match, player);
-    if (input.lock) cycleLock(match);
+    if (input.lock) cycleLock(match, player);
     if (player.hurtT <= 0) {
       player.shield = Math.min(player.shieldMax, player.shield + (match.playerShieldRegenRate ?? 16) * dt);
     }
@@ -1024,7 +1034,8 @@ export function step(match: Match, input: StepInput, dt: number) {
   for (let i = match.bullets.length - 1; i >= 0; i--) {
     const b = match.bullets[i];
     if (b.homeId != null) {
-      const target = match.enemies.find((e) => e.id === b.homeId && e.alive);
+      const hostiles = b.faction === match.playerFaction ? match.enemies : [player, ...match.allies];
+      const target = hostiles.find((e) => e.id === b.homeId && e.alive);
       if (target) {
         const yaw = Math.atan2(-b.vx, -b.vz);
         const want = aimYaw(b.x, b.z, target.x, target.z);

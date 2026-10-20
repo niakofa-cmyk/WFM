@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createWing, MAX_PLAYERS, type WingInput } from "./wing";
 
-const input = (seq: number, throttle = 1): WingInput => ({
+const input = (seq: number, throttle = 1, lock = false): WingInput => ({
   seq,
   throttle,
   yaw: 0,
@@ -10,7 +10,7 @@ const input = (seq: number, throttle = 1): WingInput => ({
   pitch: 0,
   fire: false,
   ult: false,
-  lock: false,
+  lock,
   evade: 0,
   preset: null,
 });
@@ -45,6 +45,31 @@ test("sequenced input is acknowledged in the authoritative snapshot", () => {
   assert.equal(snapshot.players[joined.slotId].lastSeq, 2);
   assert.equal(snapshot.match.player.ai, false);
   assert.doesNotThrow(() => JSON.stringify(snapshot));
+});
+
+test("lock inputs from all ten seats target hostiles independently", () => {
+  const wing = createWing(121);
+  const joined = Array.from({ length: MAX_PLAYERS }, (_, index) =>
+    wing.join(`lock-player-${index}`, `Pilot ${index}`, null, 1_000),
+  );
+  assert.equal(joined.every((result) => result.ok), true);
+  for (const result of joined) {
+    if (result.ok) wing.input(result.slotId, input(1, 0, true), 1_001);
+  }
+
+  wing.tick(1_034);
+  const match = wing.snapshot(1_034).match;
+  const craftFor = (slotId: number) =>
+    slotId === 0 ? match.player : slotId < 5 ? match.allies[slotId - 1] : match.enemies[slotId - 5];
+  for (const result of joined) {
+    if (!result.ok) continue;
+    const pilot = craftFor(result.slotId);
+    const hostiles = result.slotId < 5 ? match.enemies : [match.player, ...match.allies];
+    assert.equal(pilot.ai, false, `connected slot ${result.slotId} should not be treated as an AI pilot`);
+    assert.ok(pilot.lockTargetId != null, `slot ${result.slotId} should have a lock`);
+    assert.ok(hostiles.some((hostile) => hostile.id === pilot.lockTargetId), `slot ${result.slotId} should lock the other team`);
+  }
+  assert.equal(match.lockId, match.player.lockTargetId, "legacy match lock stays scoped to pilot zero");
 });
 
 test("empty slot zero is AI-controlled and reconnect reclaims its seat", () => {
