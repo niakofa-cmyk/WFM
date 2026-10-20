@@ -1,6 +1,6 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "51f209ad7bdf8a72c586ac337a8943dae59e2645",
+  "testedSourceCommit": "aa50a66762637cbbe8ae12652c0854fb3a2012aa",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
