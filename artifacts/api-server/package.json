@@ -12,7 +12,7 @@
     "certify:ships": "tsx src/game/ship-certification.ts",
     "test:wing": "tsx --test src/game/wing.test.ts",
     "test:network": "tsx --test src/socket/network-impairment.test.ts",
-    "test": "tsx --test src/game/*.test.ts src/routes/*.test.ts src/socket/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 src/game/*.test.ts src/routes/*.test.ts src/socket/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
