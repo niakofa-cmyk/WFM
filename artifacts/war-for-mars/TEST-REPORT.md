@@ -1,7 +1,7 @@
 # WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Code commit verified:** `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
+**Code commit verified:** `fa1d75e7d7d4fb9acd13925d08430a25bbf8fe9b`
 **Result:** Workspace typecheck, all 40 automated tests, production builds, and the seeded ship diagnostic pass. The lockfile and dependencies are unchanged from the prior frozen-install verification. Production database and real phone/account runs are not available in this workspace.
 
 ## Reproduction
@@ -18,11 +18,11 @@ Verified on the exact source commit above using Node.js `v24.13.0` and pnpm `10.
 | `pnpm --filter @workspace/db run push` | PASS | Non-forced Drizzle push against development PostgreSQL 16.10; all 10 expected tables and 4 enum types are present. No production database is configured here. |
 | Unauthenticated API guards | PASS | Protected profile, market, world, travel, strike, and reward routes returned HTTP 401. |
 | Public sign-up route | RENDERED | Clerk sign-up form appeared in a 402×874 development preview; the page showed development keys. No account was created or signed in. |
-| GitHub Actions workflow | ADDED, NOT RUN | Workflow is configured for pushes, pull requests, and manual runs using a disposable PostgreSQL 16 service. Require its status check in repository branch protection to block merges. |
+| GitHub Actions workspace quality | FAILED on prior push; local rerun PASS | The failed run reproduced as a reconnect input-ordering race. The exact workspace command now passes on the source commit above; a remote rerun is pending push. |
 
 The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
 
-One workspace-wide run exposed an intermittent ten-client join timeout while workspace packages were running in parallel. The root test script now serializes package test runs, in addition to the API test runner's existing serial mode. The complete workspace suite and standalone impairment test pass with that setting.
+The root test script serializes package test runs to avoid ten-client test contention. The failed push check exposed a separate reconnect race: the client sent input on a replacement socket before the server's `joined` acknowledgement, so the server rejected pre-join input. Online input transmission is now gated by the acknowledged socket, and the impairment harness pauses input until the reconnect seat is reclaimed. The standalone impairment test passed five consecutive runs, and the full workspace quality command passed.
 
 The repository uses Drizzle schema push rather than checked-in versioned migration files. Only the development database was synchronized and inspected; production schema application and production authentication were not verified.
 
@@ -43,7 +43,7 @@ The repository uses Drizzle schema push rather than checked-in versioned migrati
 - Ten clients use independent local WebSocket proxies with deterministic per-client seeds, 35 ms base one-way delay, ±20 ms jitter, and 12% loss applied to client input and server snapshots.
 - During the active match, two links are forcibly terminated and reconnected with their existing room tokens; the server reclaims both original seats.
 - The test requires a byte-identical authoritative snapshot at a common server tick for all ten clients, then verifies that every client receives the same completed match outcome and all ten seats are connected with accepted sequenced inputs.
-- Sample passing run: 10/10 links exercised delay and loss in both directions; each link dropped 11–22 input frames and 13–26 snapshots; sampled delay was 15–55 ms. Reconnected seats were server slots 1 and 8. All clients shared the authoritative snapshot at tick 116; the match ended at game time 182.03 seconds on server tick 5488.
+- Sample passing run: 10/10 links exercised delay and loss in both directions; each link dropped 27–37 input frames and 34–51 snapshots; sampled delay was 15–55 ms. Reconnected seats were server slots 1 and 8. All clients shared the authoritative snapshot at tick 110; the match ended at game time 360 seconds on server tick 10880.
 - This test stresses short controlled impairment and reconnection. It does **not** certify ten real devices, internet/WAN paths, longer outages, longer-duration server load, or all combat/objective consistency under human play. The existing separate test remains the six-minute timer-boundary check.
 
 ## Ship-balance diagnostic
