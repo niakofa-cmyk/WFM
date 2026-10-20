@@ -1,8 +1,8 @@
 # WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Code commit verified:** `58af547172242bbf6483b103d1eb4f4ec5b65050`
-**Result:** Workspace checks, automated ten-client room/match tests, and a seeded ten-link impairment/reconnect run pass. Real WAN reliability, ship balance, and physical phone certification remain open.
+**Code commit verified:** `e00d591620a50c015aa3275453dd012bc6633344`
+**Result:** Frozen-lockfile install, workspace typecheck, all automated tests, and production builds pass. The development PostgreSQL schema is synchronized. A production database and real phone/account runs are not available in this workspace.
 
 ## Reproduction
 
@@ -10,15 +10,21 @@ Verified on the exact source commit above using Node.js `v24.13.0` and pnpm `10.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
+| `pnpm install --force --frozen-lockfile` | PASS | Reinstalled 558 workspace packages from the frozen lockfile; no lockfile changes. |
 | `pnpm run typecheck` | PASS | Shared libraries, artifacts, and scripts completed. |
 | `pnpm test` | PASS | 37 tests total: API/server 31/31 and game controls 6/6; zero failures. |
 | `pnpm --filter @workspace/api-server run test:network` | PASS | Repeatable seeded impairment run; see network evidence below. |
 | `pnpm run build` | PASS | All workspace production builds completed. |
-| `pnpm --filter @workspace/api-server run build:socket` | PASS | API and WebSocket bundles built. |
-| `git diff --check` | PASS | No whitespace errors before the code commit. |
-| Proxied `/healthz`, `/api/healthz`, and `/ws` | PASS | Both services returned healthy; browser-proxy WebSocket handshake joined a lobby. |
+| `pnpm --filter @workspace/db run push` | PASS | Non-forced Drizzle push against development PostgreSQL 16.10; all 10 expected tables and 4 enum types are present. No production database is configured here. |
+| Unauthenticated API guards | PASS | Protected profile, market, world, travel, strike, and reward routes returned HTTP 401. |
+| Public sign-up route | RENDERED | Clerk sign-up form appeared in a 402×874 development preview; the page showed development keys. No account was created or signed in. |
+| GitHub Actions workflow | ADDED, NOT RUN | Workflow is configured for pushes, pull requests, and manual runs using a disposable PostgreSQL 16 service. Require its status check in repository branch protection to block merges. |
 
 The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
+
+The first workspace test run exposed an intermittent ten-client join timeout when API test files ran concurrently. Running API test files serially removed the contention; the complete suite then passed. The dedicated network test also passed independently.
+
+The repository uses Drizzle schema push rather than checked-in versioned migration files. Only the development database was synchronized and inspected; production schema application and production authentication were not verified.
 
 ## Multiplayer and six-minute Strike evidence
 
@@ -35,7 +41,7 @@ The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warn
 - Ten clients use independent local WebSocket proxies with deterministic per-client seeds, 35 ms base one-way delay, ±20 ms jitter, and 12% loss applied to client input and server snapshots.
 - During the active match, two links are forcibly terminated and reconnected with their existing room tokens; the server reclaims both original seats.
 - The test requires a byte-identical authoritative snapshot at a common server tick for all ten clients, then verifies that every client receives the same completed match outcome and all ten seats are connected with accepted sequenced inputs.
-- Sample passing run: 10/10 links exercised delay and loss in both directions; each link dropped 9–23 input frames and 17–29 snapshots; sampled delay was 15–55 ms. Reconnected seats were server slots 1 and 8. The common snapshot was tick 54, and a shared final snapshot was received by all clients.
+- Sample passing run: 10/10 links exercised delay and loss in both directions; each link dropped 9–23 input frames and 16–27 snapshots; sampled delay was 15–55 ms. Reconnected seats were server slots 1 and 8. The common snapshot was tick 113, and a shared final snapshot was received by all clients.
 - This test stresses short controlled impairment and reconnection. It does **not** certify ten real devices, internet/WAN paths, longer outages, longer-duration server load, or all combat/objective consistency under human play. The existing separate test remains the six-minute timer-boundary check.
 
 ## Ship-balance diagnostic
@@ -51,11 +57,11 @@ The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warn
 
 The four automated mobile-control tests pass: combined touch actions, input reset for lost focus, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup. App-level visibility, pointer-cancel, and orientation handling still need physical-browser validation.
 
-No physical Android or iPhone test run was performed. Android Chrome and iOS Safari behavior, frame rate, frame pacing, memory, thermal performance, full six-minute play, and hands-on touch controls remain **NOT RUN**. See `MOBILE-CERTIFICATION.md` and `PHONE-PLAYTEST-CHECKLIST.md`.
+No physical Android or iPhone test run was performed. Android Chrome and iOS Safari behavior, frame rate, frame pacing, memory, thermal performance, full six-minute play, and hands-on touch controls remain **NOT RUN**. The development sign-up page preview is not physical-device evidence. See `MOBILE-CERTIFICATION.md` and `PHONE-PLAYTEST-CHECKLIST.md`.
 
 ## Current disposition
 
-- **Step 1 — reproducible build and automated checks:** PASS on the exact source commit above.
+- **Step 1 — reproducible build and automated checks:** automated checks PASS on the exact source commit above. Full completion remains **PARTIAL** because no production database is configured and registration/sign-in/profile loading were not completed with a real account.
 - **Step 2 — six-minute Strike runtime:** automated timer and outcome tests pass; qualitative combat polish is not certified here.
 - **Step 3 — eight-ship balance:** measurements documented, but the gate remains open because lock/homing behavior is asymmetric and human 5v5 evidence is absent.
 - **Step 4 — physical mobile certification:** **NOT RUN** on Android Chrome or iOS Safari.
