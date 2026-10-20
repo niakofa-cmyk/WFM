@@ -1,0 +1,21 @@
+Ten steps, in the order that makes this shippable.
+
+1. **Finish one fight on a phone.** Tune the eight ships on a real device: stick feel, fire, lock, abilities, and the 2-minute and 6-minute clocks. The numbers are in a band. The hands are not.
+
+2. **Lock the combat rules.** Decide the win conditions, respawn, and match length that 5v5 will use, and stop changing them. Practice, strike, beacons, warden, and the cage can stay as modes on top of that one ruleset.
+
+3. **Stand up the match socket.** One process, not on port 8080, owns one `createWing` room. Join, input, and disconnect call the engine you already have. Each tick broadcasts the snapshot with `lastSeq`.
+
+4. **Connect the client.** A 5v5 button joins that socket, sends sequenced stick input, and flies from the snapshot. If the socket is down, it falls back to the current AI strike so the game still opens.
+
+5. **Reconcile and survive a drop.** The client predicts, then rewinds to the server’s `lastSeq`. A dropped pilot keeps the seat for 5 seconds and returns with the token. Test that with two phones before adding eight more.
+
+6. **Fill the wing.** Empty seats stay AI. A human who joins takes the seat. Ten people is the goal. Two people plus eight AI is a valid 5v5 on the way there.
+
+7. **Put accounts under the payout.** Credits, cargo, cleared sorties, and tech live on the server, tied to a login. The replay judge already refuses a made-up total. It still needs a player to attach that total to.
+
+8. **Measure the budget.** 60 fps, under 1.5 GB RAM, under 3.5 GB install, on a mid-range phone, during a full wing fight. Fix what breaks the budget before adding more systems.
+
+9. **Package it.** A store build, or a PWA that installs and resumes, with the icon, the title plate, and the loading path you already have. Confirm launch, audio unlock, and a full sortie on the devices you will support.
+
+10. **Operate it.** Logs, a way to see a bad match, a way to refuse a cheated result, and a release checklist: install, resume, mute, pause, reconnect, and payout. Do not call it production until that list passes on a device that is not this sandbox.

@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "16:9"
+previewPath = "/war-for-mars-launch-video/"
+title = "WAR FOR MARS — 5v5 Launch Film"
+description = "A short launch film introducing WAR FOR MARS and its live ten-seat 5v5 wing."
+version = "1.0.0"
+id = "artifacts/war-for-mars-launch-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/war-for-mars-launch-video/" ]
+localPort = 20981
+
+[services.development]
+run = "pnpm --filter @workspace/war-for-mars-launch-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/war-for-mars-launch-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/war-for-mars-launch-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20981"
+BASE_PATH = "/war-for-mars-launch-video/"
