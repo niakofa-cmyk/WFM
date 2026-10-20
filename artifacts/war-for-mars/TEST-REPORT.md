@@ -1,33 +1,52 @@
-# WAR FOR MARS — Multiplayer and Strike Validation Report
+# WAR FOR MARS — Reproducible Build and Combat Report
 
 **Test date:** 2026-10-20
-**Source commit tested:** `a502edc82ecee8834c1a093893cc327759223173`
-**Status:** Workspace build and server-side multiplayer checks passed. Physical-phone acceptance is still pending.
+**Source commit tested:** `2074199fd271b2ee3b0bce13544792f3981730e2`
+**Result:** Clean-checkout workspace build and tests passed. Actual-phone acceptance remains outstanding.
 
-## Automated evidence
+## Reproduction environment and commands
+
+- Node.js `v24.13.0`
+- pnpm `10.26.1`
+- Fresh detached worktree at the source commit above
+- `pnpm install --frozen-lockfile` — PASS; lockfile was current across all 10 workspace projects.
+- `pnpm run typecheck` — PASS.
+- `pnpm run build` — PASS; workspace builds completed.
+- `pnpm --filter @workspace/api-server run build:socket` — PASS.
+- `pnpm test` — PASS; 15 passed, 0 failed.
+
+The game build also completed directly with `pnpm --filter @workspace/war-for-mars run build`. The API package build emits both `dist/index.mjs` and `dist/socket.mjs`.
+
+## Evidence
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Workspace build | PASS | `pnpm run build` completed root typechecks and builds for the configured workspace artifacts. |
-| Workspace tests | PASS | `pnpm test`: 8 passed, 0 failed. |
-| Six-minute strike simulation | PASS | A full 60 Hz, 360-second simulation reached the strike timer boundary and closed with a result. |
-| Ten-client multiplayer | PASS | Ten WebSocket clients occupied seats 0–9; teams were split 5/5. |
-| Room isolation | PASS | A second room had its own slot 0; input sequence acknowledgement in the first room stayed at 0 in the second. |
-| Reconnect | PASS | A replacement connection reclaimed the disconnected pilot’s original seat using its reconnect token. |
-| Reward API validation | PASS | A valid replay claim returned a server-computed result; an invalid input claim returned HTTP 400. |
-| API and socket runtime | PASS | API health returned HTTP 200; socket health returned HTTP 200 and the socket bound to port 8099. |
-| Routed WebSocket/API smoke | PASS | The routed API health request returned HTTP 200; the routed WebSocket joined a room and received its assigned seat. |
+| Six-minute Strike | PASS | Automated 60 Hz simulation reached 360 seconds and resolved the tied-integrity result. |
+| Flight controls | PASS | Unit tests verify eased turning and stronger counter-thrust than coasting. |
+| Enemy targeting | PASS | Tests verify escort priority, exposed-target selection, and projectile lead interception. |
+| Match comprehension | PASS | Tests cover relay capture/contest callouts and team-relative outcomes/reasons. |
+| Weapon/cooldown band | PASS | All eight ships meet the tested 16–22 sustained-DPS and 7–12 second ultimate-cooldown bands. |
+| Ten-client server smoke | PASS | Ten live clients filled seats 0–9 across two 5-seat teams; input sequence 1 was acknowledged. |
+| Room isolation | PASS | A second live room kept its own `lastSeq` at 0 while the first room acknowledged input 1. |
+| Multiplayer and reward tests | PASS | Existing server tests plus new combat tests: 15 total, no failures. |
+| API runtime | PASS | API health returned HTTP 200; socket process listened on port 8099. |
 
-The repeatable integration tests are in `artifacts/api-server/src/socket/server.test.ts`, `artifacts/api-server/src/game/rewards.test.ts`, and `artifacts/api-server/src/routes/strikes.test.ts`.
+The server and client combat engines were compared after the changes; their only remaining difference is the server-only AI control branch for the unoccupied player seat. Ship balance data matches in both copies.
+
+## Combat changes included in the tested commit
+
+- Flight controls now ease steering input, coast more gradually, and respond more strongly to counter-thrust.
+- AI prioritizes the escort objective, favors exposed targets, and leads moving targets based on projectile speed.
+- Sustained damage values were brought into a narrower band; cooldowns for the support and ram abilities were shortened modestly.
+- The in-match HUD labels shield and hull, reports relay ownership/capture progress/contesting, and explains the result from each team’s perspective.
+- The debrief states the specific reason the match ended.
 
 ## Physical-device status
 
-**Not tested on physical phones.** No physical device or device farm was available to this run. Desktop preview screenshots and loopback WebSocket tests are not evidence of actual-phone usability, frame rate, memory use, touch behavior, or audio behavior. The two-phone test procedure is in `PHONE-PLAYTEST-CHECKLIST.md`.
-
-The phone acceptance still needs two devices to check the room-code join, separate rooms, reconnect seat hold, all eight ships’ touch controls, the two-minute practice match, and a six-minute match on hardware.
+**Not tested on physical phones.** No physical device or device farm was available to this run. A browser viewport and WebSocket smoke test do not verify real-device frame rate, touch behavior, memory use, or audio. The two-phone procedure is in `PHONE-PLAYTEST-CHECKLIST.md`; it still needs a hardware run.
 
 ## Known limits
 
-- Strike outcomes and reward amounts are now recomputed by the API server from a bounded replay; the browser no longer calculates the grant. Credits and campaign progress are still stored in local storage, not in an authenticated server-side account ledger. This does not yet provide durable, cheat-resistant player balances.
-- The WAR FOR MARS client bundle is 758.74 kB minified (207.98 kB gzip), above Vite’s 500 kB chunk warning threshold. The production build succeeds, but this bundle has not been measured on a phone.
-- Room state is process-memory state. A server restart ends active rooms.
+- The game JavaScript bundle is 762.99 kB minified (209.29 kB gzip), above Vite’s 500 kB warning threshold. It builds successfully but has not been measured on a phone.
+- Replay outcomes and reward amounts are recomputed by the API server; credits and campaign progress remain in local storage rather than an authenticated persistent account ledger.
+- Multiplayer room state is held in process memory and ends when the socket server restarts.
