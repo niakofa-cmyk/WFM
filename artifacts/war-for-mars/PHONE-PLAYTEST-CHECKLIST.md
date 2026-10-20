@@ -88,6 +88,25 @@ Use Practice for the short clock and Strike for the long clock. A match that end
 | Practice | 2:00 | | | | |
 | Strike | 6:00 | | | | |
 
+## Two-phone room and reconnect checks
+
+Run these with two phones on the same app build. Keep the room code private to the test group.
+
+- [ ] Phone A creates a new room; note the displayed code.
+- [ ] Phone B joins using that code and lands in the same 5v5 match.
+- [ ] Confirm both phones show the same room code and different pilot seats.
+- [ ] Confirm an empty seat is still flown by AI and both phones receive live movement updates.
+- [ ] Create a second room on Phone B (or a separate browser session); confirm it starts in a separate match and does not share positions or input acknowledgements with the first room.
+- [ ] Disconnect Phone A briefly, reconnect with the same room code, and verify its seat is reclaimed within the five-second hold.
+- [ ] Copy the displayed room code from the arena and paste it into the join field on the other phone.
+
+| Check | Phone A | Phone B | Result / notes |
+| --- | --- | --- | --- |
+| Same room / separate seats | | | |
+| Independent second room | | | |
+| Reconnect / seat hold | | | |
+| Room-code copy / paste | | | |
+
 ## Summary and tuning decisions
 
 - Biggest control problem:
@@ -106,6 +125,7 @@ For every reported issue, include the ship, mode, exact sequence of taps or gest
 - [ ] All eight ships received a short touch-control pass.
 - [ ] Fire, lock, and each ship's ability were exercised.
 - [ ] Both clock modes were checked; any unverified timeout is explicitly recorded.
+- [ ] Two phones tested joining the same room, an independent room, and reconnect.
 - [ ] Blocker issues have an owner and a reproducible report.
 - [ ] Results identify the phone, OS, browser, build, and test date.
 

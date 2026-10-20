@@ -1473,7 +1473,25 @@ export function Arena({
               <span ref={wingRef}>WING</span>
             </p>
             {online ? (
-              <p className="font-hud text-[10px] tracking-widest text-solar">ROOM {online.roomId.toUpperCase()}</p>
+              <button
+                type="button"
+                aria-label={`Copy room code ${online.roomId.toUpperCase()}`}
+                className="pointer-events-auto font-hud text-[10px] tracking-widest text-solar"
+                onClick={async (event) => {
+                  const button = event.currentTarget;
+                  try {
+                    await navigator.clipboard.writeText(online.roomId.toUpperCase());
+                    button.textContent = "ROOM CODE COPIED";
+                    window.setTimeout(() => {
+                      if (button.isConnected) button.textContent = `ROOM ${online.roomId.toUpperCase()} · COPY`;
+                    }, 1400);
+                  } catch {
+                    button.textContent = `ROOM ${online.roomId.toUpperCase()}`;
+                  }
+                }}
+              >
+                ROOM {online.roomId.toUpperCase()} · COPY
+              </button>
             ) : null}
             <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
             <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />

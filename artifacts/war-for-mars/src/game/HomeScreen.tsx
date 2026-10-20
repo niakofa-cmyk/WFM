@@ -108,14 +108,14 @@ function MainMenu({ onAction, onOnline, onCreateRoom, onRoomCode, roomCode, onli
               autoComplete="off"
               maxLength={24}
               onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-              placeholder="ROOM CODE"
+              placeholder="6–24 CHAR ROOM CODE"
               value={roomCode}
               className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
             />
             <button
               type="button"
               data-testid="button-join-room"
-              disabled={roomCode.trim().length < 3}
+              disabled={roomCode.trim().length < 6}
               onClick={() => onOnline(roomCode)}
               className="h-11 border border-bone/40 px-3 font-hud tracking-widest text-bone disabled:opacity-40"
             >

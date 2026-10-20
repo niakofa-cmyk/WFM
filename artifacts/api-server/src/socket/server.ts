@@ -11,7 +11,7 @@ import {
 
 const MAX_ROOMS = 64;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
-const ROOM_ID = /^[a-z0-9][a-z0-9-]{2,23}$/i;
+const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
 
 type Room = {
   id: string;

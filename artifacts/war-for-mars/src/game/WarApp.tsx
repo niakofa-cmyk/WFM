@@ -69,8 +69,8 @@ export function WarApp() {
   const joinOnline = (requestedRoomCode: string) => {
     if (joinSocketRef.current) return;
     const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(normalizedRoomCode)) {
-      setOnlineStatus("Enter a room code (3–24 letters, numbers, or hyphens).");
+    if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
+      setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
       return;
     }
     setRoomCode(normalizedRoomCode);
@@ -361,7 +361,7 @@ export function WarApp() {
         roomCode={roomCode}
         onRoomCode={setRoomCode}
         onCreateRoom={() => {
-          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
+          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
           setRoomCode(generated);
           joinOnline(generated);
         }}

@@ -1,1 +1,1 @@
-- [Online multiplayer scope](online-multiplayer-scope.md) — keep the first multiplayer release to one 10-seat 5v5 room; defer matchmaking, accounts, and a shared galaxy.
+- [Online multiplayer scope](online-multiplayer-scope.md) — use isolated invite-code 10-seat 5v5 rooms; defer matchmaking, accounts, and a shared galaxy.

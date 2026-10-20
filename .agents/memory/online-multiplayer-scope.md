@@ -3,10 +3,10 @@ name: Online multiplayer scope
 description: The user's stated scope boundary for the first online multiplayer milestone.
 ---
 
-Follow the user's 10-step ship-readiness order: (1) finish one fight on a phone, (2) lock combat rules, (3) stand up one 10-seat 5v5 socket room, (4) connect the client with AI-strike fallback, (5) reconcile and test reconnect with a 5-second seat hold/token on two phones, (6) fill open seats with AI, (7) attach credits, cargo, sorties, and tech to login, (8) meet 60 fps, <1.5 GB RAM, and <3.5 GB install on a mid-range phone, (9) package as a store build or resumable PWA, and (10) verify operations/release checks on a real device.
+Use isolated invite-code rooms, each with ten seats split 5v5, the existing AI fill, and a five-second reconnect hold. Preserve the user's updated direction to establish independent rooms and prove ten concurrent clients before moving on to durable account rewards.
 
-Keep multiplayer to one room; do not add matchmaking or a shared galaxy unless asked. Accounts belong after the wing and reconnect milestones, not before.
+Do not add matchmaking or a shared galaxy unless asked. Accounts and a persistent server-side reward ledger remain after multiplayer/reconnect milestones, not before. Continue to distinguish code simulation from real-phone testing.
 
-**Why:** the user supplied this ordered roadmap as the path to shippability, including which device, security, performance, and release checks must be proven.
+**Why:** the user explicitly expanded the multiplayer requirement from a single room to independent rooms and asked for a full ten-client test; the remaining roadmap still defers accounts and shared-galaxy systems.
 
-**How to apply:** work on the earliest unfinished step, distinguish code verification from real-device validation, and do not claim production readiness until the listed operational checks pass on a supported device.
+**How to apply:** keep room state isolated on the server, test ten sockets against one room plus a separate room, and do not claim phone performance or release readiness until checked on physical devices.
