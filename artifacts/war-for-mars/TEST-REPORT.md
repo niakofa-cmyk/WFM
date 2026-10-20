@@ -29,7 +29,7 @@ The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warn
 
 ## Mobile evidence and limits
 
-The four automated mobile-control tests pass: combined touch actions, input clearing on lost focus, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup.
+The four automated mobile-control tests pass: combined touch actions, the input-reset helper used for lost-focus behavior, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup. App-level visibility, pointer-cancel, and orientation handlers are present but still need physical-browser validation.
 
 No physical Android phone or iPhone was available. Android Chrome and iOS Safari frame rate, frame pacing, memory, thermal behavior, full six-minute play, and hands-on touch controls remain **NOT RUN**. The evidence matrix and acceptance procedure are in `MOBILE-CERTIFICATION.md`; the tactile checklist is `PHONE-PLAYTEST-CHECKLIST.md`.
 

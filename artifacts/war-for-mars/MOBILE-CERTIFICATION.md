@@ -15,7 +15,7 @@ This report separates automated control/lifecycle checks from Android Chrome and
 The automated mobile-control tests cover:
 
 - Combining both touch sticks with fire, lock, ability, evade, power selection, and gyro aim.
-- Clearing held keys, sticks, fire, and latched actions after focus is lost.
+- Clearing held keys, sticks, fire, and latched actions through the reset helper used by focus-loss handling.
 - Gyro permission denial while retaining touch steering.
 - Gyro permission grant, calibration, orientation reset, and listener cleanup when disabled.
 
