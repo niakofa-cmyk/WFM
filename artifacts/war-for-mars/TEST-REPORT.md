@@ -1,27 +1,30 @@
 # WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Code commit verified:** `d1a9ad8dc2280732cd2eef7e328df0035332f4af`
-**Result:** Clean-checkout typecheck, tests, game/API builds, and socket build pass. Ship balance and physical phone certification remain open.
+**Code commit verified:** `e9317e2a818af0f6e7b0254b9ee5aade7fdae57a`
+**Result:** Workspace checks and automated ten-client room/match tests pass. Ship balance, realistic-network certification, and physical phone certification remain open.
 
 ## Reproduction
 
-Verified from a detached clean Git worktree using Node.js `v24.13.0` and pnpm `10.26.1`.
+Verified on the exact source commit above using Node.js `v24.13.0` and pnpm `10.26.1`.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| `pnpm install --frozen-lockfile` | PASS | Clean worktree; all 10 workspace projects; 538 packages reused, none downloaded. |
 | `pnpm run typecheck` | PASS | Shared libraries, artifacts, and scripts completed. |
-| `pnpm test` | PASS | 22 tests total: API/server 18/18 and game controls 4/4; zero failures. |
+| `pnpm test` | PASS | 25 tests total: API/server 21/21 and game controls 4/4; zero failures. |
 | `pnpm run build` | PASS | All workspace production builds completed. |
 | `pnpm --filter @workspace/api-server run build:socket` | PASS | API and WebSocket bundles built. |
-| `git diff --check` | PASS | No whitespace errors in the tested source commit. |
+| `git diff --check` | PASS | No whitespace errors before the code commit. |
+| Proxied `/healthz`, `/api/healthz`, and `/ws` | PASS | Both services returned healthy; browser-proxy WebSocket handshake joined a lobby. |
 
-The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
+The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
 
 ## Multiplayer and six-minute Strike evidence
 
-- The automated WebSocket test connects ten clients, fills a room, verifies reconnect, and confirms a second room remains isolated. This is an automated test, not a ten-person live playtest.
+- Ten simultaneous WebSocket clients receive balanced 5v5 seats, ready up, launch through the host gate, and complete the six-minute match clock; each sends sequenced input and receives the server's final match result. The test accelerates server ticks and keeps snapshots at 30 Hz so the six-minute clock completes in about 12 seconds.
+- Separate automated coverage verifies full-room rejection, late-join rejection after launch, independent invite-code rooms, five-second reconnect reservation, a 150 ms delayed input acknowledgement, bounded input values/sequences, message-rate limits, and stale-session handling after a server restart.
+- Lobby sessions are in-memory. A server restart deliberately reports that the old room cannot be restored; clients must create a fresh room. It does not recover an interrupted match. Empty disconnected rooms are reaped automatically, and a connected but idle lobby expires after 15 minutes; the long timeout itself was not waited out in an integration test.
+- These are local automated tests, not a ten-person playtest or a WAN test. The 150 ms delay is a local input delay; packet loss, jitter, regional latency, and sustained internet load remain untested.
 - Sequenced input acknowledgement, AI fill for empty seats, server-side strike reward replay, and six-minute timer resolution are covered by passing API tests.
 - The six-minute Strike simulation reaches the timer boundary and resolves tied integrity. This verifies runtime behavior, not qualitative combat polish or human competitive balance.
 
@@ -46,3 +49,5 @@ No physical Android or iPhone test run was performed. Android Chrome and iOS Saf
 - **Step 2 — six-minute Strike runtime:** automated timer and outcome tests pass; qualitative combat polish is not certified here.
 - **Step 3 — eight-ship balance:** measurements documented, but the gate remains open because lock/homing behavior is asymmetric and human 5v5 evidence is absent.
 - **Step 4 — physical mobile certification:** **NOT RUN** on Android Chrome or iOS Safari.
+- **Step 5 — independent lobbies and controlled launch:** PASS for invite-code rooms, ready-up, team assignment, host launch, full-room handling, and late-join rejection. Disconnected-room and 15-minute idle cleanup are implemented; the long timeout was not timed in a test.
+- **Step 6 — authoritative multiplayer:** automated ten-client full-match, reconnect, input-validation, room-isolation, and restart-failure handling pass. Realistic-network reliability and live human play remain **NOT CERTIFIED**.
