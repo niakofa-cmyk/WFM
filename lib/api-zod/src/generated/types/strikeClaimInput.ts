@@ -8,6 +8,6 @@
 import type { StrikeStepInput } from './strikeStepInput';
 
 export interface StrikeClaimInput {
-  /** @maxItems 22000 */
+  /** @maxItems 21600 */
   inputs: StrikeStepInput[];
 }

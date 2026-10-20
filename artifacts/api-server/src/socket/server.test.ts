@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
+import { startNetworkImpairmentProxy } from "./impairment-proxy";
 import { startWingSocketServer } from "./server";
 
 type Packet = { type?: string; [key: string]: unknown };
@@ -261,6 +262,129 @@ test("two pilots control separate slots and receive identical authoritative snap
     );
   } finally {
     await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("seeded impairment proxy exercises delayed, jittered, and lost input/snapshot frames", async (t) => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    tickIntervalMs: 2,
+    snapshotIntervalMs: 20,
+  });
+  let proxy: Awaited<ReturnType<typeof startNetworkImpairmentProxy>> | undefined;
+  let socket: WebSocket | undefined;
+  const clients: WebSocket[] = [];
+  try {
+    proxy = await startNetworkImpairmentProxy(`ws://127.0.0.1:${runtime.port}`, {
+      latencyMs: 35,
+      jitterMs: 20,
+      frameLossRate: 0.2,
+      seed: 41027,
+    });
+    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`);
+    clients.push(socket);
+    const client = socket;
+    const seat = await join(client, "Impaired pilot");
+    const ready = nextPacket(client, (packet) => {
+      if (packet.type !== "lobby") return false;
+      const state = packet as { players?: Array<{ connected: boolean; ready: boolean }> };
+      return Boolean(state.players?.filter((player) => player.connected).every((player) => player.ready));
+    });
+    client.send(JSON.stringify({ type: "ready", ready: true }));
+    await ready;
+    const started = nextPacket(client, (packet) => packet.type === "started");
+    client.send(JSON.stringify({ type: "start" }));
+    await started;
+
+    const acknowledged = nextPacket(
+      client,
+      (packet) =>
+        packet.type === "snapshot" &&
+        ((packet.snapshot as { players?: Array<{ lastSeq?: number }> } | undefined)
+          ?.players?.[seat.slotId]?.lastSeq ?? 0) >= 80,
+      10_000,
+    );
+    for (let seq = 1; seq <= 100; seq += 1) {
+      client.send(JSON.stringify({
+        type: "input",
+        input: {
+          seq,
+          throttle: 0.6,
+          yaw: 0,
+          strafe: 0,
+          pitch: 0,
+          fire: false,
+          ult: false,
+          lock: false,
+          evade: 0,
+          preset: null,
+        },
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 33));
+    }
+    const snapshot = await acknowledged;
+    const lastSeq = (snapshot.snapshot as { players: Array<{ lastSeq: number }> }).players[seat.slotId].lastSeq;
+
+    await close(client);
+    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`);
+    clients.push(socket);
+    const reclaimed = await join(socket, "Impaired pilot", seat.reconnectToken);
+    assert.equal(reclaimed.slotId, seat.slotId);
+    assert.equal(reclaimed.reconnectToken, seat.reconnectToken);
+    const afterReconnect = nextPacket(
+      socket,
+      (packet) =>
+        packet.type === "snapshot" &&
+        ((packet.snapshot as { players?: Array<{ lastSeq?: number }> } | undefined)
+          ?.players?.[seat.slotId]?.lastSeq ?? 0) >= 120,
+      10_000,
+    );
+    for (let seq = 101; seq <= 140; seq += 1) {
+      socket.send(JSON.stringify({
+        type: "input",
+        input: {
+          seq,
+          throttle: 0.6,
+          yaw: 0,
+          strafe: 0,
+          pitch: 0,
+          fire: false,
+          ult: false,
+          lock: false,
+          evade: 0,
+          preset: null,
+        },
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 33));
+    }
+    const resumedSnapshot = await afterReconnect;
+    const resumedSeq = (resumedSnapshot.snapshot as { players: Array<{ lastSeq: number }> }).players[seat.slotId].lastSeq;
+    const measured = proxy.metrics;
+
+    assert.ok(lastSeq >= 60);
+    assert.ok(resumedSeq >= 120);
+    assert.ok(measured.clientToServer.dropped > 0, "the configured input-frame loss was exercised");
+    assert.ok(measured.serverToClient.dropped > 0, "the configured snapshot-frame loss was exercised");
+    for (const direction of [measured.clientToServer, measured.serverToClient]) {
+      assert.ok(direction.forwarded > 0);
+      assert.ok(direction.delaySamples > 0);
+      assert.ok(direction.minDelayMs >= 15);
+      assert.ok(direction.maxDelayMs <= 55);
+      assert.ok(direction.maxDelayMs > direction.minDelayMs);
+    }
+    t.diagnostic(JSON.stringify({
+      seed: 41027,
+      latencyMs: 35,
+      jitterMs: 20,
+      frameLossRate: 0.2,
+      lastSeq,
+      resumedSeq,
+      clientToServer: measured.clientToServer,
+      serverToClient: measured.serverToClient,
+    }));
+  } finally {
+    for (const client of clients) await close(client);
+    if (proxy) await proxy.close();
     await runtime.close();
   }
 });

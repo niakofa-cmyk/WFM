@@ -380,7 +380,7 @@ components:
       properties:
         inputs:
           type: array
-          maxItems: 22000
+          maxItems: 21600
           items: { $ref: "#/components/schemas/StrikeStepInput" }
     StrikeClaimResult:
       type: object

@@ -227,7 +227,7 @@ export const claimStrikeBodyInputsItemPitchMax = 1;
 export const claimStrikeBodyInputsItemEvadeMin = -1;
 export const claimStrikeBodyInputsItemEvadeMax = 1;
 
-export const claimStrikeBodyInputsMax = 22000;
+export const claimStrikeBodyInputsMax = 21600;
 
 
 

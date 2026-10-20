@@ -21,6 +21,91 @@ import {
   ProgressionError,
   startPlayerStrike,
 } from "./progression";
+import {
+  adjudicateStrike,
+  PRACTICE_STEP_LIMIT,
+  STRIKE_STEP_LIMIT,
+  validateStrikeReplayInputs,
+  type ReplayClaim,
+} from "./rewards";
+
+test("strike replay validation enforces frame limits, strict input shapes, and pulse transitions", () => {
+  const idle = {
+    throttle: 0,
+    yaw: 0,
+    strafe: 0,
+    pitch: 0,
+    fire: false,
+    ult: false,
+    lock: false,
+    evade: 0,
+    preset: null,
+  };
+
+  assert.doesNotThrow(() => validateStrikeReplayInputs([idle], "practice"));
+  assert.throws(
+    () => validateStrikeReplayInputs(Array.from({ length: PRACTICE_STEP_LIMIT + 1 }, () => idle), "practice"),
+    /maximum frame count/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs(Array.from({ length: STRIKE_STEP_LIMIT + 1 }, () => idle), "strike"),
+    /maximum frame count/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...idle, extra: true }], "practice"),
+    /invalid control input/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...idle, yaw: 1.5 }], "practice"),
+    /invalid control input/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...idle, ult: true }, { ...idle, ult: true }], "practice"),
+    /release frame/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...idle, evade: 1 }, { ...idle, evade: -1 }], "practice"),
+    /release frame/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...idle, preset: 1 }, { ...idle, preset: 2 }], "practice"),
+    /release frame/i,
+  );
+});
+
+test("server replay rejects frames after the authoritative match has ended", () => {
+  const idle = {
+    throttle: 0,
+    yaw: 0,
+    strafe: 0,
+    pitch: 0,
+    fire: false,
+    ult: false,
+    lock: false,
+    evade: 0,
+    preset: null,
+  };
+  const claim: ReplayClaim = {
+    seed: 1,
+    shipId: "mandjet",
+    faction: "accord",
+    refit: 0,
+    pace: "practice",
+    goal: "extract",
+    disc: "dust",
+    allyCount: 3,
+    foeCount: 4,
+    tech: null,
+    inputs: Array.from({ length: 4_147 }, () => idle),
+    mission: "cage",
+    cleared: 0,
+    hold: null,
+    paid: 0,
+    prices: { salt: 40, iron: 70, dust: 110, resin: 55 },
+  };
+
+  assert.throws(() => adjudicateStrike(claim), /after the match ended/i);
+});
 
 test("progression request schemas reject client-authored balances and campaign clears", () => {
   assert.equal(
@@ -127,6 +212,13 @@ test(
         replay.push(input);
       }
       assert.ok(match.over);
+
+      await assert.rejects(
+        claimPlayerStrike(userId, currentRun.runId, [...replay, input]),
+        (error: unknown) => error instanceof ProgressionError &&
+          error.status === 400 &&
+          /maximum frame count|after the match ended/i.test(error.message),
+      );
 
       const firstClaim = await claimPlayerStrike(userId, currentRun.runId, replay);
       assert.equal("error" in firstClaim, false);

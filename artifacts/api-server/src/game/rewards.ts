@@ -1,10 +1,17 @@
 import { relaysHeld, createMatch, step, type Disc, type Goal, type Pace, type StepInput } from "./sim";
 import { SHIPS, type Faction, type ShipId } from "./ships";
 
-export const STRIKE_STEP_LIMIT = 22_000;
+export const STRIKE_STEP_LIMIT = 360 * 60;
+export const PRACTICE_STEP_LIMIT = 120 * 60;
 export const GOOD_IDS = ["salt", "iron", "dust", "resin"] as const;
 export type GoodId = (typeof GOOD_IDS)[number];
 export type MissionId = "skirmish" | "contact" | "beacon" | "warden" | "cage";
+export class InvalidStrikeReplay extends Error {
+  constructor(message = "The replay contains invalid control input.") {
+    super(message);
+    this.name = "InvalidStrikeReplay";
+  }
+}
 export class IncompleteStrikeReplay extends Error {
   constructor() {
     super("The replay ended before the match was resolved.");
@@ -44,6 +51,60 @@ const MISSION_ORDER: Record<MissionId, number> = {
   warden: 2,
   cage: 3,
 };
+const STEP_INPUT_KEYS = new Set([
+  "throttle",
+  "yaw",
+  "strafe",
+  "pitch",
+  "fire",
+  "ult",
+  "lock",
+  "evade",
+  "preset",
+]);
+
+export function validateStrikeReplayInputs(inputs: unknown, pace: Pace): asserts inputs is StepInput[] {
+  const maxFrames = pace === "strike" ? STRIKE_STEP_LIMIT : PRACTICE_STEP_LIMIT;
+  if (!Array.isArray(inputs) || inputs.length > maxFrames) {
+    throw new InvalidStrikeReplay("The replay exceeds the maximum frame count for this match.");
+  }
+
+  let previous: StepInput | undefined;
+  for (const frame of inputs) {
+    if (frame === null || typeof frame !== "object" || Array.isArray(frame)) {
+      throw new InvalidStrikeReplay();
+    }
+    const record = frame as Record<string, unknown>;
+    const keys = Object.keys(record);
+    if (keys.length !== STEP_INPUT_KEYS.size || keys.some((key) => !STEP_INPUT_KEYS.has(key))) {
+      throw new InvalidStrikeReplay();
+    }
+    for (const axis of ["throttle", "yaw", "strafe", "pitch", "evade"] as const) {
+      if (typeof record[axis] !== "number" || !Number.isFinite(record[axis]) || record[axis] < -1 || record[axis] > 1) {
+        throw new InvalidStrikeReplay();
+      }
+    }
+    if (
+      typeof record.fire !== "boolean" ||
+      typeof record.ult !== "boolean" ||
+      typeof record.lock !== "boolean" ||
+      !(record.preset === null || record.preset === 0 || record.preset === 1 || record.preset === 2 || record.preset === 3)
+    ) {
+      throw new InvalidStrikeReplay();
+    }
+    const input = frame as StepInput;
+    if (
+      previous &&
+      ((previous.ult && input.ult) ||
+        (previous.lock && input.lock) ||
+        (previous.evade !== 0 && input.evade !== 0) ||
+        (previous.preset !== null && input.preset !== null))
+    ) {
+      throw new InvalidStrikeReplay("One-shot controls must include a release frame between activations.");
+    }
+    previous = input;
+  }
+}
 
 function clampInt(value: number, low: number, high: number) {
   return Math.max(low, Math.min(high, Math.floor(Number.isFinite(value) ? value : low)));
@@ -80,6 +141,7 @@ function missionUnlocked(mission: MissionId, cleared: number) {
 }
 
 export function adjudicateStrike(claim: ReplayClaim) {
+  validateStrikeReplayInputs(claim.inputs, claim.pace);
   const shipId = Object.hasOwn(SHIPS, claim.shipId) ? claim.shipId : "mandjet";
   const prices = pricesFrom(claim);
   const hold = claim.hold;
@@ -91,8 +153,10 @@ export function adjudicateStrike(claim: ReplayClaim) {
     foeCount: claim.foeCount,
     tech: claim.tech,
   });
-  for (const input of claim.inputs.slice(0, STRIKE_STEP_LIMIT)) {
-    if (match.over) break;
+  for (const input of claim.inputs) {
+    if (match.over) {
+      throw new InvalidStrikeReplay("The replay contains control frames after the match ended.");
+    }
     step(match, input, 1 / 60);
   }
 

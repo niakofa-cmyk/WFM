@@ -11,6 +11,8 @@ import {
 import {
   adjudicateStrike,
   IncompleteStrikeReplay,
+  InvalidStrikeReplay,
+  validateStrikeReplayInputs,
   type GoodId,
   type MissionId,
   type ReplayClaim,
@@ -271,6 +273,12 @@ export async function claimPlayerStrike(
   runId: string,
   inputs: StrikeClaimInputs,
 ) {
+  try {
+    validateStrikeReplayInputs(inputs, "strike");
+  } catch (error) {
+    if (error instanceof InvalidStrikeReplay) throw new ProgressionError(error.message, 400);
+    throw error;
+  }
   const replayHash = createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
   return db.transaction(async (tx) => {
     const [run] = await tx
@@ -306,7 +314,7 @@ export async function claimPlayerStrike(
     try {
       grant = adjudicateStrike({ ...config, inputs } satisfies ReplayClaim);
     } catch (error) {
-      if (error instanceof IncompleteStrikeReplay) {
+      if (error instanceof IncompleteStrikeReplay || error instanceof InvalidStrikeReplay) {
         throw new ProgressionError(error.message, 400);
       }
       throw error;

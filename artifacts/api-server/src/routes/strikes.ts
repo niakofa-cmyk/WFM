@@ -6,6 +6,7 @@ import {
   ProgressionError,
   startPlayerStrike,
 } from "../game/progression";
+import { InvalidStrikeReplay, validateStrikeReplayInputs } from "../game/rewards";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -40,7 +41,14 @@ router.post("/strikes/start", async (req, res, next) => {
 router.post("/strikes/:runId/claim", async (req, res, next) => {
   const params = z.object({ runId: z.string().uuid() }).safeParse(req.params);
   const parsed = ClaimStrikeBody.strict().safeParse(req.body);
-  if (!params.success || !parsed.success) {
+  let replayInputsValid = false;
+  try {
+    validateStrikeReplayInputs(req.body?.inputs, "strike");
+    replayInputsValid = true;
+  } catch (error) {
+    if (!(error instanceof InvalidStrikeReplay)) throw error;
+  }
+  if (!params.success || !parsed.success || !replayInputsValid) {
     res.status(400).json({ error: "invalid_strike_claim" });
     return;
   }
