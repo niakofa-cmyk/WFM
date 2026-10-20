@@ -5,3 +5,4 @@
 - [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
 - [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
 - [Socket shutdown checks](replit-socket-shutdown.md) — direct Node SIGTERM delivers the notice; a managed workflow restart may abruptly close clients instead.
+- [Offline progression](offline-progression-policy.md) — cached worlds are read-only; unresolved action identities survive reloads and remain server-validated.

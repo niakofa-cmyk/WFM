@@ -5,6 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryHolding } from './inventoryHolding';
+import type { WorldActivity } from './worldActivity';
+import type { WorldActivityRecord } from './worldActivityRecord';
 import type { WorldEvent } from './worldEvent';
 import type { WorldLocation } from './worldLocation';
 import type { WorldQuest } from './worldQuest';
@@ -12,6 +15,14 @@ import type { WorldRoute } from './worldRoute';
 import type { WorldStateReputation } from './worldStateReputation';
 
 export interface WorldState {
+  /**
+     * @minimum 1
+     * @maximum 3
+     */
+  hyperdriveTier: number;
+  inventory: InventoryHolding[];
+  activities: WorldActivity[];
+  history: WorldActivityRecord[];
   event: WorldEvent;
   reputation: WorldStateReputation;
   currentLocation: string;

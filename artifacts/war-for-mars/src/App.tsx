@@ -1,7 +1,9 @@
 import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
@@ -131,11 +133,14 @@ function PublicLanding() {
 }
 
 function SignedInGame() {
+  const client = useQueryClient();
+  useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
+      <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>

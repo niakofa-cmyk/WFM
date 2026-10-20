@@ -185,6 +185,21 @@ paths:
           description: Authentication required
         "409":
           description: Idempotency key conflict
+  /world/services:
+    post:
+      operationId: executeWorldService
+      tags: [World]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorldServiceInput" }
+      responses:
+        "200":
+          description: Server-validated station or field activity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorldServiceResult" }
   /world:
     get:
       operationId: getWorld
@@ -444,14 +459,19 @@ components:
         goodId: { $ref: "#/components/schemas/TradeGoodId" }
         side: { type: string, enum: [buy, sell] }
         quantity: { type: integer, minimum: 1, maximum: 50 }
+        totalLimit: { type: integer, minimum: 1 }
     MarketListing:
       type: object
-      required: [goodId, name, basePrice, price, stock, targetStock, demandScore, modifierBps, revision, updatedAt]
+      required: [goodId, name, basePrice, price, sellPrice, buyTotals, sellTotals, purpose, stock, targetStock, demandScore, modifierBps, revision, updatedAt]
       properties:
         goodId: { $ref: "#/components/schemas/TradeGoodId" }
         name: { type: string }
         basePrice: { type: integer, minimum: 1 }
         price: { type: integer, minimum: 1 }
+        sellPrice: { type: integer, minimum: 1 }
+        purpose: { type: string }
+        buyTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
+        sellTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
         stock: { type: integer, minimum: 0 }
         targetStock: { type: integer, minimum: 1 }
         demandScore: { type: integer, minimum: -100, maximum: 100 }
@@ -526,6 +546,10 @@ components:
         unlockAfter: { type: integer, minimum: 0, maximum: 4 }
         unlocked: { type: boolean }
         explored: { type: boolean }
+        sector: { type: string }
+        requiredTechTier: { type: integer }
+        requiredRep: { type: integer }
+        lockReason: { type: ["string", "null"] }
         description: { type: string }
         services:
           type: array
@@ -544,15 +568,19 @@ components:
         reputationReward: { type: integer, minimum: 0 }
     WorldState:
       type: object
-      required: [event, reputation, currentLocation, routes, locations, discoveries, quests]
+      required: [event, reputation, currentLocation, routes, locations, discoveries, quests, hyperdriveTier, inventory, activities, history]
       properties:
+        hyperdriveTier: { type: integer, minimum: 1, maximum: 3 }
+        inventory: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        activities: { type: array, items: { $ref: "#/components/schemas/WorldActivity" } }
+        history: { type: array, items: { $ref: "#/components/schemas/WorldActivityRecord" } }
         event: { $ref: "#/components/schemas/WorldEvent" }
         reputation:
           type: object
           required: [accord, ussf]
           properties:
-            accord: { type: integer, minimum: 0 }
-            ussf: { type: integer, minimum: 0 }
+            accord: { type: integer, minimum: -100, maximum: 100 }
+            ussf: { type: integer, minimum: -100, maximum: 100 }
         currentLocation: { type: string }
         routes:
           type: array
@@ -580,6 +608,7 @@ components:
       properties:
         idempotencyKey: { type: string, format: uuid }
         destinationId: { type: string }
+        maxCost: { type: integer, minimum: 0 }
     WorldTravelResult:
       type: object
       required: [world, credits, travelCost, replayed]
@@ -615,5 +644,49 @@ components:
         world: { $ref: "#/components/schemas/WorldState" }
         credits: { type: integer, minimum: 0 }
         rewardCredits: { type: integer, minimum: 0 }
+        replayed: { type: boolean }
+    WorldActivity:
+      type: object
+      required: [id, title, description, risk, available, reason, daily, creditCost, rewardCredits, costs, rewards, reputationDelta, rivalReputationDelta]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        risk: { type: string }
+        available: { type: boolean }
+        reason: { type: ["string", "null"] }
+        daily: { type: boolean }
+        creditCost: { type: integer, minimum: 0 }
+        rewardCredits: { type: integer, minimum: 0 }
+        costs: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        rewards: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        reputationDelta: { type: integer }
+        rivalReputationDelta: { type: integer }
+    WorldActivityRecord:
+      type: object
+      required: [id, title, creditsDelta, createdAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        creditsDelta: { type: integer }
+        createdAt: { type: string, format: date-time }
+    WorldServiceInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, serviceId, locationId, cycleDate]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        serviceId: { type: string }
+        creditLimit: { type: integer, minimum: 0 }
+        locationId: { type: string }
+        cycleDate: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    WorldServiceResult:
+      type: object
+      required: [world, credits, refit, message, replayed]
+      properties:
+        world: { $ref: "#/components/schemas/WorldState" }
+        credits: { type: integer, minimum: 0 }
+        refit: { type: integer, minimum: 0, maximum: 5 }
+        message: { type: string }
         replayed: { type: boolean }
 

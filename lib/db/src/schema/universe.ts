@@ -2,6 +2,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 import {
   check,
+  boolean,
   date,
   index,
   integer,
@@ -93,6 +94,7 @@ export const universeEventsTable = pgTable("universe_events", {
     .$type<WorldMarketModifiers>()
     .notNull()
     .default({}),
+  supplyApplied: boolean("supply_applied").notNull().default(false),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -103,9 +105,14 @@ export const playerWorldStateTable = pgTable("player_world_state", {
   currentLocation: text("current_location").notNull().default("phobos-yard"),
   accordReputation: integer("accord_reputation").notNull().default(0),
   ussfReputation: integer("ussf_reputation").notNull().default(0),
+  hyperdriveTier: integer("hyperdrive_tier").notNull().default(1),
   revision: integer("revision").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  check("world_hyperdrive_tier_range", sql`${table.hyperdriveTier} between 1 and 3`),
+  check("world_accord_standing_range", sql`${table.accordReputation} between -100 and 100`),
+  check("world_ussf_standing_range", sql`${table.ussfReputation} between -100 and 100`),
+]);
 
 export const worldDiscoveriesTable = pgTable(
   "world_discoveries",

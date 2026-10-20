@@ -14,7 +14,6 @@ import { sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
-  sendProgressionAction,
   startServerStrike,
 } from "./progression-api";
 import {
@@ -31,6 +30,7 @@ import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
+import { useDurableAction } from "./useDurableAction";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -90,7 +90,7 @@ export function WarApp() {
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-  const actionKeyRef = useRef<string | null>(null);
+  const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
@@ -393,6 +393,17 @@ export function WarApp() {
   }, [profileRetry]);
 
   useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void loadServerProfile().then((profile) => {
+        if (!cancelled) setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      }).catch(() => { if (!cancelled) setActionError("Server action confirmed; profile refresh unavailable. Retry loading before another purchase."); });
+    };
+    window.addEventListener("wfm:profile-refresh", refresh);
+    return () => { cancelled = true; window.removeEventListener("wfm:profile-refresh", refresh); };
+  }, []);
+
+  useEffect(() => {
     if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
   }, [save.gyro, save.drilled, ready]);
 
@@ -475,24 +486,15 @@ export function WarApp() {
   };
 
   const performRefit = async () => {
-    if (actionBusy) return;
+    if (actionBusy || durable.blocked) return;
     if (pendingClaim) {
       setActionError("Retry the pending sortie verification before changing the yard ledger.");
       return;
     }
-    const idempotencyKey = actionKeyRef.current ?? crypto.randomUUID();
-    actionKeyRef.current = idempotencyKey;
     setActionBusy(true);
     setActionError("");
     try {
-      const result = await sendProgressionAction({
-        idempotencyKey,
-        action: "refit",
-      });
-      setSave((previous) =>
-        saveFromProfile(result.profile, { gyro: previous.gyro, drilled: previous.drilled }),
-      );
-      actionKeyRef.current = null;
+      await durable.run({ kind: "refit", data: { action: "refit" } }, "Standard Phobos ship refit");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The yard rejected that transaction.");
     } finally {
@@ -817,7 +819,7 @@ export function WarApp() {
         tech={save.tech}
         cleared={save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
-        refitDisabled={save.refit >= 5 || save.credits < cost}
+        refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
@@ -1150,7 +1152,7 @@ export function WarApp() {
           </button>
           <button
             type="button"
-            disabled={actionBusy || save.refit >= 5 || save.credits < cost}
+            disabled={actionBusy || durable.blocked || save.refit >= 5 || save.credits < cost}
             className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
             onClick={() => void performRefit()}
           >

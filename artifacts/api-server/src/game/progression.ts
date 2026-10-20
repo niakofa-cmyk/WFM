@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   strikeRunsTable,
   type MarketPrices,
@@ -231,6 +232,9 @@ export async function applyPlayerAction(
       };
     }
 
+    await tx.insert(playerWorldStateTable).values({ userId }).onConflictDoNothing();
+    const [world] = await tx.select().from(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
+    if (world?.currentLocation !== "phobos-yard") throw new ProgressionError("Return to Phobos Yard for a ship refit.", 400);
     let refit = profile.refit;
     if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
     const amount = -120 * (refit + 1);

@@ -14,6 +14,21 @@ export interface MarketListing {
   basePrice: number;
   /** @minimum 1 */
   price: number;
+  /** @minimum 1 */
+  sellPrice: number;
+  purpose: string;
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  buyTotals: number[];
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  sellTotals: number[];
   /** @minimum 0 */
   stock: number;
   /** @minimum 1 */
