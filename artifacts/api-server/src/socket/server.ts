@@ -411,7 +411,18 @@ export async function startWingSocketServer(
     async close() {
       clearInterval(timer);
       clearInterval(heartbeat);
-      for (const socket of sockets.clients) socket.close(1001, "Server shutting down");
+      for (const socket of sockets.clients) {
+        const client = clients.get(socket);
+        const room = client?.room;
+        const interrupted =
+          room?.phase === "active" && !room.wing.match.over && socket.readyState === WebSocket.OPEN;
+        if (interrupted) {
+          send(socket, { type: "interrupted", reason: "server_restart" });
+          socket.close(4002, "server_restart");
+        } else {
+          socket.close(1001, "Server shutting down");
+        }
+      }
       await new Promise<void>((resolve) => sockets.close(() => resolve()));
       await new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));

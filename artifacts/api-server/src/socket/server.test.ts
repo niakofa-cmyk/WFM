@@ -187,6 +187,84 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
   }
 });
 
+test("two pilots control separate slots and receive identical authoritative snapshots", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    tickIntervalMs: 2,
+    snapshotIntervalMs: 20,
+  });
+  const sockets: WebSocket[] = [];
+  try {
+    const url = `ws://127.0.0.1:${runtime.port}/ws?room=mars-pilots`;
+    const pilots = await Promise.all([connect(url), connect(url)]);
+    sockets.push(...pilots);
+    const seats = await Promise.all(pilots.map((socket, index) => join(socket, `Human ${index}`)));
+    assert.notEqual(seats[0].slotId, seats[1].slotId);
+    assert.notEqual(seats[0].team, seats[1].team);
+
+    const ready = nextPacket(pilots[0], (packet) => {
+      if (packet.type !== "lobby") return false;
+      const state = packet as { players?: Array<{ connected: boolean; ready: boolean }> };
+      return Boolean(state.players?.filter((player) => player.connected).every((player) => player.ready));
+    });
+    pilots.forEach((socket) => socket.send(JSON.stringify({ type: "ready", ready: true })));
+    await ready;
+
+    const starts = pilots.map((socket) => nextPacket(socket, (packet) => packet.type === "started"));
+    pilots[0].send(JSON.stringify({ type: "start" }));
+    const startPackets = await Promise.all(starts);
+    const initialSnapshot = startPackets[0].snapshot as { match: {
+      player: { x: number; z: number };
+      enemies: Array<{ x: number; z: number }>;
+    } };
+    const initialMatch = initialSnapshot.match;
+
+    const hasBothInputs = (packet: Packet) => {
+      if (packet.type !== "snapshot") return false;
+      const snapshot = packet.snapshot as { players?: Array<{ lastSeq?: number }> } | undefined;
+      return seats.every((seat) => snapshot?.players?.[seat.slotId]?.lastSeq === 1);
+    };
+    const receivedSnapshots = pilots.map((socket) => nextPacket(socket, hasBothInputs));
+    for (const [index, socket] of pilots.entries()) {
+      socket.send(JSON.stringify({
+        type: "input",
+        input: {
+          seq: 1,
+          throttle: index === 0 ? 1 : -1,
+          yaw: 0,
+          strafe: 0,
+          pitch: 0,
+          fire: index === 0,
+          ult: false,
+          lock: false,
+          evade: 0,
+          preset: null,
+        },
+      }));
+    }
+    const [first, second] = await Promise.all(receivedSnapshots);
+    assert.deepEqual(first.snapshot, second.snapshot);
+
+    const snapshot = first.snapshot as {
+      players: Array<{ lastSeq: number }>;
+      match: { player: { ai: boolean; x: number; z: number }; enemies: Array<{ x: number; z: number }> };
+    };
+    assert.equal(snapshot.players[seats[0].slotId].lastSeq, 1);
+    assert.equal(snapshot.players[seats[1].slotId].lastSeq, 1);
+    assert.equal(snapshot.match.player.ai, false);
+    assert.notDeepEqual(
+      { x: snapshot.match.player.x, z: snapshot.match.player.z },
+      { x: initialMatch.player.x, z: initialMatch.player.z },
+    );
+    assert.notDeepEqual(
+      { x: snapshot.match.enemies[0].x, z: snapshot.match.enemies[0].z },
+      { x: initialMatch.enemies[0].x, z: initialMatch.enemies[0].z },
+    );
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
 test("a restarted socket rejects stale sessions and accepts fresh rooms", async () => {
   let runtime = await startWingSocketServer(0, "127.0.0.1");
   const sockets: WebSocket[] = [];
@@ -201,8 +279,13 @@ test("a restarted socket rejects stale sessions and accepts fresh rooms", async 
     oldSocket.send(JSON.stringify({ type: "start" }));
     await oldStarted;
 
-    await close(oldSocket);
+    const interrupted = nextPacket(oldSocket, (packet) => packet.type === "interrupted");
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      oldSocket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
     await runtime.close();
+    assert.equal((await interrupted).reason, "server_restart");
+    assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
     runtime = await startWingSocketServer(0, "127.0.0.1");
 
     const staleSession = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);

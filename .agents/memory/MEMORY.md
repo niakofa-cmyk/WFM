@@ -1,2 +1,2 @@
-- [Online and universe scope](online-multiplayer-scope.md) — isolated 10-seat rooms; shared economy and persistent campaign universe are in scope, matchmaking/shared real-time galaxy are not.
+- [Online and universe scope](online-multiplayer-scope.md) — isolated 10-seat rooms; alpha matches end on server restart; matchmaking/shared real-time galaxy are out of scope.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.

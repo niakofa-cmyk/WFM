@@ -54,7 +54,7 @@ type ArenaProps = {
   drilled: boolean;
   onDrill: () => void;
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
-  onNetworkExit: () => void;
+  onNetworkExit: (reason: "server_restart" | "session_lost") => void;
   online?: OnlineRoom;
 };
 
@@ -600,13 +600,21 @@ export function Arena({
         }
         return;
       }
+      if (packet.type === "interrupted") {
+        disposed = true;
+        window.clearTimeout(retryTimer);
+        activeSocketRef.current = null;
+        targetClose();
+        networkExitRef.current(packet.reason === "server_restart" ? "server_restart" : "session_lost");
+        return;
+      }
       if (packet.type === "error") {
         if (packet.reason === "session_lost") {
           disposed = true;
           window.clearTimeout(retryTimer);
           activeSocketRef.current = null;
           targetClose();
-          networkExitRef.current();
+          networkExitRef.current("session_lost");
           return;
         }
         setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");

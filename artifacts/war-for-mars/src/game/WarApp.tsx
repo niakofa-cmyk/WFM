@@ -145,7 +145,7 @@ export function WarApp() {
       capacity: "The server is at room capacity. Try again later.",
       full: "That room already has ten pilots. Join another room.",
       match_started: "That match has already started. Use a new room code for a new lobby.",
-      session_lost: "That match session is no longer available. Create a new room.",
+      session_lost: "The previous match could not be restored after a server restart or room expiry. No match rewards were issued. Create or join a new room.",
       host_only: "Only the lobby host can launch the match.",
       pilots_not_ready: "Every connected pilot must ready up before launch.",
       invalid_input: "The server rejected an invalid control packet.",
@@ -680,7 +680,7 @@ export function WarApp() {
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
-        onNetworkExit={() => {
+        onNetworkExit={(reason) => {
           try {
             if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
           } catch {
@@ -688,7 +688,11 @@ export function WarApp() {
           }
           setOnlineSession(null);
           joinSocketRef.current = null;
-          setOnlineStatus("The match server restarted and this room could not be restored. Create a new room.");
+          setOnlineStatus(
+            reason === "server_restart"
+              ? "The match ended because the server restarted. No match rewards were issued. Create or join a new room."
+              : "The previous match could not be restored after an interruption. No match rewards were issued. Create or join a new room.",
+          );
           setOfflineAvailable(true);
           setResult(null);
           setPhase("brief");
