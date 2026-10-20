@@ -447,6 +447,28 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
 export function relaysHeld(match: Match) {
   return match.relays.filter((r) => r.own === 1).length;
 }
+export function relayCallout(match: Match, team: "you" | "foe", x: number, z: number) {
+  const sign = team === "you" ? 1 : -1;
+  const held = match.relays.filter((relay) => relay.own === sign).length;
+  const total = match.relays.length;
+  const nearest = match.relays.reduce<Relay | null>((best, relay) => {
+    if (!best || Math.hypot(relay.x - x, relay.z - z) < Math.hypot(best.x - x, best.z - z)) return relay;
+    return best;
+  }, null);
+
+  if (nearest && Math.hypot(nearest.x - x, nearest.z - z) < 15) {
+    const friendly = team === "you" ? [match.player, ...match.allies] : match.enemies;
+    const hostile = team === "you" ? match.enemies : [match.player, ...match.allies];
+    const friendlyNear = friendly.some((craft) => craft.alive && Math.hypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
+    const hostileNear = hostile.some((craft) => craft.alive && Math.hypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
+    if (friendlyNear && hostileNear) return `${held}/${total} HELD · ZONE CONTESTED`;
+    if (nearest.own === sign) return `${held}/${total} HELD · ZONE SECURED`;
+    const capturePct = Math.floor(Math.max(0, Math.min(1, (sign * nearest.cap + 1) / 2)) * 100);
+    return `${held}/${total} HELD · CAPTURE ${capturePct}%`;
+  }
+
+  return `${held}/${total} HELD · ${match.goal === "beacons" ? "HOLD 2 TO WIN" : "HOLD 2 TO DRAIN"}`;
+}
 function pushFx(match: Match, fx: Fx) {
   if (match.fx.length > 28) match.fx.shift();
   match.fx.push(fx);
@@ -502,6 +524,66 @@ function hurt(match: Match, c: Craft, dmg: number, fromX?: number, fromZ?: numbe
 export function aimYaw(fromX: number, fromZ: number, toX: number, toZ: number) {
   return Math.atan2(-(toX - fromX), -(toZ - fromZ));
 }
+type MovingTarget = Pick<Craft, "x" | "z" | "yaw" | "speed"> | Pick<Runner, "x" | "z">;
+export function leadAimPoint(fromX: number, fromZ: number, target: MovingTarget, projectileSpeed: number) {
+  if (!(projectileSpeed > 0) || !Number.isFinite(projectileSpeed)) return { x: target.x, z: target.z };
+  const targetVx = "speed" in target ? -Math.sin(target.yaw) * target.speed : 0;
+  const targetVz = "speed" in target ? -Math.cos(target.yaw) * target.speed : -1.65;
+  const dx = target.x - fromX;
+  const dz = target.z - fromZ;
+  const a = targetVx * targetVx + targetVz * targetVz - projectileSpeed * projectileSpeed;
+  const b = 2 * (dx * targetVx + dz * targetVz);
+  const c = dx * dx + dz * dz;
+  const discriminant = b * b - 4 * a * c;
+  let time = Math.sqrt(c) / projectileSpeed;
+  if (discriminant >= 0 && Math.abs(a) > 1e-8) {
+    const root = Math.sqrt(discriminant);
+    const roots = [(-b - root) / (2 * a), (-b + root) / (2 * a)].filter((candidate) => candidate > 0);
+    if (roots.length) time = Math.min(...roots);
+  } else if (Math.abs(b) > 1e-8 && Math.abs(a) <= 1e-8) {
+    const candidate = -c / b;
+    if (candidate > 0) time = candidate;
+  }
+  time = Math.max(0, Math.min(time, 1.6));
+  return { x: target.x + targetVx * time, z: target.z + targetVz * time };
+}
+export function outcomeForTeam(match: Match, team: 0 | 1) {
+  if (!match.over || team === 0) return match.over;
+  return match.over === "win" ? "loss" : match.over === "loss" ? "win" : "draw";
+}
+export function outcomeReason(match: Match, team: 0 | 1) {
+  const sign = team === 0 ? 1 : -1;
+  const yourBar = team === 0 ? match.youBar : match.foeBar;
+  const enemyBar = team === 0 ? match.foeBar : match.youBar;
+  const held = match.relays.filter((relay) => relay.own === sign).length;
+  const enemyHeld = match.relays.filter((relay) => relay.own === -sign).length;
+
+  if (match.goal === "beacons") {
+    if (held >= 2) return "Your wing secured two of three beacons.";
+    if (enemyHeld >= 2) return "The enemy wing secured two of three beacons.";
+    if (yourBar <= 0) return "Your wing's integrity was depleted before two beacons were secured.";
+    return "Time expired before your wing secured two beacons.";
+  }
+  if (match.goal === "ace") {
+    const ace = [...match.allies, ...match.enemies, match.player].find((craft) => craft.ace);
+    if (ace && !ace.alive) return ace.team === (team === 0 ? "you" : "foe") ? "Your Warden was destroyed." : "The enemy Warden was destroyed.";
+    if (yourBar <= 0) return "Your wing's integrity was depleted before the Warden fell.";
+    return "Time expired with the Warden still in the fight.";
+  }
+  if (match.goal === "extract" && match.runner) {
+    const runnerTeam = match.runner.team === "you" ? 0 : 1;
+    if (!match.runner.alive) return runnerTeam === team ? "Your escort was destroyed." : "The enemy cage was stopped.";
+    if (match.runner.z <= -68) return runnerTeam === team ? "Your escort crossed the extraction line." : "The enemy cage escaped.";
+    if (yourBar <= 0) return "Your wing's integrity was depleted before extraction.";
+    return "Time expired before the escort reached the extraction line.";
+  }
+  if (yourBar <= 0) return "Your wing's integrity was depleted by combat and relay pressure.";
+  if (enemyBar <= 0) return "The enemy wing's integrity was depleted by combat and relay pressure.";
+  if (yourBar === enemyBar) return "Time expired with both integrity bars tied.";
+  return yourBar > enemyBar
+    ? "Time expired with your wing ahead on integrity."
+    : "Time expired with the enemy wing ahead on integrity.";
+}
 function tickTimers(c: Craft, dt: number) {
   c.fireCd = Math.max(0, c.fireCd - dt);
   c.ultCd = Math.max(0, c.ultCd - dt);
@@ -535,12 +617,15 @@ function moveCraft(match: Match, c: Craft, steer: number, throttle: number, stra
   if (c.recover > 0) maxSp *= .45;
   const accel = def.accel * Math.max(.7, speedMul);
   const target = Math.max(-1, Math.min(1, useThrottle)) * maxSp;
-  if (c.speed < target) c.speed = Math.min(target, c.speed + accel * dt);
-  else c.speed = Math.max(target, c.speed - accel * dt);
+  const counterThrust = Math.abs(target) > 0.01 && Math.abs(c.speed) > 0.01 && Math.sign(target) !== Math.sign(c.speed);
+  const speedResponse = accel * (Math.abs(target) <= 0.01 ? 0.62 : counterThrust ? 1.25 : 1);
+  if (c.speed < target) c.speed = Math.min(target, c.speed + speedResponse * dt);
+  else c.speed = Math.max(target, c.speed - speedResponse * dt);
   let rate = def.turnRate * def.handling * (c.ai ? .84 : 1);
   if (!c.ai && match.tech === "stick") rate *= 1.12;
-  c.yaw = wrap(c.yaw + Math.max(-1, Math.min(1, useSteer)) * rate * dt);
-  c.steer = useSteer;
+  const targetSteer = Math.max(-1, Math.min(1, useSteer));
+  c.steer += (targetSteer - c.steer) * (1 - Math.exp(-18 * dt));
+  c.yaw = wrap(c.yaw + c.steer * rate * dt);
   const strafeSpeed = def.maxSpeed * .8;
   c.x += -Math.cos(c.yaw) * useStrafe * strafeSpeed * dt;
   c.z += Math.sin(c.yaw) * useStrafe * strafeSpeed * dt;
@@ -702,25 +787,38 @@ function cycleLock(match: Match) {
   }
   match.lockId = pool[(idx + 1) % pool.length].id;
 }
+function visibleHostiles(match: Match, e: Craft) {
+  return (e.team === "foe" ? [match.player, ...match.allies] : match.enemies)
+    .filter((craft) => craft.alive && craft.untargetable <= 0 && craft.cloak <= 0);
+}
+export function chooseAiTarget(match: Match, e: Craft, quarry = visibleHostiles(match, e)): Craft | Runner | null {
+  const runner = match.goal === "extract" && match.runner?.alive && match.runner.team !== e.team ? match.runner : null;
+  if (runner && Math.hypot(runner.x - e.x, runner.z - e.z) < 74) return runner;
+
+  let bestScore = 42;
+  let selected: Craft | null = null;
+  for (const craft of quarry) {
+    const distance = Math.hypot(craft.x - e.x, craft.z - e.z);
+    if (distance >= 42) continue;
+    const healthRatio = Math.max(0, craft.shield + craft.hull) / Math.max(1, craft.shieldMax + craft.hullMax);
+    const score = distance - (1 - healthRatio) * 8;
+    if (score < bestScore) {
+      bestScore = score;
+      selected = craft;
+    }
+  }
+  return selected;
+}
 function steerAi(match: Match, e: Craft, dt: number) {
   const hostile = e.team === "foe";
-  const quarry: { x: number; z: number; alive: boolean; untargetable: number; cloak: number }[] = (hostile ? [match.player, ...match.allies] : match.enemies).filter((c) => c.alive && c.untargetable <= 0 && c.cloak <= 0);
-  if (match.runner?.alive && match.runner.team !== e.team) quarry.push(match.runner);
+  const quarry = visibleHostiles(match, e);
   if (e.jam > 0) {
     moveCraft(match, e, Math.sin(match.time * 2.4 + e.id), .35, 0, dt, .9);
     return;
   }
   let tx = 0;
   let tz = 0;
-  let chase = null;
-  let bestD = match.goal === "extract" ? 74 : 42;
-  for (const q of quarry) {
-    const d = Math.hypot(q.x - e.x, q.z - e.z);
-    if (d < bestD) {
-      bestD = d;
-      chase = q;
-    }
-  }
+  let chase: Craft | Runner | null = chooseAiTarget(match, e, quarry);
   if (chase) {
     tx = chase.x;
     tz = chase.z;
@@ -736,7 +834,7 @@ function steerAi(match: Match, e: Craft, dt: number) {
         best = r;
       }
     }
-    if (match.relays.every((r) => r.own === owned) && quarry.length > 0) {
+    if (!chase && match.relays.every((r) => r.own === owned) && quarry.length > 0) {
       tx = quarry[0].x;
       tz = quarry[0].z;
       chase = quarry[0];
@@ -747,7 +845,9 @@ function steerAi(match: Match, e: Craft, dt: number) {
   }
   const diff = wrap(aimYaw(e.x, e.z, tx, tz) - e.yaw);
   moveCraft(match, e, Math.max(-1, Math.min(1, diff / .42)), Math.abs(diff) < .9 ? 1 : .4, 0, dt, hostile ? .9 : .96);
-  if (chase && Math.abs(diff) < .3 && Math.hypot(chase.x - e.x, chase.z - e.z) < 46) fire(match, e, 1);
+  const firingPoint = chase ? leadAimPoint(e.x, e.z, chase, SHIPS[e.ship].shotSpeed) : { x: tx, z: tz };
+  const firingDiff = wrap(aimYaw(e.x, e.z, firingPoint.x, firingPoint.z) - e.yaw);
+  if (chase && Math.abs(firingDiff) < .28 && Math.hypot(chase.x - e.x, chase.z - e.z) < 46) fire(match, e, 1);
   const mates = hostile ? match.enemies : [match.player, ...match.allies];
   for (const o of mates) {
     if (o === e || !o.alive) continue;

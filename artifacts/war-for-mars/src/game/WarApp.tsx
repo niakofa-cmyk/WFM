@@ -239,7 +239,7 @@ export function WarApp() {
         setAdvance(grant.advance);
         setCargoLine(grant.cargoLine);
         setGain(grant.gain);
-        setResult({ outcome: grant.outcome, kills: grant.kills, deaths: next.deaths, relays: grant.relays });
+        setResult({ outcome: grant.outcome, kills: grant.kills, deaths: next.deaths, relays: grant.relays, reason: next.reason });
         setSave((prev) => ({
           ...prev,
           credits: prev.credits + grant.gain,
@@ -312,6 +312,7 @@ export function WarApp() {
       <main className="mx-auto flex h-dvh max-w-xl flex-col justify-center gap-4 overflow-y-auto px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
         <h1 className="font-hud text-5xl leading-none text-bone">{title}</h1>
+        <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">{result.reason}</p>
         <p className="text-sm leading-relaxed text-muted">
           {ship.name} came back with {result.kills} kills and {result.relays} relays. The hangar logged{" "}
           {gain} credits. {cargoLine || "No crate in the hold."} {advance}
@@ -424,7 +425,11 @@ export function WarApp() {
         })}
       </div>
       <p className="text-xs leading-relaxed text-muted">
-        {active ? active.brief : "Skirmish uses the practice or strike clock. Relays and integrity both count."}
+        {active
+          ? active.brief
+          : save.pace === "strike"
+            ? "Six-minute Strike: hold two relays to drain enemy integrity. Kills also drain it; the higher integrity bar wins at 0:00."
+            : "Two-minute practice: learn the controls, capture relays, and break enemy integrity before the clock runs out."}
       </p>
       <section className="border border-bone/15 px-3 py-3">
         <p className="font-hud text-sm tracking-widest text-solar">YARD CHANNEL</p>

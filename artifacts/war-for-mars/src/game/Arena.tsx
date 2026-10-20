@@ -6,7 +6,7 @@ import { createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
-import { ARENA_R, aimYaw, createMatch, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
+import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
 
 export type StrikeResult = {
@@ -14,6 +14,7 @@ export type StrikeResult = {
   kills: number;
   deaths: number;
   relays: number;
+  reason: string;
 };
 
 export type OnlineSnapshot = {
@@ -452,6 +453,7 @@ export function Arena({
   const lockNameRef = useRef<HTMLParagraphElement>(null);
   const lockHpRef = useRef<HTMLDivElement>(null);
   const callRef = useRef<HTMLParagraphElement>(null);
+  const relayRef = useRef<HTMLParagraphElement>(null);
   const markRef = useRef<HTMLDivElement>(null);
   const hurtRef = useRef<HTMLDivElement>(null);
   const aheadRef = useRef<HTMLDivElement>(null);
@@ -1118,9 +1120,10 @@ export function Arena({
       if (match.over && !reported) {
         reported = true;
         setEnd({
-          outcome: match.over,
+          outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
           kills: match.kills,
           deaths: match.deaths,
+          reason: outcomeReason(match, slotIdRef.current >= 5 ? 1 : 0),
           relays: slotIdRef.current >= 5
             ? match.relays.filter((relay) => relay.own === -1).length
             : relaysHeld(match),
@@ -1342,6 +1345,9 @@ export function Arena({
         const up = roster.filter((ally) => ally.alive).length;
         wingRef.current.textContent = `WING ${up}/${roster.length}`;
       }
+      if (relayRef.current) {
+        relayRef.current.textContent = relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
+      }
       if (ultRef.current) {
         ultRef.current.textContent =
           player.ultCd > 0.05 ? `${ship.ultShort} ${player.ultCd.toFixed(1)}` : ship.ultShort;
@@ -1449,11 +1455,17 @@ export function Arena({
         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
           <div className="w-40">
             <p className="font-hud text-sm tracking-widest text-solar">{ship.name.toUpperCase()}</p>
-            <div className="mt-1 h-2 overflow-hidden bg-panel">
-              <div ref={shieldRef} className="h-full w-full bg-solar" />
+            <div className="mt-1 flex items-center gap-1">
+              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">SHIELD</span>
+              <div className="h-2 flex-1 overflow-hidden bg-panel">
+                <div ref={shieldRef} className="h-full w-full bg-solar" />
+              </div>
             </div>
-            <div className="mt-1 h-2 overflow-hidden bg-panel">
-              <div ref={hullRef} className="h-full w-full bg-alert" />
+            <div className="mt-1 flex items-center gap-1">
+              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">HULL</span>
+              <div className="h-2 flex-1 overflow-hidden bg-panel">
+                <div ref={hullRef} className="h-full w-full bg-alert" />
+              </div>
             </div>
             <p ref={pipRef} className="mt-1 font-hud text-xs tracking-wide text-muted">
               ENG 2.0  WEP 2.0  DEF 2.0
@@ -1494,6 +1506,9 @@ export function Arena({
               </button>
             ) : null}
             <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
+            <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[10px] tracking-widest text-bone/80">
+              0/3 HELD · HOLD 2 TO DRAIN
+            </p>
             <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />
             {tech ? (
               <p className="font-hud text-[10px] tracking-widest text-muted">
@@ -1715,6 +1730,9 @@ export function Arena({
             </h2>
             <p className="mt-3 text-sm text-muted">
               {end.kills} kills · {end.deaths} losses · {end.relays} relays still yours
+            </p>
+            <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
+              {end.reason}
             </p>
             <button
               type="button"
