@@ -1,6 +1,6 @@
-# [Project name]
+# WAR FOR MARS
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Combat-first 5v5 space-combat game with a single-player campaign and a persistent-universe direction.
 
 ## Run & Operate
 
@@ -30,7 +30,7 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The long-term product goal is a connected player journey from understanding the USSF–Accord conflict, choosing and configuring a ship, and completing readable battles to earning server-validated progress, improving ships, and exploring a changing Mars-centered universe. Treat `docs/player-journey-direction.md` as the product reference for feature work; distinguish implemented and verified features from future goals.
 
 ## User preferences
 

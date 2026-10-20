@@ -1,0 +1,87 @@
+This is a match-based game, and players first meet online in a pre-match “lobby” where matches are setup for play.
+
+The game can be played in a single-player mode, but is intended to not only offer a full MMO universe but to promote online gamers to participate in the future state of affairs in that universe. pits players against each other in matches where each team is given an assortment of credits, space stations, planetary bases, and more.  Credits are used to buy ships, and upgrade weapons and technology. The game pushes combat to the forefront—both online multiplayer and single-player modes offer intense fighting experiences. The game has Online features like a player-driven economy, so when you buy or sell, you actually effect the market. With Online features a massive trade-and-fight universe. As you advance, you gain the ability to control more ships and the credits to buy them. This game combines every possible playing style for the sci-fi genre.
+
+Build the new era in space shooter games by combining rogue-style freedom of play, and state-of-the-art visual and audio effects, an open-ended universe that invites deep exploration into a huge galaxy and even points unknown beyond mysterious wormholes. Set in the Near future that builds into a huge space-combat universe. Players also have options regarding the allocation of the ship’s available power, allowing the reduction of a systems like speed and weapons to increase power to alternate areas. an online multiplayer combat game where two teams of 5 players each fight. To create a balanced, visually distinct, and highly authentic roster for your space shooter game, you should pick one vehicle from the Egyptian Neteru and three distinct classes of Hindu Vimanas. This selection gives your players four completely unique gameplay styles, weapon mechanics, and aesthetic silhouettes.
+
+Here is the ultimate 4-vehicle roster for your game:
+
+The Heavy Gunship / Command Ship: "The Mandjet" (Egyptian)
+
+The Vibe: A glorious, glowing solar ship adorned with golden wings, a massive crystalline solar disc core, and glowing hieroglyphic shields.
+
+Gameplay Style: Tank/Sustained DPS. It moves slower but has massive armor and fires heavy beams of blinding solar energy that melt waves of enemies.
+
+Special Ability: Solar Flare. A massive, screen-clearing beam of light fired from its center disc that obliterates anything in front of it.
+
+2. The Agile Interceptor: "The Shakuna" (Hindu)
+
+The Vibe: A sleek, aerodynamically aggressive fighter shaped like a mechanical bird of prey, featuring articulated wings and brilliant metallic feathers.
+
+Gameplay Style: Speed/Evasion. This is your classic fast-paced space shooter ship. It excels at rapid-fire plasma projectiles, fast banking, and dodging through dense asteroid fields.
+
+Special Ability: Wing Dive. A temporary hyper-speed dash forward that cuts through enemy shields with its razor-sharp mechanical wings.
+
+3. The Stealth Bomber: "The Sundara" (Hindu)
+
+The Vibe: A gleaming, cylindrical, rocket-shaped silver needle that looks incredibly futuristic, smooth, and minimalist.
+
+Gameplay Style: Stealth/Burst Damage. It relies on a "Mercury Vortex Engine" that makes a deep, rumbling sound. It uses cloaking mechanics and fires slow, heavy-hitting cosmic torpedoes.
+
+Special Ability: Vortex Camouflage. Temporarily drops off enemy radar and goes invisible to reposition, breaking the cloak with a guaranteed critical-damage strike.
+
+4. The Experimental Tech Ship: "The Tripura" (Hindu)
+
+The Vibe: A heavy, three-tiered, triangular modular fortress ship with shifting geometric rings floating around it.
+
+Gameplay Style: Crowd Control / Utility. Because the mythological Tripura could go on land, sea, and air, its space-game equivalent should change "modes" to adapt to different enemy types (e.g., swapping between wide-spread electric arcs or homing missiles).
+
+Special Ability: Trinity Shift. Instantly rotates its three structural tiers to deploy a full-circle localized EMP wave, freezing all nearby enemy ships in place.
+
+Roster Overview Table
+
+Ship NameOriginArchetypePrimary WeaponAesthetic KeyMandjetEgyptian NeteruHeavy JuggernautContinuous Solar LaserGold, Solar Disc, HieroglyphsShakunaHindu VimanaFast InterceptorDual Rapid-Fire Plasma PlumesChrome Bird Wings, SleekSundaraHindu VimanaStealth BomberHigh-Impact Cosmic TorpedoesSilver Needle, Rocket PodsTripuraHindu VimanaAdaptive UtilityChain-Lightning / EMP ArcsFloating Triangular Rings
+
+For an authentic, modern-day military scenario based on the United States Space Force (USSF), the actual operational landscape must replace mythological archetypes. In reality, the Space Force does not operate manned combat "starfighters" or heavy fleet cruisers. Instead, its fleet consists of highly advanced, unmanned, reusable orbital assets, surveillance craft, and top-secret testbeds. [1]
+
+The following four active, real-world, and highly classified space vehicles represent the bleeding edge of current USSF flight capabilities, weapons systems, and orbital combat tech:
+
+The Highly Classified Tactical Spaceplane
+
+Official Designation: Boeing X-37B Orbital Test Vehicle (OTV) [1]
+
+Flight Capabilities: This 29-foot, 11,000-pound unmanned spaceplane is incredibly agile. It is capable of launching via standard rockets (like the SpaceX Falcon 9 or Atlas V), staying in Low Earth Orbit (LEO) or highly elliptical orbits for record-breaking durations (up to 908 consecutive days), and autonomously deorbiting to land horizontally on a traditional runway. [1, 2]
+
+Weapons & Combat Utility: While its exact operational payload remains deeply classified, the USSF uses the X-37B to experiment with counterspace technologies designed to address space threats from adversarial nations. It is equipped to deploy classified small satellites, test advanced laser communications, and run quantum inertial sensors to navigate seamlessly even in GPS-denied combat zones. [1]
+
+2. The Orbital Sentinel / "Bodyguard" Satellite
+
+Official Designation: GSSAP (Geosynchronous Space Situational Awareness Program)
+
+Flight Capabilities: Operating in near-geosynchronous orbit (roughly 22,300 miles above Earth), these highly maneuverable satellites track objects with extreme precision. Unlike static satellites, GSSAP assets possess significant propulsion capabilities, allowing them to drift across the orbital belt to perform "Rendezvous and Proximity Operations" (RPO)—meaning they can fly right up next to other satellites.
+
+Weapons & Combat Utility: GSSAP functions as the ultimate orbital stealth scout and guardian. It maps space debris, identifies hostile counterspace hardware, and visually monitors high-value U.S. military satellites to intercept electronic warfare, tampering, or physical kinetic threats from enemy "inspector" satellites.
+
+3. The Shadow Inspector & Space Maneuver Craft
+
+Official Designation: USSF-67 / Continuous Broadcast Augmenting SATCOM (CBAS-2) & ESPA Ring
+
+Flight Capabilities: Utilizing highly advanced EELV Secondary Payload Adapter (ESPA) rings, the USSF launches modular, self-propelled "space tugs." These rings are equipped with their own thrusters and flight computers, allowing a single vehicle to split into multiple independent, free-flying spacecraft once in orbit.
+
+Weapons & Combat Utility: The USSF utilizes these crafts for classified military communications routing and hosting experimental military payloads. In a combat scenario, their modular nature allows them to act as decoys, transport rapid-deployment defensive payloads, or closely inspect foreign space assets suspected of harboring anti-satellite (ASAT) weapons.
+
+4. The Advanced Hypersonic Glide Testbed
+
+Official Designation: Hypersonic Technology Vehicle 2 (HTV-2) / Classified Prompt Global Strike Derivatives
+
+Flight Capabilities: While technically a trans-atmospheric asset bridging the edge of space and upper atmosphere, these unmanned testbeds are launched into the upper atmosphere via rocket boosters before detaching to glide back to Earth. They travel at extreme velocities exceeding Mach 20 (over 15,000 mph), performing unpredictable, sharp aerodynamic maneuvers rather than following a predictable ballistic arc.
+
+Weapons & Combat Utility: These vehicles represent the ultimate deterrent in kinetic global combat. Their sheer speed and atmospheric maneuvering capabilities make them entirely invisible to standard missile defense radars and impossible to intercept by current surface-to-air systems, providing the military with the capability to strike any target on Earth in under an hour.
+
+Real-World USSF Fleet Operational Matrix
+
+Vehicle SystemReal-World StatusFlight MechanicKey Tactical SystemCombat RoleX-37B OTVActive / ClassifiedLong-endurance autonomous orbit & runway landingNext-gen Laser Comms & Quantum SensorsCounterspace threat mitigation & payload testingGSSAPActive / OperationalRPO (Rendezvous & Proximity) maneuverabilityAdvanced Optical & Electro-Shield TrackingSpace Domain Awareness & Asset ProtectionESPA / CBAS-2Active / OperationalModular multi-craft separation and deploymentClassified Data Augmenting TransmittersElectronic Warfare & Rapid Payload DeliveryHTV-2 / DerivativesActive Testing PhaseRocket-boosted Mach 20+ Hypersonic Atmospheric GlideThermal-Shield Kinetic PenetrationPrompt Global Strike & Radar Evasion .  A space shooter that includes trading, upgrading and other features, but focuses heavily on combat. You can take on missions To find new weapons, Secret messages and technologies to upgrade your ship by connecting to the closest space station’s communication channel or fly off into the unknown. Where you will be randomly triggered to new side mission or 
+
+Mini game where you fight off a fleet of the opposing ships to claim your upgrade.
+
+Players must choose an allegiance: support the USSF, back The United States Space Force, or choose the side of the Neteru and Hindu,The Accord of Dharma and Ma'at.  Next, pick your starship from the array of vessels. Choose from a selection of 4 Vehicles depending on you Alliance selection. This game centers around the fighting between The USSF and The Accord of Dharma and Ma'at. The war centers on the recent loss and disappearance of Eon Dusk. Eon Dusk the evil trillionaire who Feels that robots AI and technology will take over the world. And think there's no need for earth, or humanity any longer. He desires to Colonize and take over the world and conquer the universe. Eon Dusk convinces a secret group of oligarchs, who run the world, to launch a mission to Mars. With his heart set on his first target and territory, he envisions to conquer Mars. With the help of the USSf the United States space force Eon Musk takes a Fleet of spaceships, armed with weapons headed to Mars to try to take over the planet. But to the  surprise of Dusk, The great planet of Mars has been occupied for For ages by the Netueru and Hindu. Most notably the dharma and ma'at alliance. This is the plot and begining of the game. Word gets back to the usSF that their Fleet of spaceships have been destroyed, obliterated, and Eon Dusk is the sole survivor and is captured in being held as A  P o w prisoner of war on the planet of mars. The game begins with the captain or head of the USS f receiving official message and notice that the Fleet that was sent with Eon Dusk to Mars has been destroyed and he is now captured. This is the plot backdrop in premise of the game that sets off the first ever , never ending space war between the u s s f And the dharma Ma'at alliance, the battle for Mars
