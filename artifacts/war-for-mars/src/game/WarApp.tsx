@@ -49,6 +49,9 @@ export function WarApp() {
   const [advance, setAdvance] = useState("");
   const [onlineSession, setOnlineSession] = useState<OnlineRoom | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
+  const [roomCode, setRoomCode] = useState(
+    () => new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "",
+  );
   const joinSocketRef = useRef<WebSocket | null>(null);
   const joinTimeoutRef = useRef<number | null>(null);
 
@@ -63,14 +66,21 @@ export function WarApp() {
     setShell(MenuState.LOADING);
   };
 
-  const joinOnline = () => {
+  const joinOnline = (requestedRoomCode: string) => {
     if (joinSocketRef.current) return;
+    const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(normalizedRoomCode)) {
+      setOnlineStatus("Enter a room code (3–24 letters, numbers, or hyphens).");
+      return;
+    }
+    setRoomCode(normalizedRoomCode);
     unlockAudio();
     setOnlineStatus("Calling the wing…");
     let url: URL;
     try {
       url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
       url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      url.searchParams.set("room", normalizedRoomCode.toLowerCase());
       const socket = new WebSocket(url);
       joinSocketRef.current = socket;
       let joined = false;
@@ -105,6 +115,7 @@ export function WarApp() {
           setOnlineSession({
             socket,
             snapshot,
+            roomId: normalizedRoomCode,
             slotId,
             team: Number(packet.team) as 0 | 1,
             reconnectToken: String(packet.reconnectToken ?? ""),
@@ -347,6 +358,13 @@ export function WarApp() {
         refitDisabled={save.refit >= 5 || save.credits < cost}
         onAction={act}
         onOnline={joinOnline}
+        roomCode={roomCode}
+        onRoomCode={setRoomCode}
+        onCreateRoom={() => {
+          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
+          setRoomCode(generated);
+          joinOnline(generated);
+        }}
         onlineStatus={onlineStatus}
         onFaction={pickFaction}
         onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}

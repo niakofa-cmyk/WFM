@@ -10,6 +10,7 @@
     "dev:socket": "export NODE_ENV=development && pnpm run build:socket && node --enable-source-maps ./dist/socket.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test:wing": "tsx --test src/game/wing.test.ts",
+    "test": "tsx --test src/game/*.test.ts src/routes/*.test.ts src/socket/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

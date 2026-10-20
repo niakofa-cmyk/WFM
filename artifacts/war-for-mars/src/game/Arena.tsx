@@ -26,6 +26,7 @@ export type OnlineSnapshot = {
 export type OnlineRoom = {
   socket: WebSocket;
   snapshot: OnlineSnapshot;
+  roomId: string;
   slotId: number;
   team: 0 | 1;
   reconnectToken: string;
@@ -561,6 +562,7 @@ export function Arena({
           if (disposed) return;
           const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
           url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          url.searchParams.set("room", online.roomId.toLowerCase());
           try {
             connect(new WebSocket(url));
           } catch {
@@ -579,6 +581,7 @@ export function Arena({
         if (disposed) return;
         const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
         url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        url.searchParams.set("room", online.roomId.toLowerCase());
         connect(new WebSocket(url));
       }, retryDelay);
     }
@@ -1277,6 +1280,10 @@ export function Arena({
         const mins = Math.floor(left / 60);
         const secs = Math.floor(left % 60);
         clockRef.current.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+        clockRef.current.setAttribute("aria-label", `${mins} minutes ${secs} seconds remaining`);
+        clockRef.current.classList.toggle("text-bone", left > 30);
+        clockRef.current.classList.toggle("text-alert", left <= 30 && left > 0);
+        clockRef.current.classList.toggle("animate-pulse", left <= 10 && left > 0);
       }
       if (lockNameRef.current && lockHpRef.current) {
         if (locked) {
@@ -1453,12 +1460,21 @@ export function Arena({
             </p>
           </div>
           <div className="text-center">
-            <span ref={clockRef} className="font-hud text-3xl leading-none text-bone">
+            <span
+              ref={clockRef}
+              className="font-hud text-3xl leading-none text-bone"
+              role="timer"
+              aria-live="off"
+              aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}
+            >
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
             <p className="font-hud text-xs tracking-widest text-muted">
               <span ref={wingRef}>WING</span>
             </p>
+            {online ? (
+              <p className="font-hud text-[10px] tracking-widest text-solar">ROOM {online.roomId.toUpperCase()}</p>
+            ) : null}
             <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
             <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />
             {tech ? (

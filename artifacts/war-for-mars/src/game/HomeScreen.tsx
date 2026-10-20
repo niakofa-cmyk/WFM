@@ -16,7 +16,10 @@ type HomeProps = {
   refitLabel: string;
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
-  onOnline: () => void;
+  onOnline: (roomCode: string) => void;
+  roomCode: string;
+  onRoomCode: (roomCode: string) => void;
+  onCreateRoom: () => void;
   onlineStatus?: string;
   onFaction: (faction: Faction) => void;
   onShip: (ship: ShipId) => void;
@@ -73,7 +76,7 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   );
 }
 
-function MainMenu({ onAction, onOnline, onlineStatus, ship }: HomeProps) {
+function MainMenu({ onAction, onOnline, onCreateRoom, onRoomCode, roomCode, onlineStatus, ship }: HomeProps) {
   const items: { action: MenuAction; label: string; detail: string }[] = [
     { action: "DEPLOY", label: "CAMPAIGN: DEPLOY", detail: "Sorties, the yard, the cage" },
     { action: "ARCADE", label: "ARCADE SKIRMISH", detail: "Open disc. Practice or strike." },
@@ -84,15 +87,42 @@ function MainMenu({ onAction, onOnline, onlineStatus, ship }: HomeProps) {
     <div className="flex flex-1 flex-col justify-center gap-3">
       <img src="/war-for-mars-logo.jpg" alt="WAR FOR MARS" className="w-full max-w-md mix-blend-screen" />
       <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
-        <button
-          type="button"
-          data-testid="button-online-5v5"
-          onClick={onOnline}
-          className="h-16 border border-solar bg-solar px-3 text-left text-void"
-        >
-          <span className="block font-hud text-xl leading-none tracking-widest">5V5 ONLINE WING</span>
-          <span className="text-xs text-void/80">{onlineStatus || "Join the live Mars room · ten pilots"}</span>
-        </button>
+        <section className="border border-solar bg-void/80 p-3">
+          <p className="font-hud text-lg tracking-widest text-solar">5V5 ONLINE WING</p>
+          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI.</p>
+          <button
+            type="button"
+            data-testid="button-online-5v5"
+            onClick={onCreateRoom}
+            className="h-12 w-full bg-solar px-3 text-left text-void"
+          >
+            <span className="block font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
+            <span className="text-xs text-void/80">{onlineStatus || "Generate a code and launch the 5v5."}</span>
+          </button>
+          <div className="mt-2 flex gap-2">
+            <label className="sr-only" htmlFor="online-room-code">Room code</label>
+            <input
+              id="online-room-code"
+              data-testid="input-room-code"
+              autoCapitalize="characters"
+              autoComplete="off"
+              maxLength={24}
+              onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
+              placeholder="ROOM CODE"
+              value={roomCode}
+              className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
+            />
+            <button
+              type="button"
+              data-testid="button-join-room"
+              disabled={roomCode.trim().length < 3}
+              onClick={() => onOnline(roomCode)}
+              className="h-11 border border-bone/40 px-3 font-hud tracking-widest text-bone disabled:opacity-40"
+            >
+              JOIN
+            </button>
+          </div>
+        </section>
         {items.map((item, index) => (
           <button
             key={item.action}
