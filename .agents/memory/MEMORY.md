@@ -1,2 +1,2 @@
-- [Online multiplayer scope](online-multiplayer-scope.md) — use isolated invite-code 10-seat 5v5 rooms; defer matchmaking, accounts, and a shared galaxy.
+- [Online multiplayer scope](online-multiplayer-scope.md) — use isolated 10-seat rooms; authenticated progression is in scope, matchmaking and a shared galaxy are not.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
