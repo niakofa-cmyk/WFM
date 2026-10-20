@@ -1,9 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { isMuted, setMuted, sfxBoom, sfxHit, sfxShot, sfxUlt, unlockAudio } from "./audio";
+import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
 import { createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
+import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { ARENA_R, aimYaw, createMatch, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace } from "./sim";
 import type { TechId } from "./campaign";
@@ -284,6 +285,45 @@ function drawRadar(canvas: HTMLCanvasElement, match: Match) {
   }
 }
 
+function drawContacts(canvas: HTMLCanvasElement, match: Match) {
+  const parent = canvas.parentElement;
+  if (!parent) return;
+  const w = parent.clientWidth;
+  const h = parent.clientHeight;
+  if (w < 2 || h < 2) return;
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, w, h);
+  const player = match.player;
+  if (!player.alive) return;
+  const cx = w / 2;
+  const cy = h / 2;
+  const ring = Math.min(w, h) * 0.33;
+  for (const enemy of match.enemies) {
+    if (!enemy.alive) continue;
+    const bearing = wrap(aimYaw(player.x, player.z, enemy.x, enemy.z) - player.yaw);
+    const sx = cx - Math.sin(bearing) * ring;
+    const sy = cy - Math.cos(bearing) * ring;
+    const hot = match.painted.includes(enemy.id);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(-bearing);
+    ctx.strokeStyle = hot ? "#c45c48" : "rgba(15,229,212,0.9)";
+    ctx.lineWidth = hot ? 2 : 1.25;
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(5, 6);
+    ctx.lineTo(-5, 6);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
@@ -380,6 +420,8 @@ export function Arena({
   const rightRef = useRef<HTMLDivElement>(null);
   const behindRef = useRef<HTMLDivElement>(null);
   const downRef = useRef<HTMLParagraphElement>(null);
+  const paintRef = useRef<HTMLParagraphElement>(null);
+  const contactRef = useRef<HTMLCanvasElement>(null);
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
   const matchRef = useRef<Match | null>(null);
@@ -394,6 +436,11 @@ export function Arena({
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [shakeUi, setShakeUi] = useState(true);
+  const pausedRef = useRef(false);
+  const shakeRef = useRef(true);
+  const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
   const ship = SHIPS[shipId];
@@ -584,6 +631,87 @@ export function Arena({
     emp.rotation.x = -Math.PI / 2;
     emp.visible = false;
     scene.add(emp);
+    const streakMat = new THREE.MeshBasicMaterial({
+      color: 0xfff1d2,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    const streak = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 9), streakMat);
+    streak.visible = false;
+    scene.add(streak);
+    const bursts: {
+      mesh: THREE.Mesh;
+      mat: THREE.MeshBasicMaterial;
+      t: number;
+      life: number;
+      grow: number;
+    }[] = [];
+    for (let i = 0; i < 14; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffd9a0,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.62, 28), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.visible = false;
+      scene.add(mesh);
+      bursts.push({ mesh, mat, t: 0, life: 0.3, grow: 6 });
+    }
+    const burst = (x: number, z: number, color: number, life: number, grow: number) => {
+      let slot = bursts[0];
+      for (const item of bursts) {
+        if (item.t <= 0) {
+          slot = item;
+          break;
+        }
+        if (item.t < slot.t) slot = item;
+      }
+      slot.t = life;
+      slot.life = life;
+      slot.grow = grow;
+      slot.mat.color.setHex(color);
+      slot.mesh.position.set(x, 0.4, z);
+      slot.mesh.scale.setScalar(0.4);
+      slot.mesh.visible = true;
+    };
+    const SPARK_N = 48;
+    const sparkPool = Array.from({ length: SPARK_N }, () => freshSpark());
+    const sparkPos = new Float32Array(SPARK_N * 3);
+    for (let i = 0; i < SPARK_N; i++) sparkPos[i * 3 + 1] = -40;
+    const sparkGeo = new THREE.BufferGeometry();
+    sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkPos, 3));
+    const sparkPoints = new THREE.Points(
+      sparkGeo,
+      new THREE.PointsMaterial({
+        color: 0xffe1b0,
+        size: 0.38,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        sizeAttenuation: true,
+      }),
+    );
+    scene.add(sparkPoints);
+    const _pop = new THREE.Vector3();
+    const pops = Array.from({ length: 6 }, () => ({ t: 0, x: 0, z: 0, text: "" }));
+    const popNumber = (text: string, x: number, z: number) => {
+      let slot = pops[0];
+      for (const item of pops) {
+        if (item.t <= 0) {
+          slot = item;
+          break;
+        }
+        if (item.t < slot.t) slot = item;
+      }
+      slot.t = 0.7;
+      slot.x = x;
+      slot.z = z;
+      slot.text = text;
+    };
 
     const resize = () => {
       const w = canvas.clientWidth || window.innerWidth;
@@ -599,6 +727,13 @@ export function Arena({
     observer.observe(canvas);
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "KeyP") {
+        event.preventDefault();
+        const next = !pausedRef.current;
+        pausedRef.current = next;
+        setPaused(next);
+        return;
+      }
       bus.keys.add(event.code);
       if (event.code === "Space" || event.code.startsWith("Arrow")) event.preventDefault();
     };
@@ -642,26 +777,44 @@ export function Arena({
     let raf = 0;
     let last = performance.now();
     let acc = 0;
-    let shake = 0;
+    let trauma = 0;
+    let hitstop = 0;
     let markT = 0;
     let callT = 0;
     let callName = "";
     const wrecks: { x: number; z: number; t: number }[] = [];
     const threats: { rel: number; t: number }[] = [];
+    let paintOn = false;
+    let paintClock = 0;
     let flareT = 0;
+    let flareX = 0;
+    let flareZ = 0;
+    let flareYaw = 0;
+    let streakT = 0;
+    let streakX = 0;
+    let streakZ = 0;
+    let streakYaw = 0;
     let empT = 0;
     let empX = 0;
     let empZ = 0;
     let reported = false;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      shakeRef.current = false;
+      setShakeUi(false);
+    }
     const FIXED = 1 / 60;
 
     const frame = (now: number) => {
       if (!alive) return;
       const delta = Math.min(0.1, (now - last) / 1000);
       last = now;
-      acc += delta;
-      if (gyroOn.current) {
+      const held = pausedRef.current || hitstop > 0;
+      if (held) {
+        acc = 0;
+        if (!pausedRef.current) hitstop = Math.max(0, hitstop - delta);
+      } else acc += delta;
+      if (!held && gyroOn.current) {
         const aim = gyroAim();
         bus.gyroYaw = aim.yaw;
         bus.gyroPitch = aim.pitch;
@@ -669,7 +822,9 @@ export function Arena({
         bus.gyroYaw = 0;
         bus.gyroPitch = 0;
       }
-      const sample = readInput(bus);
+      const sample = held
+        ? { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null }
+        : readInput(bus);
       let first = true;
       let steps = 0;
       while (acc >= FIXED && steps < 5) {
@@ -698,20 +853,30 @@ export function Arena({
       }
       for (const ev of match.fx) {
         if (ev.k === "shot") {
+          burst(ev.x, ev.z, ev.you ? 0xffd9a0 : 0xc45c48, 0.12, ev.big ? 5 : 2.4);
           if (ev.you) sfxShot(ev.big);
         } else if (ev.k === "hit") {
+          burst(ev.x, ev.z, ev.you ? 0xc45c48 : 0xffd9a0, 0.16, 3.2);
+          emitSparks(sparkPool, ev.x, ev.z, ev.you ? 10 : 6, ev.you ? 8 : 5, 0.28);
+          if (!ev.you && ev.dmg > 0) popNumber(String(Math.max(1, Math.round(ev.dmg))), ev.x, ev.z);
+          if (shakeRef.current) trauma = addTrauma(trauma, ev.you ? 0.34 : 0.08);
+          if (ev.you && shakeRef.current) hitstop = Math.min(0.07, Math.max(hitstop, 0.03));
           if (ev.you) {
             sfxHit();
             threats.push({
               rel: wrap(aimYaw(match.player.x, match.player.z, ev.fromX, ev.fromZ) - match.player.yaw),
               t: 0.45,
             });
-            if (!reduce) shake = Math.min(0.32, shake + 0.07);
           }
         } else if (ev.k === "boom") {
+          burst(ev.x, ev.z, 0xc45c48, 0.45, 14);
+          emitSparks(sparkPool, ev.x, ev.z, 16, 12, 0.42);
           sfxBoom();
           wrecks.push({ x: ev.x, z: ev.z, t: 1.6 });
-          if (!reduce) shake = Math.min(0.48, shake + 0.2);
+          if (shakeRef.current) {
+            trauma = addTrauma(trauma, 0.7);
+            hitstop = Math.min(0.08, Math.max(hitstop, 0.05));
+          }
         } else if (ev.k === "ping") {
           sfxHit();
           markT = 0.14;
@@ -719,13 +884,37 @@ export function Arena({
           callT = 1.35;
           callName = `${ev.name.toUpperCase()} DOWN`;
         } else if (ev.k === "flare") {
-          flareT = 0.3;
-          sfxUlt();
+          flareT = 0.42;
+          flareX = ev.x;
+          flareZ = ev.z;
+          flareYaw = ev.yaw;
+          burst(ev.x, ev.z, 0xffd9a0, 0.35, 10);
+          sfxFlare();
+        } else if (ev.k === "dive" || ev.k === "ram") {
+          streakT = ev.k === "ram" ? 0.28 : 0.2;
+          streakX = ev.x;
+          streakZ = ev.z;
+          streakYaw = ev.yaw;
+          streakMat.color.setHex(ev.k === "ram" ? 0xd5ecff : 0xffd9a0);
+          if (ev.k === "ram") sfxRam();
+          else sfxDive();
+        } else if (ev.k === "cloak") {
+          burst(ev.x, ev.z, 0x9fd7ff, 0.4, 7);
+          sfxCloak();
         } else if (ev.k === "emp") {
           empT = 0.5;
           empX = ev.x;
           empZ = ev.z;
-          sfxUlt();
+          sfxEmp();
+        } else if (ev.k === "mark") {
+          burst(ev.x, ev.z, 0xc45c48, 0.28, 5);
+          sfxMark();
+        } else if (ev.k === "guard") {
+          burst(ev.x, ev.z, 0xe6e1d6, 0.36, 6);
+          sfxGuard();
+        } else if (ev.k === "jam") {
+          burst(ev.x, ev.z, 0xc45c48, 0.4, 16);
+          sfxJam();
         }
       }
       match.fx.length = 0;
@@ -794,11 +983,28 @@ export function Arena({
       flareT = Math.max(0, flareT - delta);
       flare.visible = flareT > 0;
       if (flare.visible) {
-        const fwx = -Math.sin(player.yaw);
-        const fwz = -Math.cos(player.yaw);
-        flare.position.set(player.x + fwx * 9, 0.9, player.z + fwz * 9);
-        flare.quaternion.copy(playerGroup.quaternion);
-        flareMat.opacity = (flareT / 0.3) * 0.38;
+        const fax = -Math.sin(flareYaw);
+        const faz = -Math.cos(flareYaw);
+        flare.position.set(flareX + fax * 8, 0.7, flareZ + faz * 8);
+        flare.rotation.set(0, flareYaw + Math.PI, 0);
+        flareMat.opacity = (flareT / 0.42) * 0.55;
+      }
+      streakT = Math.max(0, streakT - delta);
+      streak.visible = streakT > 0;
+      if (streak.visible) {
+        const sax = -Math.sin(streakYaw);
+        const saz = -Math.cos(streakYaw);
+        streak.position.set(streakX + sax * 4, 0.45, streakZ + saz * 4);
+        streak.rotation.set(0, streakYaw + Math.PI, 0);
+        streakMat.opacity = Math.min(0.9, streakT * 3);
+      }
+      for (const item of bursts) {
+        if (item.t <= 0) continue;
+        item.t = Math.max(0, item.t - delta);
+        const u = 1 - item.t / item.life;
+        item.mesh.visible = item.t > 0;
+        item.mesh.scale.setScalar(0.4 + u * item.grow);
+        item.mat.opacity = item.t / item.life;
       }
       empT = Math.max(0, empT - delta);
       emp.visible = empT > 0;
@@ -815,13 +1021,43 @@ export function Arena({
       _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
       const blend = 1 - Math.exp(-5 * delta);
       camera.position.lerp(_cam, blend);
-      if (!reduce && shake > 0.002) {
-        camera.position.x += (Math.random() - 0.5) * shake;
-        camera.position.y += (Math.random() - 0.5) * shake * 0.5;
-        shake *= Math.exp(-3.2 * delta);
+      trauma = decayTrauma(trauma, delta);
+      const mag = shakeRef.current ? shakeMag(trauma) : 0;
+      if (mag > 0.001) {
+        const t = now * 0.001;
+        camera.position.x += shakeNoise(t, 1) * mag * 0.7;
+        camera.position.y += shakeNoise(t, 2) * mag * 0.32;
+        camera.position.z += shakeNoise(t, 3) * mag * 0.45;
       }
       camera.lookAt(_look);
+      if (mag > 0.001) camera.rotateZ(shakeNoise(now * 0.001, 4) * mag * 0.05);
+      tickSparks(sparkPool, delta);
+      for (let i = 0; i < SPARK_N; i++) {
+        sparkPos[i * 3] = sparkPool[i].x;
+        sparkPos[i * 3 + 1] = sparkPool[i].y;
+        sparkPos[i * 3 + 2] = sparkPool[i].z;
+      }
+      (sparkGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       renderer.render(scene, camera);
+      const viewW = canvas.clientWidth || 1;
+      const viewH = canvas.clientHeight || 1;
+      pops.forEach((pop, index) => {
+        const el = floatRefs.current[index];
+        if (!el) return;
+        if (pop.t <= 0) {
+          el.style.opacity = "0";
+          return;
+        }
+        pop.t = Math.max(0, pop.t - delta);
+        _pop.set(pop.x, 1.6 + (0.7 - pop.t) * 3, pop.z);
+        _pop.project(camera);
+        el.textContent = pop.text;
+        el.style.opacity = String(Math.max(0, pop.t / 0.7));
+        el.style.left = `${(_pop.x * 0.5 + 0.5) * viewW}px`;
+        el.style.top = `${(-_pop.y * 0.5 + 0.5) * viewH}px`;
+      });
+      const top = SHIPS[player.ship].maxSpeed;
+      engineGain(pausedRef.current || !player.alive ? 0 : Math.min(1, Math.abs(player.speed) / Math.max(1, top)));
 
       if (shieldRef.current) {
         shieldRef.current.style.width = `${Math.max(0, (player.shield / player.shieldMax) * 100)}%`;
@@ -876,6 +1112,16 @@ export function Arena({
         downRef.current.textContent =
           !player.alive && !match.over ? `HULL DOWN ${Math.max(0, player.respawn).toFixed(1)}` : "";
       }
+      const painting = player.alive && match.painted.length > 0;
+      if (paintRef.current) paintRef.current.textContent = painting ? "PAINTED" : "";
+      paintClock -= delta;
+      if (painting && (!paintOn || paintClock <= 0)) {
+        sfxPaint();
+        paintClock = 0.9;
+      }
+      if (!painting) paintClock = 0;
+      paintOn = painting;
+      if (contactRef.current) drawContacts(contactRef.current, match);
       if (pipRef.current) {
         pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;
       }
@@ -957,6 +1203,16 @@ export function Arena({
   return (
     <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      {Array.from({ length: 6 }, (_, index) => (
+        <span
+          key={index}
+          ref={(el) => {
+            floatRefs.current[index] = el;
+          }}
+          className="pointer-events-none absolute font-hud text-sm text-solar opacity-0"
+        />
+      ))}
       <div
         ref={hurtRef}
         className="pointer-events-none absolute inset-0 opacity-0"
@@ -967,6 +1223,7 @@ export function Arena({
       <div ref={rightRef} className="pointer-events-none absolute top-1/2 right-3 h-16 w-1.5 -translate-y-1/2 bg-alert opacity-0" />
       <div ref={behindRef} className="pointer-events-none absolute bottom-32 left-1/2 h-1.5 w-16 -translate-x-1/2 bg-alert opacity-0" />
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
+      <p ref={paintRef} className="pointer-events-none absolute top-[46%] left-1/2 -translate-x-1/2 font-hud text-xs tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
       ) : null}
@@ -1011,6 +1268,28 @@ export function Arena({
           </div>
           <div className="flex flex-col items-end gap-2">
             <canvas ref={radarRef} width={160} height={160} className="size-24 border border-bone/20 bg-void/70" />
+            <button
+              type="button"
+              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
+              onClick={() => {
+                const next = !pausedRef.current;
+                pausedRef.current = next;
+                setPaused(next);
+              }}
+            >
+              {paused ? "RESUME" : "HOLD"}
+            </button>
+            <button
+              type="button"
+              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
+              onClick={() => {
+                const next = !shakeRef.current;
+                shakeRef.current = next;
+                setShakeUi(next);
+              }}
+            >
+              {shakeUi ? "SHAKE" : "SHAKE OFF"}
+            </button>
             <button
               type="button"
               className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
@@ -1148,6 +1427,24 @@ export function Arena({
           </div>
         </div>
       </div>
+      {paused && !end ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/75">
+          <div className="text-center">
+            <p className="font-hud text-4xl tracking-widest text-bone">HOLD</p>
+            <p className="mt-2 font-hud text-xs tracking-widest text-muted">P or HOLD resumes the strike</p>
+            <button
+              type="button"
+              className="pointer-events-auto mt-4 h-11 border border-solar/50 px-4 font-hud text-sm tracking-widest text-bone"
+              onClick={() => {
+                pausedRef.current = false;
+                setPaused(false);
+              }}
+            >
+              RESUME
+            </button>
+          </div>
+        </div>
+      ) : null}
       {end ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/80 p-6">
           <div className="w-full max-w-sm border border-solar/50 bg-panel p-5">

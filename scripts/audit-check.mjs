@@ -63,6 +63,28 @@ function park(match, foe) {
   match.player.guard = 0;
 }
 
+const juice = await server.ssrLoadModule("/src/game/juice.ts");
+check(juice.shakeMag(0.5) === 0.25, "trauma should square");
+check(Math.abs(juice.decayTrauma(0.4, 0.1, 1) - 0.3) < 1e-9, "trauma should decay");
+check(juice.addTrauma(0.8, 0.5) === 1, "trauma should cap at 1");
+const sparks = Array.from({ length: 4 }, () => juice.freshSpark());
+juice.emitSparks(sparks, 1, 2, 3, 4, 0.2);
+check(sparks.filter((spark) => spark.life > 0).length === 3, "spark pool should fill without growing");
+juice.tickSparks(sparks, 0.25);
+check(sparks.every((spark) => spark.life === 0), "sparks should die out");
+
+const menu = await server.ssrLoadModule("/src/game/menu.ts");
+check(menu.nextMenu("BOOT", "BOOT_DONE") === "TITLE", "boot should open the title");
+check(menu.nextMenu("TITLE", "START") === "MAIN_MENU", "title should open the menu");
+check(menu.nextMenu("MAIN_MENU", "DEPLOY") === "HANGAR", "campaign should open the hangar");
+check(menu.nextMenu("MAIN_MENU", "ARCADE") === "HANGAR", "arcade should open the hangar");
+check(menu.nextMenu("MAIN_MENU", "ARMORY") === "ARMORY", "armory");
+check(menu.nextMenu("ARMORY", "BACK") === "MAIN_MENU", "armory back");
+check(menu.nextMenu("HANGAR", "LAUNCH") === "LOADING", "launch should load");
+check(menu.nextMenu("LOADING", "START") === "LOADING", "loading should ignore extra input");
+check(menu.nextMenu("LOADING", "LOADED") === "GAMEPLAY", "load should enter the fight");
+check(menu.menuTip(0).length > 10, "loading tip");
+
 const ids = Object.keys(ships.SHIPS);
 check(ids.length === 8, `roster count ${ids.length}`);
 check(ships.ROSTER.accord.length === 4 && ships.ROSTER.ussf.length === 4, "faction wings");
@@ -331,6 +353,49 @@ stung.player.alive = false;
 stung.player.respawn = 3.4;
 sim.step(stung, idle(), 1);
 check(!stung.player.alive && stung.player.respawn < 2.6 && stung.player.respawn > 2, `hull timer ${stung.player.respawn}`);
+
+const paint = sim.createMatch("mandjet", "accord", 0, "practice");
+quiet(paint);
+const nose = paint.enemies[0];
+nose.alive = true;
+nose.respawn = 99;
+nose.fireCd = 99;
+nose.root = 5;
+nose.cloak = 0;
+nose.x = paint.player.x;
+nose.z = paint.player.z - 18;
+nose.yaw = Math.PI;
+paint.player.yaw = 0;
+paint.player.x = 0;
+sim.step(paint, idle(), 1 / 60);
+check(paint.painted.includes(nose.id), "nose on you should paint");
+nose.yaw = 0;
+nose.root = 5;
+sim.step(paint, idle(), 1 / 60);
+check(!paint.painted.includes(nose.id), "nose off should clear the paint");
+nose.yaw = Math.PI;
+nose.root = 5;
+nose.cloak = 2;
+sim.step(paint, idle(), 1 / 60);
+check(!paint.painted.includes(nose.id), "a cloak should hide the paint");
+
+const ultFx = {
+  mandjet: "flare",
+  shakuna: "dive",
+  sundara: "cloak",
+  tripura: "emp",
+  duskbreaker: "mark",
+  sentinel: "guard",
+  splitter: "jam",
+  glide: "ram",
+};
+for (const [id, kind] of Object.entries(ultFx)) {
+  const cast = sim.createMatch(id, ships.SHIPS[id].faction, 0, "practice");
+  quiet(cast);
+  cast.player.ultCd = 0;
+  sim.step(cast, idle({ ult: true }), 1 / 60);
+  check(cast.fx.some((ev) => ev.k === kind), `${id} ult has no ${kind}`);
+}
 
 await server.close();
 if (failures.length) {

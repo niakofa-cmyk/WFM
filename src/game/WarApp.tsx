@@ -3,9 +3,11 @@ import { Arena, type StrikeResult } from "./Arena";
 import { armGyro } from "./gyro";
 import { applyBuy, applyDock, dockValue, drift, GOODS, goodName, scrapValue, winBid, type GoodId } from "./market";
 import { applyRefit, loadSave, refitCost, writeSave, type Save } from "./save";
-import { refitMul, ROSTER, SHIPS, type Faction } from "./ships";
-import { unlockAudio } from "./audio";
+import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
+import { sfxUi, unlockAudio } from "./audio";
 import { DISPATCHES, SORTIES, sortieById, sortieUnlocked, TECHS, type TechId } from "./campaign";
+import { HomeScreen } from "./HomeScreen";
+import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 
 type Phase = "brief" | "fight" | "debrief";
 
@@ -31,6 +33,7 @@ export function WarApp() {
   const [save, setSave] = useState<Save>(emptySave);
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<Phase>("brief");
+  const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
   const [result, setResult] = useState<StrikeResult | null>(null);
   const [gain, setGain] = useState(0);
@@ -45,6 +48,30 @@ export function WarApp() {
   useEffect(() => {
     if (ready) writeSave(save);
   }, [save, ready]);
+
+  useEffect(() => {
+    if (shell !== MenuState.BOOT) return;
+    const id = window.setTimeout(() => setShell(MenuState.TITLE), 800);
+    return () => window.clearTimeout(id);
+  }, [shell]);
+
+  useEffect(() => {
+    if (shell !== MenuState.LOADING) return;
+    const id = window.setTimeout(() => {
+      setResult(null);
+      setPhase("fight");
+      setShell(MenuState.GAMEPLAY);
+    }, 1100);
+    return () => window.clearTimeout(id);
+  }, [shell]);
+
+  const act = (action: MenuAction) => {
+    if (shell === MenuState.LOADING) return;
+    unlockAudio();
+    sfxUi();
+    if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
+    setShell((prev) => nextMenu(prev, action));
+  };
 
   const ship = SHIPS[save.ship];
   const cost = refitCost(save.refit);
@@ -70,9 +97,9 @@ export function WarApp() {
   };
 
   const start = () => {
+    if (shell === MenuState.LOADING) return;
     unlockAudio();
-    setResult(null);
-    setPhase("fight");
+    setShell(MenuState.LOADING);
   };
 
   const finish = (next: StrikeResult) => {
@@ -192,11 +219,48 @@ export function WarApp() {
         <button
           type="button"
           className="h-12 border border-bone/30 font-hud text-lg tracking-widest text-bone"
-          onClick={() => setPhase("brief")}
+          onClick={() => {
+            setPhase("brief");
+            setShell(MenuState.HANGAR);
+          }}
         >
           Hangar
         </button>
       </main>
+    );
+  }
+
+  if (shell !== MenuState.HANGAR && shell !== MenuState.GAMEPLAY) {
+    return (
+      <HomeScreen
+        state={shell}
+        tipIndex={sortie}
+        faction={save.faction}
+        ship={save.ship}
+        scheme={save.scheme}
+        gyro={save.gyro}
+        refit={save.refit}
+        credits={save.credits}
+        tech={save.tech}
+        cleared={save.cleared}
+        refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
+        refitDisabled={save.refit >= 5 || save.credits < cost}
+        onAction={act}
+        onFaction={pickFaction}
+        onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
+        onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}
+        onGyro={() => {
+          if (save.gyro) {
+            setSave((prev) => ({ ...prev, gyro: false }));
+            return;
+          }
+          void armGyro().then((ok) => setSave((prev) => ({ ...prev, gyro: ok })));
+        }}
+        onTech={(id: TechId) =>
+          setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
+        }
+        onRefit={() => setSave((prev) => applyRefit(prev))}
+      />
     );
   }
 
@@ -448,8 +512,15 @@ export function WarApp() {
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-bone/15 bg-void py-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <p className="font-hud text-xl text-solar">{save.credits} CR</p>
+          <button
+            type="button"
+            className="h-11 border border-bone/25 px-3 font-hud tracking-widest text-bone"
+            onClick={() => act("BACK")}
+          >
+            MENU
+          </button>
           <button
             type="button"
             disabled={save.refit >= 5 || save.credits < cost}
