@@ -1,6 +1,6 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "",
+  "testedSourceCommit": "51f209ad7bdf8a72c586ac337a8943dae59e2645",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
@@ -28,8 +28,11 @@
     "ordinaryDisconnectReconnect": "PENDING",
     "roomInviteReadyAndTeamAssignment": "PENDING",
     "tenClientMatchCompletion": "PENDING",
-    "networkImpairmentHarness": "PENDING"
+    "networkImpairmentHarness": "PASS"
   },
-  "evidenceFiles": [],
+  "evidenceFiles": [
+    "STAGING-TEST-REPORT.md",
+    "docs/staging-network-impairment-evidence.json"
+  ],
   "productionReadiness": "NOT_CLAIMED"
 }
