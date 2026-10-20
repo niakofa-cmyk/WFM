@@ -143,6 +143,8 @@ function createDuel(playerShip: ShipId, opponentShip: ShipId, seed: number, dura
     seed,
     allyCount: 1,
     foeCount: 1,
+    playerShieldRegenRate: 5,
+    symmetricDuelDeathPenalty: 9,
   });
   const opponent = match.enemies[0];
   match.playerFaction = playerFaction;
@@ -525,7 +527,7 @@ export function runShipCertification(options: {
   durationSeconds?: number;
   seedOffset?: number;
 } = {}): ShipCertificationRow[] {
-  const seeds = Math.max(1, Math.floor(options.seeds ?? 5));
+  const seeds = Math.max(1, Math.floor(options.seeds ?? 10));
   const durationSeconds = Math.max(10, options.durationSeconds ?? 360);
   const seedOffset = Math.max(0, Math.floor(options.seedOffset ?? 0));
   const mutableRows = new Map<ShipId, MutableRow>(
@@ -546,7 +548,6 @@ export function runShipCertification(options: {
         for (const [playerShip, opponentShip] of directions) {
           const result = runDuel(playerShip, opponentShip, seed, durationSeconds);
           const playerWon = result.winner === "you";
-          const opponentWon = result.winner === "foe";
           const drawn = result.winner === "draw";
           addResult(
             mutableRows.get(playerShip)!,
@@ -554,14 +555,6 @@ export function runShipCertification(options: {
             result,
             0,
             playerWon,
-            drawn,
-          );
-          addResult(
-            mutableRows.get(opponentShip)!,
-            SHIPS[playerShip].role,
-            result,
-            1,
-            opponentWon,
             drawn,
           );
         }
@@ -635,7 +628,7 @@ function wdl(record: RoleRecord) {
 
 export function formatShipCertification(
   rows: ShipCertificationRow[],
-  seeds = 5,
+  seeds = 10,
   durationSeconds = 360,
   seedOffset = 0,
 ) {
@@ -650,7 +643,7 @@ export function formatShipCertification(
     const cells = ROLES.map((role) => wdl(row.opponentRoles[role]));
     return `| ${row.name} | ${cells.join(" | ")} |`;
   });
-  const flagged = rows.filter((row) => row.winRate < 0.4 || row.winRate > 0.6);
+  const flagged = rows.filter((row) => row.matches >= 40 && (row.winRate < 0.4 || row.winRate > 0.6));
   const sameRoleDamageFlags: string[] = [];
   const roleGroups = new Map<string, ShipCertificationRow[]>();
   for (const row of rows) {
@@ -668,10 +661,10 @@ export function formatShipCertification(
     const dealtMedian = median(group.map((row) => row.avgDamageDealt));
     const receivedMedian = median(group.map((row) => row.avgDamageReceived));
     for (const row of group) {
-      if (dealtMedian > 0 && Math.abs(row.avgDamageDealt - dealtMedian) / dealtMedian > 0.25) {
+      if (row.matches >= 40 && dealtMedian > 0 && Math.abs(row.avgDamageDealt - dealtMedian) / dealtMedian > 0.25) {
         sameRoleDamageFlags.push(`${row.name} dealt damage vs ${role} median`);
       }
-      if (receivedMedian > 0 && Math.abs(row.avgDamageReceived - receivedMedian) / receivedMedian > 0.25) {
+      if (row.matches >= 40 && receivedMedian > 0 && Math.abs(row.avgDamageReceived - receivedMedian) / receivedMedian > 0.25) {
         sameRoleDamageFlags.push(`${row.name} received damage vs ${role} median`);
       }
     }
@@ -688,13 +681,14 @@ export function formatShipCertification(
     "# WAR FOR MARS — Eight-Ship Certification",
     "",
     `**Run:** ${new Date().toISOString().slice(0, 10)} · **Seeds per pairing:** ${seeds} · **Seed cohort:** ${seedOffset}–${seedOffset + seeds - 1} · **Duration cap:** ${durationSeconds}s · **Matches per ship:** ${matchesPerShip}`,
-    "**Status:** Measurements are repeatable; balance and human playability are not certified by this report.",
+    "**Status:** Diagnostic only. The simulator stores lock/homing state on the player match, so opposing-seat lock use is not equivalent; no ship balance certification is claimed.",
     "",
     "## Method",
     "",
-    `- Every Accord ship was tested against every USSF ship: 16 cross-faction pairs, each mirrored by swapping which ship starts in the player seat, for ${seeds} fixed seeds per pair.`,
-    "- Each 1v1 duel used one standardized scripted pilot per side: velocity-led aiming, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Lock-capable ships receive a lock opportunity.",
-    `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * 2 * seeds} appearances per ship. The same seed and matchup are used in both seat orientations.`,
+    `- Every Accord ship was tested against every USSF ship: 16 cross-faction pairs, with each ship measured as the controlled focal pilot in its own player-seat trial, for ${seeds} fixed seeds per pair.`,
+    "- Each 1v1 duel uses a standardized scripted pilot for both sides: velocity-led aim, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range/health conditions. Only the focal/player-seat result is counted because lock and homing state are player-seat-only in this simulator.",
+    "- The duel harness normalizes both pilots to 5 shield-regeneration points per second and a symmetric 9-point integrity loss on death; normal game defaults are unchanged.",
+    `- This cohort yields ${16 * 2 * seeds} six-minute-cap duels and ${4 * seeds} scored appearances per ship. The same seed and matchup are used for the two focal-ship trials.`,
     `- Each ship also gets ${seeds} full 5v5 Strike simulations on the dust field, with all ten seats run by the production AI. Those AI pilots do not activate ultimates; the 1v1 drills cover scripted ability use.`,
     "- Damage is summed from landed hit events; first-life survival is censored at match end for pilots that survive; alive percentage includes respawn downtime; movement and turn rate are also measured in isolated throttle/turn probes.",
     "- Ability effects are measured in a separate stationary-target drill so support/control abilities are not misrepresented as direct damage.",
@@ -750,7 +744,7 @@ if (process.argv[1]?.endsWith("/ship-certification.ts")) {
     if (!Number.isFinite(value)) throw new Error(`Invalid --${name} value`);
     return value;
   };
-  const seeds = Math.max(1, Math.floor(readOption("seeds", 5)));
+  const seeds = Math.max(1, Math.floor(readOption("seeds", 10)));
   const durationSeconds = Math.max(10, Math.floor(readOption("duration", 360)));
   const seedOffset = Math.max(0, Math.floor(readOption("seed-offset", 0)));
   const rows = runShipCertification({ seeds, durationSeconds, seedOffset });

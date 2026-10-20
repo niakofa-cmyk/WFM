@@ -3,8 +3,8 @@ name: Ship balance certification
 description: Methodological guardrails for the game's automated ship-balance benchmark.
 ---
 
-For scripted ship benchmarks, give lock-capable ships equivalent lock opportunities and lead shots from observed target movement, including lateral motion. Treat 1v1 results as diagnostic signals, not proof of 5v5 balance; validate candidate tuning in human team play.
+The simulator stores lock/homing on the player match, not per craft, so scripted opponents do not receive equivalent lock opportunities. Report 1v1 scores as one-sided diagnostics, not symmetric balance evidence; normalize shield regeneration and death penalties, and validate candidates in human 5v5 play. Splitter Ring's jam is not a human-control effect.
 
-**Why:** an early harness omitted lock behavior and reported Sundara at 0%; after correcting lock and movement-aware lead aiming, Sundara measured 50% in two independent cohorts. The benchmark still omits teammates and objectives.
+**Why:** player-only lock state lets the focal pilot home shots while the opponent cannot, and the AI steering jam does not represent its advertised effect against a human. These asymmetries can distort ship rankings even when cohorts repeat.
 
-**How to apply:** before changing balance values, inspect the pilot policy, run a fresh seed cohort, and confirm promising changes in a human 5v5 test.
+**How to apply:** before changing balance values, inspect the pilot policy and lock model, normalize side-specific simulation defaults, use fresh cohorts only for regression signals, and confirm promising changes in human 5v5.

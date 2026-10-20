@@ -41,6 +41,66 @@ test("flight controls ease turn input and counter-thrust faster than coasting", 
   assert.ok(braking.player.speed < coasting.player.speed);
 });
 
+test("competitive simulations can normalize the player-seat shield regeneration", () => {
+  const standard = createMatch("mandjet", "accord", 0, "strike", { seed: 29 });
+  standard.allies = [];
+  standard.enemies = [];
+  standard.player.shield = 0;
+  step(standard, idle, 0.5);
+  assert.equal(standard.player.shield, 8);
+
+  const normalized = createMatch("mandjet", "accord", 0, "strike", {
+    seed: 30,
+    playerShieldRegenRate: 5,
+  });
+  normalized.allies = [];
+  normalized.enemies = [];
+  normalized.player.shield = 0;
+  step(normalized, idle, 0.5);
+  assert.equal(normalized.player.shield, 2.5);
+});
+
+test("duel certification applies the same integrity penalty to both pilots", () => {
+  const foeMatch = createMatch("mandjet", "accord", 0, "strike", {
+    seed: 31,
+    allyCount: 1,
+    foeCount: 1,
+    symmetricDuelDeathPenalty: 9,
+  });
+  foeMatch.allies = [];
+  foeMatch.rocks = [];
+  const foe = foeMatch.enemies[0];
+  foe.ai = false;
+  foe.human = idle;
+  foe.shield = 0;
+  foe.hull = 1;
+  foe.guard = 0;
+  foeMatch.bullets.push({
+    x: foe.x, z: foe.z, vx: 0, vz: 0, life: 1, dmg: 10,
+    faction: foeMatch.playerFaction, r: 0.5, homeId: null, own: true,
+  });
+  step(foeMatch, idle, 1 / 30);
+  assert.equal(foeMatch.foeBar, 91);
+
+  const playerMatch = createMatch("mandjet", "accord", 0, "strike", {
+    seed: 32,
+    allyCount: 1,
+    foeCount: 1,
+    symmetricDuelDeathPenalty: 9,
+  });
+  playerMatch.allies = [];
+  playerMatch.rocks = [];
+  playerMatch.player.shield = 0;
+  playerMatch.player.hull = 1;
+  playerMatch.player.guard = 0;
+  playerMatch.bullets.push({
+    x: playerMatch.player.x, z: playerMatch.player.z, vx: 0, vz: 0, life: 1, dmg: 10,
+    faction: "ussf", r: 0.5, homeId: null, own: false,
+  });
+  step(playerMatch, idle, 1 / 30);
+  assert.equal(playerMatch.youBar, 91);
+});
+
 test("AI lead point intercepts a crossing ship instead of aiming behind it", () => {
   const point = leadAimPoint(
     0,

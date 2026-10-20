@@ -1,92 +1,87 @@
 # WAR FOR MARS — Eight-Ship Certification
 
-**Status: MEASURED; BALANCE GATE NOT PASSED.**
+**Status: DIAGNOSTIC ONLY — balance gate not passed.**
 
-The harness now measures every ship using repeatable combat, mobility, and ability drills. The results identify outliers, so they do not support a claim that all eight ships are balanced yet.
+The benchmark is repeatable, but the simulator stores lock and homing state on the player match. The focal pilot therefore has capabilities that the scripted opponent cannot use. The numbers below are useful for regression and outlier triage, not for declaring a balanced roster.
 
 ## Provenance
 
-- Source commit: `87625e57b125fc565ecdb942d46681a6044960c3`
+- Tested source commit: recorded in `TEST-REPORT.md` after the verification commit
 - Run date: 2026-10-20
-- Command: `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`
-- Seed cohort: 5–9; five fixed seeds per matchup
-- Coverage: 16 cross-faction ship pairs, both seat orientations, 160 duels and 40 appearances per ship per cohort; plus five full 5v5 AI Strikes per ship per cohort
+- Command: `pnpm --filter @workspace/api-server run certify:ships -- --seeds=20 --seed-offset=50`
+- Seed cohort: 50–69; 20 fixed seeds per matchup
+- Coverage: 16 cross-faction ship pairs, each ship scored as focal pilot; 640 six-minute-cap duels and 80 appearances per ship; 20 full AI 5v5 Strikes per ship
 - Duel cap: 360 seconds
 
-## Method
+## Method and limits
 
-- Each Accord ship is matched against each USSF ship. Each matchup is mirrored so both ships take the player seat, using the same seed in both orientations.
-- A standardized scripted pilot flies each side with velocity-led aim, the same approach/turn/fire policy, a lock opportunity for lock-capable ships, zero refit, no teammates, and no map rocks. Class abilities trigger at fixed range or health conditions.
-- The harness also runs five full 5v5 Strike simulations per ship on the dust field. All ten seats use the production AI, with the focal ship in the player slot; the runs include rocks, objectives, and respawns.
-- Damage comes from landed-hit events. First-life survival is capped at the match duration for ships that do not die; alive percentage includes respawn downtime.
-- Movement is measured in a separate acceleration/turn probe. Each ability is measured in a controlled drill; effects are not reduced to damage when the ability is defensive or tactical.
-- Results by role are exact matchups against the current opposing-faction roster. Each role is represented by one ship, not a statistically broad role sample.
+- Every Accord ship was tested against every USSF ship. Each ship was measured as the controlled focal pilot in its own player-seat trial; only that focal result is counted.
+- Both scripted pilots use velocity-led aim, the same fire/turn policy, zero refit, no teammates, no map rocks, and class-specific ability triggers at fixed range or health conditions.
+- The duel harness equalizes shield regeneration at 5 points per second and uses a symmetric 9-point integrity loss per death. These are benchmark-only settings; normal game defaults remain unchanged.
+- **Lock/homing limitation:** lock state is player-seat-only in the current simulator. The opponent cannot use equivalent lock or homing behavior. Do not use these 1v1 rates as fair head-to-head balance evidence for lock-capable ships until lock state is per-craft.
+- The full 5v5 simulations use production AI in all ten seats, include rocks/objectives/respawns, and do not activate ultimates. They are AI diagnostics, not human team-play evidence.
+- Damage is summed from landed-hit events; first-life survival is capped at 360 seconds for pilots that survive; alive percentage includes respawn downtime. Movement is measured in a separate throttle/turn probe.
+- Ability effects are measured in a stationary-target drill. The role table maps each role to one specific opposing ship, not a broad role sample. Splitter Ring’s jam is currently represented as AI steering disruption, not as a human control effect.
 
-## Results — seed cohort 5–9
+## Results — seed cohort 50–69
 
-| Ship / role | W-D-L | Score rate* | Damage dealt / received per duel | First life / time alive | Acceleration / handling probe | Battle distance | Battle turn | Ability drill |
+| Ship / role | W-D-L | Score rate* | Avg damage dealt / received | First life / time alive | 0–90% speed / turn probe | Battle distance | Battle turn | Ability drill |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Mandjet (Vanguard) | 30-0-10 | 75.0% | 2221.1 / 1444.1 | 94 s / 96% | 0.63 s to 90%; 11.9 m in 1 s; 66.1°/s | 356 m/min | 27.0°/s | Solar Flare: 36.0 forward-cone damage at 12 m; 8 s cooldown |
-| Shakuna (Hunter) | 21-5-14 | 58.8% | 1388.8 / 769.9 | 188 s / 97% | 0.63 s to 90%; 23.8 m in 1 s; 162.3°/s | 675 m/min | 43.5°/s | Wing Dive: 18.0 measured ram damage; 18 ram power; 0.48 s boost; 7 s cooldown |
-| Sundara (Striker) | 20-0-20 | 50.0% | 1788.4 / 752.7 | 104 s / 95% | 0.65 s to 90%; 15.7 m in 1 s; 102.2°/s | 469 m/min | 33.9°/s | Vortex Camouflage: 4.00 s cloak; 53.9 next-shot damage; 10 s cooldown |
-| Tripura (Support) | 14-0-26 | 35.0% | 1101.5 / 1333.2 | 92 s / 96% | 0.60 s to 90%; 13.5 m in 1 s; 90.2°/s | 377 m/min | 29.4°/s | Trinity Shift: 1.15 s thrust root at 12 m; 11 s cooldown |
-| Duskbreaker (Striker) | 15-0-25 | 37.5% | 1265.7 / 1512.9 | 88 s / 93% | 0.60 s to 90%; 17.8 m in 1 s; 114.2°/s | 491 m/min | 33.9°/s | Quantum Lock: 1.50× damage for 3.2 s; 6.6 first-shot damage; 11 s cooldown |
-| Sentinel-G (Support) | 30-5-5 | 81.3% | 1001.0 / 2366.1 | 317 s / 98% | 0.65 s to 90%; 11.1 m in 1 s; 84.2°/s | 304 m/min | 27.7°/s | Proximity Ward: restored 75.0 shield; 0.80 s guard; 12 s cooldown |
-| Splitter Ring (Hunter) | 10-0-30 | 25.0% | 1054.0 / 1546.4 | 77 s / 92% | 0.60 s to 90%; 17.0 m in 1 s; 120.3°/s | 473 m/min | 33.6°/s | Ring Split: 3.20 s target jam; 9 s cooldown |
-| Glide Knife (Raider) | 15-0-25 | 37.5% | 979.2 / 1074.3 | 123 s / 93% | 0.67 s to 90%; 21.7 m in 1 s; 138.3°/s | 643 m/min | 41.0°/s | Skip Reentry: 42.0 measured ram damage; 1.15 s untargetable and boost; 12 s cooldown |
+| Mandjet (Vanguard) | 60-0-20 | 75.0% | 2221.2 / 1209.4 | 72 s / 96% | 0.63 s to 90%; 11.9 m in 1 s; 66.1°/s | 357 m/min | 27.1°/s | Solar Flare: 36.0 measured forward-cone damage at 12 m; 8 s cooldown |
+| Shakuna (Hunter) | 60-1-19 | 75.6% | 1560.6 / 689.7 | 139 s / 97% | 0.63 s to 90%; 23.8 m in 1 s; 162.3°/s | 686 m/min | 43.6°/s | Wing Dive: 18.0 measured ram damage; 18 ram power; 0.48 s boost; 7 s cooldown |
+| Sundara (Striker) | 80-0-0 | 100.0% | 2417.1 / 306.0 | 154 s / 100% | 0.65 s to 90%; 15.7 m in 1 s; 102.2°/s | 503 m/min | 34.9°/s | Vortex Camouflage: 4.00 s cloak; 53.9 measured next-shot damage; 10 s cooldown |
+| Tripura (Support) | 28-18-34 | 46.3% | 1187.1 / 1157.9 | 72 s / 96% | 0.60 s to 90%; 13.5 m in 1 s; 90.2°/s | 381 m/min | 29.6°/s | Trinity Shift: 1.15 s thrust root at 12 m; 11 s cooldown |
+| Duskbreaker (Striker) | 56-4-20 | 72.5% | 1509.9 / 1143.5 | 130 s / 95% | 0.60 s to 90%; 17.8 m in 1 s; 114.2°/s | 495 m/min | 34.6°/s | Quantum Lock: 1.50× damage for 3.2 s; 6.6 measured first-shot damage; 11 s cooldown |
+| Sentinel-G (Support) | 80-0-0 | 100.0% | 1133.3 / 1856.7 | 360 s / 100% | 0.65 s to 90%; 11.1 m in 1 s; 84.2°/s | 310 m/min | 28.2°/s | Proximity Ward: restored 75.0 shield; 0.80 s guard; 12 s cooldown |
+| Splitter Ring (Hunter) | 38-8-34 | 52.5% | 1278.0 / 1340.5 | 119 s / 95% | 0.60 s to 90%; 17.0 m in 1 s; 120.3°/s | 476 m/min | 34.1°/s | Ring Split: 3.20 s target jam; 9 s cooldown |
+| Glide Knife (Raider) | 60-0-20 | 75.0% | 1221.2 / 961.2 | 163 s / 96% | 0.67 s to 90%; 21.7 m in 1 s; 138.3°/s | 646 m/min | 41.2°/s | Skip Reentry: 42.0 measured ram damage; 1.15 s untargetable; 1.15 s boost; 12 s cooldown |
 
-*Score rate counts a draw as half a win. First-life time is capped at 360 seconds; alive percentage includes time after respawn.
+*Score rate counts a draw as half a win. Damage is per duel. First-life survival is capped at 360 seconds; alive percentage includes time after respawn.
 
 ## Full 5v5 Strike — production AI
 
-Each cohort contains five full matches per ship. All ten seats use the production AI; the focal ship occupies the player slot.
+Each ship has 20 full matches in this combined cohort.
 
-| Focal ship / role | Cohort 0–4 W-D-L (score) | Cohort 5–9 W-D-L (score) | Alive time, cohort 5–9 | Relay lead, cohort 5–9 |
+| Focal ship / role | W-D-L | Score rate | Focal-seat alive time | Average relay lead at end |
 | --- | ---: | ---: | ---: | ---: |
-| Mandjet (Vanguard) | 0-5-0 (50%) | 1-3-1 (50%) | 100% | 0.00 |
-| Shakuna (Hunter) | 1-0-4 (20%) | 1-3-1 (50%) | 100% | -0.40 |
-| Sundara (Striker) | 1-2-2 (40%) | 2-1-2 (50%) | 100% | -0.40 |
-| Tripura (Support) | 3-2-0 (80%) | 3-2-0 (80%) | 100% | 0.00 |
-| Duskbreaker (Striker) | 0-5-0 (50%) | 0-5-0 (50%) | 100% | 0.20 |
-| Sentinel-G (Support) | 1-2-2 (40%) | 2-0-3 (40%) | 99% | -1.00 |
-| Splitter Ring (Hunter) | 0-2-3 (20%) | 0-5-0 (50%) | 100% | 0.20 |
-| Glide Knife (Raider) | 0-0-5 (0%) | 3-1-1 (70%) | 99% | 0.40 |
+| Mandjet (Vanguard) | 1-17-2 | 47.5% | 100% | 0.40 |
+| Shakuna (Hunter) | 7-4-9 | 45.0% | 100% | -0.55 |
+| Sundara (Striker) | 8-3-9 | 47.5% | 100% | -0.35 |
+| Tripura (Support) | 6-11-3 | 57.5% | 100% | 0.35 |
+| Duskbreaker (Striker) | 1-15-4 | 42.5% | 100% | -0.05 |
+| Sentinel-G (Support) | 6-6-8 | 45.0% | 100% | 0.00 |
+| Splitter Ring (Hunter) | 2-14-4 | 45.0% | 100% | -0.10 |
+| Glide Knife (Raider) | 13-0-7 | 65.0% | 100% | 0.05 |
 
-These two small AI-vs-AI cohorts vary substantially for Shakuna, Splitter Ring, and Glide Knife. Most focal seats stayed alive for the full match, and these outcomes do not override the 1v1 flags or establish human balance. The production AI does not activate ultimates; treat this as full-engine smoke coverage, not a competitive balance gate.
+These are AI-vs-AI results; they are not human 5v5 outcomes and the production AI does not use ultimates.
 
 ## Results by opposing role
 
 | Ship | Vanguard | Hunter | Striker | Support | Raider |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Mandjet | — | 10-0-0 (100%) | 10-0-0 (100%) | 0-0-10 (0%) | 10-0-0 (100%) |
-| Shakuna | — | 10-0-0 (100%) | 5-0-5 (50%) | 0-5-5 (25%) | 6-0-4 (60%) |
-| Sundara | — | 5-0-5 (50%) | 5-0-5 (50%) | 5-0-5 (50%) | 5-0-5 (50%) |
-| Tripura | — | 5-0-5 (50%) | 5-0-5 (50%) | 0-0-10 (0%) | 4-0-6 (40%) |
-| Duskbreaker | 0-0-10 (0%) | 5-0-5 (50%) | 5-0-5 (50%) | 5-0-5 (50%) | — |
-| Sentinel-G | 10-0-0 (100%) | 5-5-0 (75%) | 5-0-5 (50%) | 10-0-0 (100%) | — |
-| Splitter Ring | 0-0-10 (0%) | 0-0-10 (0%) | 5-0-5 (50%) | 5-0-5 (50%) | — |
-| Glide Knife | 0-0-10 (0%) | 4-0-6 (40%) | 5-0-5 (50%) | 6-0-4 (60%) | — |
+| Mandjet | — | 20-0-0 (100%) | 20-0-0 (100%) | 0-0-20 (0%) | 20-0-0 (100%) |
+| Shakuna | — | 20-0-0 (100%) | 20-0-0 (100%) | 0-1-19 (3%) | 20-0-0 (100%) |
+| Sundara | — | 20-0-0 (100%) | 20-0-0 (100%) | 20-0-0 (100%) | 20-0-0 (100%) |
+| Tripura | — | 20-0-0 (100%) | 8-11-1 (68%) | 0-0-20 (0%) | 0-7-13 (18%) |
+| Duskbreaker | 0-0-20 (0%) | 16-4-0 (90%) | 20-0-0 (100%) | 20-0-0 (100%) | — |
+| Sentinel-G | 20-0-0 (100%) | 20-0-0 (100%) | 20-0-0 (100%) | 20-0-0 (100%) | — |
+| Splitter Ring | 0-0-20 (0%) | 0-6-14 (15%) | 20-0-0 (100%) | 18-2-0 (95%) | — |
+| Glide Knife | 0-0-20 (0%) | 20-0-0 (100%) | 20-0-0 (100%) | 20-0-0 (100%) | — |
 
-Cells show W-D-L and score rate. A dash means the opposing faction does not field that role.
+Each role maps to one opposing-faction ship, so each cell is an exact matchup rather than a broad role sample. The lock/homing limitation above applies to these results.
 
-## Balance review
+## Review and provisional tuning trials
 
-The review band is 40–60% overall score after at least 40 appearances. Any opposing-role matchup below 35% or above 65% with at least 10 samples is also flagged. Same-role damage is reviewed when it differs from the median by more than 25%.
+- Review threshold: overall score below 40% or above 60% after at least 40 appearances; role matchup below 35% or above 65% with at least 10 samples; same-role damage more than 25% from the median.
+- Diagnostic overall flags: Mandjet 75%, Shakuna 75.6%, Sundara 100%, Duskbreaker 72.5%, Sentinel-G 100%, and Glide Knife 75%. Tripura (46.3%) and Splitter Ring (52.5%) do not repeat the earlier low-outlier signal under the corrected method.
+- Two Sentinel-G changes were tested one at a time on the same two seed cohorts and reverted: Ward cooldown 12→14 seconds and shield 150→135. Neither changed the 80-0-0 W-D-L or 360-second first-life survival; incoming damage shifted by less than 2%. No ship-stat change is retained.
+- This result is not evidence that the listed ships are overpowered. Do not tune from this harness until per-craft lock/homing is represented symmetrically and the candidate is checked in human 5v5.
 
-**Overall flags in cohort 5–9:** Mandjet 75%, Tripura 35%, Duskbreaker 38%, Sentinel-G 81%, Splitter Ring 25%, Glide Knife 38%.
+## Balancing process and disposition
 
-**Stability check:** cohort 0–4 repeated the flags for Mandjet, Tripura, Duskbreaker, Sentinel-G, and Splitter Ring. Glide Knife was exactly 40% in that cohort and 37.5% in cohort 5–9, so it is at the review boundary. Sundara remained at 50% in both cohorts. This confirms repeatable model signals, not human-match balance.
+1. Treat this harness as a regression/outlier diagnostic only.
+2. Before balance tuning, implement independent lock state for each pilot and ensure the scripted opponent can use equivalent controls.
+3. Change one ship stat or ability parameter at a time, keeping client and server definitions in sync.
+4. Compare a fresh seed cohort and role/damage/survival/ability metrics, then validate candidates in human 5v5 before accepting a change.
 
-No balance-tuning change from this certification was retained in the game build. An early harness version omitted lock opportunities and reported Sundara at 0%; after correcting the pilot to use target lock and lead with observed movement, Sundara measured 50% in both cohorts. This is why the current diagnostic is not being used to auto-nerf ships. The final results still flag Mandjet and Sentinel-G on the high side and Tripura, Duskbreaker, Splitter Ring, and sometimes Glide Knife on the low side; these require human 5v5 confirmation before numeric tuning.
-
-## Balancing process
-
-1. Use the benchmark to identify an outlier; do not make a numeric change from one matchup cell alone.
-2. Change one ship stat or ability parameter per iteration, keeping client and server definitions in sync.
-3. Rerun at least five previously unused seeds with `--seed-offset` and compare overall rate, opposing-ship matchups, damage, survival, and ability results.
-4. Confirm promising changes in a human 5v5 playtest before accepting the balance change. Retain the prior value if the change only improves the scripted 1v1 score while harming role identity or team usefulness.
-5. Update this report with the source commit, new cohort, and human evidence.
-
-## Limits and disposition
-
-The 1v1 runs are scripted-pilot diagnostics; the 5v5 runs are AI-vs-AI and the production AI does not use ultimates. Neither is a human 5v5 result or proof that every ship feels equally useful. The 1v1 results show repeatable outliers, so **the eight-ship balance gate remains open** pending human team playtests and follow-up tuning. The role table has one representative ship per opponent role, so its cells are exact ship pairings.
+The eight-ship balance gate remains open. No human 5v5 certification was performed. Android Chrome/iOS Safari, frame rate, memory, thermal behavior, and full six-minute phone play remain untested; see `MOBILE-CERTIFICATION.md`.

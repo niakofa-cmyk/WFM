@@ -53,6 +53,8 @@ export type Match = {
   kills: number; deaths: number; lockId: number | null; painted: number[]; fx: Fx[];
   over: null | "win" | "loss" | "draw"; refit: number; playerFaction: Faction; pace: Pace; limit: number;
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
+  playerShieldRegenRate?: number;
+  symmetricDuelDeathPenalty?: number;
 };
 
 export type StepInput = {
@@ -67,6 +69,8 @@ export type MatchSetup = {
   disc?: Disc;
   tech?: "stick" | "barrels" | "mark" | null;
   seed?: number;
+  playerShieldRegenRate?: number;
+  symmetricDuelDeathPenalty?: number;
 };
 
 function field(disc: Disc) {
@@ -429,6 +433,8 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     disc,
     tech: setup.tech === "stick" || setup.tech === "barrels" || setup.tech === "mark" ? setup.tech : null,
     seed: (setup.seed ?? 1) >>> 0 || 1,
+    ...(setup.playerShieldRegenRate == null ? {} : { playerShieldRegenRate: setup.playerShieldRegenRate }),
+    ...(setup.symmetricDuelDeathPenalty == null ? {} : { symmetricDuelDeathPenalty: setup.symmetricDuelDeathPenalty }),
     runner: goal === "extract" ? {
       x: 0,
       z: 46,
@@ -489,13 +495,13 @@ function kill(match: Match, c: Craft) {
   const strike = match.pace === "strike";
   if (c.team === "foe") {
     match.kills += 1;
-    match.foeBar = Math.max(0, match.foeBar - (strike ? 8 : 14));
+    match.foeBar = Math.max(0, match.foeBar - (match.symmetricDuelDeathPenalty ?? (strike ? 8 : 14)));
     if (match.lockId === c.id) match.lockId = null;
     pushFx(match, { k: "down", name: SHIPS[c.ship].name });
   } else if (c.ai) match.youBar = Math.max(0, match.youBar - (strike ? 6 : 12));
   else {
     match.deaths += 1;
-    match.youBar = Math.max(0, match.youBar - (strike ? 10 : 18));
+    match.youBar = Math.max(0, match.youBar - (match.symmetricDuelDeathPenalty ?? (strike ? 10 : 18)));
     match.lockId = null;
   }
   if (c.ace) match.over = "win";
@@ -980,7 +986,9 @@ export function step(match: Match, input: StepInput, dt: number) {
     if (input.fire) fire(match, player, wepMul(match.pips.wep));
     if (input.ult) triggerUlt(match, player);
     if (input.lock) cycleLock(match);
-    if (player.hurtT <= 0) player.shield = Math.min(player.shieldMax, player.shield + 16 * dt);
+    if (player.hurtT <= 0) {
+      player.shield = Math.min(player.shieldMax, player.shield + (match.playerShieldRegenRate ?? 16) * dt);
+    }
     else if (match.pips.def >= 3.15) player.shield = Math.min(player.shieldMax, player.shield + 6 * dt);
     boostHits(match, player);
     if (glideBoosting && player.boost <= 0) {

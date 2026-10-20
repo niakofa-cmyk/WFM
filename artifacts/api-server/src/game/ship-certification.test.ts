@@ -17,7 +17,8 @@ test("ship certification covers all eight ships and opposing role groups", () =>
   ]);
 
   for (const row of rows) {
-    assert.equal(row.matches, 8);
+    assert.equal(row.matches, 4);
+    assert.equal(Object.values(row.opponentRoles).reduce((sum, role) => sum + role.matches, 0), 4);
     assert.ok(Number.isFinite(row.winRate));
     assert.ok(Number.isFinite(row.avgDamageDealt));
     assert.ok(Number.isFinite(row.avgDamageReceived));
