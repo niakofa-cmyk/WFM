@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Arena, type StrikeResult } from "./Arena";
 import { armGyro } from "./gyro";
-import { applyBuy, applyDock, dockValue, drift, GOODS, goodName, scrapValue, winBid, type GoodId } from "./market";
+import { applyBuy, applyDock, dockValue, GOODS, scrapValue, winBid, type GoodId } from "./market";
 import { applyRefit, loadSave, refitCost, writeSave, type Save } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { sfxUi, unlockAudio } from "./audio";
+import { claimStrike } from "./claim-strike";
 import { DISPATCHES, SORTIES, sortieById, sortieUnlocked, TECHS, type TechId } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 
 type Phase = "brief" | "fight" | "debrief";
@@ -102,51 +104,48 @@ export function WarApp() {
     setShell(MenuState.LOADING);
   };
 
-  const finish = (next: StrikeResult) => {
-    const combat =
-      (next.outcome === "win" ? 80 : next.outcome === "draw" ? 45 : 30) +
-      next.kills * 12 +
-      next.relays * 10;
-    let cargo = 0;
-    let line = "";
-    if (save.hold) {
-      const name = goodName(save.hold);
-      if (next.outcome === "loss") {
-        cargo = scrapValue(save.paid);
-        line = `${name} burned on the way back. Scrap paid ${cargo}.`;
-      } else if (next.outcome === "win") {
-        cargo = winBid(save.prices[save.hold]);
-        line = `${name} cleared the yard for ${cargo}.`;
-      } else {
-        cargo = save.prices[save.hold];
-        line = `${name} sold flat for ${cargo}.`;
-      }
-    }
-    const held = save.hold;
-    const flown = sortieById(save.mission);
-    let cleared = save.cleared;
-    let nextLine = "";
-    if (next.outcome === "win" && flown && flown.order === save.cleared) {
-      cleared = Math.min(4, save.cleared + 1);
-      const found = TECHS.find((tech) => tech.need === cleared);
-      nextLine =
-        cleared >= 4
-          ? "The cage run is over. The yard stays open."
-          : `Next sortie: ${SORTIES[cleared].name}.${found ? " " + found.name + " is on the rack." : ""}`;
-    }
-    setAdvance(nextLine);
-    setCargoLine(line);
-    setGain(combat + cargo + (next.outcome === "win" && flown ? 40 : 0));
-    setResult(next);
-    setSave((prev) => ({
-      ...prev,
-      credits: prev.credits + combat + cargo + (next.outcome === "win" && flown ? 40 : 0),
-      hold: null,
-      paid: 0,
-      prices: drift(prev.prices, held),
-      cleared,
-    }));
-    setPhase("debrief");
+  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
+    const claim = {
+      seed: replay.seed,
+      shipId: save.ship,
+      faction: save.faction,
+      refit: save.refit,
+      pace,
+      goal,
+      disc: active?.disc ?? "rust",
+      allyCount: active?.allyCount ?? 4,
+      foeCount: active?.foeCount ?? 5,
+      tech: save.tech,
+      inputs: replay.inputs,
+      mission: save.mission,
+      cleared: save.cleared,
+      hold: save.hold,
+      paid: save.paid,
+      prices: save.prices,
+    };
+    void claimStrike({ data: claim })
+      .then((grant) => {
+        setAdvance(grant.advance);
+        setCargoLine(grant.cargoLine);
+        setGain(grant.gain);
+        setResult({ outcome: grant.outcome, kills: grant.kills, deaths: next.deaths, relays: grant.relays });
+        setSave((prev) => ({
+          ...prev,
+          credits: prev.credits + grant.gain,
+          hold: null,
+          paid: 0,
+          prices: grant.prices,
+          cleared: grant.cleared,
+        }));
+        setPhase("debrief");
+      })
+      .catch(() => {
+        setAdvance("");
+        setCargoLine("The yard did not log this strike.");
+        setGain(0);
+        setResult(next);
+        setPhase("debrief");
+      });
   };
 
   if (phase === "fight") {

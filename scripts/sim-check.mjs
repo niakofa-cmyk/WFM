@@ -215,7 +215,7 @@ if (escort.over !== "win") fail(`escort exit ${escort.over}`);
 
 const stop = sim.createMatch("mandjet", "accord", 0, "practice", { goal: "extract", allyCount: 1, foeCount: 1 });
 if (stop.runner.team !== "foe") fail("intercept team");
-stop.runner.hull = 4;
+stop.runner.hull = 1;
 stop.runner.x = 0;
 stop.runner.z = stop.player.z - 4;
 stop.player.yaw = 0;

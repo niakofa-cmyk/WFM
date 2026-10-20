@@ -85,6 +85,105 @@ check(menu.nextMenu("LOADING", "START") === "LOADING", "loading should ignore ex
 check(menu.nextMenu("LOADING", "LOADED") === "GAMEPLAY", "load should enter the fight");
 check(menu.menuTip(0).length > 10, "loading tip");
 
+const payout = await server.ssrLoadModule("/src/game/payout.ts");
+const logged = payout.settleStrike({
+  outcome: "win",
+  kills: 2,
+  relays: 1,
+  mission: "contact",
+  cleared: 0,
+  hold: null,
+  paid: 0,
+  prices: { salt: 40, iron: 70, dust: 110, resin: 55 },
+});
+check(logged.gain === 80 + 24 + 10 + 40 && logged.cleared === 1, `contact grant ${logged.gain}`);
+const inflated = payout.settleStrike({
+  outcome: "win",
+  kills: 9999,
+  relays: 40,
+  mission: "skirmish",
+  cleared: 0,
+  hold: "dust",
+  paid: 9000,
+  prices: { dust: 99999 },
+});
+check(inflated.combat === 80 + 40 * 12 + 3 * 10, `capped combat ${inflated.combat}`);
+check(inflated.cargo === Math.round(Math.round(110 * 1.9) * 1.35), `capped cargo ${inflated.cargo}`);
+check(inflated.cleared === 0, "a skirmish does not clear a sortie");
+const skipped = payout.settleStrike({
+  outcome: "win",
+  kills: 0,
+  relays: 0,
+  mission: "beacon",
+  cleared: 0,
+  hold: null,
+  paid: 0,
+  prices: {},
+});
+check(skipped.cleared === 0 && skipped.gain === 80, "a locked sortie pays no campaign bonus");
+
+function aiShot(seed) {
+  const seeded = sim.createMatch("mandjet", "accord", 0, "practice", { seed, allyCount: 1, foeCount: 1 });
+  quiet(seeded);
+  const foe = seeded.enemies[0];
+  foe.alive = true;
+  foe.fireCd = 0;
+  foe.respawn = 99;
+  foe.x = 0;
+  foe.z = seeded.player.z - 12;
+  foe.yaw = Math.PI;
+  sim.step(seeded, idle(), 1 / 60);
+  const shot = seeded.bullets.find((bullet) => !bullet.own);
+  return shot ? shot.vx : null;
+}
+check(aiShot(4) != null && aiShot(4) === aiShot(4), "the same seed fires the same shot");
+check(aiShot(4) !== aiShot(5), "a different seed changes the shot");
+
+const replayMod = await server.ssrLoadModule("/src/game/replay.ts");
+const emptyLog = replayMod.adjudicateStrike({
+  seed: 7,
+  shipId: "mandjet",
+  faction: "accord",
+  refit: 0,
+  pace: "practice",
+  goal: "disc",
+  disc: "rust",
+  allyCount: 1,
+  foeCount: 1,
+  tech: null,
+  inputs: [],
+  mission: "contact",
+  cleared: 0,
+  hold: null,
+  paid: 0,
+  prices: {},
+});
+check(emptyLog.outcome === "loss" && emptyLog.kills === 0 && emptyLog.gain === 30 && emptyLog.cleared === 0, `empty log paid ${emptyLog.gain}`);
+
+const wingMod = await server.ssrLoadModule("/src/game/wing.ts");
+const wing = wingMod.createWing(3);
+const joined = [];
+for (let n = 0; n < 10; n += 1) joined.push(wing.join(`p${n}`, `Pilot ${n}`, null, 1_000));
+check(joined.every((seat) => seat.ok), "ten pilots should sit");
+check(wing.join("extra", "Extra", null, 1_000).ok === false, "the eleventh pilot is refused");
+check(joined[0].team === 0 && joined[5].team === 1, "slots split into two wings of five");
+const stick = { seq: 1, throttle: 1, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
+wing.input(0, stick, 1_000);
+wing.input(0, { ...stick, seq: 0, throttle: -1 }, 1_100);
+const before = wing.snapshot(1_000).players[0].z;
+wing.tick(1_034);
+wing.tick(1_068);
+const after = wing.snapshot(1_068);
+check(after.players[0].lastSeq === 1, "an old input sequence is ignored");
+check(after.players[0].z < before, "the tick moves the joined ship");
+wing.disconnect(0, 2_000);
+const back = wing.join("p0", "Pilot 0", joined[0].reconnectToken, 3_000);
+check(back.ok && back.slotId === 0, "a token reclaims the same slot");
+wing.disconnect(0, 4_000);
+wing.tick(4_000 + wingMod.DISCONNECT_GRACE_MS + 1);
+const taken = wing.join("late", "Late", null, 4_000 + wingMod.DISCONNECT_GRACE_MS + 1);
+check(taken.ok && taken.slotId === 0, "a stale slot opens after the grace");
+
 const ids = Object.keys(ships.SHIPS);
 check(ids.length === 8, `roster count ${ids.length}`);
 check(ships.ROSTER.accord.length === 4 && ships.ROSTER.ussf.length === 4, "faction wings");
@@ -117,6 +216,21 @@ for (const id of ids) {
 check(ships.SHIPS.mandjet.shield + ships.SHIPS.mandjet.hull > ships.SHIPS.shakuna.shield + ships.SHIPS.shakuna.hull, "mandjet heavier than shakuna");
 check(ships.SHIPS.sentinel.shield + ships.SHIPS.sentinel.hull > ships.SHIPS.glide.shield + ships.SHIPS.glide.hull, "sentinel heavier than glide");
 check(ships.SHIPS.shakuna.handling > ships.SHIPS.mandjet.handling, "hunter turns inside the juggernaut");
+
+function gunDps(id) {
+  const def = ships.SHIPS[id];
+  return def.shotDmg / def.fireInterval;
+}
+const dps = Object.fromEntries(ids.map((id) => [id, gunDps(id)]));
+const spread = Math.max(...Object.values(dps)) / Math.min(...Object.values(dps));
+check(spread < 2.2, `gun spread ${spread.toFixed(2)}`);
+check(dps.duskbreaker > dps.mandjet, "the striker outguns the juggernaut");
+check(dps.shakuna >= dps.mandjet - 0.05, "the hunter keeps the vanguard gun honest");
+check(Math.abs(dps.splitter - dps.shakuna) <= 0.5, "the hunter guns stay paired");
+check(dps.tripura < dps.shakuna && dps.sentinel < dps.shakuna, "supports shoot softer than hunters");
+check(Math.abs(dps.tripura - dps.sentinel) < 1.5, "support guns stay in one band");
+check(dps.glide > dps.sentinel && dps.glide < dps.duskbreaker, "the raider sits between support and striker");
+check(dps.sundara < dps.duskbreaker && ships.SHIPS.sundara.shotDmg > ships.SHIPS.duskbreaker.shotDmg * 3, "the torpedo is a hit, not a hose");
 
 const guarded = sim.createMatch("sentinel", "ussf", 0, "practice");
 quiet(guarded);

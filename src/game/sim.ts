@@ -14,7 +14,7 @@ export type Craft = {
   fireCd: number; ultCd: number; alive: boolean; respawn: number; cloak: number;
   boost: number; boostDmg: number; rammed: boolean; untargetable: number; root: number; jam: number;
   dmgMul: number; dmgMulT: number; nextCrit: boolean; recover: number; hurtT: number; guard: number;
-  evadeCd: number; radius: number; ace: boolean;
+  evadeCd: number; radius: number; ace: boolean; human: StepInput | null;
 };
 
 export type Bullet = {
@@ -52,7 +52,7 @@ export type Match = {
   ramp: number; presetCd: number; preset: PresetId; time: number; youBar: number; foeBar: number;
   kills: number; deaths: number; lockId: number | null; painted: number[]; fx: Fx[];
   over: null | "win" | "loss" | "draw"; refit: number; playerFaction: Faction; pace: Pace; limit: number;
-  goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null;
+  goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
 };
 
 export type StepInput = {
@@ -66,6 +66,7 @@ export type MatchSetup = {
   goal?: Goal;
   disc?: Disc;
   tech?: "stick" | "barrels" | "mark" | null;
+  seed?: number;
 };
 
 function field(disc: Disc) {
@@ -263,6 +264,14 @@ export function wepMul(wep: number) {
 export function defMul(def: number) {
   return def <= 2 ? .85 + (def - 1) * .15 : 1 + (def - 2) * .2;
 }
+export function roll(match: Match) {
+  let seed = match.seed | 0;
+  seed = (seed + 0x6d2b79f5) | 0;
+  match.seed = seed >>> 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
 function craft(ship: ShipId, ai: boolean, team: "you" | "foe", x: number, z: number, yaw: number, bonus: number): Craft {
   const def = SHIPS[ship];
   const shield = def.shield * bonus;
@@ -303,7 +312,8 @@ function craft(ship: ShipId, ai: boolean, team: "you" | "foe", x: number, z: num
     guard: ai ? .6 : 2.4,
     evadeCd: 0,
     radius: def.radius,
-    ace: false
+    ace: false,
+    human: null
   };
 }
 export function createMatch(shipId: ShipId, faction: Faction, refit: number, pace: Pace = "practice", setup: MatchSetup = {}): Match {
@@ -418,6 +428,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     goal,
     disc,
     tech: setup.tech === "stick" || setup.tech === "barrels" || setup.tech === "mark" ? setup.tech : null,
+    seed: (setup.seed ?? 1) >>> 0 || 1,
     runner: goal === "extract" ? {
       x: 0,
       z: 46,
@@ -559,7 +570,7 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
   c.fireCd = def.fireInterval / speedMulWep;
   if (!c.ai && match.tech === "barrels") c.fireCd *= .88;
   let dmg = def.shotDmg * Math.sqrt(speedMulWep);
-  if (c.ai) dmg *= .46;
+  if (c.ai && !c.human) dmg *= .46;
   else dmg *= 1 + match.refit * .04;
   if (!c.ai && c.dmgMulT > 0) dmg *= c.dmgMul;
   let big = false;
@@ -569,7 +580,7 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
     big = true;
   }
   if (c.cloak > 0) c.cloak = 0;
-  const spread = c.ai ? (Math.random() - .5) * .16 : 0;
+  const spread = c.ai ? (roll(match) - .5) * .16 : 0;
   const yaw = c.yaw + spread;
   const sp = def.shotSpeed;
   const nose = c.radius + .7;
@@ -593,6 +604,15 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
     you: !c.ai
   });
 }
+function opposing(match: Match, c: Craft) {
+  return c.team === "foe" ? [match.player, ...match.allies] : match.enemies;
+}
+function flyHuman(match: Match, c: Craft, input: StepInput, dt: number) {
+  moveCraft(match, c, input.yaw, input.throttle, input.strafe, dt, 1);
+  if (input.fire) fire(match, c, 1);
+  if (input.ult) triggerUlt(match, c);
+  c.human = null;
+}
 function triggerUlt(match: Match, c: Craft) {
   if (!c.alive || c.ultCd > 0) return;
   const def = SHIPS[c.ship];
@@ -605,7 +625,8 @@ function triggerUlt(match: Match, c: Craft) {
       z: c.z,
       yaw: c.yaw
     });
-    for (const e of match.enemies) {
+    const foes = opposing(match, c);
+    for (const e of foes) {
       if (!e.alive) continue;
       if (Math.hypot(e.x - c.x, e.z - c.z) > 30) continue;
       if (Math.abs(wrap(aimYaw(c.x, c.z, e.x, e.z) - c.yaw)) < .46) hurt(match, e, 36);
@@ -626,17 +647,18 @@ function triggerUlt(match: Match, c: Craft) {
       x: c.x,
       z: c.z
     });
-    for (const e of match.enemies) {
+    const foes = opposing(match, c);
+    for (const e of foes) {
       if (!e.alive) continue;
       if (Math.hypot(e.x - c.x, e.z - c.z) < 20) e.root = Math.max(e.root, 1.15);
     }
   } else if (c.ship === "duskbreaker") {
     c.dmgMul = 1.5;
     c.dmgMulT = 3.2;
-    if (match.lockId == null) {
+    if (c.id === match.player.id && match.lockId == null) {
       let best = null;
       let bestAbs = 1;
-      for (const e of match.enemies) {
+      for (const e of opposing(match, c)) {
         if (!e.alive) continue;
         const ang = Math.abs(wrap(aimYaw(c.x, c.z, e.x, e.z) - c.yaw));
         if (ang < bestAbs) {
@@ -646,14 +668,14 @@ function triggerUlt(match: Match, c: Craft) {
       }
       if (best && bestAbs < .7) match.lockId = best.id;
     }
-    const marked = match.enemies.find((e) => e.id === match.lockId && e.alive);
+    const marked = opposing(match, c).find((e) => e.id === match.lockId && e.alive);
     pushFx(match, { k: "mark", x: marked ? marked.x : c.x, z: marked ? marked.z : c.z });
   } else if (c.ship === "sentinel") {
     c.shield = c.shieldMax;
     c.guard = Math.max(c.guard, 1.35);
     pushFx(match, { k: "guard", x: c.x, z: c.z });
   } else if (c.ship === "splitter") {
-    for (const e of match.enemies) if (e.alive) e.jam = Math.max(e.jam, 3.2);
+    for (const e of opposing(match, c)) if (e.alive) e.jam = Math.max(e.jam, 3.2);
     pushFx(match, { k: "jam", x: c.x, z: c.z });
   } else if (c.ship === "glide") {
     c.untargetable = 1.15;
@@ -739,7 +761,7 @@ function steerAi(match: Match, e: Craft, dt: number) {
   }
 }
 function respawn(match: Match, c: Craft) {
-  const angle = Math.random() * Math.PI * 2;
+  const angle = roll(match) * Math.PI * 2;
   const rad = ARENA_R * 0.72;
   c.x = Math.cos(angle) * rad;
   c.z = Math.sin(angle) * rad;
@@ -871,7 +893,8 @@ export function step(match: Match, input: StepInput, dt: number) {
       if (mate.respawn <= 0 && match.youBar > 0) respawn(match, mate);
       continue;
     }
-    steerAi(match, mate, dt);
+    if (mate.human) flyHuman(match, mate, mate.human, dt);
+    else steerAi(match, mate, dt);
     boostHits(match, mate);
     if (mate.hurtT <= 0) mate.shield = Math.min(mate.shieldMax, mate.shield + 5 * dt);
   }
@@ -881,7 +904,8 @@ export function step(match: Match, input: StepInput, dt: number) {
       if (e.respawn <= 0 && match.foeBar > 0 && !e.ace) respawn(match, e);
       continue;
     }
-    steerAi(match, e, dt);
+    if (e.human) flyHuman(match, e, e.human, dt);
+    else steerAi(match, e, dt);
     boostHits(match, e);
     if (e.hurtT <= 0) e.shield = Math.min(e.shieldMax, e.shield + 5 * dt);
   }

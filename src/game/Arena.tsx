@@ -6,7 +6,7 @@ import { createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
-import { ARENA_R, aimYaw, createMatch, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace } from "./sim";
+import { ARENA_R, aimYaw, createMatch, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
 
 export type StrikeResult = {
@@ -31,7 +31,7 @@ type ArenaProps = {
   gyro: boolean;
   drilled: boolean;
   onDrill: () => void;
-  onDone: (result: StrikeResult) => void;
+  onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
 };
 
 const DRILL = [
@@ -425,13 +425,18 @@ export function Arena({
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
   const matchRef = useRef<Match | null>(null);
+  const seedRef = useRef(1);
+  const replayRef = useRef<StepInput[]>([]);
   const gyroOn = useRef(gyro);
   const drillCb = useRef(onDrill);
   gyroOn.current = gyro;
   drillCb.current = onDrill;
   if (!busRef.current) busRef.current = createBus(scheme);
   if (!matchRef.current) {
-    matchRef.current = createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech });
+    const seed = (Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1;
+    seedRef.current = seed;
+    replayRef.current = [];
+    matchRef.current = createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed });
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -827,12 +832,10 @@ export function Arena({
         : readInput(bus);
       let first = true;
       let steps = 0;
-      while (acc >= FIXED && steps < 5) {
-        step(
-          match,
-          first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null },
-          FIXED,
-        );
+      while (acc >= FIXED && steps < 5 && !match.over) {
+        const played = first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null };
+        if (replayRef.current.length < 22000) replayRef.current.push(played);
+        step(match, played, FIXED);
         first = false;
         acc -= FIXED;
         steps += 1;
@@ -1474,7 +1477,7 @@ export function Arena({
             <button
               type="button"
               className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
-              onClick={() => onDone(end)}
+              onClick={() => onDone(end, { seed: seedRef.current, inputs: replayRef.current })}
             >
               Debrief
             </button>
