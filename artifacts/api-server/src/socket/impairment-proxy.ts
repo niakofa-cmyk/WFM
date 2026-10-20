@@ -167,9 +167,12 @@ export async function startNetworkImpairmentProxy(
         upstreams.delete(upstream);
         upstream.terminate();
       });
-      upstream.on("close", () => {
+      upstream.on("close", (code, reason) => {
         upstreams.delete(upstream);
-        if (downstream.readyState === WebSocket.OPEN) downstream.close(1011, "Upstream closed");
+        if (downstream.readyState === WebSocket.OPEN) {
+          const details = reason.length ? `: ${reason.toString()}` : "";
+          downstream.close(1011, `Upstream closed (${code}${details})`);
+        }
       });
     });
   });

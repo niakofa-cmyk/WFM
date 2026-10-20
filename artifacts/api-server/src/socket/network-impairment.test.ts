@@ -22,9 +22,17 @@ function nextPacket(
   description = "expected packet",
 ) {
   return new Promise<Packet>((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const cleanup = () => {
+      clearTimeout(timer);
       socket.off("message", onMessage);
-      reject(new Error(`Timed out waiting for ${description} after ${timeoutMs}ms.`));
+      socket.off("close", onClose);
+      socket.off("error", onError);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(
+        `Timed out waiting for ${description} after ${timeoutMs}ms (socket state ${socket.readyState}).`,
+      ));
     }, timeoutMs);
     const onMessage = (data: Buffer) => {
       let packet: Packet;
@@ -34,11 +42,22 @@ function nextPacket(
         return;
       }
       if (!accept(packet)) return;
-      clearTimeout(timer);
-      socket.off("message", onMessage);
+      cleanup();
       resolve(packet);
     };
+    const onClose = (code: number, reason: Buffer) => {
+      cleanup();
+      reject(new Error(
+        `Socket closed while waiting for ${description} (code ${code}${reason.length ? `: ${reason.toString()}` : ""}).`,
+      ));
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(new Error(`Socket error while waiting for ${description}: ${error.message}`));
+    };
     socket.on("message", onMessage);
+    socket.once("close", onClose);
+    socket.once("error", onError);
   });
 }
 
