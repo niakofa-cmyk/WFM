@@ -1,40 +1,48 @@
-# WAR FOR MARS — Reproducible Build, Ship Balance, and Mobile Test Report
+# WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Source commit tested:** `87625e57b125fc565ecdb942d46681a6044960c3`
-**Result:** Clean-checkout build and automated tests pass. The ship balance gate is open, and physical Android/iOS certification has not been run.
+**Code commit verified:** `d1a9ad8dc2280732cd2eef7e328df0035332f4af`
+**Result:** Clean-checkout typecheck, tests, game/API builds, and socket build pass. Ship balance and physical phone certification remain open.
 
 ## Reproduction
 
-The source commit was tested from a detached clean Git worktree with Node.js `v24.13.0` and pnpm `10.26.1`.
+Verified from a detached clean Git worktree using Node.js `v24.13.0` and pnpm `10.26.1`.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| `pnpm install --frozen-lockfile` | PASS | Lockfile current; clean install resolved all 10 workspace projects and reused 538 packages without downloads. |
-| `pnpm run typecheck` | PASS | Shared libraries and all artifact/script TypeScript checks completed. |
-| `pnpm test` | PASS | 20 tests: API/server 16/16 and game controls 4/4; zero failures. |
-| `pnpm run build` | PASS | Workspace production build completed from the clean worktree. |
+| `pnpm install --frozen-lockfile` | PASS | Clean worktree; all 10 workspace projects; 538 packages reused, none downloaded. |
+| `pnpm run typecheck` | PASS | Shared libraries, artifacts, and scripts completed. |
+| `pnpm test` | PASS | 22 tests total: API/server 18/18 and game controls 4/4; zero failures. |
+| `pnpm run build` | PASS | All workspace production builds completed. |
 | `pnpm --filter @workspace/api-server run build:socket` | PASS | API and WebSocket bundles built. |
 | `git diff --check` | PASS | No whitespace errors in the tested source commit. |
 
-The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warning threshold. Build succeeds; physical-device performance is not inferred from this size.
+The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warning threshold. The build succeeds; no physical-device performance is inferred from bundle size. At runtime, the API listened on port 8080 and the Wing Socket server on port 8099.
 
-## Multiplayer and combat evidence
+## Multiplayer and six-minute Strike evidence
 
-- Automated WebSocket test: ten clients fill a room, reconnect, and remain isolated from a second room.
-- Six-minute Strike, sequenced input acknowledgement, empty-seat AI fill, and reconnect behavior are covered by the passing API tests.
-- The ship harness tested 160 seeded 1v1 duels per cohort, both seat orientations, plus mobility and isolated ability drills. It now also runs five full AI-vs-AI 5v5 Strikes per ship per cohort, with objectives, rocks, and respawns. Both cohorts are reproducible with `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=0` and `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`.
-- The 5v5 samples are small and the production AI does not activate ultimates, so those outcomes are smoke/diagnostic evidence, not a human-play balance pass. The repeatable results and limits are in `SHIP-CERTIFICATION.md`.
-- A first harness incorrectly omitted lock opportunities; after correcting lock and velocity-led aim, Sundara moved from an invalid 0% result to 50% in both cohorts. No ship-stat change from this certification was accepted.
+- The automated WebSocket test connects ten clients, fills a room, verifies reconnect, and confirms a second room remains isolated. This is an automated test, not a ten-person live playtest.
+- Sequenced input acknowledgement, AI fill for empty seats, server-side strike reward replay, and six-minute timer resolution are covered by passing API tests.
+- The six-minute Strike simulation reaches the timer boundary and resolves tied integrity. This verifies runtime behavior, not qualitative combat polish or human competitive balance.
+
+## Ship-balance diagnostic
+
+- Reproduced with `pnpm --filter @workspace/api-server run certify:ships -- --seeds=20 --seed-offset=50` on the tested source commit.
+- Coverage: 640 capped 1v1 duels, 80 focal-seat results per ship, and 20 AI-vs-AI 5v5 Strike simulations per ship.
+- The harness normalizes both pilots to 5 shield-regeneration points per second and a symmetric 9-point integrity loss on death; production defaults are unchanged.
+- The current simulator stores lock/homing state on the player match. Scripted opponents cannot use equivalent lock/homing, so the 1v1 results are diagnostics only, not fair head-to-head balance evidence.
+- Sentinel-G cooldown and shield candidates were tested independently and reverted because neither changed the 80-0-0 record or 360-second first-life survival. No ship-stat changes were retained. Full results and limitations are in `SHIP-CERTIFICATION.md`.
+- **Eight-ship balance gate: NOT PASSED.** Per-craft lock/homing and human 5v5 validation are still needed.
 
 ## Mobile evidence and limits
 
-The four automated mobile-control tests pass: combined touch actions, the input-reset helper used for lost-focus behavior, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup. App-level visibility, pointer-cancel, and orientation handlers are present but still need physical-browser validation.
+The four automated mobile-control tests pass: combined touch actions, input reset for lost focus, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup. App-level visibility, pointer-cancel, and orientation handling still need physical-browser validation.
 
-No physical Android or iPhone test run was performed. Android Chrome and iOS Safari frame rate, frame pacing, memory, thermal behavior, full six-minute play, and hands-on touch controls remain **NOT RUN**. The evidence matrix and acceptance procedure are in `MOBILE-CERTIFICATION.md`; the tactile checklist is `PHONE-PLAYTEST-CHECKLIST.md`.
+No physical Android or iPhone test run was performed. Android Chrome and iOS Safari behavior, frame rate, frame pacing, memory, thermal performance, full six-minute play, and hands-on touch controls remain **NOT RUN**. See `MOBILE-CERTIFICATION.md` and `PHONE-PLAYTEST-CHECKLIST.md`.
 
 ## Current disposition
 
-- **Reproducible build and automated tests:** PASS on the source commit above.
-- **Eight-ship measurements and balancing process:** documented; **balance gate not passed** until high/low outliers receive human 5v5 review and follow-up cohorts.
-- **Physical mobile certification:** **NOT RUN** on Android Chrome or iOS Safari; do not mark Step 4 complete.
+- **Step 1 — reproducible build and automated checks:** PASS on the exact source commit above.
+- **Step 2 — six-minute Strike runtime:** automated timer and outcome tests pass; qualitative combat polish is not certified here.
+- **Step 3 — eight-ship balance:** measurements documented, but the gate remains open because lock/homing behavior is asymmetric and human 5v5 evidence is absent.
+- **Step 4 — physical mobile certification:** **NOT RUN** on Android Chrome or iOS Safari.
