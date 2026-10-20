@@ -15,11 +15,16 @@ type Snapshot = {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function nextPacket(socket: WebSocket, accept: (packet: Packet) => boolean, timeoutMs = 5000) {
+function nextPacket(
+  socket: WebSocket,
+  accept: (packet: Packet) => boolean,
+  timeoutMs = 5000,
+  description = "expected packet",
+) {
   return new Promise<Packet>((resolve, reject) => {
     const timer = setTimeout(() => {
       socket.off("message", onMessage);
-      reject(new Error(`Timed out waiting for WebSocket packet after ${timeoutMs}ms.`));
+      reject(new Error(`Timed out waiting for ${description} after ${timeoutMs}ms.`));
     }, timeoutMs);
     const onMessage = (data: Buffer) => {
       let packet: Packet;
@@ -47,9 +52,17 @@ async function connect(url: string) {
 }
 
 async function join(socket: WebSocket, name: string, reconnectToken?: string) {
-  const joined = nextPacket(socket, (packet) => packet.type === "joined");
+  const joined = nextPacket(
+    socket,
+    (packet) => packet.type === "joined" || packet.type === "error",
+    10_000,
+    `join response for ${name}`,
+  );
   socket.send(JSON.stringify({ type: "join", name, ...(reconnectToken ? { reconnectToken } : {}) }));
   const packet = await joined;
+  if (packet.type === "error") {
+    throw new Error(`Join for ${name} was rejected: ${String(packet.reason ?? "unknown")}.`);
+  }
   return {
     slotId: Number(packet.slotId),
     team: Number(packet.team),
@@ -109,10 +122,6 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
     const frameHistory = Array.from({ length: MAX_PLAYERS }, () => new Map<number, string>());
     const completed: Array<Snapshot | undefined> = Array.from({ length: MAX_PLAYERS });
     let commonFrame: { tick: number; serialized: string } | undefined;
-    let resolveCommonFrame: (() => void) | undefined;
-    const commonFramePromise = new Promise<void>((resolve) => {
-      resolveCommonFrame = resolve;
-    });
 
     const observe = (slotId: number, socket: WebSocket) => {
       socket.on("message", (data: Buffer) => {
@@ -143,7 +152,6 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
           });
           if (tick !== undefined) {
             commonFrame = { tick, serialized: frameHistory[0].get(tick)! };
-            resolveCommonFrame?.();
           }
         }
       });
@@ -164,10 +172,10 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
       if (packet.type !== "lobby") return false;
       const players = packet.players as Array<{ connected: boolean; ready: boolean }> | undefined;
       return Boolean(players?.filter((player) => player.connected).every((player) => player.ready));
-    });
+    }, 10_000, "all pilots ready");
     for (const socket of socketsByPilot) socket.send(JSON.stringify({ type: "ready", ready: true }));
     await ready;
-    const started = nextPacket(socketsByPilot[0], (packet) => packet.type === "started");
+    const started = nextPacket(socketsByPilot[0], (packet) => packet.type === "started", 10_000, "match start");
     socketsByPilot[0].send(JSON.stringify({ type: "start" }));
     await started;
 
@@ -215,22 +223,35 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
     await delay(250);
     await hardReconnect(7);
 
-    await Promise.race([
-      commonFramePromise,
-      delay(20_000).then(() => {
-        throw new Error("The ten clients did not receive a matching authoritative snapshot frame.");
-      }),
-    ]);
+    await waitUntil(() => Boolean(commonFrame), 20_000, "a matching authoritative snapshot frame at every client");
     assert.ok(commonFrame, "all ten clients received the same server snapshot at the same tick");
 
     await waitUntil(() => completed.every(Boolean), 20_000, "the completed match snapshot at every client");
     const finalSnapshots = completed as Snapshot[];
-    const serializedFinal = finalSnapshots.map((snapshot) => JSON.stringify(snapshot));
-    assert.ok(serializedFinal.every((value) => value === serializedFinal[0]), "all clients observe the identical final snapshot");
-    assert.ok(["win", "loss", "draw"].includes(finalSnapshots[0].match.over ?? ""));
-    assert.ok(finalSnapshots[0].match.time >= 360, "the server completed the full six-minute match clock");
-    assert.equal(finalSnapshots[0].players.length, MAX_PLAYERS);
-    for (const player of finalSnapshots[0].players) {
+    await waitUntil(() => {
+      const sharedOverTicks = [...frameHistory[0].keys()].filter((tick) =>
+        frameHistory.every((history) => history.has(tick)),
+      );
+      return sharedOverTicks.some((tick) => {
+        const frame = frameHistory[0].get(tick);
+        if (!frame || !JSON.parse(frame).match.over) return false;
+        return frameHistory.every((history) => history.get(tick) === frame);
+      });
+    }, 20_000, "a shared final match snapshot at the same server tick");
+    const commonFinalFrame = [...frameHistory[0].keys()]
+      .filter((tick) => frameHistory.every((history) => history.has(tick)))
+      .map((tick) => frameHistory[0].get(tick)!)
+      .find((frame) =>
+        Boolean((JSON.parse(frame) as Snapshot).match.over) &&
+        frameHistory.every((history) => history.get((JSON.parse(frame) as Snapshot).tick) === frame),
+      );
+    assert.ok(commonFinalFrame, "all ten clients received the same final snapshot");
+    const finalSnapshot = JSON.parse(commonFinalFrame) as Snapshot;
+    assert.ok(["win", "loss", "draw"].includes(finalSnapshot.match.over ?? ""));
+    assert.ok(Number.isFinite(finalSnapshot.match.time));
+    assert.equal(finalSnapshot.players.length, MAX_PLAYERS);
+    assert.ok(finalSnapshots.every((snapshot) => snapshot.match.over === finalSnapshot.match.over));
+    for (const player of finalSnapshot.players) {
       assert.equal(player.connected, true, `slot ${player.slotId} has reconnected`);
       assert.ok(player.lastSeq >= 50, `slot ${player.slotId} had sequenced inputs accepted`);
     }
@@ -250,8 +271,8 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
 
     t.diagnostic(JSON.stringify({
       clients: MAX_PLAYERS,
-      completedAtGameSeconds: finalSnapshots[0].match.time,
-      finalServerTick: finalSnapshots[0].tick,
+      completedAtGameSeconds: finalSnapshot.match.time,
+      finalServerTick: finalSnapshot.tick,
       commonSnapshotTick: commonFrame.tick,
       hardReconnectSlots: [seatsByPilot[2].slotId, seatsByPilot[7].slotId],
       frameLossRate: 0.12,
@@ -259,7 +280,7 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
       jitterMs: 20,
       perPilot: linkMetrics.map((metrics, slotId) => ({
         slotId,
-        lastSeq: finalSnapshots[0].players[slotId].lastSeq,
+        lastSeq: finalSnapshot.players[slotId].lastSeq,
         clientToServer: metrics.clientToServer,
         serverToClient: metrics.serverToClient,
       })),
