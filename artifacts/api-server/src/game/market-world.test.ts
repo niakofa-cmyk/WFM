@@ -15,7 +15,13 @@ import {
   worldDiscoveriesTable,
 } from "@workspace/db";
 import { MarketError, getMarketSnapshot, tradeMarket } from "./market";
-import { actOnWorldQuest, exploreWorldLocation, getWorldSnapshot } from "./world";
+import {
+  actOnWorldQuest,
+  exploreWorldLocation,
+  getWorldSnapshot,
+  travelToWorldLocation,
+  WorldError,
+} from "./world";
 
 after(async () => {
   await pool.end();
@@ -147,13 +153,41 @@ test("world discoveries, quests, reputation, and global events persist server-si
     ]);
     assert.equal(first.event.eventId, second.event.eventId);
     assert.equal(first.event.cycleDate.getTime(), second.event.cycleDate.getTime());
+    assert.equal(first.currentLocation, "phobos-yard");
+    assert.deepEqual(first.routes, [{ destinationId: "rust-disc", costCredits: 8, available: true }]);
     assert.equal(first.quests.find((quest) => quest.id === "rust-recording")?.status, "available");
+    await assert.rejects(
+      exploreWorldLocation(firstUser, "rust-disc", randomUUID()),
+      (error: unknown) => error instanceof WorldError && error.status === 400,
+    );
+    await assert.rejects(
+      travelToWorldLocation(firstUser, "pale-beacons", randomUUID()),
+      (error: unknown) => error instanceof WorldError && error.status === 400,
+    );
 
     const accepted = await actOnWorldQuest(firstUser, "rust-recording", {
       idempotencyKey: randomUUID(),
       action: "accept",
     });
     assert.equal(accepted.world.quests.find((quest) => quest.id === "rust-recording")?.status, "accepted");
+
+    const travelKey = randomUUID();
+    const travelResults = await Promise.all([
+      travelToWorldLocation(firstUser, "rust-disc", travelKey),
+      travelToWorldLocation(firstUser, "rust-disc", travelKey),
+    ]);
+    assert.deepEqual(travelResults.map((result) => result.replayed).sort(), [false, true]);
+    assert.equal(travelResults[0].world.currentLocation, "rust-disc");
+    assert.equal(travelResults[0].credits, 82);
+    assert.equal(travelResults[0].travelCost, 8);
+    assert.deepEqual(
+      travelResults[0].world.routes.map((route) => [route.destinationId, route.available]),
+      [["phobos-yard", true], ["pale-beacons", false]],
+    );
+    await assert.rejects(
+      travelToWorldLocation(firstUser, "phobos-yard", travelKey),
+      (error: unknown) => error instanceof WorldError && error.status === 409,
+    );
 
     const explorationKey = randomUUID();
     const explored = await exploreWorldLocation(firstUser, "rust-disc", explorationKey);
@@ -170,7 +204,7 @@ test("world discoveries, quests, reputation, and global events persist server-si
       action: "claim",
     });
     assert.equal(claimed.rewardCredits, 45);
-    assert.equal(claimed.credits, 135);
+    assert.equal(claimed.credits, 127);
     assert.equal(claimed.world.reputation.accord, 3);
     assert.equal(claimed.world.quests.find((quest) => quest.id === "rust-recording")?.status, "claimed");
     const claimRetry = await actOnWorldQuest(firstUser, "rust-recording", {
@@ -178,16 +212,17 @@ test("world discoveries, quests, reputation, and global events persist server-si
       action: "claim",
     });
     assert.equal(claimRetry.replayed, true);
-    assert.equal(claimRetry.credits, 135);
+    assert.equal(claimRetry.credits, 127);
     assert.equal(claimRetry.rewardCredits, 45);
     const secondClaim = await actOnWorldQuest(firstUser, "rust-recording", {
       idempotencyKey: randomUUID(),
       action: "claim",
     });
     assert.equal(secondClaim.rewardCredits, 0);
-    assert.equal(secondClaim.credits, 135);
+    assert.equal(secondClaim.credits, 127);
 
     const otherPlayer = await getWorldSnapshot(secondUser);
+    assert.equal(otherPlayer.currentLocation, "phobos-yard");
     assert.deepEqual(otherPlayer.discoveries, []);
     assert.equal(otherPlayer.reputation.accord, 0);
   } finally {

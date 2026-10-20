@@ -100,6 +100,7 @@ export const universeEventsTable = pgTable("universe_events", {
 
 export const playerWorldStateTable = pgTable("player_world_state", {
   userId: text("user_id").primaryKey(),
+  currentLocation: text("current_location").notNull().default("phobos-yard"),
   accordReputation: integer("accord_reputation").notNull().default(0),
   ussfReputation: integer("ussf_reputation").notNull().default(0),
   revision: integer("revision").notNull().default(0),

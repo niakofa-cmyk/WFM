@@ -547,6 +547,8 @@ export const getWorldResponseReputationAccordMin = 0;
 
 export const getWorldResponseReputationUssfMin = 0;
 
+export const getWorldResponseRoutesItemCostCreditsMin = 0;
+
 export const getWorldResponseLocationsItemXMin = 0;
 export const getWorldResponseLocationsItemXMax = 100;
 
@@ -578,6 +580,12 @@ export const GetWorldResponse = zod.object({
   "accord": zod.number().int().min(getWorldResponseReputationAccordMin),
   "ussf": zod.number().int().min(getWorldResponseReputationUssfMin)
 }),
+  "currentLocation": zod.string(),
+  "routes": zod.array(zod.object({
+  "destinationId": zod.string(),
+  "costCredits": zod.number().int().min(getWorldResponseRoutesItemCostCreditsMin),
+  "available": zod.boolean()
+})),
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -605,6 +613,92 @@ export const GetWorldResponse = zod.object({
 
 
 /**
+ * @summary Move to an adjacent unlocked location and pay the route fare
+ */
+export const TravelWorldBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "destinationId": zod.string()
+})
+
+export const travelWorldResponseWorldReputationAccordMin = 0;
+
+export const travelWorldResponseWorldReputationUssfMin = 0;
+
+export const travelWorldResponseWorldRoutesItemCostCreditsMin = 0;
+
+export const travelWorldResponseWorldLocationsItemXMin = 0;
+export const travelWorldResponseWorldLocationsItemXMax = 100;
+
+export const travelWorldResponseWorldLocationsItemYMin = 0;
+export const travelWorldResponseWorldLocationsItemYMax = 100;
+
+export const travelWorldResponseWorldLocationsItemUnlockAfterMin = 0;
+export const travelWorldResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const travelWorldResponseWorldQuestsItemRequiredClearMin = 0;
+export const travelWorldResponseWorldQuestsItemRequiredClearMax = 4;
+
+export const travelWorldResponseWorldQuestsItemRewardCreditsMin = 0;
+
+export const travelWorldResponseWorldQuestsItemReputationRewardMin = 0;
+
+export const travelWorldResponseCreditsMin = 0;
+
+export const travelWorldResponseTravelCostMin = 0;
+
+
+
+export const TravelWorldResponse = zod.object({
+  "world": zod.object({
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+}),
+  "reputation": zod.object({
+  "accord": zod.number().int().min(travelWorldResponseWorldReputationAccordMin),
+  "ussf": zod.number().int().min(travelWorldResponseWorldReputationUssfMin)
+}),
+  "currentLocation": zod.string(),
+  "routes": zod.array(zod.object({
+  "destinationId": zod.string(),
+  "costCredits": zod.number().int().min(travelWorldResponseWorldRoutesItemCostCreditsMin),
+  "available": zod.boolean()
+})),
+  "locations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "x": zod.number().int().min(travelWorldResponseWorldLocationsItemXMin).max(travelWorldResponseWorldLocationsItemXMax),
+  "y": zod.number().int().min(travelWorldResponseWorldLocationsItemYMin).max(travelWorldResponseWorldLocationsItemYMax),
+  "unlockAfter": zod.number().int().min(travelWorldResponseWorldLocationsItemUnlockAfterMin).max(travelWorldResponseWorldLocationsItemUnlockAfterMax),
+  "unlocked": zod.boolean(),
+  "explored": zod.boolean(),
+  "description": zod.string(),
+  "services": zod.array(zod.string())
+})),
+  "discoveries": zod.array(zod.string()),
+  "quests": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "requiredClear": zod.number().int().min(travelWorldResponseWorldQuestsItemRequiredClearMin).max(travelWorldResponseWorldQuestsItemRequiredClearMax),
+  "requiredLocation": zod.string(),
+  "status": zod.enum(['locked', 'available', 'accepted', 'ready', 'claimed']),
+  "rewardCredits": zod.number().int().min(travelWorldResponseWorldQuestsItemRewardCreditsMin),
+  "reputationReward": zod.number().int().min(travelWorldResponseWorldQuestsItemReputationRewardMin)
+}))
+}),
+  "credits": zod.number().int().min(travelWorldResponseCreditsMin),
+  "travelCost": zod.number().int().min(travelWorldResponseTravelCostMin),
+  "replayed": zod.boolean()
+})
+
+
+/**
  * @summary Record a one-time server-validated location discovery
  */
 export const ExploreLocationParams = zod.object({
@@ -618,6 +712,8 @@ export const ExploreLocationBody = zod.object({
 export const exploreLocationResponseWorldReputationAccordMin = 0;
 
 export const exploreLocationResponseWorldReputationUssfMin = 0;
+
+export const exploreLocationResponseWorldRoutesItemCostCreditsMin = 0;
 
 export const exploreLocationResponseWorldLocationsItemXMin = 0;
 export const exploreLocationResponseWorldLocationsItemXMax = 100;
@@ -653,6 +749,12 @@ export const ExploreLocationResponse = zod.object({
   "accord": zod.number().int().min(exploreLocationResponseWorldReputationAccordMin),
   "ussf": zod.number().int().min(exploreLocationResponseWorldReputationUssfMin)
 }),
+  "currentLocation": zod.string(),
+  "routes": zod.array(zod.object({
+  "destinationId": zod.string(),
+  "costCredits": zod.number().int().min(exploreLocationResponseWorldRoutesItemCostCreditsMin),
+  "available": zod.boolean()
+})),
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -698,6 +800,8 @@ export const actOnWorldQuestResponseWorldReputationAccordMin = 0;
 
 export const actOnWorldQuestResponseWorldReputationUssfMin = 0;
 
+export const actOnWorldQuestResponseWorldRoutesItemCostCreditsMin = 0;
+
 export const actOnWorldQuestResponseWorldLocationsItemXMin = 0;
 export const actOnWorldQuestResponseWorldLocationsItemXMax = 100;
 
@@ -734,6 +838,12 @@ export const ActOnWorldQuestResponse = zod.object({
   "accord": zod.number().int().min(actOnWorldQuestResponseWorldReputationAccordMin),
   "ussf": zod.number().int().min(actOnWorldQuestResponseWorldReputationUssfMin)
 }),
+  "currentLocation": zod.string(),
+  "routes": zod.array(zod.object({
+  "destinationId": zod.string(),
+  "costCredits": zod.number().int().min(actOnWorldQuestResponseWorldRoutesItemCostCreditsMin),
+  "available": zod.boolean()
+})),
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),

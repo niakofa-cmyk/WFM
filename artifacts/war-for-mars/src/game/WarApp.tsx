@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Arena, type StrikeResult, type OnlineRoom } from "./Arena";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import {
   defaultSave,
@@ -27,12 +27,22 @@ import {
   type TechId,
 } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
-import { MarketPanel } from "./MarketPanel";
-import { GalaxyScreen } from "./GalaxyScreen";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
+
+const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
+const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
+const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
+
+function ModuleLoading({ label }: { label: string }) {
+  return (
+    <main role="status" className="flex min-h-dvh items-center justify-center bg-void px-4 text-bone">
+      <p className="font-hud text-sm tracking-[0.2em] text-solar">{label}</p>
+    </main>
+  );
+}
 
 type Phase = "brief" | "fight" | "debrief";
 type RoomEnvelope = {
@@ -656,6 +666,7 @@ export function WarApp() {
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
     return (
+      <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
         shipId={runConfig?.shipId ?? save.ship}
@@ -700,6 +711,7 @@ export function WarApp() {
         }}
         online={onlineSession ?? undefined}
       />
+      </Suspense>
     );
   }
 
@@ -779,7 +791,15 @@ export function WarApp() {
   }
 
   if (galaxyOpen) {
-    return <GalaxyScreen onBack={() => setGalaxyOpen(false)} />;
+    return (
+      <Suspense fallback={<ModuleLoading label="CHARTING THE THEATER…" />}>
+        <GalaxyScreen
+          onBack={() => setGalaxyOpen(false)}
+          credits={save.credits}
+          onCredits={syncCredits}
+        />
+      </Suspense>
+    );
   }
 
   if (shell !== MenuState.HANGAR && shell !== MenuState.GAMEPLAY) {
@@ -1108,7 +1128,9 @@ export function WarApp() {
         </button>
       </div>
 
-      <MarketPanel onCredits={syncCredits} />
+      <Suspense fallback={<div role="status" className="mt-8 h-48 border border-bone/10 bg-panel/50" aria-label="Loading station market" />}>
+        <MarketPanel onCredits={syncCredits} />
+      </Suspense>
       {actionError ? (
         <p role="alert" className="border border-alert/40 bg-alert/10 px-3 py-2 text-sm text-bone">
           {actionError}

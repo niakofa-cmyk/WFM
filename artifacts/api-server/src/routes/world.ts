@@ -7,9 +7,11 @@ import {
   ExploreLocationParams,
   ExploreLocationResponse,
   GetWorldResponse,
+  TravelWorldBody,
+  TravelWorldResponse,
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
-import { WorldError, actOnWorldQuest, exploreWorldLocation, getWorldSnapshot } from "../game/world";
+import { WorldError, actOnWorldQuest, exploreWorldLocation, getWorldSnapshot, travelToWorldLocation } from "../game/world";
 
 const router: IRouter = Router();
 router.use(requirePlayerAuth);
@@ -18,6 +20,31 @@ router.get("/world", async (req, res, next) => {
   try {
     res.json(GetWorldResponse.parse(await getWorldSnapshot(playerIdFromRequest(req))));
   } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/world/travel", async (req, res, next) => {
+  const body = TravelWorldBody.strict().safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "invalid_travel_request" });
+    return;
+  }
+  try {
+    res.json(
+      TravelWorldResponse.parse(
+        await travelToWorldLocation(
+          playerIdFromRequest(req),
+          body.data.destinationId,
+          body.data.idempotencyKey,
+        ),
+      ),
+    );
+  } catch (error) {
+    if (error instanceof WorldError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

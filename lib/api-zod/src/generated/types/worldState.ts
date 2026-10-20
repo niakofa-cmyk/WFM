@@ -8,11 +8,14 @@
 import type { WorldEvent } from './worldEvent';
 import type { WorldLocation } from './worldLocation';
 import type { WorldQuest } from './worldQuest';
+import type { WorldRoute } from './worldRoute';
 import type { WorldStateReputation } from './worldStateReputation';
 
 export interface WorldState {
   event: WorldEvent;
   reputation: WorldStateReputation;
+  currentLocation: string;
+  routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
   quests: WorldQuest[];

@@ -201,6 +201,32 @@ paths:
                 $ref: "#/components/schemas/WorldState"
         "401":
           description: Authentication required
+  /world/travel:
+    post:
+      operationId: travelWorld
+      tags: [progression]
+      summary: Move to an adjacent unlocked location and pay the route fare
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorldTravelInput"
+      responses:
+        "200":
+          description: Updated player location and credit balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldTravelResult"
+        "400":
+          description: Route is unavailable or the player cannot afford it
+        "401":
+          description: Authentication required
+        "409":
+          description: Idempotency key conflict
   /world/locations/{locationId}/explore:
     post:
       operationId: exploreLocation
@@ -518,7 +544,7 @@ components:
         reputationReward: { type: integer, minimum: 0 }
     WorldState:
       type: object
-      required: [event, reputation, locations, discoveries, quests]
+      required: [event, reputation, currentLocation, routes, locations, discoveries, quests]
       properties:
         event: { $ref: "#/components/schemas/WorldEvent" }
         reputation:
@@ -527,6 +553,10 @@ components:
           properties:
             accord: { type: integer, minimum: 0 }
             ussf: { type: integer, minimum: 0 }
+        currentLocation: { type: string }
+        routes:
+          type: array
+          items: { $ref: "#/components/schemas/WorldRoute" }
         locations:
           type: array
           items: { $ref: "#/components/schemas/WorldLocation" }
@@ -536,6 +566,28 @@ components:
         quests:
           type: array
           items: { $ref: "#/components/schemas/WorldQuest" }
+    WorldRoute:
+      type: object
+      required: [destinationId, costCredits, available]
+      properties:
+        destinationId: { type: string }
+        costCredits: { type: integer, minimum: 0 }
+        available: { type: boolean }
+    WorldTravelInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, destinationId]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        destinationId: { type: string }
+    WorldTravelResult:
+      type: object
+      required: [world, credits, travelCost, replayed]
+      properties:
+        world: { $ref: "#/components/schemas/WorldState" }
+        credits: { type: integer, minimum: 0 }
+        travelCost: { type: integer, minimum: 0 }
+        replayed: { type: boolean }
     WorldExploreInput:
       type: object
       additionalProperties: false

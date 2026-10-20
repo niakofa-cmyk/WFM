@@ -36,7 +36,9 @@ import type {
   WorldExploreInput,
   WorldQuestActionInput,
   WorldQuestActionResult,
-  WorldState
+  WorldState,
+  WorldTravelInput,
+  WorldTravelResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -804,6 +806,94 @@ export function useGetWorld<TData = Awaited<ReturnType<typeof getWorld>>, TError
 
 
 
+
+export const getTravelWorldUrl = () => {
+
+
+
+
+  return `/api/world/travel`
+}
+
+/**
+ * @summary Move to an adjacent unlocked location and pay the route fare
+ */
+export const travelWorld = async (worldTravelInput: WorldTravelInput, options?: Parameters<typeof customFetch>[1]): Promise<WorldTravelResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WorldTravelResult>(getTravelWorldUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(worldTravelInput)
+  }
+);}
+
+
+
+
+
+export const getTravelWorldMutationKey = () => ['travelWorld'] as const;
+
+export const getTravelWorldMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof travelWorld>>, TError,TravelWorldMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof travelWorld>>, TError,TravelWorldMutationVariables, TContext> => {
+
+const mutationKey = getTravelWorldMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof travelWorld>>, TravelWorldMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  travelWorld(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TravelWorldMutationResult = NonNullable<Awaited<ReturnType<typeof travelWorld>>>
+    export type TravelWorldMutationBody = BodyType<WorldTravelInput>
+    export type TravelWorldMutationError = ErrorType<void>
+    export type TravelWorldMutationVariables = {data: BodyType<WorldTravelInput>}
+
+    /**
+ * @summary Move to an adjacent unlocked location and pay the route fare
+ */
+export const useTravelWorld = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof travelWorld>>, TError,TravelWorldMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof travelWorld>>,
+        TError,
+        TravelWorldMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTravelWorldMutationOptions(options));
+    }
 
 export const getExploreLocationUrl = (locationId: string,) => {
 

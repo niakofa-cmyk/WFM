@@ -1,8 +1,10 @@
 import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
+import { lazy, Suspense } from "react";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
-import { WarApp } from "./game/WarApp";
+
+const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkPubKey = publishableKeyFromHost(
@@ -131,7 +133,9 @@ function PublicLanding() {
 function SignedInGame() {
   return (
     <>
-      <WarApp />
+      <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
+        <WarApp />
+      </Suspense>
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>

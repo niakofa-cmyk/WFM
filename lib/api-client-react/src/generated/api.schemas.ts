@@ -627,12 +627,35 @@ export type WorldStateReputation = {
   ussf: number;
 };
 
+export interface WorldRoute {
+  destinationId: string;
+  /** @minimum 0 */
+  costCredits: number;
+  available: boolean;
+}
+
 export interface WorldState {
   event: WorldEvent;
   reputation: WorldStateReputation;
+  currentLocation: string;
+  routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
   quests: WorldQuest[];
+}
+
+export interface WorldTravelInput {
+  idempotencyKey: string;
+  destinationId: string;
+}
+
+export interface WorldTravelResult {
+  world: WorldState;
+  /** @minimum 0 */
+  credits: number;
+  /** @minimum 0 */
+  travelCost: number;
+  replayed: boolean;
 }
 
 export interface WorldExploreInput {

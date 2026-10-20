@@ -13,11 +13,13 @@ import type {
   WorldQuestActionInput,
   WorldQuestActionResult,
   WorldState,
+  WorldTravelResult,
 } from "@workspace/api-zod";
 import { ensureCurrentWorldEvent, type DbTransaction } from "./market";
 
 type LocationDefinition = WorldState["locations"][number];
 type QuestDefinition = Omit<WorldState["quests"][number], "status">;
+type RouteDefinition = { destinationId: string; costCredits: number };
 
 const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
   {
@@ -81,6 +83,27 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
     services: ["Discovery", "Campaign lead"],
   },
 ];
+
+const ROUTES: Record<string, RouteDefinition[]> = {
+  "phobos-yard": [{ destinationId: "rust-disc", costCredits: 8 }],
+  "rust-disc": [
+    { destinationId: "phobos-yard", costCredits: 8 },
+    { destinationId: "pale-beacons", costCredits: 12 },
+  ],
+  "pale-beacons": [
+    { destinationId: "rust-disc", costCredits: 12 },
+    { destinationId: "night-side", costCredits: 16 },
+  ],
+  "night-side": [
+    { destinationId: "pale-beacons", costCredits: 16 },
+    { destinationId: "dust-lane", costCredits: 20 },
+  ],
+  "dust-lane": [
+    { destinationId: "night-side", costCredits: 20 },
+    { destinationId: "mars-signal", costCredits: 26 },
+  ],
+  "mars-signal": [{ destinationId: "dust-lane", costCredits: 26 }],
+};
 
 const QUESTS: QuestDefinition[] = [
   {
@@ -170,6 +193,17 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     unlocked: profile.cleared >= location.unlockAfter,
     explored: discoveredIds.has(location.id),
   }));
+  if (!LOCATIONS.some((location) => location.id === world.currentLocation)) {
+    throw new Error("Stored player location is not part of the current theater.");
+  }
+  const routes: WorldState["routes"] = (ROUTES[world.currentLocation] ?? []).map((route) => {
+    const destination = LOCATIONS.find((location) => location.id === route.destinationId);
+    if (!destination) throw new Error(`World route points to unknown location ${route.destinationId}.`);
+    return {
+      ...route,
+      available: profile.cleared >= destination.unlockAfter,
+    };
+  });
   const quests = QUESTS.map((quest) => {
     const row = questRows.get(quest.id);
     const unlocked =
@@ -179,7 +213,7 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     const status: WorldState["quests"][number]["status"] = row?.status === "claimed"
       ? "claimed"
       : row?.status === "accepted"
-        ? explored ? "ready" : "accepted"
+        ? explored && world.currentLocation === quest.requiredLocation ? "ready" : "accepted"
         : unlocked ? "available" : "locked";
     return { ...quest, status };
   });
@@ -189,6 +223,8 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
       accord: world.accordReputation,
       ussf: world.ussfReputation,
     },
+    currentLocation: world.currentLocation,
+    routes,
     locations,
     discoveries: [...discoveredIds],
     quests,
@@ -231,6 +267,75 @@ async function findActionEvent(tx: DbTransaction, userId: string, key: string, a
   return event;
 }
 
+export async function travelToWorldLocation(
+  userId: string,
+  destinationId: string,
+  idempotencyKey: string,
+): Promise<WorldTravelResult> {
+  const destination = LOCATIONS.find((location) => location.id === destinationId);
+  if (!destination) throw new WorldError("That location does not exist.", 404);
+  return db.transaction(async (tx) => {
+    const { profile, world } = await lockedPlayerRows(tx, userId);
+    const previous = await findActionEvent(tx, userId, idempotencyKey, "travel", destinationId);
+    if (previous) {
+      return {
+        world: await worldSnapshotInTransaction(tx, userId),
+        credits: profile.credits,
+        travelCost: Math.max(0, -previous.amount),
+        replayed: true,
+      };
+    }
+    const route = (ROUTES[world.currentLocation] ?? []).find(
+      (candidate) => candidate.destinationId === destinationId,
+    );
+    if (!route) throw new WorldError("That location is not connected to your current route.", 400);
+    if (profile.cleared < destination.unlockAfter) {
+      throw new WorldError("Complete more campaign missions to unlock that route.", 400);
+    }
+    if (profile.credits < route.costCredits) {
+      throw new WorldError("You do not have enough credits to pay the route fare.", 400);
+    }
+
+    const creditsAfter = profile.credits - route.costCredits;
+    await tx
+      .update(playerProgressTable)
+      .set({
+        credits: creditsAfter,
+        revision: profile.revision + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(playerProgressTable.userId, userId));
+    await tx
+      .update(playerWorldStateTable)
+      .set({
+        currentLocation: destinationId,
+        revision: world.revision + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(playerWorldStateTable.userId, userId));
+    await tx.insert(progressionEventsTable).values({
+      userId,
+      idempotencyKey,
+      kind: "world_travel",
+      amount: -route.costCredits,
+      balanceBefore: profile.credits,
+      balanceAfter: creditsAfter,
+      result: {
+        action: "travel",
+        targetId: destinationId,
+        fromLocation: world.currentLocation,
+        toLocation: destinationId,
+      },
+    });
+    return {
+      world: await worldSnapshotInTransaction(tx, userId),
+      credits: creditsAfter,
+      travelCost: route.costCredits,
+      replayed: false,
+    };
+  });
+}
+
 export async function exploreWorldLocation(
   userId: string,
   locationId: string,
@@ -250,6 +355,9 @@ export async function exploreWorldLocation(
     }
     if (profile.cleared < location.unlockAfter) {
       throw new WorldError("Complete more campaign missions to unlock that location.", 400);
+    }
+    if (world.currentLocation !== locationId) {
+      throw new WorldError("Travel to this location before exploring it.", 400);
     }
     const [discovery] = await tx
       .select()
@@ -321,6 +429,12 @@ export async function actOnWorldQuest(
       profile.cleared >= quest.requiredClear &&
       profile.cleared >= (location?.unlockAfter ?? 99);
     if (!isUnlocked) throw new WorldError("That contract is still locked by campaign progress.", 400);
+    if (input.action === "accept" && world.currentLocation !== "phobos-yard") {
+      throw new WorldError("Return to Phobos Yard to accept contracts from dispatch.", 400);
+    }
+    if (input.action === "claim" && world.currentLocation !== quest.requiredLocation) {
+      throw new WorldError("Return to the contract location before claiming its reward.", 400);
+    }
     const [questRow] = await tx
       .select()
       .from(playerQuestsTable)

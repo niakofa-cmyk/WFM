@@ -63,5 +63,8 @@ export * from './worldQuestActionInput';
 export * from './worldQuestActionInputAction';
 export * from './worldQuestActionResult';
 export * from './worldQuestStatus';
+export * from './worldRoute';
 export * from './worldState';
 export * from './worldStateReputation';
+export * from './worldTravelInput';
+export * from './worldTravelResult';

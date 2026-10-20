@@ -23,6 +23,7 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "world_exploration",
   "quest_accept",
   "quest_reward",
+  "world_travel",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {
