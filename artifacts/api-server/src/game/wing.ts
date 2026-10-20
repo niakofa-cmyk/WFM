@@ -94,6 +94,14 @@ export function createWing(seed = 1) {
     slot.lastSeq = 0;
   }
 
+  function expireDisconnected(now: number) {
+    for (const slot of slots) {
+      if (!slot.isConnected && slot.playerId !== null && now - slot.lastPacketTime > DISCONNECT_GRACE_MS) {
+        release(slot);
+      }
+    }
+  }
+
   function claim(slot: Slot, playerId: string, name: string, now: number): JoinResult {
     const reconnectToken = token();
     slot.playerId = playerId;
@@ -123,11 +131,26 @@ export function createWing(seed = 1) {
           return { ok: true, slotId: existing.slotId, team: existing.team, reconnectToken: existing.reconnectToken ?? reconnectToken };
         }
       }
-      const open = slots.find((slot) => slot.playerId === null);
+      const teamCounts = ([0, 1] as const).map(
+        (team) => slots.filter((slot) => slot.team === team && slot.playerId !== null).length,
+      );
+      const firstTeam: 0 | 1 = teamCounts[0] <= teamCounts[1] ? 0 : 1;
+      const open =
+        slots.find((slot) => slot.team === firstTeam && slot.playerId === null) ??
+        slots.find((slot) => slot.team === (firstTeam === 0 ? 1 : 0) && slot.playerId === null);
       if (open) return claim(open, playerId, name, now);
       const stale = slots.find((slot) => !slot.isConnected && now - slot.lastPacketTime > DISCONNECT_GRACE_MS);
       if (!stale) return { ok: false, reason: "full" };
       return claim(stale, playerId, name, now);
+    },
+    canReconnect(reconnectToken: string) {
+      return slots.some((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
+    },
+    lastSeq(slotId: number) {
+      return slots[slotId]?.lastSeq ?? 0;
+    },
+    expireDisconnected(now = Date.now()) {
+      expireDisconnected(now);
     },
     disconnect(slotId: number, now = Date.now()) {
       const slot = slots[slotId];
@@ -156,9 +179,7 @@ export function createWing(seed = 1) {
     },
     tick(now = Date.now()) {
       tickCount += 1;
-      for (const slot of slots) {
-        if (!slot.isConnected && slot.playerId !== null && now - slot.lastPacketTime > DISCONNECT_GRACE_MS) release(slot);
-      }
+      expireDisconnected(now);
       match.player.ai = !slots[0].isConnected;
       const lead = slots[0].isConnected ? (slots[0].buffered ?? IDLE) : IDLE;
       for (let slotId = 1; slotId < MAX_PLAYERS; slotId += 1) {

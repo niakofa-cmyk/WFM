@@ -57,7 +57,7 @@ function close(socket: WebSocket) {
   });
 }
 
-test("ten WebSocket clients fill one room, reconnect, and remain isolated from another room", async () => {
+test("ten-client lobby gates launch, reconnects safely, and isolates separate rooms", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1");
   const sockets: WebSocket[] = [];
   try {
@@ -71,23 +71,59 @@ test("ten WebSocket clients fill one room, reconnect, and remain isolated from a
     assert.equal(seats.filter((seat) => seat.team === 0).length, 5);
     assert.equal(seats.filter((seat) => seat.team === 1).length, 5);
     assert.ok(seats.every((seat) => seat.roomId === "mars-alpha"));
+    const overflow = await connect(url("mars-alpha"));
+    sockets.push(overflow);
+    const fullRoomError = nextPacket(overflow, (packet) => packet.type === "error");
+    overflow.send(JSON.stringify({ type: "join", name: "Eleventh pilot" }));
+    assert.equal((await fullRoomError).reason, "full");
+
+    const nonHostStart = nextPacket(
+      mainRoomClients[1],
+      (packet) => packet.type === "error" && packet.reason === "host_only",
+    );
+    mainRoomClients[1].send(JSON.stringify({ type: "start" }));
+    await nonHostStart;
+
+    const refusedStart = nextPacket(
+      mainRoomClients[0],
+      (packet) => packet.type === "error" && packet.reason === "pilots_not_ready",
+    );
+    mainRoomClients[0].send(JSON.stringify({ type: "start" }));
+    await refusedStart;
+
+    const fullyReady = nextPacket(mainRoomClients[0], (packet) => {
+      if (packet.type !== "lobby") return false;
+      const lobby = packet as { players?: Array<{ connected?: boolean; ready?: boolean }> };
+      return Boolean(lobby.players?.filter((player) => player.connected).every((player) => player.ready));
+    });
+    for (const socket of mainRoomClients) socket.send(JSON.stringify({ type: "ready", ready: true }));
+    await fullyReady;
+    const started = nextPacket(mainRoomClients[0], (packet) => packet.type === "started");
+    mainRoomClients[0].send(JSON.stringify({ type: "start" }));
+    await started;
+
+    const lateJoiner = await connect(url("mars-alpha"));
+    sockets.push(lateJoiner);
+    const lateError = nextPacket(lateJoiner, (packet) => packet.type === "error");
+    lateJoiner.send(JSON.stringify({ type: "join", name: "Late pilot" }));
+    assert.equal((await lateError).reason, "match_started");
 
     const beforeReconnect = seats[0];
     await close(mainRoomClients[0]);
     const replacement = await connect(url("mars-alpha"));
     sockets.push(replacement);
-    const reclaimed = await join(replacement, "Pilot 0", beforeReconnect.reconnectToken);
-    assert.equal(reclaimed.slotId, beforeReconnect.slotId);
-    assert.equal(reclaimed.reconnectToken, beforeReconnect.reconnectToken);
+    const rejoined = nextPacket(replacement, (packet) => packet.type === "joined");
+    replacement.send(JSON.stringify({
+      type: "join",
+      name: "Pilot 0",
+      reconnectToken: beforeReconnect.reconnectToken,
+    }));
+    const reclaimedPacket = await rejoined;
+    assert.equal(Number(reclaimedPacket.slotId), beforeReconnect.slotId);
+    assert.equal(reclaimedPacket.phase, "active");
+    assert.equal(String(reclaimedPacket.reconnectToken), beforeReconnect.reconnectToken);
 
-    const isolated = await connect(url("mars-beta"));
-    sockets.push(isolated);
-    const isolatedSeat = await join(isolated, "Other room");
-    assert.equal(isolatedSeat.slotId, 0);
-    assert.equal(isolatedSeat.roomId, "mars-beta");
-    assert.equal(runtime.roomCount, 2);
-
-    const mainSnapshot = nextPacket(
+    const inputAck = nextPacket(
       replacement,
       (packet) =>
         packet.type === "snapshot" &&
@@ -99,22 +135,162 @@ test("ten WebSocket clients fill one room, reconnect, and remain isolated from a
         input: { seq: 1, throttle: 1, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
       }),
     );
-    const acknowledged = await mainSnapshot;
-    assert.equal(
-      (acknowledged.snapshot as { players: Array<{ lastSeq: number }> }).players[0].lastSeq,
-      1,
-    );
+    const acknowledged = await inputAck;
+    assert.equal((acknowledged.snapshot as { players: Array<{ lastSeq: number }> }).players[0].lastSeq, 1);
 
-    const isolatedSnapshot = nextPacket(
-      isolated,
-      (packet) => packet.type === "snapshot" && Boolean(packet.snapshot),
+    const delayedAck = nextPacket(
+      replacement,
+      (packet) =>
+        packet.type === "snapshot" &&
+        (packet.snapshot as { players?: Array<{ lastSeq?: number }> } | undefined)?.players?.[0]?.lastSeq === 2,
     );
-    const otherRoom = await isolatedSnapshot;
-    assert.equal(
-      (otherRoom.snapshot as { players: Array<{ lastSeq: number }> }).players[0].lastSeq,
-      0,
-    );
+    setTimeout(() => replacement.send(JSON.stringify({
+      type: "input",
+      input: { seq: 2, throttle: 0.2, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
+    })), 150);
+    await delayedAck;
+
+    const isolated = await connect(url("mars-beta"));
+    sockets.push(isolated);
+    const isolatedSeat = await join(isolated, "Other room");
+    assert.equal(isolatedSeat.slotId, 0);
+    assert.equal(isolatedSeat.team, 0);
+    assert.equal(isolatedSeat.roomId, "mars-beta");
+    assert.equal(runtime.roomCount, 2);
+    const isolatedReady = nextPacket(isolated, (packet) => {
+      const lobby = packet as { players?: Array<{ slotId: number; ready: boolean }> };
+      return packet.type === "lobby" && Boolean(lobby.players?.find((player) => player.slotId === 0)?.ready);
+    });
+    isolated.send(JSON.stringify({ type: "ready", ready: true }));
+    await isolatedReady;
+    const otherStarted = nextPacket(isolated, (packet) => packet.type === "started");
+    isolated.send(JSON.stringify({ type: "start" }));
+    await otherStarted;
+    const isolatedSnapshot = await nextPacket(isolated, (packet) => packet.type === "snapshot" && Boolean(packet.snapshot));
+    assert.equal((isolatedSnapshot.snapshot as { players: Array<{ lastSeq: number }> }).players[0].lastSeq, 0);
+
+    const invalidInput = nextPacket(replacement, (packet) => packet.type === "error" && packet.reason === "invalid_input");
+    replacement.send(JSON.stringify({
+      type: "input",
+      input: { seq: 1_000_000, throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
+    }));
+    await invalidInput;
+    const invalidAxis = nextPacket(replacement, (packet) => packet.type === "error" && packet.reason === "invalid_input");
+    replacement.send(JSON.stringify({
+      type: "input",
+      input: { seq: 2, throttle: 100, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
+    }));
+    await invalidAxis;
   } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("a restarted socket rejects stale sessions and accepts fresh rooms", async () => {
+  let runtime = await startWingSocketServer(0, "127.0.0.1");
+  const sockets: WebSocket[] = [];
+  try {
+    const oldSocket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
+    sockets.push(oldSocket);
+    const oldSeat = await join(oldSocket, "Pilot");
+    oldSocket.send(JSON.stringify({ type: "ready", ready: true }));
+    await nextPacket(oldSocket, (packet) => packet.type === "lobby" &&
+      Boolean((packet.players as Array<{ slotId: number; ready: boolean }> | undefined)?.find((player) => player.slotId === 0)?.ready));
+    const oldStarted = nextPacket(oldSocket, (packet) => packet.type === "started");
+    oldSocket.send(JSON.stringify({ type: "start" }));
+    await oldStarted;
+
+    await close(oldSocket);
+    await runtime.close();
+    runtime = await startWingSocketServer(0, "127.0.0.1");
+
+    const staleSession = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
+    sockets.push(staleSession);
+    const expired = nextPacket(staleSession, (packet) => packet.type === "error");
+    staleSession.send(JSON.stringify({ type: "join", name: "Pilot", reconnectToken: oldSeat.reconnectToken }));
+    assert.equal((await expired).reason, "session_lost");
+    assert.equal(runtime.roomCount, 0);
+
+    const fresh = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-fresh`);
+    sockets.push(fresh);
+    const freshSeat = await join(fresh, "Fresh pilot");
+    assert.equal(freshSeat.slotId, 0);
+    assert.equal(freshSeat.roomId, "mars-fresh");
+    const freshReady = nextPacket(fresh, (packet) => packet.type === "lobby" &&
+      Boolean((packet.players as Array<{ slotId: number; ready: boolean }> | undefined)?.find((player) => player.slotId === 0)?.ready));
+    fresh.send(JSON.stringify({ type: "ready", ready: true }));
+    await freshReady;
+    const freshStarted = nextPacket(fresh, (packet) => packet.type === "started");
+    fresh.send(JSON.stringify({ type: "start" }));
+    await freshStarted;
+    const limited = nextPacket(fresh, (packet) => packet.type === "error" && packet.reason === "rate_limited");
+    for (let seq = 1; seq <= 46; seq += 1) {
+      fresh.send(JSON.stringify({
+        type: "input",
+        input: { seq, throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
+      }));
+    }
+    await limited;
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("ten concurrent pilots receive the authoritative match result at the strike boundary", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    tickIntervalMs: 1,
+    snapshotIntervalMs: 33,
+  });
+  const sockets: WebSocket[] = [];
+  const inputTimers: NodeJS.Timeout[] = [];
+  try {
+    const url = `ws://127.0.0.1:${runtime.port}/ws?room=mars-full-match`;
+    const pilots = await Promise.all(Array.from({ length: MAX_PLAYERS }, () => connect(url)));
+    sockets.push(...pilots);
+    const seats = await Promise.all(pilots.map((socket, index) => join(socket, `Pilot ${index}`)));
+    assert.equal(seats.filter((seat) => seat.team === 0).length, 5);
+    assert.equal(seats.filter((seat) => seat.team === 1).length, 5);
+
+    const ready = nextPacket(pilots[0], (packet) => {
+      if (packet.type !== "lobby") return false;
+      const lobby = packet as { players?: Array<{ connected: boolean; ready: boolean }> };
+      return Boolean(lobby.players?.filter((player) => player.connected).every((player) => player.ready));
+    });
+    for (const socket of pilots) socket.send(JSON.stringify({ type: "ready", ready: true }));
+    await ready;
+
+    const started = nextPacket(pilots[0], (packet) => packet.type === "started");
+    pilots[0].send(JSON.stringify({ type: "start" }));
+    await started;
+
+    pilots.forEach((socket) => {
+      let seq = 0;
+      inputTimers.push(setInterval(() => {
+        if (socket.readyState !== WebSocket.OPEN) return;
+        seq += 1;
+        socket.send(JSON.stringify({
+          type: "input",
+          input: { seq, throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null },
+        }));
+      }, 33));
+    });
+
+    const finished = await nextPacket(
+      pilots[0],
+      (packet) => {
+        const match = (packet.snapshot as { match?: { over?: string } } | undefined)?.match;
+        return packet.type === "snapshot" && Boolean(match?.over);
+      },
+      30_000,
+    );
+    const result = (finished.snapshot as { match: { over: string; time: number }; players: unknown[] });
+    assert.ok(["win", "loss", "draw"].includes(result.match.over));
+    assert.ok(result.match.time >= 360);
+    assert.equal(result.players.length, MAX_PLAYERS);
+  } finally {
+    inputTimers.forEach(clearInterval);
     await Promise.all(sockets.map(close));
     await runtime.close();
   }

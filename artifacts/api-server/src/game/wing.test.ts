@@ -15,7 +15,7 @@ const input = (seq: number, throttle = 1): WingInput => ({
   preset: null,
 });
 
-test("one room admits ten pilots across two five-seat teams", () => {
+test("one room assigns pilots to balanced five-seat teams", () => {
   const wing = createWing(11);
   const joined = Array.from({ length: MAX_PLAYERS }, (_, index) =>
     wing.join(`player-${index}`, `Pilot ${index}`, null, 1_000),
@@ -23,10 +23,7 @@ test("one room admits ten pilots across two five-seat teams", () => {
 
   assert.equal(joined.every((result) => result.ok), true);
   if (joined.every((result) => result.ok)) {
-    assert.equal(joined[0].team, 0);
-    assert.equal(joined[4].team, 0);
-    assert.equal(joined[5].team, 1);
-    assert.equal(joined[9].team, 1);
+    assert.deepEqual(joined.map((result) => result.team), [0, 1, 0, 1, 0, 1, 0, 1, 0, 1]);
   }
   assert.deepEqual(wing.join("eleventh", "Late pilot", null, 1_000), {
     ok: false,
@@ -66,4 +63,23 @@ test("empty slot zero is AI-controlled and reconnect reclaims its seat", () => {
   const rejoined = wing.join("new-connection", "Pilot", joined.reconnectToken, 2_500);
   assert.equal(rejoined.ok, true);
   if (rejoined.ok) assert.equal(rejoined.slotId, joined.slotId);
+});
+
+test("disconnect reservations expire without advancing a lobby match", () => {
+  const wing = createWing(14);
+  const joined = wing.join("pilot", "Pilot", null, 1_000);
+  assert.equal(joined.ok, true);
+  if (!joined.ok) return;
+
+  wing.disconnect(joined.slotId, 1_010);
+  wing.expireDisconnected(6_011);
+  assert.equal(wing.canReconnect(joined.reconnectToken), false);
+  assert.equal(wing.tickCount, 0);
+
+  const replacement = wing.join("replacement", "Replacement", null, 6_012);
+  assert.equal(replacement.ok, true);
+  if (replacement.ok) {
+    assert.equal(replacement.slotId, joined.slotId);
+    assert.notEqual(replacement.reconnectToken, joined.reconnectToken);
+  }
 });

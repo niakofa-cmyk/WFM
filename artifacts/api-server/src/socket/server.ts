@@ -11,6 +11,7 @@ import {
 
 const MAX_ROOMS = 64;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
+const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
 
 type Room = {
@@ -19,6 +20,10 @@ type Room = {
   sockets: Set<WebSocket>;
   slotSockets: Map<number, WebSocket>;
   emptySince: number | null;
+  phase: "lobby" | "active";
+  hostSlotId: number | null;
+  readySlots: Set<number>;
+  lastActivityAt: number;
 };
 
 type Client = {
@@ -26,11 +31,26 @@ type Client = {
   roomId: string;
   room: Room | null;
   slotId: number | null;
+  messageWindow: number;
+  messageCount: number;
+  inputWindow: number;
+  inputCount: number;
+  invalidInputs: number;
+  isAlive: boolean;
+  lastInputAt: number;
 };
 
-export async function startWingSocketServer(port: number, host = "0.0.0.0") {
+const MAX_MESSAGES_PER_SECOND = 80;
+const MAX_INPUTS_PER_SECOND = 45;
+export async function startWingSocketServer(
+  port: number,
+  host = "0.0.0.0",
+  options: { tickIntervalMs?: number; snapshotIntervalMs?: number } = {},
+) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
+  const tickIntervalMs = options.tickIntervalMs ?? 1000 / TICK_RATE;
+  const snapshotIntervalMs = options.snapshotIntervalMs ?? 1000 / TICK_RATE;
 
   const httpServer = createServer((request, response) => {
     if (request.url === "/healthz") {
@@ -56,7 +76,7 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
       rejectUpgrade(socket, "400 Bad Request");
       return;
     }
-    const roomId = (url.searchParams.get("room") ?? "").trim();
+    const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
     if ((url.pathname !== "/ws" && url.pathname !== "/ws/") || !ROOM_ID.test(roomId)) {
       rejectUpgrade(socket, "400 Bad Request");
       return;
@@ -69,7 +89,19 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
 
   sockets.on("connection", (socket) => {
     const roomId = roomIds.get(socket) ?? "";
-    const client: Client = { playerId: randomUUID(), roomId, room: null, slotId: null };
+    const client: Client = {
+      playerId: randomUUID(),
+      roomId,
+      room: null,
+      slotId: null,
+      messageWindow: Date.now(),
+      messageCount: 0,
+      inputWindow: Date.now(),
+      inputCount: 0,
+      invalidInputs: 0,
+      isAlive: true,
+      lastInputAt: Date.now(),
+    };
     clients.set(socket, client);
 
     socket.on("message", (data, isBinary) => {
@@ -87,11 +119,34 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
       }
       if (!message || typeof message !== "object") return;
       const packet = message as Record<string, unknown>;
+      const now = Date.now();
+      if (now - client.messageWindow >= 1000) {
+        client.messageWindow = now;
+        client.messageCount = 0;
+      }
+      client.messageCount += 1;
+      if (client.messageCount > MAX_MESSAGES_PER_SECOND) {
+        send(socket, { type: "error", reason: "rate_limited" });
+        socket.close(1008, "Message rate exceeded");
+        return;
+      }
 
       if (packet.type === "join") {
-        if (client.slotId !== null) return;
+        if (client.slotId !== null) {
+          send(socket, { type: "error", reason: "already_joined" });
+          return;
+        }
         let room = client.room ?? rooms.get(client.roomId);
+        const suppliedReconnectToken =
+          typeof packet.reconnectToken === "string" && packet.reconnectToken.length <= 128
+            ? packet.reconnectToken
+            : null;
         if (!room) {
+          if (suppliedReconnectToken) {
+            send(socket, { type: "error", reason: "session_lost" });
+            socket.close(1008, "The match session is no longer available");
+            return;
+          }
           if (rooms.size >= MAX_ROOMS) {
             send(socket, { type: "error", reason: "capacity" });
             socket.close(1013, "Room capacity reached");
@@ -103,6 +158,10 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
             sockets: new Set(),
             slotSockets: new Map(),
             emptySince: null,
+            phase: "lobby",
+            hostSlotId: null,
+            readySlots: new Set(),
+            lastActivityAt: Date.now(),
           };
           rooms.set(room.id, room);
         }
@@ -111,10 +170,12 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
           typeof packet.name === "string"
             ? packet.name.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 24) || "Pilot"
             : "Pilot";
-        const reconnectToken =
-          typeof packet.reconnectToken === "string" && packet.reconnectToken.length <= 128
-            ? packet.reconnectToken
-            : null;
+        const reconnectToken = suppliedReconnectToken;
+        if (room.phase === "active" && (!reconnectToken || !room.wing.canReconnect(reconnectToken))) {
+          send(socket, { type: "error", reason: reconnectToken ? "session_lost" : "match_started" });
+          socket.close(1008, "This match has already started");
+          return;
+        }
         const result = room.wing.join(client.playerId, name, reconnectToken);
         if (!result.ok) {
           send(socket, { type: "error", reason: "full" });
@@ -128,44 +189,122 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
         room.sockets.add(socket);
         room.slotSockets.set(result.slotId, socket);
         room.emptySince = null;
+        room.lastActivityAt = Date.now();
         if (previous && previous !== socket) previous.close(4001, "Pilot reconnected");
+        if (room.phase === "lobby" && room.hostSlotId === null) room.hostSlotId = result.slotId;
         send(socket, {
           type: "joined",
           roomId: room.id,
           slotId: result.slotId,
           team: result.team,
+          phase: room.phase,
           reconnectToken: result.reconnectToken,
           snapshot: room.wing.snapshot(),
         });
+        if (room.phase === "lobby") broadcastLobby(room);
+        return;
+      }
+
+      if (packet.type === "ready" && client.room && client.slotId !== null) {
+        const room = client.room;
+        if (room.phase !== "lobby" || typeof packet.ready !== "boolean") {
+          send(socket, { type: "error", reason: "invalid_lobby_action" });
+          return;
+        }
+        if (packet.ready) room.readySlots.add(client.slotId);
+        else room.readySlots.delete(client.slotId);
+        room.lastActivityAt = Date.now();
+        broadcastLobby(room);
+        return;
+      }
+
+      if (packet.type === "start" && client.room && client.slotId !== null) {
+        const room = client.room;
+        const current = room.wing.snapshot().players.filter((player) => player.connected);
+        if (room.phase !== "lobby") {
+          send(socket, { type: "error", reason: "match_started" });
+          return;
+        }
+        if (room.hostSlotId !== client.slotId) {
+          send(socket, { type: "error", reason: "host_only" });
+          return;
+        }
+        if (current.length === 0 || !current.every((player) => room.readySlots.has(player.slotId))) {
+          send(socket, { type: "error", reason: "pilots_not_ready" });
+          return;
+        }
+        room.phase = "active";
+        room.lastActivityAt = Date.now();
+        room.readySlots.clear();
+        const message = {
+          type: "started",
+          roomId: room.id,
+          snapshot: room.wing.snapshot(),
+        };
+        for (const roomSocket of room.sockets) send(roomSocket, message);
         return;
       }
 
       if (packet.type === "input" && client.room && client.slotId !== null) {
+        if (client.room.phase !== "active") {
+          send(socket, { type: "error", reason: "match_not_started" });
+          return;
+        }
+        if (now - client.inputWindow >= 1000) {
+          client.inputWindow = now;
+          client.inputCount = 0;
+        }
+        client.inputCount += 1;
+        if (client.inputCount > MAX_INPUTS_PER_SECOND) {
+          send(socket, { type: "error", reason: "rate_limited" });
+          socket.close(1008, "Input rate exceeded");
+          return;
+        }
         const input = packet.input;
-        if (!input || typeof input !== "object") return;
+        if (!input || typeof input !== "object" || Array.isArray(input)) {
+          rejectInput(socket, client);
+          return;
+        }
         const value = input as Record<string, unknown>;
         const seq = value.seq;
-        if (typeof seq !== "number" || !Number.isSafeInteger(seq) || seq < 1) return;
+        const lastSeq = client.room.wing.lastSeq(client.slotId);
+        if (
+          typeof seq !== "number" ||
+          !Number.isSafeInteger(seq) ||
+          seq < 1 ||
+          seq > lastSeq + 600 ||
+          !validAxis(value.throttle) ||
+          !validAxis(value.yaw) ||
+          !validAxis(value.strafe) ||
+          !validAxis(value.pitch) ||
+          !validAxis(value.evade) ||
+          !validOptionalBoolean(value.fire) ||
+          !validOptionalBoolean(value.ult) ||
+          !validOptionalBoolean(value.lock) ||
+          !(value.preset === null || value.preset === 0 || value.preset === 1 || value.preset === 2 || value.preset === 3)
+        ) {
+          rejectInput(socket, client);
+          return;
+        }
         const wingInput: WingInput = {
           seq,
-          throttle: numberOrZero(value.throttle),
-          yaw: numberOrZero(value.yaw),
-          strafe: numberOrZero(value.strafe),
-          pitch: numberOrZero(value.pitch),
+          throttle: value.throttle,
+          yaw: value.yaw,
+          strafe: value.strafe,
+          pitch: value.pitch,
           fire: value.fire === true,
           ult: value.ult === true,
           lock: value.lock === true,
-          evade: numberOrZero(value.evade),
-          preset:
-            value.preset === 0 || value.preset === 1 || value.preset === 2 || value.preset === 3
-              ? value.preset
-              : null,
+          evade: value.evade,
+          preset: value.preset,
         };
+        client.lastInputAt = now;
         client.room.wing.input(client.slotId, wingInput);
         return;
       }
 
-      if (packet.type !== "join") socket.close(1008, "Join before sending input");
+      send(socket, { type: "error", reason: client.slotId === null ? "join_required" : "unknown_message" });
+      socket.close(1008, "Unsupported message");
     });
 
     socket.on("close", () => {
@@ -177,11 +316,20 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
       if (slotId !== null && room.slotSockets.get(slotId) === socket) {
         room.slotSockets.delete(slotId);
         room.wing.disconnect(slotId);
+        room.readySlots.delete(slotId);
+        if (room.phase === "lobby" && room.hostSlotId === slotId) {
+          room.hostSlotId =
+            room.wing.snapshot().players.find((player) => player.connected)?.slotId ?? null;
+        }
       }
       if (room.sockets.size === 0) room.emptySince = Date.now();
+      if (room.phase === "lobby") broadcastLobby(room);
     });
     socket.on("error", () => {
       // The close handler owns room and seat cleanup.
+    });
+    socket.on("pong", () => {
+      client.isAlive = true;
     });
   });
 
@@ -189,26 +337,58 @@ export async function startWingSocketServer(port: number, host = "0.0.0.0") {
     // Per-socket close handlers own room and seat cleanup.
   });
 
+  let lastBroadcastAt = 0;
   const timer = setInterval(() => {
     const now = Date.now();
+    const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
+    if (shouldBroadcast) lastBroadcastAt = now;
     for (const [id, room] of rooms) {
       if (room.sockets.size === 0 && room.emptySince !== null && now - room.emptySince > ROOM_IDLE_MS) {
         rooms.delete(id);
         continue;
       }
+      if (room.phase === "lobby" && now - room.lastActivityAt > LOBBY_IDLE_MS) {
+        rooms.delete(id);
+        for (const socket of room.sockets) socket.close(1001, "Lobby expired");
+        continue;
+      }
+      room.wing.expireDisconnected(now);
+      if (room.phase !== "active") continue;
+      for (const socket of room.sockets) {
+        const client = clients.get(socket);
+        if (client && now - client.lastInputAt > DISCONNECT_GRACE_MS) {
+          socket.terminate();
+        }
+      }
       room.wing.tick(now);
+      if (!shouldBroadcast) {
+        room.wing.match.fx.length = 0;
+        continue;
+      }
       const message = JSON.stringify({ type: "snapshot", snapshot: room.wing.snapshot(now) });
       for (const socket of room.sockets) {
-        if (socket.readyState === WebSocket.OPEN) socket.send(message);
+        if (socket.readyState !== WebSocket.OPEN) continue;
+        if (socket.bufferedAmount > 1_048_576) {
+          socket.close(1013, "Client cannot keep up");
+          continue;
+        }
+        socket.send(message);
       }
       room.wing.match.fx.length = 0;
     }
-  }, 1000 / TICK_RATE);
+  }, tickIntervalMs);
   timer.unref();
 
   const heartbeat = setInterval(() => {
     for (const socket of sockets.clients) {
-      if (socket.readyState === WebSocket.OPEN) socket.ping();
+      const client = clients.get(socket);
+      if (socket.readyState !== WebSocket.OPEN || !client) continue;
+      if (!client.isAlive) {
+        socket.terminate();
+        continue;
+      }
+      client.isAlive = false;
+      socket.ping();
     }
   }, 15_000);
   heartbeat.unref();
@@ -245,8 +425,39 @@ function rejectUpgrade(socket: import("node:stream").Duplex, status: string) {
   socket.destroy();
 }
 
-function numberOrZero(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function validAxis(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= -1 && value <= 1;
+}
+
+function validOptionalBoolean(value: unknown): value is boolean | undefined {
+  return value === undefined || typeof value === "boolean";
+}
+
+function rejectInput(socket: WebSocket, client: Client) {
+  client.invalidInputs += 1;
+  send(socket, { type: "error", reason: "invalid_input" });
+  if (client.invalidInputs >= 5) socket.close(1008, "Invalid input packets");
+}
+
+function broadcastLobby(room: Room) {
+  const players = room.wing.snapshot().players;
+  const connectedCount = players.filter((player) => player.connected).length;
+  const payload = {
+    type: "lobby",
+    roomId: room.id,
+    phase: room.phase,
+    hostSlotId: room.hostSlotId,
+    connectedCount,
+    maxPlayers: MAX_PLAYERS,
+    players: players.map((player) => ({
+      slotId: player.slotId,
+      team: player.team,
+      connected: player.connected,
+      name: player.name,
+      ready: room.readySlots.has(player.slotId),
+    })),
+  };
+  for (const socket of room.sockets) send(socket, payload);
 }
 
 function send(socket: WebSocket, payload: unknown) {

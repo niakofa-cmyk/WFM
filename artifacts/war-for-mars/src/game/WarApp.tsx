@@ -8,6 +8,7 @@ import { sfxUi, unlockAudio } from "./audio";
 import { claimStrike } from "./claim-strike";
 import { DISPATCHES, SORTIES, sortieById, sortieUnlocked, TECHS, type TechId } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 
@@ -17,6 +18,16 @@ type RoomEnvelope = {
   time: number;
   players: Array<{ slotId: number; lastSeq: number; [key: string]: unknown }>;
   match: import("./sim").Match;
+};
+type LobbySession = {
+  socket: WebSocket;
+  roomId: string;
+  slotId: number;
+  team: 0 | 1;
+  reconnectToken: string;
+  name: string;
+  lobby: LobbyState;
+  ready: boolean;
 };
 
 const emptySave = (): Save => ({
@@ -48,26 +59,76 @@ export function WarApp() {
   const [cargoLine, setCargoLine] = useState("");
   const [advance, setAdvance] = useState("");
   const [onlineSession, setOnlineSession] = useState<OnlineRoom | null>(null);
+  const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
+  const [offlineAvailable, setOfflineAvailable] = useState(false);
   const [roomCode, setRoomCode] = useState(
     () => new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "",
   );
   const joinSocketRef = useRef<WebSocket | null>(null);
   const joinTimeoutRef = useRef<number | null>(null);
+  const lobbyRetryRef = useRef<number | null>(null);
 
-  const fallbackToStrike = () => {
+  const failOnline = (reason: string) => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
     joinTimeoutRef.current = null;
+    if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+    lobbyRetryRef.current = null;
     joinSocketRef.current?.close();
     joinSocketRef.current = null;
+    setOnlineLobby(null);
     setOnlineSession(null);
-    setOnlineStatus("Room unavailable · launching local strike");
-    setSave((prev) => ({ ...prev, mission: "skirmish", pace: "strike" }));
-    setShell(MenuState.LOADING);
+    setOnlineStatus(reason);
+    setOfflineAvailable(true);
+  };
+
+  const beginOnline = (socket: WebSocket, packet: Record<string, unknown>, roomId: string) => {
+    const snapshot = packet.snapshot as RoomEnvelope | undefined;
+    const slotId = Number(packet.slotId);
+    if (!snapshot?.match || !Number.isInteger(slotId)) {
+      failOnline("The room sent an invalid match state. Rejoin or create another room.");
+      return;
+    }
+    const reconnectToken = String(packet.reconnectToken ?? "");
+    if (reconnectToken) {
+      try {
+        sessionStorage.setItem(`wfm-room-${roomId}`, reconnectToken);
+      } catch {
+        // The live socket still reconnects; storage may be disabled in private browsing.
+      }
+    }
+    setOnlineLobby(null);
+    setOnlineSession({
+      socket,
+      snapshot,
+      roomId,
+      slotId,
+      team: Number(packet.team) as 0 | 1,
+      reconnectToken,
+      name: "Pilot",
+    });
+    setOnlineStatus("");
+    setResult(null);
+    setPhase("fight");
+    setShell(MenuState.GAMEPLAY);
+  };
+
+  const showOnlineError = (code: string) => {
+    const messages: Record<string, string> = {
+      capacity: "The server is at room capacity. Try again later.",
+      full: "That room already has ten pilots. Join another room.",
+      match_started: "That match has already started. Use a new room code for a new lobby.",
+      session_lost: "That match session is no longer available. Create a new room.",
+      host_only: "Only the lobby host can launch the match.",
+      pilots_not_ready: "Every connected pilot must ready up before launch.",
+      invalid_input: "The server rejected an invalid control packet.",
+      rate_limited: "Too many messages were sent. Reconnect and try again.",
+    };
+    return messages[code] ?? "Could not connect to that room. Check the code and try again.";
   };
 
   const joinOnline = (requestedRoomCode: string) => {
-    if (joinSocketRef.current) return;
+    if (joinSocketRef.current || onlineLobby || onlineSession) return;
     const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
@@ -76,70 +137,172 @@ export function WarApp() {
     setRoomCode(normalizedRoomCode);
     unlockAudio();
     setOnlineStatus("Calling the wing…");
+    setOfflineAvailable(false);
     let url: URL;
     try {
       url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
       url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       url.searchParams.set("room", normalizedRoomCode.toLowerCase());
-      const socket = new WebSocket(url);
-      joinSocketRef.current = socket;
+      const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
+      window.history.replaceState({}, "", roomPath);
+      let token = "";
+      try {
+        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+      } catch {
+        token = "";
+      }
       let joined = false;
+      let started = false;
+      let retries = 0;
+      let mySlotId: number | null = null;
+      let myTeam: 0 | 1 = 0;
       joinTimeoutRef.current = window.setTimeout(() => {
-        if (!joined) fallbackToStrike();
+        if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
       }, 5000);
-      socket.addEventListener("open", () => {
-        if (joinSocketRef.current !== socket) return;
-        socket.send(JSON.stringify({ type: "join", name: "Pilot" }));
-      });
-      socket.addEventListener("message", (event) => {
-        let packet: { type?: string; [key: string]: unknown };
-        try {
-          packet = JSON.parse(String(event.data));
-        } catch {
-          return;
-        }
-        if (packet.type === "error") {
-          fallbackToStrike();
-          return;
-        }
-        if (packet.type === "joined") {
-          const snapshot = packet.snapshot as RoomEnvelope | undefined;
-          const slotId = Number(packet.slotId);
-          if (!snapshot?.match || !Number.isInteger(slotId)) {
-            fallbackToStrike();
+
+      const connect = (targetUrl: URL) => {
+        if (started || retries > 5) return;
+        const socket = new WebSocket(targetUrl);
+        joinSocketRef.current = socket;
+        socket.addEventListener("open", () => {
+          if (joinSocketRef.current !== socket) return;
+          socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+        });
+        socket.addEventListener("message", (event) => {
+          let packet: { type?: string; [key: string]: unknown };
+          try {
+            packet = JSON.parse(String(event.data));
+          } catch {
             return;
           }
-          joined = true;
-          if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
-          joinTimeoutRef.current = null;
-          setOnlineSession({
-            socket,
-            snapshot,
-            roomId: normalizedRoomCode,
-            slotId,
-            team: Number(packet.team) as 0 | 1,
-            reconnectToken: String(packet.reconnectToken ?? ""),
-            name: "Pilot",
-          });
-          setOnlineStatus("");
-          setResult(null);
-          setPhase("fight");
-          setShell(MenuState.GAMEPLAY);
-        }
-      });
-      socket.addEventListener("error", () => {
-        if (!joined && joinSocketRef.current === socket) fallbackToStrike();
-      });
-      socket.addEventListener("close", () => {
-        if (!joined && joinSocketRef.current === socket) fallbackToStrike();
-      });
+          if (packet.type === "error") {
+            if (started) return;
+            const reason = String(packet.reason ?? "unavailable");
+            if (reason === "match_not_started" || reason === "invalid_lobby_action") {
+              setOnlineStatus(showOnlineError(reason));
+              return;
+            }
+            if (reason === "host_only" || reason === "pilots_not_ready") {
+              setOnlineStatus(showOnlineError(reason));
+              return;
+            }
+            if (reason === "session_lost") {
+              try {
+                sessionStorage.removeItem(`wfm-room-${normalizedRoomCode}`);
+              } catch {
+                // A fresh room can still be created if storage is unavailable.
+              }
+            }
+            failOnline(showOnlineError(reason));
+            return;
+          }
+          if (packet.type === "joined") {
+            joined = true;
+            retries = 0;
+            token = String(packet.reconnectToken ?? token);
+            if (token) {
+              try {
+                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+              } catch {
+                // The live socket can reconnect without browser storage.
+              }
+            }
+            mySlotId = Number(packet.slotId);
+            myTeam = Number(packet.team) as 0 | 1;
+            const phase = packet.phase === "active" ? "active" : "lobby";
+            if (phase === "active") {
+              started = true;
+              if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+              joinTimeoutRef.current = null;
+              beginOnline(socket, packet, normalizedRoomCode);
+            } else {
+              const snapshot = packet.snapshot as RoomEnvelope | undefined;
+              const slotId = Number(packet.slotId);
+              const team = Number(packet.team) as 0 | 1;
+              if (!snapshot?.match || !Number.isInteger(slotId)) {
+                failOnline("The room sent an invalid lobby state. Try another room.");
+                return;
+              }
+              setOnlineLobby((previous) => ({
+                socket,
+                roomId: normalizedRoomCode,
+                slotId,
+                team,
+                reconnectToken: token,
+                name: "Pilot",
+                ready: previous?.slotId === slotId ? previous.ready : false,
+                lobby: previous?.lobby ?? {
+                  phase: "lobby",
+                  hostSlotId: slotId,
+                  connectedCount: 1,
+                  maxPlayers: 10,
+                  players: snapshot.players.map((player) => ({
+                    slotId: player.slotId,
+                    team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
+                    connected: player.connected === true,
+                    name: typeof player.name === "string" ? player.name : null,
+                    ready: false,
+                  })),
+                },
+              }));
+              setOnlineStatus("");
+              if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+              joinTimeoutRef.current = null;
+            }
+            return;
+          }
+          if (packet.type === "lobby") {
+            retries = 0;
+            const lobby = packet as unknown as LobbyState;
+            setOnlineLobby((previous) => previous ? {
+              ...previous,
+              lobby,
+              ready: lobby.players.find((player) => player.slotId === previous.slotId)?.ready ?? previous.ready,
+            } : previous);
+            return;
+          }
+          if (packet.type === "started") {
+            started = true;
+            if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+            joinTimeoutRef.current = null;
+            beginOnline(socket, {
+              ...packet,
+              slotId: mySlotId ?? -1,
+              team: myTeam,
+              reconnectToken: token,
+            }, normalizedRoomCode);
+          }
+        });
+        socket.addEventListener("close", () => {
+          if (started || joinSocketRef.current !== socket) return;
+          if (!joined) {
+            failOnline("Room connection closed before joining. Check the room code and retry.");
+            return;
+          }
+          retries += 1;
+          setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
+          if (retries > 5) {
+            failOnline("Could not reconnect before the seat hold expired. Rejoin the room.");
+            return;
+          }
+          const delay = Math.min(2800, 450 * 2 ** (retries - 1));
+          lobbyRetryRef.current = window.setTimeout(() => connect(targetUrl), delay);
+        });
+        socket.addEventListener("error", () => {
+          if (!joined && joinSocketRef.current === socket) {
+            setOnlineStatus("Connection failed · retrying…");
+          }
+        });
+      };
+      connect(url);
     } catch {
-      fallbackToStrike();
+      failOnline("Could not open the room connection. Try again.");
     }
   };
 
   useEffect(() => () => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+    if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     joinSocketRef.current?.close();
   }, []);
 
@@ -172,6 +335,8 @@ export function WarApp() {
     if (shell === MenuState.LOADING) return;
     unlockAudio();
     sfxUi();
+    setOfflineAvailable(false);
+    setOnlineStatus("");
     if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
     setShell((prev) => nextMenu(prev, action));
   };
@@ -207,6 +372,11 @@ export function WarApp() {
 
   const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
     if (onlineSession) {
+      try {
+        sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
+      } catch {
+        // A completed room does not need a browser-stored reconnect token.
+      }
       setResult(next);
       setGain(0);
       setCargoLine("Live wing operation complete.");
@@ -259,6 +429,52 @@ export function WarApp() {
       });
   };
 
+  if (onlineLobby) {
+    return (
+      <OnlineLobby
+        roomCode={onlineLobby.roomId}
+        slotId={onlineLobby.slotId}
+        lobby={onlineLobby.lobby}
+        ready={onlineLobby.ready}
+        status={onlineStatus}
+        onReady={(ready) => {
+          const socket = onlineLobby.socket;
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "ready", ready }));
+            setOnlineStatus("");
+          } else {
+            setOnlineStatus("Signal disconnected · reconnecting…");
+          }
+        }}
+        onStart={() => {
+          const socket = onlineLobby.socket;
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "start" }));
+            setOnlineStatus("Launching the match…");
+          } else {
+            setOnlineStatus("Signal disconnected · reconnecting…");
+          }
+        }}
+        onLeave={() => {
+          if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+          lobbyRetryRef.current = null;
+          joinSocketRef.current?.close();
+          joinSocketRef.current = null;
+          try {
+            sessionStorage.removeItem(`wfm-room-${onlineLobby.roomId}`);
+          } catch {
+            // The room can still be left when browser storage is unavailable.
+          }
+          window.history.replaceState({}, "", window.location.pathname);
+          setOnlineLobby(null);
+          setOnlineStatus("Left lobby.");
+          setOfflineAvailable(false);
+          setShell(MenuState.MAIN_MENU);
+        }}
+      />
+    );
+  }
+
   if (phase === "fight") {
     return (
       <Arena
@@ -284,6 +500,20 @@ export function WarApp() {
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
+        onNetworkExit={() => {
+          try {
+            if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
+          } catch {
+            // Keep the server-restart message visible even without browser storage.
+          }
+          setOnlineSession(null);
+          joinSocketRef.current = null;
+          setOnlineStatus("The match server restarted and this room could not be restored. Create a new room.");
+          setOfflineAvailable(true);
+          setResult(null);
+          setPhase("brief");
+          setShell(MenuState.MAIN_MENU);
+        }}
         online={onlineSession ?? undefined}
       />
     );
@@ -367,6 +597,14 @@ export function WarApp() {
           joinOnline(generated);
         }}
         onlineStatus={onlineStatus}
+        offlineAvailable={offlineAvailable}
+        onOfflineStrike={() => {
+          unlockAudio();
+          setOfflineAvailable(false);
+          setOnlineStatus("Offline Strike · AI fills the wing.");
+          setSave((prev) => ({ ...prev, mission: "skirmish", pace: "strike" }));
+          setShell(MenuState.LOADING);
+        }}
         onFaction={pickFaction}
         onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
         onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}

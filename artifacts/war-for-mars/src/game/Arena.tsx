@@ -20,9 +20,12 @@ export type StrikeResult = {
 export type OnlineSnapshot = {
   tick: number;
   time: number;
-  players: Array<{ slotId: number; lastSeq: number; [key: string]: unknown }>;
+  players: Array<{ slotId: number; lastSeq: number; connected?: boolean; [key: string]: unknown }>;
   match: Match;
 };
+
+type RemotePose = { x: number; z: number; yaw: number; pitch: number; steer: number };
+type RemoteFrame = { receivedAt: number; poses: Record<number, RemotePose> };
 
 export type OnlineRoom = {
   socket: WebSocket;
@@ -50,6 +53,7 @@ type ArenaProps = {
   drilled: boolean;
   onDrill: () => void;
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
+  onNetworkExit: () => void;
   online?: OnlineRoom;
 };
 
@@ -66,6 +70,49 @@ function pilotCraft(match: Match, slotId: number): Craft {
 
 function copyMatch(source: Match): Match {
   return JSON.parse(JSON.stringify(source)) as Match;
+}
+
+function captureRemoteFrame(snapshot: OnlineSnapshot): RemoteFrame {
+  const poses: Record<number, RemotePose> = {};
+  for (const player of snapshot.players) {
+    if (!player.connected || player.slotId < 0 || player.slotId >= 10) continue;
+    const craft = pilotCraft(snapshot.match, player.slotId);
+    poses[player.slotId] = {
+      x: craft.x,
+      z: craft.z,
+      yaw: craft.yaw,
+      pitch: craft.pitch,
+      steer: craft.steer,
+    };
+  }
+  return { receivedAt: performance.now(), poses };
+}
+
+function interpolateRemotePose(frames: RemoteFrame[], slotId: number, now: number): RemotePose | null {
+  if (!frames.length) return null;
+  const renderAt = now - 66;
+  let before = frames[0];
+  let after = frames[frames.length - 1];
+  for (let index = 0; index < frames.length - 1; index += 1) {
+    if (renderAt <= frames[index + 1].receivedAt) {
+      before = frames[index];
+      after = frames[index + 1];
+      break;
+    }
+  }
+  const a = before.poses[slotId];
+  const b = after.poses[slotId];
+  if (!a) return b ?? null;
+  if (!b) return a;
+  const span = after.receivedAt - before.receivedAt;
+  const t = span > 0 ? Math.max(0, Math.min(1, (renderAt - before.receivedAt) / span)) : 1;
+  return {
+    x: a.x + (b.x - a.x) * t,
+    z: a.z + (b.z - a.z) * t,
+    yaw: a.yaw + wrap(b.yaw - a.yaw) * t,
+    pitch: a.pitch + (b.pitch - a.pitch) * t,
+    steer: a.steer + (b.steer - a.steer) * t,
+  };
 }
 
 const DRILL = [
@@ -437,6 +484,7 @@ export function Arena({
   drilled,
   onDrill,
   onDone,
+  onNetworkExit,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -469,13 +517,20 @@ export function Arena({
   const matchRef = useRef<Match | null>(null);
   const onlineRef = useRef(online);
   onlineRef.current = online;
+  const networkExitRef = useRef(onNetworkExit);
+  networkExitRef.current = onNetworkExit;
   const slotIdRef = useRef(online?.slotId ?? 0);
   const reconnectTokenRef = useRef(online?.reconnectToken ?? "");
   const snapshotRef = useRef<OnlineSnapshot | null>(online?.snapshot ?? null);
+  const remoteFramesRef = useRef<RemoteFrame[]>([]);
   const activeSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
   const pendingInputsRef = useRef<Array<{ seq: number; input: StepInput }>>([]);
   const nextSeqRef = useRef(0);
   const [networkStatus, setNetworkStatus] = useState("");
+  const [connectedPilots, setConnectedPilots] = useState(
+    online?.snapshot.players.filter((player) => player.connected).length ?? 0,
+  );
+  const serverEndedRef = useRef(Boolean(online?.snapshot.match.over));
   const seedRef = useRef(1);
   const replayRef = useRef<StepInput[]>([]);
   const gyroOn = useRef(gyro);
@@ -525,19 +580,44 @@ export function Arena({
         slotIdRef.current = Number(packet.slotId);
         reconnectTokenRef.current = String(packet.reconnectToken ?? reconnectTokenRef.current);
         snapshotRef.current = joinedSnapshot;
+        remoteFramesRef.current = [captureRemoteFrame(joinedSnapshot)];
+        setConnectedPilots(joinedSnapshot.players.filter((player) => player.connected).length);
+        serverEndedRef.current = Boolean(joinedSnapshot.match.over);
         const acknowledged = joinedSnapshot.players[slotIdRef.current]?.lastSeq ?? 0;
         pendingInputsRef.current = pendingInputsRef.current.filter((entry) => entry.seq > acknowledged);
         return;
       }
       if (packet.type === "snapshot") {
         const next = packet.snapshot as OnlineSnapshot | undefined;
-        if (next?.match && Array.isArray(next.players)) snapshotRef.current = next;
+        if (next?.match && Array.isArray(next.players)) {
+          snapshotRef.current = next;
+          remoteFramesRef.current.push(captureRemoteFrame(next));
+          if (remoteFramesRef.current.length > 4) remoteFramesRef.current.shift();
+          setConnectedPilots(next.players.filter((player) => player.connected).length);
+          serverEndedRef.current = Boolean(next.match.over);
+        }
         return;
       }
       if (packet.type === "error") {
+        if (packet.reason === "session_lost") {
+          disposed = true;
+          window.clearTimeout(retryTimer);
+          activeSocketRef.current = null;
+          targetClose();
+          networkExitRef.current();
+          return;
+        }
         setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");
         activeSocketRef.current?.close();
       }
+    };
+
+    if (online.snapshot?.match) {
+      remoteFramesRef.current = [captureRemoteFrame(online.snapshot)];
+    }
+
+    const targetClose = () => {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
     };
 
     const connect = (target: WebSocket) => {
@@ -1125,7 +1205,7 @@ export function Arena({
         }
       }
       match.fx.length = 0;
-      if (match.over && !reported) {
+      if (match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
         reported = true;
         setEnd({
           outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
@@ -1145,21 +1225,35 @@ export function Arena({
       match.allies.forEach((ally, index) => {
         const group = allyGroups[index];
         if (slotIdRef.current === index + 1) {
-          group.visible = false;
+          const wingLead = match.player;
+          const pose = interpolateRemotePose(remoteFramesRef.current, 0, now);
+          group.visible = true;
+          group.position.set(pose?.x ?? wingLead.x, 0.9, pose?.z ?? wingLead.z);
+          orient(group, pose?.yaw ?? wingLead.yaw, pose?.pitch ?? wingLead.pitch, pose?.steer ?? wingLead.steer);
+          paint(group, wingLead);
           return;
         }
-        group.position.set(ally.x, 0.9, ally.z);
-        orient(group, ally.yaw, 0, ally.steer);
+        const slotId = index + 1;
+        const pose = interpolateRemotePose(remoteFramesRef.current, slotId, now);
+        group.position.set(pose?.x ?? ally.x, 0.9, pose?.z ?? ally.z);
+        orient(group, pose?.yaw ?? ally.yaw, pose?.pitch ?? 0, pose?.steer ?? ally.steer);
         paint(group, ally);
       });
       match.enemies.forEach((enemy, index) => {
         const group = enemyGroups[index];
         if (slotIdRef.current === index + 5) {
-          group.visible = false;
+          const wingLead = match.player;
+          const pose = interpolateRemotePose(remoteFramesRef.current, 0, now);
+          group.visible = true;
+          group.position.set(pose?.x ?? wingLead.x, 0.9, pose?.z ?? wingLead.z);
+          orient(group, pose?.yaw ?? wingLead.yaw, pose?.pitch ?? wingLead.pitch, pose?.steer ?? wingLead.steer);
+          paint(group, wingLead);
           return;
         }
-        group.position.set(enemy.x, 0.9, enemy.z);
-        orient(group, enemy.yaw, 0, enemy.steer);
+        const slotId = index + 5;
+        const pose = interpolateRemotePose(remoteFramesRef.current, slotId, now);
+        group.position.set(pose?.x ?? enemy.x, 0.9, pose?.z ?? enemy.z);
+        orient(group, pose?.yaw ?? enemy.yaw, pose?.pitch ?? 0, pose?.steer ?? enemy.steer);
         paint(group, enemy);
       });
       if (match.runner) {
@@ -1434,9 +1528,9 @@ export function Arena({
     <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-      {networkStatus ? (
-        <p className="absolute left-1/2 top-3 z-30 -translate-x-1/2 border border-alert/50 bg-void/85 px-3 py-2 font-hud text-xs tracking-widest text-alert">
-          {networkStatus}
+      {online ? (
+        <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
+          {networkStatus || `LIVE WING · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (

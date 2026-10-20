@@ -21,6 +21,8 @@ type HomeProps = {
   onRoomCode: (roomCode: string) => void;
   onCreateRoom: () => void;
   onlineStatus?: string;
+  offlineAvailable: boolean;
+  onOfflineStrike: () => void;
   onFaction: (faction: Faction) => void;
   onShip: (ship: ShipId) => void;
   onScheme: (scheme: Scheme) => void;
@@ -76,7 +78,17 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   );
 }
 
-function MainMenu({ onAction, onOnline, onCreateRoom, onRoomCode, roomCode, onlineStatus, ship }: HomeProps) {
+function MainMenu({
+  onAction,
+  onOnline,
+  onCreateRoom,
+  onRoomCode,
+  roomCode,
+  onlineStatus,
+  offlineAvailable,
+  onOfflineStrike,
+  ship,
+}: HomeProps) {
   const items: { action: MenuAction; label: string; detail: string }[] = [
     { action: "DEPLOY", label: "CAMPAIGN: DEPLOY", detail: "Sorties, the yard, the cage" },
     { action: "ARCADE", label: "ARCADE SKIRMISH", detail: "Open disc. Practice or strike." },
@@ -122,6 +134,17 @@ function MainMenu({ onAction, onOnline, onCreateRoom, onRoomCode, roomCode, onli
               JOIN
             </button>
           </div>
+          {offlineAvailable ? (
+            <button
+              type="button"
+              data-testid="button-offline-strike"
+              onClick={onOfflineStrike}
+              className="mt-2 h-11 w-full border border-alert/50 px-3 text-left text-alert"
+            >
+              <span className="block font-hud text-sm tracking-widest">START OFFLINE STRIKE</span>
+              <span className="text-xs">Room unavailable · play the local AI-filled match instead.</span>
+            </button>
+          ) : null}
         </section>
         {items.map((item, index) => (
           <button
