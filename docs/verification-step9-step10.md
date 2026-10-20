@@ -1,6 +1,6 @@
 # Step 9–10 verification: shared economy and persistent universe
 
-> **Later audit correction:** the newer [universe/economy depth audit](universe-economy-depth-audit.md) confirms a repeatable immediate buy/sell credit exploit. The development persistence and transaction tests described here did not certify safe pricing, durable client retry recovery, or a complete exploration/progression loop.
+> **Historical audit correction:** the subsequent [universe/economy depth audit](universe-economy-depth-audit.md) found a repeatable immediate buy/sell credit exploit that this older report missed. It has now been corrected with price-impact-aware bid/ask trading and regression coverage. See [persistent universe implementation and verification](persistent-universe-implementation.md) for current evidence on pricing, durable recovery and the expanded service loop. None of these development checks certifies production or physical-device performance.
 
 **Source commit tested:** `ec04fd01466cf8b90f2512f217e9b030934b83d3`  
 **Date:** 2026-10-20  

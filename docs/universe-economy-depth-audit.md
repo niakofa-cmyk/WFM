@@ -1,5 +1,7 @@
 # Persistent universe and economy depth verification
 
+> **Historical audit:** this records the source below before implementation. The trading exploit, missing material/service loop, and non-durable client actions have since been addressed. See [persistent universe implementation and verification](persistent-universe-implementation.md) for the changes, evidence, and remaining certification limits.
+
 **Inspected and tested source:** `0a04fcbac5304f41de83f722a4e7f3d0fc88f2a7`  
 **Date:** 2026-10-20  
 **Scope:** the revised roadmap's Step 7 (universe) and Step 8 (economy and ship progression).
