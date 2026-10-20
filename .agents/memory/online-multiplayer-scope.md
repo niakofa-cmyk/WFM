@@ -16,3 +16,9 @@ For the multiplayer alpha, room state is intentionally process-local and active 
 **Why:** the user expanded the roadmap to require server-owned progression, a player-driven economy, and a persistent universe while keeping matchmaking out of scope.
 
 **How to apply:** keep online rooms isolated, but persist economy and campaign-universe state in shared server tables. Do not add matchmaking or shared real-time galaxy simulation, and do not claim physical-device certification without testing phones.
+
+For multiplayer reliability evidence, compare client views at the same authoritative server tick; delayed clients naturally receive different snapshots at a given wall-clock instant. Seeded local impairment proxies can validate latency, jitter, frame loss, and reconnect logic, but they are not evidence of WAN/carrier reliability or a full human match.
+
+**Why:** the ten-client impairment run showed that equality checks across each client's latest snapshot are timing-sensitive, while equality at a shared server tick directly tests authoritative state convergence.
+
+**How to apply:** record deterministic per-link impairment settings and metrics, check that all clients receive an identical snapshot for one server tick, and keep real-network, long-duration, and physical-device certification as separate gates.

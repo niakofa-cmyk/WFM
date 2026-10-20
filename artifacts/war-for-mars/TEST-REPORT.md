@@ -1,8 +1,8 @@
 # WAR FOR MARS — Reproducible Build, Multiplayer, Ship Balance, and Mobile Report
 
 **Test date:** 2026-10-20
-**Code commit verified:** `e9317e2a818af0f6e7b0254b9ee5aade7fdae57a`
-**Result:** Workspace checks and automated ten-client room/match tests pass. Ship balance, realistic-network certification, and physical phone certification remain open.
+**Code commit verified:** `58af547172242bbf6483b103d1eb4f4ec5b65050`
+**Result:** Workspace checks, automated ten-client room/match tests, and a seeded ten-link impairment/reconnect run pass. Real WAN reliability, ship balance, and physical phone certification remain open.
 
 ## Reproduction
 
@@ -11,7 +11,8 @@ Verified on the exact source commit above using Node.js `v24.13.0` and pnpm `10.
 | Check | Result | Evidence |
 | --- | --- | --- |
 | `pnpm run typecheck` | PASS | Shared libraries, artifacts, and scripts completed. |
-| `pnpm test` | PASS | 25 tests total: API/server 21/21 and game controls 4/4; zero failures. |
+| `pnpm test` | PASS | 37 tests total: API/server 31/31 and game controls 6/6; zero failures. |
+| `pnpm --filter @workspace/api-server run test:network` | PASS | Repeatable seeded impairment run; see network evidence below. |
 | `pnpm run build` | PASS | All workspace production builds completed. |
 | `pnpm --filter @workspace/api-server run build:socket` | PASS | API and WebSocket bundles built. |
 | `git diff --check` | PASS | No whitespace errors before the code commit. |
@@ -24,9 +25,18 @@ The game bundle is 773.67 kB minified (212.53 kB gzip), above Vite's 500 kB warn
 - Ten simultaneous WebSocket clients receive balanced 5v5 seats, ready up, launch through the host gate, and complete the six-minute match clock; each sends sequenced input and receives the server's final match result. The test accelerates server ticks and keeps snapshots at 30 Hz so the six-minute clock completes in about 12 seconds.
 - Separate automated coverage verifies full-room rejection, late-join rejection after launch, independent invite-code rooms, five-second reconnect reservation, a 150 ms delayed input acknowledgement, bounded input values/sequences, message-rate limits, and stale-session handling after a server restart.
 - Lobby sessions are in-memory. A server restart deliberately reports that the old room cannot be restored; clients must create a fresh room. It does not recover an interrupted match. Empty disconnected rooms are reaped automatically, and a connected but idle lobby expires after 15 minutes; the long timeout itself was not waited out in an integration test.
-- These are local automated tests, not a ten-person playtest or a WAN test. The 150 ms delay is a local input delay; packet loss, jitter, regional latency, and sustained internet load remain untested.
+- The 150 ms input acknowledgement and the new impairment test run locally; neither is a WAN test or a ten-person playtest. Regional latency, sustained internet load, and carrier-specific behavior remain untested.
 - Sequenced input acknowledgement, AI fill for empty seats, server-side strike reward replay, and six-minute timer resolution are covered by passing API tests.
 - The six-minute Strike simulation reaches the timer boundary and resolves tied integrity. This verifies runtime behavior, not qualitative combat polish or human competitive balance.
+
+## Ten-client network impairment and reconnect evidence
+
+- Reproduce with `pnpm --filter @workspace/api-server run test:network` from the repository root.
+- Ten clients use independent local WebSocket proxies with deterministic per-client seeds, 35 ms base one-way delay, ±20 ms jitter, and 12% loss applied to client input and server snapshots.
+- During the active match, two links are forcibly terminated and reconnected with their existing room tokens; the server reclaims both original seats.
+- The test requires a byte-identical authoritative snapshot at a common server tick for all ten clients, then verifies that every client receives the same completed match outcome and all ten seats are connected with accepted sequenced inputs.
+- Sample passing run: 10/10 links exercised delay and loss in both directions; each link dropped 9–23 input frames and 17–29 snapshots; sampled delay was 15–55 ms. Reconnected seats were server slots 1 and 8. The common snapshot was tick 54, and a shared final snapshot was received by all clients.
+- This test stresses short controlled impairment and reconnection. It does **not** certify ten real devices, internet/WAN paths, longer outages, longer-duration server load, or all combat/objective consistency under human play. The existing separate test remains the six-minute timer-boundary check.
 
 ## Ship-balance diagnostic
 
