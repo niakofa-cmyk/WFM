@@ -59,4 +59,4 @@ The production database was not modified. The screenshot is the unauthenticated 
 - Run the new schema against the production database as part of a deliberate publish/migration.
 - Verify market visibility and transaction history through two separate authenticated sessions on the deployed service.
 - Profile the authenticated game and market on representative Android and iOS devices.
-- Review the frontend bundle-size warning from the build (the game JavaScript chunk is about 922 kB before gzip).
+- See [the latest mobile bundle profile and travel-loop report](mobile-profile-and-travel-loop.md): the 922 kB entry has been split into deferred game chunks, but physical-device performance is still uncertified.
