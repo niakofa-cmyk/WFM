@@ -526,6 +526,7 @@ export function Arena({
   const snapshotRef = useRef<OnlineSnapshot | null>(online?.snapshot ?? null);
   const remoteFramesRef = useRef<RemoteFrame[]>([]);
   const activeSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
+  const joinedSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
   const pendingInputsRef = useRef<Array<{ seq: number; input: StepInput }>>([]);
   const nextSeqRef = useRef(0);
   const [networkStatus, setNetworkStatus] = useState("");
@@ -579,6 +580,7 @@ export function Arena({
       if (packet.type === "joined") {
         const joinedSnapshot = packet.snapshot as OnlineSnapshot | undefined;
         if (!joinedSnapshot?.match) return;
+        joinedSocketRef.current = socket;
         slotIdRef.current = Number(packet.slotId);
         reconnectTokenRef.current = String(packet.reconnectToken ?? reconnectTokenRef.current);
         snapshotRef.current = joinedSnapshot;
@@ -648,6 +650,7 @@ export function Arena({
       });
       target.addEventListener("close", () => {
         target.removeEventListener("message", onMessage);
+        if (joinedSocketRef.current === target) joinedSocketRef.current = null;
         if (disposed || activeSocketRef.current !== target) return;
         activeSocketRef.current = null;
         setNetworkStatus("SIGNAL LOST · RECONNECTING");
@@ -1104,7 +1107,7 @@ export function Arena({
           pendingInputsRef.current.push({ seq, input: played });
           if (replayRef.current.length < 22000) replayRef.current.push(played);
           const socket = activeSocketRef.current;
-          if (socket?.readyState === WebSocket.OPEN) {
+          if (socket?.readyState === WebSocket.OPEN && joinedSocketRef.current === socket) {
             try {
               socket.send(JSON.stringify({ type: "input", input: { ...played, seq } }));
             } catch {

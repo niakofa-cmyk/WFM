@@ -70,12 +70,12 @@ async function connect(url: string) {
   return socket;
 }
 
-async function join(socket: WebSocket, name: string, reconnectToken?: string) {
+async function join(socket: WebSocket, name: string, reconnectToken?: string, label = name) {
   const joined = nextPacket(
     socket,
     (packet) => packet.type === "joined" || packet.type === "error",
     10_000,
-    `join response for ${name}`,
+    `join response for ${label}`,
   );
   socket.send(JSON.stringify({ type: "join", name, ...(reconnectToken ? { reconnectToken } : {}) }));
   const packet = await joined;
@@ -138,6 +138,7 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
 
     const socketsByPilot: WebSocket[] = [];
     const seatsByPilot: Seat[] = [];
+    const inputReady = Array.from({ length: MAX_PLAYERS }, () => false);
     const frameHistory = Array.from({ length: MAX_PLAYERS }, () => new Map<number, string>());
     const completed: Array<Snapshot | undefined> = Array.from({ length: MAX_PLAYERS });
     let commonFrame: { tick: number; serialized: string } | undefined;
@@ -182,6 +183,7 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
       socketsByPilot[slotId] = socket;
       observe(slotId, socket);
       seatsByPilot[slotId] = await join(socket, `Pilot ${slotId}`);
+      inputReady[slotId] = true;
     }
     assert.deepEqual(seatsByPilot.map((seat) => seat.slotId).sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     assert.equal(seatsByPilot.filter((seat) => seat.team === 0).length, 5);
@@ -202,7 +204,7 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
     for (let pilotIndex = 0; pilotIndex < MAX_PLAYERS; pilotIndex += 1) {
       inputTimers.push(setInterval(() => {
         const socket = socketsByPilot[pilotIndex];
-        if (socket.readyState !== WebSocket.OPEN) return;
+        if (!inputReady[pilotIndex] || socket.readyState !== WebSocket.OPEN) return;
         sequences[pilotIndex] += 1;
         socket.send(JSON.stringify({
           type: "input",
@@ -225,16 +227,23 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
     const hardReconnect = async (pilotIndex: number) => {
       const seat = seatsByPilot[pilotIndex];
       const priorSocket = socketsByPilot[pilotIndex];
+      inputReady[pilotIndex] = false;
       await terminate(priorSocket);
       await delay(250);
       const replacement = await connect(`ws://127.0.0.1:${proxies[pilotIndex].port}/ws?room=impaired-ten`);
       sockets.push(replacement);
       socketsByPilot[pilotIndex] = replacement;
       observe(pilotIndex, replacement);
-      const reclaimed = await join(replacement, `Pilot ${pilotIndex}`, seat.reconnectToken);
+      const reclaimed = await join(
+        replacement,
+        `Pilot ${pilotIndex}`,
+        seat.reconnectToken,
+        `reconnect for Pilot ${pilotIndex}`,
+      );
       assert.equal(reclaimed.slotId, seat.slotId);
       assert.equal(reclaimed.reconnectToken, seat.reconnectToken);
       assert.equal(reclaimed.phase, "active");
+      inputReady[pilotIndex] = true;
     };
 
     await delay(1300);
