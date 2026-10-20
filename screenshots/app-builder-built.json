@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "WAR FOR MARS",
+      "hasCanvas": false,
+      "bodyTextLen": 1404,
+      "bodyTextHash": "45fca8fa20b6a24eb52a8127d9079992b3884a1e8c0229e3c0b982c196ddcfb9",
+      "bodyTextPrefix": "USSF VS THE ACCORD WAR FOR MARS The fleet that took Eon Dusk to ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "WAR FOR MARS",
+      "hasCanvas": false,
+      "bodyTextLen": 1404,
+      "bodyTextHash": "45fca8fa20b6a24eb52a8127d9079992b3884a1e8c0229e3c0b982c196ddcfb9",
+      "bodyTextPrefix": "USSF VS THE ACCORD WAR FOR MARS The fleet that took Eon Dusk to ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text changed (883 -> 1404 chars, hash mismatch)",
+    "mobile: body text changed (883 -> 1404 chars, hash mismatch)"
+  ]
+}

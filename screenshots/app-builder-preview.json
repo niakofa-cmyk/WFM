@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "WAR FOR MARS",
+      "hasCanvas": false,
+      "bodyTextLen": 883,
+      "bodyTextHash": "6e02237da575e2bff0499aaf077015540b79036992c2ff4701d8e8667f86a6ee",
+      "bodyTextPrefix": "USSF VS THE ACCORD WAR FOR MARS Training strike on the relay dis",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "WAR FOR MARS",
+      "hasCanvas": false,
+      "bodyTextLen": 883,
+      "bodyTextHash": "6e02237da575e2bff0499aaf077015540b79036992c2ff4701d8e8667f86a6ee",
+      "bodyTextPrefix": "USSF VS THE ACCORD WAR FOR MARS Training strike on the relay dis",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

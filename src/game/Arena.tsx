@@ -1,0 +1,1189 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { isMuted, setMuted, sfxBoom, sfxHit, sfxShot, sfxUlt, unlockAudio } from "./audio";
+import "./controls-probe";
+import { createBus, readInput, type Bus } from "./input";
+import { gyroAim } from "./gyro";
+import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
+import { ARENA_R, aimYaw, createMatch, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace } from "./sim";
+import type { TechId } from "./campaign";
+
+export type StrikeResult = {
+  outcome: "win" | "loss" | "draw";
+  kills: number;
+  deaths: number;
+  relays: number;
+};
+
+type ArenaProps = {
+  shipId: ShipId;
+  faction: Faction;
+  scheme: Scheme;
+  refit: number;
+  pace: Pace;
+  goal: Goal;
+  disc: Disc;
+  allyCount: number;
+  foeCount: number;
+  objective: string;
+  tech: TechId | null;
+  gyro: boolean;
+  drilled: boolean;
+  onDrill: () => void;
+  onDone: (result: StrikeResult) => void;
+};
+
+const DRILL = [
+  "Burn forward. W, or the left stick.",
+  "Nose left is A. Right is D.",
+  "Fire. Space, or the gold button.",
+  "Tap ENG, WEP, or DEF.",
+];
+
+const _fwd = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+const _x = new THREE.Vector3();
+const _y = new THREE.Vector3();
+const _x2 = new THREE.Vector3();
+const _y2 = new THREE.Vector3();
+const _tmp = new THREE.Vector3();
+const _basis = new THREE.Matrix4();
+const _cam = new THREE.Vector3();
+const _look = new THREE.Vector3();
+
+function orient(obj: THREE.Object3D, yaw: number, pitch: number, steer: number) {
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  _fwd.set(-Math.sin(yaw) * cp, sp, -Math.cos(yaw) * cp);
+  if (_fwd.lengthSq() < 1e-8) _fwd.set(0, 0, -1);
+  _fwd.normalize();
+  _x.crossVectors(_up, _fwd);
+  if (_x.lengthSq() < 1e-8) _x.set(1, 0, 0);
+  _x.normalize();
+  _y.crossVectors(_fwd, _x).normalize();
+  const bank = -steer * 0.55;
+  const cos = Math.cos(bank);
+  const sin = Math.sin(bank);
+  _tmp.crossVectors(_fwd, _x);
+  _x2.copy(_x).multiplyScalar(cos).addScaledVector(_tmp, sin);
+  _tmp.crossVectors(_fwd, _y);
+  _y2.copy(_y).multiplyScalar(cos).addScaledVector(_tmp, sin);
+  _basis.makeBasis(_x2, _y2, _fwd);
+  obj.quaternion.setFromRotationMatrix(_basis);
+}
+
+function metal(color: number, emissive: number, intensity: number) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive,
+    emissiveIntensity: intensity,
+    metalness: 0.68,
+    roughness: 0.36,
+  });
+}
+
+function tag(mesh: THREE.Mesh, intensity: number, group: THREE.Group) {
+  mesh.userData.baseE = intensity;
+  group.add(mesh);
+}
+
+function buildShip(id: ShipId): THREE.Group {
+  const g = new THREE.Group();
+  const accord = SHIPS[id].faction === "accord";
+  const hull = metal(accord ? 0xc8923a : 0xb7c3cc, accord ? 0x5a3410 : 0x1a242c, accord ? 0.42 : 0.25);
+  const hot = metal(accord ? 0xffd7a1 : 0xd5ecff, accord ? 0xffb25a : 0x7eb6d4, 0.85);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.72, 8), hot);
+  nose.geometry.rotateX(Math.PI / 2);
+  nose.position.z = 1.45;
+  tag(nose, 0.85, g);
+
+  if (id === "mandjet") {
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.86, 28), hot);
+    disc.position.z = -0.2;
+    disc.rotation.y = Math.PI;
+    tag(disc, 0.85, g);
+    const wing = new THREE.BoxGeometry(1.4, 0.05, 0.48);
+    const left = new THREE.Mesh(wing, hull);
+    left.position.set(-1.2, 0.02, -0.05);
+    left.rotation.y = -0.4;
+    tag(left, 0.42, g);
+    const right = new THREE.Mesh(wing.clone(), hull);
+    right.position.set(1.2, 0.02, -0.05);
+    right.rotation.y = 0.4;
+    tag(right, 0.42, g);
+  } else if (id === "shakuna") {
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.7, 7), hull);
+    body.geometry.rotateX(Math.PI / 2);
+    tag(body, 0.42, g);
+    const wing = new THREE.BoxGeometry(1.15, 0.04, 0.42);
+    const left = new THREE.Mesh(wing, hot);
+    left.position.set(-0.85, 0.12, -0.1);
+    left.rotation.z = 0.35;
+    left.rotation.y = -0.5;
+    tag(left, 0.85, g);
+    const right = new THREE.Mesh(wing.clone(), hot);
+    right.position.set(0.85, 0.12, -0.1);
+    right.rotation.z = -0.35;
+    right.rotation.y = 0.5;
+    tag(right, 0.85, g);
+  } else if (id === "sundara") {
+    const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 2.5, 10), hull);
+    needle.geometry.rotateX(Math.PI / 2);
+    tag(needle, 0.25, g);
+    const fin = new THREE.BoxGeometry(0.7, 0.04, 0.28);
+    const left = new THREE.Mesh(fin, hot);
+    left.position.set(-0.28, 0, -0.7);
+    tag(left, 0.85, g);
+    const right = new THREE.Mesh(fin.clone(), hot);
+    right.position.set(0.28, 0, -0.7);
+    tag(right, 0.85, g);
+  } else if (id === "tripura") {
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.38), hot);
+    tag(core, 0.85, g);
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.72 + i * 0.18, 0.045, 8, 24), hull);
+      ring.rotation.x = 0.4 + i * 0.5;
+      ring.rotation.y = i * 0.7;
+      tag(ring, 0.42, g);
+    }
+  } else if (id === "duskbreaker") {
+    const fuse = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.18, 1.7), hull);
+    tag(fuse, 0.25, g);
+    const wing = new THREE.BoxGeometry(1.5, 0.04, 0.55);
+    const delta = new THREE.Mesh(wing, hot);
+    delta.position.z = -0.1;
+    tag(delta, 0.5, g);
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.38, 0.28), hull);
+    tail.position.set(0, 0.2, -0.7);
+    tag(tail, 0.25, g);
+  } else if (id === "sentinel") {
+    const bus = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.32, 0.7), hull);
+    tag(bus, 0.25, g);
+    const panel = new THREE.BoxGeometry(1.3, 0.03, 0.45);
+    const left = new THREE.Mesh(panel, hot);
+    left.position.set(-0.95, 0, 0);
+    tag(left, 0.7, g);
+    const right = new THREE.Mesh(panel.clone(), hot);
+    right.position.set(0.95, 0, 0);
+    tag(right, 0.7, g);
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.06, 12), hot);
+    dish.rotation.x = Math.PI / 2;
+    dish.position.z = 0.55;
+    tag(dish, 0.85, g);
+  } else if (id === "splitter") {
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), hot);
+    tag(core, 0.85, g);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 28), hull);
+    tag(ring, 0.25, g);
+    const drone = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+    const a = new THREE.Mesh(drone, hot);
+    a.position.set(0.95, 0.2, 0.2);
+    tag(a, 0.85, g);
+    const b = new THREE.Mesh(drone.clone(), hot);
+    b.position.set(-0.7, -0.15, -0.3);
+    tag(b, 0.85, g);
+  } else {
+    const dart = new THREE.Mesh(new THREE.ConeGeometry(0.22, 2.15, 6), hull);
+    dart.geometry.rotateX(Math.PI / 2);
+    tag(dart, 0.25, g);
+    const stub = new THREE.BoxGeometry(0.7, 0.03, 0.22);
+    const fins = new THREE.Mesh(stub, hot);
+    fins.position.z = -0.55;
+    tag(fins, 0.7, g);
+  }
+
+  const exhaust = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), hot);
+  exhaust.position.z = -1.2;
+  exhaust.name = "exhaust";
+  tag(exhaust, 0.85, g);
+  return g;
+}
+
+function paint(group: THREE.Group, craft: Craft) {
+  group.visible = craft.alive;
+  const flash = craft.hurtT > 1.55;
+  const cloak = craft.cloak > 0;
+  const blink = craft.guard > 0 && Math.sin(performance.now() * 0.02) > 0;
+  group.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mat = mesh.material as THREE.MeshStandardMaterial;
+    if (!mat || !("emissiveIntensity" in mat)) return;
+    const base = (mesh.userData.baseE as number) ?? 0.4;
+    mat.emissiveIntensity = flash ? 2.2 : base;
+    const ghost = cloak || blink;
+    mat.transparent = ghost;
+    mat.opacity = cloak ? 0.16 : blink ? 0.4 : 1;
+  });
+  const exhaust = group.getObjectByName("exhaust");
+  if (exhaust && craft.alive) {
+    const s = 0.5 + Math.min(1.6, Math.abs(craft.speed) / 16);
+    exhaust.scale.setScalar(s);
+  }
+}
+
+function drawRadar(canvas: HTMLCanvasElement, match: Match) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = canvas.width;
+  ctx.clearRect(0, 0, w, w);
+  ctx.strokeStyle = "rgba(224,161,90,0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(w / 2, w / 2, w / 2 - 3, 0, Math.PI * 2);
+  ctx.stroke();
+  const scale = (w / 2 - 8) / ARENA_R;
+  const pt = (x: number, z: number) => [w / 2 + x * scale, w / 2 + z * scale] as const;
+  ctx.fillStyle = "rgba(141,135,124,0.75)";
+  for (const rock of match.rocks) {
+    const [x, y] = pt(rock.x, rock.z);
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(2, rock.r * scale), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const relay of match.relays) {
+    const [x, y] = pt(relay.x, relay.z);
+    ctx.fillStyle = relay.own === 1 ? "#e0a15a" : relay.own === -1 ? "#c45c48" : "#8d877c";
+    ctx.fillRect(x - 3, y - 3, 6, 6);
+  }
+  for (const ally of match.allies) {
+    if (!ally.alive) continue;
+    const [x, y] = pt(ally.x, ally.z);
+    ctx.fillStyle = "#e0a15a";
+    ctx.fillRect(x - 2, y - 2, 4, 4);
+  }
+  for (const enemy of match.enemies) {
+    if (!enemy.alive) continue;
+    const [x, y] = pt(enemy.x, enemy.z);
+    ctx.fillStyle = "#c45c48";
+    const s = enemy.ace ? 6 : 4;
+    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    if (enemy.ace) {
+      ctx.strokeStyle = "#e6e1d6";
+      ctx.strokeRect(x - 5, y - 5, 10, 10);
+    }
+  }
+  if (match.runner?.alive) {
+    const [x, y] = pt(match.runner.x, match.runner.z);
+    ctx.fillStyle = match.runner.team === "you" ? "#e0a15a" : "#c45c48";
+    ctx.fillRect(x - 4, y - 5, 8, 10);
+  }
+  if (match.player.alive) {
+    const [x, y] = pt(match.player.x, match.player.z);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-match.player.yaw);
+    ctx.fillStyle = "#e6e1d6";
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(4.5, 5);
+    ctx.lineTo(-4.5, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLDivElement>(null);
+  const place = (clientX: number, clientY: number) => {
+    const el = root.current;
+    const dot = knob.current;
+    if (!el || !dot) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const max = rect.width * 0.36;
+    const len = Math.hypot(dx, dy) || 1;
+    const clamped = Math.min(max, len);
+    dx = (dx / len) * clamped;
+    dy = (dy / len) * clamped;
+    dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    onAxis(dx / max, dy / max);
+  };
+  const reset = () => {
+    if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
+    onAxis(0, 0);
+  };
+  return (
+    <div
+      ref={root}
+      role="slider"
+      aria-label={label}
+      aria-valuemin={-1}
+      aria-valuemax={1}
+      aria-valuenow={0}
+      className="relative size-28 touch-none rounded-full border border-bone/30 bg-panel/80"
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        place(event.clientX, event.clientY);
+      }}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        place(event.clientX, event.clientY);
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation();
+        reset();
+      }}
+      onPointerCancel={reset}
+    >
+      <div
+        ref={knob}
+        className="absolute top-1/2 left-1/2 size-11 rounded-full bg-solar"
+        style={{ transform: "translate(-50%, -50%)" }}
+      />
+    </div>
+  );
+}
+
+export function Arena({
+  shipId,
+  faction,
+  scheme,
+  refit,
+  pace,
+  goal,
+  disc,
+  allyCount,
+  foeCount,
+  objective,
+  tech,
+  gyro,
+  drilled,
+  onDrill,
+  onDone,
+}: ArenaProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const radarRef = useRef<HTMLCanvasElement>(null);
+  const shieldRef = useRef<HTMLDivElement>(null);
+  const hullRef = useRef<HTMLDivElement>(null);
+  const youRef = useRef<HTMLDivElement>(null);
+  const foeRef = useRef<HTMLDivElement>(null);
+  const clockRef = useRef<HTMLSpanElement>(null);
+  const pipRef = useRef<HTMLParagraphElement>(null);
+  const wingRef = useRef<HTMLSpanElement>(null);
+  const cageRef = useRef<HTMLParagraphElement>(null);
+  const ultRef = useRef<HTMLButtonElement>(null);
+  const lockRef = useRef<HTMLButtonElement>(null);
+  const lockNameRef = useRef<HTMLParagraphElement>(null);
+  const lockHpRef = useRef<HTMLDivElement>(null);
+  const callRef = useRef<HTMLParagraphElement>(null);
+  const markRef = useRef<HTMLDivElement>(null);
+  const hurtRef = useRef<HTMLDivElement>(null);
+  const aheadRef = useRef<HTMLDivElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const behindRef = useRef<HTMLDivElement>(null);
+  const downRef = useRef<HTMLParagraphElement>(null);
+  const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
+  const busRef = useRef<Bus | null>(null);
+  const matchRef = useRef<Match | null>(null);
+  const gyroOn = useRef(gyro);
+  const drillCb = useRef(onDrill);
+  gyroOn.current = gyro;
+  drillCb.current = onDrill;
+  if (!busRef.current) busRef.current = createBus(scheme);
+  if (!matchRef.current) {
+    matchRef.current = createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech });
+  }
+  const [end, setEnd] = useState<StrikeResult | null>(null);
+  const [glError, setGlError] = useState<string | null>(null);
+  const [muted, setMutedUi] = useState(false);
+  const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
+  const coachStep = useRef(drilled ? 4 : 0);
+  const ship = SHIPS[shipId];
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const bus = busRef.current;
+    const match = matchRef.current;
+    if (!canvas || !bus || !match) return;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+    } catch (err) {
+      setGlError(err instanceof Error ? err.message : "WebGL unavailable");
+      return;
+    }
+    const look =
+      match.disc === "beacon"
+        ? { clear: 0x101820, fog: 0.0064, hemi: 0xd5e8f4, ground: 0x141c24, sun: 0xd7e7ff, mars: 0x6e4634, ring: 0x9fd4e8 }
+        : match.disc === "night"
+          ? { clear: 0x07060a, fog: 0.011, hemi: 0x6e5c68, ground: 0x0c0a10, sun: 0xc45c48, mars: 0x3a1612, ring: 0xc45c48 }
+          : match.disc === "dust"
+            ? { clear: 0x16110c, fog: 0.008, hemi: 0xe7d2b0, ground: 0x1c1610, sun: 0xe0a15a, mars: 0x8a3a24, ring: 0xe0a15a }
+            : { clear: 0x07080d, fog: 0.0072, hemi: 0xc5d0dc, ground: 0x10141c, sun: 0xffc89a, mars: 0x8a3a24, ring: 0xe0a15a };
+    renderer.setClearColor(look.clear, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(look.clear, look.fog);
+    const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 520);
+    scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
+    scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
+    const sun = new THREE.DirectionalLight(look.sun, 1.7);
+    sun.position.set(-50, 40, -20);
+    scene.add(sun);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(ARENA_R, 72),
+      new THREE.MeshStandardMaterial({ color: look.ground, roughness: 1, metalness: 0 }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+    const ringPts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 80; i++) {
+      const a = (i / 80) * Math.PI * 2;
+      ringPts.push(new THREE.Vector3(Math.cos(a) * ARENA_R, 0.05, Math.sin(a) * ARENA_R));
+    }
+    scene.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(ringPts),
+        new THREE.LineBasicMaterial({ color: look.ring }),
+      ),
+    );
+    const starPositions = new Float32Array(700 * 3);
+    for (let i = 0; i < 700; i++) {
+      const r = 160 + Math.random() * 180;
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      starPositions[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      starPositions[i * 3 + 1] = r * Math.cos(ph) * 0.55;
+      starPositions[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+    }
+    const stars = new THREE.BufferGeometry();
+    stars.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xe6e1d6, size: 0.55 })));
+    const mars = new THREE.Mesh(
+      new THREE.SphereGeometry(28, 32, 24),
+      new THREE.MeshStandardMaterial({
+        color: look.mars,
+        emissive: look.mars,
+        emissiveIntensity: 0.65,
+        roughness: 1,
+      }),
+    );
+    mars.position.set(-24, 6, -150);
+    scene.add(mars);
+
+    for (const rock of match.rocks) {
+      const mesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(rock.r, 0),
+        metal(0x3a342c, 0x140e0c, 0.08),
+      );
+      mesh.position.set(rock.x, rock.r * 0.35, rock.z);
+      mesh.rotation.set(rock.x, rock.z, 0);
+      scene.add(mesh);
+    }
+
+    const relayMats: THREE.MeshStandardMaterial[] = [];
+    match.relays.forEach((relay) => {
+      const group = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 3.4, 8), metal(0x2c2924, 0x000000, 0));
+      pole.position.y = 1.7;
+      const lampMat = metal(0x8d877c, 0x3a342c, 0.2);
+      const lamp = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.07, 8, 24), lampMat);
+      lamp.rotation.x = Math.PI / 2;
+      lamp.position.y = 2.6;
+      group.add(pole, lamp);
+      group.position.set(relay.x, 0, relay.z);
+      scene.add(group);
+      relayMats.push(lampMat);
+    });
+
+    const playerGroup = buildShip(match.player.ship);
+    const marker = new THREE.Mesh(
+      new THREE.RingGeometry(1.35, 1.52, 24),
+      new THREE.MeshBasicMaterial({ color: 0xe0a15a, side: THREE.DoubleSide }),
+    );
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.y = -0.82;
+    playerGroup.add(marker);
+    scene.add(playerGroup);
+    const allyGroups = match.allies.map((ally) => {
+      const group = buildShip(ally.ship);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.15, 1.28, 20),
+        new THREE.MeshBasicMaterial({ color: 0xe6e1d6, side: THREE.DoubleSide }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.82;
+      group.add(ring);
+      scene.add(group);
+      return group;
+    });
+    const enemyGroups = match.enemies.map((enemy) => {
+      const group = buildShip(enemy.ship);
+      if (enemy.ace) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(1.45, 1.62, 24),
+          new THREE.MeshBasicMaterial({ color: 0xc45c48, side: THREE.DoubleSide }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = -0.82;
+        group.add(ring);
+      }
+      scene.add(group);
+      return group;
+    });
+
+    const cage = new THREE.Group();
+    const cageBody = new THREE.Mesh(
+      new THREE.BoxGeometry(1.7, 0.7, 4.4),
+      metal(match.runner?.team === "you" ? 0xc4a36a : 0x8a3a32, 0x2a140c, 0.25),
+    );
+    const cageCabin = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.45, 1.3), metal(0xe6e1d6, 0x3a342c, 0.15));
+    cageCabin.position.set(0, 0.5, -1.15);
+    cage.add(cageBody, cageCabin);
+    cage.visible = false;
+    scene.add(cage);
+
+    const bulletGeo = new THREE.SphereGeometry(0.2, 6, 6);
+    const bulletMeshes = Array.from({ length: 110 }, () => {
+      const mesh = new THREE.Mesh(bulletGeo, new THREE.MeshBasicMaterial({ color: 0xffd7a1 }));
+      mesh.visible = false;
+      scene.add(mesh);
+      return mesh;
+    });
+    const bracket = new THREE.Mesh(
+      new THREE.TorusGeometry(2.15, 0.055, 8, 28),
+      new THREE.MeshBasicMaterial({ color: 0xe0a15a }),
+    );
+    bracket.rotation.x = Math.PI / 2;
+    bracket.visible = false;
+    scene.add(bracket);
+    const flareMat = new THREE.MeshBasicMaterial({
+      color: 0xffd9a0,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const flare = new THREE.Mesh(new THREE.ConeGeometry(3.4, 16, 16, 1, true), flareMat);
+    flare.geometry.rotateX(Math.PI / 2);
+    flare.visible = false;
+    scene.add(flare);
+    const empMat = new THREE.MeshBasicMaterial({
+      color: 0xe0a15a,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const emp = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.7, 40), empMat);
+    emp.rotation.x = -Math.PI / 2;
+    emp.visible = false;
+    scene.add(emp);
+
+    const resize = () => {
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || window.innerHeight;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+      renderer.setSize(w, h, false);
+      camera.aspect = w / Math.max(1, h);
+      camera.fov = w < h ? 74 : 58;
+      camera.updateProjectionMatrix();
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      bus.keys.add(event.code);
+      if (event.code === "Space" || event.code.startsWith("Arrow")) event.preventDefault();
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      bus.keys.delete(event.code);
+    };
+    const clearHeld = () => {
+      bus.keys.clear();
+      bus.fireCanvas = false;
+      bus.fireButton = false;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      unlockAudio();
+      canvas.setPointerCapture(event.pointerId);
+      bus.fireCanvas = true;
+    };
+    const onPointerUp = () => {
+      bus.fireCanvas = false;
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", clearHeld);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointerup", onPointerUp);
+    canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+    window.__controlsTest = {
+      getYaw: () => match.player.yaw,
+      getSpeed: () => match.player.speed,
+      setKeys: (codes: string[]) => {
+        bus.override = new Set(codes);
+      },
+      setSteer: (value: number) => {
+        bus.steerOverride = value;
+      },
+    };
+
+    let alive = true;
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    let shake = 0;
+    let markT = 0;
+    let callT = 0;
+    let callName = "";
+    const wrecks: { x: number; z: number; t: number }[] = [];
+    const threats: { rel: number; t: number }[] = [];
+    let flareT = 0;
+    let empT = 0;
+    let empX = 0;
+    let empZ = 0;
+    let reported = false;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const FIXED = 1 / 60;
+
+    const frame = (now: number) => {
+      if (!alive) return;
+      const delta = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      acc += delta;
+      if (gyroOn.current) {
+        const aim = gyroAim();
+        bus.gyroYaw = aim.yaw;
+        bus.gyroPitch = aim.pitch;
+      } else {
+        bus.gyroYaw = 0;
+        bus.gyroPitch = 0;
+      }
+      const sample = readInput(bus);
+      let first = true;
+      let steps = 0;
+      while (acc >= FIXED && steps < 5) {
+        step(
+          match,
+          first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null },
+          FIXED,
+        );
+        first = false;
+        acc -= FIXED;
+        steps += 1;
+      }
+      const drill = coachStep.current;
+      if (drill < 4) {
+        const moved = match.player.speed > 2;
+        const turned = Math.abs(match.player.yaw) > 0.22;
+        const fired = match.player.fireCd > 0;
+        const powered = match.presetCd > 0;
+        const next =
+          drill === 0 && moved ? 1 : drill === 1 && turned ? 2 : drill === 2 && fired ? 3 : drill === 3 && powered ? 4 : drill;
+        if (next !== drill) {
+          coachStep.current = next;
+          setCoach(next >= 4 ? "" : DRILL[next]);
+          if (next >= 4) drillCb.current();
+        }
+      }
+      for (const ev of match.fx) {
+        if (ev.k === "shot") {
+          if (ev.you) sfxShot(ev.big);
+        } else if (ev.k === "hit") {
+          if (ev.you) {
+            sfxHit();
+            threats.push({
+              rel: wrap(aimYaw(match.player.x, match.player.z, ev.fromX, ev.fromZ) - match.player.yaw),
+              t: 0.45,
+            });
+            if (!reduce) shake = Math.min(0.32, shake + 0.07);
+          }
+        } else if (ev.k === "boom") {
+          sfxBoom();
+          wrecks.push({ x: ev.x, z: ev.z, t: 1.6 });
+          if (!reduce) shake = Math.min(0.48, shake + 0.2);
+        } else if (ev.k === "ping") {
+          sfxHit();
+          markT = 0.14;
+        } else if (ev.k === "down") {
+          callT = 1.35;
+          callName = `${ev.name.toUpperCase()} DOWN`;
+        } else if (ev.k === "flare") {
+          flareT = 0.3;
+          sfxUlt();
+        } else if (ev.k === "emp") {
+          empT = 0.5;
+          empX = ev.x;
+          empZ = ev.z;
+          sfxUlt();
+        }
+      }
+      match.fx.length = 0;
+      if (match.over && !reported) {
+        reported = true;
+        setEnd({
+          outcome: match.over,
+          kills: match.kills,
+          deaths: match.deaths,
+          relays: relaysHeld(match),
+        });
+      }
+
+      const player = match.player;
+      playerGroup.position.set(player.x, 0.9, player.z);
+      orient(playerGroup, player.yaw, player.pitch, player.steer);
+      paint(playerGroup, player);
+      match.allies.forEach((ally, index) => {
+        const group = allyGroups[index];
+        group.position.set(ally.x, 0.9, ally.z);
+        orient(group, ally.yaw, 0, ally.steer);
+        paint(group, ally);
+      });
+      match.enemies.forEach((enemy, index) => {
+        const group = enemyGroups[index];
+        group.position.set(enemy.x, 0.9, enemy.z);
+        orient(group, enemy.yaw, 0, enemy.steer);
+        paint(group, enemy);
+      });
+      if (match.runner) {
+        cage.visible = match.runner.alive;
+        cage.position.set(match.runner.x, 0.85, match.runner.z);
+        cage.rotation.y = match.runner.yaw;
+      }
+      if (cageRef.current) {
+        cageRef.current.textContent = match.runner
+          ? `CAGE ${Math.max(0, Math.ceil((match.runner.hull / match.runner.hullMax) * 100))}`
+          : "";
+      }
+      relayMats.forEach((mat, index) => {
+        const own = match.relays[index].own;
+        mat.emissive.setHex(own === 1 ? 0xe0a15a : own === -1 ? 0xc45c48 : 0x3a342c);
+        mat.emissiveIntensity = own === 0 ? 0.15 : 0.9;
+      });
+      for (let i = 0; i < bulletMeshes.length; i++) {
+        const bullet = match.bullets[i];
+        const mesh = bulletMeshes[i];
+        if (!bullet) {
+          mesh.visible = false;
+          continue;
+        }
+        mesh.visible = true;
+        mesh.position.set(bullet.x, 0.85, bullet.z);
+        mesh.scale.setScalar(bullet.r > 0.5 ? 2.2 : 1);
+        (mesh.material as THREE.MeshBasicMaterial).color.setHex(
+          bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
+        );
+      }
+      const locked = match.enemies.find((enemy) => enemy.id === match.lockId && enemy.alive);
+      bracket.visible = Boolean(locked);
+      if (locked) {
+        bracket.position.set(locked.x, 0.2, locked.z);
+        bracket.scale.setScalar(Math.max(1, locked.radius / 1.5));
+      }
+
+      flareT = Math.max(0, flareT - delta);
+      flare.visible = flareT > 0;
+      if (flare.visible) {
+        const fwx = -Math.sin(player.yaw);
+        const fwz = -Math.cos(player.yaw);
+        flare.position.set(player.x + fwx * 9, 0.9, player.z + fwz * 9);
+        flare.quaternion.copy(playerGroup.quaternion);
+        flareMat.opacity = (flareT / 0.3) * 0.38;
+      }
+      empT = Math.max(0, empT - delta);
+      emp.visible = empT > 0;
+      if (emp.visible) {
+        const grow = 1 + (1 - empT / 0.5) * 16;
+        emp.position.set(empX, 0.3, empZ);
+        emp.scale.setScalar(grow);
+        empMat.opacity = empT / 0.5;
+      }
+
+      const fwx = -Math.sin(player.yaw);
+      const fwz = -Math.cos(player.yaw);
+      _cam.set(player.x - fwx * 16, 7.4, player.z - fwz * 16);
+      _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
+      const blend = 1 - Math.exp(-5 * delta);
+      camera.position.lerp(_cam, blend);
+      if (!reduce && shake > 0.002) {
+        camera.position.x += (Math.random() - 0.5) * shake;
+        camera.position.y += (Math.random() - 0.5) * shake * 0.5;
+        shake *= Math.exp(-3.2 * delta);
+      }
+      camera.lookAt(_look);
+      renderer.render(scene, camera);
+
+      if (shieldRef.current) {
+        shieldRef.current.style.width = `${Math.max(0, (player.shield / player.shieldMax) * 100)}%`;
+      }
+      if (hullRef.current) {
+        hullRef.current.style.width = `${Math.max(0, (player.hull / player.hullMax) * 100)}%`;
+      }
+      if (youRef.current) youRef.current.style.width = `${match.youBar}%`;
+      if (foeRef.current) foeRef.current.style.width = `${match.foeBar}%`;
+      if (clockRef.current) {
+        const left = Math.max(0, match.limit - match.time);
+        const mins = Math.floor(left / 60);
+        const secs = Math.floor(left % 60);
+        clockRef.current.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+      }
+      if (lockNameRef.current && lockHpRef.current) {
+        if (locked) {
+          const pct = Math.max(0, ((locked.shield + locked.hull) / (locked.shieldMax + locked.hullMax)) * 100);
+          lockNameRef.current.textContent = SHIPS[locked.ship].name.toUpperCase();
+          lockHpRef.current.style.width = `${pct}%`;
+        } else {
+          lockNameRef.current.textContent = "";
+          lockHpRef.current.style.width = "0%";
+        }
+      }
+      if (hurtRef.current) {
+        hurtRef.current.style.opacity = player.alive ? String(Math.min(0.7, player.hurtT / 2.2)) : "0";
+      }
+      let ahead = 0;
+      let left = 0;
+      let right = 0;
+      let behind = 0;
+      for (let i = threats.length - 1; i >= 0; i--) {
+        threats[i].t -= delta;
+        if (threats[i].t <= 0) {
+          threats.splice(i, 1);
+          continue;
+        }
+        const rel = threats[i].rel;
+        const strength = Math.min(1, threats[i].t / 0.45);
+        const abs = Math.abs(rel);
+        if (abs < 0.7) ahead = Math.max(ahead, strength);
+        else if (abs > 2.4) behind = Math.max(behind, strength);
+        else if (rel > 0) left = Math.max(left, strength);
+        else right = Math.max(right, strength);
+      }
+      if (aheadRef.current) aheadRef.current.style.opacity = String(ahead);
+      if (leftRef.current) leftRef.current.style.opacity = String(left);
+      if (rightRef.current) rightRef.current.style.opacity = String(right);
+      if (behindRef.current) behindRef.current.style.opacity = String(behind);
+      if (downRef.current) {
+        downRef.current.textContent =
+          !player.alive && !match.over ? `HULL DOWN ${Math.max(0, player.respawn).toFixed(1)}` : "";
+      }
+      if (pipRef.current) {
+        pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;
+      }
+      if (wingRef.current) {
+        const up = match.allies.filter((ally) => ally.alive).length;
+        wingRef.current.textContent = `WING ${up}/${match.allies.length}`;
+      }
+      if (ultRef.current) {
+        ultRef.current.textContent =
+          player.ultCd > 0.05 ? `${ship.ultShort} ${player.ultCd.toFixed(1)}` : ship.ultShort;
+      }
+      if (lockRef.current) {
+        lockRef.current.textContent = locked ? SHIPS[locked.ship].name.toUpperCase() : "LOCK";
+      }
+      presetRefs.current.forEach((button, index) => {
+        if (!button) return;
+        button.dataset.on = index === match.preset ? "1" : "0";
+        button.style.opacity = match.presetCd > 0.05 && index !== match.preset ? "0.4" : "1";
+      });
+      const radar = radarRef.current;
+      if (radar) {
+        drawRadar(radar, match);
+        if (wrecks.length) {
+          const ctx = radar.getContext("2d");
+          if (ctx) {
+            const w = radar.width;
+            const scale = (w / 2 - 8) / ARENA_R;
+            ctx.strokeStyle = "#e6e1d6";
+            ctx.lineWidth = 1;
+            for (const wreck of wrecks) {
+              const x = w / 2 + wreck.x * scale;
+              const y = w / 2 + wreck.z * scale;
+              ctx.globalAlpha = Math.max(0.25, Math.min(1, wreck.t));
+              ctx.strokeRect(x - 3, y - 3, 6, 6);
+            }
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+      for (let i = wrecks.length - 1; i >= 0; i--) {
+        wrecks[i].t -= delta;
+        if (wrecks[i].t <= 0) wrecks.splice(i, 1);
+      }
+      markT = Math.max(0, markT - delta);
+      callT = Math.max(0, callT - delta);
+      if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
+      if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      delete window.__controlsTest;
+      observer.disconnect();
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", clearHeld);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerUp);
+      const geos = new Set<THREE.BufferGeometry>();
+      const mats = new Set<THREE.Material>();
+      scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (mesh.geometry) geos.add(mesh.geometry);
+        const mat = mesh.material;
+        if (Array.isArray(mat)) mat.forEach((item) => mats.add(item));
+        else if (mat) mats.add(mat);
+      });
+      geos.forEach((geo) => geo.dispose());
+      mats.forEach((mat) => mat.dispose());
+      renderer.dispose();
+    };
+  }, [ship.ultShort]);
+
+  const bus = busRef.current;
+  return (
+    <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      <div
+        ref={hurtRef}
+        className="pointer-events-none absolute inset-0 opacity-0"
+        style={{ boxShadow: "inset 0 0 90px 12px rgba(196,92,72,0.95)" }}
+      />
+      <div ref={aheadRef} className="pointer-events-none absolute top-28 left-1/2 h-1.5 w-16 -translate-x-1/2 bg-alert opacity-0" />
+      <div ref={leftRef} className="pointer-events-none absolute top-1/2 left-3 h-16 w-1.5 -translate-y-1/2 bg-alert opacity-0" />
+      <div ref={rightRef} className="pointer-events-none absolute top-1/2 right-3 h-16 w-1.5 -translate-y-1/2 bg-alert opacity-0" />
+      <div ref={behindRef} className="pointer-events-none absolute bottom-32 left-1/2 h-1.5 w-16 -translate-x-1/2 bg-alert opacity-0" />
+      <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
+      {glError ? (
+        <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
+          <div className="w-40">
+            <p className="font-hud text-sm tracking-widest text-solar">{ship.name.toUpperCase()}</p>
+            <div className="mt-1 h-2 overflow-hidden bg-panel">
+              <div ref={shieldRef} className="h-full w-full bg-solar" />
+            </div>
+            <div className="mt-1 h-2 overflow-hidden bg-panel">
+              <div ref={hullRef} className="h-full w-full bg-alert" />
+            </div>
+            <p ref={pipRef} className="mt-1 font-hud text-xs tracking-wide text-muted">
+              ENG 2.0  WEP 2.0  DEF 2.0
+            </p>
+          </div>
+          <div className="text-center">
+            <span ref={clockRef} className="font-hud text-3xl leading-none text-bone">
+              {pace === "strike" ? "6:00" : "2:00"}
+            </span>
+            <p className="font-hud text-xs tracking-widest text-muted">
+              <span ref={wingRef}>WING</span>
+            </p>
+            <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
+            <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />
+            {tech ? (
+              <p className="font-hud text-[10px] tracking-widest text-muted">
+                {tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}
+              </p>
+            ) : null}
+            <div className="mt-1 flex items-center gap-2">
+              <span className="font-hud text-xs text-solar">YOU</span>
+              <div className="h-2 w-16 overflow-hidden bg-panel">
+                <div ref={youRef} className="h-full w-full bg-solar" />
+              </div>
+              <div className="h-2 w-16 overflow-hidden bg-panel">
+                <div ref={foeRef} className="h-full w-full bg-alert" />
+              </div>
+              <span className="font-hud text-xs text-muted">THEM</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <canvas ref={radarRef} width={160} height={160} className="size-24 border border-bone/20 bg-void/70" />
+            <button
+              type="button"
+              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
+              onClick={() => {
+                const next = !isMuted();
+                setMuted(next);
+                setMutedUi(next);
+              }}
+            >
+              {muted ? "SOUND OFF" : "SOUND"}
+            </button>
+          </div>
+        </div>
+
+        <p className="absolute top-16 right-3 left-3 hidden text-center font-hud text-xs tracking-widest text-muted sm:block">
+          {scheme === "arc"
+            ? "A NOSE LEFT  ·  D NOSE RIGHT  ·  W BURN  ·  SPACE FIRE  ·  F ULT"
+            : "A SLIDE LEFT  ·  D SLIDE RIGHT  ·  AIM STICK TURNS  ·  W BURN"}
+        </p>
+        <div className="absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
+        <div
+          ref={markRef}
+          className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0"
+        />
+        <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
+          <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
+          <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80">
+            <div ref={lockHpRef} className="h-full w-0 bg-alert" />
+          </div>
+          <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
+        </div>
+        {coach ? (
+          <p className="pointer-events-none absolute bottom-36 left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/80 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">
+            {coach}
+          </p>
+        ) : null}
+
+        <div className="absolute bottom-4 left-3 flex flex-col items-start gap-2">
+          <div className="pointer-events-auto flex flex-col gap-2">
+            {PRESET_NAME.map((name, index) => (
+              <button
+                key={name}
+                type="button"
+                ref={(node) => {
+                  presetRefs.current[index] = node;
+                }}
+                data-on={index === 0 ? "1" : "0"}
+                className="h-11 w-16 border border-bone/25 bg-panel font-hud text-base tracking-widest text-bone"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3;
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="pointer-events-auto">
+            <Stick
+              label="Move"
+              onAxis={(x, y) => {
+                if (!bus) return;
+                bus.leftX = x;
+                bus.leftY = y;
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="absolute right-3 bottom-4 flex flex-col items-end gap-2">
+          <div className="pointer-events-auto flex gap-2">
+            <button
+              ref={lockRef}
+              type="button"
+              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (bus) bus.lockPulse = true;
+              }}
+            >
+              LOCK
+            </button>
+            <button
+              type="button"
+              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (!bus) return;
+                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
+              }}
+            >
+              DODGE
+            </button>
+            <button
+              ref={ultRef}
+              type="button"
+              className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-sm tracking-widest text-solar"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                unlockAudio();
+                if (bus) bus.ultPulse = true;
+              }}
+            >
+              {ship.ultShort}
+            </button>
+            <button
+              type="button"
+              className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                unlockAudio();
+                if (bus) bus.fireButton = true;
+              }}
+              onPointerUp={(event) => {
+                event.stopPropagation();
+                if (bus) bus.fireButton = false;
+              }}
+              onPointerCancel={() => {
+                if (bus) bus.fireButton = false;
+              }}
+            >
+              FIRE
+            </button>
+          </div>
+          <div className="pointer-events-auto">
+            <Stick
+              label="Aim"
+              onAxis={(x, y) => {
+                if (!bus) return;
+                bus.rightX = x;
+                bus.rightY = y;
+              }}
+            />
+          </div>
+        </div>
+      </div>
+      {end ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/80 p-6">
+          <div className="w-full max-w-sm border border-solar/50 bg-panel p-5">
+            <p className="font-hud text-sm tracking-widest text-solar">STRIKE CLOSED</p>
+            <h2 className="font-hud text-4xl leading-none text-bone">
+              {end.outcome === "win"
+                ? goal === "extract"
+                  ? faction === "ussf"
+                    ? "Cage away"
+                    : "Cage stopped"
+                  : goal === "ace"
+                    ? "Warden down"
+                    : goal === "beacons"
+                      ? "Beacons held"
+                      : "Disc held"
+                : end.outcome === "loss"
+                  ? goal === "extract"
+                    ? faction === "ussf"
+                      ? "Cage lost"
+                      : "Cage escaped"
+                    : "Wing lost"
+                  : "Split disc"}
+            </h2>
+            <p className="mt-3 text-sm text-muted">
+              {end.kills} kills · {end.deaths} losses · {end.relays} relays still yours
+            </p>
+            <button
+              type="button"
+              className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
+              onClick={() => onDone(end)}
+            >
+              Debrief
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
