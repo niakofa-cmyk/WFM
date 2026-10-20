@@ -6,17 +6,18 @@ The harness now measures every ship using repeatable combat, mobility, and abili
 
 ## Provenance
 
-- Source commit: `f66d0107ba3793cae1ed2af424689191d4bdfa4e`
+- Source commit: `87625e57b125fc565ecdb942d46681a6044960c3`
 - Run date: 2026-10-20
 - Command: `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`
 - Seed cohort: 5–9; five fixed seeds per matchup
-- Coverage: 16 cross-faction ship pairs, both seat orientations, 160 duels total, 40 appearances per ship
+- Coverage: 16 cross-faction ship pairs, both seat orientations, 160 duels and 40 appearances per ship per cohort; plus five full 5v5 AI Strikes per ship per cohort
 - Duel cap: 360 seconds
 
 ## Method
 
 - Each Accord ship is matched against each USSF ship. Each matchup is mirrored so both ships take the player seat, using the same seed in both orientations.
 - A standardized scripted pilot flies each side with velocity-led aim, the same approach/turn/fire policy, a lock opportunity for lock-capable ships, zero refit, no teammates, and no map rocks. Class abilities trigger at fixed range or health conditions.
+- The harness also runs five full 5v5 Strike simulations per ship on the dust field. All ten seats use the production AI, with the focal ship in the player slot; the runs include rocks, objectives, and respawns.
 - Damage comes from landed-hit events. First-life survival is capped at the match duration for ships that do not die; alive percentage includes respawn downtime.
 - Movement is measured in a separate acceleration/turn probe. Each ability is measured in a controlled drill; effects are not reduced to damage when the ability is defensive or tactical.
 - Results by role are exact matchups against the current opposing-faction roster. Each role is represented by one ship, not a statistically broad role sample.
@@ -35,6 +36,23 @@ The harness now measures every ship using repeatable combat, mobility, and abili
 | Glide Knife (Raider) | 15-0-25 | 37.5% | 979.2 / 1074.3 | 123 s / 93% | 0.67 s to 90%; 21.7 m in 1 s; 138.3°/s | 643 m/min | 41.0°/s | Skip Reentry: 42.0 measured ram damage; 1.15 s untargetable and boost; 12 s cooldown |
 
 *Score rate counts a draw as half a win. First-life time is capped at 360 seconds; alive percentage includes time after respawn.
+
+## Full 5v5 Strike — production AI
+
+Each cohort contains five full matches per ship. All ten seats use the production AI; the focal ship occupies the player slot.
+
+| Focal ship / role | Cohort 0–4 W-D-L (score) | Cohort 5–9 W-D-L (score) | Alive time, cohort 5–9 | Relay lead, cohort 5–9 |
+| --- | ---: | ---: | ---: | ---: |
+| Mandjet (Vanguard) | 0-5-0 (50%) | 1-3-1 (50%) | 100% | 0.00 |
+| Shakuna (Hunter) | 1-0-4 (20%) | 1-3-1 (50%) | 100% | -0.40 |
+| Sundara (Striker) | 1-2-2 (40%) | 2-1-2 (50%) | 100% | -0.40 |
+| Tripura (Support) | 3-2-0 (80%) | 3-2-0 (80%) | 100% | 0.00 |
+| Duskbreaker (Striker) | 0-5-0 (50%) | 0-5-0 (50%) | 100% | 0.20 |
+| Sentinel-G (Support) | 1-2-2 (40%) | 2-0-3 (40%) | 99% | -1.00 |
+| Splitter Ring (Hunter) | 0-2-3 (20%) | 0-5-0 (50%) | 100% | 0.20 |
+| Glide Knife (Raider) | 0-0-5 (0%) | 3-1-1 (70%) | 99% | 0.40 |
+
+These two small AI-vs-AI cohorts vary substantially for Shakuna, Splitter Ring, and Glide Knife. Most focal seats stayed alive for the full match, and these outcomes do not override the 1v1 flags or establish human balance. The production AI does not activate ultimates; treat this as full-engine smoke coverage, not a competitive balance gate.
 
 ## Results by opposing role
 
@@ -71,4 +89,4 @@ No balance-tuning change from this certification was retained in the game build.
 
 ## Limits and disposition
 
-This is a deterministic 1v1 scripted-pilot diagnostic, not a full 5v5 Strike, human win rate, or proof that every ship feels equally useful. The current results show repeatable outliers, so **the eight-ship balance gate remains open** pending human team playtests and follow-up tuning. The role table has one representative ship per opponent role, so its cells are exact ship pairings.
+The 1v1 runs are scripted-pilot diagnostics; the 5v5 runs are AI-vs-AI and the production AI does not use ultimates. Neither is a human 5v5 result or proof that every ship feels equally useful. The 1v1 results show repeatable outliers, so **the eight-ship balance gate remains open** pending human team playtests and follow-up tuning. The role table has one representative ship per opponent role, so its cells are exact ship pairings.

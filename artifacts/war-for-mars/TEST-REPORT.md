@@ -1,7 +1,7 @@
 # WAR FOR MARS — Reproducible Build, Ship Balance, and Mobile Test Report
 
 **Test date:** 2026-10-20
-**Source commit tested:** `f66d0107ba3793cae1ed2af424689191d4bdfa4e`
+**Source commit tested:** `87625e57b125fc565ecdb942d46681a6044960c3`
 **Result:** Clean-checkout build and automated tests pass. The ship balance gate is open, and physical Android/iOS certification has not been run.
 
 ## Reproduction
@@ -23,15 +23,15 @@ The game bundle is 763.85 kB minified (209.55 kB gzip), above Vite's 500 kB warn
 
 - Automated WebSocket test: ten clients fill a room, reconnect, and remain isolated from a second room.
 - Six-minute Strike, sequenced input acknowledgement, empty-seat AI fill, and reconnect behavior are covered by the passing API tests.
-- The ship harness tested 160 seeded 1v1 duels in each cohort, both seat orientations, plus mobility and isolated ability drills. Run with `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`.
-- Results are in `SHIP-CERTIFICATION.md`. Mandjet and Sentinel-G scored high; Tripura, Duskbreaker, and Splitter Ring scored low; Glide Knife is at or just below the review threshold. This 1v1 scripted diagnostic is not a 5v5 or human-play balance pass.
+- The ship harness tested 160 seeded 1v1 duels per cohort, both seat orientations, plus mobility and isolated ability drills. It now also runs five full AI-vs-AI 5v5 Strikes per ship per cohort, with objectives, rocks, and respawns. Both cohorts are reproducible with `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=0` and `pnpm --filter @workspace/api-server run certify:ships -- --seeds=5 --seed-offset=5`.
+- The 5v5 samples are small and the production AI does not activate ultimates, so those outcomes are smoke/diagnostic evidence, not a human-play balance pass. The repeatable results and limits are in `SHIP-CERTIFICATION.md`.
 - A first harness incorrectly omitted lock opportunities; after correcting lock and velocity-led aim, Sundara moved from an invalid 0% result to 50% in both cohorts. No ship-stat change from this certification was accepted.
 
 ## Mobile evidence and limits
 
 The four automated mobile-control tests pass: combined touch actions, the input-reset helper used for lost-focus behavior, gyro permission denial with touch fallback, and gyro grant/calibration/orientation reset/listener cleanup. App-level visibility, pointer-cancel, and orientation handlers are present but still need physical-browser validation.
 
-No physical Android phone or iPhone was available. Android Chrome and iOS Safari frame rate, frame pacing, memory, thermal behavior, full six-minute play, and hands-on touch controls remain **NOT RUN**. The evidence matrix and acceptance procedure are in `MOBILE-CERTIFICATION.md`; the tactile checklist is `PHONE-PLAYTEST-CHECKLIST.md`.
+No physical Android or iPhone test run was performed. Android Chrome and iOS Safari frame rate, frame pacing, memory, thermal behavior, full six-minute play, and hands-on touch controls remain **NOT RUN**. The evidence matrix and acceptance procedure are in `MOBILE-CERTIFICATION.md`; the tactile checklist is `PHONE-PLAYTEST-CHECKLIST.md`.
 
 ## Current disposition
 

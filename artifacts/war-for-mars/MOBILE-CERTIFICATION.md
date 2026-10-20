@@ -6,7 +6,7 @@ This report separates automated control/lifecycle checks from Android Chrome and
 
 ## Build under test
 
-- Source commit: `f66d0107ba3793cae1ed2af424689191d4bdfa4e`
+- Source commit: `87625e57b125fc565ecdb942d46681a6044960c3`
 - Automated checks: `pnpm --filter @workspace/war-for-mars run test`
 - Physical-device test date / tester: not run
 
