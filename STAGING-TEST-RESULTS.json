@@ -1,0 +1,27 @@
+{
+  "overallStatus": "PENDING",
+  "testedSourceCommit": "",
+  "environment": {
+    "separateRepl": false,
+    "inviteOnlyDeployment": false,
+    "separateStagingDatabase": false,
+    "stagingOnlyAuthentication": false,
+    "productionDataUntouched": false
+  },
+  "tests": {
+    "signupAndSignin": "PENDING",
+    "profilePersistsAcrossSessions": "PENDING",
+    "profileSyncsAcrossDevices": "PENDING",
+    "accountProgressInventoryAndHistoryAreIsolated": "PENDING",
+    "sharedEconomyUsesStagingData": "PENDING",
+    "serverOwnedRewardsAndDuplicateClaims": "PENDING",
+    "restartEndsMatchAndNotifiesPlayers": "PENDING",
+    "interruptedMatchCannotClaimRewards": "PENDING",
+    "freshRoomRequiredAfterRestart": "PENDING",
+    "ordinaryDisconnectReconnect": "PENDING",
+    "roomInviteReadyAndTeamAssignment": "PENDING",
+    "tenClientMatchCompletion": "PENDING"
+  },
+  "evidenceFiles": [],
+  "productionReadiness": "NOT_CLAIMED"
+}
