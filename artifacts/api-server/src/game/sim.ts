@@ -1079,16 +1079,17 @@ export function step(match: Match, input: StepInput, dt: number) {
   if (theirs >= 2) match.youBar = Math.max(0, match.youBar - drain * dt);
   tickRunner(match, dt);
   match.time += dt;
+  const timeLimitReached = match.time >= match.limit - 1e-9;
   if (match.goal === "extract" && match.runner) {
     const cage = match.runner;
     if (!match.over && !cage.alive) match.over = cage.team === "you" ? "loss" : "win";
     else if (!match.over && cage.z <= -68) match.over = cage.team === "you" ? "win" : "loss";
     else if (!match.over && match.youBar <= 0) match.over = "loss";
-    else if (!match.over && match.time >= match.limit) match.over = cage.team === "you" ? "loss" : "win";
+    else if (!match.over && timeLimitReached) match.over = cage.team === "you" ? "loss" : "win";
   } else if (match.goal === "beacons" && yours >= 2) match.over = "win";
   else if (match.foeBar <= 0 && match.goal !== "ace") match.over = "win";
   else if (match.youBar <= 0) match.over = "loss";
-  else if (match.time >= match.limit) {
+  else if (timeLimitReached) {
     if (match.goal === "ace") match.over = "loss";
     else if (match.goal === "beacons") match.over = yours >= 2 ? "win" : "loss";
     else match.over = match.youBar > match.foeBar ? "win" : match.youBar < match.foeBar ? "loss" : "draw";

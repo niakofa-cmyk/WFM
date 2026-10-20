@@ -5,6 +5,12 @@ export const STRIKE_STEP_LIMIT = 22_000;
 export const GOOD_IDS = ["salt", "iron", "dust", "resin"] as const;
 export type GoodId = (typeof GOOD_IDS)[number];
 export type MissionId = "skirmish" | "contact" | "beacon" | "warden" | "cage";
+export class IncompleteStrikeReplay extends Error {
+  constructor() {
+    super("The replay ended before the match was resolved.");
+    this.name = "IncompleteStrikeReplay";
+  }
+}
 export type ReplayClaim = {
   seed: number;
   shipId: ShipId;
@@ -90,7 +96,8 @@ export function adjudicateStrike(claim: ReplayClaim) {
     step(match, input, 1 / 60);
   }
 
-  const outcome = match.over ?? "loss";
+  if (!match.over) throw new IncompleteStrikeReplay();
+  const outcome = match.over;
   const kills = clampInt(match.kills, 0, 40);
   const relays = clampInt(relaysHeld(match), 0, 3);
   const clearedIn = clampInt(claim.cleared, 0, 4);

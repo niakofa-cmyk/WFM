@@ -26,7 +26,8 @@ export const SORTIES: Sortie[] = [
     allyCount: 4,
     foeCount: 4,
     objective: "HOLD TWO RELAYS",
-    brief: "First light on the rust disc. Hold two relays or break their integrity.",
+    brief:
+      "The Accord found a voice buried under the rust disc's relay lattice. Hold two relays long enough to decode it, or break the defending wing before the signal is lost.",
   },
   {
     id: "beacon",
@@ -38,7 +39,8 @@ export const SORTIES: Sortie[] = [
     allyCount: 2,
     foeCount: 3,
     objective: "SECURE TWO BEACONS",
-    brief: "A short wing on the pale disc. Take two beacons and the sortie ends.",
+    brief:
+      "The first recording points to three silent beacons on the pale disc. Your small wing must light two before the USSF sweep closes the lane.",
   },
   {
     id: "warden",
@@ -50,7 +52,8 @@ export const SORTIES: Sortie[] = [
     allyCount: 4,
     foeCount: 5,
     objective: "KILL THE WARDEN",
-    brief: "Six minutes on the night side. The marked ship does not come back.",
+    brief:
+      "A Warden is suppressing the night-side relay network. This is the campaign's six-minute Strike: identify the marked ship, keep your wing alive, and end the blockade.",
   },
   {
     id: "cage",
@@ -62,16 +65,44 @@ export const SORTIES: Sortie[] = [
     allyCount: 3,
     foeCount: 4,
     objective: "THE CAGE",
-    brief: "A cage is running Dusk down the dust lane. USSF covers it. The Accord stops it.",
+    brief:
+      "The Warden's recorder reveals a transport cage carrying Eon Dusk through the dust lane. USSF escorts it; the Accord must stop it. The signal inside may explain why both fleets are here.",
   },
 ];
 
 export const DISPATCHES = [
-  { need: 0, from: "YARD", text: "Dusk's fleet is ash. He lives. The Accord has him." },
-  { need: 1, from: "CONTACT", text: "The rust disc answered. The pale beacons are still dark." },
-  { need: 2, from: "BEACON", text: "Two beacons are lit. A warden sits on the night side." },
-  { need: 3, from: "WARDEN", text: "The warden is down. A cage is moving. Dusk is on it." },
-  { need: 4, from: "CAGE", text: "The cage run is over. Dusk's war is not. The yard stays open." },
+  { need: 0, from: "YARD", text: "Dusk's fleet is ash. He is a prisoner of the Accord. The yard wants answers before the next convoy arrives." },
+  { need: 1, from: "CONTACT", text: "The rust disc answered with a route key. The pale beacons are not markers; they are part of a relay chain." },
+  { need: 2, from: "BEACON", text: "The relay chain points to a command ship on the night side. Its call sign is Warden." },
+  { need: 3, from: "WARDEN", text: "The Warden's recorder confirms a cage is moving through the dust lane. Dusk is aboard, but the escort is not taking him to a prison." },
+  { need: 4, from: "CAGE", text: "The cage is stopped. Its recorder carries a signal older than either fleet. Dusk's war is over; the Mars question is not. The yard stays open." },
+] as const;
+
+export const RECOVERED_INTEL = [
+  {
+    need: 1,
+    from: "RUST DISC / FLIGHT RECORDER 01",
+    title: "A route hidden in the relay noise",
+    text: "The first signal is not a distress call. It is a route key, repeated in the timing gaps between relay pulses.",
+  },
+  {
+    need: 2,
+    from: "PALE BEACONS / FLIGHT RECORDER 02",
+    title: "The beacons are listening",
+    text: "The beacon chain has been receiving the same signal for years. Someone kept the receivers dark so neither fleet would hear it.",
+  },
+  {
+    need: 3,
+    from: "NIGHT SIDE / WARDEN BLACK BOX",
+    title: "The escort was ordered to disappear",
+    text: "The Warden was told to erase the cage, its cargo, and every record of the route. The order predates the Accord–USSF front.",
+  },
+  {
+    need: 4,
+    from: "DUST LANE / CAGE RECORDER",
+    title: "An answer from below Mars",
+    text: "The recovered signal repeats from beneath the Martian surface. Dusk knew the cage was a trap; he chose the route because it was the only way to make the signal public.",
+  },
 ] as const;
 
 export function sortieById(id: SortieId): Sortie | null {

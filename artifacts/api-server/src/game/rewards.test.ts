@@ -22,12 +22,8 @@ const claim: ReplayClaim = {
   prices: {},
 };
 
-test("strike rewards are derived from the server replay, not client outcome or kill fields", () => {
-  const result = adjudicateStrike(claim);
-  assert.equal(result.outcome, "loss");
-  assert.equal(result.kills, 0);
-  assert.equal(result.relays, 0);
-  assert.equal(result.gain, 30);
+test("an incomplete replay cannot claim the minimum loss reward", () => {
+  assert.throws(() => adjudicateStrike(claim), /replay ended before the match was resolved/i);
 });
 
 test("a full six-minute strike stays active through combat and ends at the timer boundary", async () => {

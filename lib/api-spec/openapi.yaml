@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: progression
+    description: Authenticated player profile and campaign progression
 paths:
   /healthz:
     get:
@@ -24,7 +26,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /game/profile:
+    get:
+      operationId: getGameProfile
+      tags: [progression]
+      summary: Get the authenticated player's progression
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "401":
+          description: Authentication required
+  /game/profile/actions:
+    post:
+      operationId: applyProgressionAction
+      tags: [progression]
+      summary: Buy cargo, sell cargo, or refit using server-owned credits
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressionActionInput"
+      responses:
+        "200":
+          description: Idempotent action result and current profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressionActionResult"
+        "400":
+          description: Invalid or unaffordable action
+        "401":
+          description: Authentication required
+  /strikes/start:
+    post:
+      operationId: startStrike
+      tags: [progression]
+      summary: Start a server-issued single-player sortie
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrikeStartInput"
+      responses:
+        "201":
+          description: Server-owned run configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrikeRun"
+        "400":
+          description: Invalid or locked campaign selection
+        "401":
+          description: Authentication required
+  /strikes/{runId}/claim:
+    post:
+      operationId: claimStrike
+      tags: [progression]
+      summary: Adjudicate a server-issued run and grant progression exactly once
+      security:
+        - ClerkSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrikeClaimInput"
+      responses:
+        "200":
+          description: Stored idempotent result and current profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrikeClaimResult"
+        "400":
+          description: Invalid replay
+        "401":
+          description: Authentication required
+        "404":
+          description: Run not found for this player
+        "409":
+          description: Run expired or profile changed after the run began
 components:
+  securitySchemes:
+    ClerkSession:
+      type: apiKey
+      in: cookie
+      name: __session
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +139,123 @@ components:
           type: string
       required:
         - status
+    GameProfile:
+      type: object
+      required: [credits, faction, shipId, scheme, refit, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
+      properties:
+        credits: { type: integer, minimum: 0 }
+        faction: { type: string, enum: [accord, ussf] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        scheme: { type: string, enum: [arc, strafe] }
+        refit: { type: integer, minimum: 0, maximum: 5 }
+        prices: { $ref: "#/components/schemas/MarketPrices" }
+        hold: { type: [string, "null"], enum: [salt, iron, dust, resin, null] }
+        paid: { type: integer, minimum: 0 }
+        pace: { type: string, enum: [practice, strike] }
+        mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
+        cleared: { type: integer, minimum: 0, maximum: 4 }
+        tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
+        drilled: { type: boolean }
+        revision: { type: integer, minimum: 0 }
+    ProgressionActionInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, action]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        action: { type: string, enum: [buy, dock, refit] }
+        goodId: { type: [string, "null"], enum: [salt, iron, dust, resin, null] }
+    ProgressionActionResult:
+      type: object
+      required: [profile, transaction]
+      properties:
+        profile: { $ref: "#/components/schemas/GameProfile" }
+        transaction:
+          type: object
+          required: [id, kind, amount, balanceBefore, balanceAfter]
+          properties:
+            id: { type: string, format: uuid }
+            kind: { type: string, enum: [market_buy, market_dock, refit] }
+            amount: { type: integer }
+            balanceBefore: { type: integer }
+            balanceAfter: { type: integer }
+    StrikeStartInput:
+      type: object
+      additionalProperties: false
+      required: [shipId, faction, scheme, pace, mission, tech]
+      properties:
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        faction: { type: string, enum: [accord, ussf] }
+        scheme: { type: string, enum: [arc, strafe] }
+        pace: { type: string, enum: [practice, strike] }
+        mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
+        tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
+    StrikeRun:
+      type: object
+      required: [runId, seed, config, profile]
+      properties:
+        runId: { type: string, format: uuid }
+        seed: { type: integer, minimum: 1 }
+        profile: { $ref: "#/components/schemas/GameProfile" }
+        config:
+          type: object
+          required: [shipId, faction, refit, pace, goal, disc, allyCount, foeCount, tech, mission]
+          properties:
+            shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+            faction: { type: string, enum: [accord, ussf] }
+            refit: { type: integer, minimum: 0, maximum: 5 }
+            pace: { type: string, enum: [practice, strike] }
+            goal: { type: string, enum: [disc, beacons, ace, extract] }
+            disc: { type: string, enum: [rust, beacon, night, dust] }
+            allyCount: { type: integer, minimum: 1, maximum: 4 }
+            foeCount: { type: integer, minimum: 1, maximum: 5 }
+            tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
+            mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
+    StrikeStepInput:
+      type: object
+      additionalProperties: false
+      required: [throttle, yaw, strafe, pitch, fire, ult, lock, evade, preset]
+      properties:
+        throttle: { type: number, minimum: -1, maximum: 1 }
+        yaw: { type: number, minimum: -1, maximum: 1 }
+        strafe: { type: number, minimum: -1, maximum: 1 }
+        pitch: { type: number, minimum: -1, maximum: 1 }
+        fire: { type: boolean }
+        ult: { type: boolean }
+        lock: { type: boolean }
+        evade: { type: number, minimum: -1, maximum: 1 }
+        preset: { type: [integer, "null"], enum: [0, 1, 2, 3, null] }
+    StrikeClaimInput:
+      type: object
+      additionalProperties: false
+      required: [inputs]
+      properties:
+        inputs:
+          type: array
+          maxItems: 22000
+          items: { $ref: "#/components/schemas/StrikeStepInput" }
+    StrikeClaimResult:
+      type: object
+      required: [gain, combat, cargo, cargoLine, advance, cleared, prices, outcome, kills, relays, profile, replayed]
+      properties:
+        gain: { type: integer, minimum: 0 }
+        combat: { type: integer, minimum: 0 }
+        cargo: { type: integer, minimum: 0 }
+        cargoLine: { type: string }
+        advance: { type: string }
+        cleared: { type: integer, minimum: 0, maximum: 4 }
+        prices: { $ref: "#/components/schemas/MarketPrices" }
+        outcome: { type: string, enum: [win, loss, draw] }
+        kills: { type: integer, minimum: 0 }
+        relays: { type: integer, minimum: 0, maximum: 3 }
+        profile: { $ref: "#/components/schemas/GameProfile" }
+        replayed: { type: boolean }
+    MarketPrices:
+      type: object
+      required: [salt, iron, dust, resin]
+      properties:
+        salt: { type: integer, minimum: 1 }
+        iron: { type: integer, minimum: 1 }
+        dust: { type: integer, minimum: 1 }
+        resin: { type: integer, minimum: 1 }
 

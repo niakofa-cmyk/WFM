@@ -1,9 +1,12 @@
-import { type SortieId, type TechId, TECHS } from "./campaign";
-import { basePrices, isGood, type GoodId } from "./market";
-import { SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
+import { type SortieId, type TechId } from "./campaign";
+import { basePrices, type GoodId } from "./market";
+import { type Faction, type Scheme, type ShipId } from "./ships";
 import type { Pace } from "./sim";
+import type { GameProfile } from "@workspace/api-client-react";
 
-const KEY = "wfm-save-v1";
+const DEVICE_KEY = "wfm-device-v1";
+
+export type DevicePreferences = { gyro: boolean; drilled: boolean };
 
 export type Save = {
   v: 1;
@@ -43,65 +46,45 @@ export function defaultSave(): Save {
   };
 }
 
-export function loadSave(): Save {
+export function loadDevicePreferences(): DevicePreferences {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultSave();
-    const p = JSON.parse(raw) as Partial<Save>;
-    const base = defaultSave();
-    if (p.v !== 1) return base;
-    if (!p.ship || !SHIPS[p.ship]) return base;
-    if (p.faction !== "accord" && p.faction !== "ussf") return base;
-    const prices = { ...base.prices };
-    if (p.prices && typeof p.prices === "object") {
-      for (const id of Object.keys(base.prices) as GoodId[]) {
-        const n = p.prices[id];
-        if (typeof n === "number" && Number.isFinite(n)) prices[id] = Math.max(1, Math.round(n));
-      }
-    }
-    const hold = isGood(p.hold) ? p.hold : null;
-    return {
-      v: 1,
-      credits: Math.max(0, Math.floor(p.credits ?? 0)),
-      ship: p.ship,
-      faction: p.faction,
-      scheme: p.scheme === "strafe" ? "strafe" : "arc",
-      refit: Math.max(0, Math.min(5, Math.floor(p.refit ?? 0))),
-      prices,
-      hold,
-      paid: hold ? Math.max(0, Math.floor(p.paid ?? prices[hold])) : 0,
-      pace: p.pace === "strike" ? "strike" : "practice",
-      gyro: p.gyro === true,
-      drilled: p.drilled === true,
-      mission:
-        p.mission === "skirmish" ||
-        p.mission === "contact" ||
-        p.mission === "beacon" ||
-        p.mission === "warden" ||
-        p.mission === "cage"
-          ? p.mission
-          : "contact",
-      cleared: Math.max(0, Math.min(4, Math.floor(p.cleared ?? 0))),
-      tech: TECHS.some((tech) => tech.id === p.tech && Math.max(0, Math.min(4, Math.floor(p.cleared ?? 0))) >= tech.need)
-        ? (p.tech as TechId)
-        : null,
-    };
+    const raw = localStorage.getItem(DEVICE_KEY);
+    if (!raw) return { gyro: false, drilled: false };
+    const value = JSON.parse(raw) as Partial<DevicePreferences>;
+    return { gyro: value.gyro === true, drilled: value.drilled === true };
   } catch {
-    return defaultSave();
+    return { gyro: false, drilled: false };
   }
 }
 
-export function writeSave(save: Save) {
-  localStorage.setItem(KEY, JSON.stringify(save));
+export function writeDevicePreferences(preferences: DevicePreferences) {
+  try {
+    localStorage.setItem(DEVICE_KEY, JSON.stringify(preferences));
+  } catch {
+    // Device preferences are optional; progression remains on the server.
+  }
+}
+
+export function saveFromProfile(profile: GameProfile, device = loadDevicePreferences()): Save {
+  return {
+    v: 1,
+    credits: profile.credits,
+    ship: profile.shipId,
+    faction: profile.faction,
+    scheme: profile.scheme,
+    refit: profile.refit,
+    prices: profile.prices,
+    hold: profile.hold,
+    paid: profile.paid,
+    pace: profile.pace,
+    gyro: device.gyro,
+    drilled: profile.drilled || device.drilled,
+    mission: profile.mission,
+    cleared: profile.cleared,
+    tech: profile.tech,
+  };
 }
 
 export function refitCost(level: number): number {
   return 120 * (level + 1);
-}
-
-export function applyRefit<T extends { credits: number; refit: number }>(save: T): T {
-  if (save.refit >= 5) return save;
-  const cost = refitCost(save.refit);
-  if (save.credits < cost) return save;
-  return { ...save, credits: save.credits - cost, refit: save.refit + 1 };
 }

@@ -49,6 +49,7 @@ type ArenaProps = {
   foeCount: number;
   objective: string;
   tech: TechId | null;
+  serverSeed?: number;
   gyro: boolean;
   drilled: boolean;
   onDrill: () => void;
@@ -480,6 +481,7 @@ export function Arena({
   foeCount,
   objective,
   tech,
+  serverSeed,
   gyro,
   drilled,
   onDrill,
@@ -539,7 +541,7 @@ export function Arena({
   drillCb.current = onDrill;
   if (!busRef.current) busRef.current = createBus(scheme);
   if (!matchRef.current) {
-    const seed = (Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1;
+    const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
     seedRef.current = seed;
     replayRef.current = [];
     matchRef.current = online

@@ -1,16 +1,37 @@
 import { useEffect, useRef, useState } from "react";
 import { Arena, type StrikeResult, type OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
-import { applyBuy, applyDock, dockValue, GOODS, scrapValue, winBid, type GoodId } from "./market";
-import { applyRefit, loadSave, refitCost, writeSave, type Save } from "./save";
+import { dockValue, GOODS, scrapValue, winBid, type GoodId } from "./market";
+import {
+  defaultSave,
+  loadDevicePreferences,
+  refitCost,
+  saveFromProfile,
+  writeDevicePreferences,
+  type Save,
+} from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { sfxUi, unlockAudio } from "./audio";
-import { claimStrike } from "./claim-strike";
-import { DISPATCHES, SORTIES, sortieById, sortieUnlocked, TECHS, type TechId } from "./campaign";
+import {
+  claimServerStrike,
+  loadServerProfile,
+  sendProgressionAction,
+  startServerStrike,
+} from "./progression-api";
+import {
+  DISPATCHES,
+  RECOVERED_INTEL,
+  SORTIES,
+  sortieById,
+  sortieUnlocked,
+  TECHS,
+  type TechId,
+} from "./campaign";
 import { HomeScreen } from "./HomeScreen";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
+import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 
 type Phase = "brief" | "fight" | "debrief";
 type RoomEnvelope = {
@@ -30,27 +51,12 @@ type LobbySession = {
   ready: boolean;
 };
 
-const emptySave = (): Save => ({
-  v: 1,
-  credits: 90,
-  ship: "mandjet",
-  faction: "accord",
-  scheme: "arc",
-  refit: 0,
-  prices: { salt: 40, iron: 70, dust: 110, resin: 55 },
-  hold: null,
-  paid: 0,
-  pace: "practice",
-  gyro: false,
-  drilled: false,
-  mission: "contact",
-  cleared: 0,
-  tech: null,
-});
-
 export function WarApp() {
-  const [save, setSave] = useState<Save>(emptySave);
+  const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [profileError, setProfileError] = useState("");
+  const [profileRetry, setProfileRetry] = useState(0);
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -62,6 +68,21 @@ export function WarApp() {
   const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
   const [offlineAvailable, setOfflineAvailable] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [activeRun, setActiveRun] = useState<StrikeRun | null>(null);
+  const [pendingClaim, setPendingClaim] = useState<{
+    runId: string;
+    inputs: StepInput[];
+    preview: StrikeResult;
+  } | null>(null);
+  const [claimError, setClaimError] = useState("");
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+  const actionKeyRef = useRef<{ key: string; action: "buy" | "dock" | "refit"; goodId?: GoodId } | null>(null);
+  const [campaignError, setCampaignError] = useState("");
+  const [startingRun, setStartingRun] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [roomCode, setRoomCode] = useState(
     () => new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "",
   );
@@ -108,6 +129,7 @@ export function WarApp() {
       name: "Pilot",
     });
     setOnlineStatus("");
+    setOfflineMode(false);
     setResult(null);
     setPhase("fight");
     setShell(MenuState.GAMEPLAY);
@@ -135,6 +157,7 @@ export function WarApp() {
       return;
     }
     setRoomCode(normalizedRoomCode);
+    setOfflineMode(false);
     unlockAudio();
     setOnlineStatus("Calling the wing…");
     setOfflineAvailable(false);
@@ -307,13 +330,56 @@ export function WarApp() {
   }, []);
 
   useEffect(() => {
-    setSave(loadSave());
-    setReady(true);
-  }, []);
+    let cancelled = false;
+    const device = loadDevicePreferences();
+    setSave((previous) => ({ ...previous, ...device }));
+    setProfileStatus("loading");
+    setProfileError("");
+    void loadServerProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        setSave(saveFromProfile(profile, device));
+        try {
+          const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
+          if (rawPending) {
+            const pending = JSON.parse(rawPending) as {
+              runId?: unknown;
+              inputs?: unknown;
+              preview?: unknown;
+            };
+            if (
+              typeof pending.runId === "string" &&
+              Array.isArray(pending.inputs) &&
+              pending.inputs.length <= 22_000 &&
+              pending.preview &&
+              typeof pending.preview === "object"
+            ) {
+              const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
+              setPendingClaim(restored);
+              setResult(restored.preview);
+              setPhase("debrief");
+            }
+          }
+        } catch {
+          // Storage may be unavailable or contain malformed local data; the server profile remains authoritative.
+        }
+        setProfileStatus("ready");
+        setReady(true);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setProfileError(error instanceof Error ? error.message : "Could not load the player profile.");
+        setProfileStatus("error");
+        setReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileRetry]);
 
   useEffect(() => {
-    if (ready) writeSave(save);
-  }, [save, ready]);
+    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
+  }, [save.gyro, save.drilled, ready]);
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
@@ -357,17 +423,142 @@ export function WarApp() {
   };
 
   const buy = (id: GoodId) => {
-    setSave((prev) => applyBuy(prev, id));
+    void performAction("buy", id);
   };
 
   const sellDock = () => {
-    setSave((prev) => applyDock(prev));
+    void performAction("dock");
   };
 
-  const start = () => {
-    if (shell === MenuState.LOADING) return;
+  const start = async () => {
+    if (shell === MenuState.LOADING || startingRun) return;
+    if (pendingClaim) {
+      setCampaignError("Verify the pending sortie before starting another run.");
+      return;
+    }
     unlockAudio();
-    setShell(MenuState.LOADING);
+    setResult(null);
+    setPhase("brief");
+    setCampaignError("");
+    if (offlineMode && !activeRun) {
+      setShell(MenuState.LOADING);
+      return;
+    }
+    try {
+      const selection: StrikeStartInput = {
+        shipId: save.ship,
+        faction: save.faction,
+        scheme: save.scheme,
+        pace: save.pace,
+        mission: save.mission,
+        tech: save.tech,
+      };
+      const run = await startServerStrike(selection);
+      setActiveRun(run);
+      setSave(saveFromProfile(run.profile, { gyro: save.gyro, drilled: save.drilled }));
+      setOfflineMode(false);
+      setPendingClaim(null);
+      setClaimError("");
+      setShell(MenuState.LOADING);
+    } catch (error) {
+      setCampaignError(error instanceof Error ? error.message : "The yard could not authorize this sortie.");
+    } finally {
+      setStartingRun(false);
+    }
+  };
+
+  const performAction = async (action: "buy" | "dock" | "refit", goodId?: GoodId) => {
+    if (actionBusy) return;
+    if (pendingClaim) {
+      setActionError("Retry the pending sortie verification before changing the yard ledger.");
+      return;
+    }
+    const previousKey = actionKeyRef.current;
+    const idempotencyKey =
+      previousKey?.action === action && previousKey.goodId === goodId
+        ? previousKey.key
+        : crypto.randomUUID();
+    actionKeyRef.current = { key: idempotencyKey, action, goodId };
+    setActionBusy(true);
+    setActionError("");
+    try {
+      const result = await sendProgressionAction({
+        idempotencyKey,
+        action,
+        goodId: goodId ?? null,
+      });
+      setSave((previous) =>
+        saveFromProfile(result.profile, { gyro: previous.gyro, drilled: previous.drilled }),
+      );
+      actionKeyRef.current = null;
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The yard rejected that transaction.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult) => {
+    const pending = { runId, inputs, preview };
+    setPendingClaim(pending);
+    try {
+      sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
+    } catch {
+      // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+    }
+    setClaimError("");
+    setClaimSubmitting(true);
+    setResult(preview);
+    setGain(0);
+    setCargoLine("Submitting the replay for server verification. No reward is final yet.");
+    setAdvance("");
+    setPhase("debrief");
+    try {
+      const grant = await claimServerStrike(runId, { inputs });
+      setPendingClaim(null);
+      try {
+        sessionStorage.removeItem("wfm-pending-claim-v1");
+      } catch {
+        // The verified profile remains authoritative even if local session storage is unavailable.
+      }
+      setActiveRun(null);
+      setClaimError("");
+      setAdvance(grant.advance);
+      setCargoLine(grant.cargoLine);
+      setGain(grant.gain);
+      setResult({
+        outcome: grant.outcome,
+        kills: grant.kills,
+        deaths: preview.deaths,
+        relays: grant.relays,
+        reason: preview.reason,
+      });
+      setSave((previous) =>
+        saveFromProfile(grant.profile, { gyro: previous.gyro, drilled: previous.drilled }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The yard could not verify this sortie.";
+      const status =
+        error && typeof error === "object" && "status" in error
+          ? Number((error as { status: unknown }).status)
+          : 0;
+      setClaimError(message);
+      if (status === 400 || status === 404 || status === 409) {
+        setPendingClaim(null);
+        setActiveRun(null);
+        try {
+          sessionStorage.removeItem("wfm-pending-claim-v1");
+        } catch {
+          // The rejected run is also invalidated server-side.
+        }
+        setCargoLine("The server rejected this replay. No credits or campaign progress were awarded.");
+      } else {
+        setCargoLine("This local result is unverified. No credits or campaign progress were awarded.");
+      }
+      setGain(0);
+    } finally {
+      setClaimSubmitting(false);
+    }
   };
 
   const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
@@ -386,48 +577,41 @@ export function WarApp() {
       joinSocketRef.current = null;
       return;
     }
-    const claim = {
-      seed: replay.seed,
-      shipId: save.ship,
-      faction: save.faction,
-      refit: save.refit,
-      pace,
-      goal,
-      disc: active?.disc ?? "rust",
-      allyCount: active?.allyCount ?? 4,
-      foeCount: active?.foeCount ?? 5,
-      tech: save.tech,
-      inputs: replay.inputs,
-      mission: save.mission,
-      cleared: save.cleared,
-      hold: save.hold,
-      paid: save.paid,
-      prices: save.prices,
-    };
-    void claimStrike({ data: claim })
-      .then((grant) => {
-        setAdvance(grant.advance);
-        setCargoLine(grant.cargoLine);
-        setGain(grant.gain);
-        setResult({ outcome: grant.outcome, kills: grant.kills, deaths: next.deaths, relays: grant.relays, reason: next.reason });
-        setSave((prev) => ({
-          ...prev,
-          credits: prev.credits + grant.gain,
-          hold: null,
-          paid: 0,
-          prices: grant.prices,
-          cleared: grant.cleared,
-        }));
-        setPhase("debrief");
-      })
-      .catch(() => {
-        setAdvance("");
-        setCargoLine("The yard did not log this strike.");
-        setGain(0);
-        setResult(next);
-        setPhase("debrief");
-      });
+    if (offlineMode || !activeRun) {
+      setResult(next);
+      setGain(0);
+      setCargoLine("Offline practice only. This sortie earns no credits or campaign progress.");
+      setAdvance("");
+      setPhase("debrief");
+      return;
+    }
+    void submitClaim(activeRun.runId, replay.inputs, next);
   };
+
+  if (profileStatus === "loading") {
+    return (
+      <main className="flex h-dvh items-center justify-center bg-void px-6 text-center">
+        <p className="font-hud text-lg tracking-widest text-solar">CONNECTING TO PHOBOS YARD…</p>
+      </main>
+    );
+  }
+
+  if (profileStatus === "error") {
+    return (
+      <main className="flex h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
+        <p className="font-hud text-sm tracking-widest text-alert">PLAYER PROFILE UNAVAILABLE</p>
+        <h1 className="font-hud text-4xl text-bone">No progress is stored on this device.</h1>
+        <p className="max-w-lg text-sm leading-relaxed text-muted">{profileError}</p>
+        <button
+          type="button"
+          className="h-12 bg-solar px-6 font-hud tracking-widest text-void"
+          onClick={() => setProfileRetry((value) => value + 1)}
+        >
+          RETRY CONNECTION
+        </button>
+      </main>
+    );
+  }
 
   if (onlineLobby) {
     return (
@@ -476,26 +660,30 @@ export function WarApp() {
   }
 
   if (phase === "fight") {
+    const runConfig = activeRun?.config;
+    const runGoal = runConfig?.goal ?? goal;
+    const runFaction = runConfig?.faction ?? save.faction;
     return (
       <Arena
-        key={`${sortie}-${save.ship}-${save.scheme}-${save.refit}-${save.mission}-${pace}-${save.tech ?? "none"}`}
-        shipId={save.ship}
-        faction={save.faction}
+        key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
+        shipId={runConfig?.shipId ?? save.ship}
+        faction={runFaction}
         scheme={save.scheme}
-        refit={save.refit}
-        pace={pace}
-        goal={goal}
-        disc={active?.disc ?? "rust"}
-        allyCount={active?.allyCount ?? 4}
-        foeCount={active?.foeCount ?? 5}
+        refit={runConfig?.refit ?? save.refit}
+        pace={runConfig?.pace ?? pace}
+        goal={runGoal}
+        disc={runConfig?.disc ?? active?.disc ?? "rust"}
+        allyCount={runConfig?.allyCount ?? active?.allyCount ?? 4}
+        foeCount={runConfig?.foeCount ?? active?.foeCount ?? 5}
         objective={
-          active?.id === "cage"
-            ? save.faction === "ussf"
+          (runConfig?.mission ?? active?.id) === "cage"
+            ? runFaction === "ussf"
               ? "COVER THE CAGE"
               : "STOP THE CAGE"
             : (active?.objective ?? "HOLD TWO RELAYS")
         }
-        tech={save.tech}
+        tech={runConfig?.tech ?? save.tech}
+        serverSeed={activeRun?.seed}
         gyro={save.gyro}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
@@ -521,7 +709,11 @@ export function WarApp() {
 
   if (phase === "debrief" && result) {
     const title =
-      result.outcome === "win"
+      pendingClaim
+        ? claimSubmitting
+          ? "Verifying sortie"
+          : "Result needs verification"
+        : result.outcome === "win"
         ? goal === "extract"
           ? save.faction === "ussf"
             ? "Cage away"
@@ -542,22 +734,40 @@ export function WarApp() {
       <main className="mx-auto flex h-dvh max-w-xl flex-col justify-center gap-4 overflow-y-auto px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
         <h1 className="font-hud text-5xl leading-none text-bone">{title}</h1>
-        <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">{result.reason}</p>
+        <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">
+          {pendingClaim
+            ? claimSubmitting
+              ? "The yard is replaying the flight record before it awards credits or unlocks the next sortie."
+              : claimError || "The server has not verified this result yet."
+            : result.reason}
+        </p>
         <p className="text-sm leading-relaxed text-muted">
-          {ship.name} came back with {result.kills} kills and {result.relays} relays. The hangar logged{" "}
-          {gain} credits. {cargoLine || "No crate in the hold."} {advance}
+          {pendingClaim
+            ? "The combat summary is only a local preview until verification succeeds."
+            : `${ship.name} came back with ${result.kills} kills and ${result.relays} relays. The hangar logged ${gain} credits. ${cargoLine || "No crate in the hold."} ${advance}`}
         </p>
         <p className="font-hud text-2xl text-solar">{save.credits} CR</p>
-        <button
-          type="button"
-          className="h-12 bg-solar font-hud text-lg tracking-widest text-void"
-          onClick={() => {
-            setSortie((n) => n + 1);
-            start();
-          }}
-        >
-          Fly again
-        </button>
+        {pendingClaim ? (
+          <button
+            type="button"
+            disabled={claimSubmitting}
+            className="h-12 bg-solar font-hud text-lg tracking-widest text-void disabled:opacity-50"
+            onClick={() => void submitClaim(pendingClaim.runId, pendingClaim.inputs, pendingClaim.preview)}
+          >
+            {claimSubmitting ? "VERIFYING…" : "RETRY VERIFICATION"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="h-12 bg-solar font-hud text-lg tracking-widest text-void"
+            onClick={() => {
+              setSortie((n) => n + 1);
+              start();
+            }}
+          >
+            Fly again
+          </button>
+        )}
         <button
           type="button"
           className="h-12 border border-bone/30 font-hud text-lg tracking-widest text-bone"
@@ -574,6 +784,7 @@ export function WarApp() {
 
   if (shell !== MenuState.HANGAR && shell !== MenuState.GAMEPLAY) {
     return (
+      <div className="relative">
       <HomeScreen
         state={shell}
         tipIndex={sortie}
@@ -601,7 +812,9 @@ export function WarApp() {
         onOfflineStrike={() => {
           unlockAudio();
           setOfflineAvailable(false);
-          setOnlineStatus("Offline Strike · AI fills the wing.");
+          setOfflineMode(true);
+          setActiveRun(null);
+          setOnlineStatus("Offline Strike · AI fills the wing. No rewards are recorded.");
           setSave((prev) => ({ ...prev, mission: "skirmish", pace: "strike" }));
           setShell(MenuState.LOADING);
         }}
@@ -619,8 +832,27 @@ export function WarApp() {
         onTech={(id: TechId) =>
           setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
         }
-        onRefit={() => setSave((prev) => applyRefit(prev))}
+        onRefit={() => void performAction("refit")}
       />
+      {pendingClaim || campaignError || actionError ? (
+        <aside className="fixed bottom-3 left-3 z-50 max-w-[min(92vw,32rem)] border border-alert/60 bg-void/95 p-3 shadow-xl">
+          <p className="text-sm leading-relaxed text-bone">
+            {pendingClaim
+              ? "A sortie is waiting for server verification."
+              : campaignError || actionError}
+          </p>
+          {pendingClaim ? (
+            <button
+              type="button"
+              className="mt-2 h-10 bg-solar px-3 font-hud tracking-widest text-void"
+              onClick={() => setPhase("debrief")}
+            >
+              RETURN TO VERIFICATION
+            </button>
+          ) : null}
+        </aside>
+      ) : null}
+      </div>
     );
   }
 
@@ -633,10 +865,30 @@ export function WarApp() {
         <p className="font-hud text-sm tracking-widest text-solar">USSF VS THE ACCORD</p>
         <h1 className="font-hud text-5xl leading-none text-bone sm:text-6xl">WAR FOR MARS</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          The fleet that took Eon Dusk to Mars is gone. He is a prisoner of the Accord. Answer with three
-          sorties, or take the open skirmish.
+          The fleet that took Eon Dusk to Mars is gone. He is a prisoner of the Accord. Follow four sorties
+          from a buried signal to the cage in the dust lane, or take the open skirmish.
         </p>
       </header>
+      {campaignError || actionError ? (
+        <p role="status" className="border border-alert/50 bg-alert/10 px-3 py-2 text-sm text-bone">
+          {campaignError || actionError}
+        </p>
+      ) : null}
+      {pendingClaim ? (
+        <section className="border border-alert/50 bg-alert/10 px-3 py-3">
+          <p className="font-hud text-sm tracking-widest text-solar">PENDING SORTIE VERIFICATION</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            Retry the same replay before changing credits, cargo, refit, or starting another sortie.
+          </p>
+          <button
+            type="button"
+            className="mt-2 h-10 bg-solar px-3 font-hud tracking-widest text-void"
+            onClick={() => setPhase("debrief")}
+          >
+            RETURN TO VERIFICATION
+          </button>
+        </section>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MissionButton
@@ -679,6 +931,36 @@ export function WarApp() {
             </li>
           ))}
         </ul>
+      </section>
+      <section className="border border-bone/15 bg-panel/60">
+        <button
+          type="button"
+          aria-expanded={archiveOpen}
+          className="flex min-h-12 w-full items-center justify-between px-3 text-left"
+          onClick={() => setArchiveOpen((open) => !open)}
+        >
+          <span className="font-hud text-sm tracking-widest text-solar">
+            RECOVERED FLIGHT RECORDERS · {save.cleared}/4
+          </span>
+          <span className="text-muted">{archiveOpen ? "−" : "+"}</span>
+        </button>
+        {archiveOpen ? (
+          <ol className="grid gap-2 px-3 pb-3">
+            {RECOVERED_INTEL.filter((record) => save.cleared >= record.need).length ? (
+              RECOVERED_INTEL.filter((record) => save.cleared >= record.need).map((record) => (
+                <li key={record.from} className="border-t border-bone/10 pt-2">
+                  <p className="font-hud text-xs tracking-widest text-solar">{record.from}</p>
+                  <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.text}</p>
+                </li>
+              ))
+            ) : (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                No recordings recovered. Complete the Contact sortie to decode the first signal.
+              </li>
+            )}
+          </ol>
+        ) : null}
       </section>
       <div className="grid grid-cols-3 gap-2">
         {TECHS.map((tech) => {
@@ -731,7 +1013,7 @@ export function WarApp() {
             <button
               key={id}
               type="button"
-              onClick={() => setSave((prev) => ({ ...prev, ship: id }))}
+                onClick={() => setSave((prev) => ({ ...prev, ship: id }))}
               className={
                 on
                   ? "border border-solar bg-panel px-3 py-2 text-left"
@@ -840,7 +1122,7 @@ export function WarApp() {
               <button
                 key={good.id}
                 type="button"
-                disabled={!mine && (save.hold != null || save.credits < price)}
+               disabled={actionBusy || (!mine && (save.hold != null || save.credits < price))}
                 onClick={() => buy(good.id)}
                 className={
                   mine
@@ -867,6 +1149,7 @@ export function WarApp() {
         {held ? (
           <button
             type="button"
+            disabled={actionBusy}
             className="mt-2 h-10 border border-bone/25 px-3 font-hud text-sm tracking-widest text-bone"
             onClick={sellDock}
           >
@@ -888,22 +1171,23 @@ export function WarApp() {
           </button>
           <button
             type="button"
-            disabled={save.refit >= 5 || save.credits < cost}
+            disabled={actionBusy || save.refit >= 5 || save.credits < cost}
             className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
-            onClick={() => setSave((prev) => applyRefit(prev))}
+            onClick={() => void performAction("refit")}
           >
             {save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
           </button>
         </div>
         <button
           type="button"
-          className="h-14 bg-solar font-hud text-2xl tracking-widest text-void"
+          disabled={startingRun || Boolean(pendingClaim)}
+          className="h-14 bg-solar font-hud text-2xl tracking-widest text-void disabled:opacity-50"
           onClick={() => {
             setSortie((n) => n + 1);
             start();
           }}
         >
-          Start
+          {startingRun ? "AUTHORIZING…" : pendingClaim ? "VERIFY PENDING SORTIE" : "Start"}
         </button>
       </div>
     </main>
