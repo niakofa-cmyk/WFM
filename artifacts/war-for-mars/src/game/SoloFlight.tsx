@@ -46,6 +46,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   const mounted = useRef(true);
   const [run, setRun] = useState(0);
   const [result, setResult] = useState<StrikeResult | null>(null);
+  const [flightError, setFlightError] = useState("");
 
   const def = SHIPS[ship];
   const cfg = PACES.find((p) => p.id === pace) ?? PACES[0];
@@ -56,6 +57,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   }, []);
 
   const launch = () => {
+    setFlightError("");
     unlockAudio();
     setResult(null);
     setRun((n) => n + 1);
@@ -109,6 +111,10 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
             setPhase("done");
           }}
           onNetworkExit={() => setPhase("setup")}
+          onGraphicsError={(message) => {
+            setFlightError(`3D flight could not start: ${message}. This game requires WebGL2. Check your browser's graphics settings or try a supported browser/device.`);
+            setPhase("setup");
+          }}
         />
       </Suspense>
       <button
@@ -128,6 +134,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
         <p className="sf-note" data-testid="text-solo-notice">
           Local solo flight needs no account and no multiplayer server. These trials do not save campaign progress or award rewards.
         </p>
+        {flightError && <p role="alert" className="sf-note">{flightError}</p>}
 
         {phase === "done" && result && (
           <section aria-live="polite" data-testid="panel-solo-result">

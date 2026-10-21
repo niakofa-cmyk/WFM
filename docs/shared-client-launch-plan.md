@@ -17,6 +17,7 @@ Keep Replit development and private staging. Railway remains a multiplayer-backe
 - All eight existing ships, two-minute Practice and six-minute Strike. Strike is the player plus four AI against five AI.
 - The existing `Arena` and local simulation are reused; no new combat engine or separately balanced ship roster is introduced.
 - Actual match results, retry, setup, home and in-flight exit. Audio is enabled from the launch gesture.
+- If WebGL cannot initialize, solo entry returns to setup with a clear graphics-requirement message instead of leaving a frozen battle HUD. The public landing also remains visible while authentication is loading.
 - Optional gyro requests permission from a user gesture, handles missing APIs/insecure contexts/denial, and removes listeners when the solo entry unmounts. Touch remains the fallback.
 - These are **unrewarded local trials**, not an offline campaign or a service-worker-backed offline installation. Loading the client/assets still needs a connection unless already available through normal browser caching.
 - No campaign grants, local credit awards, server reward claims, market actions or saved progression are issued from this public component. Account-owned campaign/rewards keep their existing authenticated server paths.
@@ -29,6 +30,7 @@ Keep Replit development and private staging. Railway remains a multiplayer-backe
 - This is a **build-time public client setting**, never a secret. Do not put API keys or reconnect tokens into it.
 - `WING_ALLOWED_ORIGINS` optionally restricts backend browser upgrades to exact comma-separated HTTP(S) origins. A configured list rejects missing, `null` and unlisted origins. The unauthenticated health check still works.
 - Origin checks are not player authentication: a non-browser client can forge Origin. Existing input validation, rate limits, simulation authority and reconnect-token handling remain necessary; this is not complete anti-cheat protection.
+- The current allowlist is for HTTP(S) browser origins. Native packaging may introduce custom or missing origins; define an authenticated native handshake and explicit policy rather than removing restrictions as a shortcut.
 
 ### Backend trial configuration
 

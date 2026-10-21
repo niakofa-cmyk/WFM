@@ -57,6 +57,7 @@ type ArenaProps = {
   onDrill: () => void;
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
+  onGraphicsError?: (message: string) => void;
   online?: OnlineRoom;
 };
 
@@ -490,6 +491,7 @@ export function Arena({
   onDrill,
   onDone,
   onNetworkExit,
+  onGraphicsError,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -707,7 +709,9 @@ export function Arena({
         powerPreference: "high-performance",
       });
     } catch (err) {
-      setGlError(err instanceof Error ? err.message : "WebGL unavailable");
+      const message = err instanceof Error ? err.message : "WebGL unavailable";
+      setGlError(message);
+      onGraphicsError?.(message);
       return;
     }
     const look =

@@ -1,4 +1,4 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
@@ -151,6 +151,13 @@ function SignedInGame() {
   );
 }
 
+function AccountGameEntry() {
+  const { isLoaded, isSignedIn } = useAuth();
+  // Discovery and solo entry remain visible while hosted authentication loads.
+  // Never mount account/progression hooks until the session is confirmed.
+  return isLoaded && isSignedIn ? <SignedInGame /> : <PublicLanding />;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
   const clerkPubKey = publishableKeyFromHost(
@@ -173,12 +180,7 @@ function Routes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Switch>
-        <Route path="/" component={() => (
-          <>
-            <Show when="signed-in"><SignedInGame /></Show>
-            <Show when="signed-out"><PublicLanding /></Show>
-          </>
-        )} />
+        <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route component={PublicLanding} />
