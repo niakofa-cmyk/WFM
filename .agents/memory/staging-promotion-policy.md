@@ -8,3 +8,11 @@ Use a separate Repl, database, and authentication environment for staging. Never
 **Why:** the user explicitly requested isolated staging data and a test-gated promotion process.
 
 **How to apply:** when preparing staging, configuring authentication or databases, or promoting changes, preserve isolation and require evidence of passing staging checks. Review production schema, auth, recovery, and rollback separately.
+
+## Hosting direction
+
+Keep Replit for development and private staging. Evaluate Railway as a candidate for a dedicated multiplayer/API/database backend rather than automatically moving the whole game or treating staging as production.
+
+**Why:** the user wants to preserve the existing Replit development and staging work and choose production hosting based on measured connection stability, capacity, resource needs, cost, and recovery behavior.
+
+**How to apply:** prepare isolated backend trials before choosing production hosting. A cleanup approval is not permission to switch a production environment to unverified staging code, migrate the frontend, or reuse production credentials.
