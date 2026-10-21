@@ -8,3 +8,4 @@
 - [Offline progression](offline-progression-policy.md) — cached worlds are read-only; unresolved action identities survive reloads and remain server-validated.
 - [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
 - [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
+- [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
