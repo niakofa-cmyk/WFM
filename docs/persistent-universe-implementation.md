@@ -1,5 +1,7 @@
 # Persistent universe: document implementation and verification
 
+> **Follow-up:** [shared economy implementation](shared-economy-implementation.md) adds cargo limits, specialist upgrades, embargo restrictions and rejected-request history. Its later browser pass successfully exercised a committed purchase followed by a discarded client-fetch acknowledgement, closing the precise verification gap recorded below. The original observations and source commit are preserved here.
+
 ## Reference and security boundaries
 
 The complete 214-line reference was read:
