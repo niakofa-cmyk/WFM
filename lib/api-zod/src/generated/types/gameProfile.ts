@@ -25,6 +25,7 @@ export interface GameProfile {
      * @maximum 5
      */
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   /** @nullable */
   hold: GameProfileHold;

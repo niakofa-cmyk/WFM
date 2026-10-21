@@ -1,117 +1,41 @@
-import { lazy, Suspense, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  getGetMarketQueryKey,
-  getGetWorldQueryKey,
-  useActOnWorldQuest,
-  useExploreLocation,
-  useGetWorld,
-  useTravelWorld,
-} from "@workspace/api-client-react";
+import { lazy, Suspense, useState } from "react";
+import { getGetWorldQueryKey, useGetWorld } from "@workspace/api-client-react";
 import type { WorldLocation, WorldQuest } from "@workspace/api-client-react";
+import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
+import { UniverseActivities, repLabel } from "./UniverseActivities";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
 type Props = { onBack: () => void; credits: number; onCredits: (credits: number) => void };
 
-const kindLabel: Record<string, string> = {
-  station: "STATION",
-  relay: "RELAY",
-  moon: "MOON",
-  ruins: "RUINS",
-};
+const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS" };
 const statusLabel: Record<string, string> = {
-  locked: "LOCKED",
-  available: "AVAILABLE",
-  accepted: "IN PROGRESS",
-  ready: "READY TO CLAIM",
-  claimed: "CLAIMED",
+  locked: "LOCKED", available: "AVAILABLE", accepted: "IN PROGRESS", ready: "READY TO CLAIM", claimed: "CLAIMED",
 };
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : "Operation could not be completed. Try again.";
+  `${error instanceof Error ? error.message : "No response."} Outcome unknown: the server may or may not have applied this action. Retry the retained request to find out.`;
 
 export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
-  const queryClient = useQueryClient();
-  const worldQuery = useGetWorld({
-    query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() },
-  });
-  const travel = useTravelWorld();
-  const explore = useExploreLocation();
-  const questAction = useActOnWorldQuest();
+  const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
+  const snapshot = useOfflineSnapshot("world", worldQuery.data, worldQuery.isError || worldQuery.fetchStatus === "paused");
+  const durable = useDurableAction();
   const [actionError, setActionError] = useState("");
-  const requestKeys = useRef(new Map<string, string>());
-  const world = worldQuery.data;
-  const busy = travel.isPending || explore.isPending || questAction.isPending;
-
-  const keyFor = (name: string) => {
-    const existing = requestKeys.current.get(name);
-    if (existing) return existing;
-    const next = crypto.randomUUID();
-    requestKeys.current.set(name, next);
-    return next;
-  };
-
-  const applyWorldResult = async (nextWorld: typeof world) => {
-    if (nextWorld) queryClient.setQueryData(getGetWorldQueryKey(), nextWorld);
-    await queryClient.invalidateQueries({ queryKey: getGetWorldQueryKey() });
-  };
-
-  const travelTo = async (destinationId: string) => {
-    const requestName = `travel:${destinationId}`;
+  const world = snapshot.data;
+  const cached = snapshot.cached;
+  const busy = durable.blocked;
+  const go = async (request: Parameters<typeof durable.run>[0], label: string) => {
     setActionError("");
-    try {
-      const result = await travel.mutateAsync({
-        data: { idempotencyKey: keyFor(requestName), destinationId },
-      });
-      onCredits(result.credits);
-      await Promise.all([
-        applyWorldResult(result.world),
-        queryClient.invalidateQueries({ queryKey: getGetMarketQueryKey() }),
-      ]);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
+    try { await durable.run(request, label); } catch (error) { setActionError(errorText(error)); }
   };
-
-  const exploreLocation = async (location: WorldLocation) => {
-    const requestName = `explore:${location.id}`;
-    setActionError("");
-    try {
-      const result = await explore.mutateAsync({
-        locationId: location.id,
-        data: { idempotencyKey: keyFor(requestName) },
-      });
-      await applyWorldResult(result.world);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
-  };
-
-  const actQuest = async (quest: WorldQuest, action: "accept" | "claim") => {
-    const requestName = `quest:${quest.id}:${action}`;
-    setActionError("");
-    try {
-      const result = await questAction.mutateAsync({
-        questId: quest.id,
-        data: { idempotencyKey: keyFor(requestName), action },
-      });
-      if (action === "claim") onCredits(result.credits);
-      await Promise.all([
-        applyWorldResult(result.world),
-        ...(action === "claim"
-          ? [queryClient.invalidateQueries({ queryKey: getGetMarketQueryKey() })]
-          : []),
-      ]);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
-  };
-
-  if (worldQuery.isLoading) {
+  const travelTo = (destinationId: string) => go({ kind: "travel", data: { destinationId, maxCost: world?.routes.find((route) => route.destinationId === destinationId)?.costCredits } }, `Travel to ${destinationId}.`);
+  const exploreLocation = (location: WorldLocation) => go({ kind: "explore", data: { locationId: location.id } }, `Explore ${location.name}.`);
+  const actQuest = (quest: WorldQuest, action: "accept" | "claim") => go({ kind: "quest", data: { questId: quest.id, action } }, `${action === "accept" ? "Accept" : "Claim"} contract ${quest.title}.`);
+  const runService = (serviceId: string, locationId: string, title: string) => go({ kind: "service", data: { serviceId, locationId, cycleDate: world!.event.cycleDate.slice(0, 10), creditLimit: world!.activities.find((item) => item.id === serviceId)?.creditCost } }, `Station activity: ${title}.`);
+  const travel = { isPending: durable.busy };
+  const explore = travel;
+  const questAction = travel;
+  if (worldQuery.isLoading && !world) {
     return (
       <main className="min-h-dvh bg-void px-4 py-6 text-bone sm:px-8 sm:py-9">
         <div className="mx-auto max-w-6xl animate-pulse" role="status" aria-label="Loading theater state">
@@ -127,7 +51,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
     );
   }
 
-  if (worldQuery.isError || !world) {
+  if (!world) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center bg-void px-5 text-center text-bone">
         <p className="font-hud text-sm tracking-[0.22em] text-alert">THEATER LINK UNAVAILABLE</p>
@@ -169,6 +93,8 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   return (
     <main className="min-h-dvh bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl">
+        {cached ? <p role="status" data-testid="status-world-cached" className="mb-3 border border-alert/50 bg-alert/10 px-3 py-2 font-hud text-xs tracking-widest text-bone">OFFLINE SNAPSHOT - NOT LIVE. Showing last known theater state; nothing is confirmed until the server acknowledges.</p> : null}
+        {durable.pending || durable.error ? <p role="status" data-testid="status-world-pending" className="mb-3 border border-solar/40 px-3 py-2 text-xs text-bone">{durable.pending ? `Awaiting server confirmation: ${durable.pending.label}` : durable.error}</p> : null}
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-solar/30 pb-5">
           <div>
             <p className="font-hud text-[10px] tracking-[0.24em] text-solar sm:text-xs">
@@ -249,6 +175,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                       </span>
                     )) : <span className="text-xs text-muted">No services at this location.</span>}
                   </div>
+                  {currentLocation.sector ? <p className="mt-3 font-hud text-[10px] tracking-widest text-solar">SECTOR / {currentLocation.sector.toUpperCase()}</p> : null}
                   {currentLocation.unlocked && !currentLocation.explored ? (
                     <button
                       type="button"
@@ -270,6 +197,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
               )}
             </section>
 
+            <UniverseActivities world={world} blocked={busy} onRun={runService} />
             <section className="border border-bone/15 bg-panel/65">
               <div className="flex flex-wrap items-end justify-between gap-3 border-b border-bone/10 px-4 py-4">
                 <div>
@@ -289,7 +217,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                     const available = route.available && Boolean(destination?.unlocked);
                     const canAfford = credits >= route.costCredits;
                     const lockedReason = destination
-                      ? `LOCKED · CLEAR ${destination.unlockAfter}`
+                      ? `LOCKED · ${destination.lockReason ?? `CLEAR ${destination.unlockAfter}`}`
                       : "DESTINATION SIGNAL MISSING";
                     return (
                       <article
@@ -308,7 +236,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                           </div>
                           <p className="mt-1 text-xs text-muted">
                             {destination
-                              ? `${kindLabel[destination.kind] ?? destination.kind.toUpperCase()} · GRID ${String(destination.x).padStart(2, "0")} / ${String(destination.y).padStart(2, "0")}`
+                              ? `${destination.sector ? destination.sector.toUpperCase() + " · " : ""}${destination.requiredTechTier ? `HYPERDRIVE T${destination.requiredTechTier} · ` : ""}${destination.requiredRep ? `REP ${destination.requiredRep}+ · ` : ""}${kindLabel[destination.kind] ?? destination.kind.toUpperCase()} · GRID ${String(destination.x).padStart(2, "0")} / ${String(destination.y).padStart(2, "0")}`
                               : "Destination details not charted"}
                           </p>
                         </div>
@@ -344,13 +272,13 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                 <div className="border-l-2 border-solar bg-void/45 p-3">
                   <p className="text-[10px] tracking-widest text-muted">THE ACCORD</p>
                   <p data-testid="text-reputation-accord" className="mt-1 font-mono text-3xl">
-                    {world.reputation.accord.toLocaleString()}
+                    {world.reputation.accord.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.accord)}</span>
                   </p>
                 </div>
                 <div className="border-l-2 border-bone/50 bg-void/45 p-3">
                   <p className="text-[10px] tracking-widest text-muted">USSF</p>
                   <p data-testid="text-reputation-ussf" className="mt-1 font-mono text-3xl">
-                    {world.reputation.ussf.toLocaleString()}
+                    {world.reputation.ussf.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.ussf)}</span>
                   </p>
                 </div>
               </div>
@@ -457,7 +385,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
 
         {actionError ? (
           <p role="alert" data-testid="status-world-error" className="mt-4 border border-alert/40 bg-alert/10 px-3 py-3 text-sm leading-relaxed text-bone">
-            {actionError} Retry the same action; its request key is retained.
+            {actionError}
           </p>
         ) : null}
       </div>

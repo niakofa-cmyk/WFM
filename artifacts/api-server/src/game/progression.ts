@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   strikeRunsTable,
   type MarketPrices,
@@ -36,6 +37,7 @@ export type GameProfile = {
   shipId: ShipId;
   scheme: "arc" | "strafe";
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   hold: GoodId | null;
   paid: number;
@@ -95,6 +97,7 @@ function toProfile(row: PlayerProgress): GameProfile {
     shipId: row.shipId as ShipId,
     scheme: row.scheme as GameProfile["scheme"],
     refit: row.refit,
+    shieldMk2: row.shieldMk2,
     prices: row.prices,
     hold: row.hold as GoodId | null,
     paid: row.paid,
@@ -173,6 +176,7 @@ export async function startPlayerStrike(userId: string, input: StrikeStartInput)
       shipId: input.shipId,
       faction: input.faction,
       refit: current.refit,
+      shieldMk2: current.shieldMk2,
       ...missionConfig,
       pace,
       tech: input.tech,
@@ -231,6 +235,9 @@ export async function applyPlayerAction(
       };
     }
 
+    await tx.insert(playerWorldStateTable).values({ userId }).onConflictDoNothing();
+    const [world] = await tx.select().from(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
+    if (world?.currentLocation !== "phobos-yard") throw new ProgressionError("Return to Phobos Yard for a ship refit.", 400);
     let refit = profile.refit;
     if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
     const amount = -120 * (refit + 1);

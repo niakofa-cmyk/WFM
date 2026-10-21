@@ -1,0 +1,21 @@
+{
+  "testName": "ten impaired pilots share authoritative match state, reconnect, and finish together",
+  "command": "pnpm --filter @workspace/api-server run test:network",
+  "testedSourceCommit": "51f209ad7bdf8a72c586ac337a8943dae59e2645",
+  "executedAt": "2026-10-20T21:50:22Z",
+  "executionEnvironment": "Local synthetic test runner in the staging Repl development workspace; not a deployed-browser or real-network test.",
+  "result": "PASS",
+  "testsPassed": 1,
+  "testsFailed": 0,
+  "scenario": {
+    "simulatedClients": 10,
+    "simulatedMatchSeconds": 360,
+    "finalServerTick": 10826,
+    "commonSnapshotTick": 108,
+    "latencyMs": 35,
+    "jitterMs": 20,
+    "frameLossRate": 0.12,
+    "hardReconnectSlots": [1, 8],
+    "perPilotLastSeq": [267, 260, 266, 267, 267, 265, 267, 267, 259, 266]
+  }
+}

@@ -24,6 +24,7 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "quest_accept",
   "quest_reward",
   "world_travel",
+  "world_service",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {
@@ -33,6 +34,9 @@ export const playerProgressTable = pgTable("player_progress", {
   shipId: text("ship_id").notNull().default("mandjet"),
   scheme: text("scheme").notNull().default("arc"),
   refit: integer("refit").notNull().default(0),
+  shieldMk2: boolean("shield_mk2").notNull().default(false),
+  cargoExpansion: boolean("cargo_expansion").notNull().default(false),
+  driveEfficiency: boolean("drive_efficiency").notNull().default(false),
   prices: jsonb("prices")
     .$type<MarketPrices>()
     .notNull()

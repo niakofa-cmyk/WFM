@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './economyRejection';
+export * from './economyRejectionAction';
 export * from './exploreLocationResult';
 export * from './gameProfile';
 export * from './gameProfileFaction';
@@ -54,6 +56,8 @@ export * from './strikeStartInputTech';
 export * from './strikeStepInput';
 export * from './strikeStepInputPreset';
 export * from './tradeGoodId';
+export * from './worldActivity';
+export * from './worldActivityRecord';
 export * from './worldEvent';
 export * from './worldExploreInput';
 export * from './worldLocation';
@@ -64,7 +68,10 @@ export * from './worldQuestActionInputAction';
 export * from './worldQuestActionResult';
 export * from './worldQuestStatus';
 export * from './worldRoute';
+export * from './worldServiceInput';
+export * from './worldServiceResult';
 export * from './worldState';
+export * from './worldStateInstalledUpgradesItem';
 export * from './worldStateReputation';
 export * from './worldTravelInput';
 export * from './worldTravelResult';

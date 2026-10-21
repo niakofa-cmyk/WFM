@@ -11,6 +11,8 @@ test("profile and reward routes reject unauthenticated and forged progression re
   if (!address || typeof address === "string") throw new Error("Test server did not bind a TCP port.");
   const baseUrl = `http://127.0.0.1:${address.port}/api`;
   try {
+    const station = await fetch(`${baseUrl}/world/services`, { method: "POST" });
+    assert.equal(station.status, 401);
     const [profile, action, start, legacyClaim, market, trade, world, travel, explore, quest] = await Promise.all([
       fetch(`${baseUrl}/game/profile`),
       fetch(`${baseUrl}/game/profile/actions`, {

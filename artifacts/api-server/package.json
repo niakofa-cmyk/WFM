@@ -7,6 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "build:socket": "node ./build.mjs",
+    "start:socket": "node --enable-source-maps ./dist/socket.mjs",
     "dev:socket": "export NODE_ENV=development && pnpm run build:socket && node --enable-source-maps ./dist/socket.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "certify:ships": "tsx src/game/ship-certification.ts",

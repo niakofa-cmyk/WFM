@@ -4,6 +4,7 @@ import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxF
 import "./controls-probe";
 import { clearInput, createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
+import { currentWingSocketUrl } from "./socket-endpoint";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
@@ -42,6 +43,7 @@ type ArenaProps = {
   faction: Faction;
   scheme: Scheme;
   refit: number;
+  shieldMk2?: boolean;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -55,6 +57,7 @@ type ArenaProps = {
   onDrill: () => void;
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
+  onGraphicsError?: (message: string) => void;
   online?: OnlineRoom;
 };
 
@@ -474,6 +477,7 @@ export function Arena({
   faction,
   scheme,
   refit,
+  shieldMk2 = false,
   pace,
   goal,
   disc,
@@ -487,6 +491,7 @@ export function Arena({
   onDrill,
   onDone,
   onNetworkExit,
+  onGraphicsError,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -547,7 +552,7 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed });
+      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2 });
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -656,8 +661,7 @@ export function Arena({
         setNetworkStatus("SIGNAL LOST · RECONNECTING");
         retryTimer = window.setTimeout(() => {
           if (disposed) return;
-          const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-          url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          const url = currentWingSocketUrl();
           url.searchParams.set("room", online.roomId.toLowerCase());
           try {
             connect(new WebSocket(url));
@@ -675,8 +679,7 @@ export function Arena({
       setNetworkStatus("SIGNAL LOST · RECONNECTING");
       retryTimer = window.setTimeout(() => {
         if (disposed) return;
-        const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-        url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const url = currentWingSocketUrl();
         url.searchParams.set("room", online.roomId.toLowerCase());
         connect(new WebSocket(url));
       }, retryDelay);
@@ -706,7 +709,9 @@ export function Arena({
         powerPreference: "high-performance",
       });
     } catch (err) {
-      setGlError(err instanceof Error ? err.message : "WebGL unavailable");
+      const message = err instanceof Error ? err.message : "WebGL unavailable";
+      setGlError(message);
+      onGraphicsError?.(message);
       return;
     }
     const look =

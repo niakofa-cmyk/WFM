@@ -61,6 +61,7 @@ export type StepInput = {
 };
 
 export type MatchSetup = {
+  shieldMk2?: boolean;
   allyCount?: number;
   foeCount?: number;
   goal?: Goal;
@@ -320,6 +321,11 @@ function craft(ship: ShipId, ai: boolean, team: "you" | "foe", x: number, z: num
 export function createMatch(shipId: ShipId, faction: Faction, refit: number, pace: Pace = "practice", setup: MatchSetup = {}): Match {
   nextId = 1;
   const player = craft(shipId, false, "you", 0, 28, 0, refitMul(refit));
+  if (setup.shieldMk2) {
+    player.baseShield *= 1.25;
+    player.shieldMax *= 1.25;
+    player.shield *= 1.25;
+  }
   const mine = ROSTER[faction];
   const allyIds = mine.filter((id) => id !== shipId);
   while (allyIds.length < 4) allyIds.push(mine[allyIds.length % mine.length]);

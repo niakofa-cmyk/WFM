@@ -7,8 +7,14 @@
  */
 
 export type WorldStateReputation = {
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   accord: number;
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   ussf: number;
 };

@@ -1,16 +1,15 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
+const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string) {
@@ -100,6 +99,12 @@ function PublicLanding() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
+              href="/play"
+              className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+            >
+              TRY SOLO FLIGHT
+            </Link>
+            <Link
               href="/sign-up"
               className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
             >
@@ -131,11 +136,14 @@ function PublicLanding() {
 }
 
 function SignedInGame() {
+  const client = useQueryClient();
+  useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
+      <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
@@ -143,8 +151,20 @@ function SignedInGame() {
   );
 }
 
+function AccountGameEntry() {
+  const { isLoaded, isSignedIn } = useAuth();
+  // Discovery and solo entry remain visible while hosted authentication loads.
+  // Never mount account/progression hooks until the session is confirmed.
+  return isLoaded && isSignedIn ? <SignedInGame /> : <PublicLanding />;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
+  const clerkPubKey = publishableKeyFromHost(
+    window.location.hostname,
+    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  );
+  if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -160,12 +180,7 @@ function Routes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Switch>
-        <Route path="/" component={() => (
-          <>
-            <Show when="signed-in"><SignedInGame /></Show>
-            <Show when="signed-out"><PublicLanding /></Show>
-          </>
-        )} />
+        <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route component={PublicLanding} />
@@ -175,12 +190,16 @@ function Routes() {
 }
 
 function App() {
-  if (!clerkPubKey) {
-    throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
-  }
   return (
     <WouterRouter base={basePath}>
-      <Routes />
+      <Switch>
+        <Route path="/play">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
+            <SoloFlight />
+          </Suspense>
+        </Route>
+        <Route><Routes /></Route>
+      </Switch>
     </WouterRouter>
   );
 }
