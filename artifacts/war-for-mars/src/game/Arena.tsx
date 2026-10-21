@@ -42,6 +42,7 @@ type ArenaProps = {
   faction: Faction;
   scheme: Scheme;
   refit: number;
+  shieldMk2?: boolean;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -474,6 +475,7 @@ export function Arena({
   faction,
   scheme,
   refit,
+  shieldMk2 = false,
   pace,
   goal,
   disc,
@@ -547,7 +549,7 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed });
+      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2 });
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);

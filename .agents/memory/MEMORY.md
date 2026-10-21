@@ -6,3 +6,4 @@
 - [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
 - [Socket shutdown checks](replit-socket-shutdown.md) — direct Node SIGTERM delivers the notice; a managed workflow restart may abruptly close clients instead.
 - [Offline progression](offline-progression-policy.md) — cached worlds are read-only; unresolved action identities survive reloads and remain server-validated.
+- [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.

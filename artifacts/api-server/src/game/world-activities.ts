@@ -1,6 +1,7 @@
 import type { WorldActivity } from "@workspace/api-zod";
 import type { TradeGoodId } from "@workspace/db";
 import { worldEventRules } from "./world-event-rules";
+import { cargoCapacity, cargoFits, cargoUsed, type EconomyUpgrades } from "./economy-rules";
 type Materials = Partial<Record<TradeGoodId, number>>;
 type Definition = {
   id: string; title: string; description: string; daily?: boolean; creditCost?: number; rewardCredits?: number;
@@ -11,6 +12,7 @@ export function buildActivities(context: {
   locationId: string; eventId: string; refit: number; tier: number; standing: number; credits: number;
   inventory: { goodId: string; quantity: number }[]; completed: Set<string>;
   explored: boolean;
+  upgrades: EconomyUpgrades; cleared: number;
 }): WorldActivity[] {
   const { locationId, refit, tier, standing } = context;
   const event = worldEventRules(context.eventId);
@@ -22,6 +24,9 @@ export function buildActivities(context: {
     reputationDelta: 2, rivalReputationDelta: locationId === "rust-disc" ? 0 : event.rivalPenalty,
   });
   if (locationId === "phobos-yard") definitions.push(
+    { id: "shield-mk2", title: "Shield array Mk II", description: "Permanent +25% player shield capacity in solo combat, applied to server replay configuration. Online competitive rooms remain normalized.", costs: { dust: 5, iron: 2 }, creditCost: 1500, reason: context.upgrades.shieldMk2 ? "Already installed." : context.cleared < 1 ? "Clear one campaign sortie first." : undefined },
+    { id: "cargo-expansion", title: "Cargo expansion", description: "Permanently expand the shared material hold from 100 to 150 units. All goods use the same capacity.", costs: { iron: 20 }, creditCost: 2500, reason: context.upgrades.cargoExpansion ? "Already installed." : context.cleared < 1 ? "Clear one campaign sortie first." : undefined },
+    { id: "drive-efficiency", title: "Efficient jump coils", description: "Permanently reduce route fares by 25%, rounded up. Hyperdrive tier 2 and five solar salt/three relic dust required.", costs: { salt: 5, dust: 3 }, creditCost: 500, reason: context.upgrades.driveEfficiency ? "Already installed." : tier < 2 ? "Hyperdrive tier 2 required." : undefined },
     { id: "amnesty", title: "Diplomatic restitution", description: "Pay 80 CR to repair ten points of your faction standing, including when hostile. Return routes to Phobos stay open.", creditCost: 80, reputationDelta: 10, reason: standing >= 0 ? "No restitution is needed." : undefined },
     { id: "refine", title: "Refinery: concentrate relic dust", description: "Consume iron and solar catalyst to produce a hyperdrive/research material.", costs: { iron: 2, salt: 1 }, rewards: { dust: 1 } },
     { id: "material-refit", title: `Material refit ${Math.min(5, refit + 1)}`, description: "Materials halve the standard credit fare. Each level grants +6% hull/shields and +4% weapon damage in solo combat.", costs: { iron: 2, resin: 1, salt: 1 }, creditCost: 60 * (refit + 1), reason: refit >= 5 ? "Refit already at level 5." : undefined },
@@ -52,6 +57,8 @@ export function buildActivities(context: {
   });
   return definitions.map((def) => {
     const costs = holdings(def.costs);
+    const used = cargoUsed(context.inventory);
+    const after = used - cargoUsed(costs) + cargoUsed(holdings(def.rewards));
     const reason = def.reason
       ?? (def.id === "salvage" && !context.explored ? "Log this location's discovery before surveying its salvage." : null)
       ?? (standing <= -50 && def.id !== "amnesty" ? "Hostile standing: use diplomatic restitution at Phobos." : null)
@@ -59,6 +66,7 @@ export function buildActivities(context: {
       ?? (locationId === "outer-fringe" && standing < 10 ? "10 faction standing required for frontier services." : null)
       ?? (locationId === "deep-nebula" && standing < 50 ? "50 faction standing required." : null)
       ?? (def.daily && context.completed.has(def.id) ? "Completed this UTC cycle." : null)
+      ?? (!cargoFits(used, after, cargoCapacity(context.upgrades)) ? "Cargo hold capacity exceeded. Sell or consume materials first." : null)
       ?? (context.credits < (def.creditCost ?? 0) ? "Insufficient credits." : null)
       ?? (costs.some((cost) => (context.inventory.find((item) => item.goodId === cost.goodId)?.quantity ?? 0) < cost.quantity) ? "Required materials missing. Salvage or visit a market." : null);
     const rival = def.rivalReputationDelta ?? 0;

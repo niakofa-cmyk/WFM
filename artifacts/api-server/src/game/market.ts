@@ -16,6 +16,8 @@ import {
 import type { MarketListing, MarketSnapshot, MarketTradeInput } from "@workspace/api-zod";
 import { orderUnitPrice } from "./market-pricing";
 import { worldEventRules } from "./world-event-rules";
+import { cargoCapacity, cargoUsed, cargoFits } from "./economy-rules";
+import { recentRejections, recordRejection } from "./economy-audit";
 
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -178,6 +180,8 @@ function toListing(good: MarketGood, event: UniverseEvent): MarketListing {
       dust: "Research, hyperdrive calibration and restricted contracts.",
       resin: "Medical contracts, material refits and synthesis research.",
     }[good.goodId as TradeGoodId],
+    restricted: worldEventRules(event.eventId).restrictedGoods.includes(good.goodId as TradeGoodId),
+    restrictionReason: worldEventRules(event.eventId).restrictedGoods.includes(good.goodId as TradeGoodId) ? "Relic dust trading is suspended during the dust-lane embargo. Crafting and authorized dispatches remain available." : null,
     stock: good.stock,
     targetStock: good.targetStock,
     demandScore: good.demandScore,
@@ -230,6 +234,8 @@ export async function marketSnapshotInTransaction(
     .limit(12);
   return {
     credits: player.credits,
+    cargoUsed: cargoUsed(holdings), cargoCapacity: cargoCapacity(player),
+    rejections: await recentRejections(tx, userId),
     inventory: GOOD_IDS.map((goodId) => ({
       goodId,
       quantity: holdings.find((row) => row.goodId === goodId)?.quantity ?? 0,
@@ -262,6 +268,14 @@ export async function getMarketSnapshot(userId: string): Promise<MarketSnapshot>
 }
 
 export async function tradeMarket(userId: string, input: MarketTradeInput) {
+  try { return await tradeMarketTransaction(userId, input); }
+  catch (error) {
+    if (error instanceof MarketError) await recordRejection(userId, input.idempotencyKey, "trade", `${input.side}:${input.goodId}`, error.message);
+    throw error;
+  }
+}
+async function tradeMarketTransaction(userId: string, input: MarketTradeInput) {
+  if (!GOOD_IDS.includes(input.goodId) || !["buy", "sell"].includes(input.side)) throw new MarketError("Unknown trade good or transaction side.", 400);
   if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 50) {
     throw new MarketError("Order quantities must be whole numbers from 1 to 50.", 400);
   }
@@ -328,6 +342,7 @@ export async function tradeMarket(userId: string, input: MarketTradeInput) {
     const inventoryBefore = holding?.quantity ?? 0;
     const stockBefore = good.stock;
     const modifierBps = event.marketModifiersBps?.[input.goodId] ?? 10_000;
+    if (worldEventRules(event.eventId).restrictedGoods.includes(input.goodId)) throw new MarketError("Relic dust trading is suspended during this world event. Crafting and authorized dispatches remain available.", 403);
     const unitPrice = orderUnitPrice(good, modifierBps, input.side, input.quantity);
     const total = unitPrice * input.quantity;
     if (input.totalLimit !== undefined && (input.side === "buy" ? total > input.totalLimit : total < input.totalLimit)) {
@@ -339,6 +354,9 @@ export async function tradeMarket(userId: string, input: MarketTradeInput) {
     let demandAfter = good.demandScore;
 
     if (input.side === "buy") {
+      const contents = await tx.select().from(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
+      const used = cargoUsed(contents);
+      if (!cargoFits(used, used + input.quantity, cargoCapacity(profile))) throw new MarketError("Cargo hold capacity exceeded. Sell or consume goods, or install cargo expansion at Phobos.", 400);
       if (stockBefore < input.quantity) throw new MarketError("The station does not have enough stock.", 409);
       if (profile.credits < total) throw new MarketError("Not enough credits for that order.", 400);
       inventoryAfter += input.quantity;

@@ -1,4 +1,5 @@
 import type { InventoryHolding, WorldState } from "@workspace/api-client-react";
+import { RejectedEconomyRequests } from "./RejectedEconomyRequests";
 
 export const repLabel = (value: number) => (value <= -50 ? "HOSTILE" : value >= 50 ? "ALLIED" : value >= 15 ? "FRIENDLY" : "NEUTRAL");
 const names: Record<string, string> = { salt: "Solar salt", iron: "Void iron", dust: "Relic dust", resin: "Med resin" };
@@ -17,7 +18,10 @@ export function UniverseActivities({ world, blocked, onRun }: Props) {
         <p className="font-hud text-xs tracking-[0.2em] text-solar">STATION ACTIVITIES</p>
         <h2 className="mt-1 font-hud text-2xl">{here?.name ?? "Position unconfirmed"}</h2>
         <p className="mt-1 text-xs text-muted">Hyperdrive tier {world.hyperdriveTier} of 3. Cargo: {held || "empty"}.</p>
+        <p data-testid="text-station-cargo" className="mt-2 font-hud text-sm tracking-widest text-solar">HOLD {world.cargoUsed}/{world.cargoCapacity} UNITS</p>
+        <p data-testid="text-installed-upgrades" className="mt-1 text-xs text-bone/80">Installed: {world.installedUpgrades.length ? world.installedUpgrades.map((id) => id.replaceAll("-", " ")).join(" · ") : "No specialist upgrades"}</p>
       </div>
+      <RejectedEconomyRequests rows={world.rejections} />
       {world.activities.length === 0 ? (
         <p className="m-3 border border-dashed border-bone/15 px-4 py-6 text-sm text-muted">No activities are offered at this location. Travel to a station or salvage site.</p>
       ) : (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getGetMarketQueryKey, useGetMarket, type MarketListing, type MarketTransaction } from "@workspace/api-client-react";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
+import { RejectedEconomyRequests } from "./RejectedEconomyRequests";
 
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const itemNames: Record<string, string> = { salt: "Solar salt", iron: "Void iron", dust: "Relic dust", resin: "Med resin" };
@@ -23,7 +24,8 @@ export function MarketPanel({ onCredits }: { onCredits: (credits: number) => voi
       await durable.run({ kind: "market", data: { goodId: listing.goodId, side, quantity, totalLimit } }, `${side === "buy" ? "Buy" : "Sell"} ${quantity} ${listing.name}.`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "No response.";
-      setTradeError(`${msg} The outcome is unknown or the quote moved against you. Review the refreshed quote, then retry.`);
+      const rejected = [400, 403, 404, 409, 422].includes(Number((error as { status?: number })?.status));
+      setTradeError(`${msg} ${rejected ? "This attempt was rejected; no trade was committed. Review the refreshed state." : "Outcome unconfirmed. Retry the retained request, not a new order."}`);
     }
   };
 
@@ -62,6 +64,8 @@ export function MarketPanel({ onCredits }: { onCredits: (credits: number) => voi
         <div className="min-w-32 border-l-2 border-solar pl-3">
           <p className="text-[10px] tracking-[0.18em] text-muted">ACCOUNT LEDGER</p>
           <p data-testid="text-market-credits" className="font-hud text-xl text-solar">{money(market.credits)}</p>
+          <p data-testid="text-cargo-capacity" className={`mt-1 text-xs ${market.cargoUsed > market.cargoCapacity ? "text-alert" : "text-muted"}`}>HOLD {market.cargoUsed}/{market.cargoCapacity} UNITS</p>
+          {market.cargoUsed > market.cargoCapacity && <p className="max-w-48 text-xs text-alert">Existing cargo preserved. Sell or consume goods before buying more.</p>}
         </div>
       </div>
       <div className="border-b border-bone/10 bg-solar/5 px-4 py-3">
@@ -77,8 +81,8 @@ export function MarketPanel({ onCredits }: { onCredits: (credits: number) => voi
           const held = holding(listing.goodId);
           const buyTotal = listing.buyTotals[quantity - 1] ?? 0;
           const sellTotal = listing.sellTotals[quantity - 1] ?? 0;
-          const canBuy = buyTotal > 0 && listing.stock >= quantity && market.credits >= buyTotal;
-          const canSell = held >= quantity;
+          const canBuy = !listing.restricted && buyTotal > 0 && listing.stock >= quantity && market.credits >= buyTotal && market.cargoUsed + quantity <= market.cargoCapacity;
+          const canSell = !listing.restricted && held >= quantity;
           const eventPercent = Math.round((listing.modifierBps - 10_000) / 100);
           return (
             <article key={listing.goodId} data-testid={`card-market-good-${listing.goodId}`} className="border border-bone/12 bg-void/45 p-3">
@@ -86,6 +90,7 @@ export function MarketPanel({ onCredits }: { onCredits: (credits: number) => voi
                 <div>
                   <p className="font-hud text-lg text-bone">{listing.name || itemNames[listing.goodId] || listing.goodId}</p>
                   <p className="text-[10px] text-muted">{listing.purpose}</p>
+                  {listing.restricted && <p data-testid={`restriction-${listing.goodId}`} className="mt-1 text-xs text-alert">{listing.restrictionReason}</p>}
                   <p className="text-xs text-muted">{listing.stock.toLocaleString()} available · you hold {held.toLocaleString()}</p>
                 </div>
                 <div className="text-right">
@@ -127,6 +132,7 @@ export function MarketPanel({ onCredits }: { onCredits: (credits: number) => voi
         })}
       </div>}
       {tradeError ? <p role="alert" data-testid="status-market-error" className="mx-3 mb-3 border border-alert/40 bg-alert/10 px-3 py-2 text-sm text-bone">{tradeError}</p> : null}
+      <RejectedEconomyRequests rows={market.rejections} />
       <div className="border-t border-bone/10 px-4 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="font-hud text-sm tracking-[0.18em] text-solar">RECENT LEDGER</p>

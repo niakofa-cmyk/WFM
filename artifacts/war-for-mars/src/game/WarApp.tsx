@@ -675,6 +675,7 @@ export function WarApp() {
         faction={runFaction}
         scheme={save.scheme}
         refit={runConfig?.refit ?? save.refit}
+        shieldMk2={runConfig?.shieldMk2 ?? save.shieldMk2 ?? false}
         pace={runConfig?.pace ?? pace}
         goal={runGoal}
         disc={runConfig?.disc ?? active?.disc ?? "rust"}

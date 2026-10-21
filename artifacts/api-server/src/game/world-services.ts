@@ -4,8 +4,17 @@ import type { WorldServiceInput, WorldServiceResult } from "@workspace/api-zod";
 import { findActionEvent, lockedPlayerRows, worldSnapshotInTransaction, WorldError } from "./world";
 import { clampStanding } from "./world-rules";
 import { migrateLegacyCargo } from "./market";
+import { cargoCapacity, cargoFits, cargoUsed } from "./economy-rules";
+import { recordRejection } from "./economy-audit";
 
 export async function executeWorldService(userId: string, input: WorldServiceInput): Promise<WorldServiceResult> {
+  try { return await executeServiceTransaction(userId, input); }
+  catch (error) {
+    if (error instanceof WorldError) await recordRejection(userId, input.idempotencyKey, "service", `${input.locationId}:${input.serviceId}`, error.message);
+    throw error;
+  }
+}
+async function executeServiceTransaction(userId: string, input: WorldServiceInput): Promise<WorldServiceResult> {
   return db.transaction(async (tx) => {
     const locked = await lockedPlayerRows(tx, userId);
     const profile = await migrateLegacyCargo(tx, locked.profile);
@@ -27,6 +36,10 @@ export async function executeWorldService(userId: string, input: WorldServiceInp
     if (input.creditLimit !== undefined && activity.creditCost > input.creditLimit) throw new WorldError("Service cost changed. Review the current material and credit requirements.", 409);
     const credits = profile.credits - activity.creditCost + activity.rewardCredits;
     if (credits < 0 || credits > 2_000_000_000) throw new WorldError("That action exceeds the permitted credit balance.", 400);
+    const inventory = await tx.select().from(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
+    const before = cargoUsed(inventory);
+    const after = before - cargoUsed(activity.costs) + cargoUsed(activity.rewards);
+    if (!cargoFits(before, after, cargoCapacity(profile))) throw new WorldError("Cargo hold capacity exceeded. Sell or consume goods before recovering more.", 400);
     for (const goodId of ["dust", "iron", "resin", "salt"] as TradeGoodId[]) {
       const cost = activity.costs.find((item) => item.goodId === goodId)?.quantity ?? 0;
       const reward = activity.rewards.find((item) => item.goodId === goodId)?.quantity ?? 0;
@@ -46,7 +59,13 @@ export async function executeWorldService(userId: string, input: WorldServiceInp
     const own = profile.faction === "ussf" ? "ussfReputation" : "accordReputation";
     const rival = own === "ussfReputation" ? "accordReputation" : "ussfReputation";
     const refit = input.serviceId === "material-refit" ? profile.refit + 1 : profile.refit;
-    await tx.update(playerProgressTable).set({ credits, refit, revision: profile.revision + 1, updatedAt: new Date() }).where(eq(playerProgressTable.userId, userId));
+    await tx.update(playerProgressTable).set({
+      credits, refit,
+      shieldMk2: profile.shieldMk2 || input.serviceId === "shield-mk2",
+      cargoExpansion: profile.cargoExpansion || input.serviceId === "cargo-expansion",
+      driveEfficiency: profile.driveEfficiency || input.serviceId === "drive-efficiency",
+      revision: profile.revision + 1, updatedAt: new Date(),
+    }).where(eq(playerProgressTable.userId, userId));
     await tx.update(playerWorldStateTable).set({
       [own]: clampStanding(world[own] + activity.reputationDelta),
       [rival]: clampStanding(world[rival] + activity.rivalReputationDelta),

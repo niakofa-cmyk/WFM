@@ -37,6 +37,7 @@ export type GameProfile = {
   shipId: ShipId;
   scheme: "arc" | "strafe";
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   hold: GoodId | null;
   paid: number;
@@ -96,6 +97,7 @@ function toProfile(row: PlayerProgress): GameProfile {
     shipId: row.shipId as ShipId,
     scheme: row.scheme as GameProfile["scheme"],
     refit: row.refit,
+    shieldMk2: row.shieldMk2,
     prices: row.prices,
     hold: row.hold as GoodId | null,
     paid: row.paid,
@@ -174,6 +176,7 @@ export async function startPlayerStrike(userId: string, input: StrikeStartInput)
       shipId: input.shipId,
       faction: input.faction,
       refit: current.refit,
+      shieldMk2: current.shieldMk2,
       ...missionConfig,
       pace,
       tech: input.tech,

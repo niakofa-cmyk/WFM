@@ -125,7 +125,7 @@ export function ActionRecovery() {
 
 export function useOfflineSnapshot<T>(name: string, fresh: T | undefined, stale = false) {
   const { user } = useUser();
-  const key = user ? `wfm:read-only:v1:${user.id}:${name}` : "";
+  const key = user ? `wfm:read-only:v2:${user.id}:${name}` : "";
   const cached = useMemo(() => {
     try { return key ? JSON.parse(localStorage.getItem(key) || "null") as T | null : null; } catch { return null; }
   }, [key]);

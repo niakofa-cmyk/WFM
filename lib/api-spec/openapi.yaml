@@ -331,13 +331,14 @@ components:
       required: [status, database]
     GameProfile:
       type: object
-      required: [credits, faction, shipId, scheme, refit, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
+      required: [credits, faction, shipId, scheme, refit, shieldMk2, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
       properties:
         credits: { type: integer, minimum: 0 }
         faction: { type: string, enum: [accord, ussf] }
         shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
         scheme: { type: string, enum: [arc, strafe] }
         refit: { type: integer, minimum: 0, maximum: 5 }
+        shieldMk2: { type: boolean }
         prices: { $ref: "#/components/schemas/MarketPrices" }
         hold: { type: [string, "null"], enum: [salt, iron, dust, resin, null] }
         paid: { type: integer, minimum: 0 }
@@ -393,6 +394,7 @@ components:
             shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
             faction: { type: string, enum: [accord, ussf] }
             refit: { type: integer, minimum: 0, maximum: 5 }
+            shieldMk2: { type: boolean }
             pace: { type: string, enum: [practice, strike] }
             goal: { type: string, enum: [disc, beacons, ace, extract] }
             disc: { type: string, enum: [rust, beacon, night, dust] }
@@ -470,6 +472,8 @@ components:
         price: { type: integer, minimum: 1 }
         sellPrice: { type: integer, minimum: 1 }
         purpose: { type: string }
+        restricted: { type: boolean }
+        restrictionReason: { type: ["string", "null"] }
         buyTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
         sellTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
         stock: { type: integer, minimum: 0 }
@@ -514,9 +518,12 @@ components:
         endsAt: { type: string, format: date-time }
     MarketSnapshot:
       type: object
-      required: [credits, inventory, listings, transactions, event]
+      required: [credits, inventory, listings, transactions, event, cargoUsed, cargoCapacity, rejections]
       properties:
         credits: { type: integer, minimum: 0 }
+        cargoUsed: { type: integer, minimum: 0 }
+        cargoCapacity: { type: integer, minimum: 1 }
+        rejections: { type: array, items: { $ref: "#/components/schemas/EconomyRejection" } }
         inventory:
           type: array
           items: { $ref: "#/components/schemas/InventoryHolding" }
@@ -568,9 +575,13 @@ components:
         reputationReward: { type: integer, minimum: 0 }
     WorldState:
       type: object
-      required: [event, reputation, currentLocation, routes, locations, discoveries, quests, hyperdriveTier, inventory, activities, history]
+      required: [event, reputation, currentLocation, routes, locations, discoveries, quests, hyperdriveTier, inventory, activities, history, cargoUsed, cargoCapacity, installedUpgrades, rejections]
       properties:
         hyperdriveTier: { type: integer, minimum: 1, maximum: 3 }
+        cargoUsed: { type: integer, minimum: 0 }
+        cargoCapacity: { type: integer, minimum: 1 }
+        installedUpgrades: { type: array, items: { type: string, enum: [shield-mk2, cargo-expansion, drive-efficiency] } }
+        rejections: { type: array, items: { $ref: "#/components/schemas/EconomyRejection" } }
         inventory: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
         activities: { type: array, items: { $ref: "#/components/schemas/WorldActivity" } }
         history: { type: array, items: { $ref: "#/components/schemas/WorldActivityRecord" } }
@@ -662,6 +673,15 @@ components:
         rewards: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
         reputationDelta: { type: integer }
         rivalReputationDelta: { type: integer }
+    EconomyRejection:
+      type: object
+      required: [id, action, targetId, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string, enum: [trade, service] }
+        targetId: { type: string }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
     WorldActivityRecord:
       type: object
       required: [id, title, creditsDelta, createdAt]

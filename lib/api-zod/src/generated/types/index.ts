@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './economyRejection';
+export * from './economyRejectionAction';
 export * from './exploreLocationResult';
 export * from './gameProfile';
 export * from './gameProfileFaction';
@@ -69,6 +71,7 @@ export * from './worldRoute';
 export * from './worldServiceInput';
 export * from './worldServiceResult';
 export * from './worldState';
+export * from './worldStateInstalledUpgradesItem';
 export * from './worldStateReputation';
 export * from './worldTravelInput';
 export * from './worldTravelResult';

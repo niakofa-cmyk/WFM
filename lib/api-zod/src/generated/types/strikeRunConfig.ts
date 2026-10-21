@@ -21,6 +21,7 @@ export type StrikeRunConfig = {
      * @maximum 5
      */
   refit: number;
+  shieldMk2?: boolean;
   pace: StrikeRunConfigPace;
   goal: StrikeRunConfigGoal;
   disc: StrikeRunConfigDisc;

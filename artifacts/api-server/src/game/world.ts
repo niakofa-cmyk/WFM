@@ -19,6 +19,8 @@ import type {
 import { ensureCurrentWorldEvent, type DbTransaction } from "./market";
 import { buildActivities } from "./world-activities";
 import { clampStanding, gateReason, requirements, routeFare, returnLane } from "./world-rules";
+import { adjustedFare, cargoCapacity, cargoUsed, installedUpgrades } from "./economy-rules";
+import { recentRejections } from "./economy-audit";
 import { worldEventRules } from "./world-event-rules";
 
 type LocationDefinition = WorldState["locations"][number];
@@ -219,7 +221,7 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     if (!destination) throw new Error(`World route points to unknown location ${route.destinationId}.`);
     return {
       ...route,
-      costCredits: routeFare(destination.id, route.costCredits, event.eventId),
+      costCredits: adjustedFare(routeFare(destination.id, route.costCredits, event.eventId), profile.driveEfficiency),
       available: !gateReason(destination, profile.cleared, world.hyperdriveTier, returnLane(world.currentLocation, destination.id) ? 100 : profile.faction === "ussf" ? world.ussfReputation : world.accordReputation),
     };
   });
@@ -247,12 +249,15 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     .orderBy(desc(progressionEventsTable.createdAt)).limit(20);
   return {
     hyperdriveTier: world.hyperdriveTier,
+    cargoUsed: cargoUsed(inventory), cargoCapacity: cargoCapacity(profile), installedUpgrades: installedUpgrades(profile),
+    rejections: await recentRejections(tx, userId),
     inventory: inventory.map(({ goodId, quantity }) => ({ goodId: goodId as "salt" | "iron" | "dust" | "resin", quantity })),
     activities: buildActivities({
       locationId: world.currentLocation, eventId: event.eventId, refit: profile.refit, tier: world.hyperdriveTier,
       standing: profile.faction === "ussf" ? world.ussfReputation : world.accordReputation, credits: profile.credits,
       inventory, completed: new Set(completedRows.map((row) => String(row.result.serviceId))),
       explored: discoveredIds.has(world.currentLocation),
+      upgrades: profile, cleared: profile.cleared,
     }),
     history: history.map((row) => ({ id: row.id, title: String(row.result.title ?? "World activity"), creditsDelta: row.amount, createdAt: row.createdAt })),
     event: eventResponse(event),
@@ -330,7 +335,7 @@ export async function travelToWorldLocation(
     const event = await ensureCurrentWorldEvent(tx);
     const reason = gateReason(destination, profile.cleared, world.hyperdriveTier, returnLane(world.currentLocation, destination.id) ? 100 : profile.faction === "ussf" ? world.ussfReputation : world.accordReputation);
     if (reason) throw new WorldError(reason, 400);
-    const fare = routeFare(destinationId, route.costCredits, event.eventId);
+    const fare = adjustedFare(routeFare(destinationId, route.costCredits, event.eventId), profile.driveEfficiency);
     if (maxCost !== undefined && fare > maxCost) throw new WorldError("The route fare changed. Review the current fare before travelling.", 409);
     if (profile.credits < fare) {
       throw new WorldError("You do not have enough credits to pay the route fare.", 400);

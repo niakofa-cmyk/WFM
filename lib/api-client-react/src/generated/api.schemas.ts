@@ -118,6 +118,7 @@ export interface GameProfile {
      * @maximum 5
      */
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   /** @nullable */
   hold: GameProfileHold;
@@ -321,6 +322,7 @@ export type StrikeRunConfig = {
      * @maximum 5
      */
   refit: number;
+  shieldMk2?: boolean;
   pace: StrikeRunConfigPace;
   goal: StrikeRunConfigGoal;
   disc: StrikeRunConfigDisc;
@@ -475,6 +477,9 @@ export interface MarketListing {
   /** @minimum 1 */
   sellPrice: number;
   purpose: string;
+  restricted?: boolean;
+  /** @nullable */
+  restrictionReason?: string | null;
   /**
      * @minItems 50
      * @maxItems 50
@@ -559,9 +564,30 @@ export interface WorldEvent {
   endsAt: string;
 }
 
+export type EconomyRejectionAction = typeof EconomyRejectionAction[keyof typeof EconomyRejectionAction];
+
+
+export const EconomyRejectionAction = {
+  trade: 'trade',
+  service: 'service',
+} as const;
+
+export interface EconomyRejection {
+  id: string;
+  action: EconomyRejectionAction;
+  targetId: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface MarketSnapshot {
   /** @minimum 0 */
   credits: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  rejections: EconomyRejection[];
   inventory: InventoryHolding[];
   listings: MarketListing[];
   transactions: MarketTransaction[];
@@ -642,6 +668,15 @@ export interface WorldQuest {
   reputationReward: number;
 }
 
+export type WorldStateInstalledUpgradesItem = typeof WorldStateInstalledUpgradesItem[keyof typeof WorldStateInstalledUpgradesItem];
+
+
+export const WorldStateInstalledUpgradesItem = {
+  'shield-mk2': 'shield-mk2',
+  'cargo-expansion': 'cargo-expansion',
+  'drive-efficiency': 'drive-efficiency',
+} as const;
+
 export type WorldStateReputation = {
   /**
      * @minimum -100
@@ -694,6 +729,12 @@ export interface WorldState {
      * @maximum 3
      */
   hyperdriveTier: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  installedUpgrades: WorldStateInstalledUpgradesItem[];
+  rejections: EconomyRejection[];
   inventory: InventoryHolding[];
   activities: WorldActivity[];
   history: WorldActivityRecord[];

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import {
   db, pool, marketGoodsTable, marketTransactionsTable, playerInventoryTable, playerProgressTable,
   playerWorldStateTable, playerQuestsTable, worldDiscoveriesTable, progressionEventsTable,
+  economyRejectionsTable,
 } from "@workspace/db";
 import { getMarketSnapshot, tradeMarket, ensureCurrentWorldEvent, MarketError } from "./market";
 import { getWorldSnapshot, travelToWorldLocation, exploreWorldLocation, WorldError } from "./world";
@@ -13,7 +14,7 @@ import { worldEventRules } from "./world-event-rules";
 
 after(async () => { await pool.end(); });
 async function cleanup(userId: string) {
-  for (const table of [marketTransactionsTable, playerInventoryTable, playerQuestsTable, worldDiscoveriesTable, progressionEventsTable, playerWorldStateTable, playerProgressTable]) {
+  for (const table of [economyRejectionsTable, marketTransactionsTable, playerInventoryTable, playerQuestsTable, worldDiscoveriesTable, progressionEventsTable, playerWorldStateTable, playerProgressTable]) {
     await db.delete(table).where(eq(table.userId, userId));
   }
 }
@@ -46,7 +47,10 @@ test("salvage, material refits, hyperdrive gates, contracts and black-market con
     await assert.rejects(tradeMarket(user, { idempotencyKey: randomUUID(), goodId: "iron", side: "buy", quantity: 1 }), /Travel to Phobos/);
     await travelToWorldLocation(user, "phobos-yard", randomUUID());
     for (const [goodId, quantity] of [["iron", 10], ["salt", 10], ["dust", 10], ["resin", 6]] as const) {
-      await tradeMarket(user, { idempotencyKey: randomUUID(), goodId, side: "buy", quantity });
+      const listing = (await getMarketSnapshot(user)).listings.find((item) => item.goodId === goodId)!;
+      // Fixture material avoids asserting that an embargoed good is publicly tradable.
+      if (listing.restricted) await db.insert(playerInventoryTable).values({ userId: user, goodId, quantity }).onConflictDoUpdate({ target: [playerInventoryTable.userId, playerInventoryTable.goodId], set: { quantity: quantity + 1 } });
+      else await tradeMarket(user, { idempotencyKey: randomUUID(), goodId, side: "buy", quantity });
     }
     await service("refine", "phobos-yard");
     const refitKey = randomUUID();

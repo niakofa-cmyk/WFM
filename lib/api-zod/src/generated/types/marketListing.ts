@@ -17,6 +17,9 @@ export interface MarketListing {
   /** @minimum 1 */
   sellPrice: number;
   purpose: string;
+  restricted?: boolean;
+  /** @nullable */
+  restrictionReason?: string | null;
   /**
      * @minItems 50
      * @maxItems 50

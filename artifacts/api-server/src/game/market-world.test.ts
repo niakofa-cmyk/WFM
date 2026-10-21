@@ -13,6 +13,7 @@ import {
   progressionEventsTable,
   pool,
   worldDiscoveriesTable,
+  economyRejectionsTable,
 } from "@workspace/db";
 import { MarketError, getMarketSnapshot, tradeMarket } from "./market";
 import {
@@ -28,6 +29,7 @@ after(async () => {
 });
 
 async function cleanUser(userId: string) {
+  await db.delete(economyRejectionsTable).where(eq(economyRejectionsTable.userId, userId));
   await db.delete(marketTransactionsTable).where(eq(marketTransactionsTable.userId, userId));
   await db.delete(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
   await db.delete(playerQuestsTable).where(eq(playerQuestsTable.userId, userId));

@@ -53,6 +53,7 @@ export const GetGameProfileResponse = zod.object({
   "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(getGameProfileResponseRefitMin).max(getGameProfileResponseRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -103,6 +104,7 @@ export const ApplyProgressionActionResponse = zod.object({
   "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(applyProgressionActionResponseProfileRefitMin).max(applyProgressionActionResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -175,6 +177,7 @@ export const StartStrikeResponse = zod.object({
   "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(startStrikeResponseProfileRefitMin).max(startStrikeResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -194,6 +197,7 @@ export const StartStrikeResponse = zod.object({
   "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
   "faction": zod.enum(['accord', 'ussf']),
   "refit": zod.number().int().min(startStrikeResponseConfigRefitMin).max(startStrikeResponseConfigRefitMax),
+  "shieldMk2": zod.boolean().optional(),
   "pace": zod.enum(['practice', 'strike']),
   "goal": zod.enum(['disc', 'beacons', 'ace', 'extract']),
   "disc": zod.enum(['rust', 'beacon', 'night', 'dust']),
@@ -303,6 +307,7 @@ export const ClaimStrikeResponse = zod.object({
   "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(claimStrikeResponseProfileRefitMin).max(claimStrikeResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -326,6 +331,9 @@ export const ClaimStrikeResponse = zod.object({
  * @summary Get the shared station market and the player's holdings
  */
 export const getMarketResponseCreditsMin = 0;
+
+export const getMarketResponseCargoUsedMin = 0;
+
 
 export const getMarketResponseInventoryItemQuantityMin = 0;
 
@@ -373,6 +381,15 @@ export const getMarketResponseTransactionsItemMarketRevisionMin = 0;
 
 export const GetMarketResponse = zod.object({
   "credits": zod.number().int().min(getMarketResponseCreditsMin),
+  "cargoUsed": zod.number().int().min(getMarketResponseCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(getMarketResponseInventoryItemQuantityMin)
@@ -384,6 +401,8 @@ export const GetMarketResponse = zod.object({
   "price": zod.number().int().min(1),
   "sellPrice": zod.number().int().min(1),
   "purpose": zod.string(),
+  "restricted": zod.boolean().optional(),
+  "restrictionReason": zod.string().nullish(),
   "buyTotals": zod.array(zod.number().int().min(1)).min(getMarketResponseListingsItemBuyTotalsMin).max(getMarketResponseListingsItemBuyTotalsMax),
   "sellTotals": zod.array(zod.number().int().min(1)).min(getMarketResponseListingsItemSellTotalsMin).max(getMarketResponseListingsItemSellTotalsMax),
   "stock": zod.number().int().min(getMarketResponseListingsItemStockMin),
@@ -437,6 +456,9 @@ export const TradeMarketBody = zod.object({
 })
 
 export const tradeMarketResponseMarketCreditsMin = 0;
+
+export const tradeMarketResponseMarketCargoUsedMin = 0;
+
 
 export const tradeMarketResponseMarketInventoryItemQuantityMin = 0;
 
@@ -503,6 +525,15 @@ export const tradeMarketResponseTransactionMarketRevisionMin = 0;
 export const TradeMarketResponse = zod.object({
   "market": zod.object({
   "credits": zod.number().int().min(tradeMarketResponseMarketCreditsMin),
+  "cargoUsed": zod.number().int().min(tradeMarketResponseMarketCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(tradeMarketResponseMarketInventoryItemQuantityMin)
@@ -514,6 +545,8 @@ export const TradeMarketResponse = zod.object({
   "price": zod.number().int().min(1),
   "sellPrice": zod.number().int().min(1),
   "purpose": zod.string(),
+  "restricted": zod.boolean().optional(),
+  "restrictionReason": zod.string().nullish(),
   "buyTotals": zod.array(zod.number().int().min(1)).min(tradeMarketResponseMarketListingsItemBuyTotalsMin).max(tradeMarketResponseMarketListingsItemBuyTotalsMax),
   "sellTotals": zod.array(zod.number().int().min(1)).min(tradeMarketResponseMarketListingsItemSellTotalsMin).max(tradeMarketResponseMarketListingsItemSellTotalsMax),
   "stock": zod.number().int().min(tradeMarketResponseMarketListingsItemStockMin),
@@ -583,6 +616,9 @@ export const ExecuteWorldServiceBody = zod.object({
 
 export const executeWorldServiceResponseWorldHyperdriveTierMax = 3;
 
+export const executeWorldServiceResponseWorldCargoUsedMin = 0;
+
+
 export const executeWorldServiceResponseWorldInventoryItemQuantityMin = 0;
 
 export const executeWorldServiceResponseWorldActivitiesItemCreditCostMin = 0;
@@ -627,6 +663,16 @@ export const executeWorldServiceResponseRefitMax = 5;
 export const ExecuteWorldServiceResponse = zod.object({
   "world": zod.object({
   "hyperdriveTier": zod.number().int().min(1).max(executeWorldServiceResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(executeWorldServiceResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(executeWorldServiceResponseWorldInventoryItemQuantityMin)
@@ -716,6 +762,9 @@ export const ExecuteWorldServiceResponse = zod.object({
  */
 export const getWorldResponseHyperdriveTierMax = 3;
 
+export const getWorldResponseCargoUsedMin = 0;
+
+
 export const getWorldResponseInventoryItemQuantityMin = 0;
 
 export const getWorldResponseActivitiesItemCreditCostMin = 0;
@@ -754,6 +803,16 @@ export const getWorldResponseQuestsItemReputationRewardMin = 0;
 
 export const GetWorldResponse = zod.object({
   "hyperdriveTier": zod.number().int().min(1).max(getWorldResponseHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(getWorldResponseCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(getWorldResponseInventoryItemQuantityMin)
@@ -848,6 +907,9 @@ export const TravelWorldBody = zod.object({
 
 export const travelWorldResponseWorldHyperdriveTierMax = 3;
 
+export const travelWorldResponseWorldCargoUsedMin = 0;
+
+
 export const travelWorldResponseWorldInventoryItemQuantityMin = 0;
 
 export const travelWorldResponseWorldActivitiesItemCreditCostMin = 0;
@@ -891,6 +953,16 @@ export const travelWorldResponseTravelCostMin = 0;
 export const TravelWorldResponse = zod.object({
   "world": zod.object({
   "hyperdriveTier": zod.number().int().min(1).max(travelWorldResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(travelWorldResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(travelWorldResponseWorldInventoryItemQuantityMin)
@@ -987,6 +1059,9 @@ export const ExploreLocationBody = zod.object({
 
 export const exploreLocationResponseWorldHyperdriveTierMax = 3;
 
+export const exploreLocationResponseWorldCargoUsedMin = 0;
+
+
 export const exploreLocationResponseWorldInventoryItemQuantityMin = 0;
 
 export const exploreLocationResponseWorldActivitiesItemCreditCostMin = 0;
@@ -1028,6 +1103,16 @@ export const exploreLocationResponseReputationGainMin = 0;
 export const ExploreLocationResponse = zod.object({
   "world": zod.object({
   "hyperdriveTier": zod.number().int().min(1).max(exploreLocationResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(exploreLocationResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(exploreLocationResponseWorldInventoryItemQuantityMin)
@@ -1124,6 +1209,9 @@ export const ActOnWorldQuestBody = zod.object({
 
 export const actOnWorldQuestResponseWorldHyperdriveTierMax = 3;
 
+export const actOnWorldQuestResponseWorldCargoUsedMin = 0;
+
+
 export const actOnWorldQuestResponseWorldInventoryItemQuantityMin = 0;
 
 export const actOnWorldQuestResponseWorldActivitiesItemCreditCostMin = 0;
@@ -1167,6 +1255,16 @@ export const actOnWorldQuestResponseRewardCreditsMin = 0;
 export const ActOnWorldQuestResponse = zod.object({
   "world": zod.object({
   "hyperdriveTier": zod.number().int().min(1).max(actOnWorldQuestResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(actOnWorldQuestResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(actOnWorldQuestResponseWorldInventoryItemQuantityMin)
