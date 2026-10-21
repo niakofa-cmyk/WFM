@@ -107,6 +107,21 @@ test("lost focus clears held keys, both sticks, and latched buttons", () => {
   assert.equal(bus.override, null);
 });
 
+test("missing sensor APIs and insecure pages retain touch-only controls", async () => {
+  const fixture = installOrientationWindow("granted");
+  try {
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: false });
+    assert.equal(await armGyro(), false);
+    assert.equal(fixture.added(), 0);
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
+    Object.defineProperty(window, "DeviceOrientationEvent", { configurable: true, value: undefined });
+    assert.equal(await armGyro(), false);
+    assert.equal(fixture.added(), 0);
+  } finally {
+    fixture.restore();
+  }
+});
+
 test("gyro denial keeps touch steering available and does not retain sensor listeners", async () => {
   const fake = installOrientationWindow("denied");
   try {

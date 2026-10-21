@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
+import { currentWingSocketUrl } from "./socket-endpoint";
 import {
   defaultSave,
   loadDevicePreferences,
@@ -178,8 +179,7 @@ export function WarApp() {
     setOfflineAvailable(false);
     let url: URL;
     try {
-      url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-      url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      url = currentWingSocketUrl();
       url.searchParams.set("room", normalizedRoomCode.toLowerCase());
       const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
       window.history.replaceState({}, "", roomPath);

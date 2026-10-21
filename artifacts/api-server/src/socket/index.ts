@@ -1,4 +1,5 @@
 import { startWingSocketServer } from "./server";
+import { parseSocketOrigins } from "./origin-policy";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -7,7 +8,9 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const runtime = await startWingSocketServer(port);
+const runtime = await startWingSocketServer(port, "0.0.0.0", {
+  allowedOrigins: parseSocketOrigins(process.env.WING_ALLOWED_ORIGINS),
+});
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 
 async function shutdown() {

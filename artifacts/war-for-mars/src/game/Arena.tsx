@@ -4,6 +4,7 @@ import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxF
 import "./controls-probe";
 import { clearInput, createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
+import { currentWingSocketUrl } from "./socket-endpoint";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
@@ -658,8 +659,7 @@ export function Arena({
         setNetworkStatus("SIGNAL LOST · RECONNECTING");
         retryTimer = window.setTimeout(() => {
           if (disposed) return;
-          const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-          url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          const url = currentWingSocketUrl();
           url.searchParams.set("room", online.roomId.toLowerCase());
           try {
             connect(new WebSocket(url));
@@ -677,8 +677,7 @@ export function Arena({
       setNetworkStatus("SIGNAL LOST · RECONNECTING");
       retryTimer = window.setTimeout(() => {
         if (disposed) return;
-        const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-        url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const url = currentWingSocketUrl();
         url.searchParams.set("room", online.roomId.toLowerCase());
         connect(new WebSocket(url));
       }, retryDelay);

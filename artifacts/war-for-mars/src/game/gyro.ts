@@ -40,6 +40,10 @@ export function disarmGyro() {
 
 export async function armGyro(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+  if (window.isSecureContext === false || typeof window.DeviceOrientationEvent === "undefined") {
+    disarmGyro();
+    return false;
+  }
   const ctor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
     requestPermission?: () => Promise<string>;
   };

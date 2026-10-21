@@ -16,3 +16,11 @@ Keep Replit for development and private staging. Evaluate Railway as a candidate
 **Why:** the user wants to preserve the existing Replit development and staging work and choose production hosting based on measured connection stability, capacity, resource needs, cost, and recovery behavior.
 
 **How to apply:** prepare isolated backend trials before choosing production hosting. A cleanup approval is not permission to switch a production environment to unverified staging code, migrate the frontend, or reuse production credentials.
+
+## Distribution goals
+
+Single-player and real-time multiplayer are two modes of the same game. Use the browser version for discovery and try-now access; downloadable Android and iOS applications are the long-term product. Share gameplay and multiplayer infrastructure where practical rather than maintaining three games.
+
+**Why:** the user selected browser play plus mobile applications and asked to preserve one game ecosystem.
+
+**How to apply:** progress from development and private staging through browser launch, mobile beta and public mobile release. Adapt platform controls/features without assuming the browser build or a website wrapper is already suitable for app-store release.

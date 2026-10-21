@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
+import { socketOriginAllowed } from "./origin-policy";
 import {
   createWing,
   DISCONNECT_GRACE_MS,
@@ -45,7 +46,7 @@ const MAX_INPUTS_PER_SECOND = 45;
 export async function startWingSocketServer(
   port: number,
   host = "0.0.0.0",
-  options: { tickIntervalMs?: number; snapshotIntervalMs?: number } = {},
+  options: { tickIntervalMs?: number; snapshotIntervalMs?: number; allowedOrigins?: ReadonlySet<string> } = {},
 ) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
@@ -69,6 +70,10 @@ export async function startWingSocketServer(
   const roomIds = new WeakMap<WebSocket, string>();
 
   httpServer.on("upgrade", (request, socket, head) => {
+    if (!socketOriginAllowed(request.headers.origin, options.allowedOrigins)) {
+      rejectUpgrade(socket, "403 Forbidden");
+      return;
+    }
     let url: URL;
     try {
       url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);

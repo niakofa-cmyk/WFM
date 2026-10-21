@@ -7,12 +7,9 @@ import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
+const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string) {
@@ -102,6 +99,12 @@ function PublicLanding() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
+              href="/play"
+              className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+            >
+              TRY SOLO FLIGHT
+            </Link>
+            <Link
               href="/sign-up"
               className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
             >
@@ -150,6 +153,11 @@ function SignedInGame() {
 
 function Routes() {
   const [, setLocation] = useLocation();
+  const clerkPubKey = publishableKeyFromHost(
+    window.location.hostname,
+    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  );
+  if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -180,12 +188,16 @@ function Routes() {
 }
 
 function App() {
-  if (!clerkPubKey) {
-    throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
-  }
   return (
     <WouterRouter base={basePath}>
-      <Routes />
+      <Switch>
+        <Route path="/play">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
+            <SoloFlight />
+          </Suspense>
+        </Route>
+        <Route><Routes /></Route>
+      </Switch>
     </WouterRouter>
   );
 }
