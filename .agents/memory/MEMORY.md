@@ -7,3 +7,4 @@
 - [Socket shutdown checks](replit-socket-shutdown.md) — direct Node SIGTERM delivers the notice; a managed workflow restart may abruptly close clients instead.
 - [Offline progression](offline-progression-policy.md) — cached worlds are read-only; unresolved action identities survive reloads and remain server-validated.
 - [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
+- [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
