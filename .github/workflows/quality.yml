@@ -62,3 +62,43 @@ jobs:
         run: pnpm test
       - name: Build all artifacts
         run: pnpm run build
+
+  verify-staging-evidence:
+    name: Verify staging evidence
+    needs: verify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out pull request source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify live staging evidence
+        if: github.head_ref == 'staging'
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/verify-staging-promotion.mjs
+      - name: Test build-only gate rules
+        if: github.head_ref != 'staging'
+        run: node --test scripts/verify-build-only-promotion.test.mjs
+      - name: Verify pnpm-only build change
+        if: github.head_ref != 'staging'
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/verify-build-only-promotion.mjs
+      - name: Set up pinned pnpm
+        if: github.head_ref != 'staging'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - name: Verify frozen workspace install
+        if: github.head_ref != 'staging'
+        run: pnpm install --frozen-lockfile
