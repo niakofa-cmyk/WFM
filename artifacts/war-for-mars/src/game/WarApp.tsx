@@ -3,6 +3,11 @@ import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import {
+  CLIENT_RECONNECT_WINDOW_MS,
+  SOCKET_HANDSHAKE_TIMEOUT_MS,
+  nextReconnectDelayMs,
+} from "./reconnect-policy";
+import {
   defaultSave,
   loadDevicePreferences,
   refitCost,
@@ -104,11 +109,14 @@ export function WarApp() {
   );
   const joinSocketRef = useRef<WebSocket | null>(null);
   const joinTimeoutRef = useRef<number | null>(null);
+  const joinAttemptTimeoutRef = useRef<number | null>(null);
   const lobbyRetryRef = useRef<number | null>(null);
 
   const failOnline = (reason: string) => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
     joinTimeoutRef.current = null;
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
+    joinAttemptTimeoutRef.current = null;
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     lobbyRetryRef.current = null;
     joinSocketRef.current?.close();
@@ -191,20 +199,65 @@ export function WarApp() {
       }
       let joined = false;
       let started = false;
-      let retries = 0;
+      let retryAttempt = 0;
+      const initialJoinDeadline = performance.now() + 5_000;
+      let reconnectDeadline = 0;
       let mySlotId: number | null = null;
       let myTeam: 0 | 1 = 0;
+      const clearAttemptTimeout = () => {
+        if (joinAttemptTimeoutRef.current != null) {
+          window.clearTimeout(joinAttemptTimeoutRef.current);
+        }
+        joinAttemptTimeoutRef.current = null;
+      };
+      const scheduleRetry = () => {
+        if (started) return;
+        const now = performance.now();
+        if (joined && reconnectDeadline === 0) {
+          reconnectDeadline = now + CLIENT_RECONNECT_WINDOW_MS;
+        }
+        const deadline = joined ? reconnectDeadline : initialJoinDeadline;
+        const delay = nextReconnectDelayMs(retryAttempt++, deadline, now);
+        if (delay == null) {
+          if (joined) {
+            failOnline("Signal was not restored before the room's reconnect hold expired. Rejoin the room.");
+          }
+          return;
+        }
+        if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+        lobbyRetryRef.current = window.setTimeout(() => {
+          lobbyRetryRef.current = null;
+          connect(url);
+        }, delay);
+      };
       joinTimeoutRef.current = window.setTimeout(() => {
         if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
       }, 5000);
 
       const connect = (targetUrl: URL) => {
-        if (started || retries > 5) return;
-        const socket = new WebSocket(targetUrl);
+        if (started) return;
+        let socket: WebSocket;
+        try {
+          socket = new WebSocket(targetUrl);
+        } catch {
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          scheduleRetry();
+          return;
+        }
         joinSocketRef.current = socket;
+        clearAttemptTimeout();
+        joinAttemptTimeoutRef.current = window.setTimeout(() => {
+          if (joinSocketRef.current !== socket || started) return;
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          socket.close();
+        }, SOCKET_HANDSHAKE_TIMEOUT_MS);
         socket.addEventListener("open", () => {
           if (joinSocketRef.current !== socket) return;
-          socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+          try {
+            socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+          } catch {
+            socket.close();
+          }
         });
         socket.addEventListener("message", (event) => {
           let packet: { type?: string; [key: string]: unknown };
@@ -236,7 +289,11 @@ export function WarApp() {
           }
           if (packet.type === "joined") {
             joined = true;
-            retries = 0;
+            retryAttempt = 0;
+            reconnectDeadline = 0;
+            clearAttemptTimeout();
+            if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+            lobbyRetryRef.current = null;
             token = String(packet.reconnectToken ?? token);
             if (token) {
               try {
@@ -290,7 +347,6 @@ export function WarApp() {
             return;
           }
           if (packet.type === "lobby") {
-            retries = 0;
             const lobby = packet as unknown as LobbyState;
             setOnlineLobby((previous) => previous ? {
               ...previous,
@@ -301,6 +357,8 @@ export function WarApp() {
           }
           if (packet.type === "started") {
             started = true;
+            clearAttemptTimeout();
+            reconnectDeadline = 0;
             if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
             joinTimeoutRef.current = null;
             beginOnline(socket, {
@@ -313,22 +371,19 @@ export function WarApp() {
         });
         socket.addEventListener("close", () => {
           if (started || joinSocketRef.current !== socket) return;
+          clearAttemptTimeout();
           if (!joined) {
-            failOnline("Room connection closed before joining. Check the room code and retry.");
+            setOnlineStatus("Room connection interrupted · retrying…");
+            scheduleRetry();
             return;
           }
-          retries += 1;
           setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
-          if (retries > 5) {
-            failOnline("Could not reconnect before the seat hold expired. Rejoin the room.");
-            return;
-          }
-          const delay = Math.min(2800, 450 * 2 ** (retries - 1));
-          lobbyRetryRef.current = window.setTimeout(() => connect(targetUrl), delay);
+          scheduleRetry();
         });
         socket.addEventListener("error", () => {
-          if (!joined && joinSocketRef.current === socket) {
-            setOnlineStatus("Connection failed · retrying…");
+          if (joinSocketRef.current === socket) {
+            setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+            socket.close();
           }
         });
       };
@@ -340,6 +395,7 @@ export function WarApp() {
 
   useEffect(() => () => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     joinSocketRef.current?.close();
   }, []);

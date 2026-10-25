@@ -11,7 +11,9 @@ For the multiplayer alpha, room state is intentionally process-local and active 
 
 **Why:** the user chose an early-alpha policy that favors a clear, no-reward interruption over durable match restoration while preserving account progress.
 
-**How to apply:** broadcast the interruption on graceful shutdown, reject stale reconnect tokens after restart, return players to the menu with a clear message, and leave progression tables untouched. Keep the five-second reconnect flow for ordinary disconnects.
+**How to apply:** broadcast the interruption on graceful shutdown, reject stale reconnect tokens after restart, return players to the menu with a clear message, and leave progression tables untouched. Keep the five-second reconnect flow for ordinary disconnects. Client retries should stop about 800 ms before the server hold expires and only start when a complete handshake can fit.
+
+**Why:** browser detection and network handshakes consume time after the server begins its five-second reservation; retries scheduled at or after expiry cannot reclaim the seat.
 
 **Why:** the user expanded the roadmap to require server-owned progression, a player-driven economy, and a persistent universe while keeping matchmaking out of scope.
 

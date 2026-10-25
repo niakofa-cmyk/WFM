@@ -5,6 +5,11 @@ import "./controls-probe";
 import { clearInput, createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { currentWingSocketUrl } from "./socket-endpoint";
+import {
+  CLIENT_RECONNECT_WINDOW_MS,
+  SOCKET_HANDSHAKE_TIMEOUT_MS,
+  nextReconnectDelayMs,
+} from "./reconnect-policy";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
@@ -571,11 +576,31 @@ export function Arena({
     slotIdRef.current = online.slotId;
     reconnectTokenRef.current = online.reconnectToken;
     let disposed = false;
-    let retryTimer = 0;
-    let retryDelay = 700;
+    let retryTimer: number | null = null;
+    let handshakeTimer: number | null = null;
+    let retryAttempt = 0;
+    let reconnectDeadline = 0;
     let socket = online.socket;
+    const clearRetryTimer = () => {
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+      retryTimer = null;
+    };
+    const clearHandshakeTimer = () => {
+      if (handshakeTimer != null) window.clearTimeout(handshakeTimer);
+      handshakeTimer = null;
+    };
+    const endInterruptedMatch = () => {
+      disposed = true;
+      clearRetryTimer();
+      clearHandshakeTimer();
+      activeSocketRef.current = null;
+      joinedSocketRef.current = null;
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+      networkExitRef.current("session_lost");
+    };
 
     const onMessage = (event: MessageEvent) => {
+      const source = event.currentTarget as WebSocket;
       let packet: { type?: string; [key: string]: unknown };
       try {
         packet = JSON.parse(String(event.data));
@@ -585,7 +610,10 @@ export function Arena({
       if (packet.type === "joined") {
         const joinedSnapshot = packet.snapshot as OnlineSnapshot | undefined;
         if (!joinedSnapshot?.match) return;
-        joinedSocketRef.current = socket;
+        clearHandshakeTimer();
+        retryAttempt = 0;
+        reconnectDeadline = 0;
+        joinedSocketRef.current = source;
         slotIdRef.current = Number(packet.slotId);
         reconnectTokenRef.current = String(packet.reconnectToken ?? reconnectTokenRef.current);
         snapshotRef.current = joinedSnapshot;
@@ -594,6 +622,7 @@ export function Arena({
         serverEndedRef.current = Boolean(joinedSnapshot.match.over);
         const acknowledged = joinedSnapshot.players[slotIdRef.current]?.lastSeq ?? 0;
         pendingInputsRef.current = pendingInputsRef.current.filter((entry) => entry.seq > acknowledged);
+        setNetworkStatus("");
         return;
       }
       if (packet.type === "snapshot") {
@@ -609,23 +638,27 @@ export function Arena({
       }
       if (packet.type === "interrupted") {
         disposed = true;
-        window.clearTimeout(retryTimer);
+        clearRetryTimer();
+        clearHandshakeTimer();
         activeSocketRef.current = null;
-        targetClose();
+        joinedSocketRef.current = null;
+        if (source.readyState === WebSocket.OPEN || source.readyState === WebSocket.CONNECTING) source.close();
         networkExitRef.current(packet.reason === "server_restart" ? "server_restart" : "session_lost");
         return;
       }
       if (packet.type === "error") {
         if (packet.reason === "session_lost") {
           disposed = true;
-          window.clearTimeout(retryTimer);
+          clearRetryTimer();
+          clearHandshakeTimer();
           activeSocketRef.current = null;
-          targetClose();
+          joinedSocketRef.current = null;
+          if (source.readyState === WebSocket.OPEN || source.readyState === WebSocket.CONNECTING) source.close();
           networkExitRef.current("session_lost");
           return;
         }
         setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");
-        activeSocketRef.current?.close();
+        source.close();
       }
     };
 
@@ -633,8 +666,28 @@ export function Arena({
       remoteFramesRef.current = [captureRemoteFrame(online.snapshot)];
     }
 
-    const targetClose = () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+    const scheduleReconnect = () => {
+      if (disposed || serverEndedRef.current) return;
+      const now = performance.now();
+      if (reconnectDeadline === 0) reconnectDeadline = now + CLIENT_RECONNECT_WINDOW_MS;
+      const delay = nextReconnectDelayMs(retryAttempt++, reconnectDeadline, now);
+      if (delay == null) {
+        const remaining = Math.max(0, reconnectDeadline - now);
+        retryTimer = window.setTimeout(endInterruptedMatch, remaining);
+        return;
+      }
+      clearRetryTimer();
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        if (disposed) return;
+        try {
+          const url = currentWingSocketUrl();
+          url.searchParams.set("room", online.roomId.toLowerCase());
+          connect(new WebSocket(url));
+        } catch {
+          scheduleReconnect();
+        }
+      }, delay);
     };
 
     const connect = (target: WebSocket) => {
@@ -642,51 +695,56 @@ export function Arena({
       activeSocketRef.current = target;
       target.addEventListener("message", onMessage);
       target.addEventListener("open", () => {
-        retryDelay = 700;
-        setNetworkStatus("");
-        if (target !== online.socket) {
-          const join: { type: string; name: string; reconnectToken?: string } = {
-            type: "join",
-            name: online.name,
-          };
-          if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
+        if (target === online.socket) {
+          joinedSocketRef.current = target;
+          setNetworkStatus("");
+          return;
+        }
+        const join: { type: string; name: string; reconnectToken?: string } = {
+          type: "join",
+          name: online.name,
+        };
+        if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
+        try {
           target.send(JSON.stringify(join));
+        } catch {
+          target.close();
         }
       });
       target.addEventListener("close", () => {
         target.removeEventListener("message", onMessage);
+        if (handshakeTimer != null) window.clearTimeout(handshakeTimer);
+        handshakeTimer = null;
         if (joinedSocketRef.current === target) joinedSocketRef.current = null;
         if (disposed || activeSocketRef.current !== target) return;
         activeSocketRef.current = null;
+        if (serverEndedRef.current) return;
         setNetworkStatus("SIGNAL LOST · RECONNECTING");
-        retryTimer = window.setTimeout(() => {
-          if (disposed) return;
-          const url = currentWingSocketUrl();
-          url.searchParams.set("room", online.roomId.toLowerCase());
-          try {
-            connect(new WebSocket(url));
-          } catch {
-            retryDelay = Math.min(5000, retryDelay * 1.6);
-            retryTimer = window.setTimeout(() => connect(new WebSocket(url)), retryDelay);
-          }
-        }, retryDelay);
-        retryDelay = Math.min(5000, retryDelay * 1.6);
+        scheduleReconnect();
       });
+      if (target === online.socket && target.readyState === WebSocket.OPEN) {
+        // This socket was already admitted in the lobby before Arena mounted.
+        joinedSocketRef.current = target;
+        setNetworkStatus("");
+      } else if (target.readyState !== WebSocket.CLOSED) {
+        handshakeTimer = window.setTimeout(() => {
+          if (activeSocketRef.current === target && joinedSocketRef.current !== target) {
+            setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");
+            target.close();
+          }
+        }, SOCKET_HANDSHAKE_TIMEOUT_MS);
+      }
     };
 
     connect(socket);
     if (socket.readyState === WebSocket.CLOSED) {
       setNetworkStatus("SIGNAL LOST · RECONNECTING");
-      retryTimer = window.setTimeout(() => {
-        if (disposed) return;
-        const url = currentWingSocketUrl();
-        url.searchParams.set("room", online.roomId.toLowerCase());
-        connect(new WebSocket(url));
-      }, retryDelay);
+      scheduleReconnect();
     }
     return () => {
       disposed = true;
-      window.clearTimeout(retryTimer);
+      clearRetryTimer();
+      clearHandshakeTimer();
       socket.removeEventListener("message", onMessage);
       if (activeSocketRef.current === socket) {
         activeSocketRef.current = null;
