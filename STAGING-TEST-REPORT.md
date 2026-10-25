@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Tested source commit:** `32bacf977b5edc04fec29bb1b53a5847021cd974` (workspace quality passes; full staging verification remains pending)
+- **Tested source commit:** `d3ef168fb3dc1fadad63f2816273f2e27831020a` (workspace quality passes; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** invite-only configuration pending; not published
 - **Production readiness:** NOT CLAIMED
@@ -11,7 +11,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; deployment is not published | `STAGING-TEST-RESULTS.json` environment evidence |
-| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, all 50 API tests and 14 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
+| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, all 55 API tests and 14 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
 | Invite-only Reserved VM deployment configuration | PENDING — owner action required; nothing published | |
 | Development landing page loads | PASS — Replit preview checked; sign-in not exercised | |
 | Solo Practice gameplay lifecycle | PASS — preview-only WebGL2 run completed the 120-second match, showed a draw reason and debrief, and returned to setup and home; no sign-in or reward persistence was used | `STAGING-TEST-RESULTS.json` previewGameplay |
@@ -27,6 +27,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
+| Railway production API/socket rollout | PENDING — PostgreSQL, API, and socket changes are staged but not applied; no public domains, secrets, schema migration, or live check | `docs/railway-deployment-evaluation.md` |
 
 ## Local development socket checks
 
