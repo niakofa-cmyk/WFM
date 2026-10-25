@@ -6,7 +6,7 @@ buildCommand = "pnpm --filter @workspace/api-server run build:socket"
 watchPatterns = ["/package.json", "/pnpm-lock.yaml", "/pnpm-workspace.yaml", "/deploy/railway/wing-socket.toml", "/artifacts/api-server/**", "/lib/**"]
 
 [deploy]
-startCommand = "pnpm --filter @workspace/api-server run start:socket"
+startCommand = "node --enable-source-maps artifacts/api-server/dist/socket.mjs"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
