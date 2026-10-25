@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Tested source commit:** `d3ef168fb3dc1fadad63f2816273f2e27831020a` (workspace quality passes; full staging verification remains pending)
+- **Tested source commit:** `b383619a51393a305048bb0253cded6c7a2cbe51` (workspace quality passes; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** invite-only configuration pending; not published
 - **Production readiness:** NOT CLAIMED
@@ -27,7 +27,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
-| Railway production API/socket rollout | PENDING — PostgreSQL, API, and socket changes are staged but not applied; no public domains, secrets, schema migration, or live check | `docs/railway-deployment-evaluation.md` |
+| Railway production API/socket rollout | PENDING — PostgreSQL is online and socket `/healthz` passes; API is offline because Clerk variables are missing. No public domains or schema migration; no authenticated or multiplayer checks | `docs/railway-deployment-evaluation.md` |
 
 ## Local development socket checks
 

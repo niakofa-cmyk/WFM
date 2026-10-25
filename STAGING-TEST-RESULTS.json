@@ -1,6 +1,6 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "d3ef168fb3dc1fadad63f2816273f2e27831020a",
+  "testedSourceCommit": "b383619a51393a305048bb0253cded6c7a2cbe51",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
@@ -13,10 +13,10 @@
     "inviteOnlyDeployment": "PENDING: deployment settings are not yet configured; no deployment exists.",
     "separateStagingDatabase": "Owner confirmed schema was applied to this Repl's initially empty development database.",
     "stagingOnlyAuthentication": "Owner confirmed this Repl's own managed Clerk setup was enabled.",
-    "productionDataUntouched": "No production credentials or player data were copied. Railway backend resources are staged only and have not been applied; this Repl is unpublished."
+    "productionDataUntouched": "No production credentials or player data were copied. Railway PostgreSQL is provisioned but its application schema is not applied; this staging Repl remains unpublished."
   },
   "workspaceQuality": {
-    "executedAt": "2026-10-25T00:38:51Z",
+    "executedAt": "2026-10-25T01:21:01Z",
     "typecheck": "PASS",
     "apiTests": {
       "passed": 55,
@@ -52,11 +52,22 @@
     "scope": "Synthetic automated test only; not a real-network or ten-human match."
   },
   "railwayBackend": {
+    "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
     "scope": "API and WebSocket backend; frontend remains on Replit",
-    "staged": true,
-    "deployed": false,
-    "databaseProvisioned": false,
+    "staged": false,
+    "servicesProvisioned": true,
+    "databaseStatus": "SUCCESS",
+    "apiStatus": "FAILED",
+    "apiMissingVariableNames": [
+      "CLERK_SECRET_KEY",
+      "CLERK_PUBLISHABLE_KEY",
+      "API_ALLOWED_ORIGINS"
+    ],
+    "socketStatus": "SUCCESS",
+    "socketHealthcheck": "PASS",
+    "socketStartCommand": "node --enable-source-maps artifacts/api-server/dist/socket.mjs",
+    "gameFrontendRailwayStatus": "FAILED_OUT_OF_SCOPE",
     "publicDomainsCreated": false,
     "credentialsCopied": false,
     "schemaApplied": false,
