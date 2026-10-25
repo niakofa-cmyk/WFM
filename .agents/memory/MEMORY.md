@@ -11,3 +11,4 @@
 - [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
 - [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
 - [WFM Clerk E2E account isolation](clerk-e2e-account-isolation.md) — use only an existing WFM Development test account; verify the Clerk instance before provisioning users.
+- [Managed Clerk hosting boundary](replit-managed-clerk-railway.md) — Replit-managed keys swap on Replit publication; they are not injected into Railway.
