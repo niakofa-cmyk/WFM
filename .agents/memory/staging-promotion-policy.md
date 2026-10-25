@@ -11,11 +11,11 @@ Use a separate Repl, database, and authentication environment for staging. Never
 
 ## Hosting direction
 
-Keep the game frontend on Replit and use the existing Railway production environment for the API, WebSocket service, and a separate PostgreSQL database. This does not move the frontend or bypass the repository's staging promotion gate.
+Keep the game frontend, API, and Wing Socket services on Railway, using the owner's existing external Clerk application. The intended public game host is NiaKofa's `/kids/wfm/` route. Keep Replit for development and preserve isolated staging and the repository's promotion gate.
 
-**Why:** the user selected the backend-only Railway setup after reviewing the current production environment gaps.
+**Why:** the user superseded the earlier backend-only arrangement by explicitly choosing Railway for all three services and the existing external Clerk Production instance for live authentication.
 
-**How to apply:** keep the frontend on Replit. Do not deploy the Railway resources until the source passes the existing gate and the production Clerk keys, exact frontend origin allowlists, database schema, and public endpoint plan are reviewed. Never copy credentials into chat or commit them.
+**How to apply:** do not create another Clerk application or migrate back to managed Replit authentication. Validate staging with separate authentication and data before promotion. Review instance pairing, exact origin allowlists, schema, and endpoint routing without revealing credentials.
 
 ## Distribution goals
 
