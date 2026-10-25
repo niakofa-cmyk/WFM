@@ -3,6 +3,7 @@ import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 
@@ -11,6 +12,9 @@ const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ de
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
+
+setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
@@ -158,6 +162,24 @@ function AccountGameEntry() {
   return isLoaded && isSignedIn ? <SignedInGame /> : <PublicLanding />;
 }
 
+function ApiAuthBridge() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setAuthTokenGetter(null);
+      return;
+    }
+
+    setAuthTokenGetter(() =>
+      isLoaded && isSignedIn ? getToken() : null,
+    );
+    return () => setAuthTokenGetter(null);
+  }, [getToken, isLoaded, isSignedIn]);
+
+  return null;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
   const clerkPubKey = publishableKeyFromHost(
@@ -179,6 +201,7 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ApiAuthBridge />
       <Switch>
         <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />

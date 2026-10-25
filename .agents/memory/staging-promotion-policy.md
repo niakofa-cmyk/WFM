@@ -11,11 +11,11 @@ Use a separate Repl, database, and authentication environment for staging. Never
 
 ## Hosting direction
 
-Keep Replit for development and private staging. Evaluate Railway as a candidate for a dedicated multiplayer/API/database backend rather than automatically moving the whole game or treating staging as production.
+Keep the game frontend on Replit and use the existing Railway production environment for the API, WebSocket service, and a separate PostgreSQL database. This does not move the frontend or bypass the repository's staging promotion gate.
 
-**Why:** the user wants to preserve the existing Replit development and staging work and choose production hosting based on measured connection stability, capacity, resource needs, cost, and recovery behavior.
+**Why:** the user selected the backend-only Railway setup after reviewing the current production environment gaps.
 
-**How to apply:** prepare isolated backend trials before choosing production hosting. A cleanup approval is not permission to switch a production environment to unverified staging code, migrate the frontend, or reuse production credentials.
+**How to apply:** keep the frontend on Replit. Do not deploy the Railway resources until the source passes the existing gate and the production Clerk keys, exact frontend origin allowlists, database schema, and public endpoint plan are reviewed. Never copy credentials into chat or commit them.
 
 ## Distribution goals
 

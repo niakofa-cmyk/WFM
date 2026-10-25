@@ -1,5 +1,5 @@
-# Set this config path on a dedicated socket service in an approved test environment.
-# Do not apply it to the frontend, a library, or the existing production API service.
+# Apply only to a dedicated socket service, never the frontend or API service.
+# Set WING_ALLOWED_ORIGINS before production deployment.
 [build]
 builder = "RAILPACK"
 buildCommand = "pnpm --filter @workspace/api-server run build:socket"
