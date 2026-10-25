@@ -44,3 +44,12 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+VITE_API_BASE_URL = "https://workspaceapi-server-production-cbfc.up.railway.app"
+WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
+
+[userenv.production]
+VITE_API_BASE_URL = "https://workspaceapi-server-production-cbfc.up.railway.app"
