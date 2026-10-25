@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Tested source commit:** `aa50a66762637cbbe8ae12652c0854fb3a2012aa` (workspace quality and local socket checks; full staging verification remains pending)
+- **Tested source commit:** `32bacf977b5edc04fec29bb1b53a5847021cd974` (workspace quality passes; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** invite-only configuration pending; not published
 - **Production readiness:** NOT CLAIMED
@@ -11,8 +11,10 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; deployment is not published | `STAGING-TEST-RESULTS.json` environment evidence |
+| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, all 50 API tests and 14 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
 | Invite-only Reserved VM deployment configuration | PENDING — owner action required; nothing published | |
 | Development landing page loads | PASS — Replit preview checked; sign-in not exercised | |
+| Solo Practice gameplay lifecycle | PASS — preview-only WebGL2 run completed the 120-second match, showed a draw reason and debrief, and returned to setup and home; no sign-in or reward persistence was used | `STAGING-TEST-RESULTS.json` previewGameplay |
 | Sign-up/sign-in and profile loading | PENDING — local preview shows the Clerk sign-in/create-account gate and unauthenticated profile request returns 401; successful sign-in was not exercised | |
 | Profile persistence across sessions and devices | PENDING | |
 | Two-account isolation for progression, credits, inventory, and history | PENDING | |
@@ -24,7 +26,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Temporary disconnect reconnects while server remains running | PARTIAL — local live socket smoke passed; deployed and real-network reconnect remain pending | Local checks below |
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
-| Automated network impairment harness | PASS — rerun in workspace suite; synthetic only, not deployed browser or real-network verification | `docs/staging-network-impairment-evidence.json` |
+| Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
 
 ## Local development socket checks
 

@@ -1,6 +1,6 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "aa50a66762637cbbe8ae12652c0854fb3a2012aa",
+  "testedSourceCommit": "32bacf977b5edc04fec29bb1b53a5847021cd974",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
@@ -14,6 +14,42 @@
     "separateStagingDatabase": "Owner confirmed schema was applied to this Repl's initially empty development database.",
     "stagingOnlyAuthentication": "Owner confirmed this Repl's own managed Clerk setup was enabled.",
     "productionDataUntouched": "Owner confirmed no production credentials, player data, or resources were copied or changed; this Repl is unpublished."
+  },
+  "workspaceQuality": {
+    "executedAt": "2026-10-25T00:04:25Z",
+    "typecheck": "PASS",
+    "apiTests": {
+      "passed": 50,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 14,
+      "failed": 0
+    },
+    "productionBuilds": "PASS"
+  },
+  "previewGameplay": {
+    "testedGameSourceCommit": "e9532ffa0bd34f80a1a699d8a6994cf5e0c8860b",
+    "mode": "Practice",
+    "renderer": "WebGL2",
+    "durationSeconds": 120,
+    "result": "DRAW",
+    "reason": "Time expired with both integrity bars tied.",
+    "debrief": "PASS",
+    "returnedToSetup": "PASS",
+    "returnedHome": "PASS",
+    "accountOrRewardPersistence": "NOT_USED"
+  },
+  "latestNetworkHarness": {
+    "testedSourceCommit": "32bacf977b5edc04fec29bb1b53a5847021cd974",
+    "simulatedClients": 10,
+    "gameSecondsAtCompletion": 180.7,
+    "latencyMs": 35,
+    "jitterMs": 20,
+    "frameLossRate": 0.12,
+    "hardReconnectSlots": [1, 8],
+    "result": "PASS",
+    "scope": "Synthetic automated test only; not a real-network or ten-human match."
   },
   "tests": {
     "signupAndSignin": "PENDING",
