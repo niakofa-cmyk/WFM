@@ -32,6 +32,7 @@ import {
   type TechId,
 } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import { DeploymentBriefing } from "./DeploymentBriefing";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
@@ -993,13 +994,20 @@ export function WarApp() {
           );
         })}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        {active
-          ? active.brief
-          : save.pace === "strike"
-            ? "Six-minute Strike: hold two relays to drain enemy integrity. Kills also drain it; the higher integrity bar wins at 0:00."
-            : "Two-minute practice: learn the controls, capture relays, and break enemy integrity before the clock runs out."}
-      </p>
+      <DeploymentBriefing
+        mission={active?.name ?? "Arcade Skirmish"}
+        objective={active?.objective ?? "HOLD TWO RELAYS"}
+        description={
+          active?.brief
+          ?? (save.pace === "strike"
+            ? "A six-minute Strike against an AI-filled wing. Take the relays, pressure the enemy, and protect your integrity."
+            : "A two-minute practice flight against an AI-filled wing. Learn the controls and contest the relays.")
+        }
+        goal={goal}
+        pace={pace}
+        scheme={save.scheme}
+        gyro={save.gyro}
+      />
       <section className="border border-bone/15 px-3 py-3">
         <p className="font-hud text-sm tracking-widest text-solar">YARD CHANNEL</p>
         <ul className="mt-2 flex flex-col gap-2">
