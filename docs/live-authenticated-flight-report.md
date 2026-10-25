@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | Live sign-in page is reachable | PASS | Browser screenshot loaded the WFM sign-in form. |
 | Live site uses the intended Clerk Production instance | NOT VERIFIED | The form visibly reports **Development mode**. Production key/app association cannot be verified from this workspace. |
+| Clerk variable names in this WFM Replit's Production Secrets | PRESENT | `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `VITE_CLERK_PUBLISHABLE_KEY` are present. Values were not read. |
 | Current WFM Replit deployment | NOT DEPLOYED | Replit deployment metadata reports no active deployment for this Repl; the checked Niakofa route is not this Repl's published deployment. |
 | Existing approved Development account can authenticate locally | PASS | `pnpm --filter @workspace/war-for-mars run test:e2e:auth` passed 1 test: sign-in, enter WFM, profile availability check, sign-out. The test uses the local Vite app and local API. |
 | Authenticated flight on the live site | NOT RUN | The live page is using Development mode. Using the Development test account against the live route could mix Clerk and backend environments. |
