@@ -20,3 +20,9 @@ For production email-factor checks, an HTTP 200 from Clerk's second-factor prepa
 **Why:** A Production sign-in attempt showed a prepared second-factor challenge without a visible rate-limit or delivery error, while the account owner reported that no email arrived.
 
 **How to apply:** Verify delivery from the matching Clerk instance's mail logs or recipient confirmation. Do not claim delivery from HTTP status alone, and avoid repeated sign-in/code requests that may trigger rate limits.
+
+Reusing the same email/password values across deployment and Production does not establish a shared Clerk user store or identify which instance handled a sign-in.
+
+**Why:** The user reports using the same credentials in both environments, while the connected Clerk API reports Development and the public WFM bundle serves a live publishable key.
+
+**How to apply:** Verify the actual instance environment and key mode before attributing account or email-delivery behavior to a Clerk environment. Never infer a key match from reused credentials.
