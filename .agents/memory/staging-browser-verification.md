@@ -25,3 +25,13 @@ the page's no-referrer policy made its form POST carry an opaque Origin.
 **How to apply:** verify actual browser-supplied request metadata for changes
 to form/privacy headers; never resolve such failures by accepting null or
 untrusted origins.
+
+Authentication tests must confirm an active session before forcing navigation
+away from a sign-in flow. A submitted form or changed URL is not sign-in proof.
+
+**Why:** navigating after a fixed post-submit delay can interrupt session or
+redirect completion and leave an inconclusive signed-out page without exposing
+whether authentication succeeded, failed, or required another step.
+
+**How to apply:** wait for a confirmed session or a specific safe error/challenge,
+then require an authenticated profile response before starting rewarded play.
