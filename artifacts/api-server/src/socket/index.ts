@@ -20,9 +20,13 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
 });
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 
-async function shutdown() {
-  await runtime.close();
+function shutdown() {
+  void runtime.close().catch((error: unknown) => {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`Wing socket shutdown failed: ${reason}\n`);
+    process.exitCode = 1;
+  });
 }
 
-process.once("SIGTERM", () => void shutdown());
-process.once("SIGINT", () => void shutdown());
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

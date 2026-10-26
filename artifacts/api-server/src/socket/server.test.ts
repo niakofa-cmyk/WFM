@@ -421,7 +421,17 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
       new Promise<{ code: number; reason: string }>((resolve) => {
         socket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
       }));
-    await runtime.close();
+    const shutdown = runtime.close();
+    const repeatedShutdown = runtime.close();
+    const lateConnectionAccepted = connect(roomUrl)
+      .then(async (lateSocket) => {
+        sockets.push(lateSocket);
+        await close(lateSocket);
+        return true;
+      })
+      .catch(() => false);
+    assert.equal(await lateConnectionAccepted, false);
+    await Promise.all([shutdown, repeatedShutdown]);
     assert.deepEqual((await Promise.all(interrupted)).map((packet) => packet.reason), [
       "server_restart",
       "server_restart",

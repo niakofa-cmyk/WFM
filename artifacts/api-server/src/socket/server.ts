@@ -52,6 +52,8 @@ export async function startWingSocketServer(
   const clients = new Map<WebSocket, Client>();
   const tickIntervalMs = options.tickIntervalMs ?? 1000 / TICK_RATE;
   const snapshotIntervalMs = options.snapshotIntervalMs ?? 1000 / TICK_RATE;
+  let isShuttingDown = false;
+  let closePromise: Promise<void> | null = null;
 
   const httpServer = createServer((request, response) => {
     if (request.url === "/healthz") {
@@ -70,6 +72,10 @@ export async function startWingSocketServer(
   const roomIds = new WeakMap<WebSocket, string>();
 
   httpServer.on("upgrade", (request, socket, head) => {
+    if (isShuttingDown) {
+      rejectUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
     if (!socketOriginAllowed(request.headers.origin, options.allowedOrigins)) {
       rejectUpgrade(socket, "403 Forbidden");
       return;
@@ -414,8 +420,13 @@ export async function startWingSocketServer(
       return rooms.size;
     },
     async close() {
+      if (closePromise) return closePromise;
+      isShuttingDown = true;
       clearInterval(timer);
       clearInterval(heartbeat);
+      const httpClosed = new Promise<void>((resolve, reject) => {
+        httpServer.close((error) => (error ? reject(error) : resolve()));
+      });
       for (const socket of sockets.clients) {
         const client = clients.get(socket);
         const room = client?.room;
@@ -436,10 +447,11 @@ export async function startWingSocketServer(
           socket.close(1001, "Server shutting down");
         }
       }
-      await new Promise<void>((resolve) => sockets.close(() => resolve()));
-      await new Promise<void>((resolve, reject) => {
-        httpServer.close((error) => (error ? reject(error) : resolve()));
-      });
+      closePromise = (async () => {
+        await new Promise<void>((resolve) => sockets.close(() => resolve()));
+        await httpClosed;
+      })();
+      return closePromise;
     },
   };
 }
