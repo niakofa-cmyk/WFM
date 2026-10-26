@@ -51,6 +51,8 @@ type StagingRewardDiagnostic = {
   config: StrikeRun["config"] | null;
   inputs: StepInput[];
   preview: StrikeResult;
+  /** Bit-exact live Arena state checksums; compare with `pnpm run test:determinism -- --replay`. */
+  liveChecksums: number[] | null;
   submittedAtUtc: string;
   firstClaimResponse: {
     status: number;
@@ -585,7 +587,7 @@ export function WarApp() {
     }
   };
 
-  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult) => {
+  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult, liveChecksums?: number[]) => {
     const pending = { runId, inputs, preview };
     setPendingClaim(pending);
     if (stagingRewardDiagnosticsEnabled) {
@@ -596,6 +598,7 @@ export function WarApp() {
           config: activeRun?.runId === runId ? structuredClone(activeRun.config) : null,
           inputs: inputs.map((frame) => ({ ...frame })),
           preview: { ...preview },
+          liveChecksums: liveChecksums ? [...liveChecksums] : null,
           submittedAtUtc: new Date().toISOString(),
           firstClaimResponse: null,
         };
@@ -694,7 +697,7 @@ export function WarApp() {
     }
   };
 
-  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
+  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[]; checksums?: number[] }) => {
     if (onlineSession) {
       try {
         sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -718,7 +721,7 @@ export function WarApp() {
       setPhase("debrief");
       return;
     }
-    void submitClaim(activeRun.runId, replay.inputs, next);
+    void submitClaim(activeRun.runId, replay.inputs, next, replay.checksums);
   };
 
   if (profileStatus === "loading") {

@@ -101,6 +101,64 @@ was weakened. The replay was not truncated, padded, or resubmitted.
    awarded balance after reload. None of those accepted-reward checks passed
    in this run.
 
+## Follow-up: deterministic simulation math (2026-10-26)
+
+Root cause of the Node-versus-Chromium divergence, measured on this workspace:
+
+| Function (200,000 ordinary inputs) | Node 24.22 vs Chromium 156 bit differences |
+| --- | --- |
+| `Math.sin` | 6,642 |
+| `Math.cos` | 6,585 |
+| `Math.atan2` | 35,445 |
+| `Math.exp` | 20,211 |
+| `Math.hypot` | 0 |
+
+ECMAScript permits these functions to be approximated differently per engine.
+Disabling Chromium's optimizing tiers produced no differences inside Chromium,
+so the divergence is between runtimes, not JIT tiers.
+
+Repair (no change to reward validation, frame limits, balance, or time-step):
+
+- The shared simulation now calls pure-JavaScript ports of the fdlibm
+  `sin`, `cos`, `atan2`, and `exp` algorithms, and `sqrt(x*x + y*y)` for
+  distance. They use only correctly rounded IEEE-754 operations, so every runtime
+  returns identical bits. Measured error versus native Math is at most 1 ulp
+  for trigonometry and exponential, and 2 ulps for distance.
+- The `Math.fround` and lookup-table approaches proposed in the guidance
+  document were not used: `fround` changes gameplay precision and balance, and
+  tables computed from native `Math.sin` would inherit the same runtime
+  differences.
+- Fixed time-stepping was already in place: solo flights step at exactly 1/60 s
+  per recorded input in both the Arena and the reward server.
+- `sim.ts`, `detmath.ts`, `sim-trace.ts`, and `ships.ts` are enforced
+  byte-identical in browser and API, and the simulation is checked for banned
+  native transcendental Math and `**`.
+
+Verification:
+
+| Check | Result |
+| --- | --- |
+| Cross-runtime gate, 6 pinned replays (both factions, all four goals, both paces, up to 21,600 frames), full-state checksum every frame | Identical in Node 24.22 vs Chromium 152 and 156 locally, and Node 24.21 vs Chromium 155 in GitHub CI, with the same checksums |
+| Same gate against the previous simulation | All 6 replays diverged at frame 1 |
+| Pinned golden math bits and pinned replay checksums (unit tests) | Pass |
+| Re-running a replay after an unrelated match | Bit-identical (no leaked module state) |
+| Server adjudication of a pinned replay | Same terminal result as the trace |
+| Frontend / API unit tests | 29 / 70 passed |
+
+The gate runs in GitHub Workspace quality after unit tests
+(`pnpm --filter @workspace/war-for-mars run test:determinism`).
+
+Staging diagnostics now also record the live Arena's full-state checksum after
+every step (in page memory only). A future rejected claim can be triaged with
+`test:determinism -- --replay <capture.json>`, which reports the first frame at
+which the live Arena, Node, and Chromium differ. The previous live-Arena versus
+standalone-Chromium difference remains unexplained because that capture was not
+retained; no other Arena-side match mutation was found in solo flights.
+
+Still not verified: an accepted live reward, accepted-claim idempotency, and
+awarded-balance persistence. These require staging redeployment of this change
+and a newly authorized live flight.
+
 ## Release boundary
 
 This is not Production authentication certification, Replit-native invite-only

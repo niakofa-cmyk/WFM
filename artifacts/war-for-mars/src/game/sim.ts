@@ -1,4 +1,5 @@
 import { otherFaction, PRESET_PIPS, refitMul, ROSTER, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
+import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 
 export const ARENA_R = 78;
 export const MATCH_SECONDS = 120;
@@ -383,7 +384,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
   ];
   const enemies = foeShips.map((id, i) => {
     const s = foeSpots[i];
-    const yaw = Math.atan2(-(player.x - s.x), -(player.z - s.z));
+    const yaw = detAtan2(-(player.x - s.x), -(player.z - s.z));
     return craft(id, true, "foe", s.x, s.z, yaw, 1);
   });
   const goal = setup.goal ?? "disc";
@@ -465,15 +466,15 @@ export function relayCallout(match: Match, team: "you" | "foe", x: number, z: nu
   const held = match.relays.filter((relay) => relay.own === sign).length;
   const total = match.relays.length;
   const nearest = match.relays.reduce<Relay | null>((best, relay) => {
-    if (!best || Math.hypot(relay.x - x, relay.z - z) < Math.hypot(best.x - x, best.z - z)) return relay;
+    if (!best || detHypot(relay.x - x, relay.z - z) < detHypot(best.x - x, best.z - z)) return relay;
     return best;
   }, null);
 
-  if (nearest && Math.hypot(nearest.x - x, nearest.z - z) < 15) {
+  if (nearest && detHypot(nearest.x - x, nearest.z - z) < 15) {
     const friendly = team === "you" ? [match.player, ...match.allies] : match.enemies;
     const hostile = team === "you" ? match.enemies : [match.player, ...match.allies];
-    const friendlyNear = friendly.some((craft) => craft.alive && Math.hypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
-    const hostileNear = hostile.some((craft) => craft.alive && Math.hypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
+    const friendlyNear = friendly.some((craft) => craft.alive && detHypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
+    const hostileNear = hostile.some((craft) => craft.alive && detHypot(craft.x - nearest.x, craft.z - nearest.z) < 9);
     if (friendlyNear && hostileNear) return `${held}/${total} HELD · ZONE CONTESTED`;
     if (nearest.own === sign) return `${held}/${total} HELD · ZONE SECURED`;
     const capturePct = Math.floor(Math.max(0, Math.min(1, (sign * nearest.cap + 1) / 2)) * 100);
@@ -540,13 +541,13 @@ function hurt(match: Match, c: Craft, dmg: number, fromX?: number, fromZ?: numbe
   return true;
 }
 export function aimYaw(fromX: number, fromZ: number, toX: number, toZ: number) {
-  return Math.atan2(-(toX - fromX), -(toZ - fromZ));
+  return detAtan2(-(toX - fromX), -(toZ - fromZ));
 }
 type MovingTarget = Pick<Craft, "x" | "z" | "yaw" | "speed"> | Pick<Runner, "x" | "z">;
 export function leadAimPoint(fromX: number, fromZ: number, target: MovingTarget, projectileSpeed: number) {
   if (!(projectileSpeed > 0) || !Number.isFinite(projectileSpeed)) return { x: target.x, z: target.z };
-  const targetVx = "speed" in target ? -Math.sin(target.yaw) * target.speed : 0;
-  const targetVz = "speed" in target ? -Math.cos(target.yaw) * target.speed : -1.65;
+  const targetVx = "speed" in target ? -detSin(target.yaw) * target.speed : 0;
+  const targetVz = "speed" in target ? -detCos(target.yaw) * target.speed : -1.65;
   const dx = target.x - fromX;
   const dz = target.z - fromZ;
   const a = targetVx * targetVx + targetVz * targetVz - projectileSpeed * projectileSpeed;
@@ -642,14 +643,14 @@ function moveCraft(match: Match, c: Craft, steer: number, throttle: number, stra
   let rate = def.turnRate * def.handling * (c.ai ? .84 : 1);
   if (!c.ai && match.tech === "stick") rate *= 1.12;
   const targetSteer = Math.max(-1, Math.min(1, useSteer));
-  c.steer += (targetSteer - c.steer) * (1 - Math.exp(-18 * dt));
+  c.steer += (targetSteer - c.steer) * (1 - detExp(-18 * dt));
   c.yaw = wrap(c.yaw + c.steer * rate * dt);
   const strafeSpeed = def.maxSpeed * .8;
-  c.x += -Math.cos(c.yaw) * useStrafe * strafeSpeed * dt;
-  c.z += Math.sin(c.yaw) * useStrafe * strafeSpeed * dt;
-  c.x += -Math.sin(c.yaw) * c.speed * dt;
-  c.z += -Math.cos(c.yaw) * c.speed * dt;
-  const dist = Math.hypot(c.x, c.z);
+  c.x += -detCos(c.yaw) * useStrafe * strafeSpeed * dt;
+  c.z += detSin(c.yaw) * useStrafe * strafeSpeed * dt;
+  c.x += -detSin(c.yaw) * c.speed * dt;
+  c.z += -detCos(c.yaw) * c.speed * dt;
+  const dist = detHypot(c.x, c.z);
   if (dist > ARENA_R) {
     c.x = c.x / dist * ARENA_R;
     c.z = c.z / dist * ARENA_R;
@@ -658,7 +659,7 @@ function moveCraft(match: Match, c: Craft, steer: number, throttle: number, stra
   for (const rock of match.rocks) {
     const dx = c.x - rock.x;
     const dz = c.z - rock.z;
-    const d = Math.hypot(dx, dz);
+    const d = detHypot(dx, dz);
     const min = rock.r + c.radius * .85;
     if (d < min && d > .001) {
       c.x = rock.x + dx / d * min;
@@ -688,10 +689,10 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
   const sp = def.shotSpeed;
   const nose = c.radius + .7;
   match.bullets.push({
-    x: c.x + -Math.sin(yaw) * nose,
-    z: c.z + -Math.cos(yaw) * nose,
-    vx: -Math.sin(yaw) * sp,
-    vz: -Math.cos(yaw) * sp,
+    x: c.x + -detSin(yaw) * nose,
+    z: c.z + -detCos(yaw) * nose,
+    vx: -detSin(yaw) * sp,
+    vz: -detCos(yaw) * sp,
     life: def.id === "sundara" ? 2.3 : 1.35,
     dmg,
     faction: c.faction,
@@ -732,7 +733,7 @@ function triggerUlt(match: Match, c: Craft) {
     const foes = opposing(match, c);
     for (const e of foes) {
       if (!e.alive) continue;
-      if (Math.hypot(e.x - c.x, e.z - c.z) > 30) continue;
+      if (detHypot(e.x - c.x, e.z - c.z) > 30) continue;
       if (Math.abs(wrap(aimYaw(c.x, c.z, e.x, e.z) - c.yaw)) < .46) hurt(match, e, 36);
     }
   } else if (c.ship === "shakuna") {
@@ -754,7 +755,7 @@ function triggerUlt(match: Match, c: Craft) {
     const foes = opposing(match, c);
     for (const e of foes) {
       if (!e.alive) continue;
-      if (Math.hypot(e.x - c.x, e.z - c.z) < 20) e.root = Math.max(e.root, 1.15);
+      if (detHypot(e.x - c.x, e.z - c.z) < 20) e.root = Math.max(e.root, 1.15);
     }
   } else if (c.ship === "duskbreaker") {
     c.dmgMul = 1.5;
@@ -815,12 +816,12 @@ function visibleHostiles(match: Match, e: Craft) {
 }
 export function chooseAiTarget(match: Match, e: Craft, quarry = visibleHostiles(match, e)): Craft | Runner | null {
   const runner = match.goal === "extract" && match.runner?.alive && match.runner.team !== e.team ? match.runner : null;
-  if (runner && Math.hypot(runner.x - e.x, runner.z - e.z) < 74) return runner;
+  if (runner && detHypot(runner.x - e.x, runner.z - e.z) < 74) return runner;
 
   let bestScore = 42;
   let selected: Craft | null = null;
   for (const craft of quarry) {
-    const distance = Math.hypot(craft.x - e.x, craft.z - e.z);
+    const distance = detHypot(craft.x - e.x, craft.z - e.z);
     if (distance >= 42) continue;
     const healthRatio = Math.max(0, craft.shield + craft.hull) / Math.max(1, craft.shieldMax + craft.hullMax);
     const score = distance - (1 - healthRatio) * 8;
@@ -835,7 +836,7 @@ function steerAi(match: Match, e: Craft, dt: number) {
   const hostile = e.team === "foe";
   const quarry = visibleHostiles(match, e);
   if (e.jam > 0) {
-    moveCraft(match, e, Math.sin(match.time * 2.4 + e.id), .35, 0, dt, .9);
+    moveCraft(match, e, detSin(match.time * 2.4 + e.id), .35, 0, dt, .9);
     return;
   }
   let tx = 0;
@@ -850,7 +851,7 @@ function steerAi(match: Match, e: Craft, dt: number) {
     const owned = hostile ? -1 : 1;
     for (const r of match.relays) {
       if (r.own === owned) continue;
-      const d = Math.hypot(r.x - e.x, r.z - e.z);
+      const d = detHypot(r.x - e.x, r.z - e.z);
       if (d < bd) {
         bd = d;
         best = r;
@@ -869,13 +870,13 @@ function steerAi(match: Match, e: Craft, dt: number) {
   moveCraft(match, e, Math.max(-1, Math.min(1, diff / .42)), Math.abs(diff) < .9 ? 1 : .4, 0, dt, hostile ? .9 : .96);
   const firingPoint = chase ? leadAimPoint(e.x, e.z, chase, SHIPS[e.ship].shotSpeed) : { x: tx, z: tz };
   const firingDiff = wrap(aimYaw(e.x, e.z, firingPoint.x, firingPoint.z) - e.yaw);
-  if (chase && Math.abs(firingDiff) < .28 && Math.hypot(chase.x - e.x, chase.z - e.z) < 46) fire(match, e, 1);
+  if (chase && Math.abs(firingDiff) < .28 && detHypot(chase.x - e.x, chase.z - e.z) < 46) fire(match, e, 1);
   const mates = hostile ? match.enemies : [match.player, ...match.allies];
   for (const o of mates) {
     if (o === e || !o.alive) continue;
     const dx = e.x - o.x;
     const dz = e.z - o.z;
-    const d = Math.hypot(dx, dz);
+    const d = detHypot(dx, dz);
     if (d < 5.5 && d > .01) {
       e.x += dx / d * 4 * dt;
       e.z += dz / d * 4 * dt;
@@ -885,8 +886,8 @@ function steerAi(match: Match, e: Craft, dt: number) {
 function respawn(match: Match, c: Craft) {
   const angle = roll(match) * Math.PI * 2;
   const rad = ARENA_R * 0.72;
-  c.x = Math.cos(angle) * rad;
-  c.z = Math.sin(angle) * rad;
+  c.x = detCos(angle) * rad;
+  c.z = detSin(angle) * rad;
   const focus = (c.team === "foe" ? [match.player, ...match.allies] : match.enemies).find((e) => e.alive) ?? match.player;
   c.yaw = aimYaw(c.x, c.z, focus.x, focus.z);
   c.speed = 0;
@@ -904,7 +905,7 @@ function boostHits(match: Match, c: Craft) {
   const targets = c.team === "foe" ? [match.player, ...match.allies] : match.enemies;
   for (const o of targets) {
     if (!o.alive || o.guard > 0) continue;
-    if (Math.hypot(o.x - c.x, o.z - c.z) < c.radius + o.radius + .7) {
+    if (detHypot(o.x - c.x, o.z - c.z) < c.radius + o.radius + .7) {
       hurt(match, o, c.boostDmg, c.x, c.z);
       c.rammed = true;
       if (c.ship === "glide") {
@@ -945,7 +946,7 @@ function tickRunner(match: Match, dt: number) {
   for (const rock of match.rocks) {
     const dx = runner.x - rock.x;
     const dz = runner.z - rock.z;
-    const d = Math.hypot(dx, dz);
+    const d = detHypot(dx, dz);
     const min = rock.r + runner.radius;
     if (d < min && d > 0.001) {
       runner.x = rock.x + (dx / d) * min;
@@ -992,8 +993,8 @@ export function step(match: Match, input: StepInput, dt: number) {
   } else if (player.alive) {
     const mul = engMul(match.pips.eng);
     if (input.evade !== 0 && player.evadeCd <= 0 && player.root <= 0) {
-      player.x += -Math.cos(player.yaw) * input.evade * 5.2;
-      player.z += Math.sin(player.yaw) * input.evade * 5.2;
+      player.x += -detCos(player.yaw) * input.evade * 5.2;
+      player.z += detSin(player.yaw) * input.evade * 5.2;
       player.evadeCd = 1.15;
     }
     moveCraft(match, player, input.yaw, input.throttle, input.strafe, dt, mul);
@@ -1043,12 +1044,12 @@ export function step(match: Match, input: StepInput, dt: number) {
       const hostiles = b.faction === match.playerFaction ? match.enemies : [player, ...match.allies];
       const target = hostiles.find((e) => e.id === b.homeId && e.alive);
       if (target) {
-        const yaw = Math.atan2(-b.vx, -b.vz);
+        const yaw = detAtan2(-b.vx, -b.vz);
         const want = aimYaw(b.x, b.z, target.x, target.z);
         const ny = yaw + Math.max(-2.4 * dt, Math.min(2.4 * dt, wrap(want - yaw)));
-        const sp = Math.hypot(b.vx, b.vz);
-        b.vx = -Math.sin(ny) * sp;
-        b.vz = -Math.cos(ny) * sp;
+        const sp = detHypot(b.vx, b.vz);
+        b.vx = -detSin(ny) * sp;
+        b.vz = -detCos(ny) * sp;
       }
     }
     b.x += b.vx * dt;
@@ -1056,14 +1057,14 @@ export function step(match: Match, input: StepInput, dt: number) {
     b.life -= dt;
     let dead = b.life <= 0;
     if (!dead) {
-      for (const rock of match.rocks) if (Math.hypot(rock.x - b.x, rock.z - b.z) < rock.r) {
+      for (const rock of match.rocks) if (detHypot(rock.x - b.x, rock.z - b.z) < rock.r) {
         dead = true;
         break;
       }
     }
     if (!dead && match.runner?.alive && match.runner.faction !== b.faction) {
       const cage = match.runner;
-      if (Math.hypot(cage.x - b.x, cage.z - b.z) < cage.radius + b.r) {
+      if (detHypot(cage.x - b.x, cage.z - b.z) < cage.radius + b.r) {
         if (hurtRunner(match, b.dmg, b.x, b.z) && b.own) pushFx(match, { k: "ping" });
         dead = true;
       }
@@ -1072,7 +1073,7 @@ export function step(match: Match, input: StepInput, dt: number) {
       const targets = b.faction === match.playerFaction ? match.enemies : [player, ...match.allies];
       for (const t of targets) {
         if (!t.alive) continue;
-        if (Math.hypot(t.x - b.x, t.z - b.z) < t.radius + b.r) {
+        if (detHypot(t.x - b.x, t.z - b.z) < t.radius + b.r) {
           const landed = hurt(match, t, b.own && match.tech === "mark" && t.id === match.lockId ? b.dmg * 1.22 : b.dmg, b.x, b.z);
           if (landed && b.own) pushFx(match, { k: "ping" });
           dead = true;
@@ -1083,8 +1084,8 @@ export function step(match: Match, input: StepInput, dt: number) {
     if (dead) match.bullets.splice(i, 1);
   }
   for (const r of match.relays) {
-    const friendNear = player.alive && Math.hypot(player.x - r.x, player.z - r.z) < 9 || match.allies.some((a) => a.alive && Math.hypot(a.x - r.x, a.z - r.z) < 9);
-    const enemyNear = match.enemies.some((e) => e.alive && Math.hypot(e.x - r.x, e.z - r.z) < 9);
+    const friendNear = player.alive && detHypot(player.x - r.x, player.z - r.z) < 9 || match.allies.some((a) => a.alive && detHypot(a.x - r.x, a.z - r.z) < 9);
+    const enemyNear = match.enemies.some((e) => e.alive && detHypot(e.x - r.x, e.z - r.z) < 9);
     if (friendNear && !enemyNear) r.cap = Math.min(1, r.cap + dt * .42);
     else if (enemyNear && !friendNear) r.cap = Math.max(-1, r.cap - dt * .42);
     r.own = r.cap > .58 ? 1 : r.cap < -.58 ? -1 : 0;
@@ -1120,7 +1121,7 @@ function hostilePaint(match: Match) {
   if (!player.alive) return ids;
   for (const e of match.enemies) {
     if (!e.alive || e.cloak > 0) continue;
-    const d = Math.hypot(e.x - player.x, e.z - player.z);
+    const d = detHypot(e.x - player.x, e.z - player.z);
     if (d > 52 || d < 0.2) continue;
     if (Math.abs(wrap(aimYaw(e.x, e.z, player.x, player.z) - e.yaw)) < 0.4) ids.push(e.id);
   }

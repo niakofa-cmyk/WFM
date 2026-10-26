@@ -1,20 +1,24 @@
 ---
 name: Replay runtime determinism
-description: Same-source simulations can still diverge across actual browser and server runtimes.
+description: Same-source simulations diverge across browser and server runtimes unless transcendental Math is replaced; how the gate works.
 ---
 
-Certify replay determinism across the actual browser and deployed server
-runtimes, not merely by matching source files or running two imports in Node.
+Native `Math.sin/cos/atan2/exp` are implementation-approximated: Node 24 and
+Chromium 156 disagreed on tens of thousands of ordinary inputs (hypot happened
+to match). JIT tier did not matter inside one Chromium. The reward-adjudicated
+simulation must use the pure-JS fdlibm ports in the shared `detmath` module, never
+native transcendental Math or `**`; a parity test enforces this.
 
-**Why:** a captured staging replay produced different outcomes under local Node
-and standalone Chromium despite identical canonical simulation source and
-configuration. Their initial compared states matched, but numerical state
-already differed after one tick by about 1e-18. The original live Arena also
-differed from standalone Chromium; numerical drift is a demonstrated risk, not
-a complete explanation of every live rejection.
+**Why:** a staging replay resolved as a win in Node, unresolved in Chromium, and
+a loss in the live Arena; state diverged after one tick (~1e-18). With the ports,
+six pinned replays are bit-identical every frame in Node 24, Chromium 152, and 156;
+the old simulation failed all six at frame 1.
 
-**How to apply:** retain strict server reward adjudication and input limits.
-Capture the first claim response and compare exact configuration, applied input,
-recorded input, initial states, and first divergence in memory. Keep source-parity
-tests, but add cross-runtime reproducibility evidence before declaring rewards
-fixed. Do not truncate/pad replays or trust a client outcome to bypass a mismatch.
+**How to apply:** keep sim/detmath/sim-trace/ships byte-identical in browser and
+API. Run the Chromium gate (`test:determinism`, also in CI) after any sim change or
+runtime upgrade. Pinned checksum tests change whenever gameplay changes — re-pin
+only after the gate passes. Do not use `Math.fround` or LUTs built from native
+Math (both rejected). Staging diagnostics record per-frame live Arena checksums
+for `--replay` triage; the old live-Arena vs standalone gap stayed unexplained
+because that capture was not retained. Keep strict adjudication; never
+truncate/pad replays or trust client outcomes.
