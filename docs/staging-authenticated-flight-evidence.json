@@ -1,6 +1,6 @@
 {
   "status": "blocked",
-  "latestAttemptEndedAtUtc": "2026-10-26T03:24:56.147Z",
+  "latestAttemptEndedAtUtc": "2026-10-26T03:36:17.876Z",
   "target": "https://wfm-app-staging-staging.up.railway.app/",
   "frontendGatewayCommit": "09628b2c6721b722984651757800d45f5909e8fe",
   "frontendGatewayDeployment": "96fda5a5-22d3-4b0b-9e61-3b05e520790d",
@@ -21,11 +21,13 @@
     "clerkInstanceVerified": false,
     "frontendApiKeyPairingVerified": false,
     "approvedTestAccountCredentialsSubmitted": true,
-    "signInFormDiagnosticRuns": 5,
-    "latestPasswordFactorRequestCount": 1,
+    "signInFormDiagnosticRuns": 6,
+    "latestPasswordFactorRequestCount": 0,
     "secretSaveConfirmationReceivedBeforeLatestRun": true,
-    "latestClerkSignInStatus": "needs_first_factor",
-    "latestClerkError": "password_incorrect",
+    "latestAuthChallenge": "new_device_email_verification",
+    "stagingAddressIsClerkTestAlias": false,
+    "verificationCodeAccessed": false,
+    "verificationCodeSubmitted": false,
     "driverSessionWaitCorrected": true,
     "driverTwoStepPasswordHandlingCorrected": true,
     "driverSyntaxCheckPassed": true,
@@ -38,6 +40,6 @@
     "persistenceVerified": false,
     "productionModified": false
   },
-  "remainingBlocker": "The staging Development Clerk password screen still explicitly rejected the test-account password after the secure-form save confirmation. One password-factor request was observed in the latest run. Stop automated password attempts until manual sign-in or recovery succeeds, then update WFM_STAGING_TEST_PASSWORD securely. API key pairing and authenticated gameplay remain untested.",
+  "remainingBlocker": "Clerk requires a new-device email verification code for the existing Development account. The saved email is not a +clerk_test alias, and no inbox/code is available to the runner. Use a repeatable verification flow for the same user record; API key pairing and authenticated gameplay remain untested.",
   "releaseGate": "pending"
 }

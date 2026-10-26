@@ -45,3 +45,14 @@ password factor; a driver that does not handle that screen cannot test login.
 **How to apply:** submit the approved password factor once through its rendered
 UI, distinguish an actual rejection from an intermediate step, and stop on
 verification challenges or errors without retrying passwords.
+
+Use Clerk's fixed verification codes only with a verified test-email alias in
+the same instance; do not carry a code or test-mode assumption across instances.
+
+**Why:** the staging account used a regular email and triggered a new-device
+challenge; a test code configured in a separate Production instance did not
+establish Development authentication.
+
+**How to apply:** verify the `+clerk_test` alias requirement for automated OTP
+tests, keep the alias attached to the intended user profile, and never treat
+an OTP from another instance as proof of sign-in.

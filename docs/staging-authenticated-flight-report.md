@@ -1,7 +1,7 @@
 # WFM authenticated staging flight — BLOCKED
 
 Date: October 25, 2026 (America/Chicago).
-Latest browser attempt ended: `2026-10-26T03:24:56.147Z`.
+Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 
 ## Tested deployment
 
@@ -40,9 +40,12 @@ Latest browser attempt ended: `2026-10-26T03:24:56.147Z`.
 | Sign-in form | Renders email-identifier and password fields with a Development-mode indicator |
 | Clerk application association and frontend/API key pairing | Not independently verified; variable names are present, but credential values were not inspected |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
-| Sign-in diagnostics | Five form-start diagnostic runs; the latest observed exactly one password-factor request and an explicit incorrect-password error |
-| Latest Clerk state | `needs_first_factor`, with “Password is incorrect. Try again, or use another method.” |
-| Authenticated profile request | No request to `/api/game/profile` was observed; the latest browser stopped on the password screen |
+| Sign-in diagnostics | Six form-start diagnostic runs; the latest stopped at Clerk's new-device email verification screen |
+| Latest Clerk state | “Check your email to continue to WFM”; a verification code is required |
+| Staging email test-alias check | Not a `+clerk_test` alias; only a yes/no match was evaluated, and the address was not printed |
+| Clerk test-code applicability | Clerk's fixed-code test flow applies to `+clerk_test` addresses, not this current address |
+| Verification code | Not accessed or submitted |
+| Authenticated profile request | No request to `/api/game/profile` was observed; the latest browser stopped at the email-verification challenge |
 | Six-minute Strike, server replay claim, reward | Not run |
 | Reload/sign-out persistence and duplicate claim | Not run |
 | Four campaign sorties | Not run |
@@ -50,30 +53,23 @@ Latest browser attempt ended: `2026-10-26T03:24:56.147Z`.
 The approved test account is Development-only. Credentials were submitted only
 after the staging form displayed Development mode. The owner confirmed that the
 saved account belongs to the active staging Development instance. The latest
-run completed the normal additional password screen once and stopped immediately
-on Clerk's rejection. No further password-factor request was made. No Clerk
-users were created, no authenticated profile/gameplay writes were observed, and
-no credentials, tokens, cookies, traces, or stored login-state files were published.
+run stopped on a new-device email-verification challenge. The code was not
+accessed or submitted. No Clerk users were created, no authenticated
+profile/gameplay writes were observed, and no credentials, tokens, cookies,
+traces, or stored login-state files were published.
 
 The earlier `profile_200_bearer_not_observed` results were inconclusive. The
 temporary browser driver was corrected to require an active Clerk session before
-navigating away, and to handle the normal separate “Enter your password” step.
-The session-aware diagnostic first exposed that intermediate screen; after
-correcting that handling, the latest run observed one password-factor request
-and Clerk's explicit rejection. The final safe stop category is
-`credentials_rejected`.
+navigating away and to handle the separate “Enter your password” screen. After
+the secure password form was confirmed, Clerk presented the email challenge.
+This does not establish an authenticated session, API key mismatch, or API token
+rejection. Further automated password attempts are stopped.
 
-This establishes the immediate account-password blocker. It does not establish
-an API key mismatch or API token rejection: those checks remain unreached.
-The driver no longer attempts a second sign-in after sign-out, keeping the
-credentialed run limited to the approved sign-in flow.
-
-After the owner saved or confirmed `WFM_STAGING_TEST_PASSWORD` through the
-secure form, one additional run reached the same explicit incorrect-password
-error. The driver made one password-factor request in that run and stopped.
-The secure-form confirmation does not establish that a different value was
-saved; no secret values were inspected or compared. Further automated password
-attempts are stopped pending a successful manual sign-in or account recovery.
+The saved staging email is not a `+clerk_test` alias. Clerk documents that its
+fixed-code verification path is for that test-email pattern:
+[Clerk test emails and phones](https://clerk.com/docs/guides/development/testing/test-emails-and-phones).
+The code shown in the separate Production settings was not used for this
+Development sign-in.
 
 The earlier testing-agent evaluation returned **unable**, not a successful
 flight. The latest project-side browser attempts also did not complete the
@@ -82,19 +78,19 @@ journey. The machine-readable summary is
 
 ## Remaining verification work
 
-1. Manually sign in at the same staging site using the existing approved
-   Development account, then save the working password as
-   `WFM_STAGING_TEST_PASSWORD`. If the password is unknown, the owner must use
-   that account's normal recovery flow in the same Development instance.
-   Do not paste credentials into chat or change Clerk API keys to address this
-   account-password rejection.
-2. Resume only after the corrected test credential is saved and another attempt
-   is authorized. Do not ask the owner to reconfirm the account association
-   already confirmed above.
-3. Once sign-in is genuinely active, verify that the app sends a Bearer-authenticated
+1. Provide a repeatable email-verification method for this existing Development
+   user. If using Clerk's `+clerk_test` flow, attach the alias to the same user
+   record rather than creating a second pilot/profile; update
+   `WFM_STAGING_TEST_EMAIL` through the secure form.
+2. Do not paste verification codes or credentials into chat. Do not use the
+   Production instance's test code for this separate Development sign-in.
+3. Resume once the approved Development sign-in flow can be completed without
+   inbox access unavailable to the test runner. Do not ask the owner to
+   reconfirm the account association already confirmed above.
+4. Once sign-in is genuinely active, verify that the app sends a Bearer-authenticated
    profile request and receives HTTP 200. Only then can frontend/API instance
    compatibility be exercised, rather than inferred from variable presence.
-4. Complete the normal six-minute Strike, server-owned claim, and persistence
+5. Complete the normal six-minute Strike, server-owned claim, and persistence
    checks without manipulating game time, replay data, or progression.
 
 Do not create another Clerk application, copy managed Replit keys from a
