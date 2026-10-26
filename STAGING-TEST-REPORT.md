@@ -72,6 +72,36 @@ availability. It does **not** change `testedSourceCommit`, the false legacy
 invite-only flag, or any required release-test status; the full gate remains
 **PENDING**.
 
+## Live protected-staging WebSocket room smoke — 2026-10-26, 17:17 UTC
+
+Ten temporary clients joined a unique room through the protected staging
+gateway and received ten distinct seats split 5v5. The server rejected an
+eleventh join, a non-host start, a host start before all pilots were ready, and
+a late join after launch. Once all ten pilots were ready, the host start reached
+all clients. One disconnected pilot reconnected with its seat token, reclaimed
+the same seat and team, and received an acknowledgement for active-match input.
+
+All temporary sockets were closed and the staging access session was logged
+out. No account sign-in, reward request, or persistent player-data write was
+made. The match was started but not run to completion. This is live
+protocol-level staging evidence, not browser invite-UI, physical-device, or
+ten-client final-result evidence. The release gate remains **PENDING**.
+
+## Live protected-staging ten-client match — 2026-10-26, 17:23 UTC
+
+Ten scripted protocol clients completed a live staging match with a 5v5 seat
+assignment. Two clients were disconnected and reconnected during the match;
+both reclaimed their original seat and team. All ten clients received input
+acknowledgements, remained connected at the finish, and observed the same final
+outcome and result fields. The match ended in a loss at 229.63 game seconds;
+that is a completed game result, not a test failure.
+
+No account sign-in, reward request, or Production modification was involved.
+This passes the staging server-level match-completion and ordinary
+disconnect/reconnect checks. It does not verify browser invite UI, human
+gameplay, physical-device or packet-loss behavior, or reward persistence; those
+remain separate checks. The overall release gate remains **PENDING**.
+
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit
@@ -116,9 +146,9 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Restart interrupts active match and notifies players | PENDING — direct Node `SIGTERM` check passed locally; managed workflow restart closed with 1006 and no notice; deployed restart not tested | Local checks below |
 | Interrupted match cannot award rewards; old room is rejected | PENDING | |
 | New room works after restart | PENDING | |
-| Temporary disconnect reconnects while server remains running | PARTIAL — local live socket smoke passed; deployed and real-network reconnect remain pending | Local checks below |
-| Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
-| Ten clients complete a match with consistent final results | PENDING | |
+| Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |
+| Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — live protocol checks verified ten 5v5 seats, host/readiness gates, late-join rejection, and reconnect; browser invite flow remains unverified | `latestLiveMultiplayerRoomSmoke` |
+| Ten clients complete a match with consistent final results | PASS — all ten clients received the same completed result after two controlled reconnects; scripted protocol clients, not human gameplay | `latestLiveTenClientMatch` |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
 | Current Railway staging service health | PASS for current availability — app, API, socket, and database are online with no pending Railway work; the app now serves commit `4e8ab0a`. Railway still records five failed deployments in the 24-hour window: earlier healthcheck/config failures for the gateway access-code format, API database URL, and socket origin allowlist; each affected service later deployed successfully. These are not current workspace build failures and do not complete the release gate | `STAGING-TEST-RESULTS.json` `currentStagingRailwayHealth` |
 | Current-source private staging/mobile smoke | PASS for limited smoke only — anonymous root and play routes are gated; approved access reached Solo Flight with WebGL, four controls in bounds across portrait/landscape, and clean exit. No sign-in or persistent progression test; not physical-device evidence | `STAGING-TEST-RESULTS.json` `latestStagingMobileSmoke` |

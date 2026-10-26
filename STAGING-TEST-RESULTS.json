@@ -149,6 +149,58 @@
     "physicalDevices": "NOT_TESTED",
     "scope": "Limited no-account staging browser smoke only. Does not complete the invite-only policy requirement, authenticated progression checks, physical-device checks, economy checks, or multiplayer release evidence."
   },
+  "latestLiveMultiplayerRoomSmoke": {
+    "recordedAtUtc": "2026-10-26T17:17:22Z",
+    "environment": "staging",
+    "transport": "WSS through protected Railway staging gateway",
+    "result": "PASS",
+    "accessGate": "PASS",
+    "temporaryClients": 10,
+    "uniqueSeats": 10,
+    "teamCounts": {
+      "team0": 5,
+      "team1": 5
+    },
+    "fullRoomRejection": "PASS",
+    "hostOnlyStartGate": "PASS",
+    "startBeforeReadyGate": "PASS",
+    "allReadyStartBroadcast": "PASS",
+    "lateJoinAfterStartRejection": "PASS",
+    "disconnectReconnect": {
+      "result": "PASS",
+      "sameSeatAndTeamReclaimed": true,
+      "activeInputAcknowledged": true
+    },
+    "matchCompletion": "NOT_TESTED",
+    "rewardRequests": 0,
+    "accountSignIn": "NOT_TESTED",
+    "productionModified": false,
+    "accessSessionClosed": true,
+    "scope": "Temporary protocol clients in one unique live staging room through the protected gateway. No match completion, browser invite flow, physical-device, reward, or restart behavior was tested."
+  },
+  "latestLiveTenClientMatch": {
+    "recordedAtUtc": "2026-10-26T17:23:37.194Z",
+    "environment": "staging",
+    "transport": "WSS through protected Railway staging gateway",
+    "result": "PASS",
+    "clientCount": 10,
+    "uniqueSeats": 10,
+    "teamCounts": {
+      "team0": 5,
+      "team1": 5
+    },
+    "plannedMidmatchReconnects": 2,
+    "matchCompleted": true,
+    "finalOutcome": "loss",
+    "finalGameSeconds": 229.63333333332287,
+    "finalResultsConsistentAcrossClients": true,
+    "eachClientInputAcknowledged": true,
+    "allSlotsConnectedAtFinish": true,
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "Ten scripted protocol clients completed a live staging match after two controlled disconnect/reconnect events. This verifies server-level staging behavior, not human gameplay, browser UI, physical-device network impairment, or reward persistence."
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
@@ -257,9 +309,9 @@
     "restartEndsMatchAndNotifiesPlayers": "PENDING",
     "interruptedMatchCannotClaimRewards": "PENDING",
     "freshRoomRequiredAfterRestart": "PENDING",
-    "ordinaryDisconnectReconnect": "PARTIAL",
+    "ordinaryDisconnectReconnect": "PASS",
     "roomInviteReadyAndTeamAssignment": "PARTIAL",
-    "tenClientMatchCompletion": "PENDING",
+    "tenClientMatchCompletion": "PASS",
     "networkImpairmentHarness": "PASS"
   },
   "evidenceFiles": [
