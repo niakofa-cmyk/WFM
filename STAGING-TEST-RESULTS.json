@@ -223,7 +223,7 @@
     "deploymentTriggered": false,
     "scope": "Read-only staging audit. Live deployment hashes differ from the tested tree, but all three services' runtime source content matches it; the API-only post-deployment source change is a regression test file. This does not supply the missing promotion PR head SHA."
   },
-  "latestPostPushRailwayStatus": {
+  "preSocketDeploymentRailwayStatus": {
     "checkedAtUtc": "2026-10-26T21:46:21Z",
     "project": "wfm-staging",
     "environment": "staging",
@@ -259,6 +259,28 @@
     "railwayConfigurationChanged": false,
     "manualDeploymentTriggered": false,
     "scope": "Read-only status after the staging-branch push. The frontend deployment succeeded; API and socket remained on earlier successful deployments. The socket lifecycle fix is not live in staging. No live restart was run."
+  },
+  "latestStagingSocketDeployment": {
+    "checkedAtUtc": "2026-10-26T22:03:34.648Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "sourceRepository": "niakofa-cmyk/WFM",
+    "sourceBranch": "staging",
+    "sourcePinChangedFrom": "b9be83a62de348293157a8e63f02a65988506649",
+    "sourcePin": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "deploymentId": "dbce4534-387a-4493-bf85-6cc3e5c585b3",
+    "deploymentStatus": "SUCCESS",
+    "reportedDeploymentCommit": "2e2a148df4b18a5c1c534ab739ea359e9f9601a6",
+    "socketRuntimeTreeMatchesTestedCommit": true,
+    "healthcheck": {
+      "path": "/healthz",
+      "result": "PASS"
+    },
+    "serviceOnlineAfterRestart": true,
+    "productionModified": false,
+    "otherRailwaySettingsChanged": false,
+    "scope": "After explicit approval, only the staging socket source pin was changed to the tested commit. The successful deployment metadata reports the subsequent report-only branch commit; a local runtime-source comparison confirmed socket/game runtime files match tested commit 4a150fd. The existing direct-Node start command and other service settings were not changed."
   },
   "latestStagingMobileSmoke": {
     "recordedAtUtc": "2026-10-26T16:47:45Z",
@@ -399,7 +421,7 @@
     ],
     "scope": "Local staging gateway proxy with a direct Node socket process; SIGTERM delivered the interruption notice to both clients and the proxy forwarded close code 4002. This does not establish Railway service-restart behavior."
   },
-  "latestStagingSocketRestartCheck": {
+  "priorStagingSocketRestartCheckBeforeShutdownFix": {
     "recordedAtUtc": "2026-10-26T17:56:33Z",
     "environment": "staging",
     "service": "wfm-socket-staging",
@@ -426,6 +448,43 @@
     "accountSignIn": false,
     "productionModified": false,
     "scope": "After an explicitly authorized staging-only start-command update and successful deployment, an active two-client match was interrupted by an in-place Railway restart. Neither client received the interruption notice; both closed with 1006. The service recovered and a fresh room started. No reward claim was attempted."
+  },
+  "latestStagingSocketRestartCheck": {
+    "recordedAtUtc": "2026-10-26T22:01:16.329Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "deploymentId": "dbce4534-387a-4493-bf85-6cc3e5c585b3",
+    "sourcePin": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "restartMode": "Authorized Railway in-place restart of the deployed staging socket",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientNoticesReceived": [
+        false,
+        false
+      ],
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": {
+      "result": "NOT_VERIFIED",
+      "driverSentReconnectToken": false
+    },
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true,
+      "roomWasDistinct": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "The tested socket source was deployed to staging and Railway's /healthz check passed. In the live two-pilot restart, neither client received the restart notice and both closed with 1006. The service recovered and two clients started a distinct fresh room. The stale-session assertion is not counted because the probe did not send the prior reconnect token. No reward claim was attempted; no second restart was run."
   },
   "latestStagingBrowserRestartCheck": {
     "recordedAtUtc": "2026-10-26T18:56:31Z",
