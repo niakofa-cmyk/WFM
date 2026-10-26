@@ -1,6 +1,6 @@
 {
   "status": "blocked",
-  "latestAttemptEndedAtUtc": "2026-10-26T03:36:17.876Z",
+  "latestAttemptEndedAtUtc": "2026-10-26T04:27:04Z",
   "target": "https://wfm-app-staging-staging.up.railway.app/",
   "frontendGatewayCommit": "09628b2c6721b722984651757800d45f5909e8fe",
   "frontendGatewayDeployment": "96fda5a5-22d3-4b0b-9e61-3b05e520790d",
@@ -49,7 +49,14 @@
     "stagingAddressIsClerkTestAlias": false,
     "verificationCodeProvidedInChat": true,
     "verificationCodeSubmitted": false,
-    "verificationCodeValuePersisted": false,
+    "latestVerificationCodeProvidedThroughSecrets": true,
+    "temporaryVerificationSecretRequiresOwnerRemoval": true,
+    "verificationCodeValuePersistedToWorkspaceFiles": false,
+    "latestRetryReachedVerificationChallenge": true,
+    "otpHandoffFailure": "separate_playwright_connection_exposes_no_original_contexts",
+    "waitingBrowserStopped": true,
+    "replacementOtpHandoffSyntheticTestPassed": true,
+    "replacementOtpHandoffLiveVerified": false,
     "driverSessionWaitCorrected": true,
     "driverTwoStepPasswordHandlingCorrected": true,
     "driverSyntaxCheckPassed": true,
@@ -62,6 +69,6 @@
     "persistenceVerified": false,
     "productionModified": false
   },
-  "remainingBlocker": "Clerk requires a new-device email verification code for the existing Development account. A one-time code was included in chat but was not submitted or persisted; the account owner should request a fresh code and enter it directly in the browser. The frontend and connected API JWKS match, and a targeted lookup confirmed one existing verified user, but the test alias is absent. The owner reported updating the Development connection, but CLERK_BAPI_SCOPES remains unset and the connector exposes no permission metadata; email-address write authorization is therefore not established and no alias mutation was attempted. Authenticated gameplay remains untested.",
+  "remainingBlocker": "The latest existing-account sign-in reached Clerk's verification challenge. The owner supplied a temporary verification Secret, but the handoff failed before submission because a second Playwright connection could not see the original client's contexts/pages. The waiting browser was stopped. Repair and locally prove an in-process handoff before requesting a fresh code, and remove the temporary verification Secret. The optional test-alias mutation remains unattempted because CLERK_BAPI_SCOPES is unset and the connector exposes no permission metadata. Authenticated gameplay remains untested.",
   "releaseGate": "pending"
 }

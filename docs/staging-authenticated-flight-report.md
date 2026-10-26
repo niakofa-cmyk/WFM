@@ -1,7 +1,7 @@
 # WFM authenticated staging flight — BLOCKED
 
 Date: October 25, 2026 (America/Chicago).
-Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
+Latest browser attempt ended: `2026-10-26T04:27:04Z`.
 
 ## Tested deployment
 
@@ -49,11 +49,13 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 | Clerk write authorization | Owner reported the Development connection update; `CLERK_BAPI_SCOPES` remains unset and the connector exposes no permission metadata |
 | Alias write | Not attempted because write authorization could not be verified |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
-| Sign-in diagnostics | Six form-start diagnostic runs; the latest stopped at Clerk's new-device email verification screen |
+| Sign-in diagnostics | Earlier diagnostics plus an authorized existing-account retry; correcting the combined email/password form and Continue button reached the verification challenge |
 | Latest Clerk state | “Check your email to continue to WFM”; a verification code is required |
 | Staging email test-alias check | Not a `+clerk_test` alias; only a yes/no match was evaluated, and the address was not printed |
 | Clerk test-code applicability | Clerk's fixed-code test flow applies to `+clerk_test` addresses, not this current address |
-| Verification code | A one-time code was included in chat; the agent did not submit it or store its value |
+| Verification code | Supplied through a temporary Replit Secret for the latest retry; not printed or submitted to Clerk |
+| Latest browser handoff | Failed: a second Playwright connection exposed zero contexts/pages and could not access the original waiting page |
+| Replacement handoff self-test | Passed using synthetic input, a private Unix socket, and the original browser-owning process; no real credentials or public listener |
 | Authenticated profile request | No request to `/api/game/profile` was observed; the latest browser stopped at the email-verification challenge |
 | Six-minute Strike, server replay claim, reward | Not run |
 | Reload/sign-out persistence and duplicate claim | Not run |
@@ -62,9 +64,13 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 The approved test account is Development-only. Credentials were submitted only
 after the staging form displayed Development mode. The owner confirmed that the
 saved account belongs to the active staging Development instance. The latest
-run stopped on a new-device email-verification challenge. A one-time code was
-included in chat afterward, but it was not entered into the browser or saved
-to workspace files. No Clerk users were created, no authenticated
+run stopped on a new-device email-verification challenge. For the latest retry,
+the owner supplied the code through Replit Secrets. The submission driver failed
+before entering it: another Playwright connection did not expose the original
+client's contexts or pages. The waiting browser was stopped. No code value was
+printed or saved to workspace files; the temporary
+`WFM_STAGING_VERIFICATION_CODE` Secret should be removed by the owner.
+No Clerk users were created, no authenticated
 profile/gameplay writes were observed, and no credentials, tokens, cookies,
 traces, or stored login-state files were published.
 
@@ -99,6 +105,14 @@ journey. The machine-readable summary is
 [`staging-authenticated-flight-evidence.json`](staging-authenticated-flight-evidence.json).
 
 ## Remaining verification work
+
+The replacement handoff passed a local synthetic browser test: a private Unix
+socket delivered synthetic input to the original browser-owning process, which
+filled its own page. No real credentials or public listener were involved.
+This has not yet been exercised against Clerk. A fresh sign-in and code are
+required because the earlier waiting browser was stopped. The existing-account
+OTP route does not require an alias mutation; the optional alias route below
+remains blocked.
 
 1. Establish an authorized write path for adding an email address to the
    existing user on the verified Development instance. The current

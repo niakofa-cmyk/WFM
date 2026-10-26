@@ -68,3 +68,13 @@ whether both sides use the same instance without exposing key material.
 **How to apply:** compare `GET /v1/jwks` from the authenticated connector with
 the frontend's `/.well-known/jwks.json`; log only counts and equality, never
 JWK values. Verify Development mode before any account lookup or write.
+
+Keep OTP submission in the process/client that owns the waiting browser page.
+Do not assume a second Playwright connection can resume another client's page.
+
+**Why:** separate connections to a Playwright launch server exposed isolated
+contexts; reconnecting succeeded but returned no original contexts or pages.
+
+**How to apply:** prove a private, in-process OTP handoff with synthetic input
+before starting another live challenge. Never log codes, expose a public relay,
+or persist browser login state as a workaround.
