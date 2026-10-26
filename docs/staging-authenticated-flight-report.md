@@ -38,12 +38,16 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 | Browser access gate after repairs | 303 redirect after normal form submission |
 | Active Clerk Frontend API host | `precious-kangaroo-7682.clerk.accounts.dev` |
 | Sign-in form | Renders email-identifier and password fields with a Development-mode indicator |
-| Clerk application association and frontend/API key pairing | Not independently verified; variable names are present, but credential values were not inspected |
+| Frontend/API Clerk instance pairing | Verified: frontend and API return the same one-key JWKS set; compared in memory without printing key material |
+| Selected Clerk application ID association | Not directly verified |
 | Staging secret presence | `WFM_STAGING_ACCESS_CODE`, `WFM_STAGING_TEST_EMAIL`, and `WFM_STAGING_TEST_PASSWORD` are set in Development; values were not read |
 | Connected Clerk API integration | Ready; read-only `GET /v1/instance` returned Development |
-| Connected API instance correlation | Not verified: its instance metadata exposes no comparable frontend host/instance ID; its allowed origins and subdomains are empty |
+| Connected API instance correlation | Verified by matching the public JWKS sets; its instance metadata reports Development. Its allowed origins and subdomains are empty |
 | Replit-managed Clerk dashboard access | `requires_personal_pro`; no dashboard action was performed |
-| Existing-user lookup / alias update | Not performed because the connected API instance could not be confirmed as WFM staging's instance |
+| Existing-user lookup | One exact existing user matched; current address is verified. Email and user ID were not returned or recorded |
+| Test alias | Not attached; it is not already present on the matched user |
+| Clerk write authorization | `CLERK_SECRET_KEY` is present (value not read); `CLERK_BAPI_SCOPES` is unset, so write permission is not established |
+| Alias write | Not attempted because write authorization could not be verified |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
 | Sign-in diagnostics | Six form-start diagnostic runs; the latest stopped at Clerk's new-device email verification screen |
 | Latest Clerk state | “Check your email to continue to WFM”; a verification code is required |
@@ -74,11 +78,17 @@ The saved staging email is not a `+clerk_test` alias. Clerk documents that its
 fixed-code verification path is for that test-email pattern:
 [Clerk test emails and phones](https://clerk.com/docs/guides/development/testing/test-emails-and-phones).
 The code shown in the separate Production settings was not used for this
-Development sign-in. The connected Clerk API integration independently reports
-a Development instance, but it has no allowed origins/subdomains and its
-instance metadata cannot be correlated to the WFM staging frontend. No user
-records were queried and no alias was attached, to avoid changing a different
-Clerk instance or creating a separate pilot profile.
+Development sign-in. The connected Clerk API's one-key JWKS set exactly matched
+the WFM staging frontend's public JWKS set, confirming that both use the same
+Development instance; no key material was logged. A targeted read-only lookup
+found one existing user for the supplied account address, and that address is
+verified. The test alias is not attached. No email or user ID was returned or
+recorded.
+
+No alias write was attempted: `CLERK_BAPI_SCOPES` is unset, so this workflow
+cannot verify that the API connection is authorized to modify user email
+addresses. `CLERK_SECRET_KEY` is present, but its value was not read. The
+Replit-managed Clerk dashboard still reports `requires_personal_pro`.
 
 The earlier testing-agent evaluation returned **unable**, not a successful
 flight. The latest project-side browser attempts also did not complete the
@@ -87,19 +97,18 @@ journey. The machine-readable summary is
 
 ## Remaining verification work
 
-1. Connect or configure Clerk access so its Development instance can be
-   independently matched to the WFM staging frontend, and ensure the staging
-   origin is configured on that exact instance. The current Replit-managed
-   dashboard access reports `requires_personal_pro`.
-2. Once that instance match is proven, provide a repeatable email-verification
-   method for the existing Development user. If using Clerk's `+clerk_test`
-   flow, attach the alias to the same user record rather than creating a second
-   pilot/profile; update `WFM_STAGING_TEST_EMAIL` through the secure form.
-3. Do not paste verification codes or credentials into chat. Do not use the
-   Production instance's test code for this separate Development sign-in.
-4. Resume once the approved Development sign-in flow can be completed without
-   inbox access unavailable to the test runner. Do not ask the owner to
-   reconfirm the account association already confirmed above.
+1. Establish an authorized write path for adding an email address to the
+   existing user on the verified Development instance. The current
+   `CLERK_BAPI_SCOPES` is unset, so the required write permission has not been
+   established. Do not bypass this check or share secret values in chat.
+2. Once write authorization is established, attach the `+clerk_test` alias to
+   the same existing user without marking it verified administratively; use
+   Clerk's documented test verification flow.
+3. Update `WFM_STAGING_TEST_EMAIL` in the staging environment through the
+   secure configuration flow after the alias is verified.
+4. Resume the staging sign-in with the test address and complete the
+   authenticated profile check. Do not ask the owner to reconfirm the account
+   association already confirmed above.
 5. Once sign-in is genuinely active, verify that the app sends a Bearer-authenticated
    profile request and receives HTTP 200. Only then can frontend/API instance
    compatibility be exercised, rather than inferred from variable presence.

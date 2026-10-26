@@ -56,3 +56,15 @@ establish Development authentication.
 **How to apply:** verify the `+clerk_test` alias requirement for automated OTP
 tests, keep the alias attached to the intended user profile, and never treat
 an OTP from another instance as proof of sign-in.
+
+When Clerk instance metadata does not expose a comparable instance identifier,
+compare the frontend and Backend API JWKS sets in memory and report only whether
+they match.
+
+**Why:** the instance endpoint and public environment response may omit a
+comparable frontend identifier, while the public signing-key set can establish
+whether both sides use the same instance without exposing key material.
+
+**How to apply:** compare `GET /v1/jwks` from the authenticated connector with
+the frontend's `/.well-known/jwks.json`; log only counts and equality, never
+JWK values. Verify Development mode before any account lookup or write.
