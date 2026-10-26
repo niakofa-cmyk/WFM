@@ -104,3 +104,28 @@ proxy use, socket echo, and logout termination.
 This is implementation evidence only. Until the protected staging endpoint and
 approved staging account complete a flight, the live authenticated-flight task
 and the production promotion gate remain incomplete.
+
+### Deployment attempt: 2026-10-26 UTC
+
+Source commit: `b9be83a62de348293157a8e63f02a65988506649`.
+The GitHub push workspace-quality run passed. Pull-request checks requiring
+completed staging evidence remain blocked; they have not been bypassed.
+
+After owner confirmation, the reviewed staging changes were applied:
+
+| Service | Deployment | Observation |
+| --- | --- | --- |
+| Gateway | `1c8dc99f-8bfa-44c5-a9a4-651d02edad10` | Build completed, but runtime configuration validation rejects `STAGING_ACCESS_CODE`; Railway was still in `DEPLOYING` at observation. |
+| API | `def24e22-d8f4-463c-9b5f-9c28bad2fa6b` | `SUCCESS` |
+| Socket | `45d73f71-850a-43f8-a30d-102747a214d8` | `SUCCESS` |
+| Database | `6922606e-d6f1-4665-94bc-227174685123` | Existing isolated instance remains `SUCCESS` |
+
+Only the access-code variable's presence and the validator's safe error were
+checked. No value or exact length was read. The value must be 32–256 characters
+without line breaks; the owner must correct it directly in the staging
+gateway's Railway Variables.
+
+All four staging services still have zero public domains and zero TCP proxies.
+No public address was generated, no production changes were made, and no
+sign-in or gameplay writes were performed. Gateway access and the authenticated
+flight remain **BLOCKED**, not certified.
