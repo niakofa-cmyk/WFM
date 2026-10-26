@@ -53,6 +53,8 @@ export type Match = {
   kills: number; deaths: number; lockId: number | null; painted: number[]; fx: Fx[];
   over: null | "win" | "loss" | "draw"; refit: number; playerFaction: Faction; pace: Pace; limit: number;
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
+  playerShieldRegenRate?: number;
+  symmetricDuelDeathPenalty?: number;
 };
 
 export type StepInput = {
@@ -68,6 +70,8 @@ export type MatchSetup = {
   disc?: Disc;
   tech?: "stick" | "barrels" | "mark" | null;
   seed?: number;
+  playerShieldRegenRate?: number;
+  symmetricDuelDeathPenalty?: number;
 };
 
 function field(disc: Disc) {
@@ -436,6 +440,8 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     disc,
     tech: setup.tech === "stick" || setup.tech === "barrels" || setup.tech === "mark" ? setup.tech : null,
     seed: (setup.seed ?? 1) >>> 0 || 1,
+    ...(setup.playerShieldRegenRate == null ? {} : { playerShieldRegenRate: setup.playerShieldRegenRate }),
+    ...(setup.symmetricDuelDeathPenalty == null ? {} : { symmetricDuelDeathPenalty: setup.symmetricDuelDeathPenalty }),
     runner: goal === "extract" ? {
       x: 0,
       z: 46,
@@ -503,12 +509,12 @@ function kill(match: Match, c: Craft) {
   const strike = match.pace === "strike";
   if (c.team === "foe") {
     match.kills += 1;
-    match.foeBar = Math.max(0, match.foeBar - (strike ? 8 : 14));
+    match.foeBar = Math.max(0, match.foeBar - (match.symmetricDuelDeathPenalty ?? (strike ? 8 : 14)));
     pushFx(match, { k: "down", name: SHIPS[c.ship].name });
   } else if (c.ai) match.youBar = Math.max(0, match.youBar - (strike ? 6 : 12));
   else {
     match.deaths += 1;
-    match.youBar = Math.max(0, match.youBar - (strike ? 10 : 18));
+    match.youBar = Math.max(0, match.youBar - (match.symmetricDuelDeathPenalty ?? (strike ? 10 : 18)));
   }
   if (c.ace) match.over = "win";
 }
@@ -979,7 +985,11 @@ export function step(match: Match, input: StepInput, dt: number) {
   tickTimers(player, dt);
   for (const mate of match.allies) tickTimers(mate, dt);
   for (const e of match.enemies) tickTimers(e, dt);
-  if (player.alive) {
+  if (player.alive && player.ai && !player.human) {
+    steerAi(match, player, dt);
+    boostHits(match, player);
+    if (player.hurtT <= 0) player.shield = Math.min(player.shieldMax, player.shield + 5 * dt);
+  } else if (player.alive) {
     const mul = engMul(match.pips.eng);
     if (input.evade !== 0 && player.evadeCd <= 0 && player.root <= 0) {
       player.x += -Math.cos(player.yaw) * input.evade * 5.2;
@@ -992,7 +1002,9 @@ export function step(match: Match, input: StepInput, dt: number) {
     if (input.fire) fire(match, player, wepMul(match.pips.wep));
     if (input.ult) triggerUlt(match, player);
     if (input.lock) cycleLock(match, player);
-    if (player.hurtT <= 0) player.shield = Math.min(player.shieldMax, player.shield + 16 * dt);
+    if (player.hurtT <= 0) {
+      player.shield = Math.min(player.shieldMax, player.shield + (match.playerShieldRegenRate ?? 16) * dt);
+    }
     else if (match.pips.def >= 3.15) player.shield = Math.min(player.shieldMax, player.shield + 6 * dt);
     boostHits(match, player);
     if (glideBoosting && player.boost <= 0) {
@@ -1084,16 +1096,17 @@ export function step(match: Match, input: StepInput, dt: number) {
   if (theirs >= 2) match.youBar = Math.max(0, match.youBar - drain * dt);
   tickRunner(match, dt);
   match.time += dt;
+  const timeLimitReached = match.time >= match.limit - 1e-9;
   if (match.goal === "extract" && match.runner) {
     const cage = match.runner;
     if (!match.over && !cage.alive) match.over = cage.team === "you" ? "loss" : "win";
     else if (!match.over && cage.z <= -68) match.over = cage.team === "you" ? "win" : "loss";
     else if (!match.over && match.youBar <= 0) match.over = "loss";
-    else if (!match.over && match.time >= match.limit) match.over = cage.team === "you" ? "loss" : "win";
+    else if (!match.over && timeLimitReached) match.over = cage.team === "you" ? "loss" : "win";
   } else if (match.goal === "beacons" && yours >= 2) match.over = "win";
   else if (match.foeBar <= 0 && match.goal !== "ace") match.over = "win";
   else if (match.youBar <= 0) match.over = "loss";
-  else if (match.time >= match.limit) {
+  else if (timeLimitReached) {
     if (match.goal === "ace") match.over = "loss";
     else if (match.goal === "beacons") match.over = yours >= 2 ? "win" : "loss";
     else match.over = match.youBar > match.foeBar ? "win" : match.youBar < match.foeBar ? "loss" : "draw";
