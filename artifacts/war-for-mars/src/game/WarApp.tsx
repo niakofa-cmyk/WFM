@@ -44,6 +44,26 @@ const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.A
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
 
+const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
+
+type StagingRewardDiagnostic = {
+  runId: string;
+  config: StrikeRun["config"] | null;
+  inputs: StepInput[];
+  preview: StrikeResult;
+  submittedAtUtc: string;
+  firstClaimResponse: {
+    status: number;
+    statusText: string;
+    body: unknown;
+    receivedAtUtc: string;
+  } | null;
+};
+
+type StagingDiagnosticWindow = Window & {
+  __wfmStagingRewardDiagnostic?: StagingRewardDiagnostic;
+};
+
 function ModuleLoading({ label }: { label: string }) {
   return (
     <main role="status" className="flex min-h-dvh items-center justify-center bg-void px-4 text-bone">
@@ -413,24 +433,29 @@ export function WarApp() {
         if (cancelled) return;
         setSave(saveFromProfile(profile, device));
         try {
-          const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
-          if (rawPending) {
-            const pending = JSON.parse(rawPending) as {
-              runId?: unknown;
-              inputs?: unknown;
-              preview?: unknown;
-            };
-            if (
-              typeof pending.runId === "string" &&
-              Array.isArray(pending.inputs) &&
-              pending.inputs.length <= 22_000 &&
-              pending.preview &&
-              typeof pending.preview === "object"
-            ) {
-              const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
-              setPendingClaim(restored);
-              setResult(restored.preview);
-              setPhase("debrief");
+          if (stagingRewardDiagnosticsEnabled) {
+            // Diagnostics mode keeps raw replay inputs in memory only.
+            sessionStorage.removeItem("wfm-pending-claim-v1");
+          } else {
+            const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
+            if (rawPending) {
+              const pending = JSON.parse(rawPending) as {
+                runId?: unknown;
+                inputs?: unknown;
+                preview?: unknown;
+              };
+              if (
+                typeof pending.runId === "string" &&
+                Array.isArray(pending.inputs) &&
+                pending.inputs.length <= 22_000 &&
+                pending.preview &&
+                typeof pending.preview === "object"
+              ) {
+                const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
+                setPendingClaim(restored);
+                setResult(restored.preview);
+                setPhase("debrief");
+              }
             }
           }
         } catch {
@@ -563,10 +588,29 @@ export function WarApp() {
   const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult) => {
     const pending = { runId, inputs, preview };
     setPendingClaim(pending);
-    try {
-      sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
-    } catch {
-      // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+    if (stagingRewardDiagnosticsEnabled) {
+      const diagnosticWindow = window as StagingDiagnosticWindow;
+      if (!diagnosticWindow.__wfmStagingRewardDiagnostic) {
+        diagnosticWindow.__wfmStagingRewardDiagnostic = {
+          runId,
+          config: activeRun?.runId === runId ? structuredClone(activeRun.config) : null,
+          inputs: inputs.map((frame) => ({ ...frame })),
+          preview: { ...preview },
+          submittedAtUtc: new Date().toISOString(),
+          firstClaimResponse: null,
+        };
+      }
+      try {
+        sessionStorage.removeItem("wfm-pending-claim-v1");
+      } catch {
+        // Diagnostics still remain available in this page's memory.
+      }
+    } else {
+      try {
+        sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
+      } catch {
+        // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+      }
     }
     setClaimError("");
     setClaimSubmitting(true);
@@ -577,6 +621,18 @@ export function WarApp() {
     setPhase("debrief");
     try {
       const grant = await claimServerStrike(runId, { inputs });
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          diagnostic.firstClaimResponse = {
+            status: 200,
+            statusText: "OK",
+            body: grant,
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setPendingClaim(null);
       try {
         sessionStorage.removeItem("wfm-pending-claim-v1");
@@ -604,6 +660,21 @@ export function WarApp() {
         error && typeof error === "object" && "status" in error
           ? Number((error as { status: unknown }).status)
           : 0;
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          const apiError = error && typeof error === "object"
+            ? error as { statusText?: unknown; data?: unknown }
+            : null;
+          diagnostic.firstClaimResponse = {
+            status,
+            statusText: typeof apiError?.statusText === "string" ? apiError.statusText : "",
+            body: apiError && "data" in apiError ? apiError.data : { message },
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setClaimError(message);
       if (status === 400 || status === 404 || status === 409) {
         setPendingClaim(null);
