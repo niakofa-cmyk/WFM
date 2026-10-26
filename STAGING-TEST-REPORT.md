@@ -1,12 +1,46 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Tested source commit:** `b383619a51393a305048bb0253cded6c7a2cbe51` (workspace quality passes; full staging verification remains pending)
+- **Tested source commit:** `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8` (workspace quality and live scoped profile sync pass; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
-- **Deployment visibility:** invite-only configuration pending; not published
+- **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. The legacy Replit invite-only release flag remains false pending explicit policy review.
 - **Production readiness:** NOT CLAIMED
 
-## Latest scoped evidence — 2026-10-26, 12:58 UTC
+## Live profile-session synchronization — 2026-10-26, 14:29 UTC
+
+The approved staging push reached Railway `SUCCESS` at deployment
+`c5bbc4ec-5ea1-4677-8b37-dcfa0e491d4f`, serving the tested source above.
+The deployed API/shared source was checked unchanged from that source.
+CI's **Verify workspace** job passed; **Verify staging evidence** remains blocked.
+
+Three independent browser contexts completed Development sign-in using existing
+approved accounts and fresh private client-trust codes. Writer and reader
+identities were compared in memory and confirmed equal; the isolation account
+was confirmed distinct. No identifiers or credentials were recorded.
+
+- The first pilot loaded 130 credits, revision 6, ARC in both fresh sessions.
+- A server-accepted temporary STRAFE selection returned HTTP 201. The idle
+  reader's visible Settings selection changed automatically after **26,779 ms**,
+  without reload, a manual profile request, or a synthetic refresh event.
+- Restoring ARC returned HTTP 201 and also appeared automatically in the reader.
+  All original returned profile fields were restored except revision, which
+  advanced to 8. Credits remained 130.
+- The second pilot's entire returned profile stayed unchanged at revision 0
+  with 90 credits and ARC.
+- There were zero reward requests and zero uncaught page errors. Two unclaimed
+  staging sortie records were created by the selection writes; no flights or
+  reward claims were submitted.
+- Each session returned profile HTTP 401 after sign-out. All browsers were closed.
+- Private staging API/socket services still have zero public domains. No
+  Production changes were performed.
+
+This is **PASS for same-account cross-session UI sync and restoration**, not a
+claim of two physical devices, inventory/history endpoint isolation, rejected
+cross-account writes, or complete release readiness. The physical-device gate
+and broader account isolation checks remain pending. Sanitized machine-readable
+details are in `STAGING-TEST-RESULTS.json` under `latestLiveProfileSync`.
+
+## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit
 
@@ -15,9 +49,9 @@ Both existing staging accounts subsequently completed sign-in: the first
 retained 130 credits across a fresh sign-in and reload, while the second
 retained 90 credits across sign-in and reload. Each returned HTTP 401 after
 sign-out. This establishes observed balance separation, not full account-data
-isolation or same-account cross-device synchronization. The newly changed
-frontend still needs deployed staging verification; the release gate remains
-**PENDING** and Production was not changed.
+isolation or physical-device synchronization. The live section above supersedes
+the earlier audit's deployment limitation for profile-session sync only; the
+release gate remains **PENDING** and Production was not changed.
 
 An explicitly authorized normal staging skirmish completed with an accepted
 server reward: 90 → 130 credits. Its one identical duplicate returned
@@ -27,22 +61,24 @@ See `docs/staging-deterministic-reward-flight-evidence.json` and
 `docs/staging-reward-parity-flight-report.md`.
 
 This supersedes the reward-flight blocker only. The historical table and
-overall release status remain pending: new-session/cross-device persistence,
+overall release status remain pending: physical-device synchronization, full
 account isolation, campaign, and deployed multiplayer checks are not established
-by one skirmish. Production was not changed.
+by one skirmish or the scoped profile-session test. Production was not changed.
 
 Keep this report free of secret values, player identifiers, private deployment URLs, and personal data. Put sanitized evidence in this repository and list its paths in `STAGING-TEST-RESULTS.json`.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; deployment is not published | `STAGING-TEST-RESULTS.json` environment evidence |
-| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, all 55 API tests and 14 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
-| Invite-only Reserved VM deployment configuration | PENDING — owner action required; nothing published | |
+| Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; protected Railway staging is separate | `STAGING-TEST-RESULTS.json` environment evidence |
+| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, 70 API tests and 32 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
+| Invite-only Reserved VM deployment configuration | PENDING — legacy Replit requirement is not met by the deployed Railway gateway; false flag preserved for explicit policy review | |
 | Development landing page loads | PASS — Replit preview checked; sign-in not exercised | |
 | Solo Practice gameplay lifecycle | PASS — preview-only WebGL2 run completed the 120-second match, showed a draw reason and debrief, and returned to setup and home; no sign-in or reward persistence was used | `STAGING-TEST-RESULTS.json` previewGameplay |
-| Sign-up/sign-in and profile loading | PENDING — local preview shows the Clerk sign-in/create-account gate and unauthenticated profile request returns 401; successful sign-in was not exercised | |
-| Profile persistence across sessions and devices | PENDING | |
-| Two-account isolation for progression, credits, inventory, and history | PENDING | |
+| Sign-up/sign-in and profile loading | PARTIAL — three fresh staging contexts signed in and loaded profiles; sign-out returned 401. New-account creation not tested | Live profile-session section |
+| Profile persistence across fresh sessions | PASS — both first-pilot contexts loaded the saved 130-credit profile and restored selection | Live profile-session section |
+| Automatic same-account sync across independent browser contexts | PASS — visible selection changed after 26.8 seconds without reload and restored automatically | Live profile-session section |
+| Synchronization across distinct physical devices | PENDING — independent browser contexts are not physical-device evidence | |
+| Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
 | Server-owned rewards and duplicate-claim protection | PENDING | |
 | Restart interrupts active match and notifies players | PENDING — direct Node `SIGTERM` check passed locally; managed workflow restart closed with 1006 and no notice; deployed restart not tested | Local checks below |
@@ -52,7 +88,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
-| Railway production API/socket rollout | PENDING — PostgreSQL is online and socket `/healthz` passes; API is offline because Clerk variables are missing. No public domains or schema migration; no authenticated or multiplayer checks | `docs/railway-deployment-evaluation.md` |
+| Railway Production Clerk release | NOT CERTIFIED — earlier inspection found a live-key browser bootstrap TLS failure. This staging test did not modify or certify Production | `docs/game-runtime-forensic-report.md` |
 
 ## Local development socket checks
 

@@ -1,6 +1,6 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "b383619a51393a305048bb0253cded6c7a2cbe51",
+  "testedSourceCommit": "7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
@@ -10,20 +10,22 @@
   },
   "environmentEvidence": {
     "separateRepl": "Owner confirmed this WFM staging branch is in a separate Repl.",
-    "inviteOnlyDeployment": "PENDING: deployment settings are not yet configured; no deployment exists.",
-    "separateStagingDatabase": "Owner confirmed schema was applied to this Repl's initially empty development database.",
-    "stagingOnlyAuthentication": "Owner confirmed this Repl's own managed Clerk setup was enabled.",
-    "productionDataUntouched": "No production credentials or player data were copied. Railway PostgreSQL is provisioned but its application schema is not applied; this staging Repl remains unpublished."
+    "inviteOnlyDeployment": "PENDING legacy Replit invite-only release requirement. Railway staging is deployed behind its approved access gateway, with no public API or socket domains. The false flag is preserved pending an explicit release-policy decision.",
+    "separateStagingDatabase": "The owner-confirmed isolated Railway staging database is used by the private staging API. Live profile writes and restoration occurred only through the protected staging gateway.",
+    "stagingOnlyAuthentication": "Three browser contexts authenticated against staging Development Clerk: two sessions for one existing approved account and one for a distinct existing approved account. No users were created.",
+    "productionDataUntouched": "Only staging was pushed and tested. No Production deployment, key, account or player-data mutation was performed."
   },
   "workspaceQuality": {
-    "executedAt": "2026-10-25T01:21:01Z",
+    "verifiedAtUtc": "2026-10-26T14:29:17Z",
+    "ciRunId": "40337785182",
+    "verifyWorkspaceJob": "PASS",
     "typecheck": "PASS",
     "apiTests": {
-      "passed": 55,
+      "passed": 70,
       "failed": 0
     },
     "gameTests": {
-      "passed": 14,
+      "passed": 32,
       "failed": 0
     },
     "productionBuilds": "PASS"
@@ -83,9 +85,40 @@
     "balanceAfter": 130,
     "scope": "One staging skirmish and same-session reload only; broader tests below remain pending."
   },
+  "latestLiveProfileSync": {
+    "status": "PASS",
+    "recordedAtUtc": "2026-10-26T14:29:17Z",
+    "testedSourceCommit": "7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8",
+    "stagingFrontendDeployment": "c5bbc4ec-5ea1-4677-8b37-dcfa0e491d4f",
+    "deploymentStatus": "SUCCESS",
+    "backendAndSharedSourceUnchangedFromDeployedApi": true,
+    "independentBrowserContexts": 3,
+    "sameAccountWriterAndReaderConfirmed": true,
+    "separateAccountConfirmed": true,
+    "automaticReaderUiSync": true,
+    "automaticReaderUiRestore": true,
+    "changeObservedAfterMs": 26779,
+    "writeStatus": 201,
+    "restoreStatus": 201,
+    "writerBefore": { "credits": 130, "revision": 6, "scheme": "arc" },
+    "temporaryScheme": "strafe",
+    "writerAfter": { "credits": 130, "revision": 8, "scheme": "arc" },
+    "writerProfileRestoredExceptRevision": true,
+    "secondAccountAfter": { "credits": 90, "revision": 0, "scheme": "arc" },
+    "secondAccountFullReturnedProfileUnchanged": true,
+    "unclaimedStagingSortieRecordsCreated": 2,
+    "rewardRequests": 0,
+    "uncaughtPageErrors": 0,
+    "afterSignOutProfileStatuses": [401, 401, 401],
+    "browsersClosed": true,
+    "stagingPublicApiDomains": 0,
+    "stagingPublicSocketDomains": 0,
+    "productionModified": false,
+    "scope": "Real protected-staging requests and automatic visible UI refresh, without reader reload or synthetic refresh events. Independent browser storage contexts on one host, not distinct physical devices. This does not certify separate inventory/history endpoints or rejected cross-account writes."
+  },
   "tests": {
     "signupAndSignin": "PENDING",
-    "profilePersistsAcrossSessions": "PENDING",
+    "profilePersistsAcrossSessions": "PASS",
     "profileSyncsAcrossDevices": "PENDING",
     "accountProgressInventoryAndHistoryAreIsolated": "PENDING",
     "sharedEconomyUsesStagingData": "PENDING",
