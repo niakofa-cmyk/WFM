@@ -36,6 +36,16 @@ whether authentication succeeded, failed, or required another step.
 **How to apply:** wait for a confirmed session or a specific safe error/challenge,
 then require an authenticated profile response before starting rewarded play.
 
+Target the exact email/password Continue button, not a broad “continue” match.
+A driver timeout after code submission is not proof that authentication failed.
+
+**Why:** Clerk renders both Continue and Continue with Google. A later code
+handoff timed out even though the retained browser had an active session and
+could read its authenticated profile.
+
+**How to apply:** distinguish SSO from the email form and recheck the retained
+session plus the profile response before requesting another code or sign-in.
+
 Follow normal intermediate sign-in screens. A separate password screen with
 `needs_first_factor` is not itself a credential rejection or an active session.
 
