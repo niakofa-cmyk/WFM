@@ -46,7 +46,7 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 | Replit-managed Clerk dashboard access | `requires_personal_pro`; no dashboard action was performed |
 | Existing-user lookup | One exact existing user matched; current address is verified. Email and user ID were not returned or recorded |
 | Test alias | Not attached; it is not already present on the matched user |
-| Clerk write authorization | `CLERK_SECRET_KEY` is present (value not read); `CLERK_BAPI_SCOPES` is unset, so write permission is not established |
+| Clerk write authorization | Owner reported the Development connection update; `CLERK_BAPI_SCOPES` remains unset and the connector exposes no permission metadata |
 | Alias write | Not attempted because write authorization could not be verified |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
 | Sign-in diagnostics | Six form-start diagnostic runs; the latest stopped at Clerk's new-device email verification screen |
@@ -85,10 +85,12 @@ found one existing user for the supplied account address, and that address is
 verified. The test alias is not attached. No email or user ID was returned or
 recorded.
 
-No alias write was attempted: `CLERK_BAPI_SCOPES` is unset, so this workflow
-cannot verify that the API connection is authorized to modify user email
-addresses. `CLERK_SECRET_KEY` is present, but its value was not read. The
-Replit-managed Clerk dashboard still reports `requires_personal_pro`.
+No alias write was attempted: after the owner reported updating the Development
+connection, `CLERK_BAPI_SCOPES` remained unset and the connector metadata exposed
+no permission/scope fields. This workflow still cannot verify authorization to
+modify user email addresses. `CLERK_SECRET_KEY` is present, but its value was
+not read. The Replit-managed Clerk dashboard still reports
+`requires_personal_pro`.
 
 The earlier testing-agent evaluation returned **unable**, not a successful
 flight. The latest project-side browser attempts also did not complete the
@@ -100,7 +102,8 @@ journey. The machine-readable summary is
 1. Establish an authorized write path for adding an email address to the
    existing user on the verified Development instance. The current
    `CLERK_BAPI_SCOPES` is unset, so the required write permission has not been
-   established. Do not bypass this check or share secret values in chat.
+   established, and the connector does not expose permission metadata. Do not
+   bypass this check or share secret values in chat.
 2. Once write authorization is established, attach the `+clerk_test` alias to
    the same existing user without marking it verified administratively; use
    Clerk's documented test verification flow.
