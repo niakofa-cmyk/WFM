@@ -24,7 +24,12 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     browserName: "chromium",
     headless: true,
-    launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : {},
+    launchOptions: {
+      ...(chromiumExecutable ? { executablePath: chromiumExecutable } : {}),
+      ...(process.env.WFM_E2E_SOFTWARE_WEBGL === "1" ? {
+        args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-webgl"],
+      } : {}),
+    },
     trace: "off",
     screenshot: "off",
     video: "off",

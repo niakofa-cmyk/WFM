@@ -8,6 +8,17 @@
 
 ## Latest scoped evidence — 2026-10-26, 12:58 UTC
 
+### Subsequent runtime and session audit
+
+See `docs/game-runtime-forensic-report.md` for the development audit and fixes.
+Both existing staging accounts subsequently completed sign-in: the first
+retained 130 credits across a fresh sign-in and reload, while the second
+retained 90 credits across sign-in and reload. Each returned HTTP 401 after
+sign-out. This establishes observed balance separation, not full account-data
+isolation or same-account cross-device synchronization. The newly changed
+frontend still needs deployed staging verification; the release gate remains
+**PENDING** and Production was not changed.
+
 An explicitly authorized normal staging skirmish completed with an accepted
 server reward: 90 → 130 credits. Its one identical duplicate returned
 `replayed: true` and added no credits; an authenticated reload still showed 130.

@@ -16,3 +16,4 @@
 - [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
 - [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.
 - [Replay runtime determinism](replay-runtime-determinism.md) — native Math trig/exp differ Node vs Chromium; sim must use detmath ports and pass the Chromium gate.
+- [Progression sync boundary](progression-sync-boundary.md) — account freshness must not change an issued flight; obsolete account/view responses must not apply.

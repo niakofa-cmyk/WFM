@@ -39,6 +39,7 @@ import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
 import { resolveArenaTech } from "./arena-config";
+import { createProfileSync } from "./profile-sync";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -478,15 +479,33 @@ export function WarApp() {
   }, [profileRetry]);
 
   useEffect(() => {
-    let cancelled = false;
+    // Never overwrite a flight snapshot or an in-progress account mutation.
+    if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
+    const sync = createProfileSync(loadServerProfile, (profile) => {
+      setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+    }, () => {
+      setActionError("Profile sync unavailable. Your last loaded progress is unchanged; reconnect or reload before another purchase.");
+    });
     const refresh = () => {
-      void loadServerProfile().then((profile) => {
-        if (!cancelled) setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
-      }).catch(() => { if (!cancelled) setActionError("Server action confirmed; profile refresh unavailable. Retry loading before another purchase."); });
+      if (document.visibilityState !== "hidden") void sync.refresh();
     };
+    // Other browsers do not share the writer's local state. Revalidate when
+    // returning to this window, recovering connectivity, and while visible.
     window.addEventListener("wfm:profile-refresh", refresh);
-    return () => { cancelled = true; window.removeEventListener("wfm:profile-refresh", refresh); };
-  }, []);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const interval = window.setInterval(refresh, 30_000);
+    refresh();
+    return () => {
+      sync.dispose();
+      window.clearInterval(interval);
+      window.removeEventListener("wfm:profile-refresh", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
 
   useEffect(() => {
     if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
@@ -826,6 +845,14 @@ export function WarApp() {
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
+        onGraphicsError={(message) => {
+          setActionError(`3D flight stopped: ${message}. No reward was claimed. Return to setup and relaunch after checking your browser graphics settings.`);
+          if (onlineSession) onlineSession.socket.close();
+          setOnlineSession(null);
+          setActiveRun(null);
+          setPhase("brief");
+          setShell(MenuState.TITLE);
+        }}
         onNetworkExit={(reason) => {
           try {
             if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);

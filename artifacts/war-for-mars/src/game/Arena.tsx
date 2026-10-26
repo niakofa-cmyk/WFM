@@ -1101,6 +1101,16 @@ export function Arena({
 
     let alive = true;
     let raf = 0;
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      alive = false;
+      cancelAnimationFrame(raf);
+      engineGain(0);
+      const message = "Graphics connection lost. Exit this flight and relaunch; no result has been submitted.";
+      setGlError(message);
+      onGraphicsError?.(message);
+    };
+    canvas.addEventListener("webglcontextlost", onContextLost);
     let last = performance.now();
     let acc = 0;
     let onlineAcc = 0;
@@ -1583,6 +1593,8 @@ export function Arena({
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      engineGain(0);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
       delete window.__controlsTest;
       observer.disconnect();
       window.removeEventListener("keydown", onKeyDown);

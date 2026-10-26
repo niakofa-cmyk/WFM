@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type {} from "../src/game/controls-probe";
 
 test("landing page explains the game and offers a solo flight", async ({ page }) => {
   await page.goto("/");
@@ -29,7 +30,55 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
   await page.getByTestId("button-solo-launch").click();
   await expect(page.getByRole("button", { name: "EXIT SOLO FLIGHT" })).toBeVisible();
   await expect(page.locator("canvas").first()).toBeVisible();
+  // A canvas/HUD alone can be visible even when WebGL initialization failed.
+  await expect.poll(() => page.evaluate(() => typeof window.__controlsTest?.getYaw === "function")).toBe(true);
+  const speedBefore = await page.evaluate(() => window.__controlsTest!.getSpeed());
+  await page.evaluate(() => window.__controlsTest!.setKeys!(["KeyW"]));
+  await expect.poll(() => page.evaluate(() => window.__controlsTest!.getSpeed())).toBeGreaterThan(speedBefore);
+  await page.evaluate(() => window.__controlsTest!.setKeys!([]));
 
   await page.getByRole("button", { name: "EXIT SOLO FLIGHT" }).click();
   await expect(page.getByTestId("solo-flight")).toBeVisible();
+});
+
+test("graphics context loss exits safely without submitting a reward", async ({ page }) => {
+  let rewardRequests = 0;
+  page.on("request", (request) => {
+    if (/\/api\/strikes\/[^/]+\/claim$/.test(new URL(request.url()).pathname)) rewardRequests++;
+  });
+  await page.goto("/play");
+  await page.getByTestId("button-solo-launch").click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
+  const contextLossAvailable = await page.locator("canvas").first().evaluate((canvas) => {
+    const context = (canvas as HTMLCanvasElement).getContext("webgl2");
+    const extension = context?.getExtension("WEBGL_lose_context");
+    if (!extension) return false;
+    extension.loseContext();
+    return true;
+  });
+  expect(contextLossAvailable).toBe(true);
+  await expect(page.getByTestId("solo-flight")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Graphics connection lost");
+  expect(rewardRequests).toBe(0);
+  await page.getByTestId("button-solo-launch").click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
+  await page.getByRole("button", { name: "EXIT SOLO FLIGHT" }).click();
+});
+
+test("a rendered Practice flight completes with a real debrief and releases controls", async ({ page }) => {
+  test.setTimeout(210_000);
+  await page.setViewportSize({ width: 640, height: 400 });
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.goto("/play");
+  await page.getByTestId("button-solo-launch").click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
+  // Arena deliberately waits for the pilot to acknowledge its outcome overlay.
+  const debrief = page.getByRole("button", { name: "Debrief", exact: true });
+  await expect(debrief).toBeVisible({ timeout: 190_000 });
+  await debrief.click();
+  await expect(page.getByTestId("panel-solo-result")).toBeVisible();
+  await expect(page.getByTestId("text-solo-outcome")).toHaveText(/Victory|Defeat|Draw/);
+  await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(false);
+  expect(pageErrors).toEqual([]);
 });

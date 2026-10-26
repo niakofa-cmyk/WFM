@@ -102,7 +102,8 @@
     "STAGING-TEST-REPORT.md",
     "docs/staging-network-impairment-evidence.json",
     "docs/staging-deterministic-reward-flight-evidence.json",
-    "docs/staging-reward-parity-flight-report.md"
+    "docs/staging-reward-parity-flight-report.md",
+    "docs/game-runtime-forensic-report.md"
   ],
   "productionReadiness": "NOT_CLAIMED"
 }

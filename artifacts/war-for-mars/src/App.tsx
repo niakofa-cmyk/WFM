@@ -156,10 +156,10 @@ function SignedInGame() {
 }
 
 function AccountGameEntry() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   // Discovery and solo entry remain visible while hosted authentication loads.
   // Never mount account/progression hooks until the session is confirmed.
-  return isLoaded && isSignedIn ? <SignedInGame /> : <PublicLanding />;
+  return isLoaded && isSignedIn ? <SignedInGame key={userId} /> : <PublicLanding />;
 }
 
 function ApiAuthBridge() {
