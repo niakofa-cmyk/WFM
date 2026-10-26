@@ -330,9 +330,15 @@ test(
           /maximum frame count|after the match ended/i.test(error.message),
       );
 
-      const firstClaim = await claimPlayerStrike(userId, currentRun.runId, replay);
-      assert.equal("error" in firstClaim, false);
-      if ("error" in firstClaim) return;
+      const [claimA, claimB] = await Promise.all([
+        claimPlayerStrike(userId, currentRun.runId, replay),
+        claimPlayerStrike(userId, currentRun.runId, replay),
+      ]);
+      if ("error" in claimA || "error" in claimB) {
+        assert.fail("A valid concurrent claim should award once and replay once.");
+      }
+      assert.deepEqual([claimA.replayed, claimB.replayed].sort(), [false, true]);
+      const firstClaim = claimA.replayed ? claimB : claimA;
       assert.equal(firstClaim.profile.credits, 280 + firstClaim.gain);
       assert.equal(firstClaim.replayed, false);
 

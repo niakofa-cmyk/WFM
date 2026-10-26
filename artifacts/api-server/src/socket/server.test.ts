@@ -389,27 +389,47 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
   }
 });
 
-test("a restarted socket rejects stale sessions and accepts fresh rooms", async () => {
+test("a restarted socket notifies every pilot, rejects stale sessions, and accepts fresh rooms", async () => {
   let runtime = await startWingSocketServer(0, "127.0.0.1");
   const sockets: WebSocket[] = [];
   try {
-    const oldSocket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
-    sockets.push(oldSocket);
+    const roomUrl = `ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`;
+    const oldSocket = await connect(roomUrl);
+    const peerSocket = await connect(roomUrl);
+    sockets.push(oldSocket, peerSocket);
     const oldSeat = await join(oldSocket, "Pilot");
-    oldSocket.send(JSON.stringify({ type: "ready", ready: true }));
-    await nextPacket(oldSocket, (packet) => packet.type === "lobby" &&
-      Boolean((packet.players as Array<{ slotId: number; ready: boolean }> | undefined)?.find((player) => player.slotId === 0)?.ready));
-    const oldStarted = nextPacket(oldSocket, (packet) => packet.type === "started");
-    oldSocket.send(JSON.stringify({ type: "start" }));
-    await oldStarted;
-
-    const interrupted = nextPacket(oldSocket, (packet) => packet.type === "interrupted");
-    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
-      oldSocket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
+    await join(peerSocket, "Wingmate");
+    const allPilotsReady = nextPacket(oldSocket, (packet) => {
+      if (packet.type !== "lobby") return false;
+      const players = packet.players as Array<{ connected?: boolean; ready?: boolean }> | undefined;
+      return Boolean(players?.filter((player) => player.connected).every((player) => player.ready));
     });
+    oldSocket.send(JSON.stringify({ type: "ready", ready: true }));
+    peerSocket.send(JSON.stringify({ type: "ready", ready: true }));
+    await allPilotsReady;
+
+    const bothStarted = Promise.all([
+      nextPacket(oldSocket, (packet) => packet.type === "started"),
+      nextPacket(peerSocket, (packet) => packet.type === "started"),
+    ]);
+    oldSocket.send(JSON.stringify({ type: "start" }));
+    await bothStarted;
+
+    const interrupted = [oldSocket, peerSocket].map((socket) =>
+      nextPacket(socket, (packet) => packet.type === "interrupted"));
+    const closed = [oldSocket, peerSocket].map((socket) =>
+      new Promise<{ code: number; reason: string }>((resolve) => {
+        socket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
+      }));
     await runtime.close();
-    assert.equal((await interrupted).reason, "server_restart");
-    assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
+    assert.deepEqual((await Promise.all(interrupted)).map((packet) => packet.reason), [
+      "server_restart",
+      "server_restart",
+    ]);
+    assert.deepEqual(await Promise.all(closed), [
+      { code: 4002, reason: "server_restart" },
+      { code: 4002, reason: "server_restart" },
+    ]);
     runtime = await startWingSocketServer(0, "127.0.0.1");
 
     const staleSession = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
