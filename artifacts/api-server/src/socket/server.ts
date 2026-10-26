@@ -41,17 +41,26 @@ type Client = {
   lastInputAt: number;
 };
 
+type ShutdownNoticeResult = "acknowledged" | "closed" | "timeout" | "send_error";
+
 const MAX_MESSAGES_PER_SECOND = 80;
 const MAX_INPUTS_PER_SECOND = 45;
 export async function startWingSocketServer(
   port: number,
   host = "0.0.0.0",
-  options: { tickIntervalMs?: number; snapshotIntervalMs?: number; allowedOrigins?: ReadonlySet<string> } = {},
+  options: {
+    tickIntervalMs?: number;
+    snapshotIntervalMs?: number;
+    allowedOrigins?: ReadonlySet<string>;
+    shutdownAckTimeoutMs?: number;
+  } = {},
 ) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
+  const shutdownAckWaiters = new Map<WebSocket, (result: ShutdownNoticeResult) => void>();
   const tickIntervalMs = options.tickIntervalMs ?? 1000 / TICK_RATE;
   const snapshotIntervalMs = options.snapshotIntervalMs ?? 1000 / TICK_RATE;
+  const shutdownAckTimeoutMs = options.shutdownAckTimeoutMs ?? 1_500;
   let isShuttingDown = false;
   let closePromise: Promise<void> | null = null;
 
@@ -139,6 +148,11 @@ export async function startWingSocketServer(
       if (client.messageCount > MAX_MESSAGES_PER_SECOND) {
         send(socket, { type: "error", reason: "rate_limited" });
         socket.close(1008, "Message rate exceeded");
+        return;
+      }
+
+      if (packet.type === "interrupted_ack") {
+        shutdownAckWaiters.get(socket)?.("acknowledged");
         return;
       }
 
@@ -319,6 +333,7 @@ export async function startWingSocketServer(
     });
 
     socket.on("close", () => {
+      shutdownAckWaiters.get(socket)?.("closed");
       const room = client.room;
       const slotId = client.slotId;
       clients.delete(socket);
@@ -427,6 +442,8 @@ export async function startWingSocketServer(
       const httpClosed = new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
+      const shutdownNotices: Promise<ShutdownNoticeResult>[] = [];
+      const interruptedPayload = JSON.stringify({ type: "interrupted", reason: "server_restart" });
       for (const socket of sockets.clients) {
         const client = clients.get(socket);
         const room = client?.room;
@@ -436,24 +453,74 @@ export async function startWingSocketServer(
           const shutdownTimer = setTimeout(() => socket.terminate(), 5_000);
           shutdownTimer.unref();
           socket.once("close", () => clearTimeout(shutdownTimer));
-          socket.send(
-            JSON.stringify({ type: "interrupted", reason: "server_restart" }),
-            (error) => {
-              if (error) socket.terminate();
-              else socket.close(4002, "server_restart");
-            },
+          shutdownNotices.push(
+            sendShutdownNotice(
+              socket,
+              interruptedPayload,
+              shutdownAckTimeoutMs,
+              shutdownAckWaiters,
+            ).then((result) => {
+              if (socket.readyState === WebSocket.OPEN) {
+                if (result === "send_error") socket.terminate();
+                else socket.close(4002, "server_restart");
+              }
+              return result;
+            }),
           );
         } else {
           socket.close(1001, "Server shutting down");
         }
       }
       closePromise = (async () => {
+        const results = await Promise.all(shutdownNotices);
+        if (results.length > 0) {
+          process.stdout.write(`${JSON.stringify({
+            event: "socket_shutdown_notice_delivery",
+            activeSockets: results.length,
+            acknowledged: results.filter((result) => result === "acknowledged").length,
+            timedOut: results.filter((result) => result === "timeout").length,
+            closedBeforeAck: results.filter((result) => result === "closed").length,
+            sendErrors: results.filter((result) => result === "send_error").length,
+          })}\n`);
+        }
         await new Promise<void>((resolve) => sockets.close(() => resolve()));
         await httpClosed;
       })();
       return closePromise;
     },
   };
+}
+
+function sendShutdownNotice(
+  socket: WebSocket,
+  payload: string,
+  timeoutMs: number,
+  waiters: Map<WebSocket, (result: ShutdownNoticeResult) => void>,
+): Promise<ShutdownNoticeResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const finish = (result: ShutdownNoticeResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.off("close", onClose);
+      if (waiters.get(socket) === finish) waiters.delete(socket);
+      resolve(result);
+    };
+    const onClose = () => finish("closed");
+    waiters.set(socket, finish);
+    timer = setTimeout(() => finish("timeout"), timeoutMs);
+    timer.unref();
+    socket.once("close", onClose);
+    try {
+      socket.send(payload, (error) => {
+        if (error) finish("send_error");
+      });
+    } catch {
+      finish("send_error");
+    }
+  });
 }
 
 function rejectUpgrade(socket: import("node:stream").Duplex, status: string) {

@@ -431,11 +431,16 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
       })
       .catch(() => false);
     assert.equal(await lateConnectionAccepted, false);
-    await Promise.all([shutdown, repeatedShutdown]);
     assert.deepEqual((await Promise.all(interrupted)).map((packet) => packet.reason), [
       "server_restart",
       "server_restart",
     ]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(oldSocket.readyState, WebSocket.OPEN);
+    assert.equal(peerSocket.readyState, WebSocket.OPEN);
+    oldSocket.send(JSON.stringify({ type: "interrupted_ack" }));
+    peerSocket.send(JSON.stringify({ type: "interrupted_ack" }));
+    await Promise.all([shutdown, repeatedShutdown]);
     assert.deepEqual(await Promise.all(closed), [
       { code: 4002, reason: "server_restart" },
       { code: 4002, reason: "server_restart" },
@@ -469,6 +474,37 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
       }));
     }
     await limited;
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("an active pilot is closed safely after the bounded acknowledgement wait", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", { shutdownAckTimeoutMs: 20 });
+  const sockets: WebSocket[] = [];
+  try {
+    const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-timeout`);
+    sockets.push(socket);
+    await join(socket, "Pilot");
+    const ready = nextPacket(socket, (packet) => {
+      if (packet.type !== "lobby") return false;
+      const players = packet.players as Array<{ ready?: boolean }> | undefined;
+      return Boolean(players?.some((player) => player.ready));
+    });
+    socket.send(JSON.stringify({ type: "ready", ready: true }));
+    await ready;
+    const started = nextPacket(socket, (packet) => packet.type === "started");
+    socket.send(JSON.stringify({ type: "start" }));
+    await started;
+
+    const interrupted = nextPacket(socket, (packet) => packet.type === "interrupted");
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      socket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
+    await runtime.close();
+    assert.equal((await interrupted).reason, "server_restart");
+    assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
   } finally {
     await Promise.all(sockets.map(close));
     await runtime.close();

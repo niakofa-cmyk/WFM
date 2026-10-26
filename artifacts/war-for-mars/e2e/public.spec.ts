@@ -69,7 +69,8 @@ test("mobile flight controls reserve device safe areas", async ({ page }) => {
   const presetTwo = page.getByTestId("flight-preset-2");
   await expect(presetTwo).toHaveCSS("opacity", "1", { timeout: 6000 });
   await presetTwo.focus();
-  await page.keyboard.press("Enter");
+  await expect(presetTwo).toBeFocused();
+  await presetTwo.press("Enter");
   await expect(presetTwo).toHaveAttribute("aria-pressed", "true");
 
   for (const viewportSize of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {

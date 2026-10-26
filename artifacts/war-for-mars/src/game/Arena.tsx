@@ -4,6 +4,7 @@ import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxF
 import "./controls-probe";
 import { clearInput, createBus, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
+import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import {
   CLIENT_RECONNECT_WINDOW_MS,
@@ -650,7 +651,7 @@ export function Arena({
         clearHandshakeTimer();
         activeSocketRef.current = null;
         joinedSocketRef.current = null;
-        if (source.readyState === WebSocket.OPEN || source.readyState === WebSocket.CONNECTING) source.close();
+        acknowledgeInterruptedNotice(source);
         networkExitRef.current(packet.reason === "server_restart" ? "server_restart" : "session_lost");
         return;
       }
