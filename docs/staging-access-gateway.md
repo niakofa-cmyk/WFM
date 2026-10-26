@@ -129,3 +129,54 @@ All four staging services still have zero public domains and zero TCP proxies.
 No public address was generated, no production changes were made, and no
 sign-in or gameplay writes were performed. Gateway access and the authenticated
 flight remain **BLOCKED**, not certified.
+
+### Corrected deployment and live restrictions: 2026-10-26 UTC
+
+The owner replaced the staging code through Railway Variables. Deployment
+`d75191d3-6252-4003-ad7e-e5fbf82898a4` reached `SUCCESS`, and runtime logs
+confirmed the gateway was listening without a configuration error. The code's
+value was not retrieved.
+
+Only after that success, the gateway received this address:
+
+`https://wfm-app-staging-staging.up.railway.app`
+
+Its health endpoint returned 200 and its root returned 403 while the bootstrap
+origin was still active, confirming it did not expose the old ungated frontend.
+The real gateway origin and the exact API/socket origin allowlists were then
+deployed together, still using source commit
+`b9be83a62de348293157a8e63f02a65988506649`.
+
+| Service | Current deployment | Observed status |
+| --- | --- | --- |
+| Gateway | `a33d9169-4475-4f3a-a216-09a2a69dc063` | `SUCCESS`; listening, no runtime errors observed |
+| API | `17f79d09-2e29-4d60-a40c-0e9a959533c3` | `SUCCESS` |
+| Socket | `4c41dce5-7125-47be-9f4a-3b57423308ff` | `SUCCESS` |
+
+Live anonymous verification passed all eleven HTTP checks:
+
+| Request | Expected and observed |
+| --- | --- |
+| GET `/__staging/healthz` | 200 |
+| GET `/__staging/access` | 200; access form present |
+| GET `/`, `/sign-in`, `/assets/unauthorized-check.js` | 401 each |
+| GET `/api/game/profile`, `/api/readyz` | 401 each, `staging_access_required` |
+| GET `/ws` without an upgrade | 401 |
+| GET `/` with an untrusted Origin | 403 |
+| POST `/__staging/access` without Origin | 403 |
+| POST `/__staging/access` with the correct Origin and a deliberately invalid synthetic code | 401 |
+
+All responses had `Cache-Control: no-store`; none issued an access cookie.
+Three real WebSocket upgrade attempts also returned 401: correct Origin
+without a session, missing Origin, and an untrusted Origin.
+
+Only the gateway has a public domain. The API, socket, and database retain
+zero public domains and zero TCP proxies. No production configuration was
+changed, and no Clerk account or progression records were created.
+
+**Still pending:** a successful code unlock, authenticated upstream
+connectivity, approved Clerk staging-account sign-in, a complete flight,
+debrief/reward persistence, and live restart/reconnect checks. The browser
+runner does not have the access code; `WFM_STAGING_ACCESS_CODE` is absent from
+its secure test configuration. Anonymous rejection tests do not certify these
+positive flows or production readiness.
