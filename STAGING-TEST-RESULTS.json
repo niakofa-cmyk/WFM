@@ -31,37 +31,48 @@
     "productionBuilds": "PASS"
   },
   "latestLocalWorkspaceCheck": {
-    "verifiedAtUtc": "2026-10-26T21:45:42Z",
-    "testedSourceCommit": "de2572950486de7bb648851a245ee8943eeab8ed",
-    "testedWorkingTreeCommittedAs": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "verifiedAtUtc": "2026-10-26T22:41:47Z",
+    "testedSourceCommit": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+    "testedWorkingTreeCommittedAs": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
     "workingTreeChangesIncluded": [
-      "artifacts/api-server/src/socket/index.ts",
       "artifacts/api-server/src/socket/server.ts",
-      "artifacts/api-server/src/socket/server.test.ts"
+      "artifacts/api-server/src/socket/server.test.ts",
+      "artifacts/war-for-mars/src/game/Arena.tsx",
+      "artifacts/war-for-mars/src/game/interrupted-ack.ts",
+      "artifacts/war-for-mars/src/game/interrupted-ack.test.ts",
+      "artifacts/war-for-mars/e2e/public.spec.ts"
     ],
-    "scope": "Local Replit workspace only; not deployed staging evidence.",
-    "frozenLockfileInstall": "NOT_RUN_IN_THIS_CHECK; no dependency or lockfile changes; latest frozen install remains recorded separately.",
+    "scope": "Local Replit workspace only; commit 896c490 is not deployed staging or Production evidence.",
+    "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
-      "passed": 71,
+      "passed": 72,
       "failed": 0
     },
     "gameTests": {
-      "passed": 32,
+      "passed": 35,
       "failed": 0
     },
     "workspaceBuilds": "PASS",
     "socketLifecycleRegression": {
       "allPilotsReceiveRestartNotice": "PASS",
+      "shutdownWaitsForPilotAcknowledgements": "PASS",
+      "missingAcknowledgementUsesBoundedTimeout": "PASS",
+      "restartCloseCode": 4002,
       "newUpgradesRejectedDuringShutdown": "PASS",
       "repeatedCloseIsSafe": "PASS",
-      "scope": "Local socket tests only. The previously observed Railway staging 1006 restart result remains unresolved; the new socket code was not live in staging at the status check."
+      "scope": "Local socket/client protocol tests only. The previously observed Railway staging 1006 restart result remains unresolved; this commit has not been deployed to staging."
     },
-    "publicE2e": "NOT_RUN_IN_THIS_CHECK",
-    "previousPublicE2e": {
+    "publicE2e": {
       "passed": 6,
       "failed": 0,
-      "scope": "Playwright public suite with software-WebGL enabled; includes Practice flight and browser viewport checks, not physical-device evidence."
+      "scope": "Playwright public suite; landing page, development Clerk sign-up form, mobile safe-area controls, graphics-context-loss recovery, and Practice flight. No signed-in Production check or physical-device evidence."
+    },
+    "clerkConfigurationCheck": {
+      "configuredPublishableKeyPreservation": "PASS",
+      "previewKeyMode": "Development",
+      "externalRailwayProductionConnection": "NOT_VERIFIED",
+      "productionSettingsChanged": false
     }
   },
   "latestFrozenWorkspaceQualityCheck": {
