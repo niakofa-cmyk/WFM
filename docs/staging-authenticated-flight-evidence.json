@@ -47,8 +47,9 @@
     "secretSaveConfirmationReceivedBeforeLatestRun": true,
     "latestAuthChallenge": "new_device_email_verification",
     "stagingAddressIsClerkTestAlias": false,
-    "verificationCodeAccessed": false,
+    "verificationCodeProvidedInChat": true,
     "verificationCodeSubmitted": false,
+    "verificationCodeValuePersisted": false,
     "driverSessionWaitCorrected": true,
     "driverTwoStepPasswordHandlingCorrected": true,
     "driverSyntaxCheckPassed": true,
@@ -61,6 +62,6 @@
     "persistenceVerified": false,
     "productionModified": false
   },
-  "remainingBlocker": "Clerk requires a new-device email verification code for the existing Development account. The frontend and connected API JWKS match, and a targeted lookup confirmed one existing verified user, but the test alias is absent. The owner reported updating the Development connection, but CLERK_BAPI_SCOPES remains unset and the connector exposes no permission metadata; email-address write authorization is therefore not established and no alias mutation was attempted. Authenticated gameplay remains untested.",
+  "remainingBlocker": "Clerk requires a new-device email verification code for the existing Development account. A one-time code was included in chat but was not submitted or persisted; the account owner should request a fresh code and enter it directly in the browser. The frontend and connected API JWKS match, and a targeted lookup confirmed one existing verified user, but the test alias is absent. The owner reported updating the Development connection, but CLERK_BAPI_SCOPES remains unset and the connector exposes no permission metadata; email-address write authorization is therefore not established and no alias mutation was attempted. Authenticated gameplay remains untested.",
   "releaseGate": "pending"
 }
