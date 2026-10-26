@@ -102,6 +102,23 @@ disconnect/reconnect checks. It does not verify browser invite UI, human
 gameplay, physical-device or packet-loss behavior, or reward persistence; those
 remain separate checks. The overall release gate remains **PENDING**.
 
+## Authorized Railway staging socket restart — 2026-10-26, 17:34 UTC
+
+An active two-client match was running when the existing Railway staging socket
+deployment was restarted in place. Neither client received the `interrupted`
+notice; both connections ended with WebSocket close code `1006`. Railway logs
+showed the old command terminated by `SIGTERM`, followed by the socket service
+listening again, and the service health check returned healthy. The deployed
+restart-notification requirement therefore **FAILS**, despite the separate
+local direct-`SIGTERM` check passing.
+
+After recovery, the old room's reconnect token was rejected as
+`session_lost`, and two clients successfully joined, readied, and started a
+fresh room. This passes fresh-room recovery and partially verifies old-room
+rejection. No reward claim was attempted, so interrupted-match reward
+protection remains unverified. No Railway configuration or Production setting
+was changed; the overall staging release gate remains **PENDING**.
+
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit
@@ -143,9 +160,9 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
-| Restart interrupts active match and notifies players | PENDING — direct Node `SIGTERM` check passed locally; managed workflow restart closed with 1006 and no notice; deployed restart not tested | Local checks below |
-| Interrupted match cannot award rewards; old room is rejected | PENDING | |
-| New room works after restart | PENDING | |
+| Restart interrupts active match and notifies players | FAIL — authorized Railway staging restart closed both active clients with 1006 and sent no `interrupted` notice; local direct-`SIGTERM` test passes, but deployed restart does not | `latestStagingSocketRestartCheck` |
+| Interrupted match cannot award rewards; old room is rejected | PARTIAL — the old reconnect token was rejected as `session_lost`; no authenticated reward claim was attempted | `latestStagingSocketRestartCheck` |
+| New room works after restart | PASS — two clients joined and started a fresh room after the staging socket recovered | `latestStagingSocketRestartCheck` |
 | Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — live protocol checks verified ten 5v5 seats, host/readiness gates, late-join rejection, and reconnect; browser invite flow remains unverified | `latestLiveMultiplayerRoomSmoke` |
 | Ten clients complete a match with consistent final results | PASS — all ten clients received the same completed result after two controlled reconnects; scripted protocol clients, not human gameplay | `latestLiveTenClientMatch` |

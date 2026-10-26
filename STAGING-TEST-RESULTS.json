@@ -201,6 +201,37 @@
     "productionModified": false,
     "scope": "Ten scripted protocol clients completed a live staging match after two controlled disconnect/reconnect events. This verifies server-level staging behavior, not human gameplay, browser UI, physical-device network impairment, or reward persistence."
   },
+  "latestStagingSocketRestartCheck": {
+    "recordedAtUtc": "2026-10-26T17:34:29Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartMode": "Railway in-place restart of the existing deployment",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": {
+      "result": "PASS",
+      "serverError": "session_lost"
+    },
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "railwayConfigurationChanged": false,
+    "scope": "Authorized staging-only restart during an active two-client match. Clients did not receive the restart notice and closed abnormally; the service recovered, the old reconnect token was rejected, and a new room started. Reward claiming was not tested."
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
@@ -306,9 +337,9 @@
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
     "sharedEconomyUsesStagingData": "PENDING",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
-    "restartEndsMatchAndNotifiesPlayers": "PENDING",
-    "interruptedMatchCannotClaimRewards": "PENDING",
-    "freshRoomRequiredAfterRestart": "PENDING",
+    "restartEndsMatchAndNotifiesPlayers": "FAIL",
+    "interruptedMatchCannotClaimRewards": "PARTIAL",
+    "freshRoomRequiredAfterRestart": "PASS",
     "ordinaryDisconnectReconnect": "PASS",
     "roomInviteReadyAndTeamAssignment": "PARTIAL",
     "tenClientMatchCompletion": "PASS",
