@@ -79,6 +79,19 @@ establish Development authentication.
 tests, keep the alias attached to the intended user profile, and never treat
 an OTP from another instance as proof of sign-in.
 
+For staging sign-in checks, use a code issued for the currently open challenge.
+If Clerk remains at `needs_client_trust`, do not call protected APIs or count
+the account as authenticated; submit a fresh code for that active challenge and
+require both an active session and an authenticated profile response.
+
+**Why:** on 2026-10-26, earlier staging code submissions left both account
+contexts unauthenticated, while fresh codes for the newly opened challenges
+completed sign-in and returned HTTP 200 profiles.
+
+**How to apply:** keep each code in Replit Secrets, submit it once to its matching
+staging account's current challenge, and log only sanitized status and error
+categories—not the code or full authentication response.
+
 When Clerk instance metadata does not expose a comparable instance identifier,
 compare the frontend and Backend API JWKS sets in memory and report only whether
 they match.

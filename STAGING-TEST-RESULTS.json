@@ -380,18 +380,47 @@
     "scope": "Protected staging only, using two existing approved accounts. /api/world and /api/market returned data for both accounts. A profile query carrying the other account's userId returned the authenticated caller's profile; a profile action carrying a foreign userId was rejected with HTTP 400. The first full-profile comparison differed; a repeat stability check and a second before/after comparison around the rejected write were stable. Browser room-code invite, separate team assignment, the host readiness gate, both-pilot readiness, and match start passed with three canvases per browser. No market trade, new account, reward claim, or Production change was made. This does not certify physical-device sync or world-state cross-account mutations."
   },
   "latestStagingSharedMarketTradeCheck": {
-    "recordedAtUtc": "2026-10-26T20:11:48Z",
+    "recordedAtUtc": "2026-10-26T20:23:18Z",
     "environment": "staging",
     "existingApprovedAccounts": 2,
-    "freshCodeSubmissions": 2,
-    "writerAuthenticationStatus": "needs_client_trust",
-    "observerAuthenticationStatus": "needs_client_trust",
-    "authenticatedProfilesAvailable": false,
-    "marketReadAttempted": false,
-    "marketTradeRequestSent": false,
-    "tradeCheckStatus": "BLOCKED_AUTHENTICATION",
+    "initialChallengeSubmissions": {
+      "statuses": ["needs_client_trust", "needs_client_trust"],
+      "marketCallsSent": false
+    },
+    "challengeDiagnostics": {
+      "codeFieldCount": [1, 1],
+      "codeFieldType": ["text", "text"],
+      "codeFieldMaxLength": [6, 6],
+      "continueButtonVisible": [true, true],
+      "errorKind": ["none", "none"],
+      "turnstileFramePresent": [false, false]
+    },
+    "currentChallengeCodeSubmissions": 2,
+    "authenticatedProfileStatuses": [200, 200],
+    "marketReadAttempted": true,
+    "marketTradeRequestSent": true,
+    "marketTrade": {
+      "goodId": "salt",
+      "quantity": 1,
+      "maximumBuyTotal": 41,
+      "buyStatus": 200,
+      "sellStatus": 200,
+      "sharedStockDecreasedForObserver": true,
+      "sharedStockRestoredForObserver": true,
+      "marketRevisionAdvancedByTwo": true,
+      "traderInventoryRestored": true,
+      "traderCargoRestored": true,
+      "observerInventoryUnchanged": true,
+      "creditsDelta": -2,
+      "noCreditCreation": true,
+      "claimRequests": 0,
+      "pageErrors": 0,
+      "outcome": "PASS"
+    },
+    "signOutProfileStatuses": [401, 401],
+    "tradeCheckStatus": "PASS",
     "productionModified": false,
-    "scope": "The secure fresh-code submissions did not establish either Clerk session; both browser contexts remained at needs_client_trust. No market endpoint was called and no trade, account, market, or Production data was changed."
+    "scope": "Protected staging only. Earlier codes left both contexts at needs_client_trust; the rendered challenge had one six-digit field, a visible Continue button, no visible error, and no Turnstile frame. Fresh codes for the active challenges authenticated both existing accounts and each profile returned HTTP 200. One salt was bought and sold back. The observer saw shared stock decrease and return, and the buyer's inventory/cargo returned to baseline. The buyer's balance decreased by two credits from spread/price impact; market revision advanced twice. Both accounts signed out to HTTP 401. Production was not accessed or modified."
   },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
@@ -496,7 +525,7 @@
     "profilePersistsAcrossSessions": "PASS",
     "profileSyncsAcrossDevices": "PENDING",
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
-    "sharedEconomyUsesStagingData": "PARTIAL",
+    "sharedEconomyUsesStagingData": "PASS",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
     "restartEndsMatchAndNotifiesPlayers": "PARTIAL",
     "stagingBrowserShowsRestartNotice": "PASS",
