@@ -138,7 +138,7 @@ Verification:
 
 | Check | Result |
 | --- | --- |
-| Cross-runtime gate, 6 pinned replays (both factions, all four goals, both paces, up to 21,600 frames), full-state checksum every frame | Identical in Node 24.22 vs Chromium 152 and vs Chromium 156 |
+| Cross-runtime gate, 6 pinned replays (both factions, all four goals, both paces, up to 21,600 frames), full-state checksum every frame | Identical in Node 24.22 vs Chromium 152 and 156 locally, and Node 24.21 vs Chromium 155 in GitHub CI, with the same checksums |
 | Same gate against the previous simulation | All 6 replays diverged at frame 1 |
 | Pinned golden math bits and pinned replay checksums (unit tests) | Pass |
 | Re-running a replay after an unrelated match | Bit-identical (no leaked module state) |
