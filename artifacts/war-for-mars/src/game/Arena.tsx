@@ -1053,6 +1053,13 @@ export function Arena({
         setPaused(next);
         return;
       }
+      if (
+        event.code === "Space" &&
+        event.target instanceof HTMLButtonElement &&
+        !event.target.hasAttribute("data-flight-fire")
+      ) {
+        return;
+      }
       bus.keys.add(event.code);
       if (event.code === "Space" || event.code.startsWith("Arrow")) event.preventDefault();
     };
@@ -1091,6 +1098,7 @@ export function Arena({
     window.__controlsTest = {
       getYaw: () => pilotCraft(match, slotIdRef.current).yaw,
       getSpeed: () => pilotCraft(match, slotIdRef.current).speed,
+      getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
       },
@@ -1555,7 +1563,9 @@ export function Arena({
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
-        button.dataset.on = index === match.preset ? "1" : "0";
+        const selected = index === match.preset;
+        button.dataset.on = selected ? "1" : "0";
+        button.setAttribute("aria-pressed", String(selected));
         button.style.opacity = match.presetCd > 0.05 && index !== match.preset ? "0.4" : "1";
       });
       const radar = radarRef.current;
@@ -1807,10 +1817,16 @@ export function Arena({
                   presetRefs.current[index] = node;
                 }}
                 data-on={index === 0 ? "1" : "0"}
+                data-testid={`flight-preset-${index}`}
+                aria-pressed={index === 0}
                 className="h-11 w-16 border border-bone/25 bg-panel font-hud text-base tracking-widest text-bone"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3;
+                }}
+                onClick={(event) => {
+                  if (event.detail !== 0 || !bus) return;
+                  bus.presetPulse = index as 0 | 1 | 2 | 3;
                 }}
               >
                 {name}
@@ -1846,6 +1862,9 @@ export function Arena({
                 event.stopPropagation();
                 if (bus) bus.lockPulse = true;
               }}
+              onClick={(event) => {
+                if (event.detail === 0 && bus) bus.lockPulse = true;
+              }}
             >
               LOCK
             </button>
@@ -1855,6 +1874,10 @@ export function Arena({
               onPointerDown={(event) => {
                 event.stopPropagation();
                 if (!bus) return;
+                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
+              }}
+              onClick={(event) => {
+                if (event.detail !== 0 || !bus) return;
                 bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
               }}
             >
@@ -1869,11 +1892,17 @@ export function Arena({
                 unlockAudio();
                 if (bus) bus.ultPulse = true;
               }}
+              onClick={(event) => {
+                if (event.detail !== 0) return;
+                unlockAudio();
+                if (bus) bus.ultPulse = true;
+              }}
             >
               {ship.ultShort}
             </button>
             <button
               type="button"
+              data-flight-fire=""
               className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
               onPointerDown={(event) => {
                 event.stopPropagation();

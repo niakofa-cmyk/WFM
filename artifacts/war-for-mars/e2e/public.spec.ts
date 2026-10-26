@@ -59,6 +59,35 @@ test("mobile flight controls reserve device safe areas", async ({ page }) => {
   expect(rightStyle).toContain("safe-area-inset-right");
   expect(rightStyle).toContain("safe-area-inset-bottom");
 
+  const presetOne = page.getByTestId("flight-preset-1");
+  await presetOne.focus();
+  await page.keyboard.down("Space");
+  await expect.poll(() => page.evaluate(() => window.__controlsTest?.getFiring?.())).toBe(false);
+  await page.keyboard.up("Space");
+  await expect(presetOne).toHaveAttribute("aria-pressed", "true");
+
+  const presetTwo = page.getByTestId("flight-preset-2");
+  await expect(presetTwo).toHaveCSS("opacity", "1", { timeout: 6000 });
+  await presetTwo.focus();
+  await page.keyboard.press("Enter");
+  await expect(presetTwo).toHaveAttribute("aria-pressed", "true");
+
+  for (const viewportSize of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewportSize);
+    for (const controls of [
+      page.getByTestId("flight-controls-left"),
+      page.getByTestId("flight-controls-right"),
+    ]) {
+      const box = await controls.boundingBox();
+      expect(box).not.toBeNull();
+      if (!box) continue;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewportSize.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewportSize.height);
+    }
+  }
+
   await page.getByRole("button", { name: "EXIT SOLO FLIGHT" }).click();
 });
 
