@@ -278,11 +278,34 @@ test(
       assert.equal(firstClaim.profile.credits, 280 + firstClaim.gain);
       assert.equal(firstClaim.replayed, false);
 
+      // Prove the reward survives a fresh profile read, not only the claim response.
+      const persistedAfterFirstClaim = await getPlayerProfile(userId);
+      assert.equal(persistedAfterFirstClaim.credits, firstClaim.profile.credits);
+      assert.equal(persistedAfterFirstClaim.cleared, firstClaim.profile.cleared);
+
+      const rewardEventKey = `strike:${currentRun.runId}`;
+      const storedRewardEvents = await db
+        .select()
+        .from(progressionEventsTable)
+        .where(eq(progressionEventsTable.idempotencyKey, rewardEventKey));
+      assert.equal(storedRewardEvents.length, 1);
+      assert.equal(storedRewardEvents[0].amount, firstClaim.gain);
+      assert.equal(storedRewardEvents[0].balanceAfter, firstClaim.profile.credits);
+
       const retry = await claimPlayerStrike(userId, currentRun.runId, replay);
       assert.equal("error" in retry, false);
       if ("error" in retry) return;
       assert.equal(retry.profile.credits, 280 + firstClaim.gain);
       assert.equal(retry.replayed, true);
+
+      // An exact duplicate must not write a second reward or change the persisted balance.
+      const persistedAfterDuplicate = await getPlayerProfile(userId);
+      assert.equal(persistedAfterDuplicate.credits, firstClaim.profile.credits);
+      const rewardEventsAfterDuplicate = await db
+        .select()
+        .from(progressionEventsTable)
+        .where(eq(progressionEventsTable.idempotencyKey, rewardEventKey));
+      assert.equal(rewardEventsAfterDuplicate.length, 1);
       await assert.rejects(
         claimPlayerStrike(userId, currentRun.runId, [{
           throttle: 0,
