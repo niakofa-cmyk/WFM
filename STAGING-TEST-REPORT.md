@@ -167,6 +167,30 @@ test closed both clients with `1006` and received no notice, so this single
 browser result does not establish consistent notification to every pilot.
 Production was not modified.
 
+## Browser recovery to a fresh room — 2026-10-26, 19:27 UTC
+
+A second authenticated staging browser run started an online room and active
+match, then the staging socket was restarted. The browser displayed the
+server-restart/no-rewards message, returned to the menu, and created a distinct
+new room from that screen. The pilot readied and started the new match
+successfully; three canvases were present, with zero page errors and zero
+strike-claim requests. The browser close code was not captured.
+
+Fresh-room browser recovery **PASS** for one pilot. The all-player notification
+criterion remains **PARTIAL** because the earlier two-client raw protocol run
+closed both clients with `1006` and no notice.
+
+### Reward-claim scope
+
+The staging browser made zero strike-claim requests during either online-room
+restart check. Code inspection confirms online matches take a separate
+`onlineSession` completion/interruption path and do not call the server-owned
+Strike claim endpoint; that endpoint requires a separate server-authorized
+single-player run ID and replay. Sending a valid Strike claim here would test a
+different run and could award credits, so no synthetic claim was sent. The
+online browser no-claim check **PASS**es; the broader server-side interrupted
+claim gate remains **PARTIAL** rather than being inferred from that check.
+
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit
@@ -208,9 +232,9 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
-| Restart interrupts active match and notifies players | PARTIAL — one authenticated browser displayed the server-restart/no-rewards message; close code was not captured, and an earlier two-client protocol run closed both with 1006 and no notice | `latestStagingBrowserRestartCheck`; `latestStagingSocketRestartCheck` |
-| Interrupted match cannot award rewards; old room is rejected | PARTIAL — an earlier restart rejected the old reconnect token as `session_lost`; no authenticated reward claim was attempted | `previousStagingSocketRestartCheck` |
-| New room works after restart | PASS — two clients joined and started a fresh room after the staging socket recovered | `latestStagingSocketRestartCheck` |
+| Restart interrupts active match and notifies players | PARTIAL — one authenticated browser displayed the server-restart/no-rewards message, but its close code was not captured; an earlier two-client protocol run closed both with 1006 and no notice | `latestStagingBrowserFreshRoomCheck`; `latestStagingSocketRestartCheck` |
+| Interrupted match cannot award rewards; old room is rejected | PARTIAL — browser restart checks made zero claim requests and online matches do not use the separate Strike claim endpoint; an earlier old-room reconnect was rejected as `session_lost`. Server-side claim rejection is not inferred from the UI check | `latestStagingBrowserFreshRoomCheck`; `previousStagingSocketRestartCheck`; `artifacts/war-for-mars/src/game/WarApp.tsx`; `artifacts/api-server/src/routes/strikes.ts` |
+| New room works after restart | PASS — one browser pilot created a distinct new room from the restart screen and started a match; two protocol clients also started a fresh room | `latestStagingBrowserFreshRoomCheck`; `latestStagingSocketRestartCheck` |
 | Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — live protocol checks verified ten 5v5 seats, host/readiness gates, late-join rejection, and reconnect; browser invite flow remains unverified | `latestLiveMultiplayerRoomSmoke` |
 | Ten clients complete a match with consistent final results | PASS — all ten clients received the same completed result after two controlled reconnects; scripted protocol clients, not human gameplay | `latestLiveTenClientMatch` |

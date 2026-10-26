@@ -5,7 +5,7 @@
 - [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
 - [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
 - [Socket shutdown checks](replit-socket-shutdown.md) — local shutdown passed; raw Railway clients closed 1006, while one browser pilot showed the restart notice.
-- [Offline progression](offline-progression-policy.md) — cached worlds are read-only; unresolved action identities survive reloads and remain server-validated.
+- [Offline progression](offline-progression-policy.md) — cached worlds are read-only; action identities persist for server validation; online rooms are separate from Strike reward claims.
 - [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
 - [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
 - [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
