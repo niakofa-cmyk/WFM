@@ -78,3 +78,24 @@ contexts; reconnecting succeeded but returned no original contexts or pages.
 **How to apply:** prove a private, in-process OTP handoff with synthetic input
 before starting another live challenge. Never log codes, expose a public relay,
 or persist browser login state as a workaround.
+
+Keep helper diagnostics failure-isolated from the browser-owning process.
+
+**Why:** an early diagnostic failure led to an unhandled stream write error
+that terminated the authenticated browser owner and lost the active session.
+
+**How to apply:** handle IPC and child-stdin errors, return sanitized failure
+states, and synthetically test helper failure/disconnect paths before involving
+real sign-in. Preserve the first claim response so diagnosis does not need retries.
+
+Require a deployed backend's accepted claim, not a local victory screen, as
+evidence of a rewarded flight.
+
+**Why:** a normally rendered browser battle reached a victory debrief while
+server adjudication rejected its terminal replay frames. Same-source deployment
+metadata and local unit tests did not establish runtime replay acceptance.
+
+**How to apply:** test the full recorded browser replay against the intended
+backend without truncating it or weakening validation. Freeze the accepted
+balance before a duplicate request; asynchronous response listeners must not
+overwrite the comparison baseline.
