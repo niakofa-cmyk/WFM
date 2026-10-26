@@ -62,6 +62,11 @@ jobs:
         run: pnpm run typecheck
       - name: Run tests
         run: pnpm test
+      - name: Install Chromium for the determinism gate
+        run: pnpm --filter @workspace/war-for-mars exec playwright install --with-deps chromium
+      - name: Cross-runtime simulation determinism gate
+        # Fails if Node (reward server) and Chromium (player) disagree on any frame of the pinned replays.
+        run: pnpm --filter @workspace/war-for-mars run test:determinism
       - name: Build all artifacts
         run: pnpm run build
 

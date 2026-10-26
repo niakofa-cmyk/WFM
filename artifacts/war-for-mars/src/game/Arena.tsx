@@ -12,6 +12,7 @@ import {
 } from "./reconnect-policy";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
+import { matchChecksum } from "./sim-trace";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
 
@@ -60,11 +61,13 @@ type ArenaProps = {
   gyro: boolean;
   drilled: boolean;
   onDrill: () => void;
-  onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
+  onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[]; checksums?: number[] }) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
   onGraphicsError?: (message: string) => void;
   online?: OnlineRoom;
 };
+
+const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
 
 const IDLE: StepInput = {
   throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false,
@@ -546,6 +549,10 @@ export function Arena({
   const serverEndedRef = useRef(Boolean(online?.snapshot.match.over));
   const seedRef = useRef(1);
   const replayRef = useRef<StepInput[]>([]);
+  // Staging diagnostics only: bit-exact state checksum after every applied step,
+  // so a rejected claim can be traced to the first frame where the live Arena
+  // and the reward server diverged.
+  const checksumRef = useRef<number[]>([]);
   const gyroOn = useRef(gyro);
   const drillCb = useRef(onDrill);
   gyroOn.current = gyro;
@@ -558,6 +565,7 @@ export function Arena({
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
       : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2 });
+    checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -1194,6 +1202,7 @@ export function Arena({
           const played = first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null };
           if (replayRef.current.length < 22000) replayRef.current.push(played);
           step(match, played, FIXED);
+          if (stagingTraceEnabled && checksumRef.current.length <= 22000) checksumRef.current.push(matchChecksum(match));
           first = false;
           acc -= FIXED;
           steps += 1;
@@ -1919,7 +1928,11 @@ export function Arena({
             <button
               type="button"
               className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
-              onClick={() => onDone(end, { seed: seedRef.current, inputs: replayRef.current })}
+              onClick={() => onDone(end, {
+                  seed: seedRef.current,
+                  inputs: replayRef.current,
+                  ...(stagingTraceEnabled ? { checksums: checksumRef.current } : {}),
+                })}
             >
               Debrief
             </button>
