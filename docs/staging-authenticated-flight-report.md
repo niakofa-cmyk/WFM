@@ -32,6 +32,12 @@ Credits remained unchanged. This is not a successful reward/persistence test.
    `clerk.wfm-app-staging-staging.up.railway.app` instead of the configured
    instance, causing TLS failure and a blank sign-in page. The frontend now
    uses the configured key directly, without changing its value.
+3. A client configuration fallback could override an explicit `tech: null`
+   returned by the server with the browser's saved technology preference. The
+   arena now preserves the server-owned value for authorized runs; offline
+   practice still uses the saved preference. This is a confirmed source-level
+   replay divergence risk, but the prior live run's technology selection was
+   not captured, so it is not proven to have caused that specific rejection.
 
 ## Verification
 
@@ -75,6 +81,10 @@ Credits remained unchanged. This is not a successful reward/persistence test.
 | Accepted reward / accepted-claim idempotency | Not verified; no claim was accepted and no reward was granted |
 | Local engine-parity diagnostic | No result: an EPIPE error terminated the temporary browser driver during diagnostic handoff |
 | Subsequent synthetic driver checks | Guarded child-process helper survived an early exit; the ES-module parity harness passed a 12-frame synthetic smoke test, not the live replay |
+| Current seeded API/client simulation comparison | Eight ships/configurations; 85,100 fixed-step frames; identical outcomes and terminal frames while both modules ran under Node |
+| Actual browser-runtime parity | Not verified: the local Playwright package is present but its Chromium executable is unavailable |
+| Focused regression for server `tech: null` | 3 frontend tests pass: preserve explicit null, preserve server selection, retain saved setting for offline practice |
+| Workspace quality after this client fix | Passed: typecheck, 63 API tests, 24 frontend tests, and all production builds |
 | Reload/sign-out persistence | Not run after the driver failure |
 | Four campaign sorties | Not run |
 
@@ -93,17 +103,21 @@ the match had already started. The battle ran at its normal pace and ended
 through its combat objective; this was not a claim that the clock reached 0:00.
 The driver clicked Debrief and let the app submit its normal recorded replay.
 
-The server and client disagree about the replay's terminal frame. The exact
-root cause is **not established**. Do not infer a missing credential, truncate
-the replay to force acceptance, or weaken terminal-state validation. The
-read-only local parity diagnostic produced no comparison because its temporary
-driver failed with EPIPE. The browser session ended before reload/sign-out
+The server rejected the recorded replay because it observed control frames after
+its match had ended. The original replay and its complete run configuration
+were not retained, so that specific rejection has not been reproduced. The new
+source audit found and fixed one real mismatch: an explicit server `tech: null`
+could be replaced by a saved client technology choice. Seeded comparisons of
+the client and API simulation sources matched for 85,100 frames in Node, but
+that does not establish browser-runtime parity or prove the mismatch caused the
+prior rejection. Do not truncate the replay to force acceptance or weaken
+terminal-state validation. The browser session ended before reload/sign-out
 verification. No further sign-in or reward retries were started.
 
-Afterward, a guarded helper survived a synthetic child-process early exit, and
-the parity harness ran successfully in ES-module form with 12 synthetic idle
-frames. Those checks did not use the lost in-memory live replay and do not
-establish its root cause or repair the application's reward path.
+The narrow configuration fix has a dedicated frontend regression test. The
+workspace typecheck, all API/frontend tests, and production builds pass after
+the change. This is not a verified live reward-path repair until a fresh
+authenticated staging flight receives a server-accepted claim.
 
 The server issued a normal staging run, which saves the selected configuration.
 No reward credit or campaign completion was granted. No Production data was
@@ -118,19 +132,15 @@ second testing-agent pass. The machine-readable summary is
 
 ## Remaining verification work
 
-1. Use the synthetically checked failure-isolated helper for the next
-   diagnostic. Apply the same protection to the private browser IPC listener;
-   helper-process/IPC errors must not terminate the browser owner.
-2. Diagnose the client-recording/server-adjudication terminal-frame disagreement
-   against the pinned deployed source, retaining only non-sensitive simulation
-   configuration and replay inputs in memory. Capture the original claim error
-   on its first response rather than requiring diagnostic retries.
-3. Add a focused regression before any application fix. Preserve server-owned
-   adjudication, input validation, frame limits, and reward protections.
-4. After a tested fix reaches isolated staging with authorization, complete a
-   normal Strike with an accepted claim; freeze its initial accepted balance,
-   verify an exact duplicate does not add credits, then verify reload and sign-out.
-5. Keep four campaign sorties, account isolation/cross-device persistence,
+1. Deploy the client configuration fix to isolated staging and run a fresh
+   authenticated Strike. Capture its exact server-issued config and the first
+   claim response in memory, not in persistent logs.
+2. If the replay still fails, compare the captured config and input sequence
+   against server adjudication in a failure-isolated driver. Preserve server
+   validation, frame limits, and reward protections.
+3. After a successful claim, freeze the starting balance, verify an exact
+   duplicate does not add credits, then verify reload and sign-out.
+4. Keep four campaign sorties, account isolation/cross-device persistence,
    real-network multiplayer, physical phones, and Production sign-in explicitly
    separate from this one-account staging result.
 
@@ -140,14 +150,15 @@ Production keys. Existing staging access/API/socket routing remains unchanged.
 
 ## Release boundary
 
-No application code, environment variables, or deployments were changed in this
-run. No separate Replit deployment was published. No Production service, key, or
-database was changed. The existing broader release gates were not modified:
+The frontend source and regression test changed in the workspace. No secrets,
+environment variables, or deployments were changed. No separate Replit
+deployment was published. No Production service, key, or database was changed.
+The existing broader release gates were not modified:
 
 - Staging promotion gate: `Verify staging evidence and tested source`.
 - PR Workspace quality: `Verify live staging evidence`.
 
-GitHub gate statuses were not freshly queried in this run. No gate was bypassed.
-Task completion remains blocked by replay rejection; accepted reward,
-idempotency, and reload/sign-out evidence are still missing. Production
-authentication and release readiness remain unverified.
+Workspace validation passed locally; a staging deployment and GitHub gate
+statuses were not freshly queried. No gate was bypassed. Task completion remains
+blocked by the missing accepted live claim, duplicate-claim, and reload/sign-out
+evidence. Production authentication and release readiness remain unverified.

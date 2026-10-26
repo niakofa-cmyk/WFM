@@ -38,6 +38,7 @@ import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
+import { resolveArenaTech } from "./arena-config";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -745,7 +746,7 @@ export function WarApp() {
               : "STOP THE CAGE"
             : (active?.objective ?? "HOLD TWO RELAYS")
         }
-        tech={runConfig?.tech ?? save.tech}
+        tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
         gyro={save.gyro}
         drilled={save.drilled}
