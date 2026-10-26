@@ -30,6 +30,26 @@
     },
     "productionBuilds": "PASS"
   },
+  "latestLocalWorkspaceCheck": {
+    "verifiedAtUtc": "2026-10-26T16:31:18Z",
+    "testedSourceCommit": "5fdb65618c4eed5a26808d6b89cc0a7373405bc2",
+    "scope": "Local Replit workspace only; not deployed staging evidence.",
+    "typecheck": "PASS",
+    "apiTests": {
+      "passed": 70,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 32,
+      "failed": 0
+    },
+    "workspaceBuilds": "PASS",
+    "publicE2e": {
+      "passed": 6,
+      "failed": 0,
+      "scope": "Playwright public suite with software-WebGL enabled; includes Practice flight and browser viewport checks, not physical-device evidence."
+    }
+  },
   "previewGameplay": {
     "testedGameSourceCommit": "e9532ffa0bd34f80a1a699d8a6994cf5e0c8860b",
     "mode": "Practice",
@@ -53,9 +73,54 @@
     "result": "PASS",
     "scope": "Synthetic automated test only; not a real-network or ten-human match."
   },
+  "currentStagingRailwayHealth": {
+    "checkedAt": "2026-10-26T16:38:02Z",
+    "environment": "staging",
+    "pendingRailwayWork": 0,
+    "healthWindowHours": 24,
+    "currentlyOnline": 4,
+    "servicesWithRecentIssues": 3,
+    "failedDeploymentsInWindow": 5,
+    "services": {
+      "app": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T14:14:23.123Z",
+        "recentFailedDeployments": 2,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "Earlier gateway deployments failed the STAGING_ACCESS_CODE single-line and length validation."
+      },
+      "api": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T12:48:36.605Z",
+        "recentFailedDeployments": 2,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "Earlier API deployments lacked DATABASE_URL and exited before the readiness endpoint responded."
+      },
+      "socket": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T00:38:26.447Z",
+        "recentFailedDeployments": 1,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "An earlier socket deployment lacked WING_ALLOWED_ORIGINS and exited before the healthcheck responded."
+      },
+      "database": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "recentFailedDeployments": 0
+      }
+    },
+    "interpretation": "The failed attempts are historical config/healthcheck failures followed by successful deployments. All current services are online, but Railway still reports the failures in its 24-hour window; this is not a workspace build failure or proof that remaining release evidence passed."
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
+    "classification": "Historical Production hosting audit; not current staging or workspace-quality status. Current read-only inventory follows.",
     "scope": "API and WebSocket backend; frontend remains on Replit",
     "staged": false,
     "servicesProvisioned": true,
@@ -73,7 +138,41 @@
     "publicDomainsCreated": false,
     "credentialsCopied": false,
     "schemaApplied": false,
-    "liveVerification": "PENDING"
+    "liveVerification": "PENDING",
+    "currentReadOnlyInventory": {
+      "checkedAt": "2026-10-26T16:35:48Z",
+      "environment": "production",
+      "pendingRailwayChanges": 0,
+      "healthWindowHours": 24,
+      "servicesWithIssues": 0,
+      "failedDeployments": 0,
+      "services": {
+        "api": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS",
+          "clerkVariableNamesPresent": [
+            "API_ALLOWED_ORIGINS",
+            "CLERK_PUBLISHABLE_KEY",
+            "CLERK_SECRET_KEY"
+          ]
+        },
+        "frontend": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS",
+          "clerkVariableNamesPresent": [
+            "VITE_CLERK_PUBLISHABLE_KEY"
+          ]
+        },
+        "socket": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS"
+        }
+      },
+      "secretValuesRead": false,
+      "clerkInstancePairing": "NOT_VERIFIED",
+      "productionSignIn": "NOT_TESTED",
+      "productionReadiness": "NOT_CLAIMED"
+    }
   },
   "latestAuthenticatedRewardFlight": {
     "recordedAtUtc": "2026-10-26T12:58:33Z",
@@ -117,17 +216,17 @@
     "scope": "Real protected-staging requests and automatic visible UI refresh, without reader reload or synthetic refresh events. Independent browser storage contexts on one host, not distinct physical devices. This does not certify separate inventory/history endpoints or rejected cross-account writes."
   },
   "tests": {
-    "signupAndSignin": "PENDING",
+    "signupAndSignin": "PARTIAL",
     "profilePersistsAcrossSessions": "PASS",
     "profileSyncsAcrossDevices": "PENDING",
-    "accountProgressInventoryAndHistoryAreIsolated": "PENDING",
+    "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
     "sharedEconomyUsesStagingData": "PENDING",
-    "serverOwnedRewardsAndDuplicateClaims": "PENDING",
+    "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
     "restartEndsMatchAndNotifiesPlayers": "PENDING",
     "interruptedMatchCannotClaimRewards": "PENDING",
     "freshRoomRequiredAfterRestart": "PENDING",
-    "ordinaryDisconnectReconnect": "PENDING",
-    "roomInviteReadyAndTeamAssignment": "PENDING",
+    "ordinaryDisconnectReconnect": "PARTIAL",
+    "roomInviteReadyAndTeamAssignment": "PARTIAL",
     "tenClientMatchCompletion": "PENDING",
     "networkImpairmentHarness": "PASS"
   },

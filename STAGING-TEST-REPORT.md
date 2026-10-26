@@ -6,6 +6,18 @@
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. The legacy Replit invite-only release flag remains false pending explicit policy review.
 - **Production readiness:** NOT CLAIMED
 
+## Local workspace verification after the staged source snapshot
+
+The current workspace source is `5fdb65618c4eed5a26808d6b89cc0a7373405bc2`.
+Local typecheck, all 70 API tests, all 32 game tests, workspace production
+builds, and all 6 public Playwright E2E tests passed. This check is recorded
+separately in `latestLocalWorkspaceCheck`; it is **not** evidence that this
+source was deployed to staging or that the remaining live release checks passed.
+The staging deployment evidence below still tests
+`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`. The promotion gate correctly blocks
+until the current application changes are verified on staging and every
+required live check passes.
+
 ## Live profile-session synchronization — 2026-10-26, 14:29 UTC
 
 The approved staging push reached Railway `SUCCESS` at deployment
@@ -80,7 +92,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Synchronization across distinct physical devices | PENDING — independent browser contexts are not physical-device evidence | |
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
-| Server-owned rewards and duplicate-claim protection | PENDING | |
+| Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
 | Restart interrupts active match and notifies players | PENDING — direct Node `SIGTERM` check passed locally; managed workflow restart closed with 1006 and no notice; deployed restart not tested | Local checks below |
 | Interrupted match cannot award rewards; old room is rejected | PENDING | |
 | New room works after restart | PENDING | |
@@ -88,7 +100,8 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
-| Railway Production Clerk release | NOT CERTIFIED — earlier inspection found a live-key browser bootstrap TLS failure. This staging test did not modify or certify Production | `docs/game-runtime-forensic-report.md` |
+| Current Railway staging service health | PASS for current availability — app, API, socket, and database are online with no pending Railway work. Railway still records five failed deployments in the 24-hour window: earlier healthcheck/config failures for the gateway access-code format, API database URL, and socket origin allowlist; each affected service later deployed successfully. These are not current workspace build failures and do not complete the release gate | `STAGING-TEST-RESULTS.json` `currentStagingRailwayHealth` |
+| Railway Production Clerk release | NOT CERTIFIED — current Railway API, frontend, and socket services are online and required Clerk variable names are present; no secret values were read. Clerk instance pairing and Production sign-in remain unverified because the connected Clerk API is Development. Public issuer/JWKS availability does not prove Railway Production connectivity | `STAGING-TEST-RESULTS.json` `railwayBackend.currentReadOnlyInventory`; `docs/game-runtime-forensic-report.md` |
 
 ## Local development socket checks
 
