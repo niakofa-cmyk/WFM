@@ -1,7 +1,7 @@
 # WFM authenticated staging flight — BLOCKED
 
 Date: October 25, 2026 (America/Chicago).
-Latest browser attempt ended: `2026-10-26T03:21:29.490Z`.
+Latest browser attempt ended: `2026-10-26T03:24:56.147Z`.
 
 ## Tested deployment
 
@@ -40,7 +40,7 @@ Latest browser attempt ended: `2026-10-26T03:21:29.490Z`.
 | Sign-in form | Renders email-identifier and password fields with a Development-mode indicator |
 | Clerk application association and frontend/API key pairing | Not independently verified; variable names are present, but credential values were not inspected |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
-| Sign-in diagnostics | Four form-start diagnostic runs; the latest observed exactly one password-factor request and an explicit incorrect-password error |
+| Sign-in diagnostics | Five form-start diagnostic runs; the latest observed exactly one password-factor request and an explicit incorrect-password error |
 | Latest Clerk state | `needs_first_factor`, with “Password is incorrect. Try again, or use another method.” |
 | Authenticated profile request | No request to `/api/game/profile` was observed; the latest browser stopped on the password screen |
 | Six-minute Strike, server replay claim, reward | Not run |
@@ -68,6 +68,13 @@ an API key mismatch or API token rejection: those checks remain unreached.
 The driver no longer attempts a second sign-in after sign-out, keeping the
 credentialed run limited to the approved sign-in flow.
 
+After the owner saved or confirmed `WFM_STAGING_TEST_PASSWORD` through the
+secure form, one additional run reached the same explicit incorrect-password
+error. The driver made one password-factor request in that run and stopped.
+The secure-form confirmation does not establish that a different value was
+saved; no secret values were inspected or compared. Further automated password
+attempts are stopped pending a successful manual sign-in or account recovery.
+
 The earlier testing-agent evaluation returned **unable**, not a successful
 flight. The latest project-side browser attempts also did not complete the
 journey. The machine-readable summary is
@@ -75,8 +82,9 @@ journey. The machine-readable summary is
 
 ## Remaining verification work
 
-1. Correct the securely saved `WFM_STAGING_TEST_PASSWORD` for the existing
-   approved Development account. If the password is unknown, the owner must use
+1. Manually sign in at the same staging site using the existing approved
+   Development account, then save the working password as
+   `WFM_STAGING_TEST_PASSWORD`. If the password is unknown, the owner must use
    that account's normal recovery flow in the same Development instance.
    Do not paste credentials into chat or change Clerk API keys to address this
    account-password rejection.
