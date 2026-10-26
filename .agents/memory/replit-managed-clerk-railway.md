@@ -14,3 +14,9 @@ For the owner-selected external Clerk Production instance, the independently hos
 **Why:** The game origin and Railway API hostname differ. Host-derived Production configuration can select a different Frontend API than the one that issued the player's session.
 
 **How to apply:** Preserve the fixed external-instance configuration on the API. Do not reintroduce host-derived instance selection merely to copy Replit-managed multi-domain examples; keep credentials private and validate with synthetic signing material.
+
+For production email-factor checks, an HTTP 200 from Clerk's second-factor preparation endpoint and a visible code challenge prove only that challenge setup was accepted. They do not prove the email reached the account's inbox.
+
+**Why:** A Production sign-in attempt showed a prepared second-factor challenge without a visible rate-limit or delivery error, while the account owner reported that no email arrived.
+
+**How to apply:** Verify delivery from the matching Clerk instance's mail logs or recipient confirmation. Do not claim delivery from HTTP status alone, and avoid repeated sign-in/code requests that may trigger rate limits.
