@@ -31,11 +31,13 @@
     "productionBuilds": "PASS"
   },
   "latestLocalWorkspaceCheck": {
-    "verifiedAtUtc": "2026-10-26T20:32:23Z",
-    "testedSourceCommit": "0a0893d9b0855be3c344b4e335ea482b702c1479",
-    "testedWorkingTreeCommittedAs": "214d3ed595975bf561d6289505ac41d9596f27a9",
+    "verifiedAtUtc": "2026-10-26T21:45:42Z",
+    "testedSourceCommit": "de2572950486de7bb648851a245ee8943eeab8ed",
+    "testedWorkingTreeCommittedAs": "4a150fd234d58707871bb8a0d503b83d2b31a730",
     "workingTreeChangesIncluded": [
-      "artifacts/api-server/src/game/progression.test.ts"
+      "artifacts/api-server/src/socket/index.ts",
+      "artifacts/api-server/src/socket/server.ts",
+      "artifacts/api-server/src/socket/server.test.ts"
     ],
     "scope": "Local Replit workspace only; not deployed staging evidence.",
     "frozenLockfileInstall": "NOT_RUN_IN_THIS_CHECK; no dependency or lockfile changes; latest frozen install remains recorded separately.",
@@ -49,6 +51,12 @@
       "failed": 0
     },
     "workspaceBuilds": "PASS",
+    "socketLifecycleRegression": {
+      "allPilotsReceiveRestartNotice": "PASS",
+      "newUpgradesRejectedDuringShutdown": "PASS",
+      "repeatedCloseIsSafe": "PASS",
+      "scope": "Local socket tests only. The previously observed Railway staging 1006 restart result remains unresolved; the new socket code was not live in staging at the status check."
+    },
     "publicE2e": "NOT_RUN_IN_THIS_CHECK",
     "previousPublicE2e": {
       "passed": 6,
@@ -214,6 +222,43 @@
     "productionModified": false,
     "deploymentTriggered": false,
     "scope": "Read-only staging audit. Live deployment hashes differ from the tested tree, but all three services' runtime source content matches it; the API-only post-deployment source change is a regression test file. This does not supply the missing promotion PR head SHA."
+  },
+  "latestPostPushRailwayStatus": {
+    "checkedAtUtc": "2026-10-26T21:46:21Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "originStagingCommit": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "deploymentId": "42391044-415f-4010-9a5e-f071158ec182",
+        "status": "SUCCESS",
+        "commit": "4a150fd234d58707871bb8a0d503b83d2b31a730"
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "deploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "status": "SUCCESS",
+        "deployedCommit": "179064a436360a07357adf16174bb6d0f90bccd8"
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "deploymentId": "e4b46b2b-3467-4e19-9556-da34d5ff6c01",
+        "status": "SUCCESS",
+        "deployedCommit": "acf080cc2c7cc4c21c19363e8c9e264b0415f090",
+        "newLifecycleCodeLive": false
+      }
+    },
+    "environmentSummary": {
+      "totalServices": 4,
+      "servicesWithIssues": 0,
+      "failuresInTwoHourWindow": 0,
+      "pendingWork": 0
+    },
+    "productionModified": false,
+    "railwayConfigurationChanged": false,
+    "manualDeploymentTriggered": false,
+    "scope": "Read-only status after the staging-branch push. The frontend deployment succeeded; API and socket remained on earlier successful deployments. The socket lifecycle fix is not live in staging. No live restart was run."
   },
   "latestStagingMobileSmoke": {
     "recordedAtUtc": "2026-10-26T16:47:45Z",
