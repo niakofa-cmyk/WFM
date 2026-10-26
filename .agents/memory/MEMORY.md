@@ -14,3 +14,4 @@
 - [Managed Clerk hosting boundary](replit-managed-clerk-railway.md) — Replit-managed keys swap on Replit publication; they are not injected into Railway.
 - [HTTP hostname security tests](http-host-security-tests.md) — assert the server received the intended Host; fetch may replace a supplied header.
 - [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
+- [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
-    "test": "tsx --test src/game/*.test.ts",
+    "test": "tsx --test src/auth/*.test.ts src/game/*.test.ts",
     "test:e2e": "playwright test e2e/public.spec.ts",
     "test:e2e:auth": "node e2e/auth-preflight.mjs && WFM_E2E_AUTH=1 playwright test e2e/authenticated.spec.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",

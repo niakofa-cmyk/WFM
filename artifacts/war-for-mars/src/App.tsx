@@ -1,5 +1,5 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -182,11 +182,7 @@ function ApiAuthBridge() {
 
 function Routes() {
   const [, setLocation] = useLocation();
-  const clerkPubKey = publishableKeyFromHost(
-    window.location.hostname,
-    import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-  );
-  if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
+  const clerkPubKey = configuredClerkPublishableKey(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}

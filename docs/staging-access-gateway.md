@@ -222,5 +222,14 @@ unchanged, and a regression test verifies that an opaque `null` Origin is
 still rejected, even with the correct synthetic code.
 
 All seven gateway tests, API typecheck, and API build pass after this fix.
-The browser flight has not reached Clerk sign-in yet. The fix must be deployed
-to staging and the real form checked before continuing that journey.
+The form fix was deployed from `2622ec0f97d541de954a621de7abbab1e2f5f913`
+in Railway deployment `25506d2b-a7fb-4095-a7df-9624ebf89805`. The browser then
+successfully submitted the code and received the normal 303 redirect.
+
+The next check stopped before filling Clerk credentials: sign-in was blank
+because the frontend's internal hostname-derived key helper selected
+`clerk.wfm-app-staging-staging.up.railway.app`, which failed certificate
+validation. The frontend is being corrected to honor the explicitly configured
+key, as the API already does. No keys were inspected or changed. The three
+new configuration tests, all 18 existing game tests, game typecheck, and game
+production build pass. Live Clerk account authentication remains unverified.
