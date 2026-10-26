@@ -1,5 +1,7 @@
 {
   "status": "blocked",
+  "historical": true,
+  "supersededBy": "staging-reward-parity-flight-evidence.json",
   "latestEvidenceRecordedAtUtc": "2026-10-26T08:20:38Z",
   "target": "https://wfm-app-staging-staging.up.railway.app/",
   "frontendGatewayCommit": "ef93b07f60d0a9499e05ec5ac3871f82fef3e80f",

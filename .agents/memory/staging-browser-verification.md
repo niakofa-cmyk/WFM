@@ -46,6 +46,18 @@ could read its authenticated profile.
 **How to apply:** distinguish SSO from the email form and recheck the retained
 session plus the profile response before requesting another code or sign-in.
 
+Prepare safe inspection commands before starting a credentialed browser owner.
+Capture authentication HTTP statuses and allowlisted error codes, and distinguish
+an interaction failure from a game that has already started.
+
+**Why:** an owner with only generic error reporting could not explain a retained
+verification challenge. A later selector failure occurred after Strike had
+already launched; treating it as a failed launch would have abandoned a valid run.
+
+**How to apply:** keep session, screen, and selector-count inspection available
+without printing form contents, credentials, or full authentication responses.
+Inspect the retained page before repeating navigation or creating another run.
+
 Follow normal intermediate sign-in screens. A separate password screen with
 `needs_first_factor` is not itself a credential rejection or an active session.
 

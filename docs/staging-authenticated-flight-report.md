@@ -1,5 +1,10 @@
 # WFM authenticated staging flight — BLOCKED
 
+Historical record before the simulation-parity repair. The latest diagnostic
+flight is documented in [the parity-flight report](staging-reward-parity-flight-report.md)
+and [its evidence](staging-reward-parity-flight-evidence.json). It also remains
+blocked, now with a captured first rejection and cross-runtime comparisons.
+
 Date: October 26, 2026 (America/Chicago).
 Latest live evidence recorded: `2026-10-26T08:20:38Z`.
 
