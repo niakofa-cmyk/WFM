@@ -74,7 +74,7 @@
     "scope": "Synthetic automated test only; not a real-network or ten-human match."
   },
   "currentStagingRailwayHealth": {
-    "checkedAt": "2026-10-26T16:38:02Z",
+    "checkedAt": "2026-10-26T16:48:06Z",
     "environment": "staging",
     "pendingRailwayWork": 0,
     "healthWindowHours": 24,
@@ -85,7 +85,8 @@
       "app": {
         "currentState": "online",
         "latestDeploymentStatus": "SUCCESS",
-        "latestDeploymentAt": "2026-10-26T14:14:23.123Z",
+        "latestDeploymentAt": "2026-10-26T16:41:47.912Z",
+        "latestDeploymentCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
         "recentFailedDeployments": 2,
         "failureCategory": "config_error",
         "failureStage": "HEALTHCHECK",
@@ -116,6 +117,37 @@
       }
     },
     "interpretation": "The failed attempts are historical config/healthcheck failures followed by successful deployments. All current services are online, but Railway still reports the failures in its 24-hour window; this is not a workspace build failure or proof that remaining release evidence passed."
+  },
+  "latestStagingMobileSmoke": {
+    "recordedAtUtc": "2026-10-26T16:47:45Z",
+    "environment": "staging",
+    "deployedCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
+    "deploymentStatus": "SUCCESS",
+    "gatewayStarted": "PASS",
+    "anonymousAccess": {
+      "rootStatus": 401,
+      "rootShowsPrivateAccessGate": true,
+      "playStatus": 401,
+      "playShowsPrivateAccessGate": true,
+      "publicHealthStatus": 200
+    },
+    "approvedStagingAccessUnlock": "PASS",
+    "soloFlight": "PASS",
+    "webglContext": "PASS",
+    "simulatedMobileViewports": [
+      { "width": 390, "height": 844 },
+      { "width": 844, "height": 390 }
+    ],
+    "flightControlsWithinViewport": {
+      "result": "PASS",
+      "controlsChecked": 4
+    },
+    "exitToSoloSetup": "PASS",
+    "uncaughtPageErrors": 0,
+    "clerkSignIn": "NOT_TESTED",
+    "progressionAndRewardPersistence": "NOT_TESTED",
+    "physicalDevices": "NOT_TESTED",
+    "scope": "Limited no-account staging browser smoke only. Does not complete the invite-only policy requirement, authenticated progression checks, physical-device checks, economy checks, or multiplayer release evidence."
   },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",

@@ -13,10 +13,10 @@ Local typecheck, all 70 API tests, all 32 game tests, workspace production
 builds, and all 6 public Playwright E2E tests passed. This check is recorded
 separately in `latestLocalWorkspaceCheck`; it is **not** evidence that this
 source was deployed to staging or that the remaining live release checks passed.
-The staging deployment evidence below still tests
-`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`. The promotion gate correctly blocks
-until the current application changes are verified on staging and every
-required live check passes.
+The latest full/authenticated staging evidence below still tests
+`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`. A limited no-account smoke on the
+new current-source deployment is recorded separately; it does not replace the
+required release checks. The promotion gate correctly remains blocked.
 
 ## Live profile-session synchronization — 2026-10-26, 14:29 UTC
 
@@ -51,6 +51,26 @@ claim of two physical devices, inventory/history endpoint isolation, rejected
 cross-account writes, or complete release readiness. The physical-device gate
 and broader account isolation checks remain pending. Sanitized machine-readable
 details are in `STAGING-TEST-RESULTS.json` under `latestLiveProfileSync`.
+
+## Current-source staging deploy and mobile smoke — 2026-10-26, 16:47 UTC
+
+The verified `staging` branch update reached Railway `SUCCESS` on source
+`4e8ab0a1306f0b120c0169bb9c71a561d57b898f`; the private gateway started
+successfully. The unauthenticated `/` and `/play` routes returned the private
+access page with HTTP 401, while the deliberately public gateway health endpoint
+returned HTTP 200. The approved staging access code unlocked the browser session;
+its value was not recorded.
+
+The current deployment loaded Solo Flight, initialized WebGL, and placed all
+four flight-control bounds inside both simulated mobile viewports (390×844 and
+844×390). Exiting returned to the solo setup panel. There were zero uncaught
+page errors. This used a browser viewport and software graphics, not physical
+phones. Clerk sign-in and persistent progression/reward behavior were not tested.
+
+This smoke verifies only basic private access and current-source gameplay
+availability. It does **not** change `testedSourceCommit`, the false legacy
+invite-only flag, or any required release-test status; the full gate remains
+**PENDING**.
 
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
@@ -100,7 +120,8 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — local room-code, host/ready, AI-fill, late-join, reconnect, and room-isolation checks passed; deployment access and ten human clients remain unverified | Local checks below |
 | Ten clients complete a match with consistent final results | PENDING | |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
-| Current Railway staging service health | PASS for current availability — app, API, socket, and database are online with no pending Railway work. Railway still records five failed deployments in the 24-hour window: earlier healthcheck/config failures for the gateway access-code format, API database URL, and socket origin allowlist; each affected service later deployed successfully. These are not current workspace build failures and do not complete the release gate | `STAGING-TEST-RESULTS.json` `currentStagingRailwayHealth` |
+| Current Railway staging service health | PASS for current availability — app, API, socket, and database are online with no pending Railway work; the app now serves commit `4e8ab0a`. Railway still records five failed deployments in the 24-hour window: earlier healthcheck/config failures for the gateway access-code format, API database URL, and socket origin allowlist; each affected service later deployed successfully. These are not current workspace build failures and do not complete the release gate | `STAGING-TEST-RESULTS.json` `currentStagingRailwayHealth` |
+| Current-source private staging/mobile smoke | PASS for limited smoke only — anonymous root and play routes are gated; approved access reached Solo Flight with WebGL, four controls in bounds across portrait/landscape, and clean exit. No sign-in or persistent progression test; not physical-device evidence | `STAGING-TEST-RESULTS.json` `latestStagingMobileSmoke` |
 | Railway Production Clerk release | NOT CERTIFIED — current Railway API, frontend, and socket services are online and required Clerk variable names are present; no secret values were read. Clerk instance pairing and Production sign-in remain unverified because the connected Clerk API is Development. Public issuer/JWKS availability does not prove Railway Production connectivity | `STAGING-TEST-RESULTS.json` `railwayBackend.currentReadOnlyInventory`; `docs/game-runtime-forensic-report.md` |
 
 ## Local development socket checks
