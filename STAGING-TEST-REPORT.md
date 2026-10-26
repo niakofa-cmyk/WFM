@@ -221,7 +221,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; protected Railway staging is separate | `STAGING-TEST-RESULTS.json` environment evidence |
-| Reproducible workspace typecheck, tests, and builds | PASS — tested commit typechecks, 70 API tests and 32 game tests pass, and production builds complete | `STAGING-TEST-RESULTS.json` workspaceQuality |
+| Reproducible workspace typecheck, tests, and builds | PASS — fresh frozen-lockfile install, typecheck, 70 API tests, 32 game tests, and workspace production builds passed on 2026-10-26 | `STAGING-TEST-RESULTS.json` `latestFrozenWorkspaceQualityCheck` |
 | Invite-only Reserved VM deployment configuration | PENDING — legacy Replit requirement is not met by the deployed Railway gateway; false flag preserved for explicit policy review | |
 | Development landing page loads | PASS — Replit preview checked; sign-in not exercised | |
 | Solo Practice gameplay lifecycle | PASS — preview-only WebGL2 run completed the 120-second match, showed a draw reason and debrief, and returned to setup and home; no sign-in or reward persistence was used | `STAGING-TEST-RESULTS.json` previewGameplay |
@@ -229,14 +229,14 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Profile persistence across fresh sessions | PASS — both first-pilot contexts loaded the saved 130-credit profile and restored selection | Live profile-session section |
 | Automatic same-account sync across independent browser contexts | PASS — visible selection changed after 26.8 seconds without reload and restored automatically | Live profile-session section |
 | Synchronization across distinct physical devices | PENDING — independent browser contexts are not physical-device evidence | |
-| Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
-| Staging economy uses staging data | PENDING | |
+| Two-account isolation for progression, credits, inventory, and history | PARTIAL — earlier reversible profile-sync writes left the second account's returned profile unchanged. The latest two-account probe confirmed a foreign-user profile query returns the caller's profile and a write carrying a foreign user ID is rejected with HTTP 400; a repeat before/after check was stable. World-state cross-account mutation and any distinct history/inventory surface remain unverified | `latestLiveProfileSync`; `latestStagingAccountAndRoomUiCheck` |
+| Staging economy uses staging data | PARTIAL — the protected staging `/api/market` endpoint returned data for both existing staging accounts; no trade or shared post-trade update was tested | `latestStagingAccountAndRoomUiCheck` |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
 | Restart interrupts active match and notifies players | PARTIAL — one authenticated browser displayed the server-restart/no-rewards message, but its close code was not captured; an earlier two-client protocol run closed both with 1006 and no notice | `latestStagingBrowserFreshRoomCheck`; `latestStagingSocketRestartCheck` |
 | Interrupted match cannot award rewards; old room is rejected | PARTIAL — browser restart checks made zero claim requests and online matches do not use the separate Strike claim endpoint; an earlier old-room reconnect was rejected as `session_lost`. Server-side claim rejection is not inferred from the UI check | `latestStagingBrowserFreshRoomCheck`; `previousStagingSocketRestartCheck`; `artifacts/war-for-mars/src/game/WarApp.tsx`; `artifacts/api-server/src/routes/strikes.ts` |
 | New room works after restart | PASS — one browser pilot created a distinct new room from the restart screen and started a match; two protocol clients also started a fresh room | `latestStagingBrowserFreshRoomCheck`; `latestStagingSocketRestartCheck` |
 | Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |
-| Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — live protocol checks verified ten 5v5 seats, host/readiness gates, late-join rejection, and reconnect; browser invite flow remains unverified | `latestLiveMultiplayerRoomSmoke` |
+| Room creation, invite, ready-up, team assignment, and late-join handling | PASS — two existing staging accounts joined the same room by code, received separate team assignments, and started only after both were ready; protocol checks also verified ten 5v5 seats and late-join rejection | `latestStagingAccountAndRoomUiCheck`; `latestLiveMultiplayerRoomSmoke` |
 | Ten clients complete a match with consistent final results | PASS — all ten clients received the same completed result after two controlled reconnects; scripted protocol clients, not human gameplay | `latestLiveTenClientMatch` |
 | Automated network impairment harness | PASS — latest suite used ten simulated clients with 35 ms latency, 20 ms jitter, 12% frame loss, and two reconnects; that run ended at 180.7 simulated seconds. Synthetic only, not deployed or real-network verification | `STAGING-TEST-RESULTS.json` latestNetworkHarness |
 | Current Railway staging service health | PASS for current availability — app, API, socket, and database are online with no pending Railway work; the app now serves commit `4e8ab0a`. Railway still records five failed deployments in the 24-hour window: earlier healthcheck/config failures for the gateway access-code format, API database URL, and socket origin allowlist; each affected service later deployed successfully. These are not current workspace build failures and do not complete the release gate | `STAGING-TEST-RESULTS.json` `currentStagingRailwayHealth` |
@@ -255,3 +255,32 @@ These checks ran in the staging Repl's development workspace. They do not establ
 - **Managed workflow restart: FAIL.** Restarting the Replit-managed Wing Socket workflow closed the active client with code `1006` and no `interrupted` notice, including after the shutdown send was changed to wait for its callback. This development workflow result is not interchangeable with direct Node `SIGTERM` or a deployed restart.
 
 Passing these staging checks does not establish production readiness.
+
+## Two-account staging API and browser room check — 2026-10-26, 19:54 UTC
+
+Two existing approved staging accounts signed in successfully, loaded profiles,
+and were signed out to HTTP 401. Authenticated `/api/world` and `/api/market`
+reads returned HTTP 200 with data for both. A profile request from the first
+account carrying the second account's user ID still returned the caller's
+profile; a profile action with that foreign ID was rejected with HTTP 400.
+The first full-profile comparison was not stable, so it was not counted as
+isolation evidence; a subsequent stability check and a second before/after
+comparison around the rejected write were stable. No account was created and no
+market trade or reward claim was made.
+
+The first browser room attempt was inconclusive because the test helper did not
+identify the failing wait. On retry with a corrected page-readiness wait, both
+accounts joined the same room by code, appeared on separate teams, and the host
+could not start until both pilots readied. The match then started in both
+browsers with three canvases each and zero page errors or claim requests. This
+completes the browser invite/readiness portion alongside the existing protocol
+late-join checks. It does not establish market transaction sharing, world-state
+cross-account writes, physical-device synchronization, or Production readiness.
+Production was not modified.
+
+## Fresh workspace-quality run — 2026-10-26, 19:58 UTC
+
+`pnpm install --frozen-lockfile`, typecheck, all 70 API tests, all 32 game
+tests, and workspace builds passed. Public Playwright E2E was not rerun in this
+check; the earlier local suite remains recorded separately. This was a
+workspace-only check and does not clear any live staging or Production gate.

@@ -50,6 +50,23 @@
       "scope": "Playwright public suite with software-WebGL enabled; includes Practice flight and browser viewport checks, not physical-device evidence."
     }
   },
+  "latestFrozenWorkspaceQualityCheck": {
+    "verifiedAtUtc": "2026-10-26T19:58:22Z",
+    "testedSourceCommit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3",
+    "frozenLockfileInstall": "PASS",
+    "typecheck": "PASS",
+    "apiTests": {
+      "passed": 70,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 32,
+      "failed": 0
+    },
+    "workspaceBuilds": "PASS",
+    "publicE2e": "NOT_RUN_IN_THIS_CHECK",
+    "scope": "Local workspace only. No application source, Clerk configuration, Railway configuration, or Production settings changed in this check; staging promotion evidence remains a separate gate."
+  },
   "previewGameplay": {
     "testedGameSourceCommit": "e9532ffa0bd34f80a1a699d8a6994cf5e0c8860b",
     "mode": "Practice",
@@ -330,6 +347,38 @@
     "productionModified": false,
     "scope": "One authenticated staging browser started an online room, received the server_restart no-rewards message after the staging socket restart, then used Create New Room to generate a different room and start another match. Room codes were not recorded. This establishes the browser recovery flow for one pilot, not all-player restart notification. The online-room path does not call the separate server-authorized Strike claim API."
   },
+  "latestStagingAccountAndRoomUiCheck": {
+    "recordedAtUtc": "2026-10-26T19:54:58Z",
+    "environment": "staging",
+    "existingApprovedAccounts": 2,
+    "newAccountsCreated": 0,
+    "differentAccountsConfirmed": true,
+    "profileStatuses": [200, 200],
+    "worldReadStatuses": [200, 200],
+    "marketReadStatuses": [200, 200],
+    "marketDataPresent": [true, true],
+    "crossAccountProfileQueryReturnsCallerProfile": true,
+    "crossAccountProfileWriteRejected": true,
+    "crossAccountProfileWriteStatus": 400,
+    "profilesUnchangedAfterRejectedWrite": true,
+    "profileStabilityRetest": true,
+    "firstProfileComparisonAttemptUnchanged": false,
+    "roomInviteInitialAttempt": "INCONCLUSIVE",
+    "roomInviteRetry": {
+      "roomCodesMatch": true,
+      "bothAccountsJoined": true,
+      "teamAssignmentsValid": true,
+      "teamLabels": ["TEAM 1", "TEAM 2"],
+      "hostStartDisabledBeforeAllReady": true,
+      "matchStartedAfterBothReady": true,
+      "canvasCounts": [3, 3],
+      "claimRequests": 0,
+      "pageErrors": 0
+    },
+    "signOutProfileStatuses": [401, 401],
+    "productionModified": false,
+    "scope": "Protected staging only, using two existing approved accounts. /api/world and /api/market returned data for both accounts. A profile query carrying the other account's userId returned the authenticated caller's profile; a profile action carrying a foreign userId was rejected with HTTP 400. The first full-profile comparison differed; a repeat stability check and a second before/after comparison around the rejected write were stable. Browser room-code invite, separate team assignment, the host readiness gate, both-pilot readiness, and match start passed with three canvases per browser. No market trade, new account, reward claim, or Production change was made. This does not certify physical-device sync or world-state cross-account mutations."
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
@@ -433,7 +482,7 @@
     "profilePersistsAcrossSessions": "PASS",
     "profileSyncsAcrossDevices": "PENDING",
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
-    "sharedEconomyUsesStagingData": "PENDING",
+    "sharedEconomyUsesStagingData": "PARTIAL",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
     "restartEndsMatchAndNotifiesPlayers": "PARTIAL",
     "stagingBrowserShowsRestartNotice": "PASS",
@@ -442,7 +491,7 @@
     "interruptedMatchCannotClaimRewards": "PARTIAL",
     "freshRoomRequiredAfterRestart": "PASS",
     "ordinaryDisconnectReconnect": "PASS",
-    "roomInviteReadyAndTeamAssignment": "PARTIAL",
+    "roomInviteReadyAndTeamAssignment": "PASS",
     "tenClientMatchCompletion": "PASS",
     "networkImpairmentHarness": "PASS"
   },
