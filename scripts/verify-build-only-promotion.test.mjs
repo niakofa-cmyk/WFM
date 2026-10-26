@@ -35,7 +35,7 @@ jobs:
   verify-staging-evidence:
     name: Verify staging evidence
     needs: verify
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
     steps:
       - if: github.head_ref == 'staging'
         run: node scripts/verify-staging-promotion.mjs
@@ -65,6 +65,13 @@ function verify(overrides = {}) {
     ...overrides,
   });
 }
+
+test("requires the staging promotion gate to target main", () => {
+  assert.throws(
+    () => verify({ headWorkflow: gatedWorkflow.replace(" && github.event.pull_request.base.ref == 'main'", "") }),
+    /only for pull requests targeting main/,
+  );
+});
 
 test("accepts the pnpm pin with the initial, tested gate implementation", () => {
   const result = verify();

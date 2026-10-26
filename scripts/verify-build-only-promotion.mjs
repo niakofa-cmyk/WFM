@@ -43,6 +43,9 @@ function verifyWorkflowRoutes(workflow) {
   if (!workflow.includes("if: github.event_name == 'pull_request'")) {
     fail("The evidence gate must be limited to pull requests.");
   }
+  if (!workflow.includes("github.event.pull_request.base.ref == 'main'")) {
+    fail("The staging promotion gate must run only for pull requests targeting main.");
+  }
   if (!workflow.includes("if: github.head_ref == 'staging'")) {
     fail("Staging-source pull requests must select the live evidence route.");
   }
