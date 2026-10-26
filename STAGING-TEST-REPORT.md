@@ -116,8 +116,8 @@ After recovery, the old room's reconnect token was rejected as
 `session_lost`, and two clients successfully joined, readied, and started a
 fresh room. This passes fresh-room recovery and partially verifies old-room
 rejection. No reward claim was attempted, so interrupted-match reward
-protection remains unverified. No Railway configuration or Production setting
-was changed; the overall staging release gate remains **PENDING**.
+protection remains unverified. No Railway configuration was changed during
+this first test; the overall staging release gate remained **PENDING**.
 
 ### Local signal-forwarding isolation
 
@@ -129,10 +129,26 @@ notice to both clients and closed both with code `4002`. Together with the live
 Railway result, this points to command-level signal forwarding as the likely
 boundary rather than the socket's direct-Node shutdown handler.
 
-The Railway start command was inspected read-only and left unchanged, as
-required. A direct-Node start command may resolve this, but changing Railway
-configuration is outside the current authorization; the deployed-notification
-failure remains a release blocker.
+The Railway start command was inspected read-only at this point. The user later
+authorized a staging-only start-command change; the live retest below records
+its result. Production settings remain untouched.
+
+## Staging restart retest after direct-Node start command — 2026-10-26, 17:56 UTC
+
+With explicit user authorization, the staging socket start command was changed
+to `exec node --enable-source-maps artifacts/api-server/dist/socket.mjs`. The
+staging deployment completed and the socket service returned healthy. An active
+two-client match was then interrupted by an in-place Railway restart. Neither
+client received the `interrupted` notice; both closed with code `1006`.
+
+After the service recovered, two clients joined, readied, and started a fresh
+room. Fresh-room recovery **PASS**; deployed restart notification remains
+**FAIL**. A separate local integration test using the staging gateway and a
+direct Node socket process delivered the notice to both clients and closed
+cleanly with code `4002`. This narrows the difference to the live Railway
+restart path, but does not prove which platform layer prevents graceful
+delivery. No account sign-in, reward request, or Production modification was
+involved.
 
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
@@ -175,8 +191,8 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
-| Restart interrupts active match and notifies players | FAIL — authorized Railway staging restart closed both active clients with 1006 and sent no `interrupted` notice; local direct-`SIGTERM` test passes, but deployed restart does not | `latestStagingSocketRestartCheck` |
-| Interrupted match cannot award rewards; old room is rejected | PARTIAL — the old reconnect token was rejected as `session_lost`; no authenticated reward claim was attempted | `latestStagingSocketRestartCheck` |
+| Restart interrupts active match and notifies players | FAIL — after the staging start-command change and successful deployment, Railway restart still closed both clients with 1006 and sent no `interrupted` notice; local gateway + direct-Node shutdown passes | `latestStagingSocketRestartCheck`; `latestLocalGatewayShutdownCheck` |
+| Interrupted match cannot award rewards; old room is rejected | PARTIAL — an earlier restart rejected the old reconnect token as `session_lost`; no authenticated reward claim was attempted | `previousStagingSocketRestartCheck` |
 | New room works after restart | PASS — two clients joined and started a fresh room after the staging socket recovered | `latestStagingSocketRestartCheck` |
 | Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |
 | Room creation, invite, ready-up, team assignment, and late-join handling | PARTIAL — live protocol checks verified ten 5v5 seats, host/readiness gates, late-join rejection, and reconnect; browser invite flow remains unverified | `latestLiveMultiplayerRoomSmoke` |

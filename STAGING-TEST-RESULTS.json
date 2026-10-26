@@ -201,7 +201,7 @@
     "productionModified": false,
     "scope": "Ten scripted protocol clients completed a live staging match after two controlled disconnect/reconnect events. This verifies server-level staging behavior, not human gameplay, browser UI, physical-device network impairment, or reward persistence."
   },
-  "latestStagingSocketRestartCheck": {
+  "previousStagingSocketRestartCheck": {
     "recordedAtUtc": "2026-10-26T17:34:29Z",
     "environment": "staging",
     "service": "wfm-socket-staging",
@@ -243,8 +243,47 @@
       4002,
       4002
     ],
-    "interpretation": "The direct Node process completed graceful socket shutdown, while the pnpm-launched service did not. This points to launch-command signal forwarding as a likely boundary; no Railway configuration was changed.",
+    "interpretation": "The pnpm wrapper did not close sockets locally, while direct Node did. A later local gateway-plus-socket test also passed, but live Railway restarts still closed clients abnormally after the staging start command was changed to exec Node. The exact Railway restart boundary remains unconfirmed.",
     "productionModified": false
+  },
+  "latestLocalGatewayShutdownCheck": {
+    "recordedAtUtc": "2026-10-26T17:59:16Z",
+    "result": "PASS",
+    "activeClients": 2,
+    "restartNoticeReceivedByAll": true,
+    "clientCloseCodes": [
+      4002,
+      4002
+    ],
+    "scope": "Local staging gateway proxy with a direct Node socket process; SIGTERM delivered the interruption notice to both clients and the proxy forwarded close code 4002. This does not establish Railway service-restart behavior."
+  },
+  "latestStagingSocketRestartCheck": {
+    "recordedAtUtc": "2026-10-26T17:56:33Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartMode": "Railway in-place restart after successful direct-Node start-command deployment",
+    "startCommand": "exec node --enable-source-maps artifacts/api-server/dist/socket.mjs",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": "NOT_TESTED_IN_THIS_RETEST",
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "After an explicitly authorized staging-only start-command update and successful deployment, an active two-client match was interrupted by an in-place Railway restart. Neither client received the interruption notice; both closed with 1006. The service recovered and a fresh room started. No reward claim was attempted."
   },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
