@@ -22,6 +22,9 @@ export function createStagingGateway(config: StagingGatewayConfig) {
   const activeSockets = new Map<string, Set<Duplex>>();
 
   function accessPage(res: Response, rejected = false, unlocked = false) {
+    // no-referrer makes browser form POSTs send Origin: null. Keep the
+    // same-origin form usable without allowing null or untrusted origins.
+    res.setHeader("Referrer-Policy", "same-origin");
     res.setHeader("Content-Security-Policy",
       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
     res.type("html").send(stagingAccessPage(rejected, unlocked));

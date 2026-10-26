@@ -209,3 +209,18 @@ Clerk sign-in. The runner still needs an approved, existing account from the
 same isolated WFM Development Clerk instance before checking sign-in, a full
 flight, rewards, and saved progression. No production account, new test user,
 or progression write was used in these checks.
+
+### Browser form regression discovered during flight setup
+
+The real browser could not pass the gate even though the explicit-Origin HTTP
+probe passed. A focused browser check confirmed `Referrer-Policy: no-referrer`
+made the form POST carry `Origin: null`, producing 403.
+
+The source fix changes the access-form pages to `Referrer-Policy: same-origin`;
+other responses retain their existing policy. The strict origin check is
+unchanged, and a regression test verifies that an opaque `null` Origin is
+still rejected, even with the correct synthetic code.
+
+All seven gateway tests, API typecheck, and API build pass after this fix.
+The browser flight has not reached Clerk sign-in yet. The fix must be deployed
+to staging and the real form checked before continuing that journey.

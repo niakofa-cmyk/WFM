@@ -109,6 +109,9 @@ test("gate protects pages, assets and API; Clerk authentication is still require
     const response = await fetch(f.url + resource, { headers: host });
     assert.equal(response.status, 401);
     assert.equal(response.headers.get("cache-control"), "no-store");
+    if (!resource.startsWith("/api/")) {
+      assert.equal(response.headers.get("referrer-policy"), "same-origin");
+    }
     assert.ok(!(await response.text()).includes("Synthetic WFM shell"));
   }
   assert.equal(f.apiRequests, 0);
@@ -116,6 +119,9 @@ test("gate protects pages, assets and API; Clerk authentication is still require
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: "ok" });
   const cookie = await f.login();
+  const accessPage = await fetch(f.url + "/__staging/access", { headers: { ...host, cookie } });
+  assert.equal(accessPage.headers.get("referrer-policy"), "same-origin");
+  assert.match(await accessPage.text(), /action="\/__staging\/logout"/);
   const shell = await fetch(f.url + "/sign-in", { headers: { ...host, cookie } });
   assert.equal(shell.status, 200);
   assert.match(await shell.text(), /Synthetic WFM shell/);
@@ -157,6 +163,12 @@ test("gate rejects hostile hosts, cross-origin submissions, wrong codes and over
     method: "POST", headers: { ...host, origin: "https://untrusted.example" },
   });
   assert.equal(crossOrigin.status, 403);
+  const opaqueOrigin = await fetch(f.url + "/__staging/access", {
+    method: "POST",
+    headers: { ...host, origin: "null", "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ accessCode: fixtureCode }),
+  });
+  assert.equal(opaqueOrigin.status, 403);
   const oversized = await fetch(f.url + "/__staging/access", {
     method: "POST",
     headers: { ...host, origin: ORIGIN, "content-type": "application/x-www-form-urlencoded" },
