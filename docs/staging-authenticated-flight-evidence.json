@@ -1,6 +1,6 @@
 {
   "status": "blocked",
-  "latestAttemptEndedAtUtc": "2026-10-26T03:13:43.104Z",
+  "latestAttemptEndedAtUtc": "2026-10-26T03:21:29.490Z",
   "target": "https://wfm-app-staging-staging.up.railway.app/",
   "frontendGatewayCommit": "09628b2c6721b722984651757800d45f5909e8fe",
   "frontendGatewayDeployment": "96fda5a5-22d3-4b0b-9e61-3b05e520790d",
@@ -21,7 +21,13 @@
     "clerkInstanceVerified": false,
     "frontendApiKeyPairingVerified": false,
     "approvedTestAccountCredentialsSubmitted": true,
-    "approvedSignInAttempts": 2,
+    "signInFormDiagnosticRuns": 4,
+    "latestPasswordFactorRequestCount": 1,
+    "latestClerkSignInStatus": "needs_first_factor",
+    "latestClerkError": "password_incorrect",
+    "driverSessionWaitCorrected": true,
+    "driverTwoStepPasswordHandlingCorrected": true,
+    "driverSyntaxCheckPassed": true,
     "ownerConfirmedAccountAssociationBeforeRetry": true,
     "authenticatedSessionVerified": false,
     "profileRequestObserved": false,
@@ -31,6 +37,6 @@
     "persistenceVerified": false,
     "productionModified": false
   },
-  "remainingBlocker": "No authenticated profile request was observed after sign-in submission. The driver must confirm session completion or a safely classified challenge/error before navigating away; credential rejection and API key mismatch have not been established.",
+  "remainingBlocker": "The staging Development Clerk password screen explicitly rejected the saved test-account password after one observed password-factor request. Correct or recover that account password and update WFM_STAGING_TEST_PASSWORD securely. API key pairing and authenticated gameplay remain untested.",
   "releaseGate": "pending"
 }

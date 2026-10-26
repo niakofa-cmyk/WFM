@@ -35,3 +35,13 @@ whether authentication succeeded, failed, or required another step.
 
 **How to apply:** wait for a confirmed session or a specific safe error/challenge,
 then require an authenticated profile response before starting rewarded play.
+
+Follow normal intermediate sign-in screens. A separate password screen with
+`needs_first_factor` is not itself a credential rejection or an active session.
+
+**Why:** the hosted Clerk form can advance from the initial form to a separate
+password factor; a driver that does not handle that screen cannot test login.
+
+**How to apply:** submit the approved password factor once through its rendered
+UI, distinguish an actual rejection from an intermediate step, and stop on
+verification challenges or errors without retrying passwords.
