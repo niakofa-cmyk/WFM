@@ -150,6 +150,23 @@ restart path, but does not prove which platform layer prevents graceful
 delivery. No account sign-in, reward request, or Production modification was
 involved.
 
+## Authenticated staging browser restart check — 2026-10-26, 18:56 UTC
+
+An existing approved staging account signed in and loaded its profile
+successfully. One browser pilot created and started a room with the remaining
+seats filled by AI. After the staging socket restart, the game left the active
+match and displayed the server-restart message, including that no match rewards
+were issued. The `session_lost` fallback was not shown because the browser
+received the server-restart reason. The browser test did not capture a WebSocket
+close code.
+
+The browser UI check **PASS**es for this one pilot: no reward-claim request was
+made, no page errors were recorded, and the staging service recovered. The
+all-player restart criterion remains **PARTIAL**: the prior two-client protocol
+test closed both clients with `1006` and received no notice, so this single
+browser result does not establish consistent notification to every pilot.
+Production was not modified.
+
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit
@@ -191,7 +208,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — second pilot's entire returned profile was unchanged during the first pilot's reversible selection writes; separate history/inventory endpoints and cross-account writes unverified | Live profile-session section |
 | Staging economy uses staging data | PENDING | |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
-| Restart interrupts active match and notifies players | FAIL — after the staging start-command change and successful deployment, Railway restart still closed both clients with 1006 and sent no `interrupted` notice; local gateway + direct-Node shutdown passes | `latestStagingSocketRestartCheck`; `latestLocalGatewayShutdownCheck` |
+| Restart interrupts active match and notifies players | PARTIAL — one authenticated browser displayed the server-restart/no-rewards message; close code was not captured, and an earlier two-client protocol run closed both with 1006 and no notice | `latestStagingBrowserRestartCheck`; `latestStagingSocketRestartCheck` |
 | Interrupted match cannot award rewards; old room is rejected | PARTIAL — an earlier restart rejected the old reconnect token as `session_lost`; no authenticated reward claim was attempted | `previousStagingSocketRestartCheck` |
 | New room works after restart | PASS — two clients joined and started a fresh room after the staging socket recovered | `latestStagingSocketRestartCheck` |
 | Temporary disconnect reconnects while server remains running | PASS — two clients reclaimed their same seats and teams during a live staging match; browser-client and physical-device behavior remain unverified | `latestLiveTenClientMatch` |

@@ -243,7 +243,7 @@
       4002,
       4002
     ],
-    "interpretation": "The pnpm wrapper did not close sockets locally, while direct Node did. A later local gateway-plus-socket test also passed, but live Railway restarts still closed clients abnormally after the staging start command was changed to exec Node. The exact Railway restart boundary remains unconfirmed.",
+    "interpretation": "The pnpm wrapper did not close sockets locally, while direct Node did; a local gateway-plus-socket test also passed. Live results differ by harness: a two-client raw Railway probe closed both clients with 1006 and no notice, while a later one-pilot browser displayed the server-restart message. Multi-pilot delivery remains unresolved.",
     "productionModified": false
   },
   "latestLocalGatewayShutdownCheck": {
@@ -284,6 +284,28 @@
     "accountSignIn": false,
     "productionModified": false,
     "scope": "After an explicitly authorized staging-only start-command update and successful deployment, an active two-client match was interrupted by an in-place Railway restart. Neither client received the interruption notice; both closed with 1006. The service recovered and a fresh room started. No reward claim was attempted."
+  },
+  "latestStagingBrowserRestartCheck": {
+    "recordedAtUtc": "2026-10-26T18:56:31Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartAccepted": true,
+    "authenticatedBrowserPilots": 1,
+    "profileStatusBeforeMatch": 200,
+    "activeMatchBeforeRestart": true,
+    "canvasesBeforeRestart": 3,
+    "browserUiResult": "PASS",
+    "serverRestartMessageVisible": true,
+    "sessionLostFallbackVisible": false,
+    "noRewardsStatementVisible": true,
+    "matchActiveAfterRestart": false,
+    "canvasesAfterRestart": 0,
+    "clientCloseCode": "NOT_CAPTURED",
+    "claimRequests": 0,
+    "pageErrors": 0,
+    "serviceRecovered": "PASS",
+    "productionModified": false,
+    "scope": "An approved staging account reached an active one-pilot browser match. After the staging socket restart, the UI returned to the menu and showed its server_restart no-rewards message. This proves the visible message for one browser pilot, not delivery to all pilots; an earlier two-client raw protocol run observed close code 1006 and no notice."
   },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
@@ -390,7 +412,8 @@
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
     "sharedEconomyUsesStagingData": "PENDING",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
-    "restartEndsMatchAndNotifiesPlayers": "FAIL",
+    "restartEndsMatchAndNotifiesPlayers": "PARTIAL",
+    "stagingBrowserShowsRestartNotice": "PASS",
     "interruptedMatchCannotClaimRewards": "PARTIAL",
     "freshRoomRequiredAfterRestart": "PASS",
     "ordinaryDisconnectReconnect": "PASS",
