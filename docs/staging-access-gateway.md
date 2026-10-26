@@ -180,3 +180,32 @@ debrief/reward persistence, and live restart/reconnect checks. The browser
 runner does not have the access code; `WFM_STAGING_ACCESS_CODE` is absent from
 its secure test configuration. Anonymous rejection tests do not certify these
 positive flows or production readiness.
+
+### Code-authorized connectivity: 2026-10-26 UTC
+
+The owner supplied `WFM_STAGING_ACCESS_CODE` through the secure test-secret
+flow. A test process used it without displaying the code, cookie, or token.
+The existing deployed source and Railway configuration were left unchanged.
+
+| Live check | Observation |
+| --- | --- |
+| Correct code submission | 303 redirect to `/` |
+| Access cookie policy | Secure, HttpOnly, SameSite=Lax |
+| Unlocked `/` and `/sign-in` | 200 each |
+| Unlocked `/api/readyz` through the private API | 200 |
+| Unlocked `/api/game/profile` without Clerk credentials | 401, `authentication_required` |
+| WebSocket `/ws?room=staging-gate-check` with gate session and approved Origin | Upgrade succeeded |
+| Logout while the socket was open | 303; active socket closed |
+| Reuse of the revoked cookie | 401 |
+
+An initial WebSocket probe omitted the required `room` query parameter and
+received 400. The proper request succeeded; that response was protocol
+validation, not a proxy defect. No application-code change was necessary.
+The probe did not send a join message or create a match.
+
+**Gateway deployment and private-upstream connectivity are verified.** This is
+not authenticated gameplay certification: the profile's 401 is expected before
+Clerk sign-in. The runner still needs an approved, existing account from the
+same isolated WFM Development Clerk instance before checking sign-in, a full
+flight, rewards, and saved progression. No production account, new test user,
+or progression write was used in these checks.
