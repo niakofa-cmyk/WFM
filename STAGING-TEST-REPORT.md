@@ -119,6 +119,21 @@ rejection. No reward claim was attempted, so interrupted-match reward
 protection remains unverified. No Railway configuration or Production setting
 was changed; the overall staging release gate remains **PENDING**.
 
+### Local signal-forwarding isolation
+
+On an isolated local port, the configured `pnpm --filter
+@workspace/api-server start:socket` command did not deliver a shutdown notice
+or close its active clients within ten seconds after SIGTERM was sent to the
+pnpm process. Starting the compiled socket directly with Node delivered the
+notice to both clients and closed both with code `4002`. Together with the live
+Railway result, this points to command-level signal forwarding as the likely
+boundary rather than the socket's direct-Node shutdown handler.
+
+The Railway start command was inspected read-only and left unchanged, as
+required. A direct-Node start command may resolve this, but changing Railway
+configuration is outside the current authorization; the deployed-notification
+failure remains a release blocker.
+
 ## Earlier scoped reward evidence — 2026-10-26, 12:58 UTC
 
 ### Subsequent runtime and session audit

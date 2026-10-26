@@ -232,6 +232,20 @@
     "railwayConfigurationChanged": false,
     "scope": "Authorized staging-only restart during an active two-client match. Clients did not receive the restart notice and closed abnormally; the service recovered, the old reconnect token was rejected, and a new room started. Reward claiming was not tested."
   },
+  "latestLocalSocketSignalComparison": {
+    "recordedAtUtc": "2026-10-26T17:39:24Z",
+    "launchCommand": "pnpm --filter @workspace/api-server start:socket",
+    "wrapperResult": "FAIL",
+    "wrapperSignal": "SIGTERM sent to the pnpm process; no client shutdown notice or WebSocket close was observed within 10 seconds",
+    "directNodeResult": "PASS",
+    "directNodeNoticesReceived": 2,
+    "directNodeClientCloseCodes": [
+      4002,
+      4002
+    ],
+    "interpretation": "The direct Node process completed graceful socket shutdown, while the pnpm-launched service did not. This points to launch-command signal forwarding as a likely boundary; no Railway configuration was changed.",
+    "productionModified": false
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
