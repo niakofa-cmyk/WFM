@@ -1,8 +1,13 @@
 # Authenticated staging flight after simulation-parity repair
 
-Status: **BLOCKED — the live replay was rejected; no reward was awarded**
+Latest status: **PASS — a newly authorized flight received an accepted reward,
+its identical duplicate awarded nothing extra, and the awarded balance survived
+reload.** See the 12:58 UTC follow-up below and
+[sanitized evidence](staging-deterministic-reward-flight-evidence.json).
 
-Evidence recorded: `2026-10-26T11:32:40Z`.
+Historical 11:32 UTC run: **BLOCKED — the live replay was rejected; no reward was awarded.**
+
+Historical evidence recorded: `2026-10-26T11:32:40Z`.
 
 ## Tested source and scope
 
@@ -87,7 +92,7 @@ regression guard, but is not runtime determinism certification.
 No reward validation, frame limit, balance calculation, or duplicate protection
 was weakened. The replay was not truncated, padded, or resubmitted.
 
-## Remaining work
+## Historical remaining work (before the determinism repair)
 
 1. Establish a repeatable cross-runtime state comparison using the actual
    browser and deployed server runtimes, not two imports executing under Node.
@@ -155,9 +160,58 @@ which the live Arena, Node, and Chromium differ. The previous live-Arena versus
 standalone-Chromium difference remains unexplained because that capture was not
 retained; no other Arena-side match mutation was found in solo flights.
 
-Still not verified: an accepted live reward, accepted-claim idempotency, and
-awarded-balance persistence. These require staging redeployment of this change
-and a newly authorized live flight.
+At the time of the math repair, an accepted live reward, accepted-claim
+idempotency, and awarded-balance persistence remained unverified. The following
+authorized retest completed these checks.
+
+## Follow-up: accepted deterministic staging flight (2026-10-26, 12:58 UTC)
+
+Before starting the flight, Railway showed the repaired frontend running but the
+API still pinned to an older commit. After explicit owner approval, only the
+isolated staging API source was updated and deployed. Both deployments reached
+`SUCCESS`; production and the socket service were unchanged.
+
+- Frontend: `e9786caa47de84cc67c7495e7a884664fff98c4b`,
+  deployment `0cd2a738-bcd5-4192-9015-35fd14b6abd0`.
+- API: `179064a436360a07357adf16174bb6d0f90bccd8`,
+  deployment `3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5`.
+- The API commit differs from the frontend commit only in documentation; their
+  simulation sources are identical.
+- GitHub push Workspace quality run `40320534128` passed, including the
+  Node/Chromium determinism gate.
+
+The existing approved staging account signed in through the rendered access
+gate and Clerk form, including a fresh verification challenge. No new account
+was created. The 3D battle screenshot was inspected and WebGL2 was confirmed.
+
+| Check | Observed result |
+| --- | --- |
+| Authenticated starting profile | HTTP 200; 90 credits |
+| Normal flight | Arcade Skirmish, Mandjet, STRIKE 6:00 |
+| Controls | 95 ordinary four-second keyboard control cycles; no clock manipulation |
+| Complete recorded replay | 21,600 frames, unchanged |
+| Client terminal preview | Loss; 0 kills, 1 relay |
+| Staging diagnostic state samples | 21,601 checksums retained in page memory |
+| Uncaught page errors | 0 |
+| First normal server claim | HTTP 200; `gain: 40`, `replayed: false` |
+| Fresh profile after first claim | HTTP 200; 130 credits |
+| One byte-identical duplicate claim | HTTP 200; `replayed: true`; balance remained 130 |
+| Additional credits from duplicate | 0 |
+| Authenticated reload | HTTP 200; 130 credits persisted |
+| Sign-out | Session cleared; profile HTTP 401 |
+| Cleanup | Browser closed; no credentials, login state, or raw replay exported |
+
+The duplicate response returns the original `gain: 40` receipt; it does **not**
+mean a second award. The frozen first-claim balance and fresh profiles before
+and after the duplicate establish that the balance stayed at 130.
+
+This run establishes live server acceptance of a complete normal browser replay,
+idempotency of its accepted claim, and persistence after reload. It does not
+independently explain the earlier Arena-versus-standalone discrepancy: this
+run's live checksums were recorded but were not compared against a standalone
+trace. Reward validation and frame limits were not weakened.
+
+Sanitized evidence: `docs/staging-deterministic-reward-flight-evidence.json`.
 
 ## Release boundary
 

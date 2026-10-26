@@ -9,6 +9,19 @@ Use a separate Repl, database, and authentication environment for staging. Never
 
 **How to apply:** when preparing staging, configuring authentication or databases, or promoting changes, preserve isolation and require evidence of passing staging checks. Review production schema, auth, recovery, and rollback separately.
 
+## Pinned Railway service sources
+
+Check each service's deployed commit, not just its configured branch, before a
+cross-service staging test. A service pinned to a commit does not deploy branch
+pushes.
+
+**Why:** the deterministic simulation fix reached the frontend while the reward
+API stayed pinned to old code, despite both services displaying `staging`.
+
+**How to apply:** compare frontend/API deployed revisions and shared simulation
+contents before claiming parity or starting a rewarded flight. Change a staging
+pin only with explicit deployment approval; never update production implicitly.
+
 The owner approved a staging-only access gate for Railway browser testing.
 It must protect game, API, and socket access without replacing Clerk sign-in
 or changing production authentication.
