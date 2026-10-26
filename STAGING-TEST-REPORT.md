@@ -230,7 +230,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Automatic same-account sync across independent browser contexts | PASS — visible selection changed after 26.8 seconds without reload and restored automatically | Live profile-session section |
 | Synchronization across distinct physical devices | PENDING — independent browser contexts are not physical-device evidence | |
 | Two-account isolation for progression, credits, inventory, and history | PARTIAL — earlier reversible profile-sync writes left the second account's returned profile unchanged. The latest two-account probe confirmed a foreign-user profile query returns the caller's profile and a write carrying a foreign user ID is rejected with HTTP 400; a repeat before/after check was stable. World-state cross-account mutation and any distinct history/inventory surface remain unverified | `latestLiveProfileSync`; `latestStagingAccountAndRoomUiCheck` |
-| Staging economy uses staging data | PARTIAL — the protected staging `/api/market` endpoint returned data for both existing staging accounts; no trade or shared post-trade update was tested | `latestStagingAccountAndRoomUiCheck` |
+| Staging economy uses staging data | PARTIAL — authenticated market reads returned data for both accounts in the earlier check. A follow-up trade check was blocked before any market request because both fresh Clerk sign-ins remained at `needs_client_trust`; no trade or market mutation occurred | `latestStagingAccountAndRoomUiCheck`; `latestStagingSharedMarketTradeCheck` |
 | Server-owned rewards and duplicate-claim protection | PARTIAL — one authenticated staging skirmish received a server-accepted reward; its identical duplicate added no credits, and the balance survived reload. Broader replay, interruption, and campaign coverage remains pending | `latestAuthenticatedRewardFlight` |
 | Restart interrupts active match and notifies players | PARTIAL — one authenticated browser displayed the server-restart/no-rewards message, but its close code was not captured; an earlier two-client protocol run closed both with 1006 and no notice | `latestStagingBrowserFreshRoomCheck`; `latestStagingSocketRestartCheck` |
 | Interrupted match cannot award rewards; old room is rejected | PARTIAL — browser restart checks made zero claim requests and online matches do not use the separate Strike claim endpoint; an earlier old-room reconnect was rejected as `session_lost`. Server-side claim rejection is not inferred from the UI check | `latestStagingBrowserFreshRoomCheck`; `previousStagingSocketRestartCheck`; `artifacts/war-for-mars/src/game/WarApp.tsx`; `artifacts/api-server/src/routes/strikes.ts` |
@@ -284,3 +284,12 @@ Production was not modified.
 tests, and workspace builds passed. Public Playwright E2E was not rerun in this
 check; the earlier local suite remains recorded separately. This was a
 workspace-only check and does not clear any live staging or Production gate.
+
+## Staging market trade attempt — 2026-10-26, 20:11 UTC
+
+Two fresh email-code submissions were attempted in separate existing staging
+account contexts. Both remained at Clerk's `needs_client_trust` state and
+neither had an authenticated profile. The market endpoint was not called, and
+no trade or account/market data was changed. This leaves the shared transaction
+check PARTIAL; it is an authentication-evidence blocker, not a reproduced game
+or market defect. Production was not accessed or modified.

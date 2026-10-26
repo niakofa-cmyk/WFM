@@ -379,6 +379,20 @@
     "productionModified": false,
     "scope": "Protected staging only, using two existing approved accounts. /api/world and /api/market returned data for both accounts. A profile query carrying the other account's userId returned the authenticated caller's profile; a profile action carrying a foreign userId was rejected with HTTP 400. The first full-profile comparison differed; a repeat stability check and a second before/after comparison around the rejected write were stable. Browser room-code invite, separate team assignment, the host readiness gate, both-pilot readiness, and match start passed with three canvases per browser. No market trade, new account, reward claim, or Production change was made. This does not certify physical-device sync or world-state cross-account mutations."
   },
+  "latestStagingSharedMarketTradeCheck": {
+    "recordedAtUtc": "2026-10-26T20:11:48Z",
+    "environment": "staging",
+    "existingApprovedAccounts": 2,
+    "freshCodeSubmissions": 2,
+    "writerAuthenticationStatus": "needs_client_trust",
+    "observerAuthenticationStatus": "needs_client_trust",
+    "authenticatedProfilesAvailable": false,
+    "marketReadAttempted": false,
+    "marketTradeRequestSent": false,
+    "tradeCheckStatus": "BLOCKED_AUTHENTICATION",
+    "productionModified": false,
+    "scope": "The secure fresh-code submissions did not establish either Clerk session; both browser contexts remained at needs_client_trust. No market endpoint was called and no trade, account, market, or Production data was changed."
+  },
   "railwayBackend": {
     "checkedAt": "2026-10-25T01:16:43Z",
     "environment": "production",
