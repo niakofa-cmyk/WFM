@@ -33,6 +33,7 @@
   "latestLocalWorkspaceCheck": {
     "verifiedAtUtc": "2026-10-26T20:32:23Z",
     "testedSourceCommit": "0a0893d9b0855be3c344b4e335ea482b702c1479",
+    "testedWorkingTreeCommittedAs": "214d3ed595975bf561d6289505ac41d9596f27a9",
     "workingTreeChangesIncluded": [
       "artifacts/api-server/src/game/progression.test.ts"
     ],
@@ -139,6 +140,80 @@
       }
     },
     "interpretation": "The failed attempts are historical config/healthcheck failures followed by successful deployments. All current services are online, but Railway still reports the failures in its 24-hour window; this is not a workspace build failure or proof that remaining release evidence passed."
+  },
+  "latestStagingServiceRevisionAudit": {
+    "checkedAtUtc": "2026-10-26T20:40:51Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "sourceRepository": "niakofa-cmyk/WFM",
+    "configuredBranch": "staging",
+    "testedTreeCommit": "214d3ed595975bf561d6289505ac41d9596f27a9",
+    "testedTreeOriginBase": "0a0893d9b0855be3c344b4e335ea482b702c1479",
+    "originStagingCommit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3",
+    "localCommitsAheadOfOrigin": 4,
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "liveDeploymentId": "e57e96d4-3180-42d1-89d6-6d54039fcbd1",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T16:41:47.912Z",
+        "liveCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
+        "latestBranchTrigger": {
+          "deploymentId": "297d6d51-02e7-4279-b214-ce7d8af2d1eb",
+          "status": "SKIPPED",
+          "createdAtUtc": "2026-10-26T19:28:28.733Z",
+          "commit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3"
+        },
+        "runtimeFilesMatchTestedTree": true
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "liveDeploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T12:48:36.605Z",
+        "liveCommit": "179064a436360a07357adf16174bb6d0f90bccd8",
+        "postDeploymentRuntimeChanges": [],
+        "postDeploymentTestChanges": [
+          "artifacts/api-server/src/game/progression.test.ts"
+        ],
+        "runtimeFilesMatchTestedTree": true
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "liveDeploymentId": "e4b46b2b-3467-4e19-9556-da34d5ff6c01",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T17:54:48.254Z",
+        "liveCommit": "acf080cc2c7cc4c21c19363e8c9e264b0415f090",
+        "postDeploymentRuntimeChanges": [],
+        "postDeploymentTestChanges": [
+          "artifacts/api-server/src/game/progression.test.ts"
+        ],
+        "runtimeFilesMatchTestedTree": true
+      }
+    },
+    "sharedSimulationFiles": {
+      "files": [
+        "sim.ts",
+        "detmath.ts",
+        "sim-trace.ts",
+        "ships.ts"
+      ],
+      "frontendDeployedHashesMatchTestedTree": true,
+      "apiDeployedHashesMatchTestedTree": true,
+      "socketDeployedHashesMatchTestedTree": true,
+      "frontendAndApiDeployedHashesMatch": true
+    },
+    "environmentStatus": {
+      "onlineServices": 4,
+      "servicesWithIssues": 0,
+      "failuresInEightHourWindow": 0,
+      "pendingWork": 0
+    },
+    "exactDeploymentCommitsEqualTestedTree": false,
+    "runtimeContentParity": "CONFIRMED",
+    "productionModified": false,
+    "deploymentTriggered": false,
+    "scope": "Read-only staging audit. Live deployment hashes differ from the tested tree, but all three services' runtime source content matches it; the API-only post-deployment source change is a regression test file. This does not supply the missing promotion PR head SHA."
   },
   "latestStagingMobileSmoke": {
     "recordedAtUtc": "2026-10-26T16:47:45Z",
