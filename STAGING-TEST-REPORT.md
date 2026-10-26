@@ -6,6 +6,20 @@
 - **Deployment visibility:** invite-only configuration pending; not published
 - **Production readiness:** NOT CLAIMED
 
+## Latest scoped evidence — 2026-10-26, 12:58 UTC
+
+An explicitly authorized normal staging skirmish completed with an accepted
+server reward: 90 → 130 credits. Its one identical duplicate returned
+`replayed: true` and added no credits; an authenticated reload still showed 130.
+Sign-out returned the profile to HTTP 401 and the browser was closed.
+See `docs/staging-deterministic-reward-flight-evidence.json` and
+`docs/staging-reward-parity-flight-report.md`.
+
+This supersedes the reward-flight blocker only. The historical table and
+overall release status remain pending: new-session/cross-device persistence,
+account isolation, campaign, and deployed multiplayer checks are not established
+by one skirmish. Production was not changed.
+
 Keep this report free of secret values, player identifiers, private deployment URLs, and personal data. Put sanitized evidence in this repository and list its paths in `STAGING-TEST-RESULTS.json`.
 
 | Check | Result | Evidence |

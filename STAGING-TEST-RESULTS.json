@@ -73,6 +73,16 @@
     "schemaApplied": false,
     "liveVerification": "PENDING"
   },
+  "latestAuthenticatedRewardFlight": {
+    "recordedAtUtc": "2026-10-26T12:58:33Z",
+    "evidence": "docs/staging-deterministic-reward-flight-evidence.json",
+    "acceptedReward": "PASS",
+    "identicalDuplicateAddsNoCredits": "PASS",
+    "awardedBalanceSurvivesReload": "PASS",
+    "balanceBefore": 90,
+    "balanceAfter": 130,
+    "scope": "One staging skirmish and same-session reload only; broader tests below remain pending."
+  },
   "tests": {
     "signupAndSignin": "PENDING",
     "profilePersistsAcrossSessions": "PENDING",
@@ -90,7 +100,9 @@
   },
   "evidenceFiles": [
     "STAGING-TEST-REPORT.md",
-    "docs/staging-network-impairment-evidence.json"
+    "docs/staging-network-impairment-evidence.json",
+    "docs/staging-deterministic-reward-flight-evidence.json",
+    "docs/staging-reward-parity-flight-report.md"
   ],
   "productionReadiness": "NOT_CLAIMED"
 }
