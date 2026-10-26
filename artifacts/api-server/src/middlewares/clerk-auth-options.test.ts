@@ -8,6 +8,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { buildPublishableKey } from "@clerk/shared/keys";
 import { apiClerkOptions } from "./clerk-auth-options";
 import { requirePlayerAuth } from "./playerAuth";
+import { fixtureRequest as fetch } from "../testing/http-request";
 
 test("API authentication preserves its configured instance instead of deriving one from the HTTP host", async () => {
   // Entirely synthetic instance and signing material; no configured credentials
@@ -25,8 +26,8 @@ test("API authentication preserves its configured instance instead of deriving o
     ...options,
     jwtKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
   }));
-  app.get("/profile", requirePlayerAuth, (_req, res) => {
-    res.json({ authenticated: true });
+  app.get("/profile", requirePlayerAuth, (req, res) => {
+    res.json({ authenticated: true, host: req.headers.host });
   });
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -56,7 +57,7 @@ test("API authentication preserves its configured instance instead of deriving o
         },
       });
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { authenticated: true });
+      assert.deepEqual(await response.json(), { authenticated: true, host });
     }
     const anonymous = await fetch(url);
     assert.equal(anonymous.status, 401);

@@ -9,6 +9,16 @@ Use a separate Repl, database, and authentication environment for staging. Never
 
 **How to apply:** when preparing staging, configuring authentication or databases, or promoting changes, preserve isolation and require evidence of passing staging checks. Review production schema, auth, recovery, and rollback separately.
 
+The owner approved a staging-only access gate for Railway browser testing.
+It must protect game, API, and socket access without replacing Clerk sign-in
+or changing production authentication.
+
+**Why:** the owner authorized restricted staging access, not an unrestricted
+public playtest or an authentication migration.
+
+**How to apply:** keep direct backend endpoints private; do not expose the
+previous ungated frontend while a protected replacement is still deploying.
+
 ## Hosting direction
 
 Keep the game frontend, API, and Wing Socket services on Railway, using the owner's existing external Clerk application. The intended public game host is NiaKofa's `/kids/wfm/` route. Keep Replit for development and preserve isolated staging and the repository's promotion gate.
