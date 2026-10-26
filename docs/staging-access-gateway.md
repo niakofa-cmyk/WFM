@@ -229,7 +229,11 @@ successfully submitted the code and received the normal 303 redirect.
 The next check stopped before filling Clerk credentials: sign-in was blank
 because the frontend's internal hostname-derived key helper selected
 `clerk.wfm-app-staging-staging.up.railway.app`, which failed certificate
-validation. The frontend is being corrected to honor the explicitly configured
-key, as the API already does. No keys were inspected or changed. The three
+validation. The frontend now honors the explicitly configured key, as the API
+already does. No keys were inspected or changed. The three
 new configuration tests, all 18 existing game tests, game typecheck, and game
-production build pass. Live Clerk account authentication remains unverified.
+production build pass. The new staging deployment is successful, but Clerk now
+reports a Production-key/domain restriction on the staging hostname. The
+Development-only test account was not submitted to that Production host.
+See [the authenticated flight report](staging-authenticated-flight-report.md)
+for the exact source, evidence, and remaining owner action.

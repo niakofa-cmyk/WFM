@@ -1,0 +1,28 @@
+{
+  "status": "blocked",
+  "target": "https://wfm-app-staging-staging.up.railway.app/",
+  "frontendGatewayCommit": "454bd3acf3e33e7770cee766f73927fc8a8bfe6c",
+  "frontendGatewayDeployment": "5a1d3b09-82eb-43bd-bb2b-61004a7d8d85",
+  "apiSocketCommit": "b9be83a62de348293157a8e63f02a65988506649",
+  "checks": {
+    "gatewayTestsPassed": 7,
+    "frontendTestsPassed": 21,
+    "targetedTypechecksAndBuildsPassed": true,
+    "githubPushWorkspaceQualityPassed": true,
+    "browserGateFormStatus": 303,
+    "nullOriginStillRejected": true,
+    "clerkScriptHost": "clerk.niakofa.com",
+    "clerkProductionDomainRestrictionReported": true,
+    "emailFieldCount": 0,
+    "clerkInstanceVerified": false,
+    "frontendApiKeyPairingVerified": false,
+    "approvedTestAccountCredentialsSubmitted": false,
+    "authenticatedProfileVerified": false,
+    "strikeCompleted": false,
+    "rewardVerified": false,
+    "persistenceVerified": false,
+    "productionModified": false
+  },
+  "remainingBlocker": "Staging must use the Development instance that owns the approved test account, with matching frontend/API configuration.",
+  "releaseGate": "pending"
+}
