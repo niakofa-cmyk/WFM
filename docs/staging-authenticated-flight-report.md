@@ -39,6 +39,11 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 | Active Clerk Frontend API host | `precious-kangaroo-7682.clerk.accounts.dev` |
 | Sign-in form | Renders email-identifier and password fields with a Development-mode indicator |
 | Clerk application association and frontend/API key pairing | Not independently verified; variable names are present, but credential values were not inspected |
+| Staging secret presence | `WFM_STAGING_ACCESS_CODE`, `WFM_STAGING_TEST_EMAIL`, and `WFM_STAGING_TEST_PASSWORD` are set in Development; values were not read |
+| Connected Clerk API integration | Ready; read-only `GET /v1/instance` returned Development |
+| Connected API instance correlation | Not verified: its instance metadata exposes no comparable frontend host/instance ID; its allowed origins and subdomains are empty |
+| Replit-managed Clerk dashboard access | `requires_personal_pro`; no dashboard action was performed |
+| Existing-user lookup / alias update | Not performed because the connected API instance could not be confirmed as WFM staging's instance |
 | Browser-driver syntax check | Passed after correcting session wait and normal two-step password handling |
 | Sign-in diagnostics | Six form-start diagnostic runs; the latest stopped at Clerk's new-device email verification screen |
 | Latest Clerk state | “Check your email to continue to WFM”; a verification code is required |
@@ -69,7 +74,11 @@ The saved staging email is not a `+clerk_test` alias. Clerk documents that its
 fixed-code verification path is for that test-email pattern:
 [Clerk test emails and phones](https://clerk.com/docs/guides/development/testing/test-emails-and-phones).
 The code shown in the separate Production settings was not used for this
-Development sign-in.
+Development sign-in. The connected Clerk API integration independently reports
+a Development instance, but it has no allowed origins/subdomains and its
+instance metadata cannot be correlated to the WFM staging frontend. No user
+records were queried and no alias was attached, to avoid changing a different
+Clerk instance or creating a separate pilot profile.
 
 The earlier testing-agent evaluation returned **unable**, not a successful
 flight. The latest project-side browser attempts also did not complete the
@@ -78,19 +87,23 @@ journey. The machine-readable summary is
 
 ## Remaining verification work
 
-1. Provide a repeatable email-verification method for this existing Development
-   user. If using Clerk's `+clerk_test` flow, attach the alias to the same user
-   record rather than creating a second pilot/profile; update
-   `WFM_STAGING_TEST_EMAIL` through the secure form.
-2. Do not paste verification codes or credentials into chat. Do not use the
+1. Connect or configure Clerk access so its Development instance can be
+   independently matched to the WFM staging frontend, and ensure the staging
+   origin is configured on that exact instance. The current Replit-managed
+   dashboard access reports `requires_personal_pro`.
+2. Once that instance match is proven, provide a repeatable email-verification
+   method for the existing Development user. If using Clerk's `+clerk_test`
+   flow, attach the alias to the same user record rather than creating a second
+   pilot/profile; update `WFM_STAGING_TEST_EMAIL` through the secure form.
+3. Do not paste verification codes or credentials into chat. Do not use the
    Production instance's test code for this separate Development sign-in.
-3. Resume once the approved Development sign-in flow can be completed without
+4. Resume once the approved Development sign-in flow can be completed without
    inbox access unavailable to the test runner. Do not ask the owner to
    reconfirm the account association already confirmed above.
-4. Once sign-in is genuinely active, verify that the app sends a Bearer-authenticated
+5. Once sign-in is genuinely active, verify that the app sends a Bearer-authenticated
    profile request and receives HTTP 200. Only then can frontend/API instance
    compatibility be exercised, rather than inferred from variable presence.
-5. Complete the normal six-minute Strike, server-owned claim, and persistence
+6. Complete the normal six-minute Strike, server-owned claim, and persistence
    checks without manipulating game time, replay data, or progression.
 
 Do not create another Clerk application, copy managed Replit keys from a
