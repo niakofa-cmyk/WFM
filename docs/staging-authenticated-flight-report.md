@@ -53,7 +53,7 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 | Latest Clerk state | “Check your email to continue to WFM”; a verification code is required |
 | Staging email test-alias check | Not a `+clerk_test` alias; only a yes/no match was evaluated, and the address was not printed |
 | Clerk test-code applicability | Clerk's fixed-code test flow applies to `+clerk_test` addresses, not this current address |
-| Verification code | Not accessed or submitted |
+| Verification code | A one-time code was included in chat; the agent did not submit it or store its value |
 | Authenticated profile request | No request to `/api/game/profile` was observed; the latest browser stopped at the email-verification challenge |
 | Six-minute Strike, server replay claim, reward | Not run |
 | Reload/sign-out persistence and duplicate claim | Not run |
@@ -62,8 +62,9 @@ Latest browser attempt ended: `2026-10-26T03:36:17.876Z`.
 The approved test account is Development-only. Credentials were submitted only
 after the staging form displayed Development mode. The owner confirmed that the
 saved account belongs to the active staging Development instance. The latest
-run stopped on a new-device email-verification challenge. The code was not
-accessed or submitted. No Clerk users were created, no authenticated
+run stopped on a new-device email-verification challenge. A one-time code was
+included in chat afterward, but it was not entered into the browser or saved
+to workspace files. No Clerk users were created, no authenticated
 profile/gameplay writes were observed, and no credentials, tokens, cookies,
 traces, or stored login-state files were published.
 
