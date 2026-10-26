@@ -190,6 +190,64 @@ test(
 );
 
 test(
+  "an expired server-issued run cannot grant a reward after interruption",
+  { skip: !process.env.DATABASE_URL },
+  async () => {
+    const userId = `test_interrupted_run_${randomUUID()}`;
+    const selection = {
+      shipId: "mandjet",
+      faction: "accord",
+      scheme: "arc",
+      pace: "practice",
+      mission: "contact",
+      tech: null,
+    } as const;
+
+    try {
+      const beforeStart = await getPlayerProfile(userId);
+      const run = await startPlayerStrike(userId, selection);
+      const beforeClaim = await getPlayerProfile(userId);
+      assert.equal(beforeClaim.credits, beforeStart.credits);
+
+      const [issuedRun] = await db
+        .select()
+        .from(strikeRunsTable)
+        .where(eq(strikeRunsTable.id, run.runId));
+      assert.ok(issuedRun);
+      assert.equal(issuedRun.status, "open");
+
+      // Model a server-issued run that expired while the player was interrupted.
+      await db
+        .update(strikeRunsTable)
+        .set({ expiresAt: new Date(Date.now() - 1_000) })
+        .where(eq(strikeRunsTable.id, run.runId));
+
+      const claim = await claimPlayerStrike(userId, run.runId, []);
+      assert.deepEqual(claim, { error: "expired" });
+
+      const afterClaim = await getPlayerProfile(userId);
+      assert.equal(afterClaim.credits, beforeClaim.credits);
+      assert.equal(afterClaim.cleared, beforeClaim.cleared);
+      assert.equal(afterClaim.revision, beforeClaim.revision);
+      const rewards = await db
+        .select()
+        .from(progressionEventsTable)
+        .where(eq(progressionEventsTable.userId, userId));
+      assert.equal(rewards.length, 0);
+      const [expiredRun] = await db
+        .select()
+        .from(strikeRunsTable)
+        .where(eq(strikeRunsTable.id, run.runId));
+      assert.equal(expiredRun?.status, "expired");
+    } finally {
+      await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
+      await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
+      await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
+    }
+  },
+);
+
+test(
   "server progression owns credits, rejects locked missions, and claims each replay once",
   { skip: !process.env.DATABASE_URL },
   async () => {
