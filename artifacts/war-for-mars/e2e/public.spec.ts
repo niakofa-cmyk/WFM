@@ -41,6 +41,27 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
   await expect(page.getByTestId("solo-flight")).toBeVisible();
 });
 
+test("mobile flight controls reserve device safe areas", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/play");
+
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
+  expect(viewport).toContain("viewport-fit=cover");
+  expect(viewport).not.toContain("maximum-scale=1");
+
+  await page.getByTestId("button-solo-launch").click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
+
+  const leftStyle = await page.getByTestId("flight-controls-left").getAttribute("style");
+  const rightStyle = await page.getByTestId("flight-controls-right").getAttribute("style");
+  expect(leftStyle).toContain("safe-area-inset-left");
+  expect(leftStyle).toContain("safe-area-inset-bottom");
+  expect(rightStyle).toContain("safe-area-inset-right");
+  expect(rightStyle).toContain("safe-area-inset-bottom");
+
+  await page.getByRole("button", { name: "EXIT SOLO FLIGHT" }).click();
+});
+
 test("graphics context loss exits safely without submitting a reward", async ({ page }) => {
   let rewardRequests = 0;
   page.on("request", (request) => {

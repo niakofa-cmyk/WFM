@@ -1790,7 +1790,14 @@ export function Arena({
           </p>
         ) : null}
 
-        <div className="absolute bottom-4 left-3 flex flex-col items-start gap-2">
+        <div
+          data-testid="flight-controls-left"
+          className="absolute bottom-4 left-3 flex flex-col items-start gap-2"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+            left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)",
+          }}
+        >
           <div className="pointer-events-auto flex flex-col gap-2">
             {PRESET_NAME.map((name, index) => (
               <button
@@ -1822,7 +1829,14 @@ export function Arena({
           </div>
         </div>
 
-        <div className="absolute right-3 bottom-4 flex flex-col items-end gap-2">
+        <div
+          data-testid="flight-controls-right"
+          className="absolute right-3 bottom-4 flex flex-col items-end gap-2"
+          style={{
+            right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+          }}
+        >
           <div className="pointer-events-auto flex gap-2">
             <button
               ref={lockRef}
