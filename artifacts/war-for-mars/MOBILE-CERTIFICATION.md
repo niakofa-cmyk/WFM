@@ -48,6 +48,11 @@ dead zone, follows drag relative to the touch start, and resets on release or
 cancel. Unit and browser regression checks pass; the physical behavior must
 still be retested before resuming the six-minute run.
 
+The user then reported that a short local Practice retest on the REVVL 8 behaved
+as expected: touch stayed neutral, deliberate drag worked, and release recentered
+the stick. This is user-reported control evidence only; the six-minute Strike
+sample and its performance metrics remain **PENDING**.
+
 ## Proposed acceptance gates
 
 Record the raw trace and device/browser versions before marking a gate passed. These are project targets, not measurements from the current run.
