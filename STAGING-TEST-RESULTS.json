@@ -791,6 +791,22 @@
     "productionModified": false,
     "scope": "Local API progression test only. Staging restart UI checks remain separate; no live staging claim was attempted."
   },
+  "latestLiveInterruptedRewardClaimAttempt": {
+    "recordedAtUtc": "2026-10-27T01:06:14Z",
+    "environment": "staging",
+    "status": "BLOCKED",
+    "existingApprovedAccountUsed": true,
+    "verificationChallengeSubmitted": true,
+    "authenticatedSessionEstablished": false,
+    "profileRequestSent": false,
+    "serverIssuedRunCreated": false,
+    "claimRequestSent": false,
+    "profileMutation": false,
+    "productionModified": false,
+    "physicalDeviceTested": false,
+    "blocker": "The staging verification challenge did not establish a Clerk session. No retry was attempted.",
+    "scope": "The check stopped before any authenticated profile or Strike API call. No reward claim or sortie was created. This is a blocked attempt, not interrupted-reward evidence."
+  },
   "latestLiveProfileSync": {
     "status": "PASS",
     "recordedAtUtc": "2026-10-26T14:29:17Z",

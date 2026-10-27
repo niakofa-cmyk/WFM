@@ -311,3 +311,17 @@ starting values. The buyer's balance ended two credits lower due to the market
 spread/price impact, and the shared market revision advanced twice. No reward
 claim requests or page errors occurred. Both accounts signed out to HTTP 401.
 Production was not accessed or modified.
+
+## Interrupted-reward and physical-device evidence attempt — 2026-10-27, 01:06 UTC
+
+The live check used an existing approved staging account. The current
+verification challenge did not establish an authenticated Clerk session, so the
+attempt stopped without retrying. No profile request, Strike run, or claim
+request was sent, and no player profile or reward state was changed. This is a
+blocked sign-in attempt, not a pass or failure of the claim validator.
+
+Physical-device testing was not performed: no actual phone or tablet was
+connected to this environment. Existing mobile viewport checks remain browser
+emulation only and do not satisfy the physical-device evidence requirement.
+The interrupted-reward claim and physical-device gates remain pending;
+Production and the separate staging promotion gate were not changed.
