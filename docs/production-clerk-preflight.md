@@ -87,16 +87,18 @@ persist them in Railway. Each invocation emits variable names, presence states,
 and match/mismatch results only; it does not echo configured values.
 
 `configurationStatus: PASS` means only that this service's structural checks
-passed. Review `overallStatus` and `productionEnablement` too. The expected
+passed. Review `overallStatus`, `operatorAction`, and `productionEnablement`
+too. The expected
 result remains `STRUCTURAL_PASS_MANUAL_GATES_BLOCKED` and `BLOCKED` until
 external authorization, key-instance pairing, Clerk allowed origins/redirects,
 email delivery, and the controlled smoke test are verified. The report
 separately identifies:
 
 - Replit-managed Clerk availability as not observable from Railway.
-- The external Production connection as unverified from Railway, with
-  enablement blocked until the owner confirms it through Replit's secure
-  integration flow.
+- The external Production connection as unverified from Railway. Replit's
+  documented external-app flow requires deleting the managed app and does not
+  migrate accounts, credentials, or sessions; do not use that replacement flow
+  while the owner decision is to preserve managed Development.
 - Frontend/API key-instance pairing as blocked pending safe metadata
   verification against the authorized external instance.
 - API CORS origin status separately from Clerk allowed origins and redirects,

@@ -43,7 +43,7 @@ function authorizationAndProductionChecks(apiAllowedOrigins = "NOT_CHECKED") {
       emailDelivery: EMAIL_DELIVERY_REQUIRED,
     },
     operatorAction:
-      "Verify the existing external Production Clerk connection through Replit's secure integration flow; if it is absent, have the owner authorize it. Then rerun both service-scoped read-only preflights. This Railway process cannot inspect Replit integration authorization or prove key pairing.",
+      "The connected Clerk integration may be Replit-managed Development, not external Production. Replit's documented external-app flow deletes the managed tenant and does not migrate accounts, credentials, or sessions. Keep Production blocked; obtain a supported non-destructive path or a separately approved migration and recovery plan before replacement. Then rerun both service-scoped read-only preflights.",
   };
 }
 

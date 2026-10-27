@@ -109,7 +109,10 @@ test("structural PASS never implies external Production Clerk authorization", ()
     emailDelivery:
       "BLOCKED_REQUIRES_TEST_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
   });
-  assert.match(report.operatorAction, /secure integration flow/i);
+  assert.match(report.operatorAction, /managed tenant/i);
+  assert.match(report.operatorAction, /does not migrate accounts, credentials, or sessions/i);
+  assert.match(report.operatorAction, /Keep Production blocked/i);
+  assert.match(report.operatorAction, /supported non-destructive path/i);
   assert.equal(report.overallStatus, "STRUCTURAL_PASS_MANUAL_GATES_BLOCKED");
   assert.equal(report.productionEnablement, "BLOCKED");
 });
