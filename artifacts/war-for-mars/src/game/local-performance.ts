@@ -3,6 +3,7 @@ export type LocalPerformanceFrame = {
   frameIntervalMs: number;
   gameSeconds: number;
   pageVisible: boolean;
+  phase?: "active-play" | "post-match";
 };
 
 export type LocalPerformanceVisibilityChange = {
@@ -36,8 +37,13 @@ export type LocalPerformanceSummary = {
   targetReached: boolean | null;
   elapsedWallSeconds: number;
   activeFrameSeconds: number;
-  simulatedSeconds: number;
-  allVisibleFrames: FrameStatsSummary;
+  postMatchFrameSeconds: number;
+  nonSampledWallSeconds: number;
+  activeGameSeconds: number;
+  roundsStarted: number;
+  roundsCompleted: number;
+  activePlayFrames: FrameStatsSummary;
+  postMatchFrames: FrameStatsSummary;
   firstGameMinute: FrameStatsSummary;
   finalGameMinute: FrameStatsSummary;
   visibility: {
@@ -68,6 +74,7 @@ type FrameInterval = {
 
 const HISTOGRAM_MAX_MS = 10_000;
 const MEBIBYTE = 1024 * 1024;
+const SIMULATION_TICK_SECONDS = 1 / 60;
 
 function round(value: number, places = 1): number {
   const factor = 10 ** places;
@@ -123,18 +130,26 @@ export function createLocalPerformanceRecorder(targetGameSeconds = 360) {
   const targetDurationSeconds = Number.isFinite(targetGameSeconds) && targetGameSeconds > 0
     ? targetGameSeconds
     : null;
-  const allVisibleFrames = createFrameStats();
+  const activePlayFrames = createFrameStats();
+  const postMatchFrames = createFrameStats();
   const firstGameMinute = createFrameStats();
   const finalGameMinute = createFrameStats();
   const heapSamples: HeapSample[] = [];
   let startedAtMs: number | null = null;
   let lastTimestampMs: number | null = null;
   let lastFrameVisible: boolean | null = null;
+  let lastFramePhase: "active-play" | "post-match" | null = null;
   let visibilityState: boolean | null = null;
   let skipNextInterval = false;
   let simulatedSeconds = 0;
+  let lastRoundGameSeconds = 0;
+  let roundsStarted = 1;
+  let roundsCompleted = 0;
   let backgrounds = 0;
   let restores = 0;
+  const isTargetReached = () =>
+    targetDurationSeconds !== null &&
+    simulatedSeconds >= targetDurationSeconds - SIMULATION_TICK_SECONDS;
 
   return {
     recordFrame(frame: LocalPerformanceFrame) {
@@ -146,8 +161,16 @@ export function createLocalPerformanceRecorder(targetGameSeconds = 360) {
         frame.gameSeconds < 0
       ) return;
 
+      const phase = frame.phase ?? "active-play";
       if (startedAtMs === null) startedAtMs = frame.timestampMs;
-      simulatedSeconds = Math.max(simulatedSeconds, frame.gameSeconds);
+      const gameDelta = Math.max(0, frame.gameSeconds - lastRoundGameSeconds);
+      if (frame.gameSeconds >= lastRoundGameSeconds) {
+        lastRoundGameSeconds = frame.gameSeconds;
+        simulatedSeconds += gameDelta;
+      } else {
+        // A round reset is only expected after beginNextRound().
+        lastRoundGameSeconds = frame.gameSeconds;
+      }
       if (visibilityState === null) visibilityState = frame.pageVisible;
       else if (visibilityState !== frame.pageVisible) {
         if (frame.pageVisible) restores += 1;
@@ -156,25 +179,38 @@ export function createLocalPerformanceRecorder(targetGameSeconds = 360) {
         skipNextInterval = true;
       }
 
+      // The final simulation step can set match.over before this RAF callback.
+      // Count its advancing game-time interval as active play, then classify
+      // subsequent frozen result-screen frames as post-match.
+      const samplePhase = gameDelta > 0 ? "active-play" : phase;
+      if (lastFramePhase !== null && samplePhase !== lastFramePhase) {
+        skipNextInterval = true;
+      }
       if (
         lastTimestampMs !== null &&
         !skipNextInterval &&
         frame.pageVisible &&
-        lastFrameVisible === true
+        lastFrameVisible === true &&
+        lastFramePhase === samplePhase
       ) {
-        allVisibleFrames.add(frame.frameIntervalMs);
-        if (frame.gameSeconds < 60) firstGameMinute.add(frame.frameIntervalMs);
-        if (
-          targetDurationSeconds !== null &&
-          frame.gameSeconds >= Math.max(0, targetDurationSeconds - 60) &&
-          frame.gameSeconds <= targetDurationSeconds + 1
-        ) {
-          finalGameMinute.add(frame.frameIntervalMs);
+        if (samplePhase === "active-play") {
+          activePlayFrames.add(frame.frameIntervalMs);
+          if (simulatedSeconds < 60) firstGameMinute.add(frame.frameIntervalMs);
+          if (
+            targetDurationSeconds !== null &&
+            simulatedSeconds >= Math.max(0, targetDurationSeconds - 60) &&
+            simulatedSeconds <= targetDurationSeconds + 1
+          ) {
+            finalGameMinute.add(frame.frameIntervalMs);
+          }
+        } else {
+          postMatchFrames.add(frame.frameIntervalMs);
         }
       }
 
       lastTimestampMs = frame.timestampMs;
       lastFrameVisible = frame.pageVisible;
+      lastFramePhase = samplePhase;
       skipNextInterval = false;
     },
 
@@ -210,19 +246,40 @@ export function createLocalPerformanceRecorder(targetGameSeconds = 360) {
       return simulatedSeconds;
     },
 
+    isTargetReached() {
+      return isTargetReached();
+    },
+
+    recordRoundFinished() {
+      if (roundsCompleted < roundsStarted) roundsCompleted += 1;
+    },
+
+    beginNextRound() {
+      roundsStarted += 1;
+      lastRoundGameSeconds = 0;
+      lastFramePhase = null;
+      lastFrameVisible = null;
+      skipNextInterval = true;
+    },
+
     finish(): LocalPerformanceSummary {
       const elapsedWallSeconds = startedAtMs !== null && lastTimestampMs !== null
         ? round(Math.max(0, lastTimestampMs - startedAtMs) / 1000)
         : 0;
+      const activeFrameSeconds = round(activePlayFrames.activeSeconds);
+      const postMatchFrameSeconds = round(postMatchFrames.activeSeconds);
       return {
         targetGameSeconds: targetDurationSeconds,
-        targetReached: targetDurationSeconds === null
-          ? null
-          : simulatedSeconds >= targetDurationSeconds - 1,
+        targetReached: targetDurationSeconds === null ? null : isTargetReached(),
         elapsedWallSeconds,
-        activeFrameSeconds: round(allVisibleFrames.activeSeconds),
-        simulatedSeconds: round(simulatedSeconds),
-        allVisibleFrames: allVisibleFrames.summary(),
+        activeFrameSeconds,
+        postMatchFrameSeconds,
+        nonSampledWallSeconds: round(Math.max(0, elapsedWallSeconds - activeFrameSeconds - postMatchFrameSeconds)),
+        activeGameSeconds: round(simulatedSeconds),
+        roundsStarted,
+        roundsCompleted,
+        activePlayFrames: activePlayFrames.summary(),
+        postMatchFrames: postMatchFrames.summary(),
         firstGameMinute: firstGameMinute.summary(),
         finalGameMinute: finalGameMinute.summary(),
         visibility: { backgrounds, restores },

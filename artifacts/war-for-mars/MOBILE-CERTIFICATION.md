@@ -4,12 +4,28 @@
 
 This report separates automated control/lifecycle checks from Android Chrome and iOS Safari evidence. Desktop preview, browser emulation, and source inspection do not count as physical-phone performance results.
 
-## Build under test
+## Previously recorded build baseline
 
 - Source commit: `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
 - Automated checks: workspace typecheck, all 40 automated tests, and production builds passed.
 - Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, Android 16, T-Mobile; phone model-build `1.15.12`; Chrome version and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
+
+The current endurance-sampling changes are being verified in the local WFM
+workspace based on HEAD `330abb0` plus working-tree changes. They are available
+only in the Replit development preview; they have not been deployed to Railway
+staging or Production.
+
+### Current workspace verification
+
+- Typecheck: passed.
+- Workspace tests: scripts 17/17, API 73/73, game 43/43 (133 total).
+- Workspace builds: passed for the configured workspace packages.
+- Browser E2E: 8/8 passed, including the opt-in local performance sample,
+  mobile scrolling/controls, graphics-context-loss exit, and a complete local
+  Practice run.
+- These are local checks, not physical-device or Railway staging evidence. The
+  updated 360-active-second sample still needs to be run on the REVVL 8.
 
 ## Automated coverage and code checks
 
@@ -31,22 +47,24 @@ readings when the browser exposes them. The capture remains in memory on that
 device and is not uploaded. Thermal data is not available through the standard
 browser API and must be observed manually.
 
-For a six-minute sample, select the local **Strike** trial and keep the page in
-the foreground until it completes. The result appears after tapping **Debrief**.
-This is supplemental: RAF cadence is not GPU timing, and a local no-reward run
-does not satisfy the formal full-Strike certification below. No physical sample
-has been run with this recorder yet. The current sampler is available only in
-the Replit development preview, based on workspace HEAD
-`e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch-control fixes; it
-has not been deployed to Railway staging or Production.
+For a six-minute sample, select local **Strike**, enable the recorder, and keep
+the page in the foreground. If a natural result occurs early, tap **Continue
+performance sample** to begin another local no-reward round. Capture stops at
+360 cumulative active game seconds. Active-play frames, result-screen frames,
+and wall time outside sampled frames are reported separately. The sample stays
+in the browser and does not submit a reward.
 
-The REVVL 8 user-reported attempt was stopped before the six-minute run because
-the left touch stick appeared to steer right and circle the ship. No performance
-report was produced, so the physical performance sample remains **PENDING**.
-Touch-stick input now starts neutral at pointer-down, applies a small radial
-dead zone, follows drag relative to the touch start, and resets on release or
-cancel. Unit and browser regression checks pass; the physical behavior must
-still be retested before resuming the six-minute run.
+This is supplemental: RAF cadence is not GPU timing, and a local no-reward run
+does not satisfy the formal Strike certification below. The endurance path is
+in the current Replit workspace and has not been physically retested or deployed
+to Railway staging or Production.
+
+The earlier REVVL 8 attempt stopped before the six-minute target because the
+left touch stick appeared to steer right and circle the ship. The tester later
+confirmed neutral touch-down, deliberate drag, and release-to-center worked in a
+short local Practice retest. The subsequent physical performance report was a
+partial 221.7-second run on an earlier preview build; the updated endurance
+scenario still needs a full physical run.
 
 The user then reported that a short local Practice retest on the REVVL 8 behaved
 as expected: touch stayed neutral, deliberate drag worked, and release recentered
@@ -100,7 +118,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome selected; version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
+| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome 156.0.0.0 | Earlier Replit preview, based on `e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch fix | Natural Debrief at 221.7/360 seconds; partial | 80.2 average FPS; p95 17 ms; p99 25 ms; 1/18,298 intervals over 50 ms; no >250 ms gaps | Heap 19.6/37.8 MiB at five samples; no heat/throttling noticed | Short local Practice: neutral touch, drag, release recenter confirmed; six-minute endurance path not tested | PARTIAL — user-reported |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
 
 ## Required device run
@@ -108,7 +126,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 Use a real Android phone with Chrome and a real iPhone with Safari. Do not substitute desktop responsive mode.
 
 1. Record phone model, OS version, browser version, screen dimensions, orientation, network, and tested commit.
-2. Run a complete six-minute Strike. Capture a browser performance trace and record average FPS, p95/p99 frame time, frames over 50 ms, and memory at warm-up, minute 3, and minute 6.
+2. Enable **Record local performance**, then run the local Strike endurance sample. After each natural early result, tap **Continue performance sample** until the report says the 360-second target was reached. Record active-play FPS, p95/p99 frame time, frames over 50 ms, final-minute metrics, and memory at warm-up, minute 3, and minute 6; keep result-screen and transition time separate.
 3. Exercise left and right sticks simultaneously; fire while steering; lock a target; activate each ship's ability; adjust power; and test gyro permission grant and denial.
 4. During input, release a pointer, trigger pointer cancellation if possible, background and restore the browser, and rotate the phone. Confirm controls return neutral and the match pauses/resumes as specified.
 5. Repeat the full pass on Android Chrome and iOS Safari. Attach trace files or screen recordings and fill the evidence rows above.
@@ -121,11 +139,12 @@ profile-sync checks, and a fill-in evidence record, see
 ## Current disposition
 
 Automated control and interruption logic is covered by unit tests. The
-owner-reported REVVL 8 Android check is supplemental. The owner confirmed it is
-the same device previously described as Samsung, running Android 16; `1.15.12`
-is the phone model-build string. The exact Chrome version and performance
-traces required by this certification are absent. No iPhone is available to
-the owner, so iOS Safari and paired-device profile sync were not run. Android
-Chrome and iOS Safari usability, frame rate, memory, thermal behavior, and the
-six-minute physical-device run remain **unverified**. Step 4 cannot be marked
-complete until both evidence rows are completed from real phones.
+owner-reported REVVL 8 Android check is supplemental. The earlier physical sample
+captured partial performance metrics but ended naturally at 221.7 of 360 active
+game seconds and predates the current endurance flow. A full physical sample
+using the new flow, including final-minute evidence, remains **PENDING**. The
+owner confirmed Android 16 and phone model-build `1.15.12`; Chrome 156.0.0.0 is
+present in the supplied report. No iPhone is available to the owner, so iOS
+Safari and paired-device profile sync were not run. Thermal state is not
+available through standard browser APIs. Full six-minute physical certification
+remains unverified.

@@ -110,6 +110,14 @@ test("local performance sampling is opt-in and does not submit reward requests",
   await capture.check();
   await expect(capture).toBeChecked();
   await expect(page.getByTestId("local-performance-toggle")).toContainText("no account, server, reward, or upload");
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("continues across local rounds");
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("Result-screen frames are reported separately");
+  await page.getByTestId("button-pace-strike").click();
+  await page.getByTestId("button-solo-launch").click();
+  await expect(page.getByTestId("arena-stage")).toHaveAttribute("data-performance-endurance", "true");
+  await expect(page.getByTestId("button-exit-solo-flight")).toHaveText("END SAMPLE");
+  await page.getByTestId("button-exit-solo-flight").click();
+  await expect(page.getByTestId("performance-target-warning")).toContainText("of 360 active game seconds");
   expect(rewardRequests).toEqual([]);
 });
 

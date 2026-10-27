@@ -87,11 +87,12 @@ use the separate local Solo Flight route:
    WarApp flight flow.
    For a supplemental performance sample, enable **Record local performance**
    before launch and select the local **Strike** trial. Keep the page in the
-   foreground for the six-minute sample, then tap **Debrief** and copy the
-   report. The report stays in the browser; frame intervals are cadence
-   estimates, not GPU timing. Browser heap is reported only when exposed, and
-   temperature/throttling must be observed manually. This does not replace the
-   formal Strike performance certification.
+   foreground; after any natural match result, tap **Continue performance
+   sample** until the report confirms 360 active game seconds, then copy it.
+   Active-play and result-screen frame cadence are separate. The report stays
+   in the browser; frame intervals are estimates, not GPU timing. Browser heap
+   is reported only when exposed, and temperature/throttling must be observed
+   manually. This does not replace formal Strike performance certification.
    The virtual sticks start neutral at touch-down, respond to drag distance, and
    recenter on release/cancel. A held horizontal drag intentionally keeps
    turning; verify the axis returns to neutral when the thumb lifts.
@@ -114,8 +115,9 @@ use the separate local Solo Flight route:
 On 2026-10-27, the owner selected Android Chrome and identified the phone as a
 REVVL 8, model TMRV085G, on T-Mobile, running Android 16. The owner confirmed
 that this is the same phone previously described as Samsung and that `1.15.12`
-is its phone model-build string. The exact Chrome version, network type, and
-test time remain unreported.
+is its phone model-build string. The later partial performance report records
+Chrome 156.0.0.0 and capture time 2026-10-27 19:06:35.921 UTC; network type
+remains unreported.
 
 Two portrait screenshots were supplied: `attached_assets/1_1000000060_1793123563718.png`
 shows the staging landing page, and `attached_assets/0_1000000061_1793123563687.png`

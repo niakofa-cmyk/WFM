@@ -68,6 +68,7 @@ type ArenaProps = {
   onGraphicsError?: (message: string) => void;
   onPerformanceFrame?: (frame: LocalPerformanceFrame) => void;
   onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
+  performanceEndurance?: boolean;
   online?: OnlineRoom;
 };
 
@@ -521,6 +522,7 @@ export function Arena({
   onGraphicsError,
   onPerformanceFrame,
   onPerformanceVisibilityChange,
+  performanceEndurance = false,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1624,14 +1626,13 @@ export function Arena({
       callT = Math.max(0, callT - delta);
       if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
       if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
-      if (!match.over) {
-        performanceFrameRef.current?.({
-          timestampMs: now,
-          frameIntervalMs,
-          gameSeconds: match.time,
-          pageVisible: document.visibilityState === "visible",
-        });
-      }
+      performanceFrameRef.current?.({
+        timestampMs: now,
+        frameIntervalMs,
+        gameSeconds: match.time,
+        pageVisible: document.visibilityState === "visible",
+        phase: match.over ? "post-match" : "active-play",
+      });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -1671,6 +1672,7 @@ export function Arena({
   return (
     <div
       data-testid="arena-stage"
+      data-performance-endurance={performanceEndurance ? "true" : "false"}
       className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none"
     >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
@@ -2019,8 +2021,15 @@ export function Arena({
             <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
               {end.reason}
             </p>
+            {performanceEndurance && (
+              <p className="mt-3 text-xs leading-relaxed text-bone/70" data-testid="performance-endurance-hint">
+                This local no-reward sample continues across rounds until six active gameplay minutes are recorded.
+                Time on this result screen is measured separately.
+              </p>
+            )}
             <button
               type="button"
+              data-testid={performanceEndurance ? "button-performance-continue" : "button-arena-debrief"}
               className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
               onClick={() => onDone(end, {
                   seed: seedRef.current,
@@ -2028,7 +2037,7 @@ export function Arena({
                   ...(stagingTraceEnabled ? { checksums: checksumRef.current } : {}),
                 })}
             >
-              Debrief
+              {performanceEndurance ? "Continue performance sample" : "Debrief"}
             </button>
           </div>
         </div>

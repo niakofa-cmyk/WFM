@@ -7,8 +7,9 @@ function frame(
   frameIntervalMs: number,
   gameSeconds: number,
   pageVisible = true,
+  phase?: "active-play" | "post-match",
 ) {
-  return { timestampMs, frameIntervalMs, gameSeconds, pageVisible };
+  return { timestampMs, frameIntervalMs, gameSeconds, pageVisible, phase };
 }
 
 test("collects compact overall and first/final game-minute frame statistics", () => {
@@ -17,19 +18,19 @@ test("collects compact overall and first/final game-minute frame statistics", ()
   recorder.recordFrame(frame(16, 16, 30));
   recorder.recordFrame(frame(66, 50, 59.9));
   recorder.recordFrame(frame(116, 50, 300));
-  recorder.recordFrame(frame(216, 100, 359.9));
+  recorder.recordFrame(frame(216, 100, 360));
 
   const summary = recorder.finish();
-  assert.equal(summary.allVisibleFrames.frames, 4);
-  assert.equal(summary.allVisibleFrames.averageFps, 18.5);
-  assert.equal(summary.allVisibleFrames.p95FrameIntervalMs, 100);
-  assert.equal(summary.allVisibleFrames.framesOver50Ms, 1);
-  assert.equal(summary.allVisibleFrames.gapsOver250Ms, 0);
+  assert.equal(summary.activePlayFrames.frames, 4);
+  assert.equal(summary.activePlayFrames.averageFps, 18.5);
+  assert.equal(summary.activePlayFrames.p95FrameIntervalMs, 100);
+  assert.equal(summary.activePlayFrames.framesOver50Ms, 1);
+  assert.equal(summary.activePlayFrames.gapsOver250Ms, 0);
   assert.equal(summary.firstGameMinute.frames, 2);
   assert.equal(summary.firstGameMinute.p95FrameIntervalMs, 50);
   assert.equal(summary.finalGameMinute.frames, 2);
   assert.equal(summary.finalGameMinute.p99FrameIntervalMs, 100);
-  assert.equal(summary.simulatedSeconds, 359.9);
+  assert.equal(summary.activeGameSeconds, 360);
   assert.equal(summary.targetGameSeconds, 360);
   assert.equal(summary.targetReached, true);
 });
@@ -45,6 +46,31 @@ test("marks a match that ends before its selected sample duration as partial", (
   assert.equal(summary.finalGameMinute.frames, 0);
 });
 
+test("aggregates active seconds across natural rounds and separates result-screen frames", () => {
+  const recorder = createLocalPerformanceRecorder(360);
+  recorder.recordFrame(frame(0, 16, 0));
+  recorder.recordFrame(frame(221_700, 221_700, 221.7));
+  recorder.recordFrame(frame(221_716, 16, 221.7, true, "post-match"));
+  recorder.recordFrame(frame(226_716, 5000, 221.7, true, "post-match"));
+
+  recorder.recordRoundFinished();
+  recorder.beginNextRound();
+  recorder.recordFrame(frame(226_732, 16, 0));
+  recorder.recordFrame(frame(365_032, 138_300, 138.3));
+
+  const summary = recorder.finish();
+  assert.equal(summary.activeGameSeconds, 360);
+  assert.equal(summary.targetReached, true);
+  assert.equal(summary.roundsStarted, 2);
+  assert.equal(summary.roundsCompleted, 1);
+  assert.equal(summary.activePlayFrames.frames, 2);
+  assert.equal(summary.postMatchFrames.frames, 1);
+  assert.equal(summary.activeFrameSeconds, 360);
+  assert.equal(summary.postMatchFrameSeconds, 5);
+  assert.equal(summary.nonSampledWallSeconds, 0);
+  assert.equal(summary.finalGameMinute.frames, 1);
+});
+
 test("excludes the frame interval crossing a background/restore transition", () => {
   const recorder = createLocalPerformanceRecorder();
   recorder.recordFrame(frame(0, 16, 0));
@@ -56,8 +82,8 @@ test("excludes the frame interval crossing a background/restore transition", () 
   recorder.recordFrame(frame(9032, 16, 2));
 
   const summary = recorder.finish();
-  assert.equal(summary.allVisibleFrames.frames, 2);
-  assert.equal(summary.allVisibleFrames.averageFps, 62.5);
+  assert.equal(summary.activePlayFrames.frames, 2);
+  assert.equal(summary.activePlayFrames.averageFps, 62.5);
   assert.deepEqual(summary.visibility, { backgrounds: 1, restores: 1 });
   assert.equal(summary.elapsedWallSeconds, 9);
 });
@@ -84,7 +110,7 @@ test("ignores invalid frame and memory readings without throwing", () => {
   recorder.recordMemorySample(0, { usedBytes: 10, totalBytes: 1 });
 
   const summary = recorder.finish();
-  assert.equal(summary.allVisibleFrames.frames, 0);
+  assert.equal(summary.activePlayFrames.frames, 0);
   assert.equal(summary.heap.status, "unavailable");
   assert.deepEqual(summary.heap.samples, [
     { gameSeconds: 0, usedMiB: null, totalMiB: null },
@@ -101,5 +127,5 @@ test("retains useful precision for rare slow frames", () => {
     recorder.recordFrame(frame(timestampMs, interval, 1));
   }
 
-  assert.equal(recorder.finish().allVisibleFrames.percentFramesOver50Ms, 0.01);
+  assert.equal(recorder.finish().activePlayFrames.percentFramesOver50Ms, 0.01);
 });

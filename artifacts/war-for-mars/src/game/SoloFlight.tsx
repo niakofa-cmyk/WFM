@@ -57,6 +57,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   const mounted = useRef(true);
   const [run, setRun] = useState(0);
   const [result, setResult] = useState<StrikeResult | null>(null);
+  const [performanceComplete, setPerformanceComplete] = useState(false);
   const [flightError, setFlightError] = useState("");
   const [recordPerformance, setRecordPerformance] = useState(false);
   const [performanceSummary, setPerformanceSummary] = useState<LocalPerformanceSummary | null>(null);
@@ -64,6 +65,9 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   const [performanceCapturedAt, setPerformanceCapturedAt] = useState("");
   const performanceRecorder = useRef<ReturnType<typeof createLocalPerformanceRecorder> | null>(null);
   const lastMemoryMinute = useRef(-1);
+  const performanceEndurance = useRef(false);
+  const performanceCompleteRef = useRef(false);
+  const performanceRoundEnded = useRef(false);
 
   const def = SHIPS[ship];
   const cfg = PACES.find((p) => p.id === pace) ?? PACES[0];
@@ -77,8 +81,12 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     setFlightError("");
     unlockAudio();
     setResult(null);
+    setPerformanceComplete(false);
     setPerformanceSummary(null);
     setPerformanceCapturedAt("");
+    performanceCompleteRef.current = false;
+    performanceEndurance.current = recordPerformance && pace === "strike";
+    performanceRoundEnded.current = false;
     performanceRecorder.current = recordPerformance
       ? createLocalPerformanceRecorder(pace === "strike" ? 360 : 120)
       : null;
@@ -88,21 +96,40 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     setPhase("fly");
   };
 
+  const completePerformance = useCallback((finalResult?: StrikeResult) => {
+    const recorder = performanceRecorder.current;
+    if (!recorder || performanceCompleteRef.current) return;
+    performanceCompleteRef.current = true;
+    recorder.recordMemorySample(recorder.getLatestGameSeconds(), readBrowserHeap());
+    setPerformanceSummary(recorder.finish());
+    setPerformanceCapturedAt(new Date().toISOString());
+    setPerformanceComplete(!finalResult && performanceEndurance.current && recorder.isTargetReached());
+    setResult(finalResult ?? null);
+    setPhase("done");
+  }, []);
+
   const onPerformanceFrame = useCallback((frame: {
     timestampMs: number;
     frameIntervalMs: number;
     gameSeconds: number;
     pageVisible: boolean;
+    phase?: "active-play" | "post-match";
   }) => {
     const recorder = performanceRecorder.current;
-    if (!recorder) return;
+    if (!recorder || performanceCompleteRef.current) return;
     recorder.recordFrame(frame);
-    const minute = Math.floor(frame.gameSeconds / 60);
+    if (frame.phase === "post-match") performanceRoundEnded.current = true;
+    const gameSeconds = recorder.getLatestGameSeconds();
+    const minute = Math.floor(gameSeconds / 60);
     if (minute !== lastMemoryMinute.current) {
       lastMemoryMinute.current = minute;
-      recorder.recordMemorySample(frame.gameSeconds, readBrowserHeap());
+      recorder.recordMemorySample(gameSeconds, readBrowserHeap());
     }
-  }, []);
+    if (performanceEndurance.current && recorder.isTargetReached()) {
+      if (frame.phase === "post-match") recorder.recordRoundFinished();
+      completePerformance();
+    }
+  }, [completePerformance]);
 
   const onPerformanceVisibilityChange = useCallback((change: {
     timestampMs: number;
@@ -154,17 +181,24 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
           drilled={true}
           onDrill={() => {}}
           onDone={(r) => {
-            if (performanceRecorder.current) {
-              const recorder = performanceRecorder.current;
-              recorder.recordMemorySample(recorder.getLatestGameSeconds(), readBrowserHeap());
-              setPerformanceSummary(recorder.finish());
-              setPerformanceCapturedAt(new Date().toISOString());
+            const recorder = performanceRecorder.current;
+            if (recorder) {
+              recorder.recordRoundFinished();
+              if (performanceEndurance.current && !recorder.isTargetReached()) {
+                recorder.beginNextRound();
+                performanceRoundEnded.current = false;
+                setRun((n) => n + 1);
+                return;
+              }
+              completePerformance(r);
+              return;
             }
             setResult(r);
             setPhase("done");
           }}
           onPerformanceFrame={recordPerformance ? onPerformanceFrame : undefined}
           onPerformanceVisibilityChange={recordPerformance ? onPerformanceVisibilityChange : undefined}
+          performanceEndurance={recordPerformance && pace === "strike"}
           onNetworkExit={() => setPhase("setup")}
           onGraphicsError={(message) => {
             setFlightError(`3D flight could not start: ${message}. This game requires WebGL2. Check your browser's graphics settings or try a supported browser/device.`);
@@ -174,9 +208,19 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
       </Suspense>
       <button
         className="fixed left-3 z-[110] border border-bone/30 bg-void/90 px-3 py-2 font-hud text-xs tracking-widest text-bone"
+        data-testid="button-exit-solo-flight"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
-        onClick={() => setPhase("setup")}
-      >EXIT SOLO FLIGHT</button>
+        onClick={() => {
+          if (performanceRecorder.current) {
+            if (performanceRoundEnded.current) {
+              performanceRecorder.current.recordRoundFinished();
+              performanceRoundEnded.current = false;
+            }
+            completePerformance();
+          }
+          else setPhase("setup");
+        }}
+      >{performanceRecorder.current ? "END SAMPLE" : "EXIT SOLO FLIGHT"}</button>
       </div>
     );
   }
@@ -208,14 +252,20 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
               <button className="sf-btn" data-testid="button-solo-setup" onClick={() => setPhase("setup")}>Back to setup</button>
               <button className="sf-btn" data-testid="button-solo-home" onClick={home}>Home</button>
             </div>
-            {performanceSummary && performanceDevice && (
-              <LocalPerformanceReport
-                capturedAt={performanceCapturedAt}
-                device={performanceDevice}
-                summary={performanceSummary}
-              />
-            )}
           </section>
+        )}
+
+        {performanceComplete && (
+          <section aria-live="polite" className="sf-note" data-testid="performance-complete">
+            Six minutes of active gameplay were recorded across local rounds. This is a no-reward device sample, not a match result.
+          </section>
+        )}
+        {performanceSummary && performanceDevice && (
+          <LocalPerformanceReport
+            capturedAt={performanceCapturedAt}
+            device={performanceDevice}
+            summary={performanceSummary}
+          />
         )}
 
         {FACTIONS.map((f) => (
@@ -253,7 +303,8 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
           <span>
             <strong>Record local performance</strong>
             <small>
-              Optional browser-only sample. Select Strike for six minutes; no account, server, reward, or upload is used.
+              Optional browser-only sample. Strike continues across local rounds until 360 active gameplay seconds are captured.
+              Result-screen frames are reported separately; no account, server, reward, or upload is used.
             </small>
           </span>
         </label>
