@@ -403,3 +403,48 @@ performed. The exact staging procedure and evidence template are now in
 playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. The physical-device gate
 remains **PENDING** until an authorized tester completes and records the checks
 on real devices.
+
+## Review of supplied implementation proposals — 2026-10-27
+
+The two supplied code proposals were reviewed against the existing WFM
+architecture. Their concerns about identity, duplicate claims, network changes,
+and cross-device state are valid review areas, but their proposed
+implementations are not safe to use as written:
+
+- **Reward claims:** the examples trust `x-clerk-user-id`, accept
+  client-calculated loot, use an in-memory run registry, and finalize state
+  outside the existing database transaction. None of these were added. The
+  current claim path derives identity from Clerk middleware, requires a
+  server-issued run owned by that user, validates the replay, locks the run in
+  a database transaction, and stores an idempotent replay result. Online room
+  IDs and Strike run IDs are separate.
+- **Regression coverage:** tests now send a forged `x-clerk-user-id` without a
+  Clerk session and confirm the profile and claim routes return `401`. The
+  strict claim-body schema also rejects the proposed `strikeRunId`,
+  `reconnectToken`, and client-loot fields. Existing restart, expiry, replay,
+  and reward idempotency tests remain in place.
+- **Profile synchronization:** WFM uses the authenticated server profile route,
+  coalesces refreshes, discards superseded responses, stops refreshes while a
+  flight or account mutation is active, and remounts the game when the Clerk
+  user changes. Local storage holds device preferences, per-user read-only
+  snapshots, and durable pending-action intents; none is a source of awarded
+  credits or campaign progress. The proposed `/api/profile/sync` route and
+  local-progress overwrite were not added.
+- **Evidence generation:** neither proposed report generator was added or run.
+  They hard-code PASS-like values and overwrite the evidence record without
+  observed requests, responses, accounts, or devices. The staging verifier
+  continues to require exact `PASS` values, a tested source commit, and the
+  listed evidence files.
+- **Device coverage:** browser viewport tests remain supplemental only. No
+  user-agent spoofing or browser emulation is represented as real Safari or
+  Android device evidence; the physical-device gate remains pending.
+
+No Production database, Clerk connection, Railway Production setting, or
+reward-bearing live staging account was accessed or changed during this review.
+
+Follow-up local verification on commit
+`8cabc49fed9e6a1aafff73832411ed82b28d496a` passed frozen-lockfile install,
+typecheck, all workspace tests (17 script, 73 API, 35 game), and workspace
+builds. The staging promotion verifier was also run and correctly remained
+blocked because `overallStatus` is `PENDING` and multiple live evidence fields
+are not `PASS`.
