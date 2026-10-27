@@ -38,10 +38,12 @@ auth. No delete or replacement action is approved by this plan.
   allowlist. API CORS is separate from Clerk allowed origins and redirect URLs.
 - Persistent game data is keyed by Clerk subject/user IDs. For example,
   `player_progress.user_id` and `player_world_state.user_id` are primary keys;
-  strike runs, progression events, inventory, discoveries, quests, and related
-  rows also store user IDs. An identity change can make existing records appear
+  the current schema also stores player IDs in:
+  `strike_runs`, `progression_events`, `player_inventory`,
+  `market_transactions`, `world_discoveries`, `player_quests`, and
+  `economy_rejections`. An identity change can make existing records appear
   disconnected unless a verified ID-preserving import or an explicit,
-  complete old-ID-to-new-ID mapping is applied.
+  complete old-ID-to-new-ID mapping is applied across all nine tables.
 - The `/play` local Solo Flight path is distinct from authenticated,
   server-backed progression. It is not proof of account migration or
   authenticated API readiness.
@@ -95,6 +97,22 @@ Do not schedule a cutover until every applicable item below is resolved:
    app deletion/replacement, secret updates, Railway variable changes, database
    writes, or deployment. This planning document does not grant those
    permissions.
+
+## Preparation status
+
+| Preparation item | Status |
+| --- | --- |
+| Frontend/API Clerk dependencies and the nine player-ID tables inventoried | **COMPLETE from repository source** |
+| Current connected Clerk instance classified | **COMPLETE: Development, not external Production** |
+| Non-destructive separate external-instance path | **NOT FOUND in current Replit guidance; owner/platform confirmation still needed** |
+| Clerk user export/import and password-hash portability | **NOT VERIFIED**; must be confirmed against current Clerk guidance before planning account continuity |
+| Production publishable/secret-key pairing, origins, redirects, and email | **NOT VERIFIED; no Production values inspected** |
+| Representative isolated data backup and restore | **NOT RUN**; no approved migration fixture or restore rehearsal was available |
+| Staging identity-import and game-data remap rehearsal | **NOT RUN**; requires a supported external-instance path and approved isolated test data |
+| Production account/session smoke test | **NOT RUN** |
+
+No Production database was queried or changed. No live account, key value, or
+email was accessed during this preparation.
 
 ## Staging validation before any Production cutover
 
