@@ -11,21 +11,26 @@ This report separates automated control/lifecycle checks from Android Chrome and
 - Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, Android 16, T-Mobile; phone model-build `1.15.12`; Chrome version and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
-The current endurance-sampling changes are being verified in the local WFM
-workspace based on HEAD `330abb0` plus working-tree changes. They are available
-only in the Replit development preview; they have not been deployed to Railway
-staging or Production.
+The local endurance feature was added in commit `97ead20` and is live on the
+Railway staging frontend at commit `04365fa`, deployment
+`5f25639f-bddd-4a15-bf25-0e22b328827c` (`SUCCESS`). The user confirmed the
+latest performance report below was captured from Railway staging. The app's
+staging access-code gate is expected; unauthenticated `/` and `/play` requests
+return 401. The API service remains pinned to `179064a`; this browser-only
+endurance run does not use the API or submit a reward claim. Production was not
+changed or deployed.
 
 ### Workspace verification
 
-- The last full workspace pass before the duration-clarity patch passed
-  typecheck, 133 tests (scripts 17, API 73, game 43), configured workspace
-  builds, and browser E2E 8/8.
-- The duration-clarity patch then passed focused simulation/parity tests 10/10,
-  War for Mars typecheck, the War for Mars production build, and its focused UI
-  E2E 1/1.
-- These are local checks, not physical-device or Railway staging evidence. The
-  updated 360-active-second sample still needs to be run on the REVVL 8.
+- The endurance implementation passed `pnpm install --frozen-lockfile`,
+  workspace typecheck, all 139 tests (scripts 17, API 73, game 49), and
+  `pnpm run build`.
+- Six Node/Chromium deterministic replay scenarios matched. The focused
+  performance-sampling E2E passed 1/1. A broader UI run had seven passes and
+  one stale copy assertion; after updating that assertion, the focused flow
+  passed, but the full broader UI suite was not rerun.
+- The user has now supplied a full 360-active-second Android sample from
+  Railway staging. This does not by itself complete the physical-device gate.
 
 ## Automated coverage and code checks
 
@@ -40,36 +45,31 @@ The game also clears held input and pauses the local simulation when the documen
 
 ## Supplemental local no-reward sampler
 
-The `/play` setup has an opt-in **Record local performance** control. On local
-Solo Flight only, it summarizes requestAnimationFrame intervals, first/final
+The `/play` setup has an opt-in **Run one local endurance sample** control. On
+local Solo Flight only, it summarizes requestAnimationFrame intervals, first/final
 game-minute cadence, background/restore transitions, and JavaScript heap
 readings when the browser exposes them. The capture remains in memory on that
 device and is not uploaded. Thermal data is not available through the standard
 browser API and must be observed manually.
 
-For a six-minute sample, select local **Strike**, enable the recorder, and keep
-the page in the foreground. If a natural result occurs early, tap **Continue
-performance sample** to begin another local no-reward round. Capture stops at
-360 cumulative active game seconds. Active-play frames, result-screen frames,
-and wall time outside sampled frames are reported separately. The sample stays
-in the browser and does not submit a reward.
+For a six-minute sample, choose **Run one local endurance sample** and keep the
+page in the foreground. It runs one browser-only, no-reward match and stops at
+360 active game seconds; it does not restart or cycle into another round.
+Mission and integrity endings are suppressed only for this sample. Normal
+Strike endings remain unchanged. Active-play frames, result-screen frames, and
+wall time outside sampled frames are reported separately. The sample stays in
+the browser and does not submit a reward.
 
 This is supplemental: RAF cadence is not GPU timing, and a local no-reward run
-does not satisfy the formal Strike certification below. The endurance path is
-in the current Replit workspace and has not been physically retested or deployed
-to Railway staging or Production.
+does not satisfy the formal Strike certification below. The endurance feature
+is deployed to Railway staging; it has not been deployed to Production.
 
-The earlier REVVL 8 attempt stopped before the six-minute target because the
-left touch stick appeared to steer right and circle the ship. The tester later
-confirmed neutral touch-down, deliberate drag, and release-to-center worked in a
-short local Practice retest. The subsequent physical performance report was a
-partial 221.7-second run on an earlier preview build; the updated endurance
-scenario still needs a full physical run.
-
-The user then reported that a short local Practice retest on the REVVL 8 behaved
-as expected: touch stayed neutral, deliberate drag worked, and release recentered
-the stick. This is user-reported control evidence only; the six-minute Strike
-target remains **PENDING**.
+The earlier REVVL 8 attempt stopped before six minutes because the left touch
+stick appeared to steer right and circle the ship. A later short local Practice
+retest was reported to have neutral touch-down, deliberate drag, and
+release-to-center behavior. That short check does not close the full controls,
+gyro, or interruption-recovery gates. Earlier partial performance runs remain
+historical diagnostics; the completed endurance samples are recorded below.
 
 ### Physical Android sample — partial
 
@@ -123,6 +123,35 @@ user-reported Android sample; they do not certify controls, gyro, interruption
 recovery, thermal behavior, iOS Safari, staging, or Production. Overall physical
 device certification remains **PENDING**.
 
+### Physical Android sample — Railway staging
+
+The user supplied a second report captured at `2026-10-27T21:42:16.121Z` and
+confirmed that it came from Railway staging. Railway's staging frontend was
+serving commit `04365fa6c1ddcb8f88f590e7902fd03aaf780cc7` in deployment
+`5f25639f-bddd-4a15-bf25-0e22b328827c`. The report itself labels its browser
+host generically, so the host attribution comes from the user's confirmation.
+It reached 360 active game seconds in one run (`targetReached: true`; one run
+started and completed) after 368.8 wall seconds. It recorded 27,367 active-play
+frames at 74.2 average FPS; the first and final game minutes averaged 74.5 and
+77.8 FPS. Frame pacing was p95 25 ms / p99 33 ms, with 4 frames over 50 ms
+(0.015%) and no gaps over 250 ms. No background/restore transitions were
+recorded.
+
+The report contains Chrome 156.0.0.0, portrait 360×803 CSS px screen /
+360×754 CSS px viewport, and DPR 3. It does not repeat the phone model or OS;
+the user previously identified the physical test phone as a REVVL 8 on Android
+16. Used heap readings were 10.8 MiB at start, then 15.1, 16.0, 13.7, 17.5,
+13.3, and 18.5 MiB at 60-second intervals. The readings are non-monotonic, but
+the final sample is 22.5% above the 60-second reading; memory stability is
+therefore **INCONCLUSIVE** and should be checked with another sample. Thermal
+status is unavailable through standard browser APIs, and no separate OS
+observation was supplied.
+
+Duration and frame-pacing targets pass for this staging sample. The sample does
+not measure controls, gyro, interruption recovery, or thermal behavior, and it
+does not establish Production readiness. Overall device certification remains
+**PENDING**.
+
 ## Proposed acceptance gates
 
 Record the raw trace and device/browser versions before marking a gate passed. These are project targets, not measurements from the current run.
@@ -142,12 +171,13 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome 156.0.0.0 | Replit Development preview at commit `97ead20` (not Railway staging/Production) | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:20:42.434Z` | 78.1 average FPS; first/final minute 83.6/77.5 FPS; p95 17 ms; p99 25 ms; 2/28,705 frames over 50 ms (0.007%); no >250 ms gaps | Used heap 15.6 MiB at start, 19.8 MiB at 360 sec; no thermal status exposed and no separate observation in this report | Earlier short Practice check: neutral touch, drag, and release recenter confirmed; controls/gyro/lifecycle not measured in this sample | PASS — endurance performance sample only; user-reported |
+| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` (reported earlier) | Chrome 156.0.0.0 | Replit Development preview at commit `97ead20` (not Railway staging/Production) | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:20:42.434Z` | 78.1 average FPS; first/final minute 83.6/77.5 FPS; p95 17 ms; p99 25 ms; 2/28,705 frames over 50 ms (0.007%); no >250 ms gaps | Used heap 15.6 MiB at start, 19.8 MiB at 360 sec; no thermal status exposed and no separate observation in this report | Earlier short Practice check: neutral touch, drag, and release recenter confirmed; controls/gyro/lifecycle not measured in this sample | PASS — endurance performance sample only; user-reported |
+| Android | REVVL 8 / Android 16 reported in earlier device check; not repeated in this report | Chrome 156.0.0.0 | Railway staging `wfm-app-staging`, commit `04365fa`, deployment `5f25639f-bddd-4a15-bf25-0e22b328827c` | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:42:16.121Z` | 74.2 average FPS; first/final minute 74.5/77.8 FPS; p95 25 ms; p99 33 ms; 4/27,367 frames over 50 ms (0.015%); no >250 ms gaps | Used heap 10.8 MiB at start and 18.5 MiB at 360 sec; fluctuated 13.3–18.5 MiB after warm-up; memory stability inconclusive; no thermal status or separate observation | Controls/gyro/lifecycle not measured in this sample | PASS — duration/frame pacing only; memory follow-up |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
 
-The completed Android sample does not change the overall device-certification
-gate: full touch-control, gyro, interruption/restore, and iOS Safari checks
-remain outstanding.
+The staging sample does not change the overall device-certification gate:
+full touch-control, gyro, interruption/restore, and iOS Safari checks remain
+outstanding. The staging memory trend also needs a repeat measurement.
 
 ## Required device run
 
@@ -166,13 +196,12 @@ profile-sync checks, and a fill-in evidence record, see
 
 ## Current disposition
 
-Automated control and interruption logic is covered by unit tests. The
-owner-reported REVVL 8 Android check is supplemental. The earlier physical sample
-captured partial performance metrics but ended naturally at 221.7 of 360 active
-game seconds and predates the current endurance flow. A full physical sample
-using the new flow, including final-minute evidence, remains **PENDING**. The
-owner confirmed Android 16 and phone model-build `1.15.12`; Chrome 156.0.0.0 is
-present in the supplied report. No iPhone is available to the owner, so iOS
-Safari and paired-device profile sync were not run. Thermal state is not
-available through standard browser APIs. Full six-minute physical certification
-remains unverified.
+Automated control and interruption logic is covered by unit tests. The user has
+reported complete 360-second Android endurance samples in both the Replit
+Development preview and Railway staging. The staging sample met duration and
+frame-pacing targets; its memory trend is inconclusive and needs a repeat.
+Controls, gyro, interruption/restore, and thermal behavior were not covered by
+the six-minute reports. The owner confirmed Android 16 and phone model-build
+`1.15.12` for the REVVL 8; the staging report itself records Chrome 156.0.0.0.
+No iPhone is available, so iOS Safari and paired-device profile sync were not
+run. Full physical-device certification remains **PENDING**.
