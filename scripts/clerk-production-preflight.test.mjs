@@ -1,0 +1,128 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  evaluateClerkProductionPreflight,
+  PRODUCTION_CLERK_TARGET,
+} from "./clerk-production-preflight.mjs";
+
+const syntheticKeys = {
+  VITE_CLERK_PUBLISHABLE_KEY: "publishable-sentinel-must-not-print",
+  CLERK_PUBLISHABLE_KEY: "api-publishable-sentinel-must-not-print",
+  CLERK_SECRET_KEY: "secret-sentinel-must-not-print",
+};
+
+function readyEnvironment(overrides = {}) {
+  return {
+    WFM_CLERK_PREFLIGHT_TARGET: "railway-production",
+    WFM_PROD_CLERK_ISSUER: PRODUCTION_CLERK_TARGET.issuer,
+    WFM_PROD_CLERK_JWKS_URL: PRODUCTION_CLERK_TARGET.jwksUrl,
+    API_ALLOWED_ORIGINS: PRODUCTION_CLERK_TARGET.origin,
+    ...syntheticKeys,
+    ...overrides,
+  };
+}
+
+test("does not inspect Production variables until Railway Production is asserted", () => {
+  const environment = {
+    WFM_CLERK_PREFLIGHT_TARGET: "development",
+  };
+  for (const name of Object.keys(syntheticKeys)) {
+    Object.defineProperty(environment, name, {
+      get() {
+        assert.fail(`secret variable ${name} must not be accessed`);
+      },
+    });
+  }
+
+  const report = evaluateClerkProductionPreflight(environment);
+  assert.equal(report.targetContext, "NOT_ASSERTED");
+  assert.equal(report.configurationStatus, "NOT_CHECKED");
+  assert.equal(report.productionEnablement, "BLOCKED");
+  assert.equal(report.exitCode, 1);
+});
+
+test("passes structural checks without claiming key pairing or Production readiness", () => {
+  const report = evaluateClerkProductionPreflight(readyEnvironment());
+
+  assert.equal(report.configurationStatus, "PASS");
+  assert.equal(report.publicConfiguration.productionOrigin.status, "MATCH");
+  assert.equal(report.publicConfiguration.clerkIssuer.status, "MATCH");
+  assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MATCH");
+  assert.equal(
+    report.manualVerification.keyInstancePairing,
+    "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
+  );
+  assert.equal(
+    report.manualVerification.emailDelivery,
+    "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
+  );
+  assert.equal(report.manualVerification.protectedApiAndSessionSmokeTest, "NOT_RUN");
+  assert.equal(report.productionEnablement, "BLOCKED");
+  assert.equal(report.exitCode, 2);
+});
+
+test("reports required key-variable presence without returning or printing values", () => {
+  const report = evaluateClerkProductionPreflight(
+    readyEnvironment({ CLERK_SECRET_KEY: undefined }),
+  );
+  const serialized = JSON.stringify(report);
+
+  assert.deepEqual(
+    report.requiredKeyVariables,
+    [
+      { name: "VITE_CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
+      { name: "CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
+      { name: "CLERK_SECRET_KEY", status: "MISSING" },
+    ],
+  );
+  assert.equal(serialized.includes("secret-sentinel-must-not-print"), false);
+  assert.equal(serialized.includes("publishable-sentinel-must-not-print"), false);
+  assert.equal(serialized.includes("api-publishable-sentinel-must-not-print"), false);
+  assert.equal(report.secretValuesPrinted, false);
+  assert.equal(report.configurationStatus, "BLOCKED");
+  assert.equal(report.exitCode, 1);
+});
+
+test("blocks an incorrect issuer or JWKS URL without echoing configured values", () => {
+  const report = evaluateClerkProductionPreflight(
+    readyEnvironment({
+      WFM_PROD_CLERK_ISSUER: "https://wrong-instance.example",
+      WFM_PROD_CLERK_JWKS_URL:
+        "https://wrong-instance.example/.well-known/jwks.json",
+    }),
+  );
+  const serialized = JSON.stringify(report);
+
+  assert.equal(report.publicConfiguration.clerkIssuer.status, "MISMATCH");
+  assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MISMATCH");
+  assert.equal(serialized.includes("wrong-instance.example"), false);
+  assert.equal(report.configurationStatus, "BLOCKED");
+});
+
+test("requires the exact canonical HTTPS production origin allowlist", () => {
+  for (const invalidOrigin of [
+    "https://niakofa.com/kids/wfm",
+    "https://www.niakofa.com",
+    "https://niakofa.com,https://www.niakofa.com",
+    "http://niakofa.com",
+  ]) {
+    const report = evaluateClerkProductionPreflight(
+      readyEnvironment({ API_ALLOWED_ORIGINS: invalidOrigin }),
+    );
+    assert.equal(report.publicConfiguration.productionOrigin.status, "MISMATCH");
+    assert.equal(report.configurationStatus, "BLOCKED");
+  }
+});
+
+test("missing public issuer/JWKS metadata remains a blocker", () => {
+  const report = evaluateClerkProductionPreflight(
+    readyEnvironment({
+      WFM_PROD_CLERK_ISSUER: undefined,
+      WFM_PROD_CLERK_JWKS_URL: undefined,
+    }),
+  );
+
+  assert.equal(report.publicConfiguration.clerkIssuer.status, "MISSING");
+  assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MISSING");
+  assert.equal(report.productionEnablement, "BLOCKED");
+});
