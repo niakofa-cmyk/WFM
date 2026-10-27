@@ -472,8 +472,10 @@ strongly indicates a successful reward response, but no HTTP response or
 read-only reward-ledger record was captured. This is **not** a no-reward
 Practice test and does not test interrupted/expired reward denial. The owner
 was advised to use the Hangar navigation only, not Fly Again or Retry
-Verification, and not to spend the displayed credits. No follow-up claim,
-flight, or account change was performed by the agent.
+Verification, and not to spend the displayed credits. The owner then confirmed
+the game was at Hangar. The Hangar navigation only changes the local game
+screen; no claim request is made by that action. No follow-up claim, flight, or
+account change was performed by the agent.
 
 The previous device instructions incorrectly treated signed-in Practice as
 no-reward. They are corrected to use the local `/play` Solo Flight route for

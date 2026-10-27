@@ -961,7 +961,7 @@
     },
     "rewardInterpretation": "The signed-in WarApp path starts a server-authorized run and submits its replay on completion. The displayed credit gain strongly indicates a successful reward response, but the HTTP response and reward ledger were not independently captured.",
     "noRewardPracticeTest": "NOT_VALID; authenticated Practice may award credits. The local /play Solo Flight route is the no-reward path.",
-    "exitFromDebrief": "NOT_CONFIRMED; owner was advised to use Hangar only and not Fly Again or Retry Verification.",
+    "exitFromDebrief": "PASS_REPORTED_HANGAR; owner confirmed the Hangar screen after being advised not to Fly Again or Retry Verification. Hangar navigation is screen-only and does not submit a claim.",
     "additionalClaimOrFlightByAgent": false,
     "productionModified": false,
     "interruptedRewardGate": "PENDING; this was a completed Practice run, not an interrupted or expired-run claim test.",
