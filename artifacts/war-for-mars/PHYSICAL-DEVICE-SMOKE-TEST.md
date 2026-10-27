@@ -74,20 +74,28 @@ submit a Strike reward claim during this smoke test.
 7. Sign out on both phones. Confirm each device returns to the signed-out state.
    Do not capture or retain browser storage or authentication state.
 
-### 4. Mobile layout and safe practice check
+### 4. Mobile layout and no-reward control check
 
-On each device, while signed in:
+Complete account/profile checks while signed in. For no-reward gameplay controls,
+use the separate local Solo Flight route:
 
 1. Confirm the title/menu, profile, and flight setup fit without horizontal
    scrolling or controls hidden by the notch, browser chrome, or bottom safe area.
-2. If the no-reward Practice mode is available, launch only that mode. Confirm
-   the canvas initializes, both sticks respond, fire and ability controls work,
-   and releasing/canceling a touch returns the control to neutral.
-3. Rotate the device and briefly background/restore the browser. Confirm the
+2. Open `/play` and confirm the page identifies the flight as local and says it
+   does not save progress or award rewards. This is separate from the signed-in
+   WarApp flight flow.
+3. Do not use signed-in WarApp Practice or Strike for a no-reward smoke test.
+   Those modes start a server-authorized run; completing one submits its replay
+   and may award credits.
+4. In local Solo Flight, confirm the canvas initializes, both sticks respond,
+   fire and ability controls work, and releasing/canceling a touch returns the
+   control to neutral.
+5. Rotate the device and briefly background/restore the browser. Confirm the
    documented pause/resume behavior and that controls are not left held.
-4. Exit the practice scene normally. Confirm no reward claim was submitted.
-5. If Practice is unavailable or the UI would launch a rewarded Strike, skip
-   this step and record it as not run; do not continue into the Strike.
+6. Exit with `EXIT SOLO FLIGHT`. Confirm no server reward claim was submitted.
+7. If local Solo Flight is unavailable or the page does not show the no-reward
+   notice, skip this step and record it as not run. Do not substitute signed-in
+   Practice or Strike.
 
 ## Android-only run (partial evidence only)
 

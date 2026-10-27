@@ -458,6 +458,29 @@ Android screen, but it does not certify all phones or clear the full
 physical-device gate. The interrupted-reward and physical-device release gates
 remain **PENDING**.
 
+### Tester-reported authenticated Practice result
+
+The owner then reported using **Practice** and being at **Debrief**. They said
+the ship returned with six kills and two relays, the hangar logged `172` credits,
+there was no crate, and the displayed balance was `300 CR`. The user also
+reported that the touch controls worked, but did not identify each control
+tested or confirm the normal exit from Debrief.
+
+Source review confirms the signed-in WarApp flow starts a server-authorized run
+and submits its replay when the run ends. The reported credit gain therefore
+strongly indicates a successful reward response, but no HTTP response or
+read-only reward-ledger record was captured. This is **not** a no-reward
+Practice test and does not test interrupted/expired reward denial. The owner
+was advised to use the Hangar navigation only, not Fly Again or Retry
+Verification, and not to spend the displayed credits. No follow-up claim,
+flight, or account change was performed by the agent.
+
+The previous device instructions incorrectly treated signed-in Practice as
+no-reward. They are corrected to use the local `/play` Solo Flight route for
+no-reward touch-control checks. This completed Practice result remains a
+user-reported staging observation only; the live interrupted-reward and full
+physical-device release gates remain **PENDING**.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment

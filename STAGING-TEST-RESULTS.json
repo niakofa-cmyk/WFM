@@ -942,6 +942,32 @@
     "productionModified": false,
     "scope": "Confirms only the tester-reported vertical-scroll result on one physical Android phone; does not certify all screens, devices, orientations, or gameplay controls."
   },
+  "latestPhysicalAndroidPracticeOutcome": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "appDeploymentId": "083ab007-cf97-49d5-a49c-92a631f96fae",
+    "device": "Physical Android phone, tester-reported",
+    "deviceMetadata": "Model, Android version, Chrome version, viewport, network, and screenshots were not supplied.",
+    "mode": "Practice",
+    "screenAtReport": "Debrief",
+    "testerReportedResult": {
+      "kills": 6,
+      "relays": 2,
+      "creditGainDisplayed": 172,
+      "crate": "none",
+      "balanceDisplayed": 300,
+      "touchControls": "Controls worked; individual controls not enumerated."
+    },
+    "rewardInterpretation": "The signed-in WarApp path starts a server-authorized run and submits its replay on completion. The displayed credit gain strongly indicates a successful reward response, but the HTTP response and reward ledger were not independently captured.",
+    "noRewardPracticeTest": "NOT_VALID; authenticated Practice may award credits. The local /play Solo Flight route is the no-reward path.",
+    "exitFromDebrief": "NOT_CONFIRMED; owner was advised to use Hangar only and not Fly Again or Retry Verification.",
+    "additionalClaimOrFlightByAgent": false,
+    "productionModified": false,
+    "interruptedRewardGate": "PENDING; this was a completed Practice run, not an interrupted or expired-run claim test.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "scope": "User-reported staging result plus source-path review; no independent claim response or database event evidence."
+  },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",
     "testedSourceCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",
