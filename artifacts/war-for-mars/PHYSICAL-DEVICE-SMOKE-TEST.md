@@ -89,6 +89,34 @@ On each device, while signed in:
 5. If Practice is unavailable or the UI would launch a rewarded Strike, skip
    this step and record it as not run; do not continue into the Strike.
 
+## Android-only run (partial evidence only)
+
+Use this path when an Android Chrome tester is available but the paired iPhone
+Safari tester is not. It can document Android layout, controls, and practice
+flight behavior; it cannot pass the cross-device profile-sync or full physical
+device gate.
+
+1. Record the real phone model, Android version, Chrome version, screen size,
+   network type, and test time.
+2. Confirm the host is the protected staging app. Use only an approved staging
+   test account and obtain any staging access code through the secure channel.
+   Do not use Production credentials or include codes in evidence.
+3. Sign in and confirm the profile loads. Stop if `PLAYER PROFILE UNAVAILABLE`
+   appears. Do not change profile preferences, purchase, launch a Strike, or
+   claim a reward.
+4. Check portrait and landscape layout, safe areas, and control reachability.
+   If the no-reward Practice mode is available, verify both sticks, fire,
+   ability, and touch release/cancellation. Do not continue if a flow would
+   launch a rewarded Strike.
+5. Briefly background and restore Chrome, then exit Practice normally. Confirm
+   there is no stuck input or reward claim request. Sign out.
+6. Attach sanitized screenshots or a short recording plus the device/browser
+   details. Do not include account identifiers, email, access/verification
+   codes, tokens, cookies, or browser storage.
+7. Record the result as `PARTIAL`. The iPhone Safari and paired cross-device
+   synchronization rows remain `NOT RUN` and the full physical-device gate
+   remains `PENDING`.
+
 ## Evidence template
 
 Fill this out after the run. Use tester initials or an approved internal alias,

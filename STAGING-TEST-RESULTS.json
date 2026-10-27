@@ -888,6 +888,11 @@
       "productionModified": false
     },
     "physicalDeviceTested": false,
+    "physicalDeviceTesterAvailability": {
+      "androidChromeTester": "AVAILABLE",
+      "actualRun": "NOT_RUN",
+      "evidenceCaptured": false
+    },
     "productionModified": false,
     "scope": "The local integration test exercised a real socket restart and the reward service using a synthetic test profile. It did not send an authenticated HTTP request to live staging."
   },

@@ -448,3 +448,8 @@ typecheck, all workspace tests (17 script, 73 API, 35 game), and workspace
 builds. The staging promotion verifier was also run and correctly remained
 blocked because `overallStatus` is `PENDING` and multiple live evidence fields
 are not `PASS`.
+
+An Android Chrome tester is available, but no physical run has been completed.
+The physical-device checklist now includes an Android-only partial path that
+does not change the paired-device or full-device gate. The iPhone Safari,
+cross-device sync, and disposable-account reward checks remain pending.
