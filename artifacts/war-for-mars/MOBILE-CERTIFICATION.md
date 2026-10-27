@@ -51,7 +51,7 @@ still be retested before resuming the six-minute run.
 The user then reported that a short local Practice retest on the REVVL 8 behaved
 as expected: touch stayed neutral, deliberate drag worked, and release recentered
 the stick. This is user-reported control evidence only; the six-minute Strike
-sample and its performance metrics remain **PENDING**.
+target remains **PENDING**.
 
 ### Physical Android sample — partial
 
@@ -68,12 +68,18 @@ heat or throttling warnings.
 This is **partial**, not six-minute evidence: the report recorded 221.7 game
 seconds and 228 wall seconds, while the selected Strike target is 360 game
 seconds. It contained no final-minute frames. The user marked the match
-complete, but the report does not identify whether it ended naturally or was
-exited early. Frame metrics are browser requestAnimationFrame cadence, not GPU
-render timing. The tested build was the Replit preview based on workspace HEAD
+complete and later confirmed the Debrief appeared naturally before the timer.
+The report does not identify the specific outcome reason. Frame metrics are
+browser requestAnimationFrame cadence, not GPU render timing. The tested build
+was the Replit preview based on workspace HEAD
 `e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch-control
 changes; it was not a Railway deployment. Full six-minute performance remains
 **PENDING**.
+
+The report format now includes the selected trial target and a `targetReached`
+flag, with an on-screen warning when a match ends early. This physical report
+predates that clarification field; its duration is classified from the measured
+221.7 seconds against the 360-second Strike target.
 
 ## Proposed acceptance gates
 

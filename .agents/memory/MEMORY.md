@@ -20,4 +20,5 @@
 - [Progression sync boundary](progression-sync-boundary.md) — account freshness must not change an issued flight; obsolete account/view responses must not apply.
 - [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
 - [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.
+- [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
 - [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
