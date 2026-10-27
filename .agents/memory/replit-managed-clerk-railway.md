@@ -26,3 +26,9 @@ Reusing the same email/password values across deployment and Production does not
 **Why:** The user reports using the same credentials in both environments, while the connected Clerk API reports Development and the public WFM bundle serves a live publishable key.
 
 **How to apply:** Verify the actual instance environment and key mode before attributing account or email-delivery behavior to a Clerk environment. Never infer a key match from reused credentials.
+
+A Replit Clerk connector's `connection.environment` can report `production` while its authenticated Clerk instance reports `environment_type: development`.
+
+**Why:** The Replit connector scope and the Clerk tenant environment are separate signals; trusting the former can misidentify a Development tenant as Production.
+
+**How to apply:** For any Clerk connection, check the authenticated instance metadata and treat `environment_type` as authoritative for the tenant actually reached. Do not use the connector scope as proof of an external Production connection.
