@@ -512,6 +512,12 @@ partial user-reported evidence; no network-level reward-claim evidence was
 captured. The interrupted-reward and full physical-device gates remain
 **PENDING**.
 
+In a subsequent follow-up, the owner confirmed that all listed local phone
+checks passed: both sticks together, fire while moving or aiming, ability,
+touch release/cancel, rotate and background/restore, and exit Solo Flight. These
+results are user-reported; exact device/browser metadata and independent
+network-level evidence remain unavailable.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment

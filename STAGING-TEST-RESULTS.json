@@ -976,7 +976,15 @@
     "device": "Physical Samsung Android phone, tester-reported",
     "deviceMetadata": "Manufacturer Samsung; exact model, Android version, Chrome version, viewport, network, observation time, and screenshots were not supplied. Screenshots were not required by the owner for this Android-only check.",
     "localNoRewardNotice": "PASS_REPORTED; owner confirmed the local no-reward notice was visible before launch.",
-    "controlResult": "PASS_REPORTED_PARTIAL; owner said all tested controls worked, but did not enumerate each control.",
+    "controlResult": "PASS_REPORTED; owner later confirmed all listed local phone checks passed.",
+    "testedControls": [
+      "Both sticks together",
+      "Fire while moving or aiming",
+      "Ability",
+      "Touch release/cancel",
+      "Rotate and background/restore",
+      "Exit Solo Flight"
+    ],
     "flightStats": "NOT_SUPPLIED; do not attribute the separate Development-preview flight stats to this staging run.",
     "postRunCreditsOrBalance": "NOT_SUPPLIED; no account balance change is claimed.",
     "finalScreenOrExit": "NOT_SUPPLIED",
@@ -995,6 +1003,15 @@
     "deviceMetadata": "Exact model, Android version, Chrome version, viewport, network, and screenshots not supplied.",
     "profileSignInAndSignOut": "PASS_REPORTED",
     "localSoloFlight": "PASS_REPORTED; tester says it worked without credits.",
+    "localControlLifecycleChecks": "PASS_REPORTED; all listed checks passed.",
+    "testedLocalChecks": [
+      "Both sticks together",
+      "Fire while moving or aiming",
+      "Ability",
+      "Touch release/cancel",
+      "Rotate and background/restore",
+      "Exit Solo Flight"
+    ],
     "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
     "rewardClaimNetworkEvidence": "NOT_CAPTURED",
     "interruptedRewardGate": "PENDING",
