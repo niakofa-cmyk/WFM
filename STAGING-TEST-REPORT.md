@@ -320,9 +320,11 @@ attempt stopped without retrying. No profile request, Strike run, or claim
 request was sent, and no player profile or reward state was changed. This is a
 blocked sign-in attempt, not a pass or failure of the claim validator.
 
-Physical-device testing was not performed: no actual phone or tablet was
-connected to this environment. Existing mobile viewport checks remain browser
-emulation only and do not satisfy the physical-device evidence requirement.
+For this 01:06 UTC evidence attempt, physical-device testing was not performed:
+no actual phone or tablet was connected to the environment at that time. The
+later owner-reported Samsung Android checks are documented separately below.
+Existing mobile viewport checks remain browser emulation only and do not satisfy
+the physical-device evidence requirement.
 The interrupted-reward claim and physical-device gates remain pending;
 Production and the separate staging promotion gate were not changed.
 
@@ -553,12 +555,14 @@ PARTIAL` and `profileSyncsAcrossDevices: PENDING` remain unchanged.
 
 ### Physical-device evidence
 
-No iPhone, Android phone, iOS Safari, or Android Chrome physical-device run was
-performed. The exact staging procedure and evidence template are now in
+The Playwright viewport checks did not exercise a physical device. Later
+owner-reported Samsung Android checks are recorded above as supplemental
+evidence; exact phone, Android, and Chrome details were not provided. No
+iPhone/Safari run or paired-device profile-sync evidence is recorded. The exact
+staging procedure and evidence template are in
 `artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md`; the broader tactile
-playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. The physical-device gate
-remains **PENDING** until an authorized tester completes and records the checks
-on real devices.
+playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. Physical-device certification
+and multi-device sync remain **PENDING**.
 
 ## Review of supplied implementation proposals — 2026-10-27
 
@@ -595,8 +599,10 @@ implementations are not safe to use as written:
   user-agent spoofing or browser emulation is represented as real Safari or
   Android device evidence; the physical-device gate remains pending.
 
-No Production database, Clerk connection, Railway Production setting, or
-reward-bearing live staging account was accessed or changed during this review.
+No Production database or external Clerk sign-in was accessed, and no Railway
+setting or deployment was changed. A later read-only Railway CLI preflight
+checked Production service-variable presence and configuration status only; it
+did not verify external Clerk key-instance pairing or perform sign-in.
 
 Follow-up local verification on commit
 `8cabc49fed9e6a1aafff73832411ed82b28d496a` passed frozen-lockfile install,
@@ -605,7 +611,81 @@ builds. The staging promotion verifier was also run and correctly remained
 blocked because `overallStatus` is `PENDING` and multiple live evidence fields
 are not `PASS`.
 
-An Android Chrome tester is available, but no physical run has been completed.
-The physical-device checklist now includes an Android-only partial path that
-does not change the paired-device or full-device gate. The iPhone Safari,
-cross-device sync, and disposable-account reward checks remain pending.
+The owner-reported physical Samsung Android checks are supplemental evidence;
+they do not complete physical-device certification. Exact device/browser
+metadata is absent. iPhone Safari, paired-device profile sync, and the
+disposable-account reward-denial check remain pending.
+
+## Reward-integrity and Clerk preflight update — 2026-10-27, 17:37 UTC
+
+### Safe local certification checks
+
+The following local checks passed: **31 tests total**. No live staging or
+Production claim was submitted, and no credits were awarded.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Scripts and preflight/gate tests | `env -u DATABASE_URL pnpm --filter @workspace/scripts test` | PASS — 17/17 |
+| Pure reward adjudication | `env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/rewards.test.ts` | PASS — 3/3 |
+| Local unauthenticated progression/claim routes | `DATABASE_URL='postgresql://localtest:localtest@127.0.0.1:1/wfm-test-only' pnpm --filter @workspace/api-server exec tsx --test --test-concurrency=1 src/routes/progression.test.ts src/routes/strikes.test.ts` | PASS — 2/2; only local unauthenticated requests, HTTP 401; the loopback database target is deliberately unreachable |
+| Server simulation determinism | `env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/sim-determinism.test.ts` | PASS — 4/4 |
+| Browser/server simulation parity | `env -u DATABASE_URL pnpm --filter @workspace/war-for-mars exec tsx --test src/game/sim-parity.test.ts` | PASS — 5/5 |
+
+The local route checks did not reach a database or submit an authenticated
+claim. No live interrupted/expired reward-denial request was made.
+
+### Production Clerk structural preflights
+
+Using Railway CLI variable injection for the selected Production frontend and
+API services, both value-safe structural preflights passed their structural
+checks and exited `2` because manual enablement requirements remain blocked.
+The frontend publishable-key variable was present; the production origin was
+not checked in frontend scope. The API publishable- and secret-key variables
+were present, and its exact production origin check matched. The public
+issuer/JWKS inputs matched the configured preflight inputs; this does not prove
+that the key pair belongs to the external Production Clerk instance.
+
+External Clerk key-instance pairing, email delivery, an approved dedicated
+Production test account, and protected API/session smoke tests remain
+unverified. No Production sign-in was attempted, and no Production Clerk or
+Railway setting or deployment was changed. No secret values were printed.
+
+### Live reward-denial blocker
+
+Live interrupted/expired reward-denial remains **PENDING**. Disposable-account
+verification could not be established, the current staging API-to-isolated
+database binding could not be verified, and no read-only run-status/reward-event
+inspection path was available. No live claim was submitted and no credits were
+awarded. This does not change the separate staging promotion requirements.
+
+### Read-only Railway environment status
+
+At `2026-10-27T17:37:14Z`, a read-only Railway status inspection checked the
+staging and Production environments over the preceding 24 hours. All listed
+services were online, with zero reported service issues, zero recent failed
+deployments, and no pending work:
+
+| Environment | Online services |
+| --- | --- |
+| Staging (4) | `wfm-app-staging`, `wfm-socket-staging`, `wfm-api-staging`, `Postgres` |
+| Production (6) | `@workspace/war-for-mars`, `@workspace/api-server`, `@workspace/wing-socket`, `@workspace/mockup-sandbox`, `@workspace/war-for-mars-launch-video`, `Postgres` |
+
+This is service-health evidence only; it does not establish Production Clerk
+readiness or clear any release gate. No service was changed or deployed.
+
+### Physical-device evidence reconciliation and token cleanup
+
+The owner's Samsung Android sign-in/sign-out, local Solo Flight, controls, and
+layout/scroll observations are **supplemental user-reported staging evidence**.
+Exact phone model, Android and Chrome versions, viewport, network, and screenshots
+were not supplied. Physical-device certification and multi-device profile sync
+remain **PENDING**; no iPhone Safari test is claimed.
+
+`RAILWAY_TOKEN` was present and used only to inject Production service variables
+for the read-only preflights. It has **not** been revoked or deleted: no safe
+token-revocation operation or Replit-secret deletion operation is available to
+this workspace. Owner-side token revocation and secret removal remain
+outstanding. No token value was recorded.
+
+Overall staging status remains **PENDING** and Production readiness remains
+**NOT CLAIMED**.

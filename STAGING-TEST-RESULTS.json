@@ -62,7 +62,7 @@
       "failed": 0,
       "responsiveViewports": ["390x844", "844x390"],
       "physicalDeviceEvidence": false,
-      "scope": "Supplemental Playwright only; no real iPhone or Android phone was exercised."
+      "scope": "Supplemental Playwright only; no physical device was exercised as part of this run. Separate owner-reported Samsung Android observations are recorded under latestPhysicalAndroidFollowup."
     },
     "socketLifecycleRegression": {
       "allPilotsReceiveRestartNotice": "PASS",
@@ -1058,10 +1058,10 @@
   "latestInterruptedRewardAudit": {
     "recordedOn": "2026-10-27",
     "environment": "staging",
-    "liveClaimTest": "NOT_RUN",
+    "liveClaimTest": "PENDING",
     "liveClaimRequestSent": false,
     "liveClaimResponse": "NO_REQUEST",
-    "reason": "Historical at audit time: approved profiles had progression and were not designated disposable. A disposable account was later added to Replit Secrets, but the latest preflight still stopped because no safe read-only run/event inspection path was available.",
+    "reason": "Latest preflight could not establish disposable-account verification, verify the current staging API binding to an isolated staging database, or access a read-only run/status and reward-event inspection path. No live claim request was sent.",
     "localIntegrationTest": "PASS",
     "localRoomIdClaimRouteSchema": "Room code rejected by the Strike UUID parameter schema.",
     "localUnknownStrikeRunClaim": {
@@ -1111,13 +1111,14 @@
       "productionModified": false
     },
     "physicalDeviceTested": false,
+    "physicalDeviceEvidenceInterpretation": "No agent-performed physical-device test was part of this reward audit. Separate owner-reported Samsung Android checks are recorded under latestPhysicalAndroidFollowup and remain supplemental.",
     "physicalDeviceTesterAvailability": {
       "androidChromeTester": "AVAILABLE",
       "actualRun": "NOT_RUN",
       "evidenceCaptured": false
     },
     "productionModified": false,
-    "scope": "The local integration test exercised a real socket restart and the reward service using a synthetic test profile. It did not send an authenticated HTTP request to live staging."
+    "scope": "The local integration test exercised a real socket restart and the reward service using a synthetic test profile. It did not send an authenticated HTTP request to live staging. The no-device flag describes this audit, not the separate owner-reported Samsung Android observations."
   },
   "latestProposedImplementationReview": {
     "recordedOn": "2026-10-27",
@@ -1187,5 +1188,115 @@
     "docs/staging-reward-parity-flight-report.md",
     "docs/game-runtime-forensic-report.md"
   ],
+  "latestSafeLocalCertification": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "checks": {
+      "scripts": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/scripts test",
+        "passed": 17,
+        "failed": 0
+      },
+      "pureRewardAdjudication": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/rewards.test.ts",
+        "passed": 3,
+        "failed": 0
+      },
+      "localUnauthenticatedRoutes": {
+        "command": "DATABASE_URL='postgresql://localtest:localtest@127.0.0.1:1/wfm-test-only' pnpm --filter @workspace/api-server exec tsx --test --test-concurrency=1 src/routes/progression.test.ts src/routes/strikes.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "responses": "Local unauthenticated requests returned HTTP 401 before claim processing.",
+        "databaseTarget": "Deliberately unreachable loopback URL; no staging or Production database was contacted."
+      },
+      "serverSimulationDeterminism": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/sim-determinism.test.ts",
+        "passed": 4,
+        "failed": 0
+      },
+      "browserServerSimulationParity": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/war-for-mars exec tsx --test src/game/sim-parity.test.ts",
+        "passed": 5,
+        "failed": 0
+      }
+    },
+    "totalPassed": 31,
+    "totalFailed": 0,
+    "liveStagingClaimSubmitted": false,
+    "liveProductionClaimSubmitted": false,
+    "creditsAwarded": false,
+    "productionSignInAttempted": false,
+    "scope": "Local certification tests only; no live staging or Production reward claim was submitted."
+  },
+  "latestProductionClerkPreflight": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "execution": "Railway CLI injected selected Production frontend and API service variables into local preflight processes; no Railway variable or service configuration was changed.",
+    "railwayTokenPresent": true,
+    "railwayTokenUse": "Read-only preflight injection only.",
+    "railwayTokenRevoked": false,
+    "replitSecretDeleted": false,
+    "ownerCleanup": "PENDING; no safe Railway token-revocation or Replit-secret deletion operation is available to this workspace.",
+    "frontend": {
+      "structuralChecks": "PASS",
+      "exitCode": 2,
+      "VITE_CLERK_PUBLISHABLE_KEY": "PRESENT",
+      "productionOrigin": "NOT_CHECKED",
+      "publicIssuerInput": "MATCH",
+      "publicJwksInput": "MATCH"
+    },
+    "api": {
+      "structuralChecks": "PASS",
+      "exitCode": 2,
+      "CLERK_PUBLISHABLE_KEY": "PRESENT",
+      "CLERK_SECRET_KEY": "PRESENT",
+      "API_ALLOWED_ORIGINS": "MATCH",
+      "publicIssuerInput": "MATCH",
+      "publicJwksInput": "MATCH"
+    },
+    "publicIssuerAndJwksWereCommandScopedInputs": true,
+    "manualEnablement": {
+      "externalClerkKeyInstancePairing": "UNVERIFIED",
+      "emailDelivery": "UNVERIFIED",
+      "approvedDedicatedProductionAccount": "UNVERIFIED",
+      "protectedApiAndSessionSmokeTests": "NOT_RUN"
+    },
+    "productionSignIn": "NOT_RUN",
+    "productionEnablement": "BLOCKED",
+    "secretValuesPrinted": false,
+    "productionSettingsChanged": false,
+    "productionDeployment": false
+  },
+  "latestRailwayEnvironmentStatus": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "inspection": "Read-only Railway environment status; 24-hour recent-failure window.",
+    "staging": {
+      "serviceCount": 4,
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "recentFailedDeployments": 0,
+      "pendingWork": 0,
+      "services": [
+        { "name": "wfm-app-staging", "state": "online" },
+        { "name": "wfm-socket-staging", "state": "online" },
+        { "name": "wfm-api-staging", "state": "online" },
+        { "name": "Postgres", "state": "online" }
+      ]
+    },
+    "production": {
+      "serviceCount": 6,
+      "servicesOnline": 6,
+      "servicesWithIssues": 0,
+      "recentFailedDeployments": 0,
+      "pendingWork": 0,
+      "services": [
+        { "name": "@workspace/war-for-mars", "state": "online" },
+        { "name": "@workspace/api-server", "state": "online" },
+        { "name": "@workspace/wing-socket", "state": "online" },
+        { "name": "@workspace/mockup-sandbox", "state": "online" },
+        { "name": "@workspace/war-for-mars-launch-video", "state": "online" },
+        { "name": "Postgres", "state": "online" }
+      ]
+    },
+    "scope": "Service health only; this does not prove Production Clerk readiness or clear release gates. No settings or deployments were changed."
+  },
   "productionReadiness": "NOT_CLAIMED"
 }
