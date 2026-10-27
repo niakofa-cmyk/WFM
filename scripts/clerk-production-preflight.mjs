@@ -15,6 +15,37 @@ const REQUIRED_KEY_VARIABLES_BY_SERVICE = Object.freeze({
 const PREFLIGHT_TARGET_VARIABLE = "WFM_CLERK_PREFLIGHT_TARGET";
 const ISSUER_VARIABLE = "WFM_PROD_CLERK_ISSUER";
 const JWKS_VARIABLE = "WFM_PROD_CLERK_JWKS_URL";
+const EXTERNAL_CONNECTION_NOT_VERIFIED =
+  "NOT_VERIFIED_BY_RAILWAY_SERVICE_CONTEXT";
+const EXTERNAL_INSTANCE_REQUIRED =
+  "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION";
+const EMAIL_DELIVERY_REQUIRED =
+  "BLOCKED_REQUIRES_TEST_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION";
+
+function authorizationAndProductionChecks(apiAllowedOrigins = "NOT_CHECKED") {
+  return {
+    authorization: {
+      replitManagedClerkAvailability: "NOT_CHECKED_FROM_RAILWAY_SERVICE_CONTEXT",
+      externalProductionClerkConnection: {
+        status: EXTERNAL_CONNECTION_NOT_VERIFIED,
+        gate: "BLOCKED_REQUIRES_OWNER_CONFIRMATION_OF_SECURE_EXTERNAL_CONNECTION",
+      },
+      frontendApiKeyInstancePairing:
+        "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_INSTANCE_AND_SAFE_METADATA_MATCH",
+    },
+    productionVerification: {
+      apiAllowedOrigins: {
+        variable: "API_ALLOWED_ORIGINS",
+        status: apiAllowedOrigins,
+      },
+      clerkAllowedOrigins: EXTERNAL_INSTANCE_REQUIRED,
+      clerkRedirectOrigins: EXTERNAL_INSTANCE_REQUIRED,
+      emailDelivery: EMAIL_DELIVERY_REQUIRED,
+    },
+    operatorAction:
+      "Verify the existing external Production Clerk connection through Replit's secure integration flow; if it is absent, have the owner authorize it. Then rerun both service-scoped read-only preflights. This Railway process cannot inspect Replit integration authorization or prove key pairing.",
+  };
+}
 
 function variableIsPresent(environment, name) {
   const value = environment[name];
@@ -57,8 +88,8 @@ function exactMetadataStatus(environment, name, expected) {
 function manualVerificationStatus() {
   return {
     keyInstancePairing:
-      "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
-    emailDelivery: "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
+      "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_INSTANCE_AND_SAFE_METADATA_MATCH",
+    emailDelivery: EMAIL_DELIVERY_REQUIRED,
     dedicatedTestAccount:
       "BLOCKED_REQUIRES_APPROVED_DEDICATED_PRODUCTION_TEST_ACCOUNT",
     protectedApiAndSessionSmokeTest: "NOT_RUN",
@@ -98,6 +129,8 @@ export function evaluateClerkProductionPreflight(
         clerkIssuer: "NOT_CHECKED",
         clerkJwksUrl: "NOT_CHECKED",
       },
+      ...authorizationAndProductionChecks(),
+      overallStatus: "BLOCKED_TARGET_OR_SERVICE_CONTEXT_NOT_ASSERTED",
       manualVerification: manualVerificationStatus(),
       productionEnablement: "BLOCKED",
       secretValuesPrinted: false,
@@ -157,6 +190,11 @@ export function evaluateClerkProductionPreflight(
       },
     },
     configurationStatus,
+    ...authorizationAndProductionChecks(productionOrigin),
+    overallStatus:
+      configurationStatus === "PASS"
+        ? "STRUCTURAL_PASS_MANUAL_GATES_BLOCKED"
+        : "BLOCKED_STRUCTURAL_CONFIGURATION",
     manualVerification: manualVerificationStatus(),
     productionEnablement: "BLOCKED",
     secretValuesPrinted: false,

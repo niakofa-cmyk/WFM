@@ -37,6 +37,10 @@ test("does not inspect Production variables until Railway Production is asserted
   const report = evaluateClerkProductionPreflight(environment, "api");
   assert.equal(report.targetContext, "NOT_ASSERTED");
   assert.equal(report.configurationStatus, "NOT_CHECKED");
+  assert.equal(
+    report.overallStatus,
+    "BLOCKED_TARGET_OR_SERVICE_CONTEXT_NOT_ASSERTED",
+  );
   assert.equal(report.productionEnablement, "BLOCKED");
   assert.equal(report.exitCode, 1);
 });
@@ -51,6 +55,10 @@ test("passes structural checks without claiming key pairing or Production readin
   const report = evaluateClerkProductionPreflight(environment, "api");
 
   assert.equal(report.configurationStatus, "PASS");
+  assert.equal(
+    report.overallStatus,
+    "STRUCTURAL_PASS_MANUAL_GATES_BLOCKED",
+  );
   assert.equal(report.serviceContext, "api");
   assert.deepEqual(
     report.requiredKeyVariables.map(({ name }) => name),
@@ -61,11 +69,11 @@ test("passes structural checks without claiming key pairing or Production readin
   assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MATCH");
   assert.equal(
     report.manualVerification.keyInstancePairing,
-    "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
+    "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_INSTANCE_AND_SAFE_METADATA_MATCH",
   );
   assert.equal(
     report.manualVerification.emailDelivery,
-    "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
+    "BLOCKED_REQUIRES_TEST_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
   );
   assert.equal(
     report.manualVerification.protectedApiAndSessionSmokeTest,
@@ -73,6 +81,37 @@ test("passes structural checks without claiming key pairing or Production readin
   );
   assert.equal(report.productionEnablement, "BLOCKED");
   assert.equal(report.exitCode, 2);
+});
+
+test("structural PASS never implies external Production Clerk authorization", () => {
+  const report = evaluateClerkProductionPreflight(readyEnvironment(), "api");
+
+  assert.equal(report.configurationStatus, "PASS");
+  assert.deepEqual(report.authorization, {
+    replitManagedClerkAvailability:
+      "NOT_CHECKED_FROM_RAILWAY_SERVICE_CONTEXT",
+    externalProductionClerkConnection: {
+      status: "NOT_VERIFIED_BY_RAILWAY_SERVICE_CONTEXT",
+      gate: "BLOCKED_REQUIRES_OWNER_CONFIRMATION_OF_SECURE_EXTERNAL_CONNECTION",
+    },
+    frontendApiKeyInstancePairing:
+      "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_INSTANCE_AND_SAFE_METADATA_MATCH",
+  });
+  assert.deepEqual(report.productionVerification, {
+    apiAllowedOrigins: {
+      variable: "API_ALLOWED_ORIGINS",
+      status: "MATCH",
+    },
+    clerkAllowedOrigins:
+      "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
+    clerkRedirectOrigins:
+      "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
+    emailDelivery:
+      "BLOCKED_REQUIRES_TEST_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
+  });
+  assert.match(report.operatorAction, /secure integration flow/i);
+  assert.equal(report.overallStatus, "STRUCTURAL_PASS_MANUAL_GATES_BLOCKED");
+  assert.equal(report.productionEnablement, "BLOCKED");
 });
 
 test("reports required key-variable presence without returning or printing values", () => {
@@ -174,6 +213,14 @@ test("frontend scope checks only its own publishable key", () => {
     report.publicConfiguration.productionOrigin.status,
     "NOT_CHECKED",
   );
+  assert.equal(
+    report.productionVerification.apiAllowedOrigins.status,
+    "NOT_CHECKED",
+  );
+  assert.equal(
+    report.productionVerification.clerkAllowedOrigins,
+    "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
+  );
   assert.equal(report.productionEnablement, "BLOCKED");
 });
 
@@ -193,6 +240,10 @@ test("requires an explicit app or API service scope before inspecting keys", () 
   assert.equal(report.targetContext, "OPERATOR_ASSERTED_RAILWAY_PRODUCTION");
   assert.equal(report.serviceContext, "NOT_ASSERTED");
   assert.equal(report.configurationStatus, "NOT_CHECKED");
+  assert.equal(
+    report.overallStatus,
+    "BLOCKED_TARGET_OR_SERVICE_CONTEXT_NOT_ASSERTED",
+  );
   assert.equal(report.productionEnablement, "BLOCKED");
   assert.equal(report.exitCode, 1);
 });

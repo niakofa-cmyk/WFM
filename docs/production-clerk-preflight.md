@@ -7,6 +7,19 @@ Clerk Production instance. It does not call Clerk or Railway, modify variables,
 enable authentication, deploy services, print key values, compare key values,
 or claim that the frontend and API keys belong to the same Clerk instance.
 
+## Current authorization snapshot
+
+The Replit workspace check on 2026-10-27 reported Clerk as `managed`, with
+dashboard access `requires_personal_pro`. The connected Clerk integration is the
+Replit-managed connection; no independently authorized connection to the
+external Production instance at `clerk.niakofa.com` was confirmed.
+
+This is workspace-level integration metadata, not a Railway service result. The
+Railway preflight cannot query Replit connection authorization and reports
+`replitManagedClerkAvailability: NOT_CHECKED_FROM_RAILWAY_SERVICE_CONTEXT`.
+Neither a working Replit-managed connection nor its Production environment
+authorizes use of the separate external Clerk instance.
+
 The intended public target is:
 
 | Setting                     | Expected value                                    |
@@ -59,8 +72,27 @@ origin. Both invocations check the public `WFM_PROD_CLERK_ISSUER` and
 `WFM_PROD_CLERK_JWKS_URL` metadata against the documented target. These public
 metadata values are command-scoped inputs, not new Railway variables; do not
 persist them in Railway. Each invocation emits variable names, presence states,
-and match/mismatch results only; it does not echo configured values. Both
-structural reports must pass before the manual checks below.
+and match/mismatch results only; it does not echo configured values.
+
+`configurationStatus: PASS` means only that this service's structural checks
+passed. Review `overallStatus` and `productionEnablement` too. The expected
+result remains `STRUCTURAL_PASS_MANUAL_GATES_BLOCKED` and `BLOCKED` until
+external authorization, key-instance pairing, Clerk allowed origins/redirects,
+email delivery, and the controlled smoke test are verified. The report
+separately identifies:
+
+- Replit-managed Clerk availability as not observable from Railway.
+- The external Production connection as unverified from Railway, with
+  enablement blocked until the owner confirms it through Replit's secure
+  integration flow.
+- Frontend/API key-instance pairing as blocked pending safe metadata
+  verification against the authorized external instance.
+- API CORS origin status separately from Clerk allowed origins and redirects,
+  which this Railway process cannot inspect. Email delivery remains a manual
+  check.
+
+The script does not accept an environment-variable assertion that can clear
+these gates. It cannot authenticate the Replit integration or enable Production.
 
 `WFM_CLERK_PREFLIGHT_TARGET=railway-production` is an operator assertion, not
 proof of which environment supplied the process variables. An explicit
@@ -68,10 +100,23 @@ proof of which environment supplied the process variables. An explicit
 not read variables outside that service's scope. Exit code `1` means the target
 or service was not asserted, or a structural check is missing/mismatched. Exit
 code `2` means structural checks passed, but manual authorization and account
-verification still block Production enablement. The script never reports
-Production authentication as ready.
+verification still block Production enablement. Even with exit code `2`, the
+overall status is blocked; the script never reports Production authentication
+as ready.
 
 ## Manual authorization and controlled smoke test
+
+1. In Replit, use the secure Integration connection flow for the owner's
+   **existing external Production Clerk instance**. Do not replace the current
+   Replit-managed connection or copy its keys. Confirm safe instance metadata
+   identifies `clerk.niakofa.com`; do not expose or persist key values. If the
+   secure flow only offers the managed Clerk connection, stop and obtain
+   owner-side authorization for the external instance through a supported
+   secure path. Do not treat the managed connection as a substitute.
+2. After authorization, rerun the frontend and API preflights separately in
+   their Railway Production service contexts. The script cannot read Replit
+   integration state, so its external-connection gate remains manual. Record
+   owner verification separately using safe instance metadata and outcomes.
 
 The automated preflight cannot prove publishable/secret-key instance pairing.
 That requires an authorized connection to the already-selected external
@@ -83,9 +128,9 @@ Git.
 
 Before any live Production check:
 
-1. Obtain explicit owner authorization to inspect the existing external Clerk
-   Production instance and the Railway Production auth configuration. Do not
-   change Railway variables or deploy as part of the preflight.
+1. Obtain explicit owner authorization to inspect the Railway Production auth
+   configuration. Do not change Railway variables or deploy as part of the
+   preflight.
 2. Confirm privately that the frontend publishable key and the API
    publishable/secret pair belong to the intended Production Clerk instance.
    Keep all values inside the approved secret manager or authorized dashboard.
