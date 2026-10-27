@@ -675,11 +675,17 @@ readiness or clear any release gate. No service was changed or deployed.
 
 ### Physical-device evidence reconciliation and token cleanup
 
-The owner's Samsung Android sign-in/sign-out, local Solo Flight, controls, and
+The owner's Android sign-in/sign-out, local Solo Flight, controls, and
 layout/scroll observations are **supplemental user-reported staging evidence**.
-Exact phone model, Android and Chrome versions, viewport, network, and screenshots
-were not supplied. Physical-device certification and multi-device profile sync
-remain **PENDING**; no iPhone Safari test is claimed.
+The owner identified the phone as a REVVL 8, model TMRV085G, on T-Mobile, and
+provided version string `1.15.12` without clarifying whether it is Android OS or
+device software. Earlier notes called the phone Samsung; whether they refer to
+this same device is unresolved. Android and Chrome versions, network type, and
+test time remain unavailable. Two portrait screenshots show the staging
+landing page and the local Solo Flight setup with its no-reward notice; they do
+not verify active-flight controls or paired profile synchronization. Physical-device
+certification and multi-device profile sync remain **PENDING**; no iPhone Safari
+test is claimed.
 
 `RAILWAY_TOKEN` was present and used only to inject Production service variables
 for the read-only preflights. It has **not** been revoked or deleted: no safe

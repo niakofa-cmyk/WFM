@@ -999,8 +999,23 @@
     "recordedAt": "NOT_SUPPLIED",
     "environment": "staging",
     "host": "wfm-app-staging-staging.up.railway.app",
-    "device": "Same physical Samsung Android phone as prior tester-reported checks",
-    "deviceMetadata": "Exact model, Android version, Chrome version, viewport, network, and screenshots not supplied.",
+    "device": "Owner identifies the physical phone as REVVL 8, model TMRV085G, on T-Mobile. Earlier notes called the phone Samsung; same-device identity is not reconciled.",
+    "deviceMetadata": "Owner supplied version string 1.15.12 but did not clarify whether it is Android OS or device software/build. Android OS version, Chrome version, network type, and test time are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
+    "browser": "Android Chrome selected; exact version not supplied.",
+    "screenshotEvidence": [
+      {
+        "file": "attached_assets/1_1000000060_1793123563718.png",
+        "orientation": "portrait",
+        "visible": "Staging landing page.",
+        "imagePixels": "1080x2408"
+      },
+      {
+        "file": "attached_assets/0_1000000061_1793123563687.png",
+        "orientation": "portrait",
+        "visible": "Local Solo Flight setup and no-reward notice; no active flight controls shown.",
+        "imagePixels": "1080x2096"
+      }
+    ],
     "profileSignInAndSignOut": "PASS_REPORTED",
     "localSoloFlight": "PASS_REPORTED; tester says it worked without credits.",
     "localControlLifecycleChecks": "PASS_REPORTED; all listed checks passed.",
@@ -1013,11 +1028,13 @@
       "Exit Solo Flight"
     ],
     "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
+    "pairedDeviceProfileSync": "NOT_REPORTED",
+    "iphoneSafariTest": "NOT_RUN; Android Chrome only was available for this submission.",
     "rewardClaimNetworkEvidence": "NOT_CAPTURED",
     "interruptedRewardGate": "PENDING",
     "physicalDeviceReleaseGate": "PENDING",
     "productionModified": false,
-    "scope": "User-reported Android staging follow-up only. Does not verify individual controls, all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
+    "scope": "User-reported Android staging follow-up with two portrait screenshots. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. Does not verify all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
   },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",

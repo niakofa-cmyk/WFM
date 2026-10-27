@@ -1,6 +1,6 @@
 # WAR FOR MARS — Physical-device staging smoke test
 
-**Status: PENDING — owner-reported Samsung Android checks are supplemental; required paired-device results and exact device metadata are still missing.**
+**Status: PENDING — owner-reported Android checks are supplemental; required paired-device results and some device metadata are still missing.**
 
 This checklist is for an authorized tester using the isolated Railway **staging**
 environment. Desktop responsive mode, browser emulation, and Playwright are
@@ -100,18 +100,25 @@ use the separate local Solo Flight route:
 
 ## Existing owner-reported Android evidence (partial)
 
-On 2026-10-27, the owner reported checks on the same physical Samsung Android
-phone used for the earlier staging observations. They reported successful
-profile sign-in/sign-out, local `/play` Solo Flight without credits, the listed
-touch-control lifecycle checks working, and layout/scrolling working as
-expected after reload.
+On 2026-10-27, the owner selected Android Chrome and supplied the phone as a
+REVVL 8, model TMRV085G, on T-Mobile. The owner also supplied the version string
+`1.15.12`, but did not clarify whether it is the Android OS version or device
+software/build. Earlier notes called the phone Samsung; whether that is the
+same device is not reconciled. Android OS version, Chrome version, network
+type, and test time remain unreported.
 
-The exact phone model, Android and browser versions, screen dimensions,
-network, tested screens/orientations, observation time, and sanitized
-screenshots were not supplied. The owner did not report paired-device profile
-synchronization. Treat this as supplemental user-reported evidence only; it
-does not pass the Android-only evidence template, the paired sync checks, or the
-full physical-device gate.
+Two portrait screenshots were supplied: `attached_assets/1_1000000060_1793123563718.png`
+shows the staging landing page, and `attached_assets/0_1000000061_1793123563687.png`
+shows the local Solo Flight setup with its no-reward notice. Their image sizes
+are 1080×2408 and 1080×2096 pixels respectively; those image dimensions are not
+verified physical display dimensions. The screenshots do not show active flight
+controls or a profile-sync result.
+
+Earlier owner reports describe successful profile sign-in/sign-out, local
+`/play` Solo Flight without credits, listed touch-control checks, and layout and
+scrolling working after reload. This remains supplemental user-reported
+evidence; there is no paired-device profile synchronization result, and the
+Android-only evidence template and full physical-device gate remain pending.
 
 ## Android-only run (partial evidence only)
 

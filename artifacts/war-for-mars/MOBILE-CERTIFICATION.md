@@ -8,7 +8,7 @@ This report separates automated control/lifecycle checks from Android Chrome and
 
 - Source commit: `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
 - Automated checks: workspace typecheck, all 40 automated tests, and production builds passed.
-- Owner-reported Android smoke: 2026-10-27; exact model, OS/browser versions, and tester alias not supplied
+- Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, T-Mobile; supplied version string `1.15.12` is not confirmed as OS or device build; Android/Chrome versions and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
 ## Automated coverage and code checks
@@ -41,7 +41,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | Samsung; exact model not supplied | Browser/version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
+| Android | REVVL 8 (TMRV085G); Android version unknown; `1.15.12` type unconfirmed | Chrome selected; version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
 
 ## Required device run
@@ -62,9 +62,11 @@ profile-sync checks, and a fill-in evidence record, see
 ## Current disposition
 
 Automated control and interruption logic is covered by unit tests. The
-owner-reported Samsung Android check is supplemental and does not include the
-exact device/browser metadata or performance traces required by this
-certification. Android Chrome and iOS Safari usability, frame rate, memory,
-thermal behavior, and the six-minute physical-device run remain **unverified**.
-Step 4 cannot be marked complete until both evidence rows are completed from
-real phones.
+owner-reported REVVL 8 Android check is supplemental. Earlier notes called the
+phone Samsung; whether those notes refer to this same device is unresolved.
+The supplied `1.15.12` string is not confirmed as an OS version, and the exact
+Android/Chrome versions and performance traces required by this certification
+are absent. Android Chrome and iOS Safari usability, frame rate, memory, thermal
+behavior, and the six-minute physical-device run remain **unverified**. Step 4
+cannot be marked complete until both evidence rows are completed from real
+phones.
