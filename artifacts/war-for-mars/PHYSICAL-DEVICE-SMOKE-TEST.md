@@ -100,12 +100,11 @@ use the separate local Solo Flight route:
 
 ## Existing owner-reported Android evidence (partial)
 
-On 2026-10-27, the owner selected Android Chrome and supplied the phone as a
-REVVL 8, model TMRV085G, on T-Mobile. The owner also supplied the version string
-`1.15.12`, but did not clarify whether it is the Android OS version or device
-software/build. Earlier notes called the phone Samsung; whether that is the
-same device is not reconciled. Android OS version, Chrome version, network
-type, and test time remain unreported.
+On 2026-10-27, the owner selected Android Chrome and identified the phone as a
+REVVL 8, model TMRV085G, on T-Mobile, running Android 16. The owner confirmed
+that this is the same phone previously described as Samsung and that `1.15.12`
+is its phone model-build string. The exact Chrome version, network type, and
+test time remain unreported.
 
 Two portrait screenshots were supplied: `attached_assets/1_1000000060_1793123563718.png`
 shows the staging landing page, and `attached_assets/0_1000000061_1793123563687.png`
@@ -117,8 +116,9 @@ controls or a profile-sync result.
 Earlier owner reports describe successful profile sign-in/sign-out, local
 `/play` Solo Flight without credits, listed touch-control checks, and layout and
 scrolling working after reload. This remains supplemental user-reported
-evidence; there is no paired-device profile synchronization result, and the
-Android-only evidence template and full physical-device gate remain pending.
+evidence. The owner confirmed no iPhone is available and the paired profile
+sync test has not been run. The Android-only evidence template and full
+physical-device gate remain pending.
 
 ## Android-only run (partial evidence only)
 

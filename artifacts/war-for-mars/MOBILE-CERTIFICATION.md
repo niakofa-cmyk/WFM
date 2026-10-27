@@ -1,6 +1,6 @@
 # WAR FOR MARS — Mobile Certification
 
-**Status: NOT CERTIFIED — owner-reported Samsung Android smoke checks are supplemental; full physical-device certification remains pending.**
+**Status: NOT CERTIFIED — owner-reported REVVL 8 Android smoke checks are supplemental; full physical-device certification remains pending.**
 
 This report separates automated control/lifecycle checks from Android Chrome and iOS Safari evidence. Desktop preview, browser emulation, and source inspection do not count as physical-phone performance results.
 
@@ -8,7 +8,7 @@ This report separates automated control/lifecycle checks from Android Chrome and
 
 - Source commit: `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
 - Automated checks: workspace typecheck, all 40 automated tests, and production builds passed.
-- Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, T-Mobile; supplied version string `1.15.12` is not confirmed as OS or device build; Android/Chrome versions and tester alias not supplied
+- Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, Android 16, T-Mobile; phone model-build `1.15.12`; Chrome version and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
 ## Automated coverage and code checks
@@ -41,7 +41,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | REVVL 8 (TMRV085G); Android version unknown; `1.15.12` type unconfirmed | Chrome selected; version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
+| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome selected; version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
 
 ## Required device run
@@ -62,11 +62,11 @@ profile-sync checks, and a fill-in evidence record, see
 ## Current disposition
 
 Automated control and interruption logic is covered by unit tests. The
-owner-reported REVVL 8 Android check is supplemental. Earlier notes called the
-phone Samsung; whether those notes refer to this same device is unresolved.
-The supplied `1.15.12` string is not confirmed as an OS version, and the exact
-Android/Chrome versions and performance traces required by this certification
-are absent. Android Chrome and iOS Safari usability, frame rate, memory, thermal
-behavior, and the six-minute physical-device run remain **unverified**. Step 4
-cannot be marked complete until both evidence rows are completed from real
-phones.
+owner-reported REVVL 8 Android check is supplemental. The owner confirmed it is
+the same device previously described as Samsung, running Android 16; `1.15.12`
+is the phone model-build string. The exact Chrome version and performance
+traces required by this certification are absent. No iPhone is available to
+the owner, so iOS Safari and paired-device profile sync were not run. Android
+Chrome and iOS Safari usability, frame rate, memory, thermal behavior, and the
+six-minute physical-device run remain **unverified**. Step 4 cannot be marked
+complete until both evidence rows are completed from real phones.

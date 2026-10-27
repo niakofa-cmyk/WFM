@@ -999,8 +999,8 @@
     "recordedAt": "NOT_SUPPLIED",
     "environment": "staging",
     "host": "wfm-app-staging-staging.up.railway.app",
-    "device": "Owner identifies the physical phone as REVVL 8, model TMRV085G, on T-Mobile. Earlier notes called the phone Samsung; same-device identity is not reconciled.",
-    "deviceMetadata": "Owner supplied version string 1.15.12 but did not clarify whether it is Android OS or device software/build. Android OS version, Chrome version, network type, and test time are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
+    "device": "REVVL 8, model TMRV085G, Android 16, T-Mobile; owner confirmed this is the same phone previously described as Samsung.",
+    "deviceMetadata": "Phone model-build string 1.15.12. Exact Chrome version, network type, and test time are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
     "browser": "Android Chrome selected; exact version not supplied.",
     "screenshotEvidence": [
       {
@@ -1028,13 +1028,13 @@
       "Exit Solo Flight"
     ],
     "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
-    "pairedDeviceProfileSync": "NOT_REPORTED",
-    "iphoneSafariTest": "NOT_RUN; Android Chrome only was available for this submission.",
+    "pairedDeviceProfileSync": "NOT_RUN; owner confirmed this check has not been performed.",
+    "iphoneSafariTest": "NOT_RUN; owner confirmed no iPhone is available.",
     "rewardClaimNetworkEvidence": "NOT_CAPTURED",
     "interruptedRewardGate": "PENDING",
     "physicalDeviceReleaseGate": "PENDING",
     "productionModified": false,
-    "scope": "User-reported Android staging follow-up with two portrait screenshots. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. Does not verify all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
+    "scope": "User-reported Android staging follow-up with two portrait screenshots. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. The owner confirmed Android 16 and same-device identity with prior Samsung reports; exact Chrome version is missing. No iPhone is available and paired sync was not run. Does not verify all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
   },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",
