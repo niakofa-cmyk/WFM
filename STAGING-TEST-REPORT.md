@@ -434,8 +434,17 @@ The frozen-lockfile install, workspace typecheck, all workspace tests, and
 workspace builds passed. Results: scripts `17/17`, API `73/73`, game `35/35`;
 Playwright public E2E `7/7`, including touch-scroll checks at `320x568` for the
 landing and solo setup and an assertion that the Arena stays touch-locked.
-These are local/browser checks only. The commit has not yet been deployed to
-staging; the physical phone must retest scrolling on the updated staging build.
+These are local/browser checks only. The code was subsequently pushed to
+`staging` and deployed successfully as Railway app deployment
+`083ab007-cf97-49d5-a49c-92a631f96fae`, built from branch commit
+`56c4fc7a435368055c99b4da8a93a844c4b38ebf` (which includes fix commit
+`72e3c7a47d5509f89d88efac738787f9d9055972`). At verification, all four staging
+services were online with zero issues and no pending work. A fresh `GET /`
+returned the expected `401` private staging access-code gate; no code was
+submitted. No Production setting or deployment changed.
+
+The physical phone must reload the updated staging app, pass the access gate,
+and retest scrolling before this behavior can be marked verified on hardware.
 The interrupted-reward and physical-device release gates remain **PENDING**.
 
 ### Read-only staging inventory

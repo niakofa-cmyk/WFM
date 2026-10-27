@@ -939,7 +939,18 @@
       "arenaTouchLock": "PASS",
       "physicalDeviceEvidence": false
     },
-    "stagingDeployment": "NOT_YET_DEPLOYED",
+    "stagingDeployment": "SUCCESS",
+    "stagingDeploymentId": "083ab007-cf97-49d5-a49c-92a631f96fae",
+    "stagingBranchCommit": "56c4fc7a435368055c99b4da8a93a844c4b38ebf",
+    "stagingAppServiceState": "online",
+    "stagingEnvironment": {
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "pendingWork": 0
+    },
+    "stagingAppRootHttp": 401,
+    "stagingAppRootHttpMeaning": "Expected private staging access-code gate; no code was submitted.",
+    "stagingDeploymentVerifiedAtUtc": "2026-10-27T13:17:35.402Z",
     "clerkConfigurationChanged": false,
     "railwayProductionChanged": false,
     "productionDeployment": false,
