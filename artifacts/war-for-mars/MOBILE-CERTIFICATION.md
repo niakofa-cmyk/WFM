@@ -102,8 +102,12 @@ reports result-screen frames separately.
 A later supplied sample summary recorded one round ending at 170.8 active game
 seconds, followed by 4.5 seconds of post-match frames. This is consistent with
 a normal early terminal match, not a frame-rate or visibility stall. The
-summary did not include capture/device metadata and does not establish the
-360-second target; a full physical run remains **PENDING**.
+summary reports a 360-second target, `targetReached: false`, one round started
+and completed, 76.8 average FPS, no frame gaps over 250 ms, and no visibility
+interruptions. It did not include a terminal reason, raw report, capture
+environment, or device/browser metadata. Treat it as user-supplied partial
+evidence only; it does not establish a full physical or 360-second run. The
+physical endurance gate remains **PENDING**.
 
 ## Proposed acceptance gates
 
