@@ -443,9 +443,20 @@ services were online with zero issues and no pending work. A fresh `GET /`
 returned the expected `401` private staging access-code gate; no code was
 submitted. No Production setting or deployment changed.
 
-The physical phone must reload the updated staging app, pass the access gate,
-and retest scrolling before this behavior can be marked verified on hardware.
-The interrupted-reward and physical-device release gates remain **PENDING**.
+### Post-fix physical Android scroll retest
+
+After the updated staging app was deployed, the owner replied **“Works now”**
+when asked whether vertical touch scrolling worked on the phone. This is a
+partial user-reported pass for the sampled content screen(s); the exact screen
+was not named. The phone model, Android/Chrome versions, viewport, network,
+observation time, and screenshots remain unavailable. Other screens, devices,
+orientations, and active-flight controls were not verified. No flight or reward
+claim result was reported during this scroll retest.
+
+This confirms the reported scroll issue is resolved on the sampled physical
+Android screen, but it does not certify all phones or clear the full
+physical-device gate. The interrupted-reward and physical-device release gates
+remain **PENDING**.
 
 ### Read-only staging inventory
 

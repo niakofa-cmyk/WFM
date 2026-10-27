@@ -8,3 +8,5 @@ WFM content screens must remain vertically scrollable on phones across device si
 **Why:** The owner reported that vertical touch scrolling failed on a physical staging Android phone and explicitly asked for scrolling across the game's screens and devices. Allowing the page to scroll globally fixes content access, while the combat scene needs gestures reserved for movement and firing.
 
 **How to apply:** Use natural document scrolling for public/auth pages, menus, profile views, lobby, debrief, and solo-flight setup. Keep `touch-action: none` and clipped overflow scoped to the active Arena. Add touch-scroll regression coverage and keep physical-device verification separate from browser emulation.
+
+**Validation note:** On 2026-10-27, the staging owner confirmed vertical touch scrolling worked on the updated physical Android staging phone. The exact screen and device metadata were not supplied, so this is a partial confirmation, not cross-device certification.
