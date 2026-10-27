@@ -986,6 +986,22 @@
     "physicalDeviceReleaseGate": "PENDING",
     "scope": "Supplemental user-reported physical Android staging control evidence only; not profile-sync, interrupted-reward, or full device-matrix certification."
   },
+  "latestPhysicalAndroidFollowup": {
+    "recordedOn": "2026-10-27",
+    "recordedAt": "NOT_SUPPLIED",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "device": "Same physical Samsung Android phone as prior tester-reported checks",
+    "deviceMetadata": "Exact model, Android version, Chrome version, viewport, network, and screenshots not supplied.",
+    "profileSignInAndSignOut": "PASS_REPORTED",
+    "localSoloFlight": "PASS_REPORTED; tester says it worked without credits.",
+    "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
+    "rewardClaimNetworkEvidence": "NOT_CAPTURED",
+    "interruptedRewardGate": "PENDING",
+    "physicalDeviceReleaseGate": "PENDING",
+    "productionModified": false,
+    "scope": "User-reported Android staging follow-up only. Does not verify individual controls, all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
+  },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",
     "testedSourceCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",

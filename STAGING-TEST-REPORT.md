@@ -501,6 +501,17 @@ verify interrupted/expired reward denial, profile sync, or the complete
 physical-device matrix. The interrupted-reward and physical-device release
 gates remain **PENDING**.
 
+### Latest tester-reported Android follow-up
+
+After reloading staging, the owner reported that layout and scrolling “Works as
+expected” on the same physical Samsung Android phone. They also reported that
+profile sign-in/sign-out work and local Solo Flight runs without credits. Exact
+phone model, Android/Chrome versions, screen size, network, tested screen names,
+orientations, observation time, and screenshots were not supplied. This remains
+partial user-reported evidence; no network-level reward-claim evidence was
+captured. The interrupted-reward and full physical-device gates remain
+**PENDING**.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment
