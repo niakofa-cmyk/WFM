@@ -362,6 +362,32 @@ prior live staging record remains the evidence for one accepted reward
 (90 → 130 credits), an identical duplicate adding zero credits, and persistence
 after reload. That prior run was not an interrupted online room.
 
+### Latest live interrupted/expired-run preflight
+
+On 2026-10-27 at `2026-10-27T12:02:15Z`, the staging host returned HTTP `401`
+for `GET /` with the expected private staging access-code page. No access code
+was submitted. The approved disposable-account credentials are stored through
+Replit Secrets; their values were not read or displayed. No Clerk sign-in,
+profile request, or claim request was attempted.
+
+At this preflight, all four Railway staging services were online with zero
+reported failures or pending work. The app deployment was
+`2bdf9127-6020-4d5f-9cc2-7063372f1fda` on commit
+`a26cfa26dd6b45ccefc8dc26b78febf6d15c4da8`; the API deployment was
+`3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5` on source pin
+`179064a436360a07357adf16174bb6d0f90bccd8`; and the socket deployment was
+`81498a06-c441-4571-9790-f60bba00d4d1` on source pin
+`896c4904e2c60623f93005a75a86c7b5487a3cdc`.
+
+The deployed route surface and repository expose Strike start and claim POST
+routes, but no read-only run inventory or run-status route. The connected
+Railway management interface also has no read-only SQL query operation. There
+is therefore no safe way to identify a genuine already-expired/interrupted run
+and verify reward-event rows before and after its claim. No run was created,
+no claim was sent, no state changed, and no cleanup was needed. This preflight
+is **BLOCKED**, not reward-verification evidence; the release gate remains
+`PENDING`.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment
