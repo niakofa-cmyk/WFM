@@ -109,6 +109,9 @@ test("local performance sampling is opt-in and does not submit reward requests",
   await expect(capture).not.toBeChecked();
   await capture.check();
   await expect(capture).toBeChecked();
+  await expect(page.getByTestId("button-pace-strike")).toContainText(
+    "Up to six minutes; may end early when the mission resolves.",
+  );
   await expect(page.getByTestId("local-performance-toggle")).toContainText("no account, server, reward, or upload");
   await expect(page.getByTestId("local-performance-toggle")).toContainText("continues across local rounds");
   await expect(page.getByTestId("local-performance-toggle")).toContainText("Result-screen frames are reported separately");

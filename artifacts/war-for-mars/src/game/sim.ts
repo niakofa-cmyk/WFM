@@ -580,6 +580,7 @@ export function outcomeReason(match: Match, team: 0 | 1) {
   if (match.goal === "beacons") {
     if (held >= 2) return "Your wing secured two of three beacons.";
     if (enemyHeld >= 2) return "The enemy wing secured two of three beacons.";
+    if (enemyBar <= 0) return "The enemy wing's integrity was depleted before two beacons were secured.";
     if (yourBar <= 0) return "Your wing's integrity was depleted before two beacons were secured.";
     return "Time expired before your wing secured two beacons.";
   }

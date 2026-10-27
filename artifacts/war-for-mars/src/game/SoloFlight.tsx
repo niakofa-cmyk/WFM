@@ -19,7 +19,13 @@ const FACTIONS: Faction[] = ["ussf", "accord"];
 const FACTION_NAME: Record<Faction, string> = { ussf: "USSF", accord: "Accord" };
 const PACES: Array<{ id: Pace; name: string; time: string; ally: number; foe: number }> = [
   { id: "practice", name: "Practice", time: "Two minutes", ally: 2, foe: 3 },
-  { id: "strike", name: "Strike", time: "Six minutes", ally: 4, foe: 5 },
+  {
+    id: "strike",
+    name: "Strike",
+    time: "Up to six minutes; may end early when the mission resolves",
+    ally: 4,
+    foe: 5,
+  },
 ];
 
 const css = `

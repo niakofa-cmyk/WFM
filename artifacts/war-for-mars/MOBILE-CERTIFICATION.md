@@ -16,14 +16,14 @@ workspace based on HEAD `330abb0` plus working-tree changes. They are available
 only in the Replit development preview; they have not been deployed to Railway
 staging or Production.
 
-### Current workspace verification
+### Workspace verification
 
-- Typecheck: passed.
-- Workspace tests: scripts 17/17, API 73/73, game 43/43 (133 total).
-- Workspace builds: passed for the configured workspace packages.
-- Browser E2E: 8/8 passed, including the opt-in local performance sample,
-  mobile scrolling/controls, graphics-context-loss exit, and a complete local
-  Practice run.
+- The last full workspace pass before the duration-clarity patch passed
+  typecheck, 133 tests (scripts 17, API 73, game 43), configured workspace
+  builds, and browser E2E 8/8.
+- The duration-clarity patch then passed focused simulation/parity tests 10/10,
+  War for Mars typecheck, the War for Mars production build, and its focused UI
+  E2E 1/1.
 - These are local checks, not physical-device or Railway staging evidence. The
   updated 360-active-second sample still needs to be run on the REVVL 8.
 
@@ -94,10 +94,16 @@ was the Replit preview based on workspace HEAD
 changes; it was not a Railway deployment. Full six-minute performance remains
 **PENDING**.
 
-The report format now includes the selected trial target and a `targetReached`
-flag, with an on-screen warning when a match ends early. This physical report
-predates that clarification field; its duration is classified from the measured
-221.7 seconds against the 360-second Strike target.
+The report format includes the selected trial target and a `targetReached`
+flag, with an on-screen warning when a match ends early. The current local
+endurance sample accumulates active gameplay across natural local rounds and
+reports result-screen frames separately.
+
+A later supplied sample summary recorded one round ending at 170.8 active game
+seconds, followed by 4.5 seconds of post-match frames. This is consistent with
+a normal early terminal match, not a frame-rate or visibility stall. The
+summary did not include capture/device metadata and does not establish the
+360-second target; a full physical run remains **PENDING**.
 
 ## Proposed acceptance gates
 
