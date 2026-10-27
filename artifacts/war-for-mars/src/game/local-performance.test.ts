@@ -30,6 +30,19 @@ test("collects compact overall and first/final game-minute frame statistics", ()
   assert.equal(summary.finalGameMinute.frames, 2);
   assert.equal(summary.finalGameMinute.p99FrameIntervalMs, 100);
   assert.equal(summary.simulatedSeconds, 359.9);
+  assert.equal(summary.targetGameSeconds, 360);
+  assert.equal(summary.targetReached, true);
+});
+
+test("marks a match that ends before its selected sample duration as partial", () => {
+  const recorder = createLocalPerformanceRecorder(360);
+  recorder.recordFrame(frame(0, 16, 0));
+  recorder.recordFrame(frame(221_700, 16, 221.7));
+  const summary = recorder.finish();
+
+  assert.equal(summary.targetGameSeconds, 360);
+  assert.equal(summary.targetReached, false);
+  assert.equal(summary.finalGameMinute.frames, 0);
 });
 
 test("excludes the frame interval crossing a background/restore transition", () => {
@@ -76,4 +89,17 @@ test("ignores invalid frame and memory readings without throwing", () => {
   assert.deepEqual(summary.heap.samples, [
     { gameSeconds: 0, usedMiB: null, totalMiB: null },
   ]);
+});
+
+test("retains useful precision for rare slow frames", () => {
+  const recorder = createLocalPerformanceRecorder();
+  let timestampMs = 0;
+  recorder.recordFrame(frame(timestampMs, 16, 0));
+  for (let index = 0; index < 10_000; index += 1) {
+    const interval = index === 9_999 ? 51 : 16;
+    timestampMs += interval;
+    recorder.recordFrame(frame(timestampMs, interval, 1));
+  }
+
+  assert.equal(recorder.finish().allVisibleFrames.percentFramesOver50Ms, 0.01);
 });

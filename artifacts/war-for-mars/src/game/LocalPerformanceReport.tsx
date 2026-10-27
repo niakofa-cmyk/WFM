@@ -38,6 +38,12 @@ export function LocalPerformanceReport({
         This report stays in this browser and is not uploaded. Frame intervals estimate browser cadence,
         not GPU timing. Temperature is not exposed to the page; record any device warning separately.
       </p>
+      {summary.targetReached === false && summary.targetGameSeconds !== null && (
+        <p className="border border-alert/70 bg-alert/10 p-3 text-sm" role="alert" data-testid="performance-target-warning">
+          This run recorded {summary.simulatedSeconds.toFixed(1)} of {summary.targetGameSeconds} target game seconds.
+          It ended before the selected trial duration, so this is partial performance evidence.
+        </p>
+      )}
       <pre
         aria-label="Performance report data"
         className="max-h-80 overflow-auto whitespace-pre-wrap break-words border border-bone/20 bg-black/30 p-3 text-xs leading-relaxed"

@@ -32,6 +32,8 @@ type FrameStatsSummary = {
 };
 
 export type LocalPerformanceSummary = {
+  targetGameSeconds: number | null;
+  targetReached: boolean | null;
   elapsedWallSeconds: number;
   activeFrameSeconds: number;
   simulatedSeconds: number;
@@ -107,7 +109,7 @@ function createFrameStats() {
         p95FrameIntervalMs: percentile(0.95),
         p99FrameIntervalMs: percentile(0.99),
         framesOver50Ms,
-        percentFramesOver50Ms: frames > 0 ? round((framesOver50Ms / frames) * 100) : null,
+        percentFramesOver50Ms: frames > 0 ? round((framesOver50Ms / frames) * 100, 3) : null,
         gapsOver250Ms,
       };
     },
@@ -117,7 +119,10 @@ function createFrameStats() {
   };
 }
 
-export function createLocalPerformanceRecorder() {
+export function createLocalPerformanceRecorder(targetGameSeconds = 360) {
+  const targetDurationSeconds = Number.isFinite(targetGameSeconds) && targetGameSeconds > 0
+    ? targetGameSeconds
+    : null;
   const allVisibleFrames = createFrameStats();
   const firstGameMinute = createFrameStats();
   const finalGameMinute = createFrameStats();
@@ -159,7 +164,11 @@ export function createLocalPerformanceRecorder() {
       ) {
         allVisibleFrames.add(frame.frameIntervalMs);
         if (frame.gameSeconds < 60) firstGameMinute.add(frame.frameIntervalMs);
-        if (frame.gameSeconds >= 300 && frame.gameSeconds <= 360) {
+        if (
+          targetDurationSeconds !== null &&
+          frame.gameSeconds >= Math.max(0, targetDurationSeconds - 60) &&
+          frame.gameSeconds <= targetDurationSeconds + 1
+        ) {
           finalGameMinute.add(frame.frameIntervalMs);
         }
       }
@@ -206,6 +215,10 @@ export function createLocalPerformanceRecorder() {
         ? round(Math.max(0, lastTimestampMs - startedAtMs) / 1000)
         : 0;
       return {
+        targetGameSeconds: targetDurationSeconds,
+        targetReached: targetDurationSeconds === null
+          ? null
+          : simulatedSeconds >= targetDurationSeconds - 1,
         elapsedWallSeconds,
         activeFrameSeconds: round(allVisibleFrames.activeSeconds),
         simulatedSeconds: round(simulatedSeconds),

@@ -79,7 +79,9 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     setResult(null);
     setPerformanceSummary(null);
     setPerformanceCapturedAt("");
-    performanceRecorder.current = recordPerformance ? createLocalPerformanceRecorder() : null;
+    performanceRecorder.current = recordPerformance
+      ? createLocalPerformanceRecorder(pace === "strike" ? 360 : 120)
+      : null;
     lastMemoryMinute.current = -1;
     setPerformanceDevice(recordPerformance ? readLocalPerformanceDeviceInfo() : null);
     setRun((n) => n + 1);

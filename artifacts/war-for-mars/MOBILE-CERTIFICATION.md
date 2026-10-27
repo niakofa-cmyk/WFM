@@ -53,6 +53,28 @@ as expected: touch stayed neutral, deliberate drag worked, and release recentere
 the stick. This is user-reported control evidence only; the six-minute Strike
 sample and its performance metrics remain **PENDING**.
 
+### Physical Android sample — partial
+
+The user reported a local Solo Flight sample on the REVVL 8 (TMRV085G,
+Android 16), Chrome 156.0.0.0, in the Replit development preview. Captured
+2026-10-27 19:06:35.921 UTC in portrait: screen 360×803 CSS px, viewport
+360×754 CSS px, DPR 3. Reported frame cadence was 80.2 average FPS, p95 17 ms,
+p99 25 ms, one interval over 50 ms out of 18,298 (about 0.0055%), and zero
+intervals over 250 ms. The first game minute averaged 80.7 FPS with p95/p99
+17 ms. Heap readings stayed at 19.6 MiB used / 37.8 MiB total over five samples.
+No background/restore transitions were recorded, and the user did not notice
+heat or throttling warnings.
+
+This is **partial**, not six-minute evidence: the report recorded 221.7 game
+seconds and 228 wall seconds, while the selected Strike target is 360 game
+seconds. It contained no final-minute frames. The user marked the match
+complete, but the report does not identify whether it ended naturally or was
+exited early. Frame metrics are browser requestAnimationFrame cadence, not GPU
+render timing. The tested build was the Replit preview based on workspace HEAD
+`e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch-control
+changes; it was not a Railway deployment. Full six-minute performance remains
+**PENDING**.
+
 ## Proposed acceptance gates
 
 Record the raw trace and device/browser versions before marking a gate passed. These are project targets, not measurements from the current run.
