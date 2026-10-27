@@ -9,12 +9,12 @@ or claim that the frontend and API keys belong to the same Clerk instance.
 
 The intended public target is:
 
-| Setting | Expected value |
-| --- | --- |
-| WFM production origin | `https://niakofa.com` |
-| WFM route | `https://niakofa.com/kids/wfm/` |
-| Clerk issuer / Frontend API | `https://clerk.niakofa.com` |
-| Clerk JWKS URL | `https://clerk.niakofa.com/.well-known/jwks.json` |
+| Setting                     | Expected value                                    |
+| --------------------------- | ------------------------------------------------- |
+| WFM production origin       | `https://niakofa.com`                             |
+| WFM route                   | `https://niakofa.com/kids/wfm/`                   |
+| Clerk issuer / Frontend API | `https://clerk.niakofa.com`                       |
+| Clerk JWKS URL              | `https://clerk.niakofa.com/.well-known/jwks.json` |
 
 The route path is not part of an HTTP origin. The Production API CORS allowlist
 must contain exactly the canonical HTTPS origin `https://niakofa.com`, without a
@@ -27,32 +27,46 @@ runtime Clerk configuration and are not used to derive or rewrite a key.
 
 ## Structural preflight
 
-Run only from an owner-authorized, read-only environment scoped to Railway
-Production. Do not run from the Replit Development environment and mistake its
-managed Development keys for Production configuration.
+Run separately in the owner-authorized Railway Production app and API service
+contexts. Do not run from the Replit Development environment and mistake its
+managed Development keys for Production configuration. The app and API have
+different service-scoped variables, so one invocation must not be expected to
+see both sets of keys.
 
 ```sh
 WFM_CLERK_PREFLIGHT_TARGET=railway-production \
 WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
 WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
-pnpm --filter @workspace/scripts run preflight:clerk:production
+pnpm --filter @workspace/scripts run preflight:clerk:production -- --service frontend
+
+WFM_CLERK_PREFLIGHT_TARGET=railway-production \
+WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
+WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
+pnpm --filter @workspace/scripts run preflight:clerk:production -- --service api
 ```
 
-The preflight checks presence only for:
+The frontend invocation checks presence only for:
 
 - `VITE_CLERK_PUBLISHABLE_KEY`
+
+The API invocation checks presence only for:
+
 - `CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 
-It checks the public `WFM_PROD_CLERK_ISSUER` and
-`WFM_PROD_CLERK_JWKS_URL` metadata against the documented target, and checks
-`API_ALLOWED_ORIGINS` for the exact production origin. It emits variable names,
-presence states, and match/mismatch results only; it does not echo any
-configured values.
+The API invocation also checks `API_ALLOWED_ORIGINS` for the exact production
+origin. Both invocations check the public `WFM_PROD_CLERK_ISSUER` and
+`WFM_PROD_CLERK_JWKS_URL` metadata against the documented target. These public
+metadata values are command-scoped inputs, not new Railway variables; do not
+persist them in Railway. Each invocation emits variable names, presence states,
+and match/mismatch results only; it does not echo configured values. Both
+structural reports must pass before the manual checks below.
 
 `WFM_CLERK_PREFLIGHT_TARGET=railway-production` is an operator assertion, not
-proof of which environment supplied the process variables. Exit code `1` means
-the target was not asserted or a structural check is missing/mismatched. Exit
+proof of which environment supplied the process variables. An explicit
+`--service frontend` or `--service api` argument is required so the script does
+not read variables outside that service's scope. Exit code `1` means the target
+or service was not asserted, or a structural check is missing/mismatched. Exit
 code `2` means structural checks passed, but manual authorization and account
 verification still block Production enablement. The script never reports
 Production authentication as ready.

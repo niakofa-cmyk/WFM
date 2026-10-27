@@ -7,11 +7,10 @@ export const PRODUCTION_CLERK_TARGET = Object.freeze({
   jwksUrl: "https://clerk.niakofa.com/.well-known/jwks.json",
 });
 
-const REQUIRED_KEY_VARIABLES = Object.freeze([
-  "VITE_CLERK_PUBLISHABLE_KEY",
-  "CLERK_PUBLISHABLE_KEY",
-  "CLERK_SECRET_KEY",
-]);
+const REQUIRED_KEY_VARIABLES_BY_SERVICE = Object.freeze({
+  frontend: Object.freeze(["VITE_CLERK_PUBLISHABLE_KEY"]),
+  api: Object.freeze(["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"]),
+});
 
 const PREFLIGHT_TARGET_VARIABLE = "WFM_CLERK_PREFLIGHT_TARGET";
 const ISSUER_VARIABLE = "WFM_PROD_CLERK_ISSUER";
@@ -59,25 +58,38 @@ function manualVerificationStatus() {
   return {
     keyInstancePairing:
       "BLOCKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
-    emailDelivery:
-      "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
+    emailDelivery: "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
     dedicatedTestAccount:
       "BLOCKED_REQUIRES_APPROVED_DEDICATED_PRODUCTION_TEST_ACCOUNT",
     protectedApiAndSessionSmokeTest: "NOT_RUN",
   };
 }
 
-export function evaluateClerkProductionPreflight(environment = process.env) {
+export function evaluateClerkProductionPreflight(
+  environment = process.env,
+  serviceContext,
+) {
   const targetAsserted =
     environment[PREFLIGHT_TARGET_VARIABLE] === "railway-production";
+  const requiredKeyVariableNames = Object.hasOwn(
+    REQUIRED_KEY_VARIABLES_BY_SERVICE,
+    serviceContext,
+  )
+    ? REQUIRED_KEY_VARIABLES_BY_SERVICE[serviceContext]
+    : [];
 
-  if (!targetAsserted) {
+  if (!targetAsserted || requiredKeyVariableNames.length === 0) {
     return {
       check: "wfm-clerk-production-preflight",
-      targetContext: "NOT_ASSERTED",
+      targetContext: targetAsserted
+        ? "OPERATOR_ASSERTED_RAILWAY_PRODUCTION"
+        : "NOT_ASSERTED",
       targetContextVariable: PREFLIGHT_TARGET_VARIABLE,
+      serviceContext: requiredKeyVariableNames.length
+        ? serviceContext
+        : "NOT_ASSERTED",
       configurationStatus: "NOT_CHECKED",
-      requiredKeyVariables: REQUIRED_KEY_VARIABLES.map((name) => ({
+      requiredKeyVariables: requiredKeyVariableNames.map((name) => ({
         name,
         status: "NOT_CHECKED",
       })),
@@ -93,13 +105,14 @@ export function evaluateClerkProductionPreflight(environment = process.env) {
     };
   }
 
-  const requiredKeyVariables = REQUIRED_KEY_VARIABLES.map((name) => ({
+  const requiredKeyVariables = requiredKeyVariableNames.map((name) => ({
     name,
     status: variableIsPresent(environment, name) ? "PRESENT" : "MISSING",
   }));
-  const productionOrigin = exactOriginAllowlistStatus(
-    environment.API_ALLOWED_ORIGINS,
-  );
+  const productionOrigin =
+    serviceContext === "api"
+      ? exactOriginAllowlistStatus(environment.API_ALLOWED_ORIGINS)
+      : "NOT_CHECKED";
   const clerkIssuer = exactMetadataStatus(
     environment,
     ISSUER_VARIABLE,
@@ -113,7 +126,7 @@ export function evaluateClerkProductionPreflight(environment = process.env) {
 
   const configurationStatus =
     requiredKeyVariables.every((variable) => variable.status === "PRESENT") &&
-    productionOrigin === "MATCH" &&
+    (serviceContext === "frontend" || productionOrigin === "MATCH") &&
     clerkIssuer === "MATCH" &&
     clerkJwksUrl === "MATCH"
       ? "PASS"
@@ -122,6 +135,7 @@ export function evaluateClerkProductionPreflight(environment = process.env) {
   return {
     check: "wfm-clerk-production-preflight",
     targetContext: "OPERATOR_ASSERTED_RAILWAY_PRODUCTION",
+    serviceContext,
     publicTarget: {
       productionOrigin: PRODUCTION_CLERK_TARGET.origin,
       clerkIssuer: PRODUCTION_CLERK_TARGET.issuer,
@@ -130,7 +144,7 @@ export function evaluateClerkProductionPreflight(environment = process.env) {
     requiredKeyVariables,
     publicConfiguration: {
       productionOrigin: {
-        variable: "API_ALLOWED_ORIGINS",
+        variable: serviceContext === "api" ? "API_ALLOWED_ORIGINS" : null,
         status: productionOrigin,
       },
       clerkIssuer: {
@@ -152,8 +166,21 @@ export function evaluateClerkProductionPreflight(environment = process.env) {
   };
 }
 
+function serviceArgument(argumentsList) {
+  const index = argumentsList.indexOf("--service");
+  if (index >= 0) return argumentsList[index + 1];
+
+  const option = argumentsList.find((argument) =>
+    argument.startsWith("--service="),
+  );
+  return option?.slice("--service=".length);
+}
+
 function main() {
-  const report = evaluateClerkProductionPreflight(process.env);
+  const report = evaluateClerkProductionPreflight(
+    process.env,
+    serviceArgument(process.argv.slice(2)),
+  );
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = report.exitCode;
 }
@@ -167,7 +194,9 @@ if (
   } catch {
     // Do not include exception text: environment access or malformed input
     // must never result in values being echoed to the terminal.
-    console.error("Production Clerk preflight failed safely; no values logged.");
+    console.error(
+      "Production Clerk preflight failed safely; no values logged.",
+    );
     process.exitCode = 1;
   }
 }

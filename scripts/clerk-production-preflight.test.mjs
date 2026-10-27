@@ -34,7 +34,7 @@ test("does not inspect Production variables until Railway Production is asserted
     });
   }
 
-  const report = evaluateClerkProductionPreflight(environment);
+  const report = evaluateClerkProductionPreflight(environment, "api");
   assert.equal(report.targetContext, "NOT_ASSERTED");
   assert.equal(report.configurationStatus, "NOT_CHECKED");
   assert.equal(report.productionEnablement, "BLOCKED");
@@ -42,9 +42,20 @@ test("does not inspect Production variables until Railway Production is asserted
 });
 
 test("passes structural checks without claiming key pairing or Production readiness", () => {
-  const report = evaluateClerkProductionPreflight(readyEnvironment());
+  const environment = readyEnvironment();
+  Object.defineProperty(environment, "VITE_CLERK_PUBLISHABLE_KEY", {
+    get() {
+      assert.fail("frontend publishable key must not be read in the API scope");
+    },
+  });
+  const report = evaluateClerkProductionPreflight(environment, "api");
 
   assert.equal(report.configurationStatus, "PASS");
+  assert.equal(report.serviceContext, "api");
+  assert.deepEqual(
+    report.requiredKeyVariables.map(({ name }) => name),
+    ["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"],
+  );
   assert.equal(report.publicConfiguration.productionOrigin.status, "MATCH");
   assert.equal(report.publicConfiguration.clerkIssuer.status, "MATCH");
   assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MATCH");
@@ -56,7 +67,10 @@ test("passes structural checks without claiming key pairing or Production readin
     report.manualVerification.emailDelivery,
     "BLOCKED_REQUIRES_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION",
   );
-  assert.equal(report.manualVerification.protectedApiAndSessionSmokeTest, "NOT_RUN");
+  assert.equal(
+    report.manualVerification.protectedApiAndSessionSmokeTest,
+    "NOT_RUN",
+  );
   assert.equal(report.productionEnablement, "BLOCKED");
   assert.equal(report.exitCode, 2);
 });
@@ -64,20 +78,23 @@ test("passes structural checks without claiming key pairing or Production readin
 test("reports required key-variable presence without returning or printing values", () => {
   const report = evaluateClerkProductionPreflight(
     readyEnvironment({ CLERK_SECRET_KEY: undefined }),
+    "api",
   );
   const serialized = JSON.stringify(report);
 
-  assert.deepEqual(
-    report.requiredKeyVariables,
-    [
-      { name: "VITE_CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
-      { name: "CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
-      { name: "CLERK_SECRET_KEY", status: "MISSING" },
-    ],
-  );
+  assert.deepEqual(report.requiredKeyVariables, [
+    { name: "CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
+    { name: "CLERK_SECRET_KEY", status: "MISSING" },
+  ]);
   assert.equal(serialized.includes("secret-sentinel-must-not-print"), false);
-  assert.equal(serialized.includes("publishable-sentinel-must-not-print"), false);
-  assert.equal(serialized.includes("api-publishable-sentinel-must-not-print"), false);
+  assert.equal(
+    serialized.includes("publishable-sentinel-must-not-print"),
+    false,
+  );
+  assert.equal(
+    serialized.includes("api-publishable-sentinel-must-not-print"),
+    false,
+  );
   assert.equal(report.secretValuesPrinted, false);
   assert.equal(report.configurationStatus, "BLOCKED");
   assert.equal(report.exitCode, 1);
@@ -90,6 +107,7 @@ test("blocks an incorrect issuer or JWKS URL without echoing configured values",
       WFM_PROD_CLERK_JWKS_URL:
         "https://wrong-instance.example/.well-known/jwks.json",
     }),
+    "api",
   );
   const serialized = JSON.stringify(report);
 
@@ -108,8 +126,12 @@ test("requires the exact canonical HTTPS production origin allowlist", () => {
   ]) {
     const report = evaluateClerkProductionPreflight(
       readyEnvironment({ API_ALLOWED_ORIGINS: invalidOrigin }),
+      "api",
     );
-    assert.equal(report.publicConfiguration.productionOrigin.status, "MISMATCH");
+    assert.equal(
+      report.publicConfiguration.productionOrigin.status,
+      "MISMATCH",
+    );
     assert.equal(report.configurationStatus, "BLOCKED");
   }
 });
@@ -120,9 +142,57 @@ test("missing public issuer/JWKS metadata remains a blocker", () => {
       WFM_PROD_CLERK_ISSUER: undefined,
       WFM_PROD_CLERK_JWKS_URL: undefined,
     }),
+    "api",
   );
 
   assert.equal(report.publicConfiguration.clerkIssuer.status, "MISSING");
   assert.equal(report.publicConfiguration.clerkJwksUrl.status, "MISSING");
   assert.equal(report.productionEnablement, "BLOCKED");
+});
+
+test("frontend scope checks only its own publishable key", () => {
+  const environment = readyEnvironment();
+  for (const name of [
+    "CLERK_PUBLISHABLE_KEY",
+    "CLERK_SECRET_KEY",
+    "API_ALLOWED_ORIGINS",
+  ]) {
+    Object.defineProperty(environment, name, {
+      get() {
+        assert.fail(`${name} must not be read in the frontend service scope`);
+      },
+    });
+  }
+
+  const report = evaluateClerkProductionPreflight(environment, "frontend");
+  assert.equal(report.configurationStatus, "PASS");
+  assert.equal(report.serviceContext, "frontend");
+  assert.deepEqual(report.requiredKeyVariables, [
+    { name: "VITE_CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
+  ]);
+  assert.equal(
+    report.publicConfiguration.productionOrigin.status,
+    "NOT_CHECKED",
+  );
+  assert.equal(report.productionEnablement, "BLOCKED");
+});
+
+test("requires an explicit app or API service scope before inspecting keys", () => {
+  const environment = readyEnvironment();
+  for (const name of Object.keys(syntheticKeys)) {
+    Object.defineProperty(environment, name, {
+      get() {
+        assert.fail(
+          `key variable ${name} must not be read without a service scope`,
+        );
+      },
+    });
+  }
+
+  const report = evaluateClerkProductionPreflight(environment);
+  assert.equal(report.targetContext, "OPERATOR_ASSERTED_RAILWAY_PRODUCTION");
+  assert.equal(report.serviceContext, "NOT_ASSERTED");
+  assert.equal(report.configurationStatus, "NOT_CHECKED");
+  assert.equal(report.productionEnablement, "BLOCKED");
+  assert.equal(report.exitCode, 1);
 });
