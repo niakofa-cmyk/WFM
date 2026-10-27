@@ -901,6 +901,50 @@
     "cleanup": "Staging gateway logout returned 303 and cleared the gateway cookie; browser context closed. No account session or run was created.",
     "productionModified": false
   },
+  "latestPhysicalAndroidPartialObservation": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "hostConfirmedByTester": "wfm-app-staging-staging.up.railway.app",
+    "device": "Physical Android phone, tester-reported",
+    "deviceMetadata": "Model, Android version, Chrome version, viewport, network, and screenshots were not supplied.",
+    "status": "PARTIAL_PRE_FIX_OBSERVATION",
+    "profileLoad": "PASS_REPORTED",
+    "portraitNotes": "Tester notes reported the logo centered and interface visible, with the background shifted right.",
+    "landscapeNotes": "Tester reported that the background appeared fully visible after rotating to landscape.",
+    "verticalTouchScrolling": "FAIL_REPORTED_ON_OBSERVED_SCREEN; other screens and devices were not assessed.",
+    "enteredGameFlight": false,
+    "rewardClaimActivity": "No reward activity was reported; tester had not entered a flight.",
+    "evidenceAttachments": [],
+    "requiresRetestAfterScrollFix": true,
+    "releaseGate": "PENDING",
+    "productionModified": false,
+    "scope": "User-reported live physical-device observation, not independently captured or a complete device certification."
+  },
+  "latestMobileScrollFixVerification": {
+    "verifiedAtUtc": "2026-10-27T13:13:31Z",
+    "testedSourceCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",
+    "branch": "staging",
+    "frozenLockfileInstall": "PASS",
+    "typecheck": "PASS",
+    "workspaceTests": {
+      "scripts": { "passed": 17, "failed": 0 },
+      "api": { "passed": 73, "failed": 0 },
+      "game": { "passed": 35, "failed": 0 }
+    },
+    "workspaceBuild": "PASS",
+    "publicE2E": {
+      "passed": 7,
+      "failed": 0,
+      "verticalTouchScrollRegression": "PASS at 320x568 on landing and solo setup",
+      "arenaTouchLock": "PASS",
+      "physicalDeviceEvidence": false
+    },
+    "stagingDeployment": "NOT_YET_DEPLOYED",
+    "clerkConfigurationChanged": false,
+    "railwayProductionChanged": false,
+    "productionDeployment": false,
+    "scope": "Local workspace verification of content-page scrolling. Active Arena remains touch-locked for gameplay controls; physical staging retest is still required."
+  },
   "latestInterruptedRewardAudit": {
     "recordedOn": "2026-10-27",
     "environment": "staging",

@@ -406,6 +406,38 @@ reward claim occurred. This is live website browser evidence only, **not**
 physical Android evidence. It does not clear the interrupted-reward or physical
 device release gates.
 
+### Tester-reported physical Android observation before the scroll fix
+
+On 2026-10-27, the staging owner confirmed the Railway staging host and reported
+that sign-in reached a loaded profile on a physical Android phone. The tester's
+notes described the portrait logo as centered with the visible interface fitting,
+but the background shifted right; after rotating to landscape, the background
+appeared fully visible. The tester also reported that vertical touch scrolling
+did not work on the screen they were viewing, and confirmed they had not entered
+a flight.
+
+This is a partial user-reported observation, not a captured or complete device
+certification. The phone model, Android and Chrome versions, viewport, network,
+exact observation time, and screenshots were not supplied; other screens and
+devices were not checked. No reward activity or preference change was reported.
+The physical-device gate remains **PENDING**.
+
+### Mobile scrolling fix and local verification
+
+Commit `72e3c7a47d5509f89d88efac738787f9d9055972` restores natural vertical page
+scrolling on content screens and removes fixed-height clipping from the landing,
+home, lobby, profile/error, debrief, and hangar layouts. The active Arena remains
+full-screen and touch-locked so page scrolling cannot interfere with flight
+controls.
+
+The frozen-lockfile install, workspace typecheck, all workspace tests, and
+workspace builds passed. Results: scripts `17/17`, API `73/73`, game `35/35`;
+Playwright public E2E `7/7`, including touch-scroll checks at `320x568` for the
+landing and solo setup and an assertion that the Arena stays touch-locked.
+These are local/browser checks only. The commit has not yet been deployed to
+staging; the physical phone must retest scrolling on the updated staging build.
+The interrupted-reward and physical-device release gates remain **PENDING**.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment
