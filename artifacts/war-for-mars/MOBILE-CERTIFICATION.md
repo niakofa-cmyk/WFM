@@ -55,6 +55,9 @@ Use a real Android phone with Chrome and a real iPhone with Safari. Do not subst
 5. Repeat the full pass on Android Chrome and iOS Safari. Attach trace files or screen recordings and fill the evidence rows above.
 
 For the complete tactile playtest script and ship-by-ship notes, see `PHONE-PLAYTEST-CHECKLIST.md`.
+For the exact iOS Safari and Android Chrome staging smoke procedure, paired-device
+profile-sync checks, and a fill-in evidence record, see
+`PHYSICAL-DEVICE-SMOKE-TEST.md`.
 
 ## Current disposition
 

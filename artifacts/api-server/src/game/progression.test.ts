@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq } from "drizzle-orm";
+import { WebSocket } from "ws";
 import {
   db,
   playerProgressTable,
@@ -28,6 +29,52 @@ import {
   validateStrikeReplayInputs,
   type ReplayClaim,
 } from "./rewards";
+import { startWingSocketServer } from "../socket/server";
+import { StrikeRunIdParams } from "../routes/strikes";
+
+type SocketTestPacket = { type?: string; [key: string]: unknown };
+
+function waitForSocketPacket(
+  socket: WebSocket,
+  matches: (packet: SocketTestPacket) => boolean,
+  timeoutMs = 3_000,
+) {
+  return new Promise<SocketTestPacket>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off("message", onMessage);
+      reject(new Error("Timed out waiting for the expected room packet."));
+    }, timeoutMs);
+    const onMessage = (data: Buffer) => {
+      let packet: SocketTestPacket;
+      try {
+        packet = JSON.parse(data.toString()) as SocketTestPacket;
+      } catch {
+        return;
+      }
+      if (!matches(packet)) return;
+      clearTimeout(timer);
+      socket.off("message", onMessage);
+      resolve(packet);
+    };
+    socket.on("message", onMessage);
+  });
+}
+
+function openTestSocket(url: string) {
+  return new Promise<WebSocket>((resolve, reject) => {
+    const socket = new WebSocket(url);
+    socket.once("open", () => resolve(socket));
+    socket.once("error", reject);
+  });
+}
+
+function closeTestSocket(socket: WebSocket) {
+  if (socket.readyState === WebSocket.CLOSED) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    socket.once("close", () => resolve());
+    socket.close();
+  });
+}
 
 test("strike replay validation enforces frame limits, strict input shapes, and pulse transitions", () => {
   const idle = {
@@ -224,6 +271,8 @@ test(
 
       const claim = await claimPlayerStrike(userId, run.runId, []);
       assert.deepEqual(claim, { error: "expired" });
+      const replayedExpiredClaim = await claimPlayerStrike(userId, run.runId, []);
+      assert.deepEqual(replayedExpiredClaim, { error: "expired" });
 
       const afterClaim = await getPlayerProfile(userId);
       assert.equal(afterClaim.credits, beforeClaim.credits);
@@ -240,6 +289,96 @@ test(
         .where(eq(strikeRunsTable.id, run.runId));
       assert.equal(expiredRun?.status, "expired");
     } finally {
+      await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
+      await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
+      await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
+    }
+  },
+);
+
+test(
+  "an interrupted online room cannot be replayed as a single-player reward after restart",
+  { skip: !process.env.DATABASE_URL },
+  async () => {
+    const userId = `test_interrupted_room_${randomUUID()}`;
+    const roomId = `ROOM${randomUUID().replaceAll("-", "").slice(0, 8)}`;
+    let runtime = await startWingSocketServer(0, "127.0.0.1");
+    const sockets: WebSocket[] = [];
+
+    try {
+      const before = await getPlayerProfile(userId);
+      const socket = await openTestSocket(
+        `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`,
+      );
+      sockets.push(socket);
+
+      const joined = waitForSocketPacket(socket, (packet) => packet.type === "joined");
+      socket.send(JSON.stringify({ type: "join", name: "Pilot" }));
+      const joinedPacket = await joined;
+      const reconnectToken = String(joinedPacket.reconnectToken);
+
+      const ready = waitForSocketPacket(socket, (packet) => {
+        if (packet.type !== "lobby" || !Array.isArray(packet.players)) return false;
+        return (packet.players as Array<{ ready?: boolean }>).some((player) => player.ready);
+      });
+      socket.send(JSON.stringify({ type: "ready", ready: true }));
+      await ready;
+
+      const started = waitForSocketPacket(socket, (packet) => packet.type === "started");
+      socket.send(JSON.stringify({ type: "start" }));
+      await started;
+
+      const interrupted = waitForSocketPacket(socket, (packet) => packet.type === "interrupted");
+      const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+        socket.once("close", (code, reason) => resolve({ code, reason: reason.toString() }));
+      });
+      const shutdown = runtime.close();
+      const interruption = await interrupted;
+      assert.equal(interruption.reason, "server_restart");
+      socket.send(JSON.stringify({ type: "interrupted_ack" }));
+      await shutdown;
+      assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
+
+      runtime = await startWingSocketServer(0, "127.0.0.1");
+      const staleSocket = await openTestSocket(
+        `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`,
+      );
+      sockets.push(staleSocket);
+      const staleSession = waitForSocketPacket(staleSocket, (packet) => packet.type === "error");
+      staleSocket.send(JSON.stringify({
+        type: "join",
+        name: "Pilot",
+        reconnectToken,
+      }));
+      assert.equal((await staleSession).reason, "session_lost");
+
+      assert.equal(StrikeRunIdParams.safeParse({ runId: roomId }).success, false);
+      await assert.rejects(
+        claimPlayerStrike(userId, randomUUID(), []),
+        (error: unknown) => error instanceof ProgressionError && error.status === 404,
+      );
+
+      const after = await getPlayerProfile(userId);
+      assert.equal(after.credits, before.credits);
+      assert.equal(after.cleared, before.cleared);
+      assert.equal(after.revision, before.revision);
+      assert.equal(
+        (await db
+          .select()
+          .from(strikeRunsTable)
+          .where(eq(strikeRunsTable.userId, userId))).length,
+        0,
+      );
+      assert.equal(
+        (await db
+          .select()
+          .from(progressionEventsTable)
+          .where(eq(progressionEventsTable.userId, userId))).length,
+        0,
+      );
+    } finally {
+      await Promise.all(sockets.map(closeTestSocket));
+      await runtime.close();
       await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
       await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
       await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
@@ -383,6 +522,16 @@ test(
           preset: null,
         }]),
         (error: unknown) => error instanceof ProgressionError && error.status === 409,
+      );
+      const afterChangedReplay = await getPlayerProfile(userId);
+      assert.equal(afterChangedReplay.credits, firstClaim.profile.credits);
+      assert.equal(afterChangedReplay.revision, firstClaim.profile.revision);
+      assert.equal(
+        (await db
+          .select()
+          .from(progressionEventsTable)
+          .where(eq(progressionEventsTable.idempotencyKey, rewardEventKey))).length,
+        1,
       );
     } finally {
       await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
