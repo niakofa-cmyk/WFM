@@ -19,9 +19,10 @@ submit a Strike reward claim during this smoke test.
   Record the actual deployed source/deployment identifiers below; do not assume
   the baseline values remain current.
 - Keep this run to profile loading, a reversible non-purchase preference change,
-  and the app's no-reward practice flow. Do not start a rewarded Strike, call a
-  claim endpoint manually, or use an online match as a substitute for this sync
-  check.
+  and the local no-reward Solo Flight at `/play`. Signed-in WarApp Practice is
+  server-authorized and may award credits on completion. Do not start signed-in
+  Practice or Strike, call a claim endpoint manually, or use an online match as
+  a substitute for this sync check.
 - The known cross-session preference test used `STRAFE` and restored `ARC`.
   That server write may create unclaimed staging sortie records. Record whether
   the staging app created any; do not delete records directly from the database.
@@ -113,15 +114,15 @@ device gate.
    appears. Do not change profile preferences, purchase, launch a Strike, or
    claim a reward.
 4. Check portrait and landscape layout, safe areas, and control reachability.
-   If the no-reward Practice mode is available, verify both sticks, fire,
-   ability, and touch release/cancellation. Do not continue if a flow would
-   launch a rewarded Strike.
-5. Briefly background and restore Chrome, then exit Practice normally. Confirm
-   there is no stuck input or reward claim request. Sign out.
-6. Attach sanitized screenshots or a short recording plus the device/browser
+5. For no-reward input checks, open `/play` and confirm the local/no-reward
+   notice. Verify both sticks, fire, ability, and touch release/cancellation.
+   Do not use signed-in WarApp Practice or Strike for this check.
+6. Briefly background and restore Chrome, then exit with `EXIT SOLO FLIGHT`.
+   Confirm there is no stuck input. Sign out.
+7. Attach sanitized screenshots or a short recording plus the device/browser
    details. Do not include account identifiers, email, access/verification
    codes, tokens, cookies, or browser storage.
-7. Record the result as `PARTIAL`. The iPhone Safari and paired cross-device
+8. Record the result as `PARTIAL`. The iPhone Safari and paired cross-device
    synchronization rows remain `NOT RUN` and the full physical-device gate
    remains `PENDING`.
 
