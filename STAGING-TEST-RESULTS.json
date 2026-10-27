@@ -968,6 +968,24 @@
     "physicalDeviceReleaseGate": "PENDING",
     "scope": "User-reported staging result plus source-path review; no independent claim response or database event evidence."
   },
+  "latestStagingAndroidLocalSoloFlight": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "route": "/play",
+    "device": "Physical Android phone, tester-reported",
+    "deviceMetadata": "Model, Android version, Chrome version, viewport, network, observation time, and screenshots were not supplied.",
+    "localNoRewardNotice": "PASS_REPORTED; owner confirmed the local no-reward notice was visible before launch.",
+    "controlResult": "PASS_REPORTED_PARTIAL; owner said all tested controls worked, but did not enumerate each control.",
+    "flightStats": "NOT_SUPPLIED; do not attribute the separate Development-preview flight stats to this staging run.",
+    "postRunCreditsOrBalance": "NOT_SUPPLIED; no account balance change is claimed.",
+    "finalScreenOrExit": "NOT_SUPPLIED",
+    "networkOrRewardLedgerEvidence": "NOT_CAPTURED; local Solo Flight does not use the authenticated server reward-claim flow.",
+    "productionModified": false,
+    "interruptedRewardGate": "PENDING; local Solo Flight does not exercise server reward-claim denial.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "scope": "Supplemental user-reported physical Android staging control evidence only; not profile-sync, interrupted-reward, or full device-matrix certification."
+  },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",
     "testedSourceCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",

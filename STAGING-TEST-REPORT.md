@@ -483,6 +483,23 @@ no-reward touch-control checks. This completed Practice result remains a
 user-reported staging observation only; the live interrupted-reward and full
 physical-device release gates remain **PENDING**.
 
+### Tester-reported physical Android staging Solo Flight check
+
+The owner then opened the staging `/play` route on a physical Android phone and
+reported that the local no-reward notice was visible. After proceeding with the
+local flight, they reported **“All tested controls worked.”** The specific
+controls, flight statistics, post-flight balance, final screen, phone model,
+Android/Chrome versions, viewport, network, observation time, and screenshots
+were not supplied.
+
+This is partial user-reported physical staging evidence for the local flight
+controls. The `/play` Solo Flight is separate from signed-in WarApp Practice and
+does not use the server reward-claim flow. No direct network trace or reward
+ledger was captured, and no staging balance change is claimed. This does not
+verify interrupted/expired reward denial, profile sync, or the complete
+physical-device matrix. The interrupted-reward and physical-device release
+gates remain **PENDING**.
+
 ### Read-only staging inventory
 
 Railway confirmed the separate `wfm-staging` project and `staging` environment
