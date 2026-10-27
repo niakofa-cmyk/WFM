@@ -1634,7 +1634,10 @@ export function Arena({
 
   const bus = busRef.current;
   return (
-    <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
+    <div
+      data-testid="arena-stage"
+      className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none"
+    >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (

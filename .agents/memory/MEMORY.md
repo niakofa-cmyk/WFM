@@ -19,3 +19,4 @@
 - [Replay runtime determinism](replay-runtime-determinism.md) — native Math trig/exp differ Node vs Chromium; sim must use detmath ports and pass the Chromium gate.
 - [Progression sync boundary](progression-sync-boundary.md) — account freshness must not change an issued flight; obsolete account/view responses must not apply.
 - [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
+- [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.

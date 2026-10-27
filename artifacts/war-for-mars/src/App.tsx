@@ -87,7 +87,7 @@ function SignUpPage() {
 
 function PublicLanding() {
   return (
-    <main className="relative flex min-h-dvh items-center overflow-hidden bg-void px-6 py-12 text-bone sm:px-12">
+    <main className="relative flex min-h-dvh items-center bg-void px-6 py-12 text-bone sm:px-12">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_50%,rgba(138,58,36,0.25),transparent_52%)]" />
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
         <section>

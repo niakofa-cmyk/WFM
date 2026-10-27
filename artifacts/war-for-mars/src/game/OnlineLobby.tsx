@@ -32,7 +32,7 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
     lobby.players.filter((player) => player.connected).every((player) => player.ready);
 
   return (
-    <main className="flex h-dvh w-full items-center justify-center overflow-y-auto bg-void px-4 py-8 text-bone">
+    <main className="flex min-h-dvh w-full items-center justify-center bg-void px-4 py-8 text-bone">
       <section className="w-full max-w-2xl border border-solar/70 bg-void/95 p-5 shadow-2xl sm:p-8">
         <p className="font-hud text-xs tracking-[0.24em] text-solar">PRIVATE WING · LOBBY</p>
         <h1 className="mt-2 font-hud text-4xl leading-none sm:text-5xl">ASSEMBLE YOUR STRIKE</h1>

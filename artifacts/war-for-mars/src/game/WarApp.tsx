@@ -745,7 +745,7 @@ export function WarApp() {
 
   if (profileStatus === "loading") {
     return (
-      <main className="flex h-dvh items-center justify-center bg-void px-6 text-center">
+      <main className="flex min-h-dvh items-center justify-center bg-void px-6 text-center">
         <p className="font-hud text-lg tracking-widest text-solar">CONNECTING TO PHOBOS YARD…</p>
       </main>
     );
@@ -753,7 +753,7 @@ export function WarApp() {
 
   if (profileStatus === "error") {
     return (
-      <main className="flex h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
         <p className="font-hud text-sm tracking-widest text-alert">PLAYER PROFILE UNAVAILABLE</p>
         <h1 className="font-hud text-4xl text-bone">No progress is stored on this device.</h1>
         <p className="max-w-lg text-sm leading-relaxed text-muted">{profileError}</p>
@@ -901,7 +901,7 @@ export function WarApp() {
             : "Wing lost"
           : "Split disc";
     return (
-      <main className="mx-auto flex h-dvh max-w-xl flex-col justify-center gap-4 overflow-y-auto px-5 py-8">
+      <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
         <h1 className="font-hud text-5xl leading-none text-bone">{title}</h1>
         <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">
@@ -1040,8 +1040,8 @@ export function WarApp() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col px-4 pt-5">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 px-4 pb-5 pt-5">
+      <div className="flex flex-col gap-4 pb-3">
       <header>
         <p className="font-hud text-sm tracking-widest text-solar">USSF VS THE ACCORD</p>
         <h1 className="font-hud text-5xl leading-none text-bone sm:text-6xl">WAR FOR MARS</h1>

@@ -20,6 +20,62 @@ test("sign-up route renders the existing Clerk form", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
 });
 
+test("small-phone landing and solo setup respond to vertical touch scrolling", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 320, height: 568 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+
+  const swipeUp = async () => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ id: 1, x: 160, y: 520, radiusX: 8, radiusY: 8, force: 1 }],
+    });
+    for (const y of [440, 350, 260, 170]) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ id: 1, x: 160, y, radiusX: 8, radiusY: 8, force: 1 }],
+      });
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await cdp.detach();
+  };
+
+  try {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: /war for mars/i })).toBeVisible();
+    const landing = await page.evaluate(() => ({
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(landing.scrollHeight).toBeGreaterThan(landing.clientHeight);
+    expect(landing.scrollWidth).toBeLessThanOrEqual(landing.clientWidth);
+    await swipeUp();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await page.goto("/play");
+    await expect(page.getByTestId("solo-flight")).toBeVisible();
+    const setup = await page.evaluate(() => ({
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(setup.scrollHeight).toBeGreaterThan(setup.clientHeight);
+    expect(setup.scrollWidth).toBeLessThanOrEqual(setup.clientWidth);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await swipeUp();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  } finally {
+    await context.close();
+  }
+});
+
 test("solo flight launches and exits the playable 3D scene", async ({ page }) => {
   await page.goto("/play");
 
@@ -50,6 +106,8 @@ test("mobile flight controls reserve device safe areas", async ({ page }) => {
   expect(viewport).not.toContain("maximum-scale=1");
 
   await page.getByTestId("button-solo-launch").click();
+  await expect(page.getByTestId("arena-stage")).toHaveCSS("touch-action", "none");
+  await expect(page.getByTestId("arena-stage")).toHaveCSS("overflow", "hidden");
   await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
 
   const leftStyle = await page.getByTestId("flight-controls-left").getAttribute("style");

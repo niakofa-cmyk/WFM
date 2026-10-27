@@ -36,7 +36,8 @@ export function HomeScreen(props: HomeProps) {
   const { state, onAction } = props;
   return (
     <section
-      className="relative h-dvh overflow-hidden bg-void text-bone"
+      data-testid="home-screen"
+      className="relative min-h-dvh bg-void text-bone"
       style={{
         backgroundImage: "url(/mars-front.jpg)",
         backgroundSize: "cover",
@@ -44,7 +45,7 @@ export function HomeScreen(props: HomeProps) {
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-transparent" />
-      <div className="relative flex h-full flex-col justify-between px-5 py-6 sm:px-10">
+      <div className="relative flex min-h-dvh flex-col justify-between px-5 py-6 sm:px-10">
         <p className="font-hud text-xs tracking-widest text-solar">USSF VS THE ACCORD · PHOBOS MOON</p>
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
@@ -179,7 +180,7 @@ function MainMenu({
 
 function Armory(props: HomeProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4">
+    <div className="flex flex-col gap-3 py-4">
       <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
       <div className="grid max-w-xl grid-cols-2 gap-2">
         <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} />
