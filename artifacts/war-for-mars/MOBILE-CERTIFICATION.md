@@ -95,9 +95,10 @@ changes; it was not a Railway deployment. Full six-minute performance remains
 **PENDING**.
 
 The report format includes the selected trial target and a `targetReached`
-flag, with an on-screen warning when a match ends early. The current local
-endurance sample accumulates active gameplay across natural local rounds and
-reports result-screen frames separately.
+flag, with an on-screen warning when a run ends early. The local endurance
+sample is one no-reward session: it suppresses mission and integrity endings
+only for that session and stops at the 360-second cap. Normal Strike retains
+its early mission endings. Result-screen frames are reported separately.
 
 A later supplied sample summary recorded one round ending at 170.8 active game
 seconds, followed by 4.5 seconds of post-match frames. This is consistent with
@@ -136,7 +137,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 Use a real Android phone with Chrome and a real iPhone with Safari. Do not substitute desktop responsive mode.
 
 1. Record phone model, OS version, browser version, screen dimensions, orientation, network, and tested commit.
-2. Enable **Record local performance**, then run the local Strike endurance sample. After each natural early result, tap **Continue performance sample** until the report says the 360-second target was reached. Record active-play FPS, p95/p99 frame time, frames over 50 ms, final-minute metrics, and memory at warm-up, minute 3, and minute 6; keep result-screen and transition time separate.
+2. With Strike selected, enable **Run one local endurance sample**. This is a single browser-only no-reward run; objectives and integrity depletion are suppressed only for this sample. Record active-play FPS, p95/p99 frame time, frames over 50 ms, final-minute metrics, and memory at warm-up, minute 3, and minute 6. Result-screen and transition time remain separate.
 3. Exercise left and right sticks simultaneously; fire while steering; lock a target; activate each ship's ability; adjust power; and test gyro permission grant and denial.
 4. During input, release a pointer, trigger pointer cancellation if possible, background and restore the browser, and rotate the phone. Confirm controls return neutral and the match pauses/resumes as specified.
 5. Repeat the full pass on Android Chrome and iOS Safari. Attach trace files or screen recordings and fill the evidence rows above.

@@ -71,7 +71,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   const [performanceCapturedAt, setPerformanceCapturedAt] = useState("");
   const performanceRecorder = useRef<ReturnType<typeof createLocalPerformanceRecorder> | null>(null);
   const lastMemoryMinute = useRef(-1);
-  const performanceEndurance = useRef(false);
+  const localEndurance = useRef(false);
   const performanceCompleteRef = useRef(false);
   const performanceRoundEnded = useRef(false);
 
@@ -91,7 +91,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     setPerformanceSummary(null);
     setPerformanceCapturedAt("");
     performanceCompleteRef.current = false;
-    performanceEndurance.current = recordPerformance && pace === "strike";
+    localEndurance.current = recordPerformance && pace === "strike";
     performanceRoundEnded.current = false;
     performanceRecorder.current = recordPerformance
       ? createLocalPerformanceRecorder(pace === "strike" ? 360 : 120)
@@ -109,7 +109,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     recorder.recordMemorySample(recorder.getLatestGameSeconds(), readBrowserHeap());
     setPerformanceSummary(recorder.finish());
     setPerformanceCapturedAt(new Date().toISOString());
-    setPerformanceComplete(!finalResult && performanceEndurance.current && recorder.isTargetReached());
+    setPerformanceComplete(!finalResult && localEndurance.current && recorder.isTargetReached());
     setResult(finalResult ?? null);
     setPhase("done");
   }, []);
@@ -124,15 +124,21 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     const recorder = performanceRecorder.current;
     if (!recorder || performanceCompleteRef.current) return;
     recorder.recordFrame(frame);
-    if (frame.phase === "post-match") performanceRoundEnded.current = true;
+    if (frame.phase === "post-match" && !performanceRoundEnded.current) {
+      recorder.recordRoundFinished();
+      performanceRoundEnded.current = true;
+    }
     const gameSeconds = recorder.getLatestGameSeconds();
     const minute = Math.floor(gameSeconds / 60);
     if (minute !== lastMemoryMinute.current) {
       lastMemoryMinute.current = minute;
       recorder.recordMemorySample(gameSeconds, readBrowserHeap());
     }
-    if (performanceEndurance.current && recorder.isTargetReached()) {
-      if (frame.phase === "post-match") recorder.recordRoundFinished();
+    if (localEndurance.current && recorder.isTargetReached()) {
+      if (!performanceRoundEnded.current) {
+        recorder.recordRoundFinished();
+        performanceRoundEnded.current = true;
+      }
       completePerformance();
     }
   }, [completePerformance]);
@@ -189,12 +195,9 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
           onDone={(r) => {
             const recorder = performanceRecorder.current;
             if (recorder) {
-              recorder.recordRoundFinished();
-              if (performanceEndurance.current && !recorder.isTargetReached()) {
-                recorder.beginNextRound();
-                performanceRoundEnded.current = false;
-                setRun((n) => n + 1);
-                return;
+              if (!performanceRoundEnded.current) {
+                recorder.recordRoundFinished();
+                performanceRoundEnded.current = true;
               }
               completePerformance(r);
               return;
@@ -204,7 +207,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
           }}
           onPerformanceFrame={recordPerformance ? onPerformanceFrame : undefined}
           onPerformanceVisibilityChange={recordPerformance ? onPerformanceVisibilityChange : undefined}
-          performanceEndurance={recordPerformance && pace === "strike"}
+          localEndurance={recordPerformance && pace === "strike"}
           onNetworkExit={() => setPhase("setup")}
           onGraphicsError={(message) => {
             setFlightError(`3D flight could not start: ${message}. This game requires WebGL2. Check your browser's graphics settings or try a supported browser/device.`);
@@ -218,10 +221,6 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
         onClick={() => {
           if (performanceRecorder.current) {
-            if (performanceRoundEnded.current) {
-              performanceRecorder.current.recordRoundFinished();
-              performanceRoundEnded.current = false;
-            }
             completePerformance();
           }
           else setPhase("setup");
@@ -263,7 +262,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
 
         {performanceComplete && (
           <section aria-live="polite" className="sf-note" data-testid="performance-complete">
-            Six minutes of active gameplay were recorded across local rounds. This is a no-reward device sample, not a match result.
+            One local no-reward endurance run reached six active gameplay minutes. This is a performance sample, not a match result.
           </section>
         )}
         {performanceSummary && performanceDevice && (
@@ -307,10 +306,10 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
             type="checkbox"
           />
           <span>
-            <strong>Record local performance</strong>
+            <strong>Run one local endurance sample</strong>
             <small>
-              Optional browser-only sample. Strike continues across local rounds until 360 active gameplay seconds are captured.
-              Result-screen frames are reported separately; no account, server, reward, or upload is used.
+              With Strike selected, this single browser-only run continues to 360 active seconds without objective or integrity endings.
+              Normal Strike is unchanged. No account, server, reward, or upload is used. Result-screen frames are reported separately.
             </small>
           </span>
         </label>

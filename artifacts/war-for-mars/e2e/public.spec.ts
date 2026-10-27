@@ -112,12 +112,13 @@ test("local performance sampling is opt-in and does not submit reward requests",
   await expect(page.getByTestId("button-pace-strike")).toContainText(
     "Up to six minutes; may end early when the mission resolves.",
   );
-  await expect(page.getByTestId("local-performance-toggle")).toContainText("no account, server, reward, or upload");
-  await expect(page.getByTestId("local-performance-toggle")).toContainText("continues across local rounds");
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("No account, server, reward, or upload is used");
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("single browser-only run");
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("Normal Strike is unchanged");
   await expect(page.getByTestId("local-performance-toggle")).toContainText("Result-screen frames are reported separately");
   await page.getByTestId("button-pace-strike").click();
   await page.getByTestId("button-solo-launch").click();
-  await expect(page.getByTestId("arena-stage")).toHaveAttribute("data-performance-endurance", "true");
+  await expect(page.getByTestId("arena-stage")).toHaveAttribute("data-local-endurance", "true");
   await expect(page.getByTestId("button-exit-solo-flight")).toHaveText("END SAMPLE");
   await page.getByTestId("button-exit-solo-flight").click();
   await expect(page.getByTestId("performance-target-warning")).toContainText("of 360 active game seconds");

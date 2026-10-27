@@ -14,12 +14,13 @@ const NEUTRAL_INPUT: StepInput = {
   preset: null,
 };
 
-function createBeaconStrike() {
+function createBeaconStrike(localEndurance = false) {
   return createMatch("mandjet", "accord", 0, "strike", {
     goal: "beacons",
     allyCount: 0,
     foeCount: 0,
     seed: 24,
+    localEndurance,
   });
 }
 
@@ -27,6 +28,7 @@ test("Strike is capped at 360 simulation seconds, not guaranteed to run that lon
   const match = createBeaconStrike();
   assert.equal(matchLimit("strike"), 360);
   assert.equal(match.limit, 360);
+  assert.equal(Object.hasOwn(match, "localEndurance"), false);
 });
 
 test("two secured beacons resolve the mission before the timer and explain the result", () => {
@@ -81,4 +83,28 @@ test("a round that reaches the Strike limit reports timer expiry", () => {
   assert.equal(match.time, match.limit);
   assert.equal(match.over, "loss");
   assert.equal(outcomeReason(match, 0), "Time expired before your wing secured two beacons.");
+});
+
+test("the local endurance sample suppresses early endings and stops at the 360-second cap", () => {
+  const match = createBeaconStrike(true);
+  for (const relay of match.relays.slice(0, 2)) {
+    relay.cap = 1;
+    relay.own = 1;
+  }
+  match.foeBar = 0;
+  match.youBar = 0;
+
+  step(match, NEUTRAL_INPUT, 1 / 60);
+
+  assert.equal(match.over, null);
+  assert.ok(match.time < match.limit);
+  assert.ok(match.foeBar > 0);
+  assert.ok(match.youBar > 0);
+
+  const finalStep = 1 / 60;
+  match.time = match.limit - finalStep;
+  step(match, NEUTRAL_INPUT, finalStep);
+
+  assert.equal(match.time, match.limit);
+  assert.equal(match.over, "draw");
 });

@@ -68,7 +68,7 @@ type ArenaProps = {
   onGraphicsError?: (message: string) => void;
   onPerformanceFrame?: (frame: LocalPerformanceFrame) => void;
   onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
-  performanceEndurance?: boolean;
+  localEndurance?: boolean;
   online?: OnlineRoom;
 };
 
@@ -522,7 +522,7 @@ export function Arena({
   onGraphicsError,
   onPerformanceFrame,
   onPerformanceVisibilityChange,
-  performanceEndurance = false,
+  localEndurance = false,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -591,7 +591,7 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2 });
+      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
@@ -1672,7 +1672,7 @@ export function Arena({
   return (
     <div
       data-testid="arena-stage"
-      data-performance-endurance={performanceEndurance ? "true" : "false"}
+      data-local-endurance={localEndurance ? "true" : "false"}
       className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none"
     >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
@@ -2021,15 +2021,15 @@ export function Arena({
             <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
               {end.reason}
             </p>
-            {performanceEndurance && (
+            {localEndurance && (
               <p className="mt-3 text-xs leading-relaxed text-bone/70" data-testid="performance-endurance-hint">
-                This local no-reward sample continues across rounds until six active gameplay minutes are recorded.
-                Time on this result screen is measured separately.
+                This is a single local no-reward endurance run. If a result appears before the timer, the run stops
+                and its report remains partial; it will not restart another match.
               </p>
             )}
             <button
               type="button"
-              data-testid={performanceEndurance ? "button-performance-continue" : "button-arena-debrief"}
+              data-testid="button-arena-debrief"
               className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
               onClick={() => onDone(end, {
                   seed: seedRef.current,
@@ -2037,7 +2037,7 @@ export function Arena({
                   ...(stagingTraceEnabled ? { checksums: checksumRef.current } : {}),
                 })}
             >
-              {performanceEndurance ? "Continue performance sample" : "Debrief"}
+              Debrief
             </button>
           </div>
         </div>

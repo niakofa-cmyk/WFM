@@ -54,6 +54,7 @@ export type Match = {
   kills: number; deaths: number; lockId: number | null; painted: number[]; fx: Fx[];
   over: null | "win" | "loss" | "draw"; refit: number; playerFaction: Faction; pace: Pace; limit: number;
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
+  localEndurance?: boolean;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
 };
@@ -71,6 +72,7 @@ export type MatchSetup = {
   disc?: Disc;
   tech?: "stick" | "barrels" | "mark" | null;
   seed?: number;
+  localEndurance?: boolean;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
 };
@@ -437,6 +439,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     playerFaction: faction,
     pace,
     limit: matchLimit(pace),
+    ...(setup.localEndurance === true ? { localEndurance: true } : {}),
     goal,
     disc,
     tech: setup.tech === "stick" || setup.tech === "barrels" || setup.tech === "mark" ? setup.tech : null,
@@ -517,7 +520,7 @@ function kill(match: Match, c: Craft) {
     match.deaths += 1;
     match.youBar = Math.max(0, match.youBar - (match.symmetricDuelDeathPenalty ?? (strike ? 10 : 18)));
   }
-  if (c.ace) match.over = "win";
+  if (c.ace && !match.localEndurance) match.over = "win";
 }
 function hurt(match: Match, c: Craft, dmg: number, fromX?: number, fromZ?: number) {
   if (!c.alive || c.guard > 0 || c.untargetable > 0) return false;
@@ -935,7 +938,7 @@ function hurtRunner(match: Match, dmg: number, fromX?: number, fromZ?: number) {
     runner.alive = false;
     runner.hull = 0;
     pushFx(match, { k: "boom", x: runner.x, z: runner.z });
-    match.over = runner.team === "you" ? "loss" : "win";
+    if (!match.localEndurance) match.over = runner.team === "you" ? "loss" : "win";
   }
   return true;
 }
@@ -1099,7 +1102,13 @@ export function step(match: Match, input: StepInput, dt: number) {
   tickRunner(match, dt);
   match.time += dt;
   const timeLimitReached = match.time >= match.limit - 1e-9;
-  if (match.goal === "extract" && match.runner) {
+  if (match.localEndurance) {
+    // The isolated browser-only endurance sample preserves active play until
+    // the cap; normal matches retain the objective and integrity rules below.
+    match.youBar = Math.max(1, match.youBar);
+    match.foeBar = Math.max(1, match.foeBar);
+    if (timeLimitReached) match.over = "draw";
+  } else if (match.goal === "extract" && match.runner) {
     const cage = match.runner;
     if (!match.over && !cage.alive) match.over = cage.team === "you" ? "loss" : "win";
     else if (!match.over && cage.z <= -68) match.over = cage.team === "you" ? "win" : "loss";
