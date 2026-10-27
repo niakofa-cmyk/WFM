@@ -32,3 +32,9 @@ A Replit Clerk connector's `connection.environment` can report `production` whil
 **Why:** The Replit connector scope and the Clerk tenant environment are separate signals; trusting the former can misidentify a Development tenant as Production.
 
 **How to apply:** For any Clerk connection, check the authenticated instance metadata and treat `environment_type` as authoritative for the tenant actually reached. Do not use the connector scope as proof of an external Production connection.
+
+Preserve WFM's existing Replit-managed Development Clerk while evaluating external Production auth. Do not delete or replace the managed app until a verified migration and recovery plan exists and the owner explicitly approves the replacement.
+
+**Why:** The user chose to keep Development authentication intact while considering an external Production Clerk. Replit's documented move to an external Clerk requires deleting the managed app first, which is a replacement rather than adding an independent connection.
+
+**How to apply:** Keep Production authorization blocked unless a genuinely separate external Production connection is supported and verified. If replacement is later proposed, first document account/session impact, dependencies, cutover validation, and rollback; obtain explicit owner approval before any deletion or cutover.
