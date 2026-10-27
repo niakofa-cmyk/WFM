@@ -11,14 +11,14 @@ This report separates automated control/lifecycle checks from Android Chrome and
 - Owner-reported Android smoke: 2026-10-27; REVVL 8 model TMRV085G, Android 16, T-Mobile; phone model-build `1.15.12`; Chrome version and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
-The local endurance feature was added in commit `97ead20` and is live on the
-Railway staging frontend at commit `04365fa`, deployment
+The local endurance feature was added in commit `97ead20`. The Railway staging
+sample below was captured from frontend commit `04365fa`, deployment
 `5f25639f-bddd-4a15-bf25-0e22b328827c` (`SUCCESS`). The user confirmed the
-latest performance report below was captured from Railway staging. The app's
-staging access-code gate is expected; unauthenticated `/` and `/play` requests
-return 401. The API service remains pinned to `179064a`; this browser-only
-endurance run does not use the API or submit a reward claim. Production was not
-changed or deployed.
+report came from Railway staging; its browser-host field is generic. A
+documentation-only update follows that tested revision. The staging access-code
+gate is expected; unauthenticated `/` and `/play` requests returned 401. The API
+service remains pinned to `179064a`; this browser-only endurance run does not
+use the API or submit a reward claim. Production was not changed or deployed.
 
 ### Workspace verification
 
