@@ -49,7 +49,7 @@ packages = ["glib", "nspr", "nss", "atk", "at-spi2-core", "dbus", "xorg.libX11",
 [userenv]
 
 [userenv.development]
-VITE_API_BASE_URL = "https://workspaceapi-server-production-cbfc.up.railway.app"
+VITE_API_BASE_URL = ""
 WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
 
 [userenv.production]

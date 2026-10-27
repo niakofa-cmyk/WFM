@@ -12,6 +12,7 @@
 - [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
 - [WFM Clerk E2E account isolation](clerk-e2e-account-isolation.md) — use only an existing WFM Development test account; verify the Clerk instance before provisioning users.
 - [Managed Clerk hosting boundary](replit-managed-clerk-railway.md) — Replit-managed keys swap on Replit publication; they are not injected into Railway.
+- [Preview API isolation](preview-api-isolation.md) — Replit Development uses its same-origin API; do not route preview sessions to a Railway Production backend.
 - [HTTP hostname security tests](http-host-security-tests.md) — assert the server received the intended Host; fetch may replace a supplied header.
 - [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
 - [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.
