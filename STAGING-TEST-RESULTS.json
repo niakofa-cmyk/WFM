@@ -867,13 +867,47 @@
     "cleanup": "No access session, browser auth session, run, claim, or reward record was created.",
     "productionModified": false
   },
+  "latestLiveStagingBrowserSmoke": {
+    "status": "PASS_SUPPLEMENTAL",
+    "startedAtUtc": "2026-10-27T12:21:48.829Z",
+    "completedAtUtc": "2026-10-27T12:21:51.819Z",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "appDeploymentId": "2bdf9127-6020-4d5f-9cc2-7063372f1fda",
+    "appSourceCommit": "a26cfa26dd6b45ccefc8dc26b78febf6d15c4da8",
+    "browserProfile": "Playwright Pixel 7 emulation / Chromium; not a physical device",
+    "http": {
+      "initialAccessPage": 401,
+      "accessFormPost": 303,
+      "unlockedLandingPage": 200,
+      "gatewayLogoutPost": 303,
+      "gatewayCookieRemainingAfterLogout": false
+    },
+    "responsiveViewport": {
+      "width": 412,
+      "height": 915,
+      "documentOverflowAtLandingSetupAndFlight": false
+    },
+    "soloFlight": {
+      "canvasVisible": true,
+      "webgl2Available": true,
+      "enteredAndExited": true
+    },
+    "pageErrors": 0,
+    "rewardClaimRequests": 0,
+    "signedIn": false,
+    "rewardClaimSent": false,
+    "physicalDeviceEvidence": false,
+    "cleanup": "Staging gateway logout returned 303 and cleared the gateway cookie; browser context closed. No account session or run was created.",
+    "productionModified": false
+  },
   "latestInterruptedRewardAudit": {
     "recordedOn": "2026-10-27",
     "environment": "staging",
     "liveClaimTest": "NOT_RUN",
     "liveClaimRequestSent": false,
     "liveClaimResponse": "NO_REQUEST",
-    "reason": "The available approved staging profiles have existing progression and are not designated disposable; no live reward-impacting test was sent.",
+    "reason": "Historical at audit time: approved profiles had progression and were not designated disposable. A disposable account was later added to Replit Secrets, but the latest preflight still stopped because no safe read-only run/event inspection path was available.",
     "localIntegrationTest": "PASS",
     "localRoomIdClaimRouteSchema": "Room code rejected by the Strike UUID parameter schema.",
     "localUnknownStrikeRunClaim": {

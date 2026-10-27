@@ -337,11 +337,12 @@ The online multiplayer and single-player Strike reward flows remain separate:
   rewards were issued. It does not call the Strike claim flow.
 - Strike claims require a UUID run ID with a server-issued run belonging to the
   authenticated player. Online room codes are not Strike run IDs.
-- A live interrupted-room claim was **not sent**. The approved staging profiles
-  already contain progression and are not identified as disposable accounts.
-  A live reward-impacting operation could alter persistent staging state, so the
-  disposable-account condition was not met. There is no live HTTP request or
-  response to report; this is deliberately **NOT RUN**, not a pass.
+- At the time of the earlier live attempt, the approved staging profiles already
+  contained progression and were not identified as disposable accounts. A live
+  interrupted-room claim was not sent; this was deliberately **NOT RUN**, not a
+  pass. A disposable account was added to Replit Secrets later, but the latest
+  preflight still stopped because no safe read-only run/event inspection path
+  was available.
 
 The local deterministic integration test starts an active room, restarts the
 socket server, receives `interrupted: server_restart`, acknowledges it, and
@@ -387,6 +388,23 @@ and verify reward-event rows before and after its claim. No run was created,
 no claim was sent, no state changed, and no cleanup was needed. This preflight
 is **BLOCKED**, not reward-verification evidence; the release gate remains
 `PENDING`.
+
+### Live staging browser smoke (supplemental)
+
+On 2026-10-27 from `12:21:48.829Z` to `12:21:51.819Z`, Playwright Chromium
+using a Pixel 7 mobile emulation exercised the live staging host and unlocked
+the staging page through its access form. HTTP results were `401` for the
+initial access page, `303` for the access-form POST, and `200` for the unlocked
+landing page. The no-reward solo flight setup launched and exited with a visible
+canvas and WebGL2 available. At the emulated `412x915` viewport, the landing,
+setup, and flight pages had no horizontal overflow; there were zero page errors
+and zero reward-claim requests.
+
+The staging gateway logout returned `303` and cleared the gateway cookie.
+The browser context was closed; no Clerk sign-in, profile request, run, or
+reward claim occurred. This is live website browser evidence only, **not**
+physical Android evidence. It does not clear the interrupted-reward or physical
+device release gates.
 
 ### Read-only staging inventory
 
