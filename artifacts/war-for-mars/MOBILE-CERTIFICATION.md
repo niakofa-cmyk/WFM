@@ -80,7 +80,7 @@ Android 16), Chrome 156.0.0.0, in the Replit development preview. Captured
 p99 25 ms, one interval over 50 ms out of 18,298 (about 0.0055%), and zero
 intervals over 250 ms. The first game minute averaged 80.7 FPS with p95/p99
 17 ms. Heap readings stayed at 19.6 MiB used / 37.8 MiB total over five samples.
-No background/restore transitions were recorded, and the user did not notice
+No background/restore transitions were recorded. The earlier report noted no
 heat or throttling warnings.
 
 This is **partial**, not six-minute evidence: the report recorded 221.7 game
@@ -88,11 +88,11 @@ seconds and 228 wall seconds, while the selected Strike target is 360 game
 seconds. It contained no final-minute frames. The user marked the match
 complete and later confirmed the Debrief appeared naturally before the timer.
 The report does not identify the specific outcome reason. Frame metrics are
-browser requestAnimationFrame cadence, not GPU render timing. The tested build
-was the Replit preview based on workspace HEAD
+browser requestAnimationFrame cadence, not GPU render timing. This earlier
+sample used a Replit preview based on workspace commit
 `e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch-control
-changes; it was not a Railway deployment. Full six-minute performance remains
-**PENDING**.
+changes; it was not a Railway deployment. A later full sample is recorded
+below.
 
 The report format includes the selected trial target and a `targetReached`
 flag, with an on-screen warning when a run ends early. The local endurance
@@ -100,15 +100,28 @@ sample is one no-reward session: it suppresses mission and integrity endings
 only for that session and stops at the 360-second cap. Normal Strike retains
 its early mission endings. Result-screen frames are reported separately.
 
-A later supplied sample summary recorded one round ending at 170.8 active game
-seconds, followed by 4.5 seconds of post-match frames. This is consistent with
-a normal early terminal match, not a frame-rate or visibility stall. The
-summary reports a 360-second target, `targetReached: false`, one round started
-and completed, 76.8 average FPS, no frame gaps over 250 ms, and no visibility
-interruptions. It did not include a terminal reason, raw report, capture
-environment, or device/browser metadata. Treat it as user-supplied partial
-evidence only; it does not establish a full physical or 360-second run. The
-physical endurance gate remains **PENDING**.
+A separate user-supplied partial summary recorded a match ending at 170.8
+active game seconds, followed by 4.5 seconds of post-match frames. That earlier
+run is consistent with a normal early terminal match, not a frame-rate or
+visibility stall. It did not include a terminal reason, raw report, capture
+environment, or device/browser metadata, so it remains historical diagnostic
+evidence only.
+
+The later report captured at `2026-10-27T21:20:42.434Z` reached the full
+360 active game seconds in one run (`targetReached: true`, one run started and
+completed). The report identifies the environment as the Replit Development
+preview, explicitly not Railway staging or Production. It recorded 28,705
+active-play frames at 78.1 average FPS, with 83.6 FPS in the first game minute
+and 77.5 FPS in the final minute (about a 7.3% decline). Frame pacing was
+p95 17 ms / p99 25 ms; 2 frames exceeded 50 ms (0.007%), with no gaps above
+250 ms. Reported used heap was 15.6 MiB at start and 19.8 MiB at 360 seconds,
+with samples fluctuating between 18.1 and 20.1 MiB after the first minute.
+No background/restore transitions were recorded. Browser APIs did not expose
+thermal status, and this report included no separate thermal observation.
+These results pass the numeric performance targets for this single
+user-reported Android sample; they do not certify controls, gyro, interruption
+recovery, thermal behavior, iOS Safari, staging, or Production. Overall physical
+device certification remains **PENDING**.
 
 ## Proposed acceptance gates
 
@@ -129,8 +142,12 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome 156.0.0.0 | Earlier Replit preview, based on `e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch fix | Natural Debrief at 221.7/360 seconds; partial | 80.2 average FPS; p95 17 ms; p99 25 ms; 1/18,298 intervals over 50 ms; no >250 ms gaps | Heap 19.6/37.8 MiB at five samples; no heat/throttling noticed | Short local Practice: neutral touch, drag, release recenter confirmed; six-minute endurance path not tested | PARTIAL — user-reported |
+| Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` | Chrome 156.0.0.0 | Replit Development preview at commit `97ead20` (not Railway staging/Production) | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:20:42.434Z` | 78.1 average FPS; first/final minute 83.6/77.5 FPS; p95 17 ms; p99 25 ms; 2/28,705 frames over 50 ms (0.007%); no >250 ms gaps | Used heap 15.6 MiB at start, 19.8 MiB at 360 sec; no thermal status exposed and no separate observation in this report | Earlier short Practice check: neutral touch, drag, and release recenter confirmed; controls/gyro/lifecycle not measured in this sample | PASS — endurance performance sample only; user-reported |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
+
+The completed Android sample does not change the overall device-certification
+gate: full touch-control, gyro, interruption/restore, and iOS Safari checks
+remain outstanding.
 
 ## Required device run
 
