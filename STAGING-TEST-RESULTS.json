@@ -31,22 +31,24 @@
     "productionBuilds": "PASS"
   },
   "latestLocalWorkspaceCheck": {
-    "verifiedAtUtc": "2026-10-26T22:41:47Z",
-    "testedSourceCommit": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
-    "testedWorkingTreeCommittedAs": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+    "verifiedOn": "2026-10-27",
+    "testedSourceCommit": "d764623471cb4abcc3d1e970e656a797bac9ad26",
+    "testedWorkingTreeCommittedAs": "d764623471cb4abcc3d1e970e656a797bac9ad26",
     "workingTreeChangesIncluded": [
-      "artifacts/api-server/src/socket/server.ts",
-      "artifacts/api-server/src/socket/server.test.ts",
-      "artifacts/war-for-mars/src/game/Arena.tsx",
-      "artifacts/war-for-mars/src/game/interrupted-ack.ts",
-      "artifacts/war-for-mars/src/game/interrupted-ack.test.ts",
-      "artifacts/war-for-mars/e2e/public.spec.ts"
+      "artifacts/api-server/src/game/progression.test.ts",
+      "artifacts/api-server/src/routes/strikes.ts",
+      "artifacts/war-for-mars/MOBILE-CERTIFICATION.md",
+      "artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md"
     ],
-    "scope": "Local Replit workspace only; commit 896c490 is not deployed staging or Production evidence.",
+    "scope": "Local workspace only; this commit has not been deployed to Railway staging or Production.",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
-      "passed": 72,
+      "passed": 73,
+      "failed": 0
+    },
+    "scriptsTests": {
+      "passed": 17,
       "failed": 0
     },
     "gameTests": {
@@ -54,6 +56,13 @@
       "failed": 0
     },
     "workspaceBuilds": "PASS",
+    "publicE2e": {
+      "passed": 6,
+      "failed": 0,
+      "responsiveViewports": ["390x844", "844x390"],
+      "physicalDeviceEvidence": false,
+      "scope": "Supplemental Playwright only; no real iPhone or Android phone was exercised."
+    },
     "socketLifecycleRegression": {
       "allPilotsReceiveRestartNotice": "PASS",
       "shutdownWaitsForPilotAcknowledgements": "PASS",
@@ -61,12 +70,22 @@
       "restartCloseCode": 4002,
       "newUpgradesRejectedDuringShutdown": "PASS",
       "repeatedCloseIsSafe": "PASS",
-      "scope": "Local socket/client protocol tests only. The previously observed Railway staging 1006 restart result remains unresolved; this commit has not been deployed to staging."
+      "interruptedRoomCannotBecomeStrikeClaim": "PASS",
+      "staleRoomReconnectRejected": "PASS",
+      "freshRoomAfterRestart": "PASS",
+      "scope": "Local API/socket integration tests only. Live staging status is recorded separately."
     },
-    "publicE2e": {
-      "passed": 6,
-      "failed": 0,
-      "scope": "Playwright public suite; landing page, development Clerk sign-up form, mobile safe-area controls, graphics-context-loss recovery, and Practice flight. No signed-in Production check or physical-device evidence."
+    "interruptedRewardRegression": {
+      "roomRestartNotice": "PASS",
+      "restartCloseCode": 4002,
+      "staleRoomReconnect": "session_lost",
+      "roomCodeRejectedByStrikeRunIdSchema": true,
+      "unknownStrikeRunClaimServiceStatus": 404,
+      "expiredClaimAndIdenticalRetry": "Both returned {error: expired}",
+      "acceptedDuplicateClaim": "One award; identical replay returned replayed=true",
+      "changedReplay": "Rejected with status 409 and no profile or event mutation",
+      "profileChangedByRejectedClaims": false,
+      "rewardEventsCreatedByInterruptedRoom": 0
     },
     "clerkConfigurationCheck": {
       "configuredPublishableKeyPreservation": "PASS",
@@ -806,6 +825,64 @@
     "physicalDeviceTested": false,
     "blocker": "The staging verification challenge did not establish a Clerk session. No retry was attempted.",
     "scope": "The check stopped before any authenticated profile or Strike API call. No reward claim or sortie was created. This is a blocked attempt, not interrupted-reward evidence."
+  },
+  "latestInterruptedRewardAudit": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "liveClaimTest": "NOT_RUN",
+    "liveClaimRequestSent": false,
+    "liveClaimResponse": "NO_REQUEST",
+    "reason": "The available approved staging profiles have existing progression and are not designated disposable; no live reward-impacting test was sent.",
+    "localIntegrationTest": "PASS",
+    "localRoomIdClaimRouteSchema": "Room code rejected by the Strike UUID parameter schema.",
+    "localUnknownStrikeRunClaim": {
+      "serviceResult": "ProgressionError",
+      "status": 404,
+      "message": "Sortie not found for this player.",
+      "profileUnchanged": true,
+      "strikeRunsCreated": 0,
+      "progressionEventsCreated": 0
+    },
+    "expiredRunRetry": {
+      "firstResult": "expired",
+      "identicalRetryResult": "expired",
+      "profileOrRewardMutation": false
+    },
+    "acceptedDuplicateReplay": {
+      "localConcurrentAndSequentialDuplicateTests": "PASS",
+      "previousLiveStagingEvidence": "PASS; first accepted claim awarded 40 credits, identical duplicate added 0, refreshed profile remained at 130 credits."
+    },
+    "currentStagingInventory": {
+      "project": "wfm-staging",
+      "environment": "staging",
+      "serviceCount": 4,
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "recentFailures": 0,
+      "pendingWork": 0,
+      "app": {
+        "deploymentId": "e53e8af8-0ed8-48f4-acf2-457eb7ed1d01",
+        "status": "SUCCESS",
+        "branch": "staging",
+        "deploymentMetadataCommit": "bc87f40aa17d27973c0aa799b86ecd412f8be71d"
+      },
+      "api": {
+        "deploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "status": "SUCCESS",
+        "configuredSourceCommit": "179064a436360a07357adf16174bb6d0f90bccd8"
+      },
+      "socket": {
+        "deploymentId": "81498a06-c441-4571-9790-f60bba00d4d1",
+        "status": "SUCCESS",
+        "configuredSourcePin": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+        "deploymentMetadataCommit": "bc87f40aa17d27973c0aa799b86ecd412f8be71d"
+      },
+      "postgresDeploymentId": "6922606e-d6f1-4665-94bc-227174685123",
+      "productionModified": false
+    },
+    "physicalDeviceTested": false,
+    "productionModified": false,
+    "scope": "The local integration test exercised a real socket restart and the reward service using a synthetic test profile. It did not send an authenticated HTTP request to live staging."
   },
   "latestLiveProfileSync": {
     "status": "PASS",

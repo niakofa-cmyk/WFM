@@ -325,3 +325,81 @@ connected to this environment. Existing mobile viewport checks remain browser
 emulation only and do not satisfy the physical-device evidence requirement.
 The interrupted-reward claim and physical-device gates remain pending;
 Production and the separate staging promotion gate were not changed.
+
+## Interrupted-reward audit and physical-device preparation — 2026-10-27
+
+### Reward-flow audit and deterministic regression
+
+The online multiplayer and single-player Strike reward flows remain separate:
+
+- On a socket `interrupted` packet, the browser acknowledges the notice, exits
+  the active online match, clears its room token, and displays that no match
+  rewards were issued. It does not call the Strike claim flow.
+- Strike claims require a UUID run ID with a server-issued run belonging to the
+  authenticated player. Online room codes are not Strike run IDs.
+- A live interrupted-room claim was **not sent**. The approved staging profiles
+  already contain progression and are not identified as disposable accounts.
+  A live reward-impacting operation could alter persistent staging state, so the
+  disposable-account condition was not met. There is no live HTTP request or
+  response to report; this is deliberately **NOT RUN**, not a pass.
+
+The local deterministic integration test starts an active room, restarts the
+socket server, receives `interrupted: server_restart`, acknowledges it, and
+observes close code `4002`. After the restart, the former reconnect token is
+rejected as `session_lost`. The room-code value fails the Strike UUID path
+schema; a separate synthetic unknown UUID claim reaches the reward service and
+is rejected with status `404`, `Sortie not found for this player.` The player
+profile's credits, campaign clears, and revision remain unchanged; no Strike
+run or progression-reward event is created.
+
+The expired server-issued run test now repeats the same expired claim: both
+service results are `{ "error": "expired" }`, with no profile or reward-event
+change. The existing valid-claim regression also remains in the full suite:
+concurrent identical requests award once, an identical retry is marked
+`replayed`, and a changed replay is rejected with status `409` without another
+profile or ledger write. This is deterministic local evidence. Separately, the
+prior live staging record remains the evidence for one accepted reward
+(90 → 130 credits), an identical duplicate adding zero credits, and persistence
+after reload. That prior run was not an interrupted online room.
+
+### Read-only staging inventory
+
+Railway confirmed the separate `wfm-staging` project and `staging` environment
+were healthy, with four services online, zero reported issues/failures, and no
+pending work. No staging service was restarted, redeployed, or reconfigured for
+this audit.
+
+| Service | Configured source / revision | Current successful deployment |
+| --- | --- | --- |
+| App | `staging` branch; Railway deployment metadata commit `bc87f40aa17d27973c0aa799b86ecd412f8be71d` | `e53e8af8-0ed8-48f4-acf2-457eb7ed1d01` — `SUCCESS` |
+| API | Pinned source `179064a436360a07357adf16174bb6d0f90bccd8` | `3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5` — `SUCCESS` |
+| Socket | Configured source pin `896c4904e2c60623f93005a75a86c7b5487a3cdc`; deployment metadata separately reports branch head `bc87f40aa17d27973c0aa799b86ecd412f8be71d` | `81498a06-c441-4571-9790-f60bba00d4d1` — `SUCCESS` |
+| Staging Postgres | Isolated staging database service | `6922606e-d6f1-4665-94bc-227174685123` — `SUCCESS` |
+
+These are inventory/deployment identifiers, not a claim that the interrupted
+reward blocker passed live. Production was not queried or modified.
+
+### Workspace and supplemental browser verification
+
+Local commit `d764623471cb4abcc3d1e970e656a797bac9ad26` passed:
+
+| Check | Result |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | PASS |
+| Typecheck | PASS |
+| Workspace tests | PASS — 17 scripts, 73 API, and 35 game tests |
+| Workspace builds | PASS |
+| Public Playwright browser suite | PASS — 6 tests, including portrait/landscape responsive controls and safe graphics-loss exit |
+
+The Playwright viewport checks are supplemental browser automation, not physical
+device evidence. The promotion statuses `interruptedMatchCannotClaimRewards:
+PARTIAL` and `profileSyncsAcrossDevices: PENDING` remain unchanged.
+
+### Physical-device evidence
+
+No iPhone, Android phone, iOS Safari, or Android Chrome physical-device run was
+performed. The exact staging procedure and evidence template are now in
+`artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md`; the broader tactile
+playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. The physical-device gate
+remains **PENDING** until an authorized tester completes and records the checks
+on real devices.
