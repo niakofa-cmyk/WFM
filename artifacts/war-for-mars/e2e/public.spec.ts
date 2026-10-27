@@ -97,6 +97,22 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
   await expect(page.getByTestId("solo-flight")).toBeVisible();
 });
 
+test("local performance sampling is opt-in and does not submit reward requests", async ({ page }) => {
+  const rewardRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/reward|claim/i.test(new URL(request.url()).pathname)) rewardRequests.push(request.url());
+  });
+  await page.goto("/play");
+
+  const capture = page.getByTestId("checkbox-local-performance");
+  await expect(page.getByTestId("text-solo-notice")).toContainText("do not save campaign progress or award rewards");
+  await expect(capture).not.toBeChecked();
+  await capture.check();
+  await expect(capture).toBeChecked();
+  await expect(page.getByTestId("local-performance-toggle")).toContainText("no account, server, reward, or upload");
+  expect(rewardRequests).toEqual([]);
+});
+
 test("mobile flight controls reserve device safe areas", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/play");

@@ -1,6 +1,14 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { unlockAudio } from "./audio";
 import { armGyro, disarmGyro } from "./gyro";
+import { LocalPerformanceReport } from "./LocalPerformanceReport";
+import {
+  createLocalPerformanceRecorder,
+  readBrowserHeap,
+  readLocalPerformanceDeviceInfo,
+  type LocalPerformanceDeviceInfo,
+  type LocalPerformanceSummary,
+} from "./local-performance";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import type { Pace } from "./sim";
 import type { StrikeResult } from "./Arena";
@@ -34,6 +42,9 @@ const css = `
 .sf-stats strong{display:block;font-size:28px}
 .sf-row{display:flex;gap:10px;flex-wrap:wrap}
 .sf-row .sf-btn{flex:1;text-align:center;min-width:140px}
+.sf-perf-option{display:flex;align-items:flex-start;gap:10px;border:1px solid #5a3322;background:#1d0f0a;padding:12px;margin-top:12px;line-height:1.45}
+.sf-perf-option input{margin-top:4px;accent-color:#e0833f;width:20px;height:20px;flex:0 0 auto}
+.sf-perf-option strong{display:block;text-transform:uppercase;letter-spacing:.08em}
 `;
 
 export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
@@ -47,6 +58,12 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
   const [run, setRun] = useState(0);
   const [result, setResult] = useState<StrikeResult | null>(null);
   const [flightError, setFlightError] = useState("");
+  const [recordPerformance, setRecordPerformance] = useState(false);
+  const [performanceSummary, setPerformanceSummary] = useState<LocalPerformanceSummary | null>(null);
+  const [performanceDevice, setPerformanceDevice] = useState<LocalPerformanceDeviceInfo | null>(null);
+  const [performanceCapturedAt, setPerformanceCapturedAt] = useState("");
+  const performanceRecorder = useRef<ReturnType<typeof createLocalPerformanceRecorder> | null>(null);
+  const lastMemoryMinute = useRef(-1);
 
   const def = SHIPS[ship];
   const cfg = PACES.find((p) => p.id === pace) ?? PACES[0];
@@ -60,9 +77,37 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
     setFlightError("");
     unlockAudio();
     setResult(null);
+    setPerformanceSummary(null);
+    setPerformanceCapturedAt("");
+    performanceRecorder.current = recordPerformance ? createLocalPerformanceRecorder() : null;
+    lastMemoryMinute.current = -1;
+    setPerformanceDevice(recordPerformance ? readLocalPerformanceDeviceInfo() : null);
     setRun((n) => n + 1);
     setPhase("fly");
   };
+
+  const onPerformanceFrame = useCallback((frame: {
+    timestampMs: number;
+    frameIntervalMs: number;
+    gameSeconds: number;
+    pageVisible: boolean;
+  }) => {
+    const recorder = performanceRecorder.current;
+    if (!recorder) return;
+    recorder.recordFrame(frame);
+    const minute = Math.floor(frame.gameSeconds / 60);
+    if (minute !== lastMemoryMinute.current) {
+      lastMemoryMinute.current = minute;
+      recorder.recordMemorySample(frame.gameSeconds, readBrowserHeap());
+    }
+  }, []);
+
+  const onPerformanceVisibilityChange = useCallback((change: {
+    timestampMs: number;
+    visible: boolean;
+  }) => {
+    performanceRecorder.current?.recordVisibilityChange(change);
+  }, []);
 
   const toggleGyro = async () => {
     if (gyroBusy) return;
@@ -107,9 +152,17 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
           drilled={true}
           onDrill={() => {}}
           onDone={(r) => {
+            if (performanceRecorder.current) {
+              const recorder = performanceRecorder.current;
+              recorder.recordMemorySample(recorder.getLatestGameSeconds(), readBrowserHeap());
+              setPerformanceSummary(recorder.finish());
+              setPerformanceCapturedAt(new Date().toISOString());
+            }
             setResult(r);
             setPhase("done");
           }}
+          onPerformanceFrame={recordPerformance ? onPerformanceFrame : undefined}
+          onPerformanceVisibilityChange={recordPerformance ? onPerformanceVisibilityChange : undefined}
           onNetworkExit={() => setPhase("setup")}
           onGraphicsError={(message) => {
             setFlightError(`3D flight could not start: ${message}. This game requires WebGL2. Check your browser's graphics settings or try a supported browser/device.`);
@@ -153,6 +206,13 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
               <button className="sf-btn" data-testid="button-solo-setup" onClick={() => setPhase("setup")}>Back to setup</button>
               <button className="sf-btn" data-testid="button-solo-home" onClick={home}>Home</button>
             </div>
+            {performanceSummary && performanceDevice && (
+              <LocalPerformanceReport
+                capturedAt={performanceCapturedAt}
+                device={performanceDevice}
+                summary={performanceSummary}
+              />
+            )}
           </section>
         )}
 
@@ -180,6 +240,21 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
             </button>
           ))}
         </div>
+
+        <label className="sf-perf-option" data-testid="local-performance-toggle">
+          <input
+            checked={recordPerformance}
+            data-testid="checkbox-local-performance"
+            onChange={(event) => setRecordPerformance(event.currentTarget.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Record local performance</strong>
+            <small>
+              Optional browser-only sample. Select Strike for six minutes; no account, server, reward, or upload is used.
+            </small>
+          </span>
+        </label>
 
         <h2>Controls</h2>
         <button className="sf-btn" aria-pressed={gyro} disabled={gyroBusy} data-testid="button-solo-gyro" onClick={() => void toggleGyro()}>

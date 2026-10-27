@@ -12,6 +12,7 @@ import {
   nextReconnectDelayMs,
 } from "./reconnect-policy";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
+import type { LocalPerformanceFrame, LocalPerformanceVisibilityChange } from "./local-performance";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { matchChecksum } from "./sim-trace";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
@@ -65,6 +66,8 @@ type ArenaProps = {
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[]; checksums?: number[] }) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
   onGraphicsError?: (message: string) => void;
+  onPerformanceFrame?: (frame: LocalPerformanceFrame) => void;
+  onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
   online?: OnlineRoom;
 };
 
@@ -501,6 +504,8 @@ export function Arena({
   onDone,
   onNetworkExit,
   onGraphicsError,
+  onPerformanceFrame,
+  onPerformanceVisibilityChange,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -533,6 +538,10 @@ export function Arena({
   const matchRef = useRef<Match | null>(null);
   const onlineRef = useRef(online);
   onlineRef.current = online;
+  const performanceFrameRef = useRef(onPerformanceFrame);
+  performanceFrameRef.current = onPerformanceFrame;
+  const performanceVisibilityRef = useRef(onPerformanceVisibilityChange);
+  performanceVisibilityRef.current = onPerformanceVisibilityChange;
   const networkExitRef = useRef(onNetworkExit);
   networkExitRef.current = onNetworkExit;
   const slotIdRef = useRef(online?.slotId ?? 0);
@@ -1069,7 +1078,9 @@ export function Arena({
     };
     const clearHeld = () => clearInput(bus);
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") return;
+      const visible = document.visibilityState === "visible";
+      performanceVisibilityRef.current?.({ timestampMs: performance.now(), visible });
+      if (visible) return;
       clearHeld();
       if (!onlineRef.current) {
         pausedRef.current = true;
@@ -1154,7 +1165,8 @@ export function Arena({
 
     const frame = (now: number) => {
       if (!alive) return;
-      const delta = Math.min(0.1, (now - last) / 1000);
+      const frameIntervalMs = Math.max(0, now - last);
+      const delta = Math.min(0.1, frameIntervalMs / 1000);
       last = now;
       const isOnline = Boolean(onlineRef.current);
       const held = isOnline ? false : pausedRef.current || hitstop > 0;
@@ -1597,6 +1609,14 @@ export function Arena({
       callT = Math.max(0, callT - delta);
       if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
       if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
+      if (!match.over) {
+        performanceFrameRef.current?.({
+          timestampMs: now,
+          frameIntervalMs,
+          gameSeconds: match.time,
+          pageVisible: document.visibilityState === "visible",
+        });
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);

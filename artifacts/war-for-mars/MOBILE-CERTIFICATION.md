@@ -22,6 +22,24 @@ The automated mobile-control tests cover:
 
 The game also clears held input and pauses the local simulation when the document is hidden, resizes the arena after device orientation and visual-viewport changes, and resets a stick on pointer capture loss. These are code-level checks; they do not prove browser behavior on a physical device.
 
+## Supplemental local no-reward sampler
+
+The `/play` setup has an opt-in **Record local performance** control. On local
+Solo Flight only, it summarizes requestAnimationFrame intervals, first/final
+game-minute cadence, background/restore transitions, and JavaScript heap
+readings when the browser exposes them. The capture remains in memory on that
+device and is not uploaded. Thermal data is not available through the standard
+browser API and must be observed manually.
+
+For a six-minute sample, select the local **Strike** trial and keep the page in
+the foreground until it completes. The result appears after tapping **Debrief**.
+This is supplemental: RAF cadence is not GPU timing, and a local no-reward run
+does not satisfy the formal full-Strike certification below. No physical sample
+has been run with this recorder yet. The current sampler is available only in
+the Replit development preview, based on workspace HEAD
+`78357d50941655e0a276264eca32f00d13be67f4` plus uncommitted task changes; it
+has not been deployed to Railway staging or Production.
+
 ## Proposed acceptance gates
 
 Record the raw trace and device/browser versions before marking a gate passed. These are project targets, not measurements from the current run.
