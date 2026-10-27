@@ -10,15 +10,27 @@ or claim that the frontend and API keys belong to the same Clerk instance.
 ## Current authorization snapshot
 
 The Replit workspace check on 2026-10-27 reported Clerk as `managed`, with
-dashboard access `requires_personal_pro`. The connected Clerk integration is the
-Replit-managed connection; no independently authorized connection to the
-external Production instance at `clerk.niakofa.com` was confirmed.
+dashboard access `requires_personal_pro`. A read-only request through the
+connected Clerk integration returned instance metadata identifying a
+Development instance, not the external Production instance at
+`clerk.niakofa.com`. No independently authorized connection to that external
+Production instance was confirmed.
 
 This is workspace-level integration metadata, not a Railway service result. The
 Railway preflight cannot query Replit connection authorization and reports
 `replitManagedClerkAvailability: NOT_CHECKED_FROM_RAILWAY_SERVICE_CONTEXT`.
 Neither a working Replit-managed connection nor its Production environment
 authorizes use of the separate external Clerk instance.
+
+Replit's current documentation says switching from a Replit-managed Clerk app
+to an external Clerk app requires deleting the managed app first. That deletion
+removes the managed tenant; accounts, credentials, and sessions are not
+automatically migrated, and Replit has no automated migration path. Therefore,
+there is no verified non-destructive second-connection path in this workspace.
+The owner has chosen to preserve the managed Development app, so do not delete
+or replace it to clear this Production gate. See
+[`external-clerk-migration-and-recovery-plan.md`](./external-clerk-migration-and-recovery-plan.md)
+for prerequisites and recovery planning.
 
 The intended public target is:
 
@@ -106,17 +118,22 @@ as ready.
 
 ## Manual authorization and controlled smoke test
 
-1. In Replit, use the secure Integration connection flow for the owner's
-   **existing external Production Clerk instance**. Do not replace the current
-   Replit-managed connection or copy its keys. Confirm safe instance metadata
-   identifies `clerk.niakofa.com`; do not expose or persist key values. If the
-   secure flow only offers the managed Clerk connection, stop and obtain
-   owner-side authorization for the external instance through a supported
-   secure path. Do not treat the managed connection as a substitute.
-2. After authorization, rerun the frontend and API preflights separately in
-   their Railway Production service contexts. The script cannot read Replit
-   integration state, so its external-connection gate remains manual. Record
-   owner verification separately using safe instance metadata and outcomes.
+1. Do not treat the current ready Clerk integration as the external Production
+   instance; its authenticated metadata identifies Development. Do not try to
+   add credentials by chat or replace this connection.
+2. The owner must first obtain an officially supported authorization path that
+   preserves the managed Development instance, or explicitly approve the
+   destructive managed-to-external replacement only after the separate
+   migration/recovery plan is verified. Replit's documented replacement flow
+   is in `Users & Auth` → `Configure` → `Advanced` → `Delete Clerk app`; it is
+   not a second-connection flow. Do not perform this deletion under the current
+   preserve-Development decision.
+3. If a supported external Production connection later becomes available,
+   verify its safe instance metadata, then rerun the frontend and API
+   preflights separately in their Railway Production service contexts. The
+   script cannot read Replit integration state, so its external-connection
+   gate remains manual. Record owner verification separately using safe
+   instance metadata and outcomes.
 
 The automated preflight cannot prove publishable/secret-key instance pairing.
 That requires an authorized connection to the already-selected external

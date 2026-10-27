@@ -35,6 +35,6 @@ A Replit Clerk connector's `connection.environment` can report `production` whil
 
 Preserve WFM's existing Replit-managed Development Clerk while evaluating external Production auth. Do not delete or replace the managed app until a verified migration and recovery plan exists and the owner explicitly approves the replacement.
 
-**Why:** The user chose to keep Development authentication intact while considering an external Production Clerk. Replit's documented move to an external Clerk requires deleting the managed app first, which is a replacement rather than adding an independent connection.
+**Why:** The user chose to keep Development authentication intact while considering an external Production Clerk. Replit documents that switching to an external Clerk requires deleting the managed app first; deletion removes the tenant and does not automatically migrate accounts, credentials, or sessions.
 
 **How to apply:** Keep Production authorization blocked unless a genuinely separate external Production connection is supported and verified. If replacement is later proposed, first document account/session impact, dependencies, cutover validation, and rollback; obtain explicit owner approval before any deletion or cutover.
