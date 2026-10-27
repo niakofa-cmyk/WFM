@@ -13,8 +13,10 @@ test("profile and reward routes reject unauthenticated and forged progression re
   try {
     const station = await fetch(`${baseUrl}/world/services`, { method: "POST" });
     assert.equal(station.status, 401);
-    const [profile, action, start, legacyClaim, market, trade, world, travel, explore, quest] = await Promise.all([
-      fetch(`${baseUrl}/game/profile`),
+    const [profile, action, start, legacyClaim, forgedClaim, market, trade, world, travel, explore, quest] = await Promise.all([
+      fetch(`${baseUrl}/game/profile`, {
+        headers: { "x-clerk-user-id": "forged-user" },
+      }),
       fetch(`${baseUrl}/game/profile/actions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -37,6 +39,19 @@ test("profile and reward routes reject unauthenticated and forged progression re
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ gain: 9_999_999, cleared: 4 }),
+      }),
+      fetch(`${baseUrl}/strikes/${randomUUID()}/claim`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-clerk-user-id": "forged-user",
+        },
+        body: JSON.stringify({
+          inputs: [],
+          strikeRunId: randomUUID(),
+          reconnectToken: "client-supplied",
+          clientLootCalculated: 9_999_999,
+        }),
       }),
       fetch(`${baseUrl}/market`),
       fetch(`${baseUrl}/market/trades`, {
@@ -70,6 +85,7 @@ test("profile and reward routes reject unauthenticated and forged progression re
     assert.equal(action.status, 401);
     assert.equal(start.status, 401);
     assert.equal(legacyClaim.status, 401);
+    assert.equal(forgedClaim.status, 401);
     assert.equal(market.status, 401);
     assert.equal(trade.status, 401);
     assert.equal(world.status, 401);

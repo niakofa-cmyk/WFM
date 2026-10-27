@@ -174,6 +174,15 @@ test("progression request schemas reject client-authored balances and campaign c
     false,
   );
   assert.equal(
+    ClaimStrikeBody.strict().safeParse({
+      inputs: [],
+      strikeRunId: randomUUID(),
+      reconnectToken: "client-supplied",
+      clientRecordedLoot: 9_999_999,
+    }).success,
+    false,
+  );
+  assert.equal(
     ApplyProgressionActionBody.strict().safeParse({
       idempotencyKey: randomUUID(),
       action: "refit",
