@@ -1,6 +1,6 @@
 # WAR FOR MARS — Physical-device staging smoke test
 
-**Status: PENDING — no real iPhone or Android phone was exercised for this record.**
+**Status: PENDING — owner-reported Samsung Android checks are supplemental; required paired-device results and exact device metadata are still missing.**
 
 This checklist is for an authorized tester using the isolated Railway **staging**
 environment. Desktop responsive mode, browser emulation, and Playwright are
@@ -97,6 +97,21 @@ use the separate local Solo Flight route:
 7. If local Solo Flight is unavailable or the page does not show the no-reward
    notice, skip this step and record it as not run. Do not substitute signed-in
    Practice or Strike.
+
+## Existing owner-reported Android evidence (partial)
+
+On 2026-10-27, the owner reported checks on the same physical Samsung Android
+phone used for the earlier staging observations. They reported successful
+profile sign-in/sign-out, local `/play` Solo Flight without credits, the listed
+touch-control lifecycle checks working, and layout/scrolling working as
+expected after reload.
+
+The exact phone model, Android and browser versions, screen dimensions,
+network, tested screens/orientations, observation time, and sanitized
+screenshots were not supplied. The owner did not report paired-device profile
+synchronization. Treat this as supplemental user-reported evidence only; it
+does not pass the Android-only evidence template, the paired sync checks, or the
+full physical-device gate.
 
 ## Android-only run (partial evidence only)
 

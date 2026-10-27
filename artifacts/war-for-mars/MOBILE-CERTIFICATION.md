@@ -1,6 +1,6 @@
 # WAR FOR MARS — Mobile Certification
 
-**Status: NOT CERTIFIED — physical-device runs have not been performed.**
+**Status: NOT CERTIFIED — owner-reported Samsung Android smoke checks are supplemental; full physical-device certification remains pending.**
 
 This report separates automated control/lifecycle checks from Android Chrome and iOS Safari evidence. Desktop preview, browser emulation, and source inspection do not count as physical-phone performance results.
 
@@ -8,7 +8,7 @@ This report separates automated control/lifecycle checks from Android Chrome and
 
 - Source commit: `7eae96dfb695f8658f452ca91e8d9c3b643bc2c3`
 - Automated checks: workspace typecheck, all 40 automated tests, and production builds passed.
-- Physical-device test date / tester: not run
+- Owner-reported Android smoke: 2026-10-27; exact model, OS/browser versions, and tester alias not supplied
 - Preview-only check: the public sign-up form rendered at 402×874 in the development preview. Clerk showed development keys; no account was created. This is not physical-device evidence.
 
 ## Automated coverage and code checks
@@ -41,7 +41,7 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 
 | Platform | Device / OS | Browser / version | Build commit | Six-minute run | FPS / frame-time trace | Memory / thermal | Controls / gyro | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Android | Not run | Chrome not run | — | — | — | — | — | NOT RUN |
+| Android | Samsung; exact model not supplied | Browser/version not supplied | Build commit not captured | Six-minute run not reported | Not captured | Not captured | Owner reports local Solo Flight controls and touch lifecycle worked | PARTIAL — user-reported |
 | iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
 
 ## Required device run
@@ -61,4 +61,10 @@ profile-sync checks, and a fill-in evidence record, see
 
 ## Current disposition
 
-Automated control and interruption logic is covered by unit tests. Android Chrome and iOS Safari usability, frame rate, memory, thermal behavior, and the six-minute physical-device run remain **unverified**. Step 4 cannot be marked complete until both evidence rows are filled from real phones.
+Automated control and interruption logic is covered by unit tests. The
+owner-reported Samsung Android check is supplemental and does not include the
+exact device/browser metadata or performance traces required by this
+certification. Android Chrome and iOS Safari usability, frame rate, memory,
+thermal behavior, and the six-minute physical-device run remain **unverified**.
+Step 4 cannot be marked complete until both evidence rows are completed from
+real phones.
