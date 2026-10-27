@@ -409,7 +409,7 @@ device release gates.
 ### Tester-reported physical Android observation before the scroll fix
 
 On 2026-10-27, the staging owner confirmed the Railway staging host and reported
-that sign-in reached a loaded profile on a physical Android phone. The tester's
+that sign-in reached a loaded profile on a physical Samsung Android phone. The tester's
 notes described the portrait logo as centered with the visible interface fitting,
 but the background shifted right; after rotating to landscape, the background
 appeared fully visible. The tester also reported that vertical touch scrolling
@@ -417,7 +417,7 @@ did not work on the screen they were viewing, and confirmed they had not entered
 a flight.
 
 This is a partial user-reported observation, not a captured or complete device
-certification. The phone model, Android and Chrome versions, viewport, network,
+certification. The exact Samsung model, Android and Chrome versions, viewport, network,
 exact observation time, and screenshots were not supplied; other screens and
 devices were not checked. No reward activity or preference change was reported.
 The physical-device gate remains **PENDING**.
@@ -485,12 +485,13 @@ physical-device release gates remain **PENDING**.
 
 ### Tester-reported physical Android staging Solo Flight check
 
-The owner then opened the staging `/play` route on a physical Android phone and
+The owner then opened the staging `/play` route on a physical Samsung Android phone and
 reported that the local no-reward notice was visible. After proceeding with the
 local flight, they reported **“All tested controls worked.”** The specific
-controls, flight statistics, post-flight balance, final screen, phone model,
-Android/Chrome versions, viewport, network, observation time, and screenshots
-were not supplied.
+controls, flight statistics, post-flight balance, final screen, exact Samsung
+model, Android/Chrome versions, viewport, network, and observation time were not
+supplied. The owner stated screenshots and iPhone Safari were not required for
+this Android-only verification.
 
 This is partial user-reported physical staging evidence for the local flight
 controls. The `/play` Solo Flight is separate from signed-in WarApp Practice and
