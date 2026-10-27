@@ -92,6 +92,9 @@ use the separate local Solo Flight route:
    estimates, not GPU timing. Browser heap is reported only when exposed, and
    temperature/throttling must be observed manually. This does not replace the
    formal Strike performance certification.
+   The virtual sticks start neutral at touch-down, respond to drag distance, and
+   recenter on release/cancel. A held horizontal drag intentionally keeps
+   turning; verify the axis returns to neutral when the thumb lifts.
 3. Do not use signed-in WarApp Practice or Strike for a no-reward smoke test.
    Those modes start a server-authorized run; completing one submits its replay
    and may award credits.

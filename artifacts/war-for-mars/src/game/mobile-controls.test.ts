@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { armGyro, disarmGyro, gyroAim } from "./gyro";
-import { clearInput, createBus, readInput } from "./input";
+import { clearInput, createBus, readInput, stickAxesFromDelta } from "./input";
 
 function installOrientationWindow(permission: "granted" | "denied") {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -74,6 +74,19 @@ test("touch sticks, firing, target lock, ability, evade, and power selection com
   assert.equal(next.lock, false);
   assert.equal(next.evade, 0);
   assert.equal(next.preset, null);
+});
+
+test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate drag", () => {
+  assert.deepEqual(stickAxesFromDelta(0, 0, 40), { x: 0, y: 0 });
+  assert.deepEqual(stickAxesFromDelta(2, -1, 40), { x: 0, y: 0 });
+  assert.deepEqual(stickAxesFromDelta(40, 0, 40), { x: 1, y: 0 });
+
+  const diagonal = stickAxesFromDelta(80, 80, 40);
+  assert.ok(Math.abs(Math.hypot(diagonal.x, diagonal.y) - 1) < 1e-9);
+
+  const bus = createBus("arc");
+  bus.leftX = stickAxesFromDelta(40, 0, 40).x;
+  assert.equal(readInput(bus).yaw, -1);
 });
 
 test("lost focus clears held keys, both sticks, and latched buttons", () => {

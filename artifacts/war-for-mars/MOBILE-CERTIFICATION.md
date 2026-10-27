@@ -37,8 +37,16 @@ This is supplemental: RAF cadence is not GPU timing, and a local no-reward run
 does not satisfy the formal full-Strike certification below. No physical sample
 has been run with this recorder yet. The current sampler is available only in
 the Replit development preview, based on workspace HEAD
-`78357d50941655e0a276264eca32f00d13be67f4` plus uncommitted task changes; it
+`e4980639f3442329bd7b441368740e893d481cfb` plus uncommitted touch-control fixes; it
 has not been deployed to Railway staging or Production.
+
+The REVVL 8 user-reported attempt was stopped before the six-minute run because
+the left touch stick appeared to steer right and circle the ship. No performance
+report was produced, so the physical performance sample remains **PENDING**.
+Touch-stick input now starts neutral at pointer-down, applies a small radial
+dead zone, follows drag relative to the touch start, and resets on release or
+cancel. Unit and browser regression checks pass; the physical behavior must
+still be retested before resuming the six-minute run.
 
 ## Proposed acceptance gates
 

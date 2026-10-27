@@ -257,6 +257,10 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
         </label>
 
         <h2>Controls</h2>
+        <p className="sf-note" data-testid="text-touch-stick-instructions">
+          On a phone, touching a stick starts neutral. Drag from that point to move: the left stick turns and thrusts,
+          and the right stick aims. Release to recenter; holding a horizontal drag keeps turning.
+        </p>
         <button className="sf-btn" aria-pressed={gyro} disabled={gyroBusy} data-testid="button-solo-gyro" onClick={() => void toggleGyro()}>
           <b>Tilt aiming: {gyro ? "On" : "Off"}</b>
           <small>Optional. Asks for motion permission only when you press this.</small>

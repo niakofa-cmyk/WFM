@@ -126,6 +126,20 @@ test("mobile flight controls reserve device safe areas", async ({ page }) => {
   await expect(page.getByTestId("arena-stage")).toHaveCSS("overflow", "hidden");
   await expect.poll(() => page.evaluate(() => Boolean(window.__controlsTest))).toBe(true);
 
+  const moveStick = page.getByTestId("stick-move");
+  const moveBox = await moveStick.boundingBox();
+  expect(moveBox).not.toBeNull();
+  if (!moveBox) throw new Error("Move stick is missing its touch target.");
+  const touchStartX = moveBox.x + moveBox.width * 0.72;
+  const touchStartY = moveBox.y + moveBox.height * 0.5;
+  await page.mouse.move(touchStartX, touchStartY);
+  await page.mouse.down();
+  await expect(moveStick).toHaveAttribute("data-axis-x", "0.000");
+  await page.mouse.move(touchStartX + 20, touchStartY);
+  await expect.poll(async () => Number(await moveStick.getAttribute("data-axis-x"))).toBeGreaterThan(0.2);
+  await page.mouse.up();
+  await expect(moveStick).toHaveAttribute("data-axis-x", "0.000");
+
   const leftStyle = await page.getByTestId("flight-controls-left").getAttribute("style");
   const rightStyle = await page.getByTestId("flight-controls-right").getAttribute("style");
   expect(leftStyle).toContain("safe-area-inset-left");

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, readInput, type Bus } from "./input";
+import { clearInput, createBus, readInput, stickAxesFromDelta, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -429,51 +429,66 @@ function drawContacts(canvas: HTMLCanvasElement, match: Match, local: Craft = ma
 function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
+  const pointerOrigin = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const setAxis = (x: number, y: number) => {
+    if (root.current) {
+      root.current.dataset.axisX = x.toFixed(3);
+      root.current.dataset.axisY = y.toFixed(3);
+    }
+    onAxis(x, y);
+  };
   const place = (clientX: number, clientY: number) => {
     const el = root.current;
     const dot = knob.current;
-    if (!el || !dot) return;
+    const origin = pointerOrigin.current;
+    if (!el || !dot || !origin) return;
     const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    let dx = clientX - cx;
-    let dy = clientY - cy;
-    const max = rect.width * 0.36;
-    const len = Math.hypot(dx, dy) || 1;
-    const clamped = Math.min(max, len);
-    dx = (dx / len) * clamped;
-    dy = (dy / len) * clamped;
+    const max = Math.max(1, rect.width * 0.36);
+    const axis = stickAxesFromDelta(clientX - origin.x, clientY - origin.y, max);
+    const dx = axis.x * max;
+    const dy = axis.y * max;
     dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    onAxis(dx / max, dy / max);
+    setAxis(axis.x, axis.y);
   };
-  const reset = () => {
+  const reset = (pointerId?: number) => {
+    if (pointerId !== undefined && pointerOrigin.current?.pointerId !== pointerId) return;
+    pointerOrigin.current = null;
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    onAxis(0, 0);
+    setAxis(0, 0);
   };
   return (
     <div
       ref={root}
-      role="slider"
-      aria-label={label}
-      aria-valuemin={-1}
-      aria-valuemax={1}
-      aria-valuenow={0}
+      role="group"
+      aria-label={`${label} stick`}
+      data-testid={`stick-${label.toLowerCase()}`}
+      data-axis-x="0.000"
+      data-axis-y="0.000"
       className="relative size-28 touch-none rounded-full border border-bone/30 bg-panel/80"
       onPointerDown={(event) => {
         event.stopPropagation();
+        if (pointerOrigin.current) return;
         event.currentTarget.setPointerCapture(event.pointerId);
+        pointerOrigin.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+        };
         place(event.clientX, event.clientY);
       }}
       onPointerMove={(event) => {
-        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        if (
+          pointerOrigin.current?.pointerId !== event.pointerId ||
+          !event.currentTarget.hasPointerCapture(event.pointerId)
+        ) return;
         place(event.clientX, event.clientY);
       }}
       onPointerUp={(event) => {
         event.stopPropagation();
-        reset();
+        reset(event.pointerId);
       }}
-      onPointerCancel={reset}
-      onLostPointerCapture={reset}
+      onPointerCancel={(event) => reset(event.pointerId)}
+      onLostPointerCapture={(event) => reset(event.pointerId)}
     >
       <div
         ref={knob}
