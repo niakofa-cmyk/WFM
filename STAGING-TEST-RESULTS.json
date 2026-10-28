@@ -1,17 +1,16 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
-  "testedSourceCommitScope": "Current local full workspace-quality source only; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
+  "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
+  "testedSourceCommitScope": "Current local full workspace-quality source, including the owner-approved promotion-policy update; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
   "environment": {
     "separateRepl": true,
-    "inviteOnlyDeployment": false,
     "separateStagingDatabase": true,
     "stagingOnlyAuthentication": true,
     "productionDataUntouched": true
   },
   "environmentEvidence": {
     "separateRepl": "Owner confirmed this WFM staging branch is in a separate Repl.",
-    "inviteOnlyDeployment": "PENDING legacy Replit invite-only release requirement. Railway staging is deployed behind its approved access gateway, with no public API or socket domains. The false flag is preserved pending an explicit release-policy decision.",
+    "replitInviteOnlyDeployment": "NOT_REQUIRED for WFM launch; owner decision recorded 2026-10-28. This Replit-specific property is not a promotion gate. Railway staging remains behind its approved access gateway, and API/socket services have no public domains.",
     "separateStagingDatabase": "The owner-confirmed isolated Railway staging database is used by the private staging API. Live profile writes and restoration occurred only through the protected staging gateway.",
     "stagingOnlyAuthentication": "Three browser contexts authenticated against staging Development Clerk: two sessions for one existing approved account and one for a distinct existing approved account. No users were created.",
     "productionDataUntouched": "Only staging was pushed and tested. No Production deployment, key, account or player-data mutation was performed."
@@ -33,8 +32,8 @@
   },
   "latestLocalWorkspaceCheck": {
     "verifiedOn": "2026-10-28",
-    "testedSourceCommit": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
-    "testedWorkingTreeCommittedAs": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
+    "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
+    "testedWorkingTreeCommittedAs": "5a1b076cdd2256dcf6320a41245837985534fc5b",
     "workingTreeChangesIncluded": [],
     "documentationOnlyChangesDuringRun": [
       "STAGING-TEST-REPORT.md",
@@ -48,14 +47,45 @@
       "failed": 0
     },
     "scriptsTests": {
-      "passed": 33,
+      "passed": 36,
       "failed": 0
     },
     "gameTests": {
       "passed": 50,
       "failed": 0
     },
-    "totalTestsPassed": 171,
+    "totalTestsPassed": 174,
+    "promotionPolicyRegression": {
+      "focusedTests": 3,
+      "passed": 3,
+      "failed": 0,
+      "legacyReplitInviteOnlyFalse": "NOT_A_GATE",
+      "requiredEnvironmentAssertions": [
+        "separateRepl",
+        "separateStagingDatabase",
+        "stagingOnlyAuthentication",
+        "productionDataUntouched"
+      ],
+      "missingFalseOrNonBooleanRequiredEvidence": "BLOCKED"
+    },
+    "latestPromotionGateCheck": {
+      "checkedOn": "2026-10-28",
+      "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
+      "result": "BLOCKED",
+      "exitCode": 1,
+      "requiredEnvironmentAssertions": "PASS",
+      "replitInviteOnlyDeployment": "NOT_REQUIRED",
+      "blockingConditions": [
+        "overallStatus must be PASS",
+        "tests.signupAndSignin must be PASS",
+        "tests.profileSyncsAcrossDevices must be PASS",
+        "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
+        "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
+        "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
+        "tests.interruptedMatchCannotClaimRewards must be PASS"
+      ],
+      "scope": "Local staging promotion verifier only. No Production configuration change or deployment."
+    },
     "workspaceBuilds": "PASS",
     "publicE2e": {
       "latestRunInThisCheck": "NOT_RUN; workspace-quality does not include the public Playwright suite.",
@@ -392,7 +422,7 @@
     "clerkSignIn": "NOT_TESTED",
     "progressionAndRewardPersistence": "NOT_TESTED",
     "physicalDevices": "NOT_TESTED",
-    "scope": "Limited no-account staging browser smoke only. Does not complete the invite-only policy requirement, authenticated progression checks, physical-device checks, economy checks, or multiplayer release evidence."
+    "scope": "Limited no-account staging browser smoke only. Replit invite-only deployment is not a launch requirement by owner decision; authenticated progression checks, physical-device checks, economy checks, and multiplayer release evidence remain separate."
   },
   "latestLiveMultiplayerRoomSmoke": {
     "recordedAtUtc": "2026-10-26T17:17:22Z",

@@ -3,25 +3,41 @@
 - **Status:** PENDING
 - **Latest live profile-sync source commit:** `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8` (other live staging checks list their own deployment/source identifiers; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
-- **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. The legacy Replit invite-only release flag remains false pending explicit policy review.
+- **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
 
 ## Current local workspace verification — 2026-10-28
 
-The current local `staging` source was `0cfb98693fe98bd961e4d6500b4268f5f6ba24ba`.
-`pnpm install --frozen-lockfile`, workspace typecheck, all 171 workspace tests
-(33 scripts, 88 API, 50 game), and workspace production builds passed. The
-configured `workspace-quality` workflow finished successfully. The workflow
-does not run the public Playwright suite; its previous recorded 6/6 browser
-result is kept separately and is supplemental only.
+The current local `staging` source was `5a1b076cdd2256dcf6320a41245837985534fc5b`.
+`pnpm install --frozen-lockfile`, workspace typecheck, all 174 workspace tests
+(36 scripts, 88 API, 50 game), and workspace production builds passed. Three
+new script tests verify that the legacy Replit invite-only property is not a
+launch gate while each explicitly required environment assertion remains
+strict. The configured `workspace-quality` workflow finished successfully.
+The workflow does not run the public Playwright suite; its previous recorded
+6/6 browser result is kept separately and is supplemental only.
 
 This is local workspace evidence, not a Railway deployment or live staging
 certification. The live profile-sync check used source
 `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`; other staging checks list their
 individual deployed revisions. No single current staging revision has passed
-all required live checks. The exact local result is recorded in
+all required live checks. The owner-confirmed Replit invite-only policy change
+does not alter the protected Railway staging gateway or any other release
+criterion. The exact local result is recorded in
 `STAGING-TEST-RESULTS.json` under `latestLocalWorkspaceCheck`; the promotion
 gate remains **PENDING**.
+
+## Promotion-gate recheck — 2026-10-28
+
+The owner confirmed Replit invite-only deployment is not required for launch.
+The verifier now checks only the four explicit environment assertions; all four
+remain confirmed. The updated verifier correctly exits 1 and keeps promotion
+blocked because the overall evidence is still pending and these release checks
+are incomplete: sign-up/sign-in, physical cross-device profile sync, account
+progress/inventory/history isolation, server-owned reward and duplicate-claim
+coverage, restart notification/lifecycle, and live interrupted-reward denial.
+The separate staging access gateway remains in place. No setting was changed
+and no deployment was triggered by this policy update.
 
 ## Owner-approved Android-only device scope — 2026-10-28
 
@@ -88,9 +104,8 @@ page errors. This used a browser viewport and software graphics, not physical
 phones. Clerk sign-in and persistent progression/reward behavior were not tested.
 
 This smoke verifies only basic private access and current-source gameplay
-availability. It does **not** change `testedSourceCommit`, the false legacy
-invite-only flag, or any required release-test status; the full gate remains
-**PENDING**.
+availability. It does **not** change `testedSourceCommit` or any required
+release-test status; the full gate remains **PENDING**.
 
 ## Live protected-staging WebSocket room smoke — 2026-10-26, 17:17 UTC
 
@@ -243,7 +258,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 | Staging Repl, database, and Clerk environment are isolated from production | PASS — owner-confirmed; protected Railway staging is separate | `STAGING-TEST-RESULTS.json` environment evidence |
 | Railway staging deployment revisions vs. tested source | PASS for the socket service — staging is pinned to tested source `896c490` (`81498a06` SUCCESS; `/healthz` PASS). Railway deployment metadata names branch head `bc87f40`, while the socket’s explicit source pin remains `896c490`. The app branch deployment is also successful; no other Railway settings or Production configuration changed. This does not clear the separate promotion gate | `STAGING-TEST-RESULTS.json` `latestStagingSocketDeployment`; `latestStagingPostRestartHealth` |
 | Reproducible workspace typecheck, tests, and builds | PASS — frozen-lockfile install, typecheck, 72 API tests, 35 game tests, workspace production builds, and six public Playwright tests passed for local commit `896c490` | `STAGING-TEST-RESULTS.json` `latestLocalWorkspaceCheck` |
-| Invite-only Reserved VM deployment configuration | PENDING — legacy Replit requirement is not met by the deployed Railway gateway; false flag preserved for explicit policy review | |
+| Replit invite-only deployment configuration | NOT REQUIRED — owner confirmed this is not a launch requirement on 2026-10-28. The protected Railway staging gateway remains in place | Owner policy decision; staging access is separately controlled |
 | Development landing page loads | PASS — Replit preview checked; sign-in not exercised | |
 | Solo Practice gameplay lifecycle | PASS — preview-only WebGL2 run completed the 120-second match, showed a draw reason and debrief, and returned to setup and home; no sign-in or reward persistence was used | `STAGING-TEST-RESULTS.json` previewGameplay |
 | Sign-up/sign-in and profile loading | PARTIAL — three fresh staging contexts signed in and loaded profiles; sign-out returned 401. The local public E2E test renders the Clerk sign-up form with Development keys; no Production sign-in or new-account creation was tested | Live profile-session section; `latestLocalWorkspaceCheck.clerkConfigurationCheck` |
@@ -268,7 +283,7 @@ Keep this report free of secret values, player identifiers, private deployment U
 
 These checks ran in the staging Repl's development workspace. They do not establish deployed behavior or production readiness.
 
-- **Authentication gate: PARTIAL.** The unauthenticated browser preview shows the Clerk create-account/sign-in screen, and an unauthenticated profile request returned `401`. No login, account creation, or Replit Invite-only deployment gate was exercised.
+- **Authentication gate: PARTIAL.** The unauthenticated browser preview shows the Clerk create-account/sign-in screen, and an unauthenticated profile request returned `401`. No login or account creation was exercised in this check. Replit invite-only deployment is not a launch requirement by owner decision.
 - **Room-code access: PASS locally.** A malformed short code was rejected. Two clients using the same generated code joined one lobby; a different valid code created an isolated room. The room code is a bearer invite, not account authentication; anyone who knows it can join an open lobby. Late join after match start was rejected. No generated code was retained in this report.
 - **Live local 5v5: PASS for a 30-second smoke test.** Two WebSocket clients started a ten-seat match with eight AI seats, exchanged sequenced inputs through `lastSeq` 299, and each received 491 snapshots with 491 identical snapshot samples in common. This was not a six-minute match, ten human clients, or a real-network test.
 - **Live socket smoke: PASS.** A client joined, readied, started, received an input acknowledgment in a snapshot (`lastSeq`), disconnected and reclaimed the same active seat. A second room had independent state. Empty seats were AI-controlled; this was not a ten-human match.
