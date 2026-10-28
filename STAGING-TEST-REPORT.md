@@ -1,16 +1,16 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest live profile-sync source commit:** `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8` (other live staging checks list their own deployment/source identifiers; full staging verification remains pending)
+- **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
 
 ## Current local workspace verification — 2026-10-28
 
-The current local `staging` source was
-`efa4fce6a9820b3e2256c62973ad9e1858af116b`. `pnpm install --frozen-lockfile`,
-workspace typecheck, all 185 workspace tests (47 scripts, 88 API, 50 game),
+The last full workspace-quality run covered the application/test source committed as
+`f576883983ff7e3a659c94fee307c120ab5910a1`. `pnpm install --frozen-lockfile`,
+workspace typecheck, all 191 workspace tests (49 scripts, 88 API, 54 game),
 and workspace production builds passed. The scripts suite includes three
 promotion-policy unit tests and eleven CLI regression tests that run the actual
 verifier against synthetic temporary repositories. They cover complete and
@@ -22,24 +22,27 @@ workflow does not run the public Playwright suite; its previous recorded 6/6
 browser result is kept separately and is supplemental only.
 
 This is local workspace evidence, not a Railway deployment or live staging
-certification. The live profile-sync check used source
-`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`; other staging checks list their
-individual deployed revisions. No single current staging revision has passed
-all required live checks. The owner-confirmed Replit invite-only policy change
-does not alter the protected Railway staging gateway or any other release
-criterion. The exact local result is recorded in
+certification. The physical profile-sync check used the staging runtime source
+`1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`; its three current successful
+deployments and device details are recorded below. The pushed `staging` head is
+`f576883983ff7e3a659c94fee307c120ab5910a1`; changes after the deployed runtime
+source are limited to tests, documentation, and preflight/gate scripts. Other
+live staging checks retain their individual source identifiers. The owner-
+confirmed Replit invite-only policy change does not alter the protected Railway
+staging gateway or any other release criterion. The exact local result is recorded in
 `STAGING-TEST-RESULTS.json` under `latestLocalWorkspaceCheck`; the promotion
 gate remains **PENDING**.
 
-## Promotion-gate recheck — 2026-10-28
+## Earlier promotion-gate recheck — 2026-10-28, before paired-device sync
 
 The owner confirmed Replit invite-only deployment is not required for launch.
-The verifier now checks only the four explicit environment assertions; all four
-remain confirmed. The updated verifier correctly exits 1 and keeps promotion
-blocked because the overall evidence is still pending and these release checks
-are incomplete: sign-up/sign-in, physical cross-device profile sync, account
-progress/inventory/history isolation, server-owned reward and duplicate-claim
-coverage, restart notification/lifecycle, and live interrupted-reward denial.
+The verifier checked only the four explicit environment assertions; all four
+remain confirmed. At that checkpoint it exited 1 and kept promotion blocked
+because the overall evidence was pending and sign-up/sign-in, physical
+cross-device profile sync, account progress/inventory/history isolation,
+server-owned reward and duplicate-claim coverage, restart notification/lifecycle,
+and live interrupted-reward denial were incomplete. The paired physical sync
+was subsequently reported as passed; the latest gate result is recorded below.
 The separate staging access gateway remains in place. No setting was changed
 and no deployment was triggered by this policy update.
 
@@ -54,9 +57,10 @@ lifecycle reports are supplemental; they do not establish physical
 cross-device profile sync or reward-ledger behavior.
 
 The Android device evidence remains **PARTIAL**. iPhone/Safari is
-**NOT_REQUIRED**. Physical cross-device profile sync remains a separate
-**PENDING** feature gate, and live interrupted/expired reward denial remains
-**PENDING**. The gate was not weakened by changing the device platform scope.
+**NOT_REQUIRED**. The separate physical cross-device profile-sync check is now
+**PASS** based on the owner-reported paired-device test below. Live
+interrupted/expired reward denial remains **PENDING**. The gate was not weakened
+by changing the device platform scope.
 
 ## Owner-reported staging phone session retest — 2026-10-28
 
@@ -74,9 +78,58 @@ multiplayer-restart, or reward-ledger evidence. No match or reward result was
 part of the reported check.
 
 Accordingly, `signupAndSignin` remains **PARTIAL**, physical Android
-certification remains **PARTIAL**, cross-device sync remains **PENDING**, and
-overall staging remains **PENDING**. Production readiness remains
-**NOT CLAIMED**.
+certification remains **PARTIAL**, cross-device sync is **PASS** on owner-
+reported evidence, and overall staging remains **PENDING**. Production readiness
+remains **NOT CLAIMED**.
+
+## Owner-reported physical Android profile sync — 2026-10-28
+
+Read-only Railway deployment metadata showed the latest frontend, API, and
+socket deployments all succeeded on branch `wfm-staging-socket-auth` at source
+`1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`:
+
+| Service | Deployment | Status |
+| --- | --- | --- |
+| `wfm-app-staging` | `b11963fe-9de0-429c-a8d6-dcc27e3811d1` | SUCCESS |
+| `wfm-api-staging` | `fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32` | SUCCESS |
+| `wfm-socket-staging` | `1aef0a09-4ee3-4868-a4ed-6957d10f89da` | SUCCESS |
+
+The owner reported using the same approved staging account on both physical
+Android phones. The Samsung showed the `ARC` to `STRAFE` preference change and
+the restoration to `ARC` without a manual refresh; neither phone showed a
+profile error. The owner then signed out on both devices.
+
+| Device | Reported details |
+| --- | --- |
+| REVVL 8 | TMRV085G, Android 16; Chrome version not supplied |
+| Samsung Galaxy A42 5G | SM-A426U, Android 13; Chrome version not supplied |
+
+This satisfies the documented paired physical-device sync behavior and is
+recorded as **owner-reported PASS**, not agent-observed browser evidence.
+Network type, exact test time, screenshots, and request/response traces were
+not supplied. The reversible preference was restored. Possible unclaimed
+staging sortie records were not inspected or deleted; no match or reward result
+was part of this test. This does not pass account isolation, reward integrity,
+multiplayer restart, or the overall staging gate.
+
+## Latest staging promotion-gate recheck — 2026-10-28
+
+The verifier was rerun with `PR_HEAD_REF=staging` and local HEAD
+`bcdf9b5a0b91fe289339a0085f514beab86926ad`; the tested application source was
+`f576883983ff7e3a659c94fee307c120ab5910a1`. Required environment assertions
+passed. The command exited 1 as expected; paired-device sync is no longer a
+blocker. The exact remaining conditions are:
+
+- Overall staging evidence must reach `PASS`.
+- Sign-up/sign-in must reach `PASS`.
+- Account progress, inventory, and history isolation must reach `PASS`.
+- Server-owned rewards and duplicate-claim checks must reach `PASS`.
+- Restart notification/lifecycle must reach `PASS`.
+- Live interrupted/expired reward denial must reach `PASS`.
+
+No live reward claim was submitted, no credits were awarded, and no Production
+settings or deployment were changed. The gate remains intact and
+`productionReadiness` remains `NOT_CLAIMED`.
 
 ## Staging profile refresh on the aligned auth-bridge revision — 2026-10-28
 
@@ -592,7 +645,8 @@ orientations, observation time, and screenshots were not supplied. This remains
 partial user-reported evidence; no network-level reward-claim evidence was
 captured. The Android physical-device evidence remains **PARTIAL** and the
 interrupted-reward gate remains **PENDING**. iPhone/Safari is not required;
-physical cross-device profile sync remains a separate pending feature gate.
+At this checkpoint, physical cross-device profile sync remained pending; the
+later paired-phone result is recorded in the current evidence section above.
 
 In a subsequent follow-up, the owner confirmed that all listed local phone
 checks passed: both sticks together, fire while moving or aiming, ability,
@@ -630,8 +684,10 @@ Local commit `d764623471cb4abcc3d1e970e656a797bac9ad26` passed:
 | Public Playwright browser suite | PASS — 6 tests, including portrait/landscape responsive controls and safe graphics-loss exit |
 
 The Playwright viewport checks are supplemental browser automation, not physical
-device evidence. The promotion statuses `interruptedMatchCannotClaimRewards:
-PARTIAL` and `profileSyncsAcrossDevices: PENDING` remain unchanged.
+device evidence. At that checkpoint, the promotion statuses
+`interruptedMatchCannotClaimRewards: PARTIAL` and
+`profileSyncsAcrossDevices: PENDING` remained unchanged; the later physical
+profile-sync result is recorded above.
 
 ### Physical-device evidence — owner-approved Android-only scope
 
@@ -646,8 +702,9 @@ staging procedure and evidence template are in
 `artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md`; the broader tactile
 playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. Android physical-device
 certification is **PARTIAL** pending the remaining Android checks and memory
-repeat. Physical cross-device profile sync remains **PENDING** as a separate
-feature gate; independent browser contexts are not physical-device evidence.
+repeat. At that earlier checkpoint physical cross-device profile sync remained
+**PENDING**; it is now **PASS** on the owner-reported paired-phone evidence
+above. Independent browser contexts are not physical-device evidence.
 
 ## Review of supplied implementation proposals — 2026-10-27
 
@@ -698,8 +755,10 @@ are not `PASS`.
 
 The owner-reported Android checks are supplemental evidence, not an automatic
 certification pass. The owner approved Android-only scope, so iPhone Safari is
-not required. Memory stability remains inconclusive; physical cross-device
-profile sync and live disposable-account reward-denial remain pending.
+not required. Memory stability remains inconclusive; at that time physical
+cross-device profile sync and live disposable-account reward-denial were
+pending. The subsequent paired sync is recorded above; reward denial remains
+pending.
 
 ## Reward-integrity and Clerk preflight update — 2026-10-27, 17:37 UTC
 
@@ -770,8 +829,10 @@ passed, but memory stability remains inconclusive. Two portrait screenshots
 show the staging landing page and local Solo Flight setup with its no-reward
 notice; they do not show active-flight controls or paired profile
 synchronization. iPhone/Safari is **NOT REQUIRED** under the owner's approved
-Android-only scope. Android certification remains **PARTIAL**, and the separate
-physical cross-device sync and live interrupted-reward gates remain **PENDING**.
+Android-only scope. Android certification remains **PARTIAL**. At this earlier
+reconciliation checkpoint, physical cross-device sync and live
+interrupted-reward were pending; the paired sync is now recorded as owner-
+reported PASS above, while interrupted-reward remains pending.
 
 `RAILWAY_TOKEN` was present and used only to inject Production service variables
 for the read-only preflights. It has **not** been revoked or deleted: no safe
@@ -803,6 +864,10 @@ staging claims or Production verification.
 
 No authenticated reward claim was sent, no credits were awarded, and no
 Production settings or deployments were changed.
+
+This 17:33 gate result predates the paired physical sync reported above. Its
+`profileSyncsAcrossDevices: PENDING` result is historical; the latest recheck
+above no longer lists profile sync as a blocker.
 
 The promotion verifier was run with `PR_HEAD_REF=staging` and the current
 source commit as `PR_HEAD_SHA`. It exited 1 and correctly remained **BLOCKED**:

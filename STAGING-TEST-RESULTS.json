@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "efa4fce6a9820b3e2256c62973ad9e1858af116b",
-  "testedSourceCommitScope": "Current local full workspace-quality source, including the owner-approved promotion-policy update and synthetic CLI regression tests; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
+  "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
+  "testedSourceCommitScope": "Current local full workspace-quality source, including the Production frontend API URL preflight and regression tests; it was not deployed to Railway staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
   "environment": {
     "separateRepl": true,
     "separateStagingDatabase": true,
@@ -32,11 +32,11 @@
   },
   "latestLocalWorkspaceCheck": {
     "verifiedOn": "2026-10-28",
-    "testedSourceCommit": "efa4fce6a9820b3e2256c62973ad9e1858af116b",
-    "testedWorkingTreeCommittedAs": "efa4fce6a9820b3e2256c62973ad9e1858af116b",
+    "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
+    "testedWorkingTreeCommittedAs": "f576883983ff7e3a659c94fee307c120ab5910a1",
     "workingTreeChangesIncluded": [],
     "documentationOnlyChangesDuringRun": [],
-    "scope": "Full workspace-quality workflow ran on the committed local staging source with a clean working tree. The run included the synthetic CLI verifier regression tests; it is not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
+    "scope": "The frozen-lockfile install and full workspace-quality checks passed on the source content committed as f576883983ff7e3a659c94fee307c120ab5910a1. This is local workspace evidence, not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
@@ -44,14 +44,14 @@
       "failed": 0
     },
     "scriptsTests": {
-      "passed": 47,
+      "passed": 49,
       "failed": 0
     },
     "gameTests": {
-      "passed": 50,
+      "passed": 54,
       "failed": 0
     },
-    "totalTestsPassed": 185,
+    "totalTestsPassed": 191,
     "promotionPolicyRegression": {
       "focusedTests": 3,
       "passed": 3,
@@ -72,7 +72,9 @@
     },
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
-      "testedSourceCommit": "efa4fce6a9820b3e2256c62973ad9e1858af116b",
+      "headRefAtCheck": "staging",
+      "headCommitAtCheck": "bcdf9b5a0b91fe289339a0085f514beab86926ad",
+      "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
       "result": "BLOCKED",
       "exitCode": 1,
       "requiredEnvironmentAssertions": "PASS",
@@ -80,13 +82,12 @@
       "blockingConditions": [
         "overallStatus must be PASS",
         "tests.signupAndSignin must be PASS",
-        "tests.profileSyncsAcrossDevices must be PASS",
         "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
         "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local staging promotion verifier only. No Production configuration change or deployment."
+      "scope": "Local verifier rerun after recording owner-reported paired physical profile sync. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -197,18 +198,23 @@
     "productionDeploymentPerformed": false
   },
   "latestFrozenWorkspaceQualityCheck": {
-    "verifiedAtUtc": "2026-10-26T19:58:22Z",
-    "testedSourceCommit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3",
+    "verifiedOn": "2026-10-28",
+    "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
+    "scriptsTests": {
+      "passed": 49,
+      "failed": 0
+    },
     "apiTests": {
-      "passed": 70,
+      "passed": 88,
       "failed": 0
     },
     "gameTests": {
-      "passed": 32,
+      "passed": 54,
       "failed": 0
     },
+    "totalTestsPassed": 191,
     "workspaceBuilds": "PASS",
     "publicE2e": "NOT_RUN_IN_THIS_CHECK",
     "scope": "Local workspace only. No application source, Clerk configuration, Railway configuration, or Production settings changed in this check; staging promotion evidence remains a separate gate."
@@ -1337,7 +1343,7 @@
     "agentSentFreshSignInChallenge": false,
     "agentUsedSavedVerificationCode": false,
     "productionModified": false,
-    "certificationImpact": "signupAndSignin remains PARTIAL; overallStatus remains PENDING; this owner-reported UI observation does not pass cross-device sync, reward-integrity, or Production gates."
+    "certificationImpact": "signupAndSignin remains PARTIAL; overallStatus remains PENDING; this single-device session observation does not itself establish cross-device sync. The paired physical sync is recorded separately."
   },
   "latestOwnerReportedStagingPhoneSession": {
     "recordedOn": "2026-10-28",
@@ -1357,12 +1363,77 @@
     "networkEvidenceCaptured": false,
     "deploymentIdentifierCaptured": false,
     "scope": "Authentication and session persistence only. No match or reward result was part of the reported check; this is not evidence for cross-device sync, account isolation, multiplayer restart, or reward integrity.",
-    "certificationImpact": "signupAndSignin remains PARTIAL; physical Android certification remains PARTIAL; profileSyncsAcrossDevices remains PENDING; overallStatus remains PENDING; productionReadiness remains NOT_CLAIMED."
+    "certificationImpact": "signupAndSignin remains PARTIAL; physical Android certification remains PARTIAL; the separate paired physical sync is recorded in latestOwnerReportedPhysicalProfileSync; overallStatus remains PENDING; productionReadiness remains NOT_CLAIMED."
+  },
+  "latestStagingDeploymentRevisionCheck": {
+    "checkedOn": "2026-10-28",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "sourceBranch": "wfm-staging-socket-auth",
+    "sourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "deploymentId": "b11963fe-9de0-429c-a8d6-dcc27e3811d1",
+        "status": "SUCCESS"
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "deploymentId": "fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32",
+        "status": "SUCCESS"
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "deploymentId": "1aef0a09-4ee3-4868-a4ed-6957d10f89da",
+        "status": "SUCCESS"
+      }
+    },
+    "allServicesShareSameSourceCommit": true,
+    "localBranchHeadAtMetadataCheck": "bcdf9b5a0b91fe289339a0085f514beab86926ad",
+    "originStagingBranchHeadAtMetadataCheck": "f576883983ff7e3a659c94fee307c120ab5910a1",
+    "runtimeFilesChangedAfterDeployedCommit": false,
+    "scope": "Read-only deployment metadata and repository diff. The same runtime commit was deployed to frontend, API, and socket; later branch changes are tests, documentation, and preflight/gate scripts. No Railway settings or deployments were changed."
+  },
+  "latestOwnerReportedPhysicalProfileSync": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed test procedure; same host not re-entered in the result form",
+    "deployedSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "sameApprovedStagingAccountOnBothPhones": true,
+    "devices": [
+      {
+        "model": "REVVL 8",
+        "modelNumber": "TMRV085G",
+        "androidVersion": "16",
+        "browser": "Chrome per instructed procedure",
+        "browserVersion": "NOT_SUPPLIED"
+      },
+      {
+        "model": "Samsung Galaxy A42 5G",
+        "modelNumber": "SM-A426U",
+        "androidVersion": "13",
+        "browser": "Chrome per instructed procedure",
+        "browserVersion": "NOT_SUPPLIED"
+      }
+    ],
+    "outcomes": {
+      "strafeObservedOnSamsungWithoutRefresh": "OWNER_REPORTED_PASS",
+      "arcRestoredOnSamsungWithoutRefresh": "OWNER_REPORTED_PASS",
+      "profileErrorOnEitherPhone": false,
+      "signedOutOnBothPhones": true
+    },
+    "httpStatusCaptured": false,
+    "screenshotsOrNetworkTracesSupplied": false,
+    "networkTypeAndExactTestTime": "NOT_SUPPLIED",
+    "preferenceRestoredTo": "ARC",
+    "possibleUnclaimedStagingSortieRecords": "NOT_INSPECTED",
+    "matchOrRewardOutcome": "NOT_PART_OF_THIS_TEST",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Physical profile sync only. This does not establish account isolation, server-owned reward or duplicate-claim behavior, restart lifecycle, or overall staging readiness."
   },
   "tests": {
     "signupAndSignin": "PARTIAL",
     "profilePersistsAcrossSessions": "PASS",
-    "profileSyncsAcrossDevices": "PENDING",
+    "profileSyncsAcrossDevices": "PASS",
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
     "sharedEconomyUsesStagingData": "PASS",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
