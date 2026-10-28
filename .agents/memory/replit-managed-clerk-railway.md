@@ -38,3 +38,9 @@ Preserve WFM's existing Replit-managed Development Clerk while evaluating extern
 **Why:** The user chose to keep Development authentication intact while considering an external Production Clerk. Replit documents that switching to an external Clerk requires deleting the managed app first; deletion removes the tenant and does not automatically migrate accounts, credentials, or sessions.
 
 **How to apply:** Keep Production authorization blocked unless a genuinely separate external Production connection is supported and verified. If replacement is later proposed, first document account/session impact, dependencies, cutover validation, and rollback; obtain explicit owner approval before any deletion or cutover.
+
+The user's intended WFM Production topology is the existing Niakofa domain as public entry, with Railway remaining the API/socket backend. This is not compatible with sending Replit-managed Clerk sessions to Railway.
+
+**Why:** The user clarified that Niakofa should remain the public entry point and Railway the backend host.
+
+**How to apply:** Do not treat the Replit-managed same-origin configuration as completion of this topology. Keep Railway Production blocked until a supported external Clerk Production connection and same-instance frontend/API/socket configuration are authorized and verified.
