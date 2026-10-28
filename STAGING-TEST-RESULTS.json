@@ -1339,6 +1339,26 @@
     "productionModified": false,
     "certificationImpact": "signupAndSignin remains PARTIAL; overallStatus remains PENDING; this owner-reported UI observation does not pass cross-device sync, reward-integrity, or Production gates."
   },
+  "latestOwnerReportedStagingPhoneSession": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging host confirmed by owner; deployment revision not captured for this retest",
+    "device": {
+      "model": "REVVL 8 (TMRV085G), previously reported by owner",
+      "androidVersion": "16, previously reported by owner",
+      "chromeVersion": "NOT_SUPPLIED_FOR_THIS_RETEST"
+    },
+    "outcomes": {
+      "profileLoadedAfterSignIn": "OWNER_REPORTED_PASS",
+      "profilePreservedAfterRefresh": "OWNER_REPORTED_PASS",
+      "signOutAndReSignIn": "OWNER_REPORTED_PASS"
+    },
+    "httpStatusCaptured": false,
+    "screenshotCapturedForThisRetest": false,
+    "networkEvidenceCaptured": false,
+    "deploymentIdentifierCaptured": false,
+    "scope": "Authentication and session persistence only. No match or reward result was part of the reported check; this is not evidence for cross-device sync, account isolation, multiplayer restart, or reward integrity.",
+    "certificationImpact": "signupAndSignin remains PARTIAL; physical Android certification remains PARTIAL; profileSyncsAcrossDevices remains PENDING; overallStatus remains PENDING; productionReadiness remains NOT_CLAIMED."
+  },
   "tests": {
     "signupAndSignin": "PARTIAL",
     "profilePersistsAcrossSessions": "PASS",

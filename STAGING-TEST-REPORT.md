@@ -58,6 +58,26 @@ The Android device evidence remains **PARTIAL**. iPhone/Safari is
 **PENDING** feature gate, and live interrupted/expired reward denial remains
 **PENDING**. The gate was not weakened by changing the device platform scope.
 
+## Owner-reported staging phone session retest — 2026-10-28
+
+The owner confirmed the phone was on the Railway staging host. They reported
+that sign-in loaded the profile, refresh preserved it, and sign-out followed
+by re-sign-in worked. The phone was previously identified as a REVVL 8
+(TMRV085G) running Android 16; the Chrome version was not supplied for this
+retest.
+
+This is owner-reported UI evidence only. No HTTP status, screenshot or network
+capture, or deployment identifier was supplied for this retest, so it is not
+bound to a verified running source revision. The check covered authentication
+and session persistence only; it supplies no cross-device, account-isolation,
+multiplayer-restart, or reward-ledger evidence. No match or reward result was
+part of the reported check.
+
+Accordingly, `signupAndSignin` remains **PARTIAL**, physical Android
+certification remains **PARTIAL**, cross-device sync remains **PENDING**, and
+overall staging remains **PENDING**. Production readiness remains
+**NOT CLAIMED**.
+
 ## Staging profile refresh on the aligned auth-bridge revision — 2026-10-28
 
 Read-only Railway metadata confirmed the staging frontend, API, and socket are
