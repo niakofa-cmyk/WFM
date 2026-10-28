@@ -1,8 +1,8 @@
 # WAR FOR MARS — Mobile Certification
 
-**Status: NOT CERTIFIED — owner-reported REVVL 8 Android smoke checks are supplemental; full physical-device certification remains pending.**
+**Status: PARTIAL — owner-approved physical-device scope is Android Chrome only; iPhone/Safari is not a release requirement. The REVVL 8 staging sample passes duration and frame pacing, while memory stability and several device checks remain incomplete.**
 
-This report separates automated control/lifecycle checks from Android Chrome and iOS Safari evidence. Desktop preview, browser emulation, and source inspection do not count as physical-phone performance results.
+This report separates automated control/lifecycle checks from physical Android Chrome evidence. The owner approved Android-only device certification; iPhone/Safari is out of scope, not required, and must not be represented as tested. Desktop preview, browser emulation, and source inspection do not count as physical-phone performance results.
 
 ## Previously recorded build baseline
 
@@ -120,8 +120,9 @@ No background/restore transitions were recorded. Browser APIs did not expose
 thermal status, and this report included no separate thermal observation.
 These results pass the numeric performance targets for this single
 user-reported Android sample; they do not certify controls, gyro, interruption
-recovery, thermal behavior, iOS Safari, staging, or Production. Overall physical
-device certification remains **PENDING**.
+recovery, thermal behavior, Railway staging, or Production. iOS Safari is not a
+requirement under the approved scope. Overall Android physical-device
+certification remains **PARTIAL**.
 
 ### Physical Android sample — Railway staging
 
@@ -149,8 +150,8 @@ observation was supplied.
 
 Duration and frame-pacing targets pass for this staging sample. The sample does
 not measure controls, gyro, interruption recovery, or thermal behavior, and it
-does not establish Production readiness. Overall device certification remains
-**PENDING**.
+does not establish Production readiness. Memory stability is inconclusive and
+needs a repeat. Overall Android device certification remains **PARTIAL**.
 
 ## Proposed acceptance gates
 
@@ -173,25 +174,31 @@ Record the raw trace and device/browser versions before marking a gate passed. T
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Android | REVVL 8 (TMRV085G), Android 16; phone model-build `1.15.12` (reported earlier) | Chrome 156.0.0.0 | Replit Development preview at commit `97ead20` (not Railway staging/Production) | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:20:42.434Z` | 78.1 average FPS; first/final minute 83.6/77.5 FPS; p95 17 ms; p99 25 ms; 2/28,705 frames over 50 ms (0.007%); no >250 ms gaps | Used heap 15.6 MiB at start, 19.8 MiB at 360 sec; no thermal status exposed and no separate observation in this report | Earlier short Practice check: neutral touch, drag, and release recenter confirmed; controls/gyro/lifecycle not measured in this sample | PASS — endurance performance sample only; user-reported |
 | Android | REVVL 8 / Android 16 reported in earlier device check; not repeated in this report | Chrome 156.0.0.0 | Railway staging `wfm-app-staging`, commit `04365fa`, deployment `5f25639f-bddd-4a15-bf25-0e22b328827c` | 360/360 active game seconds; one run started/completed; captured `2026-10-27T21:42:16.121Z` | 74.2 average FPS; first/final minute 74.5/77.8 FPS; p95 25 ms; p99 33 ms; 4/27,367 frames over 50 ms (0.015%); no >250 ms gaps | Used heap 10.8 MiB at start and 18.5 MiB at 360 sec; fluctuated 13.3–18.5 MiB after warm-up; memory stability inconclusive; no thermal status or separate observation | Controls/gyro/lifecycle not measured in this sample | PASS — duration/frame pacing only; memory follow-up |
-| iOS | Not run | Safari not run | — | — | — | — | — | NOT RUN |
+| iOS / Safari | Out of scope | Not required | — | — | — | — | — | NOT REQUIRED — owner-approved Android-only scope |
 
-The staging sample does not change the overall device-certification gate:
-full touch-control, gyro, interruption/restore, and iOS Safari checks remain
-outstanding. The staging memory trend also needs a repeat measurement.
+The staging sample does not complete Android device certification: full
+touch-control, gyro, interruption/restore, thermal observation, and a memory
+repeat remain outstanding. iOS Safari is not a required gate under the
+owner-approved Android-only scope. Cross-device profile sync remains a separate
+feature gate and is not established by this single-phone sample.
 
 ## Required device run
 
-Use a real Android phone with Chrome and a real iPhone with Safari. Do not substitute desktop responsive mode.
+Use a real Android phone with Chrome. Do not substitute desktop responsive
+mode. A second physical Android device may be used for the separate profile-sync
+feature check; an iPhone is not required.
 
 1. Record phone model, OS version, browser version, screen dimensions, orientation, network, and tested commit.
 2. With Strike selected, enable **Run one local endurance sample**. This is a single browser-only no-reward run; objectives and integrity depletion are suppressed only for this sample. Record active-play FPS, p95/p99 frame time, frames over 50 ms, final-minute metrics, and memory at warm-up, minute 3, and minute 6. Result-screen and transition time remain separate.
 3. Exercise left and right sticks simultaneously; fire while steering; lock a target; activate each ship's ability; adjust power; and test gyro permission grant and denial.
 4. During input, release a pointer, trigger pointer cancellation if possible, background and restore the browser, and rotate the phone. Confirm controls return neutral and the match pauses/resumes as specified.
-5. Repeat the full pass on Android Chrome and iOS Safari. Attach trace files or screen recordings and fill the evidence rows above.
+5. Complete the physical pass on Android Chrome. Attach sanitized trace files or
+   screen recordings and fill the evidence rows above. Mark iOS/Safari
+   `NOT_REQUIRED`; do not infer or claim iOS results.
 
 For the complete tactile playtest script and ship-by-ship notes, see `PHONE-PLAYTEST-CHECKLIST.md`.
-For the exact iOS Safari and Android Chrome staging smoke procedure, paired-device
-profile-sync checks, and a fill-in evidence record, see
+For the Android Chrome staging smoke procedure, the separate paired-device
+profile-sync check, and a fill-in evidence record, see
 `PHYSICAL-DEVICE-SMOKE-TEST.md`.
 
 ## Current disposition
@@ -203,5 +210,8 @@ frame-pacing targets; its memory trend is inconclusive and needs a repeat.
 Controls, gyro, interruption/restore, and thermal behavior were not covered by
 the six-minute reports. The owner confirmed Android 16 and phone model-build
 `1.15.12` for the REVVL 8; the staging report itself records Chrome 156.0.0.0.
-No iPhone is available, so iOS Safari and paired-device profile sync were not
-run. Full physical-device certification remains **PENDING**.
+No iPhone is available. iOS Safari is not required under the approved
+Android-only scope. Paired physical-device profile sync was not run and remains
+a separate pending feature gate. Android physical-device certification remains
+**PARTIAL** because memory stability is inconclusive and controls/gyro,
+interruption/restore, and thermal observations are not fully evidenced.

@@ -1,15 +1,17 @@
 # WAR FOR MARS — Physical-device staging smoke test
 
-**Status: PENDING — owner-reported Android checks are supplemental; required paired-device results and some device metadata are still missing.**
+**Status: PARTIAL — Android Chrome is the approved physical-device scope; the recorded REVVL 8 run passes duration/frame-pacing only, with memory stability inconclusive. iPhone/Safari is not a release requirement.**
 
 This checklist is for an authorized tester using the isolated Railway **staging**
-environment. Desktop responsive mode, browser emulation, and Playwright are
-supplemental only. Do not sign in to Production, use Production credentials, or
-submit a Strike reward claim during this smoke test.
+environment. The owner approved Android Chrome as the required physical-device
+scope; iPhone/Safari is out of scope and is not required for this gate. Desktop
+responsive mode, browser emulation, and Playwright are supplemental only. Do not
+sign in to Production, use Production credentials, or submit a Strike reward
+claim during this smoke test.
 
 ## Safety and prerequisites
 
-- Use one real iPhone running Safari and one real Android phone running Chrome.
+- Use one real Android phone running Chrome.
 - Use only an approved existing **staging** test account. Do not create an account
   or change authentication settings for this test.
 - Get the staging access code and any verification code through the approved
@@ -39,41 +41,37 @@ submit a Strike reward claim during this smoke test.
    network type, and start time. Use physical-device details, not an emulated
    viewport.
 
-### 2. iPhone — Safari
+### 2. Android — Chrome (required physical-device path)
 
-1. Open the staging game URL directly in Safari (not an embedded browser or
-   home-screen wrapper).
-2. Pass the staging access page using the separately supplied code. Confirm the
-   game loads and that Safari shows no horizontal page overflow.
-3. Sign in with the approved staging test account. Complete only the challenge
-   for this staging account. Confirm the player profile loads successfully;
-   stop if the screen says `PLAYER PROFILE UNAVAILABLE`.
-4. Record the visible starting credits and selected ship/technology as
-   non-identifying values. Do not record the email, user ID, or authentication
-   response body.
-5. In profile settings, change the technology from `ARC` to `STRAFE`. Do not
-   purchase, refit, launch a Strike, or claim a reward.
-6. Rotate portrait to landscape and back. Confirm the visible controls and text
-   remain on-screen and there is no stuck touch input.
-7. Leave the page open and continue to step 3 on Android without refreshing.
+1. Open the protected staging game URL directly in Chrome on the physical
+   Android phone. Pass the staging access page using the separately supplied
+   code.
+2. Sign in with the approved staging test account. Complete only the challenge
+   for this staging account. Confirm the profile loads; stop if the screen says
+   `PLAYER PROFILE UNAVAILABLE`.
+3. Record device/browser details and visible, non-identifying profile state.
+   Do not record the email, user ID, authentication response body, or credits
+   beyond the minimum needed to compare before/after.
+4. Check portrait and landscape layout, safe areas, vertical scrolling, and
+   return-to-portrait behavior. Note each screen actually checked.
+5. Use `/play` for no-reward control checks. Confirm the local/no-reward notice,
+   test both sticks, fire, ability, release/cancellation, and exit. Do not use
+   signed-in Practice or Strike as a no-reward test.
+6. Complete the six-minute local endurance sample only if needed for the
+   performance gate. Record active game seconds, frame cadence, memory samples,
+   and any OS thermal warning separately.
+7. Briefly background/restore Chrome, rotate the phone, and confirm the
+   documented pause/resume behavior with no stuck input. Sign out.
 
-### 3. Android — Chrome and paired-device synchronization
+### 3. Cross-device profile sync (separate feature gate)
 
-1. Open the same protected staging game URL in Chrome on the physical Android
-   phone. Pass the staging access page with the separately supplied code.
-2. Sign in to the **same approved staging account** as on iPhone. Confirm its
-   profile loads and initially shows the prior `ARC` selection.
-3. Without refreshing or manually requesting the profile, wait up to **35
-   seconds** for Android Chrome to show `STRAFE`.
-4. Record the time from the accepted iPhone selection to the Android UI update.
-   The earlier browser-only comparison measured about 26.8 seconds; that is a
-   reference, not physical-device evidence or a substitute pass.
-5. On iPhone, restore the selection to `ARC`. Again, wait up to 35 seconds for
-   Android Chrome to show the restored value without refreshing.
-6. Refresh both phones once. Confirm both profiles load and show the same
-   restored selection and unchanged credits.
-7. Sign out on both phones. Confirm each device returns to the signed-out state.
-   Do not capture or retain browser storage or authentication state.
+A paired physical-device profile-sync check is separate from the Android-only
+device certification. If this feature gate is required, use two approved
+physical Android Chrome devices; an iPhone is not required. Confirm the same
+approved staging account on both, make a reversible preference change, observe
+automatic update and restoration without manual refresh, then sign out. With
+only one physical device, leave `profileSyncsAcrossDevices` **PENDING**;
+independent browser contexts do not count as two physical devices.
 
 ### 4. Mobile layout and no-reward control check
 
@@ -129,16 +127,15 @@ controls or a profile-sync result.
 Earlier owner reports describe successful profile sign-in/sign-out, local
 `/play` Solo Flight without credits, listed touch-control checks, and layout and
 scrolling working after reload. This remains supplemental user-reported
-evidence. The owner confirmed no iPhone is available and the paired profile
-sync test has not been run. The Android-only evidence template and full
-physical-device gate remain pending.
+evidence. The owner approved Android-only physical-device scope, so iPhone
+Safari is **NOT REQUIRED**. The separate paired physical-device profile-sync
+check has not been run and remains pending.
 
-## Android-only run (partial evidence only)
+## Android-only run
 
-Use this path when an Android Chrome tester is available but the paired iPhone
-Safari tester is not. It can document Android layout, controls, and practice
-flight behavior; it cannot pass the cross-device profile-sync or full physical
-device gate.
+Use this path for the required physical-device certification. It can establish
+Android layout, controls, lifecycle, and performance evidence. It does not by
+itself establish the separate cross-device profile-sync feature gate.
 
 1. Record the real phone model, Android version, Chrome version, screen size,
    network type, and test time.
@@ -157,9 +154,10 @@ device gate.
 7. Attach sanitized screenshots or a short recording plus the device/browser
    details. Do not include account identifiers, email, access/verification
    codes, tokens, cookies, or browser storage.
-8. Record the result as `PARTIAL`. The iPhone Safari and paired cross-device
-   synchronization rows remain `NOT RUN` and the full physical-device gate
-   remains `PENDING`.
+8. Record the Android result as `PASS`, `PARTIAL`, or `FAIL` based only on the
+   Android checks actually completed. Mark iPhone/Safari `NOT REQUIRED` under
+   the approved scope. Keep paired physical-device profile sync `PENDING` until
+   tested separately if that feature gate remains required.
 
 ## Evidence template
 
@@ -184,27 +182,25 @@ not personal contact details.
 
 | Platform | Model | OS | Browser/version | Screen size | Orientation(s) | Network |
 | --- | --- | --- | --- | --- | --- | --- |
-| iPhone / Safari | | | | | | |
-| Android / Chrome | | | | | | |
+| Required: Android / Chrome | | | | | | |
+| Optional second Android device for separate sync check | | | | | | |
 
 ### Observed results
 
-| Check | Expected | iPhone Safari | Android Chrome | Evidence or sanitized notes |
+| Check | Expected | Required Android Chrome | Optional second device | Evidence or sanitized notes |
 | --- | --- | --- | --- | --- |
 | Protected staging page and game load | Success on staging only | | | |
 | Authenticated profile load | Successful; no unavailable-profile screen | | | |
-| Starting selection / credits | Same account baseline | | | |
-| `ARC` → `STRAFE` synchronization | Android updates without refresh within 35 seconds | | | |
-| `STRAFE` → `ARC` restoration | Android updates without refresh within 35 seconds | | | |
-| Refresh/session continuity | Both show restored state | | | |
-| Layout, safe areas, orientation | No clipped or unreachable controls | | | |
+| Layout, scrolling, safe areas, orientation | No clipped or unreachable controls | | | |
 | Touch controls / release / cancellation | Responsive, neutral after release | | | |
 | Background and foreground | Documented pause/resume; no stuck input | | | |
-| Reward claim requests | None | | | |
-| Sign-out | Completed on both devices | | | |
+| Six-minute sample | Record duration, frame pacing, memory, and thermal observation | | | |
+| Reward claim requests during local flight | None | | | |
+| Sign-out | Completed on tested device | | | |
 | Page errors / crashes | None, or fully described | | | |
+| Paired profile sync (separate gate) | Auto-update and restoration without refresh | | | |
 
-| Preference update | Started at | Visible on other device at | Elapsed seconds |
+| Preference update (separate sync gate) | Started at | Visible on other device at | Elapsed seconds |
 | --- | --- | --- | --- |
 | `ARC` → `STRAFE` | | | |
 | `STRAFE` → `ARC` | | | |
@@ -218,7 +214,8 @@ not personal contact details.
 - Tester attestation that both devices were physical phones:
 - Follow-up owner:
 
-The physical-device gate remains **PENDING** until an authorized tester completes
-the required checks on actual iPhone Safari and Android Chrome devices and
-attaches sanitized evidence. Do not mark it passed from this template, desktop
-automation, or a staging service health result alone.
+The Android physical-device gate remains **PENDING** until the Android checks
+meet the documented targets and sanitized evidence is recorded. iPhone/Safari is
+not required under the approved scope. Keep cross-device profile sync as a
+separate gate if required. Do not mark either gate passed from desktop
+automation or service health alone.
