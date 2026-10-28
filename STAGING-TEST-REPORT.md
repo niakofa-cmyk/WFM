@@ -1,22 +1,42 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Tested source commit:** `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8` (workspace quality and live scoped profile sync pass; full staging verification remains pending)
+- **Latest live profile-sync source commit:** `7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8` (other live staging checks list their own deployment/source identifiers; full staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. The legacy Replit invite-only release flag remains false pending explicit policy review.
 - **Production readiness:** NOT CLAIMED
 
-## Local workspace verification after the staged source snapshot
+## Current local workspace verification — 2026-10-28
 
-The current workspace source is `5fdb65618c4eed5a26808d6b89cc0a7373405bc2`.
-Local typecheck, all 70 API tests, all 32 game tests, workspace production
-builds, and all 6 public Playwright E2E tests passed. This check is recorded
-separately in `latestLocalWorkspaceCheck`; it is **not** evidence that this
-source was deployed to staging or that the remaining live release checks passed.
-The latest full/authenticated staging evidence below still tests
-`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`. A limited no-account smoke on the
-new current-source deployment is recorded separately; it does not replace the
-required release checks. The promotion gate correctly remains blocked.
+The current local `staging` source was `0cfb98693fe98bd961e4d6500b4268f5f6ba24ba`.
+`pnpm install --frozen-lockfile`, workspace typecheck, all 171 workspace tests
+(33 scripts, 88 API, 50 game), and workspace production builds passed. The
+configured `workspace-quality` workflow finished successfully. The workflow
+does not run the public Playwright suite; its previous recorded 6/6 browser
+result is kept separately and is supplemental only.
+
+This is local workspace evidence, not a Railway deployment or live staging
+certification. The live profile-sync check used source
+`7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8`; other staging checks list their
+individual deployed revisions. No single current staging revision has passed
+all required live checks. The exact local result is recorded in
+`STAGING-TEST-RESULTS.json` under `latestLocalWorkspaceCheck`; the promotion
+gate remains **PENDING**.
+
+## Owner-approved Android-only device scope — 2026-10-28
+
+The owner confirmed that iPhone/Safari must not be required. Android Chrome on
+a physical phone is the required device scope. The REVVL 8 / Android 16 /
+Chrome 156 staging endurance sample reached 360 active seconds and passed the
+recorded duration and frame-pacing targets. Its memory-stability result remains
+**INCONCLUSIVE**. The owner's touch-control, layout/scroll, sign-in/out, and
+lifecycle reports are supplemental; they do not establish physical
+cross-device profile sync or reward-ledger behavior.
+
+The Android device evidence remains **PARTIAL**. iPhone/Safari is
+**NOT_REQUIRED**. Physical cross-device profile sync remains a separate
+**PENDING** feature gate, and live interrupted/expired reward denial remains
+**PENDING**. The gate was not weakened by changing the device platform scope.
 
 ## Live profile-session synchronization — 2026-10-26, 14:29 UTC
 
@@ -500,8 +520,10 @@ controls. The `/play` Solo Flight is separate from signed-in WarApp Practice and
 does not use the server reward-claim flow. No direct network trace or reward
 ledger was captured, and no staging balance change is claimed. This does not
 verify interrupted/expired reward denial, profile sync, or the complete
-physical-device matrix. The interrupted-reward and physical-device release
-gates remain **PENDING**.
+physical-device matrix. Android device evidence remains **PARTIAL** and the
+interrupted-reward gate remains **PENDING**. iPhone/Safari is not required under
+the owner-approved Android-only scope; physical cross-device profile sync is a
+separate pending feature gate.
 
 ### Latest tester-reported Android follow-up
 
@@ -511,8 +533,9 @@ profile sign-in/sign-out work and local Solo Flight runs without credits. Exact
 phone model, Android/Chrome versions, screen size, network, tested screen names,
 orientations, observation time, and screenshots were not supplied. This remains
 partial user-reported evidence; no network-level reward-claim evidence was
-captured. The interrupted-reward and full physical-device gates remain
-**PENDING**.
+captured. The Android physical-device evidence remains **PARTIAL** and the
+interrupted-reward gate remains **PENDING**. iPhone/Safari is not required;
+physical cross-device profile sync remains a separate pending feature gate.
 
 In a subsequent follow-up, the owner confirmed that all listed local phone
 checks passed: both sticks together, fire while moving or aiming, ability,
@@ -553,16 +576,21 @@ The Playwright viewport checks are supplemental browser automation, not physical
 device evidence. The promotion statuses `interruptedMatchCannotClaimRewards:
 PARTIAL` and `profileSyncsAcrossDevices: PENDING` remain unchanged.
 
-### Physical-device evidence
+### Physical-device evidence — owner-approved Android-only scope
 
-The Playwright viewport checks did not exercise a physical device. Later
-owner-reported Samsung Android checks are recorded above as supplemental
-evidence; exact phone, Android, and Chrome details were not provided. No
-iPhone/Safari run or paired-device profile-sync evidence is recorded. The exact
+The Playwright viewport checks did not exercise a physical device. The owner
+approved Android Chrome as the required physical-device scope; iPhone/Safari is
+not a release requirement. Later owner-reported REVVL 8 (TMRV085G), Android 16,
+Chrome 156 checks are recorded above and in the mobile certification. The
+Railway staging endurance sample reached 360 active seconds and met duration
+and frame-pacing targets; memory stability is inconclusive. Touch controls,
+scrolling, sign-in/out, and lifecycle checks are owner-reported. The exact
 staging procedure and evidence template are in
 `artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md`; the broader tactile
-playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. Physical-device certification
-and multi-device sync remain **PENDING**.
+playtest remains in `PHONE-PLAYTEST-CHECKLIST.md`. Android physical-device
+certification is **PARTIAL** pending the remaining Android checks and memory
+repeat. Physical cross-device profile sync remains **PENDING** as a separate
+feature gate; independent browser contexts are not physical-device evidence.
 
 ## Review of supplied implementation proposals — 2026-10-27
 
@@ -611,10 +639,10 @@ builds. The staging promotion verifier was also run and correctly remained
 blocked because `overallStatus` is `PENDING` and multiple live evidence fields
 are not `PASS`.
 
-The owner-reported physical Samsung Android checks are supplemental evidence;
-they do not complete physical-device certification. Exact device/browser
-metadata is absent. iPhone Safari, paired-device profile sync, and the
-disposable-account reward-denial check remain pending.
+The owner-reported Android checks are supplemental evidence, not an automatic
+certification pass. The owner approved Android-only scope, so iPhone Safari is
+not required. Memory stability remains inconclusive; physical cross-device
+profile sync and live disposable-account reward-denial remain pending.
 
 ## Reward-integrity and Clerk preflight update — 2026-10-27, 17:37 UTC
 
@@ -679,13 +707,14 @@ The owner's Android sign-in/sign-out, local Solo Flight, controls, and
 layout/scroll observations are **supplemental user-reported staging evidence**.
 The owner identified the phone as a REVVL 8, model TMRV085G, on T-Mobile, and
 confirmed Android 16 and that `1.15.12` is the phone model-build string. The
-owner confirmed this is the same phone previously described as Samsung. The
-exact Chrome version, network type, and test time remain unavailable. Two
-portrait screenshots show the staging landing page and the local Solo Flight
-setup with its no-reward notice; they do not verify active-flight controls or
-paired profile synchronization. The owner confirmed no iPhone is available and
-the paired sync check was not run. Physical-device certification and
-multi-device profile sync remain **PENDING**; no iPhone Safari test is claimed.
+staging endurance report records Chrome 156.0.0.0 and 360 active seconds; the
+owner confirmed it came from Railway staging. Duration and frame-pacing targets
+passed, but memory stability remains inconclusive. Two portrait screenshots
+show the staging landing page and local Solo Flight setup with its no-reward
+notice; they do not show active-flight controls or paired profile
+synchronization. iPhone/Safari is **NOT REQUIRED** under the owner's approved
+Android-only scope. Android certification remains **PARTIAL**, and the separate
+physical cross-device sync and live interrupted-reward gates remain **PENDING**.
 
 `RAILWAY_TOKEN` was present and used only to inject Production service variables
 for the read-only preflights. It has **not** been revoked or deleted: no safe
@@ -694,4 +723,7 @@ this workspace. Owner-side token revocation and secret removal remain
 outstanding. No token value was recorded.
 
 Overall staging status remains **PENDING** and Production readiness remains
-**NOT CLAIMED**.
+**NOT CLAIMED**. The current local workspace verification and exact source
+commit are recorded in the current-workspace section at the top of this report;
+it does not replace live staging evidence tied to the individual deployed
+revisions above.

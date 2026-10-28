@@ -1,6 +1,7 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8",
+  "testedSourceCommit": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
+  "testedSourceCommitScope": "Current local full workspace-quality source only; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
   "environment": {
     "separateRepl": true,
     "inviteOnlyDeployment": false,
@@ -31,38 +32,49 @@
     "productionBuilds": "PASS"
   },
   "latestLocalWorkspaceCheck": {
-    "verifiedOn": "2026-10-27",
-    "testedSourceCommit": "8cabc49fed9e6a1aafff73832411ed82b28d496a",
-    "testedWorkingTreeCommittedAs": "8cabc49fed9e6a1aafff73832411ed82b28d496a",
-    "workingTreeChangesIncluded": [
-      "artifacts/api-server/src/game/progression.test.ts",
-      "artifacts/api-server/src/routes/strikes.ts",
-      "artifacts/api-server/src/routes/progression.test.ts",
-      "artifacts/war-for-mars/MOBILE-CERTIFICATION.md",
-      "artifacts/war-for-mars/PHYSICAL-DEVICE-SMOKE-TEST.md"
+    "verifiedOn": "2026-10-28",
+    "testedSourceCommit": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
+    "testedWorkingTreeCommittedAs": "0cfb98693fe98bd961e4d6500b4268f5f6ba24ba",
+    "workingTreeChangesIncluded": [],
+    "documentationOnlyChangesDuringRun": [
+      "STAGING-TEST-REPORT.md",
+      "STAGING-TEST-RESULTS.json"
     ],
-    "scope": "Local workspace only; no Railway API deployment was made from this commit. The staging app branch deploy is tracked separately; no Production deployment occurred.",
+    "scope": "Full workspace-quality workflow ran on the committed local staging source. The only uncommitted changes during the run were the two listed evidence documents; no application or dependency files changed after the tested commit. This is not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
-      "passed": 73,
+      "passed": 88,
       "failed": 0
     },
     "scriptsTests": {
-      "passed": 17,
+      "passed": 33,
       "failed": 0
     },
     "gameTests": {
-      "passed": 35,
+      "passed": 50,
       "failed": 0
     },
+    "totalTestsPassed": 171,
     "workspaceBuilds": "PASS",
     "publicE2e": {
-      "passed": 6,
-      "failed": 0,
-      "responsiveViewports": ["390x844", "844x390"],
+      "latestRunInThisCheck": "NOT_RUN; workspace-quality does not include the public Playwright suite.",
+      "previousRecordedRuns": [
+        {
+          "testedSourceCommit": "8cabc49fed9e6a1aafff73832411ed82b28d496a",
+          "passed": 6,
+          "failed": 0,
+          "responsiveViewports": ["390x844", "844x390"]
+        },
+        {
+          "testedSourceCommit": "d764623471cb4abcc3d1e970e656a797bac9ad26",
+          "passed": 6,
+          "failed": 0,
+          "scope": "Previously recorded public Playwright suite; not rerun in the current workspace-quality workflow."
+        }
+      ],
       "physicalDeviceEvidence": false,
-      "scope": "Supplemental Playwright only; no physical device was exercised as part of this run. Separate owner-reported Samsung Android observations are recorded under latestPhysicalAndroidFollowup."
+      "scope": "Previous browser automation is supplemental only; the current workspace-quality run did not exercise a browser or physical device."
     },
     "socketLifecycleRegression": {
       "allPilotsReceiveRestartNotice": "PASS",
@@ -1000,8 +1012,26 @@
     "environment": "staging",
     "host": "wfm-app-staging-staging.up.railway.app",
     "device": "REVVL 8, model TMRV085G, Android 16, T-Mobile; owner confirmed this is the same phone previously described as Samsung.",
-    "deviceMetadata": "Phone model-build string 1.15.12. Exact Chrome version, network type, and test time are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
-    "browser": "Android Chrome selected; exact version not supplied.",
+    "deviceMetadata": "Phone model-build string 1.15.12. The staging endurance report records Chrome 156.0.0.0. Network type and observation time for the earlier layout/control checks are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
+    "browser": "Android Chrome; Chrome 156.0.0.0 recorded in the staging endurance report.",
+    "stagingEnduranceSample": {
+      "capturedAtUtc": "2026-10-27T21:42:16.121Z",
+      "ownerConfirmedEnvironment": "Railway staging",
+      "reportedDevice": "REVVL 8 / Android 16; same phone identity was confirmed by owner",
+      "targetAndActiveSeconds": "360 / 360",
+      "averageFps": 74.2,
+      "firstMinuteAverageFps": 74.5,
+      "finalMinuteAverageFps": 77.8,
+      "p95FrameIntervalMs": 25,
+      "p99FrameIntervalMs": 33,
+      "framesOver50Ms": 4,
+      "totalActiveFrames": 27367,
+      "gapsOver250Ms": 0,
+      "backgroundsAndRestores": 0,
+      "memoryStability": "INCONCLUSIVE; final used-heap sample 18.5 MiB versus 15.1 MiB at 60 seconds, with non-monotonic intermediate readings.",
+      "thermalObservation": "NOT_SUPPLIED; browser API does not expose device thermal status.",
+      "scope": "Owner-confirmed physical Android staging endurance evidence. Duration and frame-pacing targets pass; not Production evidence."
+    },
     "screenshotEvidence": [
       {
         "file": "attached_assets/1_1000000060_1793123563718.png",
@@ -1028,13 +1058,27 @@
       "Exit Solo Flight"
     ],
     "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
-    "pairedDeviceProfileSync": "NOT_RUN; owner confirmed this check has not been performed.",
-    "iphoneSafariTest": "NOT_RUN; owner confirmed no iPhone is available.",
+    "pairedDeviceProfileSync": "NOT_RUN; remains a separate feature gate because no second physical device was tested.",
+    "iphoneSafariTest": "NOT_REQUIRED; owner-approved Android-only physical-device scope.",
     "rewardClaimNetworkEvidence": "NOT_CAPTURED",
     "interruptedRewardGate": "PENDING",
+    "androidPhysicalEvidenceStatus": "PARTIAL; endurance duration/frame pacing pass, memory is inconclusive, and controls/lifecycle evidence is owner-reported.",
     "physicalDeviceReleaseGate": "PENDING",
     "productionModified": false,
-    "scope": "User-reported Android staging follow-up with two portrait screenshots. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. The owner confirmed Android 16 and same-device identity with prior Samsung reports; exact Chrome version is missing. No iPhone is available and paired sync was not run. Does not verify all screens/orientations, reward-ledger behavior, iPhone Safari, or paired-device sync."
+    "scope": "User-reported Android staging follow-up with two portrait screenshots plus a separately supplied 360-second staging endurance report. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. Android Chrome is the required physical-device scope; iPhone/Safari is not required. The report does not establish the separate physical cross-device sync or interrupted-reward gates."
+  },
+  "ownerApprovedPhysicalDeviceScope": {
+    "approvedOn": "2026-10-28",
+    "requiredPlatform": "Physical Android phone running Chrome",
+    "iosSafari": "NOT_REQUIRED",
+    "androidEvidenceStatus": "PARTIAL",
+    "stagingEnduranceDurationAndFramePacing": "PASS_REPORTED",
+    "stagingEnduranceMemoryStability": "INCONCLUSIVE",
+    "controlsLayoutAndLifecycle": "PASS_REPORTED_PARTIAL",
+    "physicalCrossDeviceProfileSync": "PENDING_SEPARATE_FEATURE_GATE",
+    "interruptedRewardDenial": "PENDING_SEPARATE_REWARD_INTEGRITY_GATE",
+    "productionReadiness": "NOT_CLAIMED",
+    "scope": "Owner-approved Android-only certification criteria. This changes the required device platform only; it does not convert partial Android results or separate sync/reward gates into passes."
   },
   "latestMobileScrollFixVerification": {
     "verifiedAtUtc": "2026-10-27T13:13:31Z",
