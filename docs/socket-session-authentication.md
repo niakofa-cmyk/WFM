@@ -11,7 +11,8 @@ token. The web client obtains the current session token through Clerk's
 The token is not placed in the WebSocket URL, query string, browser storage, or
 logs. The socket rejects room commands that arrive before authentication,
 closes the connection on invalid/expired credentials, and returns only a
-generic authentication error. The verified Clerk subject becomes the player's
+generic authentication error. A socket that never authenticates is closed after
+the five-second authentication deadline. The verified Clerk subject becomes the player's
 socket identity; client-supplied player IDs are ignored. Reconnects require
 both the same verified subject and that seat's reconnect token, preventing
 cross-account seat recovery or duplicate seats.
@@ -45,9 +46,10 @@ for this code update.
 - `src/socket/clerk-session-verifier.test.ts` signs synthetic RS256 JWT fixtures
   and exercises valid, invalid-signature, expired, issuer, audience,
   authorized-party, missing-subject, missing-key, and oversized-token cases.
-- `src/socket/server.test.ts` checks unauthenticated command rejection,
-  verified identity ownership, duplicate-seat rejection, reconnect ownership,
-  and existing room/restart behavior using an injected synthetic verifier.
+- `src/socket/server.test.ts` checks unauthenticated command rejection, the
+  five-second unauthenticated-connection deadline, verified identity ownership,
+  duplicate-seat rejection, reconnect ownership, and existing room/restart
+  behavior using an injected synthetic verifier.
 - `src/socket/network-impairment.test.ts` keeps reconnect simulation on the
   same synthetic player identity.
 - `src/socket/origin-policy.test.ts` retains origin enforcement coverage.

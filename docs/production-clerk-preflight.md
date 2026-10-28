@@ -259,3 +259,6 @@ Before any live Production check:
 Passing this Clerk preflight does not clear the WAR FOR MARS staging promotion
 gate. Live interrupted-reward claim evidence and physical-device evidence remain
 independent requirements; neither is checked or changed by this workflow.
+
+For the review of owner-supplied implementation and promotion proposals, see
+[`external-clerk-production-reference-review.md`](./external-clerk-production-reference-review.md).

@@ -130,6 +130,42 @@ test("socket rejects unauthenticated commands and binds reconnect seats to the v
   }
 });
 
+test("socket closes an unauthenticated connection after the authentication deadline", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
+  const socket = new WebSocket(`ws://127.0.0.1:${runtime.port}/ws?room=mars-timeout`);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", resolve);
+      socket.once("error", reject);
+    });
+
+    const authenticationError = nextPacket(
+      socket,
+      (packet) => packet.type === "error",
+      7_000,
+    );
+    const closed = new Promise<number>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Unauthenticated socket was not closed in time.")),
+        7_000,
+      );
+      socket.once("close", (code) => {
+        clearTimeout(timeout);
+        resolve(code);
+      });
+    });
+
+    assert.equal((await authenticationError).reason, "authentication_required");
+    assert.equal(await closed, 1008);
+    assert.equal(runtime.roomCount, 0);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
 test("ten-client lobby gates launch, reconnects safely, and isolates separate rooms", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
