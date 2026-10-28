@@ -47,6 +47,10 @@ try {
   console.error(`Staging results JSON is invalid: ${error.message}`);
   process.exit(1);
 }
+if (results === null || typeof results !== "object" || Array.isArray(results)) {
+  console.error("Staging results JSON must contain an object.");
+  process.exit(1);
+}
 
 if (process.env.PR_HEAD_REF !== "staging") {
   failures.push("Promotion pull requests must come directly from the staging branch.");

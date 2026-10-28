@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -181,6 +182,17 @@ test("rejects every required release test unless it is PASS", (t) => {
   }
 });
 
+test("rejects an omitted required test status", (t) => {
+  const repo = createFixtureRepo(t);
+  const results = readResults(repo);
+  delete results.tests.profileSyncsAcrossDevices;
+  writeResults(repo, results);
+
+  const result = runVerifier(repo);
+  assert.equal(result.status, 1);
+  assert.match(result.output, /tests\.profileSyncsAcrossDevices must be PASS/);
+});
+
 test("requires the staging environment assertions to be literal true", (t) => {
   const repo = createFixtureRepo(t);
   const results = readResults(repo);
@@ -251,4 +263,22 @@ test("requires a safe existing report path in the evidence list", (t) => {
   const missing = runVerifier(repo);
   assert.equal(missing.status, 1);
   assert.match(missing.output, /Evidence file does not exist/);
+});
+
+test("reports missing, malformed, and non-object results files cleanly", (t) => {
+  const repo = createFixtureRepo(t);
+  unlinkSync(repo.resultsPath);
+  const missing = runVerifier(repo);
+  assert.equal(missing.status, 1);
+  assert.match(missing.output, /Staging results file is missing/);
+
+  writeFileSync(repo.resultsPath, "{invalid json\n");
+  const malformed = runVerifier(repo);
+  assert.equal(malformed.status, 1);
+  assert.match(malformed.output, /Staging results JSON is invalid/);
+
+  writeFileSync(repo.resultsPath, "null\n");
+  const nonObject = runVerifier(repo);
+  assert.equal(nonObject.status, 1);
+  assert.match(nonObject.output, /Staging results JSON must contain an object/);
 });
