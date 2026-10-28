@@ -1022,8 +1022,12 @@ retest passed: ARC/STRAFE survived sign-out/sign-in, the same account showed its
 scheme on both phones, and Account B retained its separate scheme. This is
 owner-reported staging evidence, not an automated device run. The owner also
 reported that gyro did not sync across devices. Code inspection confirms this
-is expected: gyro and drilled preferences are stored in browser `localStorage`,
-while ARC/STRAFE is saved in the authenticated player profile. The broader
+is expected: gyro is read from the browser-local preference store, while
+ARC/STRAFE is saved in the authenticated player profile. The drilled flag has a
+profile value with a device-local fallback; it was not part of this phone
+retest. The broader
 physical-device certification, mission-history comparison, direct
 cross-account access attempts, and live reward-denial proof remain pending.
 Production was not changed or deployed.
+The owner confirmed gyro should remain device-local; no account-level gyro sync
+was requested.

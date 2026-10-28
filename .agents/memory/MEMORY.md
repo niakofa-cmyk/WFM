@@ -18,7 +18,7 @@
 - [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
 - [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.
 - [Replay runtime determinism](replay-runtime-determinism.md) — native Math trig/exp differ Node vs Chromium; sim must use detmath ports and pass the Chromium gate.
-- [Progression sync boundary](progression-sync-boundary.md) — keep flight snapshots immutable; ARC/STRAFE is account-scoped, gyro/drilled remain device-local.
+- [Progression sync boundary](progression-sync-boundary.md) — keep flight snapshots immutable; ARC/STRAFE is account-scoped, gyro device-local, drilled profile-backed with local fallback.
 - [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
 - [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.
 - [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.

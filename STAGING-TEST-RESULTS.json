@@ -1657,6 +1657,7 @@
     "stagingDeploymentCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d",
     "phoneRetest": "OWNER_REPORTED_PASS_FOR_ACCOUNT_SCOPED_CONTROL_SCHEME",
     "gyroPersistencePolicy": "DEVICE_LOCAL_BY_DESIGN",
+    "gyroPersistenceOwnerDecision": "KEEP_DEVICE_LOCAL",
     "stagingRuntime": {
       "onlineServices": 4,
       "pendingWork": 0,
