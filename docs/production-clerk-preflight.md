@@ -60,20 +60,44 @@ be expected to see the variables from another service.
 
 ```sh
 WFM_CLERK_PREFLIGHT_TARGET=railway-production \
+WFM_CLERK_AUTH_PROVIDER=external-clerk \
+WFM_CLERK_BACKEND_HOSTING=railway \
 WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
 WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
 pnpm --filter @workspace/scripts run preflight:clerk:production -- --service frontend
 
 WFM_CLERK_PREFLIGHT_TARGET=railway-production \
+WFM_CLERK_AUTH_PROVIDER=external-clerk \
+WFM_CLERK_BACKEND_HOSTING=railway \
 WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
 WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
 pnpm --filter @workspace/scripts run preflight:clerk:production -- --service api
 
 WFM_CLERK_PREFLIGHT_TARGET=railway-production \
+WFM_CLERK_AUTH_PROVIDER=external-clerk \
+WFM_CLERK_BACKEND_HOSTING=railway \
 WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
 WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
 pnpm --filter @workspace/scripts run preflight:clerk:production -- --service socket
 ```
+
+`WFM_CLERK_AUTH_PROVIDER` and `WFM_CLERK_BACKEND_HOSTING` are explicit,
+non-secret operator declarations for that process invocation. Accepted provider
+values are `external-clerk` and `replit-managed`; the hosting declaration must
+be `railway` for these targets. Do not store these declarations as Railway
+application variables merely to make the preflight pass. Missing or ambiguous
+declarations fail closed before the script inspects authentication-variable
+presence. `replit-managed` with `railway` is explicitly reported as
+unsupported: Replit-managed Clerk Auth is intended for Replit-hosted apps, not
+Railway-hosted backends. This boundary follows Replit's
+[Clerk Auth documentation](https://docs.replit.com/features/auth-and-identity/clerk-auth.md);
+do not treat managed Development or Production keys as Railway credentials.
+
+An `external-clerk` declaration only allows structural checks to run. It is
+still reported as `EXTERNAL_CLERK_DECLARED_NOT_VERIFIED`; it does not prove
+external connection authorization, key-instance pairing, session validity, or
+Production readiness. Do not infer the provider from key prefixes, issuer
+strings, or variable presence. Keep `productionEnablement` blocked.
 
 The frontend invocation checks presence only for:
 
@@ -104,6 +128,8 @@ email delivery, and the controlled smoke test are verified. The report
 separately identifies:
 
 - Replit-managed Clerk availability as not observable from Railway.
+- Replit-managed Clerk Auth as unsupported for Railway-hosted backends, per
+  Replit's documented hosting boundary. A declaration cannot override this.
 - The external Production connection as unverified from Railway. Replit's
   documented external-app flow requires deleting the managed app and does not
   migrate accounts, credentials, or sessions; do not use that replacement flow
@@ -118,6 +144,8 @@ separately identifies:
 
 The script does not accept an environment-variable assertion that can clear
 these gates. It cannot authenticate the Replit integration or enable Production.
+The provider/hosting declarations are classification inputs only; they never
+change the external-connection, pairing, email, account, or smoke-test gates.
 
 `WFM_CLERK_PREFLIGHT_TARGET=railway-production` is an operator assertion, not
 proof of which environment supplied the process variables. An explicit
