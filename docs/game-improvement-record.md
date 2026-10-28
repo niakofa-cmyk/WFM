@@ -70,3 +70,33 @@ WFM launch requirement. The promotion check will stop treating that legacy
 property as a required environment assertion. This does not change the
 protected Railway staging gateway, the private API/socket boundary, or any
 other pending release gate.
+
+## 2026-10-28 — Production profile authentication diagnosis
+
+The owner reported that the Niakofa Production site accepted sign-in and the
+email verification code, then showed `PLAYER PROFILE UNAVAILABLE` with HTTP
+`401 authentication_required`. No password or verification code was used by the
+agent.
+
+Read-only Railway deployment metadata showed both the Production frontend and
+API running successfully from `main` at commit
+`3ecff671fdadaa041599d3c3b475b83bc810ec36`. The frontend deployment completed
+at 2026-10-25 22:15 UTC; the API deployment completed at 20:18 UTC. The exact
+Production source revision is therefore known.
+
+The live frontend JavaScript bundle does not contain the bearer authorization
+transport present in the current staging source/build. The Production `main`
+source at the deployed commit lacks the frontend `ApiAuthBridge`; the staging
+branch contains it. This is the leading explanation for the profile API's
+`authentication_required` response because the API is cross-origin. It is not
+proof of the only cause: Production frontend/API Clerk key-instance pairing
+remains unverified. The passing local auth test uses a synthetic token and does
+not verify Production credentials.
+
+No secret values were read, no Production setting or player data was changed,
+and no Production deployment was made. Production readiness remains
+**NOT CLAIMED**; the staging promotion gate remains **PENDING**. Do not promote
+the staging auth bridge until the documented staging gate passes and each
+Production rollout is explicitly authorized. After a permitted rollout,
+recheck profile loading; if it still returns 401, verify key-instance pairing
+through an authorized Clerk connection without exposing key values.

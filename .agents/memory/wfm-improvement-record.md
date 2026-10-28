@@ -46,3 +46,23 @@ not describe the protected Railway staging topology.
 **How to apply:** do not include Replit invite-only status among required staging
 promotion environment assertions unless the owner makes a new decision. Preserve
 all other explicit environment and evidence gates.
+
+## Release-status resume source
+
+Before continuing WFM release work, check the current Git branch/worktree,
+`docs/game-improvement-record.md`, and the latest entries in
+`STAGING-TEST-REPORT.md` and `STAGING-TEST-RESULTS.json`. Treat the dated game
+record as the source for Production/auth findings and the staging report/results
+as the source for staging deployments, release gates, and device evidence. Keep
+changing status out of this memory file. Do not infer live PASS from local tests
+or evidence captured in a different environment; evaluate owner-reported device
+evidence against the documented criteria.
+
+**Why:** WFM release evidence spans local builds, Railway staging revisions,
+physical-device tests, and Production authentication. Similar-looking results
+from one environment do not establish readiness in another.
+
+**How to apply:** when resuming after a pause, read the dated record and latest
+report/results first, verify their source/deployment context, then continue only
+the gates still marked pending. Keep staging promotion and Production
+auth/readiness separate.
