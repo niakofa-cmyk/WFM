@@ -55,6 +55,28 @@ test("Clerk session verifier accepts a correctly signed token and returns only i
   assert.equal(await verify(token), "user_synthetic_test");
 });
 
+test("issuer-less managed mode still verifies signature, expiry, audience, and authorized party", async () => {
+  const keys = makeKeyPair();
+  const otherKeys = makeKeyPair();
+  const verify = createClerkSessionVerifier({
+    jwtKey: keys.publicKey,
+    audience: AUDIENCE,
+    authorizedParties: [AUTHORIZED_PARTY],
+  });
+
+  assert.equal(await verify(signSession(keys.privateKey, claims())), "user_synthetic_test");
+  await assert.rejects(verify(signSession(otherKeys.privateKey, claims())));
+  await assert.rejects(
+    verify(signSession(keys.privateKey, claims({ exp: Math.floor(Date.now() / 1000) - 60 }))),
+  );
+  await assert.rejects(
+    verify(signSession(keys.privateKey, claims({ aud: "another-api" }))),
+  );
+  await assert.rejects(
+    verify(signSession(keys.privateKey, claims({ azp: "https://attacker.example.test" }))),
+  );
+});
+
 test("Clerk session verifier rejects invalid signatures", async () => {
   const signer = makeKeyPair();
   const verifier = makeKeyPair();

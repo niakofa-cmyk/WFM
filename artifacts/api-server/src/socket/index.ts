@@ -1,6 +1,7 @@
 import { startWingSocketServer } from "./server";
 import { parseSocketOrigins } from "./origin-policy";
 import { createClerkSessionVerifier } from "./clerk-session-verifier";
+import { resolveClerkIssuer } from "./clerk-issuer-policy";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -16,10 +17,7 @@ if (process.env.NODE_ENV === "production" && !allowedOrigins?.size) {
   );
 }
 
-const issuer = process.env.CLERK_ISSUER?.trim();
-if (process.env.NODE_ENV === "production" && !issuer) {
-  throw new Error("CLERK_ISSUER must be configured before running the socket server in production.");
-}
+const issuer = resolveClerkIssuer(process.env);
 
 const verifySessionToken = createClerkSessionVerifier({
   secretKey: process.env.CLERK_SECRET_KEY,

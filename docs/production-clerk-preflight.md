@@ -5,7 +5,8 @@
 This is an offline, read-only structural preflight for the existing external
 Clerk Production instance. It does not call Clerk or Railway, modify variables,
 enable authentication, deploy services, print key values, compare key values,
-or claim that the frontend and API keys belong to the same Clerk instance.
+or claim that the frontend and API keys belong to the same Clerk instance. The
+Railway preflight remains specific to an external Clerk configuration.
 
 ## Current authorization snapshot
 
@@ -27,10 +28,50 @@ to an external Clerk app requires deleting the managed app first. That deletion
 removes the managed tenant; accounts, credentials, and sessions are not
 automatically migrated, and Replit has no automated migration path. Therefore,
 there is no verified non-destructive second-connection path in this workspace.
-The owner has chosen to preserve the managed Development app, so do not delete
-or replace it to clear this Production gate. See
+The Replit-hosted path below uses the existing managed tenant and does not delete
+or replace it. See
 [`external-clerk-migration-and-recovery-plan.md`](./external-clerk-migration-and-recovery-plan.md)
 for prerequisites and recovery planning.
+
+## Supported Replit-managed Production path
+
+Replit's [Clerk Auth documentation](https://docs.replit.com/features/auth-and-identity/clerk-auth)
+supports managed authentication for apps hosted on Replit, not Railway-hosted
+backends. Replit also documents that artifacts in one project share the
+deployment origin. WFM can therefore keep its existing Clerk SDK, API, and
+WebSocket identity checks while publishing the web, `/api`, and `/ws` artifacts
+together on Replit. This is the non-destructive path; player data or the managed
+Clerk tenant does not need to be deleted.
+
+The current workspace has **no Replit Production deployment**. The current
+preview is Development and uses Development Clerk keys. The workspace
+configuration now targets the same-origin Replit API/socket path for a future
+Production publish; this does not change Railway or publish the app.
+
+For the intended Production origin `https://niakofa.com`, the Replit API and
+socket deployment configuration uses exact origin allowlists. If the published
+app instead uses Replit's generated domain, the owner must set that exact origin
+in both allowlists before opening traffic; wildcard origins are not permitted.
+The owner must also attach the intended custom domain to the Replit deployment
+if `niakofa.com` is to remain the player-facing URL.
+
+On Replit publish, managed Clerk supplies the Production key set to the
+Replit-hosted frontend and services. The frontend continues to pass its
+explicitly configured `VITE_CLERK_PUBLISHABLE_KEY` directly. Same-origin API
+requests use the Clerk session cookie; the WebSocket still verifies the session
+token signature, expiry, and authorized party using the platform-injected
+`CLERK_SECRET_KEY`. A separate issuer is enforced for external Clerk and other
+production deployments. It is optional only when the socket process explicitly
+declares both `WFM_CLERK_AUTH_PROVIDER=replit-managed` and
+`WFM_CLERK_BACKEND_HOSTING=replit`; an unrelated Railway process cannot use
+that mode to bypass the existing Railway preflight boundary.
+
+Replit publication and owner-side domain assignment are still required. After
+publishing, verify the exact published origin, email verification delivery,
+sign-in, protected API access, profile load, refresh/session continuity,
+sign-out, unauthenticated API rejection, and authenticated socket joining.
+Until those checks pass, Production remains unverified and must not be described
+as enabled. The separate game staging promotion gate remains independent.
 
 The intended public target is:
 

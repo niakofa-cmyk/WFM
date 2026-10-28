@@ -53,4 +53,5 @@ VITE_API_BASE_URL = ""
 WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
 
 [userenv.production]
-VITE_API_BASE_URL = "https://workspaceapi-server-production-cbfc.up.railway.app"
+# Production API and socket services are published with the frontend on Replit.
+VITE_API_BASE_URL = ""

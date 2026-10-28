@@ -27,6 +27,7 @@ args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 [services.production.run.env]
 PORT = "8080"
 NODE_ENV = "production"
+API_ALLOWED_ORIGINS = "https://niakofa.com"
 
 [services.production.health.startup]
 path = "/api/healthz"
@@ -53,6 +54,9 @@ args = ["node", "--enable-source-maps", "artifacts/api-server/dist/socket.mjs"]
 [services.production.run.env]
 PORT = "8099"
 NODE_ENV = "production"
+WING_ALLOWED_ORIGINS = "https://niakofa.com"
+WFM_CLERK_AUTH_PROVIDER = "replit-managed"
+WFM_CLERK_BACKEND_HOSTING = "replit"
 
 [services.production.health.startup]
 path = "/healthz"
