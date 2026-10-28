@@ -24,12 +24,14 @@ browser result is kept separately and is supplemental only.
 This is local workspace evidence, not a Railway deployment or live staging
 certification. The physical profile-sync check used the staging runtime source
 `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`; its three current successful
-deployments and device details are recorded below. The pushed `staging` head is
-`f576883983ff7e3a659c94fee307c120ab5910a1`; changes after the deployed runtime
-source are limited to tests, documentation, and preflight/gate scripts. Other
-live staging checks retain their individual source identifiers. The owner-
-confirmed Replit invite-only policy change does not alter the protected Railway
-staging gateway or any other release criterion. The exact local result is recorded in
+deployments and device details are recorded below. The workspace-quality test
+source was `f576883983ff7e3a659c94fee307c120ab5910a1`; at the time of the
+read-only staging metadata check, `origin/staging` pointed to that source.
+Subsequent staging-branch updates were evidence-only; no runtime files changed
+after the deployed runtime source. Other live staging checks retain their
+individual source identifiers. The owner-confirmed Replit invite-only policy
+change does not alter the protected Railway staging gateway or any other
+release criterion. The exact local result is recorded in
 `STAGING-TEST-RESULTS.json` under `latestLocalWorkspaceCheck`; the promotion
 gate remains **PENDING**.
 
