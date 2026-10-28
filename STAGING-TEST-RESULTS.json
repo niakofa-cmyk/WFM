@@ -1644,5 +1644,36 @@
     },
     "scope": "Service health only; this does not prove Production Clerk readiness or clear release gates. No settings or deployments were changed."
   },
+  "latestControlSchemePersistenceFix": {
+    "verifiedOn": "2026-10-28",
+    "branch": "staging",
+    "committed": false,
+    "deployedToStaging": false,
+    "productionSettingsChanged": false,
+    "productionDeployment": false,
+    "databaseSchemaChanged": false,
+    "cause": "ARC/STRAFE selection changed client state only; the server profile was updated when a server Strike started.",
+    "change": "Added an authenticated update for the existing account-owned control-scheme field. The preference update does not change progression revision.",
+    "ownerReportedEvidence": {
+      "creditsStayedAssociatedWithEachAccount": true,
+      "inventoryStayedAssociatedWithEachAccount": true,
+      "missionHistoryConfirmed": false,
+      "directCrossAccountReadOrWriteAttempted": false,
+      "controlSchemeSurvivedSignInAndAccountSwitch": false
+    },
+    "verification": {
+      "frozenLockfileInstall": "PASS",
+      "typecheck": "PASS",
+      "workspaceBuild": "PASS",
+      "scriptsTests": { "passed": 49, "failed": 0 },
+      "gameTests": { "passed": 54, "failed": 0 },
+      "focusedControlSchemeSchemaTest": { "passed": 1, "failed": 0 },
+      "focusedUnauthenticatedRouteTest": { "passed": 1, "failed": 0 },
+      "fullApiTestRun": "BLOCKED_FOR_SAFE_DATABASE_TESTING",
+      "databasePersistenceIntegrationTest": "NOT_RUN",
+      "fullApiTestRunNote": "DATABASE_URL was intentionally unset because its target was not verified as an isolated test database. Six API test files failed during database-client import; 66 API tests passed. The focused route and schema tests passed separately."
+    },
+    "scope": "Local uncommitted source only. No live claim, account sign-in, staging or Production setting change, database test write, or deployment."
+  },
   "productionReadiness": "NOT_CLAIMED"
 }

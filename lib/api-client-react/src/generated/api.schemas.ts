@@ -150,6 +150,18 @@ export interface ProgressionActionInput {
   action: ProgressionActionInputAction;
 }
 
+export type ControlSchemeInputScheme = typeof ControlSchemeInputScheme[keyof typeof ControlSchemeInputScheme];
+
+
+export const ControlSchemeInputScheme = {
+  arc: 'arc',
+  strafe: 'strafe',
+} as const;
+
+export interface ControlSchemeInput {
+  scheme: ControlSchemeInputScheme;
+}
+
 export type ProgressionActionResultTransactionKind = typeof ProgressionActionResultTransactionKind[keyof typeof ProgressionActionResultTransactionKind];
 
 

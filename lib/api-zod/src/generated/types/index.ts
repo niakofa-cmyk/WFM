@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './controlSchemeInput';
+export * from './controlSchemeInputScheme';
 export * from './economyRejection';
 export * from './economyRejectionAction';
 export * from './exploreLocationResult';

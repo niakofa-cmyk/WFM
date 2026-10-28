@@ -134,6 +134,26 @@ export async function getPlayerProfile(userId: string): Promise<GameProfile> {
   return toProfile(profile);
 }
 
+export async function updatePlayerControlScheme(
+  userId: string,
+  scheme: GameProfile["scheme"],
+): Promise<GameProfile> {
+  return db.transaction(async (tx) => {
+    const current = await lockOrCreateProfile(tx, userId);
+    if (current.scheme === scheme) return toProfile(current);
+
+    const [updated] = await tx
+      .update(playerProgressTable)
+      // Control preferences must not advance progression revision: issued runs
+      // use that revision to bind their server-authoritative reward claim.
+      .set({ scheme, updatedAt: new Date() })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player control preference could not be saved.");
+    return toProfile(updated);
+  });
+}
+
 function missionAvailable(mission: MissionId, cleared: number): boolean {
   return mission === "skirmish" || MISSION_ORDER[mission] <= cleared;
 }

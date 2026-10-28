@@ -72,6 +72,55 @@ export const GetGameProfileResponse = zod.object({
 
 
 /**
+ * @summary Save the authenticated player's control scheme
+ */
+export const UpdateControlSchemeBody = zod.object({
+  "scheme": zod.enum(['arc', 'strafe'])
+})
+
+export const updateControlSchemeResponseCreditsMin = 0;
+
+export const updateControlSchemeResponseRefitMin = 0;
+export const updateControlSchemeResponseRefitMax = 5;
+
+
+
+
+
+export const updateControlSchemeResponsePaidMin = 0;
+
+export const updateControlSchemeResponseClearedMin = 0;
+export const updateControlSchemeResponseClearedMax = 4;
+
+export const updateControlSchemeResponseRevisionMin = 0;
+
+
+
+export const UpdateControlSchemeResponse = zod.object({
+  "credits": zod.number().int().min(updateControlSchemeResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateControlSchemeResponseRefitMin).max(updateControlSchemeResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateControlSchemeResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateControlSchemeResponseClearedMin).max(updateControlSchemeResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "revision": zod.number().int().min(updateControlSchemeResponseRevisionMin)
+})
+
+
+/**
  * @summary Buy cargo, sell cargo, or refit using server-owned credits
  */
 export const ApplyProgressionActionBody = zod.object({

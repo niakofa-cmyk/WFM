@@ -14,6 +14,7 @@ import {
   ApplyProgressionActionBody,
   ClaimStrikeBody,
   StartStrikeBody,
+  UpdateControlSchemeBody,
 } from "@workspace/api-zod";
 import {
   applyPlayerAction,
@@ -21,6 +22,7 @@ import {
   getPlayerProfile,
   ProgressionError,
   startPlayerStrike,
+  updatePlayerControlScheme,
 } from "./progression";
 import {
   adjudicateStrike,
@@ -195,6 +197,9 @@ test("progression request schemas reject client-authored balances and campaign c
     }).success,
     false,
   );
+  assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "strafe" }).success, true);
+  assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "shaft" }).success, false);
+  assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "arc", userId: "forged" }).success, false);
 });
 
 test(
@@ -220,6 +225,12 @@ test(
       assert.equal(firstInitial.credits, 90);
       assert.equal(secondInitial.credits, 90);
 
+      const firstSchemeUpdate = await updatePlayerControlScheme(firstUser, "strafe");
+      assert.equal(firstSchemeUpdate.scheme, "strafe");
+      assert.equal(firstSchemeUpdate.revision, firstInitial.revision);
+      assert.equal((await getPlayerProfile(firstUser)).scheme, "strafe");
+      assert.equal((await getPlayerProfile(secondUser)).scheme, secondInitial.scheme);
+
       await db
         .update(playerProgressTable)
         .set({ credits: 400 })
@@ -232,6 +243,8 @@ test(
       assert.equal((await getPlayerProfile(secondUser)).credits, 90);
 
       const firstRun = await startPlayerStrike(firstUser, selection);
+      const duringRunPreference = await updatePlayerControlScheme(firstUser, "strafe");
+      assert.equal(duringRunPreference.revision, firstRun.config.profileRevision);
       await assert.rejects(
         claimPlayerStrike(secondUser, firstRun.runId, []),
         (error: unknown) => error instanceof ProgressionError && error.status === 404,

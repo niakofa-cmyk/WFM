@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ControlSchemeInput,
   ExploreLocationResult,
   GameProfile,
   HealthStatus,
@@ -301,6 +302,94 @@ export function useGetGameProfile<TData = Awaited<ReturnType<typeof getGameProfi
 
 
 
+
+export const getUpdateControlSchemeUrl = () => {
+
+
+
+
+  return `/api/game/profile/control-scheme`
+}
+
+/**
+ * @summary Save the authenticated player's control scheme
+ */
+export const updateControlScheme = async (controlSchemeInput: ControlSchemeInput, options?: Parameters<typeof customFetch>[1]): Promise<GameProfile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameProfile>(getUpdateControlSchemeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(controlSchemeInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateControlSchemeMutationKey = () => ['updateControlScheme'] as const;
+
+export const getUpdateControlSchemeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateControlSchemeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateControlScheme>>, UpdateControlSchemeMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateControlScheme(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateControlSchemeMutationResult = NonNullable<Awaited<ReturnType<typeof updateControlScheme>>>
+    export type UpdateControlSchemeMutationBody = BodyType<ControlSchemeInput>
+    export type UpdateControlSchemeMutationError = ErrorType<void>
+    export type UpdateControlSchemeMutationVariables = {data: BodyType<ControlSchemeInput>}
+
+    /**
+ * @summary Save the authenticated player's control scheme
+ */
+export const useUpdateControlScheme = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateControlScheme>>,
+        TError,
+        UpdateControlSchemeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateControlSchemeMutationOptions(options));
+    }
 
 export const getApplyProgressionActionUrl = () => {
 

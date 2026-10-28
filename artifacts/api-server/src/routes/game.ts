@@ -2,10 +2,17 @@ import { Router, type IRouter } from "express";
 import {
   ApplyProgressionActionBody,
   ApplyProgressionActionResponse,
+  UpdateControlSchemeBody,
+  UpdateControlSchemeResponse,
   GetGameProfileResponse,
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
-import { applyPlayerAction, getPlayerProfile, ProgressionError } from "../game/progression";
+import {
+  applyPlayerAction,
+  getPlayerProfile,
+  ProgressionError,
+  updatePlayerControlScheme,
+} from "../game/progression";
 
 const router: IRouter = Router();
 router.use(requirePlayerAuth);
@@ -14,6 +21,23 @@ router.get("/game/profile", async (req, res, next) => {
   try {
     const profile = await getPlayerProfile(playerIdFromRequest(req));
     res.json(GetGameProfileResponse.parse(profile));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/game/profile/control-scheme", async (req, res, next): Promise<void> => {
+  const parsed = UpdateControlSchemeBody.strict().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_control_scheme" });
+    return;
+  }
+  try {
+    const profile = await updatePlayerControlScheme(
+      playerIdFromRequest(req),
+      parsed.data.scheme,
+    );
+    res.json(UpdateControlSchemeResponse.parse(profile));
   } catch (error) {
     next(error);
   }

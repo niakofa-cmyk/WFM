@@ -60,6 +60,30 @@ paths:
                 $ref: "#/components/schemas/GameProfile"
         "401":
           description: Authentication required
+  /game/profile/control-scheme:
+    patch:
+      operationId: updateControlScheme
+      tags: [progression]
+      summary: Save the authenticated player's control scheme
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlSchemeInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "400":
+          description: Invalid control scheme
+        "401":
+          description: Authentication required
   /game/profile/actions:
     post:
       operationId: applyProgressionAction
@@ -355,6 +379,12 @@ components:
       properties:
         idempotencyKey: { type: string, format: uuid }
         action: { type: string, enum: [refit] }
+    ControlSchemeInput:
+      type: object
+      additionalProperties: false
+      required: [scheme]
+      properties:
+        scheme: { type: string, enum: [arc, strafe] }
     ProgressionActionResult:
       type: object
       required: [profile, transaction]

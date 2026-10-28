@@ -962,3 +962,30 @@ paired-device profile sync had not yet been run. Later owner-reported paired
 sync and a two-pilot staging match are recorded in the newer sections above;
 they do not change the still-pending reward-denial, broader account-isolation,
 restart, or full physical-performance criteria.
+
+## Control-scheme persistence issue and local fix — 2026-10-28
+
+After the cross-device inventory check, the owner reported that credits and
+inventory remained associated with their accounts, but the ARC/STRAFE control
+choice did not persist when signing out and switching accounts. Mission history
+was not confirmed, and no direct cross-account read or write was attempted.
+
+Code inspection confirmed the control scheme was changed only in client state;
+the server profile was updated only when a server Strike started. The local fix
+adds an authenticated profile update using the existing account-owned scheme
+field. It does not change credits, inventory, history, database schema, or
+progression revision, and it rejects stale UI responses after an account switch.
+The fix is in the local uncommitted workspace only; it has not been pushed or
+deployed to staging. A physical staging retest is required before treating this
+behavior as fixed or changing the related release evidence.
+
+Local verification for this change: frozen-lockfile install **PASS**;
+typecheck **PASS**; workspace build **PASS**; game tests **54/54 PASS**;
+scripts tests **49/49 PASS**; focused control-scheme schema test **1/1 PASS**;
+focused unauthenticated/forged-identity route test **1/1 PASS**. The full API
+test suite could not be safely completed: the configured database target was
+not verified as an isolated test database, so database-writing tests were not
+run. With `DATABASE_URL` unset, six API test files failed during import because
+the database client requires that variable; 66 API tests in that run passed.
+The profile mutation persistence test is present but remains **NOT RUN**.
+No staging or Production settings, data, or deployments were changed.

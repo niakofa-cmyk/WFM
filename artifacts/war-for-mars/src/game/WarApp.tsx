@@ -21,6 +21,7 @@ import { sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
+  saveServerControlScheme,
   startServerStrike,
 } from "./progression-api";
 import {
@@ -95,7 +96,9 @@ type LobbySession = {
 };
 
 export function WarApp() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const authUserIdRef = useRef(userId);
+  const controlSchemeSaveInFlightRef = useRef(false);
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -123,6 +126,10 @@ export function WarApp() {
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => {
+    authUserIdRef.current = userId;
+  }, [userId]);
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
@@ -581,6 +588,43 @@ export function WarApp() {
     }));
   };
 
+  const persistControlScheme = async (scheme: Scheme) => {
+    if (
+      !ready ||
+      !userId ||
+      scheme === save.scheme ||
+      profileStatus !== "ready" ||
+      actionBusy ||
+      claimSubmitting ||
+      startingRun ||
+      activeRun ||
+      pendingClaim ||
+      phase === "fight" ||
+      controlSchemeSaveInFlightRef.current
+    ) {
+      return;
+    }
+
+    const requestUserId = userId;
+    controlSchemeSaveInFlightRef.current = true;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      const profile = await saveServerControlScheme(scheme);
+      if (authUserIdRef.current !== requestUserId) return;
+      setSave((previous) =>
+        saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }),
+      );
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setActionError(error instanceof Error ? error.message : "Could not save the control scheme.");
+      }
+    } finally {
+      controlSchemeSaveInFlightRef.current = false;
+      setActionBusy(false);
+    }
+  };
+
   const start = async () => {
     if (shell === MenuState.LOADING || startingRun) return;
     if (pendingClaim) {
@@ -1032,7 +1076,7 @@ export function WarApp() {
         }}
         onFaction={pickFaction}
         onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
-        onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}
+        onScheme={(scheme: Scheme) => void persistControlScheme(scheme)}
         onGyro={() => {
           if (save.gyro) {
             disarmGyro();
