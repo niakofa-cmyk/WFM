@@ -73,7 +73,7 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "fff9a3ab7ef8e6756aa9e8ddbce7e84fdc9b8695",
+      "headCommitAtCheck": "45d9538c9f6991096ed64467205c96f7bf513c1a",
       "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
       "result": "BLOCKED",
       "exitCode": 1,
@@ -87,7 +87,7 @@
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local verifier rerun after the owner-reported cross-device account swap. The paired sync, two-pilot match, and account-bound balance evidence do not clear the broader account-data isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
+      "scope": "Local verifier rerun after the owner-reported cross-device inventory check. The paired sync, two-pilot match, account swap, and inventory-continuity evidence do not clear mission-history isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -1491,7 +1491,23 @@
     "matchOrRewardWriteDuringThisCheck": "NONE_REPORTED",
     "screenshotsOrNetworkTraces": "NOT_SUPPLIED",
     "status": "OWNER_REPORTED_PASS",
-    "scope": "Supports account-bound profile and balance continuity after swapping accounts between phones. Does not test cross-account access or writes to inventory, history, or world state; the broader account-isolation gate remains PARTIAL."
+    "scope": "This earlier check supports account-bound profile and balance continuity after swapping accounts between phones. Inventory continuity was checked separately afterward; mission history and direct cross-account access or writes remain unverified."
+  },
+  "latestOwnerReportedCrossDeviceInventoryCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed procedure",
+    "accountsUsedOnBothPhones": "OWNER_REPORTED_PASS",
+    "devices": [
+      "REVVL 8, TMRV085G, Android 16",
+      "Samsung Galaxy A42 5G, SM-A426U, Android 13"
+    ],
+    "eachAccountRetainedItsOwnInventory": "OWNER_REPORTED_PASS",
+    "missionHistory": "NOT_CONFIRMED",
+    "directCrossAccountReadOrWriteAttempt": "NOT_RUN",
+    "flightRewardPurchaseOrInventoryChange": "NONE_REPORTED",
+    "exactInventoryDetailsOrScreenshots": "NOT_SUPPLIED",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Supports account-bound inventory continuity across two accounts and two phones only. Mission-history isolation and direct cross-account access/write behavior remain unverified; the broader account-isolation gate remains PARTIAL."
   },
   "tests": {
     "signupAndSignin": "PARTIAL",

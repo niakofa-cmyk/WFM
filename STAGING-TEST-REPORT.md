@@ -160,20 +160,37 @@ owner also reported signing out on both phones afterward.
 This is **owner-reported PASS for the narrow cross-device profile and balance
 continuity check**. Exact balances, screenshots, and network traces were not
 supplied. No match, reward claim, purchase, or profile write was performed in
-this check. It does not test whether one account can access or change the
-other's inventory, history, or world state, so the broader
+this check. This balance-only check did not test whether one account can access
+or change the other's inventory, history, or world state; the subsequent
+inventory check is recorded below and still does not test unauthorized access.
+The broader
 `accountProgressInventoryAndHistoryAreIsolated` gate remains **PARTIAL**.
+
+## Owner-reported cross-device inventory check — 2026-10-28
+
+The owner then used both approved staging accounts on both phones. They
+reported that each account continued to show its own inventory after the
+accounts were switched between the REVVL 8 and Samsung Galaxy A42 5G. This was
+a read-only profile check; no flight, reward claim, purchase, or inventory
+change was reported.
+
+This is **owner-reported PASS for inventory continuity across the two accounts
+and two phones**. The response did not confirm whether mission history was
+checked, and no direct attempt to open or change the other account's data was
+made. Therefore mission-history isolation and broader cross-account access
+protection remain unverified, and
+`accountProgressInventoryAndHistoryAreIsolated` remains **PARTIAL**.
 
 ## Latest staging promotion-gate recheck — 2026-10-28
 
-The verifier was rerun after the owner-reported cross-device account swap with
-`PR_HEAD_REF=staging` and local HEAD
-`fff9a3ab7ef8e6756aa9e8ddbce7e84fdc9b8695`; the tested application source was
+The verifier was rerun after the owner-reported cross-device inventory check
+with `PR_HEAD_REF=staging` and local HEAD
+`45d9538c9f6991096ed64467205c96f7bf513c1a`; the tested application source was
 `f576883983ff7e3a659c94fee307c120ab5910a1`. Required environment assertions
 passed. The command exited 1 as expected. Paired-device sync, the two-pilot
-match, and the cross-device account swap add owner-reported evidence but do not
-clear the broader account-data isolation, duplicate/interrupted reward, or
-restart gates. The exact remaining conditions are:
+match, account swap, and inventory check add owner-reported evidence but do not
+clear mission-history isolation, duplicate/interrupted reward, or restart
+gates. The exact remaining conditions are:
 
 - Overall staging evidence must reach `PASS`.
 - Sign-up/sign-in must reach `PASS`.
