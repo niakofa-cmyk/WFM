@@ -8,14 +8,18 @@
 
 ## Current local workspace verification — 2026-10-28
 
-The current local `staging` source was `5a1b076cdd2256dcf6320a41245837985534fc5b`.
-`pnpm install --frozen-lockfile`, workspace typecheck, all 174 workspace tests
-(36 scripts, 88 API, 50 game), and workspace production builds passed. Three
-new script tests verify that the legacy Replit invite-only property is not a
-launch gate while each explicitly required environment assertion remains
-strict. The configured `workspace-quality` workflow finished successfully.
-The workflow does not run the public Playwright suite; its previous recorded
-6/6 browser result is kept separately and is supplemental only.
+The current local `staging` source was
+`ae3aeca251113c55b5f45ce50f1456d5d880ab00`. `pnpm install --frozen-lockfile`,
+workspace typecheck, all 183 workspace tests (45 scripts, 88 API, 50 game),
+and workspace production builds passed. The scripts suite includes three
+promotion-policy unit tests and nine CLI regression tests that run the actual
+verifier against synthetic temporary repositories. They cover complete and
+evidence-only updates, every required release status, environment assertions,
+branch and commit provenance, safe evidence paths, and rejection of later
+application changes. The configured `workspace-quality` workflow finished
+successfully. The workflow does not run the public Playwright suite; its
+previous recorded 6/6 browser result is kept separately and is supplemental
+only.
 
 This is local workspace evidence, not a Railway deployment or live staging
 certification. The live profile-sync check used source

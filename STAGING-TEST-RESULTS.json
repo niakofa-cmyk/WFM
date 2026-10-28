@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
-  "testedSourceCommitScope": "Current local full workspace-quality source, including the owner-approved promotion-policy update; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
+  "testedSourceCommit": "ae3aeca251113c55b5f45ce50f1456d5d880ab00",
+  "testedSourceCommitScope": "Current local full workspace-quality source, including the owner-approved promotion-policy update and synthetic CLI regression tests; it was not deployed to staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
   "environment": {
     "separateRepl": true,
     "separateStagingDatabase": true,
@@ -32,14 +32,11 @@
   },
   "latestLocalWorkspaceCheck": {
     "verifiedOn": "2026-10-28",
-    "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
-    "testedWorkingTreeCommittedAs": "5a1b076cdd2256dcf6320a41245837985534fc5b",
+    "testedSourceCommit": "ae3aeca251113c55b5f45ce50f1456d5d880ab00",
+    "testedWorkingTreeCommittedAs": "ae3aeca251113c55b5f45ce50f1456d5d880ab00",
     "workingTreeChangesIncluded": [],
-    "documentationOnlyChangesDuringRun": [
-      "STAGING-TEST-REPORT.md",
-      "STAGING-TEST-RESULTS.json"
-    ],
-    "scope": "Full workspace-quality workflow ran on the committed local staging source. The only uncommitted changes during the run were the two listed evidence documents; no application or dependency files changed after the tested commit. This is not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
+    "documentationOnlyChangesDuringRun": [],
+    "scope": "Full workspace-quality workflow ran on the committed local staging source with a clean working tree. The run included the synthetic CLI verifier regression tests; it is not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
@@ -47,14 +44,14 @@
       "failed": 0
     },
     "scriptsTests": {
-      "passed": 36,
+      "passed": 45,
       "failed": 0
     },
     "gameTests": {
       "passed": 50,
       "failed": 0
     },
-    "totalTestsPassed": 174,
+    "totalTestsPassed": 183,
     "promotionPolicyRegression": {
       "focusedTests": 3,
       "passed": 3,
@@ -68,9 +65,14 @@
       ],
       "missingFalseOrNonBooleanRequiredEvidence": "BLOCKED"
     },
+    "promotionCliIntegrationTests": {
+      "passed": 9,
+      "failed": 0,
+      "scope": "Actual promotion verifier invoked in synthetic temporary Git repositories with sanitized process environments."
+    },
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
-      "testedSourceCommit": "5a1b076cdd2256dcf6320a41245837985534fc5b",
+      "testedSourceCommit": "ae3aeca251113c55b5f45ce50f1456d5d880ab00",
       "result": "BLOCKED",
       "exitCode": 1,
       "requiredEnvironmentAssertions": "PASS",
