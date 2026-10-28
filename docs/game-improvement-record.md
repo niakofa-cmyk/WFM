@@ -93,6 +93,25 @@ proof of the only cause: Production frontend/API Clerk key-instance pairing
 remains unverified. The passing local auth test uses a synthetic token and does
 not verify Production credentials.
 
+The owner then confirmed that opening the direct Production URL in Chrome still
+shows `PLAYER PROFILE UNAVAILABLE` with HTTP `401 authentication_required`.
+A fresh unauthenticated fetch of both `/kids/wfm` and `/kids/wfm/` returned
+HTTP 200, resolving to `/kids/wfm/`; the WAR FOR MARS HTML shell and its current
+JavaScript asset also returned HTTP 200. The public bundle contains Clerk's
+`getToken` code but no case-insensitive `Authorization` or `Bearer` literal.
+This confirms that static delivery works and further supports the missing
+frontend bridge as the leading cause; it does not establish a visual render or
+prove Production key-instance pairing. `origin/main` has the shared bearer
+transport helper but does not mount `ApiAuthBridge`; current local staging does.
+
+The staging source now has focused regression coverage for bridge mounting,
+Bearer token transport, signed-out requests, and explicit authorization-header
+preservation. Full local workspace typecheck and builds passed; all 189 tests
+passed (47 scripts, 88 API, 54 game), including the four new auth-bridge tests.
+No dependency changed, so a frozen-lockfile install was not rerun. These are
+local staging-worktree checks, not a Production deployment or proof of live
+Clerk key pairing.
+
 No secret values were read, no Production setting or player data was changed,
 and no Production deployment was made. Production readiness remains
 **NOT CLAIMED**; the staging promotion gate remains **PENDING**. Do not promote
