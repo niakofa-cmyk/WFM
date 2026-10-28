@@ -43,3 +43,12 @@ No secrets were read or changed. No Railway settings, player data, Production
 deployment, commit, or push was changed. Production remains **NOT CLAIMED** and
 release authorization remains blocked on the existing staging and auth
 certification gates.
+
+## 2026-10-28 — Production API URL preflight
+
+Added a narrow, value-safe structural check for the Production frontend API URL.
+It requires an asserted Railway Production frontend scope, explicit external
+Clerk and Railway hosting declarations, and an absolute HTTPS
+`VITE_API_BASE_URL`. It reports statuses only and always leaves
+`productionEnablement` **BLOCKED**, because a local structural check cannot
+prove Railway service identity, Clerk key pairing, or authenticated behavior.

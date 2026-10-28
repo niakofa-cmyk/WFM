@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "preflight:clerk:production-api-url": "node ./clerk-production-api-url-preflight.mjs",
+    "test": "node --test ./clerk-production-api-url-preflight.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
