@@ -15,6 +15,8 @@ const MAX_ROOMS = 64;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
 const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
+const AUTH_QUERY_PARAMETER =
+  /^(?:token|access_token|session_token|auth_token|authorization|jwt)$/i;
 const SOCKET_AUTH_TIMEOUT_MS = 5_000;
 const MAX_SESSION_TOKEN_LENGTH = 8 * 1024;
 
@@ -45,7 +47,8 @@ type Client = {
   lastInputAt: number;
 };
 
-type ShutdownNoticeResult = "acknowledged" | "closed" | "timeout" | "send_error";
+type ShutdownNoticeResult =
+  "acknowledged" | "closed" | "timeout" | "send_error";
 
 const MAX_MESSAGES_PER_SECOND = 80;
 const MAX_INPUTS_PER_SECOND = 45;
@@ -62,7 +65,10 @@ export async function startWingSocketServer(
 ) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
-  const shutdownAckWaiters = new Map<WebSocket, (result: ShutdownNoticeResult) => void>();
+  const shutdownAckWaiters = new Map<
+    WebSocket,
+    (result: ShutdownNoticeResult) => void
+  >();
   const tickIntervalMs = options.tickIntervalMs ?? 1000 / TICK_RATE;
   const snapshotIntervalMs = options.snapshotIntervalMs ?? 1000 / TICK_RATE;
   const shutdownAckTimeoutMs = options.shutdownAckTimeoutMs ?? 1_500;
@@ -96,13 +102,25 @@ export async function startWingSocketServer(
     }
     let url: URL;
     try {
-      url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+      url = new URL(
+        request.url ?? "/",
+        `http://${request.headers.host ?? "localhost"}`,
+      );
     } catch {
       rejectUpgrade(socket, "400 Bad Request");
       return;
     }
+    if (
+      [...url.searchParams.keys()].some((key) => AUTH_QUERY_PARAMETER.test(key))
+    ) {
+      rejectUpgrade(socket, "400 Bad Request");
+      return;
+    }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
-    if ((url.pathname !== "/ws" && url.pathname !== "/ws/") || !ROOM_ID.test(roomId)) {
+    if (
+      (url.pathname !== "/ws" && url.pathname !== "/ws/") ||
+      !ROOM_ID.test(roomId)
+    ) {
       rejectUpgrade(socket, "400 Bad Request");
       return;
     }
@@ -129,11 +147,13 @@ export async function startWingSocketServer(
       lastInputAt: Date.now(),
     };
     clients.set(socket, client);
-    let authenticationTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      if (client.playerId !== null || socket.readyState !== WebSocket.OPEN) return;
-      send(socket, { type: "error", reason: "authentication_required" });
-      socket.close(1008, "Authentication required");
-    }, SOCKET_AUTH_TIMEOUT_MS);
+    let authenticationTimeout: ReturnType<typeof setTimeout> | null =
+      setTimeout(() => {
+        if (client.playerId !== null || socket.readyState !== WebSocket.OPEN)
+          return;
+        send(socket, { type: "error", reason: "authentication_required" });
+        socket.close(1008, "Authentication required");
+      }, SOCKET_AUTH_TIMEOUT_MS);
     authenticationTimeout.unref?.();
 
     const clearAuthenticationTimeout = () => {
@@ -189,20 +209,27 @@ export async function startWingSocketServer(
         }
 
         client.authenticating = true;
-        void options.verifySessionToken(packet.token).then((playerId) => {
-          if (socket.readyState !== WebSocket.OPEN) return;
-          if (typeof playerId !== "string" || playerId.length === 0 || playerId.length > 256) {
+        void options
+          .verifySessionToken(packet.token)
+          .then((playerId) => {
+            if (socket.readyState !== WebSocket.OPEN) return;
+            if (
+              typeof playerId !== "string" ||
+              playerId.length === 0 ||
+              playerId.length > 256
+            ) {
+              rejectAuthentication();
+              return;
+            }
+            client.playerId = playerId;
+            client.authenticating = false;
+            clearAuthenticationTimeout();
+            send(socket, { type: "authenticated" });
+          })
+          .catch(() => {
+            client.authenticating = false;
             rejectAuthentication();
-            return;
-          }
-          client.playerId = playerId;
-          client.authenticating = false;
-          clearAuthenticationTimeout();
-          send(socket, { type: "authenticated" });
-        }).catch(() => {
-          client.authenticating = false;
-          rejectAuthentication();
-        });
+          });
         return;
       }
 
@@ -224,7 +251,8 @@ export async function startWingSocketServer(
         }
         let room = client.room ?? rooms.get(client.roomId);
         const suppliedReconnectToken =
-          typeof packet.reconnectToken === "string" && packet.reconnectToken.length <= 128
+          typeof packet.reconnectToken === "string" &&
+          packet.reconnectToken.length <= 128
             ? packet.reconnectToken
             : null;
         if (!room) {
@@ -254,11 +282,20 @@ export async function startWingSocketServer(
 
         const name =
           typeof packet.name === "string"
-            ? packet.name.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 24) || "Pilot"
+            ? packet.name
+                .replace(/[\u0000-\u001f\u007f]/g, "")
+                .trim()
+                .slice(0, 24) || "Pilot"
             : "Pilot";
         const reconnectToken = suppliedReconnectToken;
-        if (room.phase === "active" && (!reconnectToken || !room.wing.canReconnect(reconnectToken))) {
-          send(socket, { type: "error", reason: reconnectToken ? "session_lost" : "match_started" });
+        if (
+          room.phase === "active" &&
+          (!reconnectToken || !room.wing.canReconnect(reconnectToken))
+        ) {
+          send(socket, {
+            type: "error",
+            reason: reconnectToken ? "session_lost" : "match_started",
+          });
           socket.close(1008, "This match has already started");
           return;
         }
@@ -267,10 +304,19 @@ export async function startWingSocketServer(
           rejectAuthentication();
           return;
         }
-        const result = room.wing.join(authenticatedPlayerId, name, reconnectToken);
+        const result = room.wing.join(
+          authenticatedPlayerId,
+          name,
+          reconnectToken,
+        );
         if (!result.ok) {
           send(socket, { type: "error", reason: result.reason });
-          socket.close(1008, result.reason === "full" ? "Wing is full" : "Room session belongs to another pilot");
+          socket.close(
+            1008,
+            result.reason === "full"
+              ? "Wing is full"
+              : "Room session belongs to another pilot",
+          );
           return;
         }
 
@@ -281,8 +327,10 @@ export async function startWingSocketServer(
         room.slotSockets.set(result.slotId, socket);
         room.emptySince = null;
         room.lastActivityAt = Date.now();
-        if (previous && previous !== socket) previous.close(4001, "Pilot reconnected");
-        if (room.phase === "lobby" && room.hostSlotId === null) room.hostSlotId = result.slotId;
+        if (previous && previous !== socket)
+          previous.close(4001, "Pilot reconnected");
+        if (room.phase === "lobby" && room.hostSlotId === null)
+          room.hostSlotId = result.slotId;
         send(socket, {
           type: "joined",
           roomId: room.id,
@@ -311,7 +359,9 @@ export async function startWingSocketServer(
 
       if (packet.type === "start" && client.room && client.slotId !== null) {
         const room = client.room;
-        const current = room.wing.snapshot().players.filter((player) => player.connected);
+        const current = room.wing
+          .snapshot()
+          .players.filter((player) => player.connected);
         if (room.phase !== "lobby") {
           send(socket, { type: "error", reason: "match_started" });
           return;
@@ -320,7 +370,10 @@ export async function startWingSocketServer(
           send(socket, { type: "error", reason: "host_only" });
           return;
         }
-        if (current.length === 0 || !current.every((player) => room.readySlots.has(player.slotId))) {
+        if (
+          current.length === 0 ||
+          !current.every((player) => room.readySlots.has(player.slotId))
+        ) {
           send(socket, { type: "error", reason: "pilots_not_ready" });
           return;
         }
@@ -372,7 +425,13 @@ export async function startWingSocketServer(
           !validOptionalBoolean(value.fire) ||
           !validOptionalBoolean(value.ult) ||
           !validOptionalBoolean(value.lock) ||
-          !(value.preset === null || value.preset === 0 || value.preset === 1 || value.preset === 2 || value.preset === 3)
+          !(
+            value.preset === null ||
+            value.preset === 0 ||
+            value.preset === 1 ||
+            value.preset === 2 ||
+            value.preset === 3
+          )
         ) {
           rejectInput(socket, client);
           return;
@@ -394,7 +453,10 @@ export async function startWingSocketServer(
         return;
       }
 
-      send(socket, { type: "error", reason: client.slotId === null ? "join_required" : "unknown_message" });
+      send(socket, {
+        type: "error",
+        reason: client.slotId === null ? "join_required" : "unknown_message",
+      });
       socket.close(1008, "Unsupported message");
     });
 
@@ -412,7 +474,8 @@ export async function startWingSocketServer(
         room.readySlots.delete(slotId);
         if (room.phase === "lobby" && room.hostSlotId === slotId) {
           room.hostSlotId =
-            room.wing.snapshot().players.find((player) => player.connected)?.slotId ?? null;
+            room.wing.snapshot().players.find((player) => player.connected)
+              ?.slotId ?? null;
         }
       }
       if (room.sockets.size === 0) room.emptySince = Date.now();
@@ -436,7 +499,11 @@ export async function startWingSocketServer(
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
     for (const [id, room] of rooms) {
-      if (room.sockets.size === 0 && room.emptySince !== null && now - room.emptySince > ROOM_IDLE_MS) {
+      if (
+        room.sockets.size === 0 &&
+        room.emptySince !== null &&
+        now - room.emptySince > ROOM_IDLE_MS
+      ) {
         rooms.delete(id);
         continue;
       }
@@ -458,7 +525,10 @@ export async function startWingSocketServer(
         room.wing.match.fx.length = 0;
         continue;
       }
-      const message = JSON.stringify({ type: "snapshot", snapshot: room.wing.snapshot(now) });
+      const message = JSON.stringify({
+        type: "snapshot",
+        snapshot: room.wing.snapshot(now),
+      });
       for (const socket of room.sockets) {
         if (socket.readyState !== WebSocket.OPEN) continue;
         if (socket.bufferedAmount > 1_048_576) {
@@ -494,7 +564,8 @@ export async function startWingSocketServer(
     });
   });
   const address = httpServer.address();
-  if (!address || typeof address === "string") throw new Error("Wing socket failed to bind a TCP port.");
+  if (!address || typeof address === "string")
+    throw new Error("Wing socket failed to bind a TCP port.");
 
   return {
     port: address.port,
@@ -510,12 +581,17 @@ export async function startWingSocketServer(
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
       const shutdownNotices: Promise<ShutdownNoticeResult>[] = [];
-      const interruptedPayload = JSON.stringify({ type: "interrupted", reason: "server_restart" });
+      const interruptedPayload = JSON.stringify({
+        type: "interrupted",
+        reason: "server_restart",
+      });
       for (const socket of sockets.clients) {
         const client = clients.get(socket);
         const room = client?.room;
         const interrupted =
-          room?.phase === "active" && !room.wing.match.over && socket.readyState === WebSocket.OPEN;
+          room?.phase === "active" &&
+          !room.wing.match.over &&
+          socket.readyState === WebSocket.OPEN;
         if (interrupted) {
           const shutdownTimer = setTimeout(() => socket.terminate(), 5_000);
           shutdownTimer.unref();
@@ -541,14 +617,20 @@ export async function startWingSocketServer(
       closePromise = (async () => {
         const results = await Promise.all(shutdownNotices);
         if (results.length > 0) {
-          process.stdout.write(`${JSON.stringify({
-            event: "socket_shutdown_notice_delivery",
-            activeSockets: results.length,
-            acknowledged: results.filter((result) => result === "acknowledged").length,
-            timedOut: results.filter((result) => result === "timeout").length,
-            closedBeforeAck: results.filter((result) => result === "closed").length,
-            sendErrors: results.filter((result) => result === "send_error").length,
-          })}\n`);
+          process.stdout.write(
+            `${JSON.stringify({
+              event: "socket_shutdown_notice_delivery",
+              activeSockets: results.length,
+              acknowledged: results.filter(
+                (result) => result === "acknowledged",
+              ).length,
+              timedOut: results.filter((result) => result === "timeout").length,
+              closedBeforeAck: results.filter((result) => result === "closed")
+                .length,
+              sendErrors: results.filter((result) => result === "send_error")
+                .length,
+            })}\n`,
+          );
         }
         await new Promise<void>((resolve) => sockets.close(() => resolve()));
         await httpClosed;
@@ -596,7 +678,12 @@ function rejectUpgrade(socket: import("node:stream").Duplex, status: string) {
 }
 
 function validAxis(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= -1 && value <= 1;
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= -1 &&
+    value <= 1
+  );
 }
 
 function validOptionalBoolean(value: unknown): value is boolean | undefined {
@@ -631,5 +718,6 @@ function broadcastLobby(room: Room) {
 }
 
 function send(socket: WebSocket, payload: unknown) {
-  if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload));
+  if (socket.readyState === WebSocket.OPEN)
+    socket.send(JSON.stringify(payload));
 }

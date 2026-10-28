@@ -5,7 +5,7 @@ token. The web client obtains the current session token through Clerk's
 `getToken()` API and sends it in the first WebSocket data frame:
 
 ```json
-{"type":"authenticate","token":"<session token>"}
+{ "type": "authenticate", "token": "<session token>" }
 ```
 
 The token is not placed in the WebSocket URL, query string, browser storage, or
@@ -15,6 +15,11 @@ generic authentication error. The verified Clerk subject becomes the player's
 socket identity; client-supplied player IDs are ignored. Reconnects require
 both the same verified subject and that seat's reconnect token, preventing
 cross-account seat recovery or duplicate seats.
+
+The web client's socket URL resolver and the socket server's upgrade handler
+reject common token-bearing query parameter names. Room routing may use a
+`room` query parameter, but authentication is sent only after the WebSocket
+opens, in the first data frame described above.
 
 ## Verification rules
 
