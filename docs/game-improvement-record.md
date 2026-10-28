@@ -28,31 +28,33 @@ duplicate-claim handling, and profile persistence after reload. It also records
 same-account profile synchronization across independent browser contexts,
 multi-client room completion and reconnect, and a two-pilot socket restart with
 restart notices and fresh-room recovery. These are scoped passes; they do not
-substitute for the still-pending interrupted/expired claim-denial test or
-physical cross-device profile-sync evidence.
+substitute for the still-pending interrupted/expired claim-denial test or the
+physical cross-device profile-sync evidence that was pending at the original
+audit checkpoint. Later owner-reported two-phone evidence is recorded below.
 
 ### Physical-device scope and evidence
 
 The owner approved **Android Chrome only** as the required physical-device
 scope; iPhone/Safari is not a release requirement. The REVVL 8 / Android 16 /
 Chrome 156 staging report reached 360 active seconds and met the recorded
-duration and frame-pacing targets. Memory stability remains inconclusive. The
-owner-reported Android sign-in/out, layout/scroll, local no-reward flight, and
-listed touch-control checks are supplemental evidence; they are not an
-independently captured reward-ledger or cross-device sync test.
+duration and frame-pacing targets; memory stability remains inconclusive.
+The owner-reported Android sign-in/out, layout/scroll, local no-reward flight,
+and listed touch-control checks are supplemental evidence; they are not an
+independently captured reward-ledger test. A later physical two-phone staging
+match and profile-sync retest is recorded below.
 
-Cross-device profile synchronization remains a separate release check and is
-still pending because the recorded live sync used browser contexts rather than
-two physical devices.
+Cross-device profile synchronization is a separate release check. It was
+pending at the original audit checkpoint and later received an owner-reported
+physical-device PASS; broader account-isolation checks remain separate.
 
 ### Remaining release and Production blockers
 
 - A live staging interrupted/expired reward claim has not been submitted or
   verified. Local expiry-denial tests pass, and the valid duplicate-claim test
   is separate evidence.
-- Android memory stability needs a repeat sample; remaining control,
-  interruption/restore, and thermal evidence must be evaluated against the
-  Android-only checklist.
+- Android physical certification remains partial: the owner-reported two-pilot
+  controls and listed local-flight control/lifecycle checks pass, but memory
+  stability is inconclusive and thermal status was not supplied.
 - Production Clerk key-instance pairing, email delivery, an approved dedicated
   Production test account, and protected API/session smoke tests remain
   unverified. Production readiness remains **NOT CLAIMED**.
@@ -132,3 +134,30 @@ The owner reports the frontend API URL is present and confirms the frontend/API
 key pairing, origins/redirects, and email delivery. These are not independently
 verified from a Railway service context. They do not prove external Clerk
 connection authorization or Production sign-in. Production remains blocked.
+
+## 2026-10-28 — Owner-reported two-phone controls and reward credit
+
+The owner reports that two approved staging accounts on two physical Android
+phones completed an opposing-team private match. Movement and weapon controls
+worked on both phones, both players reached debrief, each received a different
+credit award, and the separate balances persisted after returning to Hangar and
+refreshing. The owner also reports ARC/STRAFE preferences persisted through
+sign-out/sign-in, synchronized across the phones, and remained separate for
+Account B. The owner confirmed gyro should remain device-local.
+
+These are owner-reported staging passes for successful reward issuance,
+end-to-end match controls, and cross-device profile preferences. Exact credit
+amounts, network traces, and reward-ledger rows were not captured. The
+`serverOwnedRewardsAndDuplicateClaims` gate remains **PARTIAL**; this match did
+not test a duplicate or replayed claim. A successful credit award does **not**
+prove an interrupted or expired run is denied a reward. That live denial check
+remains **PENDING**; no such claim was submitted or verified. Mission-history
+comparison and direct cross-account read/write attempts also remain
+unverified, so broad account isolation is still **PARTIAL**.
+
+The physical controls and profile-sync evidence do not complete the broader
+Android device gate: the six-minute frame-pacing sample passed, but memory
+stability remains inconclusive and thermal status was not supplied. iPhone/
+Safari remains **NOT_REQUIRED** under the owner-approved Android-only scope.
+Production Clerk readiness remains **NOT_CLAIMED**, and no Production settings,
+player data, or deployments were changed.
