@@ -144,6 +144,58 @@
       "productionSettingsChanged": false
     }
   },
+  "latestLocalStagingGateFollowup": {
+    "verifiedAtUtc": "2026-10-28T17:33:13Z",
+    "branch": "staging",
+    "testedSourceCommit": "f3fd084269a419f33e643c25f007bd08787779fb",
+    "scope": "Safe local staging-gate checks only. No live claim, Production sign-in, setting change, or deployment.",
+    "safeLocalTests": {
+      "scriptsAndPreflightGate": {
+        "passed": 47,
+        "failed": 0
+      },
+      "clerkAuthOptionsSyntheticRegression": {
+        "passed": 1,
+        "failed": 0,
+        "scope": "Synthetic auth/middleware regression only; does not verify Production key pairing."
+      },
+      "pureRewardAdjudication": {
+        "passed": 3,
+        "failed": 0
+      },
+      "unauthenticatedProgressionAndClaimRoutes": {
+        "passed": 2,
+        "failed": 0,
+        "scope": "Unauthenticated requests only; deliberately unreachable loopback DATABASE_URL."
+      },
+      "simulationDeterminism": {
+        "passed": 4,
+        "failed": 0
+      },
+      "browserServerSimulationParity": {
+        "passed": 5,
+        "failed": 0
+      },
+      "totalTestsPassed": 62
+    },
+    "promotionVerifier": {
+      "result": "BLOCKED",
+      "exitCode": 1,
+      "overallStatus": "PENDING",
+      "blockingConditions": [
+        "tests.signupAndSignin must be PASS",
+        "tests.profileSyncsAcrossDevices must be PASS",
+        "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
+        "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
+        "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
+        "tests.interruptedMatchCannotClaimRewards must be PASS"
+      ]
+    },
+    "liveClaimSubmitted": false,
+    "creditsAwarded": 0,
+    "productionSettingsChanged": false,
+    "productionDeploymentPerformed": false
+  },
   "latestFrozenWorkspaceQualityCheck": {
     "verifiedAtUtc": "2026-10-26T19:58:22Z",
     "testedSourceCommit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3",

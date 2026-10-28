@@ -746,3 +746,39 @@ Overall staging status remains **PENDING** and Production readiness remains
 commit are recorded in the current-workspace section at the top of this report;
 it does not replace live staging evidence tied to the individual deployed
 revisions above.
+
+## Additional safe staging-gate checks — 2026-10-28, 17:33 UTC
+
+On staging source commit
+`f3fd084269a419f33e643c25f007bd08787779fb`, the following additional local
+checks passed: **62 tests total**. These are code-level checks, not live
+staging claims or Production verification.
+
+| Check | Result |
+| --- | --- |
+| Scripts, Clerk preflight, and promotion-gate tests | PASS — 47/47 |
+| Synthetic Clerk API auth-options regression | PASS — 1/1 |
+| Pure reward adjudication | PASS — 3/3 |
+| Unauthenticated progression and claim routes | PASS — 2/2; requests returned 401, with a deliberately unreachable loopback database URL |
+| Server simulation determinism | PASS — 4/4 |
+| Browser/server simulation parity | PASS — 5/5 |
+
+No authenticated reward claim was sent, no credits were awarded, and no
+Production settings or deployments were changed.
+
+The promotion verifier was run with `PR_HEAD_REF=staging` and the current
+source commit as `PR_HEAD_SHA`. It exited 1 and correctly remained **BLOCKED**:
+`overallStatus` is `PENDING`, and these required live checks are not `PASS`:
+
+- `signupAndSignin` — `PARTIAL`
+- `profileSyncsAcrossDevices` — `PENDING`
+- `accountProgressInventoryAndHistoryAreIsolated` — `PARTIAL`
+- `serverOwnedRewardsAndDuplicateClaims` — `PARTIAL`
+- `restartEndsMatchAndNotifiesPlayers` — `PARTIAL`
+- `interruptedMatchCannotClaimRewards` — `PARTIAL`
+
+The interrupted/expired reward-denial test remains blocked because disposable
+account verification, staging database isolation, and a read-only run/event
+inspection path are not established. Physical Android evidence remains
+`PARTIAL`; memory stability is inconclusive, and paired-device profile sync has
+not been run. These gates remain unchanged.
