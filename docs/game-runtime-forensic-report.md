@@ -67,6 +67,13 @@ across a fresh sign-in. They do **not** establish simultaneous same-account
 cross-device sync, campaign/inventory/history isolation, or the behavior of the
 new working-tree refresh changes on a deployed staging revision.
 
+## Confirmed release policy
+
+- Replit invite-only deployment is not a WFM launch requirement per the owner
+  decision on 2026-10-28. The promotion check excludes that legacy property.
+- This decision does not remove the protected Railway staging gateway or make
+  the private API/socket public.
+
 ## Remaining release restrictions
 
 - Deploy and verify the changed frontend on protected staging before promotion.
@@ -75,8 +82,6 @@ new working-tree refresh changes on a deployed staging revision.
   cross-account writes; the balance comparison alone is insufficient.
 - Complete deployed multiplayer interruption/reconnect/restart and ten-client
   evidence. Synthetic impairment tests are not equivalent.
-- Reconcile the report's old Replit invite-only deployment requirement with the
-  existing protected Railway gateway; do not silently change a false flag.
 - Sign-up form rendering is tested; creating and verifying a new account is not.
 - Do not promote to Production or mark the overall staging gate PASS from this audit.
 

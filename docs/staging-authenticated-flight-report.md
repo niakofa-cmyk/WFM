@@ -60,7 +60,8 @@ This retest confirms authentication, rejected-claim balance safety, reload of
 the unchanged server profile, and sign-out. It does **not** confirm accepted
 rewards, accepted-claim idempotency, reward persistence, or the original replay
 rejection's root cause. The code-protected Railway gateway is not evidence of
-a Replit-native invite-only deployment certification.
+Replit-native invite-only deployment behavior; the owner confirmed that behavior
+is not a WFM launch requirement on 2026-10-28.
 
 ## Repairs completed
 

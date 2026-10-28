@@ -1,6 +1,6 @@
 ---
 name: WFM improvement record
-description: Standing guidance for recording game improvements and the approved physical-device certification scope.
+description: Standing WFM device-scope and staging-promotion decisions.
 ---
 
 For material WAR FOR MARS improvements and enhancements, maintain the dated
@@ -32,3 +32,17 @@ physical devices.
 Android criteria; keep any separate profile-sync gate pending until its own
 approved evidence exists. Do not reintroduce iPhone/Safari as a mandatory gate
 without a new owner decision.
+
+## Replit invite-only launch policy
+
+The owner confirmed on 2026-10-28 that Replit invite-only deployment is not a
+WFM launch requirement. The Railway staging access gateway and private API/socket
+boundary remain separate controls and must not be removed or inferred from this
+policy decision.
+
+**Why:** the Replit invite-only condition was a legacy promotion flag that did
+not describe the protected Railway staging topology.
+
+**How to apply:** do not include Replit invite-only status among required staging
+promotion environment assertions unless the owner makes a new decision. Preserve
+all other explicit environment and evidence gates.

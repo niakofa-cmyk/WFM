@@ -62,3 +62,11 @@ two physical devices.
 
 No Production settings, secrets, player data, or deployments were changed for
 this record.
+
+### Release-policy decision
+
+On 2026-10-28, the owner confirmed that Replit invite-only deployment is not a
+WFM launch requirement. The promotion check will stop treating that legacy
+property as a required environment assertion. This does not change the
+protected Railway staging gateway, the private API/socket boundary, or any
+other pending release gate.

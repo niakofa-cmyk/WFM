@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { requiredEnvironmentFailures } from "./staging-promotion-policy.mjs";
 
 const root = process.cwd();
 const resultsPath = resolve(root, "STAGING-TEST-RESULTS.json");
@@ -54,9 +55,7 @@ if (results.overallStatus !== "PASS") failures.push("overallStatus must be PASS.
 if (results.productionReadiness !== "NOT_CLAIMED") {
   failures.push("Staging results must not claim production readiness.");
 }
-for (const [key, value] of Object.entries(results.environment ?? {})) {
-  if (value !== true) failures.push(`environment.${key} must be confirmed true.`);
-}
+failures.push(...requiredEnvironmentFailures(results.environment ?? {}));
 for (const key of requiredTests) {
   if (results.tests?.[key] !== "PASS") failures.push(`tests.${key} must be PASS.`);
 }
