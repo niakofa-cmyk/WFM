@@ -1655,7 +1655,8 @@
     "sourceBranchBeforeDeployment": "wfm-staging-socket-auth",
     "sourceBranchAfterDeployment": "staging",
     "stagingDeploymentCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d",
-    "phoneRetest": "PENDING_OWNER",
+    "phoneRetest": "OWNER_REPORTED_PASS_FOR_ACCOUNT_SCOPED_CONTROL_SCHEME",
+    "gyroPersistencePolicy": "DEVICE_LOCAL_BY_DESIGN",
     "stagingRuntime": {
       "onlineServices": 4,
       "pendingWork": 0,
@@ -1685,7 +1686,11 @@
       "inventoryStayedAssociatedWithEachAccount": true,
       "missionHistoryConfirmed": false,
       "directCrossAccountReadOrWriteAttempted": false,
-      "controlSchemeSurvivedSignInAndAccountSwitch": false
+      "controlSchemeSurvivedSignInAndAccountSwitch": true,
+      "controlSchemeSyncedAcrossBothPhones": true,
+      "accountBSchemeRemainedIsolated": true,
+      "gyroSyncedAcrossDevices": false,
+      "gyroDeviceLocalByDesign": true
     },
     "verification": {
       "frozenLockfileInstall": "PASS",
@@ -1699,7 +1704,7 @@
       "databasePersistenceIntegrationTest": "NOT_RUN",
       "fullApiTestRunNote": "DATABASE_URL was intentionally unset because its target was not verified as an isolated test database. Six API test files failed during database-client import; 66 API tests passed. The focused route and schema tests passed separately."
     },
-    "scope": "Committed and pushed to origin/staging, then all three Railway staging services were aligned to branch staging and deployed successfully. No live claim, account sign-in, database test write, or Production setting/deployment."
+    "scope": "Committed and pushed to origin/staging, then all three Railway staging services were aligned to branch staging and deployed successfully. The owner reports staging phone sign-in/control tests. The agent made no live reward claim or staging sign-in and performed no database test write. Production settings and deployment are untouched."
   },
   "productionReadiness": "NOT_CLAIMED"
 }

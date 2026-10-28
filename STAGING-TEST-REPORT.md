@@ -1017,9 +1017,13 @@ staging frontend, API, and socket then deployed commit
 | `wfm-socket-staging` | `f2d6750a-40ff-4508-9cfc-38781944ed8b` | SUCCESS | `525519822c07dc19cb4c60d21e7ea62ccb91214d` |
 
 The read-only environment check showed all four services online, zero recent
-failures, and zero pending work. The phone retest of ARC/STRAFE persistence is
-still **PENDING**; no staging sign-in or reward claim was performed by the
-agent. The owner must verify account-specific scheme persistence after
-sign-out/re-sign-in and on the second phone. Mission-history comparison and
-direct cross-account access attempts also remain unverified. Production was
-not changed or deployed.
+failures, and zero pending work. The owner reports the targeted physical-phone
+retest passed: ARC/STRAFE survived sign-out/sign-in, the same account showed its
+scheme on both phones, and Account B retained its separate scheme. This is
+owner-reported staging evidence, not an automated device run. The owner also
+reported that gyro did not sync across devices. Code inspection confirms this
+is expected: gyro and drilled preferences are stored in browser `localStorage`,
+while ARC/STRAFE is saved in the authenticated player profile. The broader
+physical-device certification, mission-history comparison, direct
+cross-account access attempts, and live reward-denial proof remain pending.
+Production was not changed or deployed.
