@@ -971,13 +971,26 @@ choice did not persist when signing out and switching accounts. Mission history
 was not confirmed, and no direct cross-account read or write was attempted.
 
 Code inspection confirmed the control scheme was changed only in client state;
-the server profile was updated only when a server Strike started. The local fix
-adds an authenticated profile update using the existing account-owned scheme
-field. It does not change credits, inventory, history, database schema, or
-progression revision, and it rejects stale UI responses after an account switch.
-The fix is in the local uncommitted workspace only; it has not been pushed or
-deployed to staging. A physical staging retest is required before treating this
-behavior as fixed or changing the related release evidence.
+the server profile was updated only when a server Strike started. The fix adds
+an authenticated profile update using the existing account-owned scheme field.
+It does not change credits, inventory, history, database schema, or progression
+revision, and it rejects stale UI responses after an account switch.
+
+The fix was committed as `8417c48645e83f1cc9b0a3c936a33e86cc866628` and pushed
+to `origin/staging`. A read-only Railway check after the push showed all four
+staging services online with no pending work, but the frontend, API, and socket
+still ran source `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`:
+
+| Service | Current deployment | Status | Running source |
+| --- | --- | --- | --- |
+| `wfm-app-staging` | `b11963fe-9de0-429c-a8d6-dcc27e3811d1` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
+| `wfm-api-staging` | `fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
+| `wfm-socket-staging` | `1aef0a09-4ee3-4868-a4ed-6957d10f89da` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
+
+Thus the code change is **not yet live on Railway staging**. The phone retest
+must wait until the approved staging deployment/source alignment step is
+completed. No Railway source pin, setting, data, or Production deployment was
+changed by the Git push.
 
 Local verification for this change: frozen-lockfile install **PASS**;
 typecheck **PASS**; workspace build **PASS**; game tests **54/54 PASS**;
@@ -988,4 +1001,4 @@ not verified as an isolated test database, so database-writing tests were not
 run. With `DATABASE_URL` unset, six API test files failed during import because
 the database client requires that variable; 66 API tests in that run passed.
 The profile mutation persistence test is present but remains **NOT RUN**.
-No staging or Production settings, data, or deployments were changed.
+No staging or Production settings, database data, or deployments were changed.
