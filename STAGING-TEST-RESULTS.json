@@ -1651,24 +1651,28 @@
     "commit": "8417c48645e83f1cc9b0a3c936a33e86cc866628",
     "pushedToRemote": true,
     "pushedBranch": "staging",
-    "deployedToStaging": false,
+    "deployedToStaging": true,
+    "sourceBranchBeforeDeployment": "wfm-staging-socket-auth",
+    "sourceBranchAfterDeployment": "staging",
+    "stagingDeploymentCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d",
+    "phoneRetest": "PENDING_OWNER",
     "stagingRuntime": {
       "onlineServices": 4,
       "pendingWork": 0,
       "frontend": {
-        "deployment": "b11963fe-9de0-429c-a8d6-dcc27e3811d1",
+        "deployment": "43ab9af0-22dc-4e65-97d0-ece864165a62",
         "status": "SUCCESS",
-        "sourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43"
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
       },
       "api": {
-        "deployment": "fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32",
+        "deployment": "452c32de-9e24-496d-977a-5727931911c7",
         "status": "SUCCESS",
-        "sourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43"
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
       },
       "socket": {
-        "deployment": "1aef0a09-4ee3-4868-a4ed-6957d10f89da",
+        "deployment": "f2d6750a-40ff-4508-9cfc-38781944ed8b",
         "status": "SUCCESS",
-        "sourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43"
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
       }
     },
     "productionSettingsChanged": false,
@@ -1695,7 +1699,7 @@
       "databasePersistenceIntegrationTest": "NOT_RUN",
       "fullApiTestRunNote": "DATABASE_URL was intentionally unset because its target was not verified as an isolated test database. Six API test files failed during database-client import; 66 API tests passed. The focused route and schema tests passed separately."
     },
-    "scope": "Committed and pushed to origin/staging, but not deployed to Railway staging. No live claim, account sign-in, Railway or Production setting change, database test write, or deployment."
+    "scope": "Committed and pushed to origin/staging, then all three Railway staging services were aligned to branch staging and deployed successfully. No live claim, account sign-in, database test write, or Production setting/deployment."
   },
   "productionReadiness": "NOT_CLAIMED"
 }

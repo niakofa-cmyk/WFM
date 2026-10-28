@@ -977,20 +977,19 @@ It does not change credits, inventory, history, database schema, or progression
 revision, and it rejects stale UI responses after an account switch.
 
 The fix was committed as `8417c48645e83f1cc9b0a3c936a33e86cc866628` and pushed
-to `origin/staging`. A read-only Railway check after the push showed all four
-staging services online with no pending work, but the frontend, API, and socket
-still ran source `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`:
+to `origin/staging`. A read-only Railway check immediately after the push, but
+before source alignment, showed all four staging services online with no
+pending work. At that point the frontend, API, and socket still ran source
+`1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`:
 
-| Service | Current deployment | Status | Running source |
+| Service | Pre-alignment deployment | Status | Running source |
 | --- | --- | --- | --- |
 | `wfm-app-staging` | `b11963fe-9de0-429c-a8d6-dcc27e3811d1` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
 | `wfm-api-staging` | `fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
 | `wfm-socket-staging` | `1aef0a09-4ee3-4868-a4ed-6957d10f89da` | SUCCESS | `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` |
 
-Thus the code change is **not yet live on Railway staging**. The phone retest
-must wait until the approved staging deployment/source alignment step is
-completed. No Railway source pin, setting, data, or Production deployment was
-changed by the Git push.
+The pre-deployment observation above was resolved by the approved source
+alignment and deployment recorded below.
 
 Local verification for this change: frozen-lockfile install **PASS**;
 typecheck **PASS**; workspace build **PASS**; game tests **54/54 PASS**;
@@ -1001,4 +1000,26 @@ not verified as an isolated test database, so database-writing tests were not
 run. With `DATABASE_URL` unset, six API test files failed during import because
 the database client requires that variable; 66 API tests in that run passed.
 The profile mutation persistence test is present but remains **NOT RUN**.
-No staging or Production settings, database data, or deployments were changed.
+No database test writes occurred. Production settings, data, and deployments
+remain untouched.
+
+## Approved Railway staging deployment — 2026-10-28
+
+After the owner approved deploying all three staging services, their Railway
+source branch was aligned from `wfm-staging-socket-auth` to `staging`. The
+staging frontend, API, and socket then deployed commit
+`525519822c07dc19cb4c60d21e7ea62ccb91214d` successfully:
+
+| Service | Deployment | Status | Source commit |
+| --- | --- | --- | --- |
+| `wfm-app-staging` | `43ab9af0-22dc-4e65-97d0-ece864165a62` | SUCCESS | `525519822c07dc19cb4c60d21e7ea62ccb91214d` |
+| `wfm-api-staging` | `452c32de-9e24-496d-977a-5727931911c7` | SUCCESS | `525519822c07dc19cb4c60d21e7ea62ccb91214d` |
+| `wfm-socket-staging` | `f2d6750a-40ff-4508-9cfc-38781944ed8b` | SUCCESS | `525519822c07dc19cb4c60d21e7ea62ccb91214d` |
+
+The read-only environment check showed all four services online, zero recent
+failures, and zero pending work. The phone retest of ARC/STRAFE persistence is
+still **PENDING**; no staging sign-in or reward claim was performed by the
+agent. The owner must verify account-specific scheme persistence after
+sign-out/re-sign-in and on the second phone. Mission-history comparison and
+direct cross-account access attempts also remain unverified. Production was
+not changed or deployed.
