@@ -17,10 +17,14 @@ pushes.
 
 **Why:** the deterministic simulation fix reached the frontend while the reward
 API stayed pinned to old code, despite both services displaying `staging`.
+Separately deployed game clients and sockets can also become protocol-incompatible:
+an older client sent `join` before `authenticate`, while the updated socket
+required authentication first and the client surfaced only a generic room error.
 
-**How to apply:** compare frontend/API deployed revisions and shared simulation
-contents before claiming parity or starting a rewarded flight. Change a staging
-pin only with explicit deployment approval; never update production implicitly.
+**How to apply:** compare frontend/API/socket deployed revisions and their shared
+protocol or simulation contracts before claiming parity or starting a flight.
+Change a staging pin only with explicit deployment approval; never update
+production implicitly.
 
 The owner approved a staging-only access gate for Railway browser testing.
 It must protect game, API, and socket access without replacing Clerk sign-in
