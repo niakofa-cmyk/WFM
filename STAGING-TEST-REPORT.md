@@ -114,13 +114,29 @@ staging sortie records were not inspected or deleted; no match or reward result
 was part of this test. This does not pass account isolation, reward integrity,
 multiplayer restart, or the overall staging gate.
 
+## Owner-reported two-account profile refresh check — 2026-10-28
+
+The owner used separate approved staging accounts on the REVVL 8 (Account A)
+and Samsung Galaxy A42 5G (Account B). They reported that each phone retained
+its own profile after refresh, neither showed a profile error, and both were
+signed out afterward.
+
+This confirms separate account sessions and profile refresh behavior at the
+owner-reported UI level. Specific saved progression, inventory, history, or
+balance markers were not recorded, and no cross-account write attempt was made.
+Therefore the broader account progress/inventory/history isolation gate remains
+**PARTIAL**. No match, reward claim, purchase, or profile-setting write was part
+of this check.
+
 ## Latest staging promotion-gate recheck — 2026-10-28
 
-The verifier was rerun with `PR_HEAD_REF=staging` and local HEAD
-`bcdf9b5a0b91fe289339a0085f514beab86926ad`; the tested application source was
+The verifier was rerun after the two-account profile refresh check with
+`PR_HEAD_REF=staging` and local HEAD
+`c8201d982c5f6b06e130003fb4b4a09c873c4535`; the tested application source was
 `f576883983ff7e3a659c94fee307c120ab5910a1`. Required environment assertions
 passed. The command exited 1 as expected; paired-device sync is no longer a
-blocker. The exact remaining conditions are:
+blocker, while broader account-data isolation remains partial. The exact
+remaining conditions are:
 
 - Overall staging evidence must reach `PASS`.
 - Sign-up/sign-in must reach `PASS`.

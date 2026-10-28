@@ -73,7 +73,7 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "bcdf9b5a0b91fe289339a0085f514beab86926ad",
+      "headCommitAtCheck": "c8201d982c5f6b06e130003fb4b4a09c873c4535",
       "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
       "result": "BLOCKED",
       "exitCode": 1,
@@ -87,7 +87,7 @@
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local verifier rerun after recording owner-reported paired physical profile sync. No Production configuration change or deployment."
+      "scope": "Local verifier rerun after owner-reported two-account profile refresh. The read-only session check did not clear the broader account-data isolation gate. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -1429,6 +1429,23 @@
     "matchOrRewardOutcome": "NOT_PART_OF_THIS_TEST",
     "status": "OWNER_REPORTED_PASS",
     "scope": "Physical profile sync only. This does not establish account isolation, server-owned reward or duplicate-claim behavior, restart lifecycle, or overall staging readiness."
+  },
+  "latestOwnerReportedTwoAccountProfileCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed procedure; host not repeated in the result form",
+    "accounts": {
+      "revvl": "Account A, approved staging account",
+      "samsung": "Account B, separate approved staging account"
+    },
+    "retainedOwnProfileAfterRefresh": "OWNER_REPORTED_PASS",
+    "profileErrorOnEitherPhone": false,
+    "signedOutOnBothPhones": true,
+    "distinctSavedProfileMarkersCompared": "NOT_REPORTED",
+    "specificSavedProgressInventoryHistoryOrBalanceMarkers": "NOT_CAPTURED",
+    "crossAccountWriteTest": "NOT_RUN",
+    "matchOrReward": "NOT_PART_OF_THIS_TEST",
+    "status": "OWNER_REPORTED_PARTIAL",
+    "scope": "Confirms separate sessions and profile refresh at the owner-reported UI level only. The broader progress/inventory/history isolation gate remains PARTIAL."
   },
   "tests": {
     "signupAndSignin": "PARTIAL",
