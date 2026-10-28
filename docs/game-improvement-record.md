@@ -119,3 +119,16 @@ the staging auth bridge until the documented staging gate passes and each
 Production rollout is explicitly authorized. After a permitted rollout,
 recheck profile loading; if it still returns 401, verify key-instance pairing
 through an authorized Clerk connection without exposing key values.
+
+## 2026-10-28 — Production frontend API URL preflight
+
+The Production frontend preflight now requires `VITE_API_BASE_URL` and checks
+only its HTTPS URL shape. It reports presence and structural status without
+emitting the configured URL. API and staging frontend scopes do not inspect
+this frontend-only setting. Tests also cover missing values, non-HTTPS and
+credential-bearing URLs, and fail-closed Production status.
+
+The owner reports the frontend API URL is present and confirms the frontend/API
+key pairing, origins/redirects, and email delivery. These are not independently
+verified from a Railway service context. They do not prove external Clerk
+connection authorization or Production sign-in. Production remains blocked.

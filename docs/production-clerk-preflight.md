@@ -23,6 +23,16 @@ Railway preflight cannot query Replit connection authorization and reports
 Neither a working Replit-managed connection nor its Production environment
 authorizes use of the separate external Clerk instance.
 
+## Latest owner-reported Production inputs
+
+On 2026-10-28, the owner reported that the Production frontend API URL is
+present, the frontend/API Clerk keys are paired to one instance, allowed
+origins/redirects are verified, and email delivery is verified. These are
+owner-reported confirmations, not independently verified Railway service-scope
+results or an authorized external Clerk connection. No credential values were
+read. Keep Production blocked until the authorized connection and controlled
+smoke-test evidence are independently established.
+
 Replit's current documentation says switching from a Replit-managed Clerk app
 to an external Clerk app requires deleting the managed app first. That deletion
 removes the managed tenant; accounts, credentials, and sessions are not
@@ -143,6 +153,14 @@ strings, or variable presence. Keep `productionEnablement` blocked.
 The frontend invocation checks presence only for:
 
 - `VITE_CLERK_PUBLISHABLE_KEY`
+- `VITE_API_BASE_URL` (Production frontend only)
+
+For the Production frontend, the preflight also checks that `VITE_API_BASE_URL`
+has an absolute HTTPS URL shape without embedded credentials, query, or
+fragment. It reports only `VALID_HTTPS_URL`, `MISSING`, or `INVALID_URL_SHAPE`;
+it never emits the URL itself. This does not establish that the endpoint is the
+intended service, reachable, or correctly paired with the Production API.
+Neither the API service scope nor the staging frontend scope reads this variable.
 
 The API invocation checks presence only for:
 

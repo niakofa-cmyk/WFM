@@ -85,6 +85,26 @@ function variableIsPresent(environment, name) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function productionApiBaseUrlStatus(value) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return "MISSING";
+  }
+
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "https:" &&
+      parsed.hostname &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.search &&
+      !parsed.hash
+      ? "VALID_HTTPS_URL"
+      : "INVALID_URL_SHAPE";
+  } catch {
+    return "INVALID_URL_SHAPE";
+  }
+}
+
 function authProviderHostingDeclaration(environment) {
   const providerValue = environment[AUTH_PROVIDER_VARIABLE];
   const provider = typeof providerValue === "string"
@@ -242,6 +262,9 @@ export function evaluateClerkProductionPreflight(
   )
     ? [
         ...REQUIRED_VARIABLES_BY_SERVICE[serviceContext],
+        ...(target?.environment === "production" && serviceContext === "frontend"
+          ? ["VITE_API_BASE_URL"]
+          : []),
         ...(target?.environment === "staging" && serviceContext === "frontend"
           ? ["STAGING_PUBLIC_ORIGIN"]
           : []),
@@ -271,6 +294,14 @@ export function evaluateClerkProductionPreflight(
             productionOrigin: "NOT_CHECKED",
             clerkIssuer: "NOT_CHECKED",
             clerkJwksUrl: "NOT_CHECKED",
+              ...(serviceContext === "frontend"
+                ? {
+                    apiBaseUrl: {
+                      variable: "VITE_API_BASE_URL",
+                      status: "NOT_CHECKED",
+                    },
+                  }
+                : {}),
           },
       providerHostingCompatibility: {
         provider: "NOT_CHECKED",
@@ -339,6 +370,14 @@ export function evaluateClerkProductionPreflight(
             productionOrigin: "NOT_CHECKED",
             clerkIssuer: "NOT_CHECKED",
             clerkJwksUrl: "NOT_CHECKED",
+            ...(serviceContext === "frontend"
+              ? {
+                  apiBaseUrl: {
+                    variable: "VITE_API_BASE_URL",
+                    status: "NOT_CHECKED",
+                  },
+                }
+              : {}),
           },
       providerHostingCompatibility,
       ...stageChecks,
@@ -377,6 +416,10 @@ export function evaluateClerkProductionPreflight(
     serviceContext === "api"
       ? originStatus
       : "NOT_CHECKED";
+  const apiBaseUrlStatus =
+    !stagingTarget && serviceContext === "frontend"
+      ? productionApiBaseUrlStatus(environment.VITE_API_BASE_URL)
+      : "NOT_APPLICABLE";
   const wingAllowedOrigins =
     serviceContext === "socket"
       ? originStatus
@@ -425,6 +468,8 @@ export function evaluateClerkProductionPreflight(
     providerHostingCompatibility.status ===
       "EXTERNAL_CLERK_DECLARED_NOT_VERIFIED" &&
     requiredVariables.every((variable) => variable.status === "PRESENT") &&
+    (apiBaseUrlStatus === "NOT_APPLICABLE" ||
+      apiBaseUrlStatus === "VALID_HTTPS_URL") &&
     (originVariable === null || originStatus === "MATCH") &&
     (stagingTarget
       ? clerkIssuerStatus === "OPERATOR_DECLARED_PUBLIC_ISSUER"
@@ -476,6 +521,14 @@ export function evaluateClerkProductionPreflight(
           variable: target.jwksVariable,
           status: clerkJwksUrl,
         },
+        ...(serviceContext === "frontend"
+          ? {
+              apiBaseUrl: {
+                variable: "VITE_API_BASE_URL",
+                status: apiBaseUrlStatus,
+              },
+            }
+          : {}),
       };
 
   const authChecks = stagingTarget

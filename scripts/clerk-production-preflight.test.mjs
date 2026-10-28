@@ -19,6 +19,7 @@ function readyEnvironment(overrides = {}) {
     WFM_CLERK_BACKEND_HOSTING: "railway",
     WFM_PROD_CLERK_ISSUER: PRODUCTION_CLERK_TARGET.issuer,
     WFM_PROD_CLERK_JWKS_URL: PRODUCTION_CLERK_TARGET.jwksUrl,
+    VITE_API_BASE_URL: "https://api.example.test",
     API_ALLOWED_ORIGINS: PRODUCTION_CLERK_TARGET.origin,
     CLERK_ISSUER: PRODUCTION_CLERK_TARGET.issuer,
     WING_ALLOWED_ORIGINS: PRODUCTION_CLERK_TARGET.origin,
@@ -381,7 +382,7 @@ test("missing public issuer/JWKS metadata remains a blocker", () => {
   assert.equal(report.productionEnablement, "BLOCKED");
 });
 
-test("frontend scope checks only its own publishable key", () => {
+test("frontend scope checks its publishable key and public API URL", () => {
   const environment = readyEnvironment();
   for (const name of [
     "CLERK_PUBLISHABLE_KEY",
@@ -400,7 +401,12 @@ test("frontend scope checks only its own publishable key", () => {
   assert.equal(report.serviceContext, "frontend");
   assert.deepEqual(report.requiredVariables, [
     { name: "VITE_CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
+    { name: "VITE_API_BASE_URL", status: "PRESENT" },
   ]);
+  assert.deepEqual(report.publicConfiguration.apiBaseUrl, {
+    variable: "VITE_API_BASE_URL",
+    status: "VALID_HTTPS_URL",
+  });
   assert.equal(
     report.publicConfiguration.productionOrigin.status,
     "NOT_CHECKED",
@@ -414,6 +420,74 @@ test("frontend scope checks only its own publishable key", () => {
     "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
   );
   assert.equal(report.productionEnablement, "BLOCKED");
+});
+
+test("Production frontend blocks missing or unsafe API URL shapes without echoing", () => {
+  const cases = [
+    { value: "", expectedStatus: "MISSING" },
+    {
+      value: "http://preflight-api-url-sentinel.example",
+      expectedStatus: "INVALID_URL_SHAPE",
+    },
+    {
+      value: "https://user:pass@preflight-api-url-sentinel.example",
+      expectedStatus: "INVALID_URL_SHAPE",
+    },
+  ];
+
+  for (const { value, expectedStatus } of cases) {
+    const report = evaluateClerkProductionPreflight(
+      readyEnvironment({ VITE_API_BASE_URL: value }),
+      "frontend",
+    );
+    const serialized = JSON.stringify(report);
+
+    assert.equal(report.configurationStatus, "BLOCKED");
+    assert.equal(report.publicConfiguration.apiBaseUrl.status, expectedStatus);
+    assert.equal(report.productionEnablement, "BLOCKED");
+    assert.equal(report.exitCode, 1);
+    if (value) {
+      assert.equal(serialized.includes(value), false);
+    }
+  }
+});
+
+test("API and staging frontend scopes do not inspect the Production API URL", () => {
+  const productionEnvironment = readyEnvironment();
+  Object.defineProperty(productionEnvironment, "VITE_API_BASE_URL", {
+    get() {
+      assert.fail("API scope must not read the frontend API URL");
+    },
+  });
+  const apiReport = evaluateClerkProductionPreflight(
+    productionEnvironment,
+    "api",
+  );
+  assert.equal(apiReport.configurationStatus, "PASS");
+  assert.equal(
+    apiReport.requiredVariables.some(
+      ({ name }) => name === "VITE_API_BASE_URL",
+    ),
+    false,
+  );
+
+  const stagingEnvironment = stagingReadyEnvironment();
+  Object.defineProperty(stagingEnvironment, "VITE_API_BASE_URL", {
+    get() {
+      assert.fail("staging frontend must not inspect the Production API URL");
+    },
+  });
+  const stagingReport = evaluateClerkProductionPreflight(
+    stagingEnvironment,
+    "frontend",
+  );
+  assert.equal(stagingReport.configurationStatus, "PASS");
+  assert.equal(
+    stagingReport.requiredVariables.some(
+      ({ name }) => name === "VITE_API_BASE_URL",
+    ),
+    false,
+  );
 });
 
 test("requires an explicit app or API service scope before inspecting keys", () => {
