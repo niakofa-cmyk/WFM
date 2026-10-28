@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/react";
 import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -94,6 +95,7 @@ type LobbySession = {
 };
 
 export function WarApp() {
+  const { getToken } = useAuth();
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -176,6 +178,7 @@ export function WarApp() {
       team: Number(packet.team) as 0 | 1,
       reconnectToken,
       name: "Pilot",
+      getSessionToken: () => getToken(),
     });
     setOnlineStatus("");
     setOfflineMode(false);
@@ -216,11 +219,11 @@ export function WarApp() {
       url.searchParams.set("room", normalizedRoomCode.toLowerCase());
       const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
       window.history.replaceState({}, "", roomPath);
-      let token = "";
+      let reconnectToken = "";
       try {
-        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
       } catch {
-        token = "";
+        reconnectToken = "";
       }
       let joined = false;
       let started = false;
@@ -270,6 +273,7 @@ export function WarApp() {
           return;
         }
         joinSocketRef.current = socket;
+        let joinSent = false;
         clearAttemptTimeout();
         joinAttemptTimeoutRef.current = window.setTimeout(() => {
           if (joinSocketRef.current !== socket || started) return;
@@ -278,11 +282,18 @@ export function WarApp() {
         }, SOCKET_HANDSHAKE_TIMEOUT_MS);
         socket.addEventListener("open", () => {
           if (joinSocketRef.current !== socket) return;
-          try {
-            socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
-          } catch {
-            socket.close();
-          }
+          void getToken().then((sessionToken) => {
+            if (joinSocketRef.current !== socket || socket.readyState !== WebSocket.OPEN) return;
+            if (!sessionToken) {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
+            socket.send(JSON.stringify({ type: "authenticate", token: sessionToken }));
+          }).catch(() => {
+            if (joinSocketRef.current === socket) {
+              failOnline("Could not verify your sign-in session. Check your connection and try again.");
+            }
+          });
         });
         socket.addEventListener("message", (event) => {
           let packet: { type?: string; [key: string]: unknown };
@@ -291,9 +302,27 @@ export function WarApp() {
           } catch {
             return;
           }
+          if (packet.type === "authenticated") {
+            if (joinSent) return;
+            joinSent = true;
+            try {
+              socket.send(JSON.stringify({
+                type: "join",
+                name: "Pilot",
+                ...(reconnectToken ? { reconnectToken } : {}),
+              }));
+            } catch {
+              socket.close();
+            }
+            return;
+          }
           if (packet.type === "error") {
             if (started) return;
             const reason = String(packet.reason ?? "unavailable");
+            if (reason === "authentication_required") {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
             if (reason === "match_not_started" || reason === "invalid_lobby_action") {
               setOnlineStatus(showOnlineError(reason));
               return;
@@ -319,10 +348,10 @@ export function WarApp() {
             clearAttemptTimeout();
             if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
             lobbyRetryRef.current = null;
-            token = String(packet.reconnectToken ?? token);
-            if (token) {
+            reconnectToken = String(packet.reconnectToken ?? reconnectToken);
+            if (reconnectToken) {
               try {
-                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, reconnectToken);
               } catch {
                 // The live socket can reconnect without browser storage.
               }
@@ -348,7 +377,7 @@ export function WarApp() {
                 roomId: normalizedRoomCode,
                 slotId,
                 team,
-                reconnectToken: token,
+                reconnectToken,
                 name: "Pilot",
                 ready: previous?.slotId === slotId ? previous.ready : false,
                 lobby: previous?.lobby ?? {
@@ -390,7 +419,7 @@ export function WarApp() {
               ...packet,
               slotId: mySlotId ?? -1,
               team: myTeam,
-              reconnectToken: token,
+              reconnectToken,
             }, normalizedRoomCode);
           }
         });

@@ -44,6 +44,7 @@ export type OnlineRoom = {
   team: 0 | 1;
   reconnectToken: string;
   name: string;
+  getSessionToken: () => Promise<string | null>;
 };
 
 type ArenaProps = {
@@ -660,6 +661,23 @@ export function Arena({
         setNetworkStatus("");
         return;
       }
+      if (packet.type === "authenticated") {
+        const join: { type: string; name: string; reconnectToken?: string } = {
+          type: "join",
+          name: online.name,
+        };
+        if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
+        try {
+          source.send(JSON.stringify(join));
+        } catch {
+          source.close();
+        }
+        return;
+      }
+      if (packet.type === "error" && packet.reason === "authentication_required") {
+        endInterruptedMatch();
+        return;
+      }
       if (packet.type === "snapshot") {
         const next = packet.snapshot as OnlineSnapshot | undefined;
         if (next?.match && Array.isArray(next.players)) {
@@ -735,16 +753,14 @@ export function Arena({
           setNetworkStatus("");
           return;
         }
-        const join: { type: string; name: string; reconnectToken?: string } = {
-          type: "join",
-          name: online.name,
-        };
-        if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
-        try {
-          target.send(JSON.stringify(join));
-        } catch {
-          target.close();
-        }
+        void online.getSessionToken().then((token) => {
+          if (target.readyState !== WebSocket.OPEN) return;
+          if (!token) {
+            endInterruptedMatch();
+            return;
+          }
+          target.send(JSON.stringify({ type: "authenticate", token }));
+        }).catch(endInterruptedMatch);
       });
       target.addEventListener("close", () => {
         target.removeEventListener("message", onMessage);

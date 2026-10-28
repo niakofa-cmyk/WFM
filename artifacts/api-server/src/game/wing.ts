@@ -21,7 +21,7 @@ export type WingInput = StepInput & { seq: number };
 
 export type JoinResult =
   | { ok: true; slotId: number; team: 0 | 1; reconnectToken: string }
-  | { ok: false; reason: "full" };
+  | { ok: false; reason: "full" | "session_lost" };
 
 export type SlotSnapshot = {
   slotId: number;
@@ -125,12 +125,15 @@ export function createWing(seed = 1) {
       if (reconnectToken) {
         const existing = slots.find((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
         if (existing) {
+          if (existing.playerId !== playerId) return { ok: false, reason: "session_lost" };
           existing.isConnected = true;
           existing.lastPacketTime = now;
           existing.name = name;
           return { ok: true, slotId: existing.slotId, team: existing.team, reconnectToken: existing.reconnectToken ?? reconnectToken };
         }
       }
+      const occupiedByPlayer = slots.find((slot) => slot.playerId === playerId);
+      if (occupiedByPlayer) return { ok: false, reason: "session_lost" };
       const teamCounts = ([0, 1] as const).map(
         (team) => slots.filter((slot) => slot.team === team && slot.playerId !== null).length,
       );

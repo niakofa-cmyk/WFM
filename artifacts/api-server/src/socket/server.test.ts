@@ -4,8 +4,10 @@ import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
 import { startNetworkImpairmentProxy } from "./impairment-proxy";
 import { startWingSocketServer } from "./server";
+import { authenticateTestSocket, createSocketTestAuth } from "./test-session-auth";
 
 type Packet = { type?: string; [key: string]: unknown };
+const testAuth = createSocketTestAuth();
 
 function nextPacket(socket: WebSocket, accept: (packet: Packet) => boolean, timeoutMs = 3000) {
   return new Promise<Packet>((resolve, reject) => {
@@ -29,12 +31,13 @@ function nextPacket(socket: WebSocket, accept: (packet: Packet) => boolean, time
   });
 }
 
-async function connect(url: string) {
+async function connect(url: string, playerId = `pilot-${crypto.randomUUID()}`) {
   const socket = new WebSocket(url);
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
     socket.once("error", reject);
   });
+  await authenticateTestSocket(socket, testAuth, playerId);
   return socket;
 }
 
@@ -59,12 +62,14 @@ function close(socket: WebSocket) {
 }
 
 test("ten-client lobby gates launch, reconnects safely, and isolates separate rooms", async () => {
-  const runtime = await startWingSocketServer(0, "127.0.0.1");
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
   const sockets: WebSocket[] = [];
   try {
     const url = (roomId: string) => `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`;
     const mainRoomClients = await Promise.all(
-      Array.from({ length: MAX_PLAYERS }, () => connect(url("mars-alpha"))),
+      Array.from({ length: MAX_PLAYERS }, (_, index) => connect(url("mars-alpha"), `pilot-${index}`)),
     );
     sockets.push(...mainRoomClients);
     const seats = await Promise.all(mainRoomClients.map((socket, index) => join(socket, `Pilot ${index}`)));
@@ -111,7 +116,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
 
     const beforeReconnect = seats[0];
     await close(mainRoomClients[0]);
-    const replacement = await connect(url("mars-alpha"));
+    const replacement = await connect(url("mars-alpha"), "pilot-0");
     sockets.push(replacement);
     const rejoined = nextPacket(replacement, (packet) => packet.type === "joined");
     replacement.send(JSON.stringify({
@@ -190,6 +195,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
 
 test("two pilots control separate slots and receive identical authoritative snapshots", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
     tickIntervalMs: 2,
     snapshotIntervalMs: 20,
   });
@@ -268,6 +274,7 @@ test("two pilots control separate slots and receive identical authoritative snap
 
 test("seeded impairment proxy exercises delayed, jittered, and lost input/snapshot frames", async (t) => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
     tickIntervalMs: 2,
     snapshotIntervalMs: 20,
   });
@@ -390,7 +397,9 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
 });
 
 test("a restarted socket notifies every pilot, rejects stale sessions, and accepts fresh rooms", async () => {
-  let runtime = await startWingSocketServer(0, "127.0.0.1");
+  let runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
   const sockets: WebSocket[] = [];
   try {
     const roomUrl = `ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`;
@@ -445,7 +454,9 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
       { code: 4002, reason: "server_restart" },
       { code: 4002, reason: "server_restart" },
     ]);
-    runtime = await startWingSocketServer(0, "127.0.0.1");
+    runtime = await startWingSocketServer(0, "127.0.0.1", {
+      verifySessionToken: testAuth.verifySessionToken,
+    });
 
     const staleSession = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
     sockets.push(staleSession);
@@ -481,7 +492,10 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
 });
 
 test("an active pilot is closed safely after the bounded acknowledgement wait", async () => {
-  const runtime = await startWingSocketServer(0, "127.0.0.1", { shutdownAckTimeoutMs: 20 });
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    shutdownAckTimeoutMs: 20,
+  });
   const sockets: WebSocket[] = [];
   try {
     const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-timeout`);
@@ -513,6 +527,7 @@ test("an active pilot is closed safely after the bounded acknowledgement wait", 
 
 test("ten concurrent pilots receive the authoritative match result at the strike boundary", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
     tickIntervalMs: 1,
     snapshotIntervalMs: 33,
   });

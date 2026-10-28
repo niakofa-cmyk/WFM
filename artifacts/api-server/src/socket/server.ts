@@ -1,7 +1,8 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
+import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import {
   createWing,
   DISCONNECT_GRACE_MS,
@@ -14,6 +15,8 @@ const MAX_ROOMS = 64;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
 const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
+const SOCKET_AUTH_TIMEOUT_MS = 5_000;
+const MAX_SESSION_TOKEN_LENGTH = 8 * 1024;
 
 type Room = {
   id: string;
@@ -28,7 +31,8 @@ type Room = {
 };
 
 type Client = {
-  playerId: string;
+  playerId: string | null;
+  authenticating: boolean;
   roomId: string;
   room: Room | null;
   slotId: number | null;
@@ -49,11 +53,12 @@ export async function startWingSocketServer(
   port: number,
   host = "0.0.0.0",
   options: {
+    verifySessionToken: SocketSessionVerifier;
     tickIntervalMs?: number;
     snapshotIntervalMs?: number;
     allowedOrigins?: ReadonlySet<string>;
     shutdownAckTimeoutMs?: number;
-  } = {},
+  },
 ) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
@@ -110,7 +115,8 @@ export async function startWingSocketServer(
   sockets.on("connection", (socket) => {
     const roomId = roomIds.get(socket) ?? "";
     const client: Client = {
-      playerId: randomUUID(),
+      playerId: null,
+      authenticating: false,
       roomId,
       room: null,
       slotId: null,
@@ -123,6 +129,25 @@ export async function startWingSocketServer(
       lastInputAt: Date.now(),
     };
     clients.set(socket, client);
+    let authenticationTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      if (client.playerId !== null || socket.readyState !== WebSocket.OPEN) return;
+      send(socket, { type: "error", reason: "authentication_required" });
+      socket.close(1008, "Authentication required");
+    }, SOCKET_AUTH_TIMEOUT_MS);
+    authenticationTimeout.unref?.();
+
+    const clearAuthenticationTimeout = () => {
+      if (authenticationTimeout !== null) clearTimeout(authenticationTimeout);
+      authenticationTimeout = null;
+    };
+
+    const rejectAuthentication = () => {
+      clearAuthenticationTimeout();
+      if (socket.readyState === WebSocket.OPEN) {
+        send(socket, { type: "error", reason: "authentication_required" });
+        socket.close(1008, "Authentication required");
+      }
+    };
 
     socket.on("message", (data, isBinary) => {
       if (isBinary) {
@@ -148,6 +173,42 @@ export async function startWingSocketServer(
       if (client.messageCount > MAX_MESSAGES_PER_SECOND) {
         send(socket, { type: "error", reason: "rate_limited" });
         socket.close(1008, "Message rate exceeded");
+        return;
+      }
+
+      if (client.playerId === null) {
+        if (
+          packet.type !== "authenticate" ||
+          client.authenticating ||
+          typeof packet.token !== "string" ||
+          packet.token.length === 0 ||
+          packet.token.length > MAX_SESSION_TOKEN_LENGTH
+        ) {
+          rejectAuthentication();
+          return;
+        }
+
+        client.authenticating = true;
+        void options.verifySessionToken(packet.token).then((playerId) => {
+          if (socket.readyState !== WebSocket.OPEN) return;
+          if (typeof playerId !== "string" || playerId.length === 0 || playerId.length > 256) {
+            rejectAuthentication();
+            return;
+          }
+          client.playerId = playerId;
+          client.authenticating = false;
+          clearAuthenticationTimeout();
+          send(socket, { type: "authenticated" });
+        }).catch(() => {
+          client.authenticating = false;
+          rejectAuthentication();
+        });
+        return;
+      }
+
+      if (packet.type === "authenticate") {
+        send(socket, { type: "error", reason: "already_authenticated" });
+        socket.close(1008, "Already authenticated");
         return;
       }
 
@@ -201,10 +262,15 @@ export async function startWingSocketServer(
           socket.close(1008, "This match has already started");
           return;
         }
-        const result = room.wing.join(client.playerId, name, reconnectToken);
+        const authenticatedPlayerId = client.playerId;
+        if (authenticatedPlayerId === null) {
+          rejectAuthentication();
+          return;
+        }
+        const result = room.wing.join(authenticatedPlayerId, name, reconnectToken);
         if (!result.ok) {
-          send(socket, { type: "error", reason: "full" });
-          socket.close(1008, "Wing is full");
+          send(socket, { type: "error", reason: result.reason });
+          socket.close(1008, result.reason === "full" ? "Wing is full" : "Room session belongs to another pilot");
           return;
         }
 
@@ -333,6 +399,7 @@ export async function startWingSocketServer(
     });
 
     socket.on("close", () => {
+      clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
       const room = client.room;
       const slotId = client.slotId;
