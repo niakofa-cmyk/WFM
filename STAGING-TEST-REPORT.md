@@ -122,11 +122,12 @@ its own profile after refresh, neither showed a profile error, and both were
 signed out afterward.
 
 This confirms separate account sessions and profile refresh behavior at the
-owner-reported UI level. Specific saved progression, inventory, history, or
-balance markers were not recorded, and no cross-account write attempt was made.
+owner-reported UI level. At that earlier check, specific saved progression,
+inventory, history, or balance markers were not recorded, and no cross-account
+write attempt was made.
 Therefore the broader account progress/inventory/history isolation gate remains
 **PARTIAL**. No match, reward claim, purchase, or profile-setting write was part
-of this check.
+of that check.
 
 ## Owner-reported two-pilot staging match — 2026-10-28
 
@@ -148,17 +149,31 @@ or write attempts were not part of this match. Therefore
 created staging match/reward records and changed staging balances. No
 Production data, settings, or deployment were changed.
 
+## Owner-reported cross-device account-swap check — 2026-10-28
+
+After the match, the owner signed out and swapped the two accounts between the
+phones: Account B on the REVVL 8 and Account A on the Samsung Galaxy A42 5G.
+They signed in on both phones, checked the profiles, refreshed, and reported
+that each account still showed its own correct, different credit balance. The
+owner also reported signing out on both phones afterward.
+
+This is **owner-reported PASS for the narrow cross-device profile and balance
+continuity check**. Exact balances, screenshots, and network traces were not
+supplied. No match, reward claim, purchase, or profile write was performed in
+this check. It does not test whether one account can access or change the
+other's inventory, history, or world state, so the broader
+`accountProgressInventoryAndHistoryAreIsolated` gate remains **PARTIAL**.
+
 ## Latest staging promotion-gate recheck — 2026-10-28
 
-The verifier was rerun after the owner-reported two-pilot match and Hangar
-balance refresh with
+The verifier was rerun after the owner-reported cross-device account swap with
 `PR_HEAD_REF=staging` and local HEAD
-`9f172a476321fc4bb5d0812ad72e3cd3d52b18ad`; the tested application source was
+`fff9a3ab7ef8e6756aa9e8ddbce7e84fdc9b8695`; the tested application source was
 `f576883983ff7e3a659c94fee307c120ab5910a1`. Required environment assertions
-passed. The command exited 1 as expected. Paired-device sync and this narrow
-two-pilot balance-persistence check add evidence, but do not clear the broader
-account-data isolation, duplicate/interrupted reward, or restart gates. The
-exact remaining conditions are:
+passed. The command exited 1 as expected. Paired-device sync, the two-pilot
+match, and the cross-device account swap add owner-reported evidence but do not
+clear the broader account-data isolation, duplicate/interrupted reward, or
+restart gates. The exact remaining conditions are:
 
 - Overall staging evidence must reach `PASS`.
 - Sign-up/sign-in must reach `PASS`.

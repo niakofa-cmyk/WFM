@@ -73,7 +73,7 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "9f172a476321fc4bb5d0812ad72e3cd3d52b18ad",
+      "headCommitAtCheck": "fff9a3ab7ef8e6756aa9e8ddbce7e84fdc9b8695",
       "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
       "result": "BLOCKED",
       "exitCode": 1,
@@ -87,7 +87,7 @@
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local verifier rerun after the owner-reported two-pilot staging match and Hangar balance refresh. The narrow gameplay and balance-persistence evidence does not clear the broader account-data isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
+      "scope": "Local verifier rerun after the owner-reported cross-device account swap. The paired sync, two-pilot match, and account-bound balance evidence do not clear the broader account-data isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -1476,6 +1476,22 @@
     "crossAccountReadOrWriteAttempt": "NOT_RUN",
     "status": "OWNER_REPORTED_PASS",
     "scope": "Supports owner-reported two-phone live gameplay and separate balance persistence only. It is not independent server-ledger evidence and does not pass broader account isolation, duplicate/interrupted claim, restart, or overall staging readiness gates. Staging match/reward records and balances changed; no Production change."
+  },
+  "latestOwnerReportedCrossDeviceAccountSwapCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per the instructed procedure; host not repeated in the result response",
+    "accountsAfterSwap": {
+      "revvl": "Account B, separate approved disposable staging account",
+      "samsung": "Account A, approved disposable staging account"
+    },
+    "bothAccountsSignedInAndOut": "OWNER_REPORTED_PASS",
+    "correctDistinctAccountBalancesAfterRefresh": "OWNER_REPORTED_PASS",
+    "exactBalances": "NOT_SUPPLIED",
+    "profileErrors": "NOT_REPORTED",
+    "matchOrRewardWriteDuringThisCheck": "NONE_REPORTED",
+    "screenshotsOrNetworkTraces": "NOT_SUPPLIED",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Supports account-bound profile and balance continuity after swapping accounts between phones. Does not test cross-account access or writes to inventory, history, or world state; the broader account-isolation gate remains PARTIAL."
   },
   "tests": {
     "signupAndSignin": "PARTIAL",
