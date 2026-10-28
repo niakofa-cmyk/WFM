@@ -58,6 +58,24 @@ The Android device evidence remains **PARTIAL**. iPhone/Safari is
 **PENDING** feature gate, and live interrupted/expired reward denial remains
 **PENDING**. The gate was not weakened by changing the device platform scope.
 
+## Staging profile refresh on the aligned auth-bridge revision — 2026-10-28
+
+Read-only Railway metadata confirmed the staging frontend, API, and socket are
+all live on branch `wfm-staging-socket-auth`, source commit
+`1cf6e5ff1c58833992b9b782ef90d437b4e4cc43`, with successful deployments and no
+staged changes. Inspection of that deployed source confirmed the frontend auth
+bridge and API client bearer-header transport are present. The focused local API
+auth-configuration test passed 1/1; it is not a live credential test.
+
+After unlocking the private staging access gate, the owner reported that the
+profile loaded normally after refresh. This is owner-reported UI evidence only:
+no HTTP status, browser network record, or device details were captured for
+this confirmation. No fresh sign-in challenge was sent by the agent and no
+saved verification code was used. The `signupAndSignin` certification remains
+**PARTIAL**, overall staging remains **PENDING**, and cross-device sync,
+reward-integrity, and Production checks remain separate. No staging settings,
+player data, or Production configuration/deployment were changed.
+
 ## Live profile-session synchronization — 2026-10-26, 14:29 UTC
 
 The approved staging push reached Railway `SUCCESS` at deployment

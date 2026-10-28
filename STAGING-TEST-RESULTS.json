@@ -1308,6 +1308,37 @@
     "productionModified": false,
     "scope": "Real protected-staging requests and automatic visible UI refresh, without reader reload or synthetic refresh events. Independent browser storage contexts on one host, not distinct physical devices. This does not certify separate inventory/history endpoints or rejected cross-account writes."
   },
+  "latestStagingProfileRefresh": {
+    "recordedOn": "2026-10-28",
+    "environment": "isolated Railway staging",
+    "serviceSourceBranch": "wfm-staging-socket-auth",
+    "serviceSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "services": {
+      "frontend": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T12:01:10.175Z"
+      },
+      "api": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T12:39:52.389Z"
+      },
+      "socket": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T09:57:19.322Z"
+      }
+    },
+    "noStagedChanges": true,
+    "deployedFrontendContainsAuthBridge": true,
+    "deployedApiClientAddsBearerAuthorization": true,
+    "ownerReportedProfileAfterAccessGateAndRefresh": "loads normally",
+    "httpStatusCaptured": false,
+    "browserNetworkEvidenceCaptured": false,
+    "deviceDetailsCapturedForThisCheck": false,
+    "agentSentFreshSignInChallenge": false,
+    "agentUsedSavedVerificationCode": false,
+    "productionModified": false,
+    "certificationImpact": "signupAndSignin remains PARTIAL; overallStatus remains PENDING; this owner-reported UI observation does not pass cross-device sync, reward-integrity, or Production gates."
+  },
   "tests": {
     "signupAndSignin": "PARTIAL",
     "profilePersistsAcrossSessions": "PASS",
