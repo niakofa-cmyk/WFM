@@ -1,17 +1,18 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { ClerkProvider, Show, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
+import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+const clerkPubKey = configuredClerkPublishableKey(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
+
+setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
@@ -143,6 +144,24 @@ function SignedInGame() {
   );
 }
 
+function ApiAuthBridge() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setAuthTokenGetter(null);
+      return;
+    }
+
+    setAuthTokenGetter(() =>
+      isLoaded && isSignedIn ? getToken() : null,
+    );
+    return () => setAuthTokenGetter(null);
+  }, [getToken, isLoaded, isSignedIn]);
+
+  return null;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
   return (
@@ -159,6 +178,7 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ApiAuthBridge />
       <Switch>
         <Route path="/" component={() => (
           <>
@@ -175,9 +195,6 @@ function Routes() {
 }
 
 function App() {
-  if (!clerkPubKey) {
-    throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
-  }
   return (
     <WouterRouter base={basePath}>
       <Routes />
