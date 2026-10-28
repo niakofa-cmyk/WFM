@@ -128,15 +128,37 @@ Therefore the broader account progress/inventory/history isolation gate remains
 **PARTIAL**. No match, reward claim, purchase, or profile-setting write was part
 of this check.
 
+## Owner-reported two-pilot staging match — 2026-10-28
+
+In a later private Railway staging room, the owner used separate approved
+accounts on the REVVL 8 (Account A) and Samsung Galaxy A42 5G (Account B). Both
+pilots appeared in the room, fought on opposing teams, and the match reached
+debrief. The owner reported that movement and weapon controls worked on both
+phones. Each account received a different credit award; after returning to the
+Hangar and refreshing, the owner confirmed that the two balances remained
+separate.
+
+This is **owner-reported PASS for the narrow live two-pilot gameplay and
+balance-persistence check**. Exact credit amounts, pre-match balances, reward
+event IDs, and server ledger records were not supplied or inspected. Duplicate
+or replayed claims, interrupted/expired reward denial, and cross-account access
+or write attempts were not part of this match. Therefore
+`accountProgressInventoryAndHistoryAreIsolated` and
+`serverOwnedRewardsAndDuplicateClaims` remain **PARTIAL**. The normal match
+created staging match/reward records and changed staging balances. No
+Production data, settings, or deployment were changed.
+
 ## Latest staging promotion-gate recheck — 2026-10-28
 
-The verifier was rerun after the two-account profile refresh check with
+The verifier was rerun after the owner-reported two-pilot match and Hangar
+balance refresh with
 `PR_HEAD_REF=staging` and local HEAD
-`c8201d982c5f6b06e130003fb4b4a09c873c4535`; the tested application source was
+`9f172a476321fc4bb5d0812ad72e3cd3d52b18ad`; the tested application source was
 `f576883983ff7e3a659c94fee307c120ab5910a1`. Required environment assertions
-passed. The command exited 1 as expected; paired-device sync is no longer a
-blocker, while broader account-data isolation remains partial. The exact
-remaining conditions are:
+passed. The command exited 1 as expected. Paired-device sync and this narrow
+two-pilot balance-persistence check add evidence, but do not clear the broader
+account-data isolation, duplicate/interrupted reward, or restart gates. The
+exact remaining conditions are:
 
 - Overall staging evidence must reach `PASS`.
 - Sign-up/sign-in must reach `PASS`.
@@ -145,8 +167,10 @@ remaining conditions are:
 - Restart notification/lifecycle must reach `PASS`.
 - Live interrupted/expired reward denial must reach `PASS`.
 
-No live reward claim was submitted, no credits were awarded, and no Production
-settings or deployment were changed. The gate remains intact and
+No interrupted/expired reward-claim request was submitted in this gate check.
+The later ordinary match and credit awards are recorded above; they do not
+certify interrupted/expired or duplicate-claim denial. No Production settings
+or deployment were changed. The gate remains intact and
 `productionReadiness` remains `NOT_CLAIMED`.
 
 ## Staging profile refresh on the aligned auth-bridge revision — 2026-10-28
@@ -898,8 +922,11 @@ source commit as `PR_HEAD_SHA`. It exited 1 and correctly remained **BLOCKED**:
 - `restartEndsMatchAndNotifiesPlayers` — `PARTIAL`
 - `interruptedMatchCannotClaimRewards` — `PARTIAL`
 
-The interrupted/expired reward-denial test remains blocked because disposable
-account verification, staging database isolation, and a read-only run/event
-inspection path are not established. Physical Android evidence remains
-`PARTIAL`; memory stability is inconclusive, and paired-device profile sync has
-not been run. These gates remain unchanged.
+As of this 17:33 check, the interrupted/expired reward-denial test remained
+blocked because disposable account verification, staging database isolation,
+and a read-only run/event inspection path were not established. At that time,
+physical Android evidence was `PARTIAL`, memory stability was inconclusive, and
+paired-device profile sync had not yet been run. Later owner-reported paired
+sync and a two-pilot staging match are recorded in the newer sections above;
+they do not change the still-pending reward-denial, broader account-isolation,
+restart, or full physical-performance criteria.

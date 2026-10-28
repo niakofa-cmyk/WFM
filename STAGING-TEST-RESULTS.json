@@ -73,7 +73,7 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "c8201d982c5f6b06e130003fb4b4a09c873c4535",
+      "headCommitAtCheck": "9f172a476321fc4bb5d0812ad72e3cd3d52b18ad",
       "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
       "result": "BLOCKED",
       "exitCode": 1,
@@ -87,7 +87,7 @@
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local verifier rerun after owner-reported two-account profile refresh. The read-only session check did not clear the broader account-data isolation gate. No Production configuration change or deployment."
+      "scope": "Local verifier rerun after the owner-reported two-pilot staging match and Hangar balance refresh. The narrow gameplay and balance-persistence evidence does not clear the broader account-data isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -1446,6 +1446,36 @@
     "matchOrReward": "NOT_PART_OF_THIS_TEST",
     "status": "OWNER_REPORTED_PARTIAL",
     "scope": "Confirms separate sessions and profile refresh at the owner-reported UI level only. The broader progress/inventory/history isolation gate remains PARTIAL."
+  },
+  "latestOwnerReportedTwoPilotMatchCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Private Railway staging room, confirmed through the staging-lobby check",
+    "deployedSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "devicesAndAccounts": [
+      {
+        "device": "REVVL 8, TMRV085G, Android 16",
+        "account": "Account A, approved disposable staging account"
+      },
+      {
+        "device": "Samsung Galaxy A42 5G, SM-A426U, Android 13",
+        "account": "Account B, separate approved disposable staging account"
+      }
+    ],
+    "outcomes": {
+      "bothPilotsJoinedPrivateRoom": "OWNER_REPORTED_PASS",
+      "opposingTeamsAndCombatInteraction": "OWNER_REPORTED_PASS",
+      "matchReachedDebrief": "OWNER_REPORTED_PASS",
+      "movementAndWeaponControlsOnBothPhones": "OWNER_REPORTED_PASS",
+      "accountsReceivedDifferentCreditAwards": "OWNER_REPORTED_PASS",
+      "separateBalancesPersistedAfterHangarRefresh": "OWNER_REPORTED_PASS"
+    },
+    "exactCreditAmountsAndBeforeBalances": "NOT_SUPPLIED",
+    "serverRewardEventsOrLedger": "NOT_INSPECTED",
+    "duplicateOrReplayClaimTest": "NOT_RUN",
+    "interruptedOrExpiredClaimTest": "NOT_RUN",
+    "crossAccountReadOrWriteAttempt": "NOT_RUN",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Supports owner-reported two-phone live gameplay and separate balance persistence only. It is not independent server-ledger evidence and does not pass broader account isolation, duplicate/interrupted claim, restart, or overall staging readiness gates. Staging match/reward records and balances changed; no Production change."
   },
   "tests": {
     "signupAndSignin": "PARTIAL",
