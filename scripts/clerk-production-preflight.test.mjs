@@ -17,6 +17,8 @@ function readyEnvironment(overrides = {}) {
     WFM_PROD_CLERK_ISSUER: PRODUCTION_CLERK_TARGET.issuer,
     WFM_PROD_CLERK_JWKS_URL: PRODUCTION_CLERK_TARGET.jwksUrl,
     API_ALLOWED_ORIGINS: PRODUCTION_CLERK_TARGET.origin,
+    CLERK_ISSUER: PRODUCTION_CLERK_TARGET.issuer,
+    WING_ALLOWED_ORIGINS: PRODUCTION_CLERK_TARGET.origin,
     ...syntheticKeys,
     ...overrides,
   };
@@ -61,7 +63,7 @@ test("passes structural checks without claiming key pairing or Production readin
   );
   assert.equal(report.serviceContext, "api");
   assert.deepEqual(
-    report.requiredKeyVariables.map(({ name }) => name),
+    report.requiredVariables.map(({ name }) => name),
     ["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"],
   );
   assert.equal(report.publicConfiguration.productionOrigin.status, "MATCH");
@@ -83,6 +85,40 @@ test("passes structural checks without claiming key pairing or Production readin
   assert.equal(report.exitCode, 2);
 });
 
+test("socket structural checks require the issuer and exact player-facing origin", () => {
+  const report = evaluateClerkProductionPreflight(readyEnvironment(), "socket");
+
+  assert.equal(report.configurationStatus, "PASS");
+  assert.equal(report.serviceContext, "socket");
+  assert.deepEqual(report.requiredVariables, [
+    { name: "CLERK_SECRET_KEY", status: "PRESENT" },
+    { name: "CLERK_ISSUER", status: "PRESENT" },
+    { name: "WING_ALLOWED_ORIGINS", status: "PRESENT" },
+  ]);
+  assert.equal(report.publicConfiguration.productionOrigin.status, "MATCH");
+  assert.equal(report.publicConfiguration.runtimeClerkIssuer.status, "MATCH");
+  assert.equal(report.productionVerification.wingAllowedOrigins.status, "MATCH");
+  assert.equal(report.productionEnablement, "BLOCKED");
+  assert.equal(report.exitCode, 2);
+});
+
+test("socket structural checks block a mismatched runtime issuer or origin", () => {
+  const report = evaluateClerkProductionPreflight(
+    readyEnvironment({
+      CLERK_ISSUER: "https://other-instance.example",
+      WING_ALLOWED_ORIGINS: "https://other-origin.example",
+    }),
+    "socket",
+  );
+
+  assert.equal(report.configurationStatus, "BLOCKED");
+  assert.equal(report.publicConfiguration.productionOrigin.status, "MISMATCH");
+  assert.equal(report.publicConfiguration.runtimeClerkIssuer.status, "MISMATCH");
+  assert.equal(report.productionEnablement, "BLOCKED");
+  assert.equal(report.secretValuesPrinted, false);
+  assert.equal(report.exitCode, 1);
+});
+
 test("structural PASS never implies external Production Clerk authorization", () => {
   const report = evaluateClerkProductionPreflight(readyEnvironment(), "api");
 
@@ -101,6 +137,10 @@ test("structural PASS never implies external Production Clerk authorization", ()
     apiAllowedOrigins: {
       variable: "API_ALLOWED_ORIGINS",
       status: "MATCH",
+    },
+    wingAllowedOrigins: {
+      variable: "WING_ALLOWED_ORIGINS",
+      status: "NOT_CHECKED",
     },
     clerkAllowedOrigins:
       "NOT_CHECKED_REQUIRES_AUTHORIZED_EXTERNAL_PRODUCTION_CLERK_CONNECTION",
@@ -124,7 +164,7 @@ test("reports required key-variable presence without returning or printing value
   );
   const serialized = JSON.stringify(report);
 
-  assert.deepEqual(report.requiredKeyVariables, [
+  assert.deepEqual(report.requiredVariables, [
     { name: "CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
     { name: "CLERK_SECRET_KEY", status: "MISSING" },
   ]);
@@ -209,7 +249,7 @@ test("frontend scope checks only its own publishable key", () => {
   const report = evaluateClerkProductionPreflight(environment, "frontend");
   assert.equal(report.configurationStatus, "PASS");
   assert.equal(report.serviceContext, "frontend");
-  assert.deepEqual(report.requiredKeyVariables, [
+  assert.deepEqual(report.requiredVariables, [
     { name: "VITE_CLERK_PUBLISHABLE_KEY", status: "PRESENT" },
   ]);
   assert.equal(

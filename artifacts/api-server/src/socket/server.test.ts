@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
@@ -31,7 +32,7 @@ function nextPacket(socket: WebSocket, accept: (packet: Packet) => boolean, time
   });
 }
 
-async function connect(url: string, playerId = `pilot-${crypto.randomUUID()}`) {
+async function connect(url: string, playerId = `pilot-${randomUUID()}`) {
   const socket = new WebSocket(url);
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
@@ -60,6 +61,74 @@ function close(socket: WebSocket) {
     socket.close();
   });
 }
+
+test("socket rejects unauthenticated commands and binds reconnect seats to the verified player", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
+  const sockets: WebSocket[] = [];
+  try {
+    const url = `ws://127.0.0.1:${runtime.port}/ws?room=mars-auth`;
+    const unauthenticated = new WebSocket(url);
+    sockets.push(unauthenticated);
+    await new Promise<void>((resolve, reject) => {
+      unauthenticated.once("open", resolve);
+      unauthenticated.once("error", reject);
+    });
+    const unauthenticatedError = nextPacket(
+      unauthenticated,
+      (packet) => packet.type === "error",
+    );
+    unauthenticated.send(JSON.stringify({
+      type: "join",
+      name: "Forged pilot",
+      playerId: "forged-client-identity",
+    }));
+    assert.equal((await unauthenticatedError).reason, "authentication_required");
+    assert.equal(runtime.roomCount, 0);
+
+    const owner = await connect(url, "verified-player-a");
+    sockets.push(owner);
+    const ownerSeat = await join(owner, "Pilot A");
+    const duplicateIdentity = await connect(url, "verified-player-a");
+    sockets.push(duplicateIdentity);
+    const duplicateSeatError = nextPacket(
+      duplicateIdentity,
+      (packet) => packet.type === "error",
+    );
+    duplicateIdentity.send(JSON.stringify({ type: "join", name: "Second seat" }));
+    assert.equal((await duplicateSeatError).reason, "session_lost");
+    await close(duplicateIdentity);
+    await close(owner);
+
+    const intruder = await connect(url, "verified-player-b");
+    sockets.push(intruder);
+    const stolenSeatError = nextPacket(
+      intruder,
+      (packet) => packet.type === "error",
+    );
+    intruder.send(JSON.stringify({
+      type: "join",
+      name: "Pilot B",
+      playerId: "verified-player-a",
+      reconnectToken: ownerSeat.reconnectToken,
+    }));
+    assert.equal((await stolenSeatError).reason, "session_lost");
+
+    const ownerReconnect = await connect(url, "verified-player-a");
+    sockets.push(ownerReconnect);
+    const reclaimedSeat = await join(
+      ownerReconnect,
+      "Pilot A",
+      ownerSeat.reconnectToken,
+    );
+    assert.equal(reclaimedSeat.slotId, ownerSeat.slotId);
+    assert.equal(reclaimedSeat.reconnectToken, ownerSeat.reconnectToken);
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
 
 test("ten-client lobby gates launch, reconnects safely, and isolates separate rooms", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
@@ -288,7 +357,7 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
       frameLossRate: 0.2,
       seed: 41027,
     });
-    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`);
+    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`, "impaired-pilot");
     clients.push(socket);
     const client = socket;
     const seat = await join(client, "Impaired pilot");
@@ -333,7 +402,7 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
     const lastSeq = (snapshot.snapshot as { players: Array<{ lastSeq: number }> }).players[seat.slotId].lastSeq;
 
     await close(client);
-    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`);
+    socket = await connect(`ws://127.0.0.1:${proxy.port}/ws?room=mars-netem`, "impaired-pilot");
     clients.push(socket);
     const reclaimed = await join(socket, "Impaired pilot", seat.reconnectToken);
     assert.equal(reclaimed.slotId, seat.slotId);

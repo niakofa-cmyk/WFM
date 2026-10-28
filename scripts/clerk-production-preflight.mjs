@@ -7,9 +7,10 @@ export const PRODUCTION_CLERK_TARGET = Object.freeze({
   jwksUrl: "https://clerk.niakofa.com/.well-known/jwks.json",
 });
 
-const REQUIRED_KEY_VARIABLES_BY_SERVICE = Object.freeze({
+const REQUIRED_VARIABLES_BY_SERVICE = Object.freeze({
   frontend: Object.freeze(["VITE_CLERK_PUBLISHABLE_KEY"]),
   api: Object.freeze(["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"]),
+  socket: Object.freeze(["CLERK_SECRET_KEY", "CLERK_ISSUER", "WING_ALLOWED_ORIGINS"]),
 });
 
 const PREFLIGHT_TARGET_VARIABLE = "WFM_CLERK_PREFLIGHT_TARGET";
@@ -22,7 +23,10 @@ const EXTERNAL_INSTANCE_REQUIRED =
 const EMAIL_DELIVERY_REQUIRED =
   "BLOCKED_REQUIRES_TEST_INBOX_OR_CLERK_DELIVERY_LOG_CONFIRMATION";
 
-function authorizationAndProductionChecks(apiAllowedOrigins = "NOT_CHECKED") {
+function authorizationAndProductionChecks(
+  apiAllowedOrigins = "NOT_CHECKED",
+  wingAllowedOrigins = "NOT_CHECKED",
+) {
   return {
     authorization: {
       replitManagedClerkAvailability: "NOT_CHECKED_FROM_RAILWAY_SERVICE_CONTEXT",
@@ -38,12 +42,16 @@ function authorizationAndProductionChecks(apiAllowedOrigins = "NOT_CHECKED") {
         variable: "API_ALLOWED_ORIGINS",
         status: apiAllowedOrigins,
       },
+      wingAllowedOrigins: {
+        variable: "WING_ALLOWED_ORIGINS",
+        status: wingAllowedOrigins,
+      },
       clerkAllowedOrigins: EXTERNAL_INSTANCE_REQUIRED,
       clerkRedirectOrigins: EXTERNAL_INSTANCE_REQUIRED,
       emailDelivery: EMAIL_DELIVERY_REQUIRED,
     },
     operatorAction:
-      "The connected Clerk integration may be Replit-managed Development, not external Production. Replit's documented external-app flow deletes the managed tenant and does not migrate accounts, credentials, or sessions. Keep Production blocked; obtain a supported non-destructive path or a separately approved migration and recovery plan before replacement. Then rerun both service-scoped read-only preflights.",
+      "The connected Clerk integration may be Replit-managed Development, not external Production. Replit's documented external-app flow deletes the managed tenant and does not migrate accounts, credentials, or sessions. Keep Production blocked; obtain a supported non-destructive path or a separately approved migration and recovery plan before replacement. Then rerun the frontend, API, and socket service-scoped read-only preflights.",
   };
 }
 
@@ -102,25 +110,25 @@ export function evaluateClerkProductionPreflight(
 ) {
   const targetAsserted =
     environment[PREFLIGHT_TARGET_VARIABLE] === "railway-production";
-  const requiredKeyVariableNames = Object.hasOwn(
-    REQUIRED_KEY_VARIABLES_BY_SERVICE,
+  const requiredVariableNames = Object.hasOwn(
+    REQUIRED_VARIABLES_BY_SERVICE,
     serviceContext,
   )
-    ? REQUIRED_KEY_VARIABLES_BY_SERVICE[serviceContext]
+    ? REQUIRED_VARIABLES_BY_SERVICE[serviceContext]
     : [];
 
-  if (!targetAsserted || requiredKeyVariableNames.length === 0) {
+  if (!targetAsserted || requiredVariableNames.length === 0) {
     return {
       check: "wfm-clerk-production-preflight",
       targetContext: targetAsserted
         ? "OPERATOR_ASSERTED_RAILWAY_PRODUCTION"
         : "NOT_ASSERTED",
       targetContextVariable: PREFLIGHT_TARGET_VARIABLE,
-      serviceContext: requiredKeyVariableNames.length
+      serviceContext: requiredVariableNames.length
         ? serviceContext
         : "NOT_ASSERTED",
       configurationStatus: "NOT_CHECKED",
-      requiredKeyVariables: requiredKeyVariableNames.map((name) => ({
+      requiredVariables: requiredVariableNames.map((name) => ({
         name,
         status: "NOT_CHECKED",
       })),
@@ -138,19 +146,33 @@ export function evaluateClerkProductionPreflight(
     };
   }
 
-  const requiredKeyVariables = requiredKeyVariableNames.map((name) => ({
+  const requiredVariables = requiredVariableNames.map((name) => ({
     name,
     status: variableIsPresent(environment, name) ? "PRESENT" : "MISSING",
   }));
-  const productionOrigin =
+  const apiAllowedOrigins =
     serviceContext === "api"
       ? exactOriginAllowlistStatus(environment.API_ALLOWED_ORIGINS)
       : "NOT_CHECKED";
+  const wingAllowedOrigins =
+    serviceContext === "socket"
+      ? exactOriginAllowlistStatus(environment.WING_ALLOWED_ORIGINS)
+      : "NOT_CHECKED";
+  const productionOrigin =
+    serviceContext === "api"
+      ? apiAllowedOrigins
+      : serviceContext === "socket"
+        ? wingAllowedOrigins
+        : "NOT_CHECKED";
   const clerkIssuer = exactMetadataStatus(
     environment,
     ISSUER_VARIABLE,
     PRODUCTION_CLERK_TARGET.issuer,
   );
+  const runtimeClerkIssuer =
+    serviceContext === "socket"
+      ? exactMetadataStatus(environment, "CLERK_ISSUER", PRODUCTION_CLERK_TARGET.issuer)
+      : "NOT_CHECKED";
   const clerkJwksUrl = exactMetadataStatus(
     environment,
     JWKS_VARIABLE,
@@ -158,10 +180,11 @@ export function evaluateClerkProductionPreflight(
   );
 
   const configurationStatus =
-    requiredKeyVariables.every((variable) => variable.status === "PRESENT") &&
+    requiredVariables.every((variable) => variable.status === "PRESENT") &&
     (serviceContext === "frontend" || productionOrigin === "MATCH") &&
     clerkIssuer === "MATCH" &&
-    clerkJwksUrl === "MATCH"
+    clerkJwksUrl === "MATCH" &&
+    (serviceContext !== "socket" || runtimeClerkIssuer === "MATCH")
       ? "PASS"
       : "BLOCKED";
 
@@ -174,15 +197,24 @@ export function evaluateClerkProductionPreflight(
       clerkIssuer: PRODUCTION_CLERK_TARGET.issuer,
       clerkJwksUrl: PRODUCTION_CLERK_TARGET.jwksUrl,
     },
-    requiredKeyVariables,
+    requiredVariables,
     publicConfiguration: {
       productionOrigin: {
-        variable: serviceContext === "api" ? "API_ALLOWED_ORIGINS" : null,
+        variable:
+          serviceContext === "api"
+            ? "API_ALLOWED_ORIGINS"
+            : serviceContext === "socket"
+              ? "WING_ALLOWED_ORIGINS"
+              : null,
         status: productionOrigin,
       },
       clerkIssuer: {
         variable: ISSUER_VARIABLE,
         status: clerkIssuer,
+      },
+      runtimeClerkIssuer: {
+        variable: serviceContext === "socket" ? "CLERK_ISSUER" : null,
+        status: runtimeClerkIssuer,
       },
       clerkJwksUrl: {
         variable: JWKS_VARIABLE,
@@ -190,7 +222,7 @@ export function evaluateClerkProductionPreflight(
       },
     },
     configurationStatus,
-    ...authorizationAndProductionChecks(productionOrigin),
+    ...authorizationAndProductionChecks(apiAllowedOrigins, wingAllowedOrigins),
     overallStatus:
       configurationStatus === "PASS"
         ? "STRUCTURAL_PASS_MANUAL_GATES_BLOCKED"

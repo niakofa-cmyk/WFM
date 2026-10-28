@@ -30,9 +30,11 @@ import {
   type ReplayClaim,
 } from "./rewards";
 import { startWingSocketServer } from "../socket/server";
+import { authenticateTestSocket, createSocketTestAuth } from "../socket/test-session-auth";
 import { StrikeRunIdParams } from "../routes/strikes";
 
 type SocketTestPacket = { type?: string; [key: string]: unknown };
+const socketTestAuth = createSocketTestAuth();
 
 function waitForSocketPacket(
   socket: WebSocket,
@@ -60,12 +62,14 @@ function waitForSocketPacket(
   });
 }
 
-function openTestSocket(url: string) {
-  return new Promise<WebSocket>((resolve, reject) => {
+async function openTestSocket(url: string, playerId: string) {
+  const socket = await new Promise<WebSocket>((resolve, reject) => {
     const socket = new WebSocket(url);
     socket.once("open", () => resolve(socket));
     socket.once("error", reject);
   });
+  await authenticateTestSocket(socket, socketTestAuth, playerId);
+  return socket;
 }
 
 function closeTestSocket(socket: WebSocket) {
@@ -311,13 +315,16 @@ test(
   async () => {
     const userId = `test_interrupted_room_${randomUUID()}`;
     const roomId = `ROOM${randomUUID().replaceAll("-", "").slice(0, 8)}`;
-    let runtime = await startWingSocketServer(0, "127.0.0.1");
+    let runtime = await startWingSocketServer(0, "127.0.0.1", {
+      verifySessionToken: socketTestAuth.verifySessionToken,
+    });
     const sockets: WebSocket[] = [];
 
     try {
       const before = await getPlayerProfile(userId);
       const socket = await openTestSocket(
         `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`,
+        userId,
       );
       sockets.push(socket);
 
@@ -348,9 +355,12 @@ test(
       await shutdown;
       assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
 
-      runtime = await startWingSocketServer(0, "127.0.0.1");
+      runtime = await startWingSocketServer(0, "127.0.0.1", {
+        verifySessionToken: socketTestAuth.verifySessionToken,
+      });
       const staleSocket = await openTestSocket(
         `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`,
+        userId,
       );
       sockets.push(staleSocket);
       const staleSession = waitForSocketPacket(staleSocket, (packet) => packet.type === "error");

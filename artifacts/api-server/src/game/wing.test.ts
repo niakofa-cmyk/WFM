@@ -85,7 +85,7 @@ test("empty slot zero is AI-controlled and reconnect reclaims its seat", () => {
   if (!joined.ok) return;
   wing.disconnect(joined.slotId, 2_010);
 
-  const rejoined = wing.join("new-connection", "Pilot", joined.reconnectToken, 2_500);
+  const rejoined = wing.join("pilot", "Pilot", joined.reconnectToken, 2_500);
   assert.equal(rejoined.ok, true);
   if (rejoined.ok) assert.equal(rejoined.slotId, joined.slotId);
 });

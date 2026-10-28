@@ -25,6 +25,7 @@ test("origin configuration rejects paths, credentials and malformed entries", ()
 test("live socket accepts the allowed frontend and rejects other or missing origins", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     allowedOrigins: parseSocketOrigins("https://game.example"),
+    verifySessionToken: async () => "origin-test-player",
   });
   const url = `ws://127.0.0.1:${runtime.port}/ws?room=origin123`;
   try {

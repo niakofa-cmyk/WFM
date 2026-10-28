@@ -20,8 +20,12 @@ export function createClerkSessionVerifier(options: SessionVerifierOptions): Soc
 
   const verifierOptions: SessionVerifierOptions = {
     ...options,
-    issuer: options.issuer?.trim() || undefined,
-    audience: options.audience?.trim() || undefined,
+    issuer: typeof options.issuer === "string"
+      ? options.issuer.trim() || undefined
+      : options.issuer,
+    audience: typeof options.audience === "string"
+      ? options.audience.trim() || undefined
+      : options.audience,
     authorizedParties: options.authorizedParties?.length
       ? [...options.authorizedParties]
       : undefined,

@@ -52,11 +52,11 @@ runtime Clerk configuration and are not used to derive or rewrite a key.
 
 ## Structural preflight
 
-Run separately in the owner-authorized Railway Production app and API service
-contexts. Do not run from the Replit Development environment and mistake its
-managed Development keys for Production configuration. The app and API have
-different service-scoped variables, so one invocation must not be expected to
-see both sets of keys.
+Run separately in the owner-authorized Railway Production frontend, API, and
+socket service contexts. Do not run from the Replit Development environment and
+mistake its managed Development keys for Production configuration. These
+services have different service-scoped variables, so one invocation must not
+be expected to see the variables from another service.
 
 ```sh
 WFM_CLERK_PREFLIGHT_TARGET=railway-production \
@@ -68,6 +68,11 @@ WFM_CLERK_PREFLIGHT_TARGET=railway-production \
 WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
 WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
 pnpm --filter @workspace/scripts run preflight:clerk:production -- --service api
+
+WFM_CLERK_PREFLIGHT_TARGET=railway-production \
+WFM_PROD_CLERK_ISSUER=https://clerk.niakofa.com \
+WFM_PROD_CLERK_JWKS_URL=https://clerk.niakofa.com/.well-known/jwks.json \
+pnpm --filter @workspace/scripts run preflight:clerk:production -- --service socket
 ```
 
 The frontend invocation checks presence only for:
@@ -80,7 +85,11 @@ The API invocation checks presence only for:
 - `CLERK_SECRET_KEY`
 
 The API invocation also checks `API_ALLOWED_ORIGINS` for the exact production
-origin. Both invocations check the public `WFM_PROD_CLERK_ISSUER` and
+origin. The socket invocation checks presence of `CLERK_SECRET_KEY`,
+`CLERK_ISSUER`, and `WING_ALLOWED_ORIGINS`, and checks that the runtime issuer
+and allowed origin exactly match the Production target. Its Clerk backend SDK
+verifier validates the token signature, expiry, configured issuer, optional
+audience, and authorized-party allowlist. All three invocations check the public `WFM_PROD_CLERK_ISSUER` and
 `WFM_PROD_CLERK_JWKS_URL` metadata against the documented target. These public
 metadata values are command-scoped inputs, not new Railway variables; do not
 persist them in Railway. Each invocation emits variable names, presence states,
@@ -101,6 +110,8 @@ separately identifies:
   while the owner decision is to preserve managed Development.
 - Frontend/API key-instance pairing as blocked pending safe metadata
   verification against the authorized external instance.
+- Socket issuer/origin checks are structural only and do not prove that the
+  configured secret key belongs to the authorized external Clerk instance.
 - API CORS origin status separately from Clerk allowed origins and redirects,
   which this Railway process cannot inspect. Email delivery remains a manual
   check.
