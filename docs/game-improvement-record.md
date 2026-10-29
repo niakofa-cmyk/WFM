@@ -314,6 +314,15 @@ GPS collection, new database schema, or Wing reward eligibility was added.
 
 Focused tests passed for deterministic field selection, battlefield metadata/map
 bounds, and socket lobby map consistency with the authoritative snapshot. The
-API and game package typechecks passed. Full workspace tests/builds and
-deployment-specific staging checks are still required before promotion. No
-Production settings, secrets, player data, or deployments were changed.
+full workspace typecheck, all 208 tests, and workspace builds passed. Commit
+`0468654f52c6aa193a35f95edf28daba0492f093` was pushed to `staging`; Railway
+reported the app, API, and socket deployments successful on that same commit,
+with all staging services online and no pending work.
+
+The owner reports that two physical Android phones showed the same field in the
+first lobby and active match; a fresh lobby showed a different field on both
+phones, and the tactical map matched the arena terrain. This is owner-reported
+staging evidence for those two rooms, not map-balance certification or
+Production evidence. No Production settings, secrets, player data, or
+deployments were changed. The independent reward and Production-auth gates
+remain in force.
