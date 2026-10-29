@@ -108,7 +108,7 @@ function MainMenu({
       <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
         <section className="border border-solar bg-void/80 p-3">
           <p className="font-hud text-lg tracking-widest text-solar">5V5 ONLINE WING</p>
-          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI.</p>
+          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
           <button
             type="button"
             data-testid="button-online-5v5"

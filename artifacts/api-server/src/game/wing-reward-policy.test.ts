@@ -16,9 +16,11 @@ function createMemoryStore() {
     string,
     ExistingWingReward & { createdAt: Date }
   >();
+  let transactionCalls = 0;
   const store: WingRewardStore = {
-    transaction: async (callback) =>
-      callback({
+    transaction: async (callback) => {
+      transactionCalls += 1;
+      return callback({
         lockProfiles: async (playerIds) => {
           for (const playerId of playerIds) {
             if (!profiles.has(playerId)) {
@@ -66,9 +68,17 @@ function createMemoryStore() {
             revision: updated.revision,
           };
         },
-      }),
+      });
+    },
   };
-  return { store, profiles, events };
+  return {
+    store,
+    profiles,
+    events,
+    get transactionCalls() {
+      return transactionCalls;
+    },
+  };
 }
 
 const testNow = new Date("2026-10-29T12:00:00.000Z");
@@ -80,6 +90,7 @@ function completedMatch(
 ): CompletedWingMatch {
   return {
     matchId,
+    matchMode: "competitive",
     result,
     participants: [
       {
@@ -100,6 +111,26 @@ function completedMatch(
     ],
   };
 }
+
+test("private, practice, and test rooms cannot settle rewards", async () => {
+  const memory = createMemoryStore();
+  for (const matchMode of ["private", "practice", "test"] as const) {
+    const result = await settleWingMatchWithStore({
+      ...completedMatch(`ineligible-${matchMode}`),
+      matchMode,
+    }, memory.store, testNow);
+    assert.equal(result.get("pilot-team-0")?.status, "not_eligible");
+    assert.equal(
+      result.get("pilot-team-0")?.reason,
+      "competitive_queue_required",
+    );
+    assert.equal(result.get("pilot-team-0")?.gain, 0);
+    assert.equal(result.get("pilot-team-1")?.gain, 0);
+  }
+  assert.equal(memory.transactionCalls, 0);
+  assert.equal(memory.profiles.size, 0);
+  assert.equal(memory.events.size, 0);
+});
 
 test("Wing rewards are team-specific, additive, and idempotent", async () => {
   const { store, profiles, events } = createMemoryStore();

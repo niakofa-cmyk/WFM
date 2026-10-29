@@ -1100,3 +1100,64 @@ untouched.
 No Production settings, auth credentials, database data, or deployments were
 changed. Production Clerk readiness remains unverified, and
 `productionReadiness` remains `NOT_CLAIMED`.
+
+## Staging deployment cross-check and Wing reward fail-safe — 2026-10-29
+
+The owner-supplied deployment report records PR #5 merged at
+`970f35daa255f0c21ba5e850d5eba90f56ecb2b7`, a Drizzle push reporting “Changes
+applied,” API `/api/readyz` success, and socket `/healthz` success. A separate
+read-only Railway metadata check confirmed the frontend, API, and socket
+services' latest deployments were all `SUCCESS` on branch `staging` at that
+same commit; Postgres was online and there were no pending environment changes.
+The same Railway status also reported five recent historical failures across
+three app services. Their causes were not inspected, so this is not recorded as
+zero recent failures.
+
+The schema push output remains owner-supplied evidence; no SQL query was
+available through the connected Railway tools, so enum labels, table/index
+state, and reward-ledger rows were not independently inspected.
+
+The supplied report says a missing `WFM_WING_REWARDS_ENABLED` variable keeps
+rewards disabled. That conclusion is not supported by the socket bootstrap in
+the local source inspected for this update: it previously loaded reward
+settlement when `DATABASE_URL` was present and did not check that flag. The
+reported Railway deployment commit is not present in the local Git object
+database, so the deployed socket source could not be directly compared. Treat
+live staging reward enablement as **UNVERIFIED** and do not run another
+reward-eligible match until the safety patch is deployed and checked.
+
+The local safety patch now:
+
+- assigns `private` to room-code rooms unless a trusted server-side resolver
+  marks a room from an authoritative competitive queue;
+- ignores client-provided match-mode fields;
+- denies private, Practice, and test-room rewards before any reward-store
+  transaction;
+- loads reward settlement only when `WFM_WING_REWARDS_ENABLED` is exactly
+  `"true"` and `DATABASE_URL` is present; and
+- displays the no-reward status in the player debrief and identifies private
+  rooms as no-reward on the home screen.
+
+The current socket bootstrap does not provide a competitive-room resolver, so
+room-code matches remain ineligible even if the enable flag is later set. This
+patch is local, uncommitted, and undeployed. It does not enable rewards.
+
+Focused reward/config/socket tests passed **15/15**. Full workspace typecheck
+passed; all tests passed **203/203** (scripts 49, API 96, game 58); all
+workspace builds passed. The frozen-lockfile install was not rerun because no
+dependency or lockfile changed. No live reward or interrupted-claim request was
+submitted.
+
+| Evidence gate | Status |
+| --- | --- |
+| Current Railway staging app/API/socket deployments | **PASS** — latest metadata shows all three successful at the reported commit |
+| Historical Railway deployment failures | **REVIEW** — five across three services; causes not inspected |
+| Staging schema/enum/index readback | **PENDING** |
+| Live reward event, balance, and replay verification | **PENDING** |
+| Interrupted/expired reward denial | **PENDING** |
+| Local safety patch deployed to staging | **PENDING** |
+| Overall promotion status | **PENDING** |
+| Production Clerk readiness | **NOT_CLAIMED** |
+
+No files were pushed or committed, no Railway configuration or deployments were
+changed, and no Production settings, data, or deployments were touched.

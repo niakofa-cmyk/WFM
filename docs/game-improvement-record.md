@@ -250,3 +250,39 @@ local no-reward test remains separate from authenticated game Settings.
 Verification: the WFM package test suite passed 58/58, TypeScript typecheck
 passed, and Vite production build passed. No dependencies, Railway settings,
 player data, or deployments were changed; the work remains local and uncommitted.
+
+## 2026-10-29 — Fail-closed Online Wing reward eligibility
+
+The owner-supplied staging deployment report records a successful staging
+deployment at `970f35daa255f0c21ba5e850d5eba90f56ecb2b7`. A read-only Railway
+metadata check independently confirmed that frontend, API, and socket currently
+have successful deployments from that staging commit, with Postgres online and
+no pending environment changes. Railway also reported five recent historical
+deployment failures across three app services; their causes were not inspected.
+
+The report's statement that a missing `WFM_WING_REWARDS_ENABLED` variable proved
+rewards were disabled is not supported by the local socket bootstrap inspected
+for this update: it previously loaded settlement whenever `DATABASE_URL` was
+present and did not check that flag. The deployed commit is not present in the
+local Git object database, so the running socket source could not be compared
+directly. Treat live reward enablement as unverified.
+
+The local safety change adds a server-owned match mode, defaults client-created
+room-code rooms to `private`, ignores client-supplied mode fields, rejects
+private/Practice/test rooms before any reward transaction, and requires both
+the exact enable flag and a database before importing reward persistence. A
+trusted server-side competitive-queue resolver is additionally required; the
+current bootstrap provides none. The code therefore does not enable rewards.
+The attachment is preserved in
+[`staging-deployment-report-2026-10-29.md`](staging-deployment-report-2026-10-29.md).
+
+The local code/documentation patch is uncommitted and undeployed. Schema
+inspection and reward-ledger/duplicate evidence remain pending because the
+available Railway connection has no SQL-query operation. Production settings,
+data, and deployments remain untouched.
+
+Verification for this update: the focused API/socket reward and config tests
+passed 15/15. Full workspace typecheck passed; all workspace tests passed
+203/203 (scripts 49, API 96, game 58); all workspace builds passed. The frozen
+lockfile install was not rerun because no dependency or lockfile changed. The
+local staging promotion evidence remains **PENDING**.

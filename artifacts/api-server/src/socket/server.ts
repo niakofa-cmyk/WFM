@@ -14,6 +14,7 @@ import {
 import { outcomeForTeam } from "../game/sim";
 import type {
   CompletedWingMatch,
+  WingMatchMode,
   WingRewardNotice,
   WingTeam,
 } from "../game/wing-reward-policy";
@@ -34,6 +35,7 @@ type Room = {
   slotSockets: Map<number, WebSocket>;
   emptySince: number | null;
   phase: "lobby" | "active";
+  matchMode: WingMatchMode;
   hostSlotId: number | null;
   readySlots: Set<number>;
   lastActivityAt: number;
@@ -82,6 +84,13 @@ export async function startWingSocketServer(
   host = "0.0.0.0",
   options: {
     verifySessionToken: SocketSessionVerifier;
+    enableWingRewards?: boolean;
+    /**
+     * Trusted server-only resolver. It must return "competitive" only for
+     * room IDs issued by an authoritative competitive queue. Never derive this
+     * from a client packet, room-code format, or environment string.
+     */
+    resolveServerMatchMode?: (roomId: string) => WingMatchMode;
     settleWingMatch?: (
       input: CompletedWingMatch,
     ) => Promise<Map<string, WingRewardNotice>>;
@@ -301,18 +310,19 @@ export async function startWingSocketServer(
             slotSockets: new Map(),
             emptySince: null,
             phase: "lobby",
+            matchMode: resolveRoomMode(client.roomId),
             hostSlotId: null,
             readySlots: new Set(),
             lastActivityAt: Date.now(),
-          matchId: null,
-          matchParticipants: new Map(),
-          lastTickAt: Date.now(),
-          settlementPromise: null,
-          settlementDone: false,
-          settlementAttempts: 0,
-          nextSettlementAt: 0,
-          pendingNoticeSent: false,
-          rewardNotices: new Map(),
+            matchId: null,
+            matchParticipants: new Map(),
+            lastTickAt: Date.now(),
+            settlementPromise: null,
+            settlementDone: false,
+            settlementAttempts: 0,
+            nextSettlementAt: 0,
+            pendingNoticeSent: false,
+            rewardNotices: new Map(),
           };
           rooms.set(room.id, room);
         }
@@ -595,11 +605,40 @@ export async function startWingSocketServer(
     room.settlementDone = true;
   }
 
+  function resolveRoomMode(roomId: string): WingMatchMode {
+    const mode = options.resolveServerMatchMode?.(roomId);
+    return mode === "competitive" ||
+      mode === "practice" ||
+      mode === "test" ||
+      mode === "private"
+      ? mode
+      : "private";
+  }
+
   function markWingRewardUnavailable(room: Room, reason: string) {
     const notices = new Map<string, WingRewardNotice>();
     for (const participant of room.matchParticipants.values()) {
       notices.set(participant.playerId, {
         status: "unavailable",
+        outcome: outcomeForTeam(room.wing.match, participant.team) ?? "draw",
+        gain: 0,
+        balanceAfter: null,
+        revision: null,
+        reason,
+      });
+    }
+    sendWingRewardNotices(room, notices);
+  }
+
+  function markWingRewardBlocked(
+    room: Room,
+    status: "not_eligible" | "disabled",
+    reason: string,
+  ) {
+    const notices = new Map<string, WingRewardNotice>();
+    for (const participant of room.matchParticipants.values()) {
+      notices.set(participant.playerId, {
+        status,
         outcome: outcomeForTeam(room.wing.match, participant.team) ?? "draw",
         gain: 0,
         balanceAfter: null,
@@ -620,13 +659,21 @@ export async function startWingSocketServer(
     ) {
       return;
     }
-    if (!options.settleWingMatch) {
-      markWingRewardUnavailable(room, "reward_database_unavailable");
-      return;
-    }
     const result = room.wing.match.over;
     if (result !== "win" && result !== "loss" && result !== "draw") {
       markWingRewardUnavailable(room, "match_result_unavailable");
+      return;
+    }
+    if (room.matchMode !== "competitive") {
+      markWingRewardBlocked(room, "not_eligible", "competitive_queue_required");
+      return;
+    }
+    if (!options.enableWingRewards) {
+      markWingRewardBlocked(room, "disabled", "rewards_disabled");
+      return;
+    }
+    if (!options.settleWingMatch) {
+      markWingRewardUnavailable(room, "reward_database_unavailable");
       return;
     }
 
@@ -647,6 +694,7 @@ export async function startWingSocketServer(
     });
     const input: CompletedWingMatch = {
       matchId: room.matchId,
+      matchMode: room.matchMode,
       result,
       participants,
     };

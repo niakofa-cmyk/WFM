@@ -1567,7 +1567,8 @@
     "docs/staging-network-impairment-evidence.json",
     "docs/staging-deterministic-reward-flight-evidence.json",
     "docs/staging-reward-parity-flight-report.md",
-    "docs/game-runtime-forensic-report.md"
+    "docs/game-runtime-forensic-report.md",
+    "docs/staging-deployment-report-2026-10-29.md"
   ],
   "latestSafeLocalCertification": {
     "recordedAtUtc": "2026-10-27T17:37:14Z",
@@ -1756,6 +1757,66 @@
     "liveHttpTraceCaptured": false,
     "status": "OWNER_REPORTED_PASS",
     "scope": "Authenticated staging UI/profile smoke only. This is not Production Clerk verification and does not establish interrupted/expired reward denial or server-side ledger state."
+  },
+  "latestRewardEligibilitySafetyPatch": {
+    "recordedOn": "2026-10-29",
+    "sourceReport": "docs/staging-deployment-report-2026-10-29.md",
+    "reportedStagingMergeCommit": "970f35daa255f0c21ba5e850d5eba90f56ecb2b7",
+    "railwayReadOnlyCheck": {
+      "frontendDeployment": "SUCCESS",
+      "apiDeployment": "SUCCESS",
+      "socketDeployment": "SUCCESS",
+      "allThreeServicesUseReportedCommit": true,
+      "postgres": "ONLINE",
+      "pendingEnvironmentChanges": 0,
+      "recentHistoricalFailures": {
+        "services": 3,
+        "count": 5,
+        "causesInspected": false
+      }
+    },
+    "databaseSchemaAndLedgerReadback": "PENDING",
+    "localCheckout": {
+      "branch": "staging",
+      "head": "845e692",
+      "originStagingRef": "c93374a",
+      "branchAheadOfOriginBy": 5,
+      "reportedDeploymentCommitAvailableInLocalGit": false,
+      "worktreeStatus": "CHANGED_UNCOMMITTED"
+    },
+    "localVerification": {
+      "focusedRewardSocketAndConfigTests": {
+        "passed": 15,
+        "failed": 0
+      },
+      "typecheck": "PASS",
+      "workspaceTests": {
+        "scripts": { "passed": 49, "failed": 0 },
+        "api": { "passed": 96, "failed": 0 },
+        "game": { "passed": 58, "failed": 0 },
+        "totalPassed": 203
+      },
+      "workspaceBuild": "PASS",
+      "frozenLockfileInstall": "NOT_RUN_NO_DEPENDENCY_OR_LOCKFILE_CHANGE",
+      "gitDiffCheck": "PASS"
+    },
+    "rewardConfiguration": {
+      "ownerSuppliedReportClaim": "Missing WFM_WING_REWARDS_ENABLED means rewards are disabled; NOT_INDEPENDENTLY_VERIFIED",
+      "localPrePatchSourceFinding": "The checked-out socket bootstrap loaded reward settlement from DATABASE_URL and did not check WFM_WING_REWARDS_ENABLED. The deployed source commit was not present in the local Git object database, so the live source was not compared.",
+      "localSafetyPatch": {
+        "enableFlag": "WFM_WING_REWARDS_ENABLED",
+        "requiresExactValue": "true",
+        "requiresDatabaseUrl": true,
+        "defaultRoomMode": "private",
+        "trustedCompetitiveResolverRequired": true,
+        "privatePracticeAndTestRoomsRewardEligible": false,
+        "sourceStatus": "UNCOMMITTED_UNDEPLOYED"
+      }
+    },
+    "liveRewardAndDuplicateClaimEvidence": "PENDING",
+    "liveInterruptedExpiredClaimDenial": "PENDING",
+    "productionSettingsOrDeploymentChanged": false,
+    "releaseStatus": "PENDING"
   },
   "productionReadiness": "NOT_CLAIMED"
 }

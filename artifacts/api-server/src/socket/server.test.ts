@@ -42,9 +42,19 @@ async function connect(url: string, playerId = `pilot-${randomUUID()}`) {
   return socket;
 }
 
-async function join(socket: WebSocket, name: string, reconnectToken?: string) {
+async function join(
+  socket: WebSocket,
+  name: string,
+  reconnectToken?: string,
+  untrustedFields: Record<string, unknown> = {},
+) {
   const joinedPacket = nextPacket(socket, (packet) => packet.type === "joined");
-  socket.send(JSON.stringify({ type: "join", name, reconnectToken }));
+  socket.send(JSON.stringify({
+    ...untrustedFields,
+    type: "join",
+    name,
+    reconnectToken,
+  }));
   const packet = await joinedPacket;
   return {
     slotId: Number(packet.slotId),
@@ -636,9 +646,15 @@ test("an active pilot is closed safely after the bounded acknowledgement wait", 
   }
 });
 
-test("ten concurrent pilots receive the authoritative match result at the strike boundary", async () => {
+test("ten-client private rooms cannot be made reward-eligible by client fields", async () => {
+  let settlementCalls = 0;
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
+    enableWingRewards: true,
+    settleWingMatch: async () => {
+      settlementCalls += 1;
+      return new Map();
+    },
     tickIntervalMs: 1,
     snapshotIntervalMs: 33,
   });
@@ -648,7 +664,9 @@ test("ten concurrent pilots receive the authoritative match result at the strike
     const url = `ws://127.0.0.1:${runtime.port}/ws?room=mars-full-match`;
     const pilots = await Promise.all(Array.from({ length: MAX_PLAYERS }, () => connect(url)));
     sockets.push(...pilots);
-    const seats = await Promise.all(pilots.map((socket, index) => join(socket, `Pilot ${index}`)));
+    const seats = await Promise.all(pilots.map((socket, index) =>
+      join(socket, `Pilot ${index}`, undefined, { matchMode: "competitive" }),
+    ));
     assert.equal(seats.filter((seat) => seat.team === 0).length, 5);
     assert.equal(seats.filter((seat) => seat.team === 1).length, 5);
 
@@ -661,8 +679,11 @@ test("ten concurrent pilots receive the authoritative match result at the strike
     await ready;
 
     const started = nextPacket(pilots[0], (packet) => packet.type === "started");
-    pilots[0].send(JSON.stringify({ type: "start" }));
+    pilots[0].send(JSON.stringify({ type: "start", matchMode: "competitive" }));
     await started;
+    const rewardNotices = pilots.map((socket) =>
+      nextPacket(socket, (packet) => packet.type === "wing_reward", 30_000),
+    );
 
     pilots.forEach((socket) => {
       let seq = 0;
@@ -688,6 +709,10 @@ test("ten concurrent pilots receive the authoritative match result at the strike
     assert.ok(["win", "loss", "draw"].includes(result.match.over));
     assert.ok(result.match.time >= 360);
     assert.equal(result.players.length, MAX_PLAYERS);
+    const notices = await Promise.all(rewardNotices);
+    assert.ok(notices.every((packet) => packet.status === "not_eligible"));
+    assert.ok(notices.every((packet) => packet.reason === "competitive_queue_required"));
+    assert.equal(settlementCalls, 0);
   } finally {
     inputTimers.forEach(clearInterval);
     await Promise.all(sockets.map(close));

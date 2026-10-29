@@ -821,10 +821,17 @@ export function WarApp() {
         setCargoLine(
           "Match verified. Your five-reward daily limit has been reached; no additional credits were added.",
         );
+      } else if (wingReward?.status === "disabled") {
+        setGain(0);
+        setCargoLine(
+          "Online Wing rewards are disabled. No credits were added.",
+        );
       } else if (wingReward?.status === "not_eligible") {
         setGain(0);
         setCargoLine(
-          wingReward.reason === "participation_threshold"
+          wingReward.reason === "competitive_queue_required"
+            ? "Private, Practice, and test rooms are not reward-eligible. No credits were added."
+            : wingReward.reason === "participation_threshold"
             ? "Match verified, but the participation minimum was not met. No credits were added."
             : wingReward.reason === "not_connected_at_completion"
               ? "Match verified, but you were disconnected at completion. No credits were added."

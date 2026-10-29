@@ -6,6 +6,13 @@ Online Wing awards gameplay credits only after the socket server observes a
 terminal match result and commits the profile update and ledger event in one
 database transaction.
 
+Reward eligibility is a server-owned match property, not a client choice. The
+current room-code flow creates private rooms; private, Practice, and test rooms
+are never reward-eligible. The server defaults a room to `private` and ignores
+client-provided mode fields. A future competitive queue must issue and register
+the room through trusted server code before it can be marked `competitive`.
+Until that queue exists, no current room-code match can receive Wing credits.
+
 | Player outcome | Credits |
 | --- | ---: |
 | Win | 30 |
@@ -26,6 +33,8 @@ To qualify:
   interrupted rooms, and matches without a verified terminal result do not
   receive rewards.
 - Practice and local endurance remain no-reward modes.
+- A private room is no-reward even if it happens to contain authenticated human
+  pilots on both teams.
 
 These are gameplay credits only. They are not purchased currency or real-money
 rewards.
@@ -72,6 +81,13 @@ reward transaction cannot be confirmed; multiplayer still works, but the
 debrief says that no reward was confirmed. Database errors are retried with
 bounded backoff and safe, identifier-free logs.
 
+The socket process also requires `WFM_WING_REWARDS_ENABLED` to be exactly
+`"true"` and a database URL before it loads the reward settlement module. An
+absent, misspelled, or differently cased value disables awards. This flag alone
+does not make a room eligible: an authoritative competitive-room resolver is
+also required. Keep the flag absent/false in staging until the competitive
+queue, schema, and ledger checks are ready.
+
 ## Verification required before release
 
 Automated checks should cover team-specific win/loss outcomes, draws, the
@@ -84,3 +100,8 @@ and after balances, one `wing_reward` event per qualifying account, and a
 replay attempt that does not change either balance or event count. Keep the
 Production Clerk and game release gates independent; this document does not
 authorize Production settings changes or deployment.
+
+The local reference test proves that private/practice/test inputs cause no
+transaction and that the runtime enable flag is exact-match and database-gated.
+It is not evidence of live staging schema state, runtime variable configuration,
+or a live reward/duplicate claim.

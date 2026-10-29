@@ -7,6 +7,7 @@ export const WING_REWARD_POLICY = Object.freeze({
 
 export type WingOutcome = "win" | "loss" | "draw";
 export type WingTeam = 0 | 1;
+export type WingMatchMode = "private" | "practice" | "test" | "competitive";
 
 export type WingRewardParticipant = {
   playerId: string;
@@ -18,6 +19,7 @@ export type WingRewardParticipant = {
 
 export type CompletedWingMatch = {
   matchId: string;
+  matchMode: WingMatchMode;
   result: WingOutcome;
   participants: WingRewardParticipant[];
 };
@@ -26,6 +28,7 @@ export type WingRewardStatus =
   | "awarded"
   | "not_eligible"
   | "daily_limit"
+  | "disabled"
   | "unavailable";
 
 export type WingRewardNotice = {
@@ -182,6 +185,19 @@ export async function settleWingMatchWithStore(
 ): Promise<Map<string, WingRewardNotice>> {
   const notices = new Map<string, WingRewardNotice>();
   if (!input.matchId || input.participants.length === 0) return notices;
+  if (input.matchMode !== "competitive") {
+    for (const participant of input.participants) {
+      notices.set(participant.playerId, {
+        status: "not_eligible",
+        outcome: opposingOutcome(input.result, participant.team),
+        gain: 0,
+        balanceAfter: null,
+        revision: null,
+        reason: "competitive_queue_required",
+      });
+    }
+    return notices;
+  }
 
   const playerIds = [...new Set(input.participants.map((item) => item.playerId))]
     .filter((playerId) => playerId.length > 0 && playerId.length <= 256)

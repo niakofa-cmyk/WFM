@@ -27,7 +27,12 @@ export type StrikeResult = {
 };
 
 export type WingRewardNotice = {
-  status: "awarded" | "not_eligible" | "daily_limit" | "unavailable";
+  status:
+    | "awarded"
+    | "not_eligible"
+    | "daily_limit"
+    | "disabled"
+    | "unavailable";
   outcome: "win" | "loss" | "draw";
   gain: number;
   balanceAfter: number | null;
@@ -702,6 +707,7 @@ export function Arena({
           (status === "awarded" ||
             status === "not_eligible" ||
             status === "daily_limit" ||
+            status === "disabled" ||
             status === "unavailable") &&
           (outcome === "win" || outcome === "loss" || outcome === "draw") &&
           typeof gain === "number" &&
