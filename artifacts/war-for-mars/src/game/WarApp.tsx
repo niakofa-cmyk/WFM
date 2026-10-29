@@ -25,6 +25,7 @@ import { sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
+  saveServerLeaderboardProfile,
   saveServerControlScheme,
   startServerStrike,
 } from "./progression-api";
@@ -108,6 +109,12 @@ export function WarApp() {
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
   const [profileError, setProfileError] = useState("");
   const [profileRetry, setProfileRetry] = useState(0);
+  const [leaderboardProfile, setLeaderboardProfile] = useState({
+    enabled: false,
+    callsign: "",
+  });
+  const [leaderboardSaving, setLeaderboardSaving] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -480,6 +487,10 @@ export function WarApp() {
       .then((profile) => {
         if (cancelled) return;
         setSave(saveFromProfile(profile, device));
+        setLeaderboardProfile({
+          enabled: profile.publicLeaderboardOptIn,
+          callsign: profile.publicLeaderboardCallsign ?? "",
+        });
         try {
           if (stagingRewardDiagnosticsEnabled) {
             // Diagnostics mode keeps raw replay inputs in memory only.
@@ -528,6 +539,10 @@ export function WarApp() {
     if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
     const sync = createProfileSync(loadServerProfile, (profile) => {
       setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
     }, () => {
       setActionError("Profile sync unavailable. Your last loaded progress is unchanged; reconnect or reload before another purchase.");
     });
@@ -631,6 +646,31 @@ export function WarApp() {
     } finally {
       controlSchemeSaveInFlightRef.current = false;
       setActionBusy(false);
+    }
+  };
+
+  const persistLeaderboardProfile = async (enabled: boolean, callsign: string) => {
+    if (!userId || profileStatus !== "ready" || leaderboardSaving) return;
+    const requestUserId = userId;
+    setLeaderboardSaving(true);
+    setLeaderboardError("");
+    try {
+      const profile = await saveServerLeaderboardProfile(
+        enabled ? { enabled: true, callsign } : { enabled: false },
+      );
+      if (authUserIdRef.current !== requestUserId) return;
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setLeaderboardError(
+          error instanceof Error ? error.message : "Could not save leaderboard preference.",
+        );
+      }
+    } finally {
+      if (authUserIdRef.current === requestUserId) setLeaderboardSaving(false);
     }
   };
 
@@ -1101,6 +1141,11 @@ export function WarApp() {
         tech={save.tech}
         profile={save}
         signedIn={Boolean(userId)}
+        publicLeaderboardOptIn={leaderboardProfile.enabled}
+        publicLeaderboardCallsign={leaderboardProfile.callsign}
+        publicLeaderboardSaving={leaderboardSaving}
+        publicLeaderboardError={leaderboardError}
+        onSavePublicLeaderboard={persistLeaderboardProfile}
         cleared={save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}

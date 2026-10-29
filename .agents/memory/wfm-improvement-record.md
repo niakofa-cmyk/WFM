@@ -103,3 +103,18 @@ would weaken that boundary; claim-time expiry already denies stale runs.
 **How to apply:** extend the existing route/service tests for new denial cases.
 Keep interrupted socket-room behavior separate from Strike-run rewards, and
 leave live denial certification pending until genuine staging evidence exists.
+
+## Public leaderboard privacy
+
+The owner chose an opt-in public leaderboard using callsigns and aggregate
+server-settled 5v5 Wing reward credits. Public views must not expose email,
+account IDs, private Activity Ledger entries, match history, or online status.
+Personal ledger data remains authenticated.
+
+**Why:** the owner wants public game activity for signed-out visitors while
+keeping player identity and account history private.
+
+**How to apply:** expose only an opted-in callsign and verified aggregate score.
+Require an additive, staging-only schema migration before deployment, then
+verify opt-in, opt-out, cross-account privacy, and persistence. This feature does
+not relax Production Clerk authorization or the existing release gates.

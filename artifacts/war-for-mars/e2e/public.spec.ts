@@ -2,9 +2,21 @@ import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
 test("landing page explains the game and offers a solo flight", async ({ page }) => {
+  await page.route("**/api/game/leaderboard", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        entries: [{ rank: 1, callsign: "Rook 7", score: 42 }],
+      }),
+    }),
+  );
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /war for mars/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
+  await expect(page.getByText("Rook 7")).toBeVisible();
+  await expect(page.getByText("42 CR")).toBeVisible();
   await expect(page.getByRole("link", { name: "TRY SOLO FLIGHT" })).toHaveAttribute("href", "/play");
   await expect(page.getByRole("link", { name: "CREATE PILOT ACCOUNT" })).toHaveAttribute(
     "href",
@@ -45,6 +57,13 @@ test("small-phone landing and solo setup respond to vertical touch scrolling", a
   };
 
   try {
+    await page.route("**/api/game/leaderboard", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: [] }),
+      }),
+    );
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /war for mars/i })).toBeVisible();
     const landing = await page.evaluate(() => ({

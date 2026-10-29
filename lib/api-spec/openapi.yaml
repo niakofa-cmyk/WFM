@@ -60,6 +60,43 @@ paths:
                 $ref: "#/components/schemas/GameProfile"
         "401":
           description: Authentication required
+  /game/leaderboard:
+    get:
+      operationId: getPublicWingLeaderboard
+      tags: [public-leaderboard]
+      summary: Get the public opt-in Wing credit leaderboard
+      description: Returns only callsigns and aggregate server-verified Wing reward credits.
+      responses:
+        "200":
+          description: Public Wing leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicWingLeaderboardResponse"
+  /game/profile/leaderboard:
+    patch:
+      operationId: updateLeaderboardProfile
+      tags: [progression]
+      summary: Set the authenticated player's public leaderboard preference
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaderboardProfileUpdateInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "400":
+          description: Invalid callsign or preference
+        "401":
+          description: Authentication required
   /game/profile/control-scheme:
     patch:
       operationId: updateControlScheme
@@ -355,7 +392,7 @@ components:
       required: [status, database]
     GameProfile:
       type: object
-      required: [credits, faction, shipId, scheme, refit, shieldMk2, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
+      required: [credits, faction, shipId, scheme, refit, shieldMk2, prices, hold, paid, pace, mission, cleared, tech, drilled, publicLeaderboardOptIn, publicLeaderboardCallsign, revision]
       properties:
         credits: { type: integer, minimum: 0 }
         faction: { type: string, enum: [accord, ussf] }
@@ -371,7 +408,34 @@ components:
         cleared: { type: integer, minimum: 0, maximum: 4 }
         tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
         drilled: { type: boolean }
+        publicLeaderboardOptIn: { type: boolean }
+        publicLeaderboardCallsign: { type: [string, "null"], minLength: 3, maxLength: 16, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$" }
         revision: { type: integer, minimum: 0 }
+    LeaderboardProfileUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        callsign: { type: string, minLength: 3, maxLength: 16, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$" }
+    PublicWingLeaderboardResponse:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 25
+          items:
+            $ref: "#/components/schemas/PublicWingLeaderboardEntry"
+    PublicWingLeaderboardEntry:
+      type: object
+      additionalProperties: false
+      required: [rank, callsign, score]
+      properties:
+        rank: { type: integer, minimum: 1 }
+        callsign: { type: string, minLength: 3, maxLength: 16 }
+        score: { type: integer, minimum: 0 }
     ProgressionActionInput:
       type: object
       additionalProperties: false
