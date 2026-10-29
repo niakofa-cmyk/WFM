@@ -35,7 +35,14 @@ test("API authentication preserves its configured instance instead of deriving o
     const now = Math.floor(Date.now() / 1000);
     const encode = (value: unknown) =>
       Buffer.from(JSON.stringify(value)).toString("base64url");
-    const payload = `${encode({ alg: "RS256", typ: "JWT" })}.${encode({
+    const signToken = (claims: Record<string, unknown>) => {
+      const payload = `${encode({ alg: "RS256", typ: "JWT" })}.${encode(claims)}`;
+      const signature = createSign("RSA-SHA256")
+        .update(payload)
+        .sign(privateKey, "base64url");
+      return `${payload}.${signature}`;
+    };
+    const claims = {
       iss: `https://${frontendApi}`,
       sub: "user_synthetic_fixture",
       sid: "sess_synthetic_fixture",
@@ -43,15 +50,13 @@ test("API authentication preserves its configured instance instead of deriving o
       iat: now - 5,
       nbf: now - 5,
       exp: now + 60,
-    })}`;
-    const signature = createSign("RSA-SHA256")
-      .update(payload)
-      .sign(privateKey, "base64url");
+    };
+    const validToken = signToken(claims);
     const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/profile`;
     for (const host of ["api-service.up.railway.app", "untrusted.example"]) {
       const response = await fetch(url, {
         headers: {
-          authorization: `Bearer ${payload}.${signature}`,
+          authorization: `Bearer ${validToken}`,
           host,
           "x-forwarded-host": host,
         },
@@ -62,12 +67,25 @@ test("API authentication preserves its configured instance instead of deriving o
     const anonymous = await fetch(url);
     assert.equal(anonymous.status, 401);
     assert.deepEqual(await anonymous.json(), { error: "authentication_required" });
-    const invalidSignature =
-      (signature.startsWith("A") ? "B" : "A") + signature.slice(1);
+    const [tokenPayload, tokenSignature] = validToken.split(".");
+    const invalidSignatureToken = `${tokenPayload}.${
+      (tokenSignature.startsWith("A") ? "B" : "A") + tokenSignature.slice(1)
+    }`;
     const forged = await fetch(url, {
-      headers: { authorization: `Bearer ${payload}.${invalidSignature}` },
+      headers: { authorization: `Bearer ${invalidSignatureToken}` },
     });
     assert.equal(forged.status, 401);
+
+    const expired = await fetch(url, {
+      headers: { authorization: `Bearer ${signToken({ ...claims, exp: now - 60 })}` },
+    });
+    assert.equal(expired.status, 401);
+
+    const spoofedIdentity = await fetch(url, {
+      headers: { "x-clerk-user-id": "user_attacker_supplied" },
+    });
+    assert.equal(spoofedIdentity.status, 401);
+    assert.deepEqual(await spoofedIdentity.json(), { error: "authentication_required" });
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>

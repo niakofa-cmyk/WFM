@@ -5,6 +5,45 @@ milestones. It complements source history and the detailed staging evidence;
 it does not replace either one. Keep secret values, account identifiers, and
 unverified claims out of this document.
 
+## 2026-10-29 — Session verification and promotion automation review
+
+Reviewed the supplied in-memory session-cache, traffic-based TTL optimizer, and
+staging-to-main shell script proposals against the current WFM architecture.
+No custom bearer-token cache or load-adaptive verification window was added.
+The API continues to use Clerk Express middleware with its explicitly configured
+publishable key; socket handshakes continue to use Clerk Backend `verifyToken`
+with the configured issuer, audience, and authorized-party policy. Authentication
+remains based on SDK cryptographic validation, not cached user-ID claims.
+
+The proposed cache would retain raw JWTs and verified subjects outside Clerk's
+verification path and could continue accepting a token after its claims or
+session status should be rechecked. Raising its TTL under load makes that window
+longer, not safer. The installed Clerk backend already maintains its own
+instance-scoped remote JWKS cache; no WFM-level per-token cache is justified
+without measured latency or rate-limit evidence.
+
+The proposed `promote-to-main.sh` is also not adopted: it checks out `main`,
+pulls, merges `staging`, and leaves promotion state in the local checkout rather
+than using the repository's pull-request evidence gate. The existing
+`.github/workflows/staging-promotion.yml` remains the controlled path and
+requires the current staging evidence verifier to pass before a promotion PR
+can proceed.
+
+Added synthetic API middleware regressions for expired JWTs and client-supplied
+`x-clerk-user-id` spoofing. These supplement the existing valid-signature,
+invalid-signature, host-independence, and anonymous request checks. No live Clerk
+credentials or user accounts are involved.
+
+No production or staging settings, secrets, database records, deployments, or
+branches were changed. The separate live interrupted/expired reward-denial gate
+remains pending.
+
+Verification for this update: the workspace-quality workflow passed typechecks,
+all 195 workspace tests, and production builds. Focused API/Socket auth tests
+passed 13/13; API typecheck and build passed; staging-promotion verifier tests
+passed 11/11; `git diff --check` passed. No dependency files changed, so a
+frozen-lockfile install was not rerun.
+
 ## 2026-10-28 — End-to-end readiness and Android-only scope reconciliation
 
 ### Workspace verification

@@ -66,3 +66,22 @@ from one environment do not establish readiness in another.
 report/results first, verify their source/deployment context, then continue only
 the gates still marked pending. Keep staging promotion and Production
 auth/readiness separate.
+
+## Session verification and promotion
+
+Keep Clerk SDK cryptographic verification as the authentication source of
+truth. Do not add a WFM cache of raw bearer tokens or verified user IDs, and do
+not lengthen authorization lifetimes in response to traffic. Promote staging
+through the existing evidence-gated pull-request workflow; do not automate a
+local checkout/merge to `main`.
+
+**Why:** the proposed per-token cache could bypass renewed signature/session
+checks and retain stale authorization, while a load-adaptive TTL worsens that
+window. The installed Clerk backend already maintains a remote JWKS cache, and
+the repository has a PR promotion gate tied to staging evidence.
+
+**How to apply:** if authentication performance becomes a measured problem,
+benchmark Clerk SDK verification and JWKS fetch behavior first. Preserve
+expiration, issuer, audience, authorized-party, ownership, and promotion-gate
+checks; do not introduce a token cache based only on assumed external rate
+limits.
