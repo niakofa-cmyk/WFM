@@ -1839,6 +1839,29 @@
         "sourceStatus": "PUSHED_STAGING_DEPLOYED"
       }
     },
+    "userReportedManualPrivateRoomRetest": {
+      "testDate": "2026-10-29",
+      "environment": "Railway staging",
+      "evidenceLevel": "USER_REPORTED_SUPPLEMENTAL",
+      "matchType": "private room-code match",
+      "accounts": {
+        "A": {
+          "startingCredits": 294,
+          "debriefCredits": 294,
+          "hangarCreditsAfterReturn": 294
+        },
+        "B": {
+          "startingCredits": 22,
+          "debriefCredits": 22,
+          "hangarCreditsAfterReturn": 22
+        }
+      },
+      "bothReachedDebrief": true,
+      "rewardClaimSubmitted": false,
+      "deviceDetails": "NOT_CAPTURED_FOR_THIS_RUN",
+      "serverLedgerInspected": false,
+      "scope": "Confirms only the owner-reported private-match visible balances and Hangar profile reload; it does not verify ledger writes, duplicate claims, or interrupted/expired claim denial."
+    },
     "liveRewardAndDuplicateClaimEvidence": "PENDING",
     "liveInterruptedExpiredClaimDenial": "PENDING",
     "productionSettingsOrDeploymentChanged": false,

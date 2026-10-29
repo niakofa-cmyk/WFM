@@ -1157,6 +1157,18 @@ submitted. The merge was pushed to `staging`; Railway reports the frontend,
 API, and socket deployments successful on commit `5bb105b`, with no pending
 environment work and no current deployment failures.
 
+#### User-reported private-room phone retest
+
+On 2026-10-29, the owner reported completing a staging private-room match with
+two separate accounts. The starting balances were A: 294 and B: 22. Both
+accounts reached debrief with those balances unchanged; after returning to
+Hangar, the owner again reported A: 294 and B: 22. This is supplemental,
+user-reported evidence that this private match did not change the visible
+balances and that the profiles loaded again in Hangar. Device model/OS details,
+match identifiers, and server ledger entries were not captured for this run.
+No reward claim was submitted. This does not verify ledger writes, duplicate
+claim rejection, or interrupted/expired claim denial.
+
 | Evidence gate | Status |
 | --- | --- |
 | Merged safety patch deployed to Railway staging | **PASS** — frontend/API/socket successful on `5bb105b` |
