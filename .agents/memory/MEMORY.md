@@ -25,3 +25,4 @@
 - [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
 - [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
 - [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
+- [Competitive battlefield direction](competitive-battlefield.md) — server-seeded in-game fields and tactical map UI; private room codes stay isolated/no-reward, with no GPS matchmaking.

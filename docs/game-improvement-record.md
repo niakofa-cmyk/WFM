@@ -293,3 +293,27 @@ workspace builds passed. The frozen-lockfile install was not rerun because no
 dependency or lockfile changed. The staging promotion evidence remains
 **PENDING**; deployment health does not replace reward-ledger, interrupted-run,
 or physical-device evidence.
+
+## 2026-10-29 — Server-seeded aerial battlefield rotation
+
+Reviewed the five supplied competitive-map, geospatial-matchmaking, cache,
+cleanup-worker, HUD, and webhook proposals against the actual WFM architecture.
+The goals of distinct battlefields, a pre-launch map briefing, and a consistent
+in-flight field identity fit the existing 5v5 journey. The example implementations
+do not: they assume nonexistent competitive-room/inventory tables and a custom
+database driver, trust client-supplied identity and loot fields, fabricate GPS
+coordinates, delete from a nonexistent room schema, and use lifecycle statuses
+not present in the WFM Strike model. These assumptions were not copied.
+
+New 5v5 rooms now use the server-created seed to rotate across the existing Rust,
+Beacon, Night, and Dust simulation layouts. The authoritative lobby packet
+includes the actual relay and obstacle geometry; the lobby renders a compact
+tactical map and field briefing, and the live Wing indicator names the same
+field. This remains private room-code play: no public matchmaking, real-world
+GPS collection, new database schema, or Wing reward eligibility was added.
+
+Focused tests passed for deterministic field selection, battlefield metadata/map
+bounds, and socket lobby map consistency with the authoritative snapshot. The
+API and game package typechecks passed. Full workspace tests/builds and
+deployment-specific staging checks are still required before promotion. No
+Production settings, secrets, player data, or deployments were changed.

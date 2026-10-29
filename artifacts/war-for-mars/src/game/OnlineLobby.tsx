@@ -1,3 +1,5 @@
+import { battlefieldProfile, battlefieldMapCoordinate, type BattlefieldIntel } from "./battlefield";
+
 type LobbyPlayer = {
   slotId: number;
   team: 0 | 1;
@@ -12,6 +14,7 @@ export type LobbyState = {
   connectedCount: number;
   maxPlayers: number;
   players: LobbyPlayer[];
+  battlefield: BattlefieldIntel;
 };
 
 type Props = {
@@ -30,6 +33,7 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
   const everyoneReady =
     lobby.connectedCount > 0 &&
     lobby.players.filter((player) => player.connected).every((player) => player.ready);
+  const battlefield = battlefieldProfile(lobby.battlefield.disc);
 
   return (
     <main className="flex min-h-dvh w-full items-center justify-center bg-void px-4 py-8 text-bone">
@@ -39,6 +43,50 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
         <p className="mt-3 text-sm text-muted">
           Share this code with your group. The host launches when every connected pilot is ready. Empty seats fly with AI.
         </p>
+        <section
+          data-testid="panel-battlefield-briefing"
+          data-battlefield={lobby.battlefield.disc}
+          className="mt-5 grid gap-4 border border-bone/20 bg-panel/65 p-3 sm:grid-cols-[148px_1fr] sm:items-center"
+          aria-labelledby="battlefield-title"
+        >
+          <svg
+            role="img"
+            aria-label={`${battlefield.title} tactical map with ${lobby.battlefield.relays.length} relays and ${lobby.battlefield.rocks.length} obstacles`}
+            viewBox="0 0 100 100"
+            className="mx-auto aspect-square w-36 max-w-full"
+          >
+            <circle cx="50" cy="50" r="46" fill="#090b10" stroke="#e0a15a" strokeOpacity=".55" />
+            <circle cx="50" cy="50" r="31" fill="none" stroke="#e6e1d6" strokeOpacity=".12" />
+            <circle cx="50" cy="50" r="16" fill="none" stroke="#e6e1d6" strokeOpacity=".1" />
+            <path d="M50 5v90M5 50h90" stroke="#e6e1d6" strokeOpacity=".1" />
+            {lobby.battlefield.rocks.map((rock, index) => (
+              <circle
+                key={`rock-${index}`}
+                cx={battlefieldMapCoordinate(rock.x)}
+                cy={battlefieldMapCoordinate(rock.z)}
+                r={Math.max(1.4, (rock.r / 78) * 43)}
+                fill="#8d877c"
+                fillOpacity=".58"
+              />
+            ))}
+            {lobby.battlefield.relays.map((relay, index) => (
+              <g
+                key={`relay-${index}`}
+                transform={`translate(${battlefieldMapCoordinate(relay.x)} ${battlefieldMapCoordinate(relay.z)})`}
+              >
+                <circle r="4.5" fill={relay.own === 1 ? "#e0a15a" : relay.own === -1 ? "#c45c48" : "#c8c2b8"} fillOpacity=".2" />
+                <path d="M-2.2-2.2h4.4v4.4h-4.4z" fill={relay.own === 1 ? "#e0a15a" : relay.own === -1 ? "#c45c48" : "#c8c2b8"} />
+              </g>
+            ))}
+          </svg>
+          <div>
+            <p className="font-hud text-[10px] tracking-[0.2em] text-solar">AERIAL BATTLEFIELD · {battlefield.callsign}</p>
+            <h2 id="battlefield-title" className="mt-1 font-hud text-2xl leading-none">{battlefield.title}</h2>
+            <p className="mt-2 text-xs leading-relaxed text-muted">{battlefield.briefing}</p>
+            <p className="mt-2 font-hud text-[10px] tracking-widest text-bone/75">{battlefield.tacticalRead}</p>
+            <p className="mt-2 text-[10px] text-muted">Server-assigned field · private rooms remain no-reward</p>
+          </div>
+        </section>
         <div className="mt-5 flex items-center justify-between gap-3 border border-bone/20 bg-bone/5 p-3">
           <div>
             <p className="font-hud text-xs tracking-widest text-muted">ROOM CODE</p>

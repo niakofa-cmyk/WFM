@@ -396,6 +396,11 @@ export function WarApp() {
                   hostSlotId: slotId,
                   connectedCount: 1,
                   maxPlayers: 10,
+                  battlefield: {
+                    disc: snapshot.match.disc,
+                    relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+                    rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
+                  },
                   players: snapshot.players.map((player) => ({
                     slotId: player.slotId,
                     team: (player.slotId < 5 ? 0 : 1) as 0 | 1,

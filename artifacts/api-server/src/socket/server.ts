@@ -987,7 +987,8 @@ function rejectInput(socket: WebSocket, client: Client) {
 }
 
 function broadcastLobby(room: Room) {
-  const players = room.wing.snapshot().players;
+  const snapshot = room.wing.snapshot();
+  const players = snapshot.players;
   const connectedCount = players.filter((player) => player.connected).length;
   const payload = {
     type: "lobby",
@@ -996,6 +997,11 @@ function broadcastLobby(room: Room) {
     hostSlotId: room.hostSlotId,
     connectedCount,
     maxPlayers: MAX_PLAYERS,
+    battlefield: {
+      disc: snapshot.match.disc,
+      relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+      rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
+    },
     players: players.map((player) => ({
       slotId: player.slotId,
       team: player.team,

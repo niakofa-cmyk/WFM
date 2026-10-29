@@ -140,6 +140,40 @@ test("socket rejects unauthenticated commands and binds reconnect seats to the v
   }
 });
 
+test("lobby publishes the server-assigned battlefield layout from its authoritative match", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
+  const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=field-brief`);
+  try {
+    const joinedPacket = nextPacket(socket, (packet) => packet.type === "joined");
+    socket.send(JSON.stringify({ type: "join", name: "Map pilot" }));
+    const joined = await joinedPacket;
+    const snapshot = joined.snapshot as {
+      match: {
+        disc: string;
+        relays: Array<{ x: number; z: number; own: number }>;
+        rocks: Array<{ x: number; z: number; r: number }>;
+      };
+    };
+
+    const lobbyPacket = nextPacket(socket, (packet) => packet.type === "lobby");
+    socket.send(JSON.stringify({ type: "ready", ready: true }));
+    const lobby = await lobbyPacket;
+    const battlefield = lobby.battlefield as typeof snapshot.match;
+
+    assert.equal(battlefield.disc, snapshot.match.disc);
+    assert.deepEqual(
+      battlefield.relays,
+      snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+    );
+    assert.deepEqual(battlefield.rocks, snapshot.match.rocks);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
 test("socket closes an unauthenticated connection after the authentication deadline", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,

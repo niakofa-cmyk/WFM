@@ -4,6 +4,7 @@ import {
   createWing,
   isMeaningfulWingInput,
   MAX_PLAYERS,
+  wingBattlefieldForSeed,
   type WingInput,
 } from "./wing";
 
@@ -34,6 +35,20 @@ test("one room assigns pilots to balanced five-seat teams", () => {
     ok: false,
     reason: "full",
   });
+});
+
+test("server seed rotates through every supported 5v5 battlefield deterministically", () => {
+  const expected = ["rust", "beacon", "night", "dust"];
+  assert.deepEqual(expected.map((_, index) => wingBattlefieldForSeed(index)), expected);
+  assert.equal(wingBattlefieldForSeed(8), "rust");
+  assert.equal(wingBattlefieldForSeed(9), "beacon");
+
+  for (let seed = 0; seed < expected.length; seed += 1) {
+    const first = createWing(seed).snapshot(1_000).match.disc;
+    const second = createWing(seed).snapshot(1_000).match.disc;
+    assert.equal(first, expected[seed]);
+    assert.equal(second, first);
+  }
 });
 
 test("sequenced input is acknowledged in the authoritative snapshot", () => {

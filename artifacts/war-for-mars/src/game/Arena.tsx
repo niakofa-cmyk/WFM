@@ -17,6 +17,7 @@ import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./sh
 import { matchChecksum } from "./sim-trace";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
+import { battlefieldProfile } from "./battlefield";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -1754,7 +1755,7 @@ export function Arena({
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (
         <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
-          {networkStatus || `LIVE WING · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
+          {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (

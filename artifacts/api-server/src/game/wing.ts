@@ -4,6 +4,12 @@ export const TICK_RATE = 30;
 export const TICK_DT = 1 / TICK_RATE;
 export const MAX_PLAYERS = 10;
 export const DISCONNECT_GRACE_MS = 5000;
+export const WING_BATTLEFIELDS = ["rust", "beacon", "night", "dust"] as const;
+
+export function wingBattlefieldForSeed(seed: number) {
+  const normalized = Math.abs(Math.trunc(seed));
+  return WING_BATTLEFIELDS[normalized % WING_BATTLEFIELDS.length];
+}
 
 const IDLE: StepInput = {
   throttle: 0,
@@ -74,7 +80,7 @@ export function createWing(seed = 1) {
     allyCount: 4,
     foeCount: 5,
     goal: "disc",
-    disc: "rust",
+    disc: wingBattlefieldForSeed(seed),
   });
   const slots: Slot[] = Array.from({ length: MAX_PLAYERS }, (_, slotId) => ({
     slotId,
