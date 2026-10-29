@@ -1,8 +1,10 @@
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
+import { awardWingMatchReward } from "../game/wing-rewards";
+import { playerWingOutcome } from "../game/wing-reward-policy";
 import {
   createWing,
   DISCONNECT_GRACE_MS,
@@ -30,6 +32,11 @@ type Room = {
   hostSlotId: number | null;
   readySlots: Set<number>;
   lastActivityAt: number;
+  matchId: string;
+  rewardParticipants: Array<{ userId: string; team: 0 | 1 }>;
+  rewardEligible: boolean;
+  rewardSettled: boolean;
+  rewardInFlight: boolean;
 };
 
 type Client = {
@@ -276,6 +283,11 @@ export async function startWingSocketServer(
             hostSlotId: null,
             readySlots: new Set(),
             lastActivityAt: Date.now(),
+            matchId: randomUUID(),
+            rewardParticipants: [],
+            rewardEligible: false,
+            rewardSettled: false,
+            rewardInFlight: false,
           };
           rooms.set(room.id, room);
         }
@@ -379,6 +391,16 @@ export async function startWingSocketServer(
         }
         room.phase = "active";
         room.lastActivityAt = Date.now();
+        const participants = room.wing.participants().filter(
+          (participant) => participant.connected && room.readySlots.has(participant.slotId),
+        );
+        room.rewardParticipants = participants.map(({ userId, team }) => ({ userId, team }));
+        const teams = new Set(participants.map((participant) => participant.team));
+        // Rewards are opt-in per environment and require real participants on both sides.
+        // This excludes solo/AI practice rooms and leaves rewards disabled unless staging enables them.
+        room.rewardEligible =
+          process.env.WFM_WING_REWARDS_ENABLED === "true" &&
+          participants.length >= 2 && teams.has(0) && teams.has(1);
         room.readySlots.clear();
         const message = {
           type: "started",
@@ -521,6 +543,25 @@ export async function startWingSocketServer(
         }
       }
       room.wing.tick(now);
+      const matchOutcome = room.wing.match.over;
+      if (matchOutcome && room.rewardEligible && !room.rewardSettled && !room.rewardInFlight) {
+        room.rewardInFlight = true;
+        void Promise.all(room.rewardParticipants.map((participant) =>
+          awardWingMatchReward({
+            userId: participant.userId,
+            matchId: room.matchId,
+            outcome: playerWingOutcome(matchOutcome, participant.team),
+            team: participant.team,
+          }),
+        )).then(() => {
+          room.rewardSettled = true;
+        }).catch(() => {
+          // Retry on the next tick. Successful per-player grants are idempotent.
+          process.stderr.write(`${JSON.stringify({ event: "wing_reward_settlement_retry", matchId: room.matchId })}\\n`);
+        }).finally(() => {
+          room.rewardInFlight = false;
+        });
+      }
       if (!shouldBroadcast) {
         room.wing.match.fx.length = 0;
         continue;
