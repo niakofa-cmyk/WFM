@@ -1862,6 +1862,35 @@
       "serverLedgerInspected": false,
       "scope": "Confirms only the owner-reported private-match visible balances and Hangar profile reload; it does not verify ledger writes, duplicate claims, or interrupted/expired claim denial."
     },
+    "latestOwnerReportedActivityLedgerIsolationCheck": {
+      "recordedOn": "2026-10-29",
+      "environment": "Railway staging per the instructed phone flow; exact host and deployment not recaptured in this check",
+      "evidenceLevel": "OWNER_REPORTED_PHONE_UI",
+      "accounts": {
+        "A": "separate staging account",
+        "B": "separate staging account"
+      },
+      "observations": {
+        "accountAInitiallyHadActivityEntries": true,
+        "accountBHadPriorActivity": false,
+        "ownerMadeOnePurchaseOnAccountB": true,
+        "accountBActivityAppearedInLedger": true,
+        "accountBEntryPersistedAfterRefresh": true,
+        "accountBEntryPersistedAfterSignOutAndSignIn": true,
+        "accountALedgerUnchangedAfterAccountBPurchase": true,
+        "accountBEntryVisibleInAccountALedger": false,
+        "activityLedgerVisibleWhileSignedOut": false
+      },
+      "purchaseDetails": "NOT_SUPPLIED",
+      "deviceDetails": "NOT_CAPTURED_FOR_THIS_CHECK",
+      "screenshotsOrHttpTrace": "NOT_SUPPLIED",
+      "directCrossAccountApiRequest": false,
+      "databaseActivityLedgerInspected": false,
+      "wingRewardLedgerInspected": false,
+      "wingRewardClaimSubmitted": false,
+      "scope": "Supports owner-reported UI-level Activity Ledger persistence and no visible Account B entry leakage into Account A. It does not verify database-level ownership, direct cross-account API authorization, or 5v5 Wing reward settlement.",
+      "certificationImpact": "accountProgressInventoryAndHistoryAreIsolated remains PARTIAL; liveRewardAndDuplicateClaimEvidence and liveInterruptedExpiredClaimDenial remain PENDING; productionReadiness remains NOT_CLAIMED."
+    },
     "liveRewardAndDuplicateClaimEvidence": "PENDING",
     "liveInterruptedExpiredClaimDenial": "PENDING",
     "productionSettingsOrDeploymentChanged": false,
