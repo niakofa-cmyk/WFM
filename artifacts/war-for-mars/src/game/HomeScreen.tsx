@@ -1,6 +1,8 @@
 import { menuTip, type MenuAction, type MenuStateId } from "./menu";
 import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
+import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
+import type { Save } from "./save";
 
 type HomeProps = {
   state: MenuStateId;
@@ -12,6 +14,8 @@ type HomeProps = {
   refit: number;
   credits: number;
   tech: TechId | null;
+  profile: Save;
+  signedIn: boolean;
   cleared: number;
   refitLabel: string;
   refitDisabled: boolean;
@@ -247,6 +251,7 @@ function Settings(props: HomeProps) {
         <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
       </div>
       <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
+      <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
       <Back onAction={props.onAction} />
     </div>
   );

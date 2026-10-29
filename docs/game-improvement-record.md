@@ -161,3 +161,22 @@ stability remains inconclusive and thermal status was not supplied. iPhone/
 Safari remains **NOT_REQUIRED** under the owner-approved Android-only scope.
 Production Clerk readiness remains **NOT_CLAIMED**, and no Production settings,
 player data, or deployments were changed.
+
+## 2026-10-28 — Read-only signed-in phone profile check
+
+The signed-in game Settings screen now has an explicit read-only profile check
+for phone testing. It requests only `GET /api/game/profile`, reports success or
+the safe HTTP status on failure, records response time and device/viewport
+metadata, and compares selected visible profile fields with the current game
+view. Its copyable JSON omits account identifiers, credentials, tokens, balance
+values, query strings, and unneeded environment metadata.
+
+The report states that this check itself sent no write or reward-claim request
+and did not inspect the reward ledger. It cannot establish that an interrupted
+claim was denied or that no ledger row was written; those remain server/database
+evidence gates and are not replaced by a phone report. The standalone `/play`
+local no-reward test remains separate from authenticated game Settings.
+
+Verification: the WFM package test suite passed 58/58, TypeScript typecheck
+passed, and Vite production build passed. No dependencies, Railway settings,
+player data, or deployments were changed; the work remains local and uncommitted.

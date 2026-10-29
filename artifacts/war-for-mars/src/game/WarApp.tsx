@@ -1050,6 +1050,8 @@ export function WarApp() {
         refit={save.refit}
         credits={save.credits}
         tech={save.tech}
+        profile={save}
+        signedIn={Boolean(userId)}
         cleared={save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
