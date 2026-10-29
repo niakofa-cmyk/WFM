@@ -53,6 +53,7 @@ test("profile and reward routes reject unauthenticated and forged progression re
         headers: {
           "content-type": "application/json",
           "x-clerk-user-id": "forged-user",
+          "x-verified-player-id": "forged-verified-user",
         },
         body: JSON.stringify({
           inputs: [],

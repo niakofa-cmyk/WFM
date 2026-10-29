@@ -44,6 +44,37 @@ passed 13/13; API typecheck and build passed; staging-promotion verifier tests
 passed 11/11; `git diff --check` passed. No dependency files changed, so a
 frozen-lockfile install was not rerun.
 
+## 2026-10-29 — Reward-claim proposal review
+
+Reviewed the proposed second reward gate and periodic stale-run cleanup worker
+against WFM's existing progression flow. Neither was added. Authenticated routes
+derive the player ID from Clerk's verified request context; `claimPlayerStrike`
+loads and locks a server-issued run scoped to that player, checks its status,
+expiry and profile revision, validates the replay, computes rewards on the
+server, and commits profile, event, and run updates in one transaction.
+
+WFM's run states are `open`, `claimed`, and `expired`; online room interruption
+is a separate socket lifecycle and cannot be converted into a Strike reward
+claim. Expiration is enforced when a claim is attempted, so a periodic worker
+would add database writes and per-replica scheduling without closing a reward
+authorization gap. The proposed gate instead trusts a client-settable identity
+header and client-supplied loot, duplicates the existing routes, assumes a
+different schema/status model, and does not make its separate writes atomic.
+
+Added a route regression that also supplies a forged `x-verified-player-id`
+header and still expects unauthenticated reward access to be rejected. Existing
+tests already cover expired-run denial with no profile or reward-event change,
+duplicate and altered replay claims, and an interrupted online room remaining
+separate from Strike claims. These are local test results only. No live claim
+was sent; the staging interrupted/expired reward-denial evidence gate remains
+**PENDING**.
+
+Verification for this addition: the unauthenticated progression/Strike route
+tests passed 2/2 and the API typecheck passed. The database-backed progression
+suite was not run in this check: removing `DATABASE_URL` causes the shared DB
+module to fail at import before tests start. No database request or mutation
+occurred. `git diff --check` passed.
+
 ## 2026-10-28 — End-to-end readiness and Android-only scope reconciliation
 
 ### Workspace verification

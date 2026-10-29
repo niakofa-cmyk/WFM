@@ -85,3 +85,21 @@ benchmark Clerk SDK verification and JWKS fetch behavior first. Preserve
 expiration, issuer, audience, authorized-party, ownership, and promotion-gate
 checks; do not introduce a token cache based only on assumed external rate
 limits.
+
+## Reward-claim integrity boundary
+
+Keep the existing server-authoritative Strike claim lifecycle. Derive identity
+from Clerk's verified request context; bind a claim to a server-issued run and
+the authenticated owner; adjudicate the replay and award inside the existing
+transaction. Do not trust client-set identity headers or client-provided reward
+amounts, and do not create a parallel reward endpoint or periodic expiry worker
+unless a measured operational requirement and schema-backed design justify it.
+
+**Why:** WFM already locks and validates the run, enforces expiry/revision,
+calculates rewards on the server, and atomically writes the profile, event, and
+claim state. A parallel handler based on a spoofable header or different schema
+would weaken that boundary; claim-time expiry already denies stale runs.
+
+**How to apply:** extend the existing route/service tests for new denial cases.
+Keep interrupted socket-room behavior separate from Strike-run rewards, and
+leave live denial certification pending until genuine staging evidence exists.
