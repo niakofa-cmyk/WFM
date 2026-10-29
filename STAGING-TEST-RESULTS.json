@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
-  "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on this exact staging-branch tree. Live staging evidence remains tied to its individual deployment identifiers. The staging frontend last deployed runtime commit 5255198; API and socket are on 798d6e9. Repository diff confirms only documentation/memory changed between those commits, so runtime content is aligned even though commit hashes differ. Production was not changed.",
+  "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on source commit 798d6e94896411b1ddd1dc4bab13a369c7d91c60. Later staging-branch commits changed only evidence documentation. The frontend runtime remains at commit 5255198; API and socket have since been redeployed at documentation-only commit 4b114d67b93f0996172ead95b164a9b33cd7a046. Runtime code is unchanged across these revisions. Production was not changed.",
   "environment": {
     "separateRepl": true,
     "separateStagingDatabase": true,
@@ -73,7 +73,7 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+      "headCommitAtCheck": "4b114d67b93f0996172ead95b164a9b33cd7a046",
       "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
       "result": "BLOCKED",
       "exitCode": 1,
@@ -85,10 +85,9 @@
         "tests.signupAndSignin must be PASS",
         "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
         "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
-        "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Verifier rerun locally after the full frozen-lockfile workspace suite on the exact branch head. The tested-source comparison now passes; the listed owner/live evidence gates remain incomplete. No Production configuration change or deployment."
+      "scope": "Local verifier rerun against current staging PR head 4b114d67b93f0996172ead95b164a9b33cd7a046 after recording the owner-reported two-phone restart result. Tested-source comparison passes; only the remaining listed evidence gates block promotion. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -1522,6 +1521,29 @@
     "status": "OWNER_REPORTED_PASS",
     "scope": "Supports account-bound inventory continuity across two accounts and two phones only. Mission-history isolation and direct cross-account access/write behavior remain unverified; the broader account-isolation gate remains PARTIAL."
   },
+  "latestOwnerReportedStagingSocketRestartCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging",
+    "service": "wfm-socket-staging",
+    "deploymentId": "ed64bb4b-da38-4ea4-89cc-d008938c27db",
+    "sourceCommit": "4b114d67b93f0996172ead95b164a9b33cd7a046",
+    "restartMode": "Railway in-place restart; no rebuild or new deployment",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "bothClientsStopped": "OWNER_REPORTED_PASS",
+    "bothClientsDisplayedInterruptedMatchError": "OWNER_REPORTED_PASS",
+    "firstRestartRecovery": {
+      "returnedToFreshLobby": "OWNER_REPORTED_PASS",
+      "balancesUnchanged": "OWNER_REPORTED_PASS"
+    },
+    "secondRestartRecoveryAndBalance": "NOT_REPORTED",
+    "rewardClaimSubmittedByAgent": false,
+    "rewardLedgerInspected": false,
+    "screenshotsOrNetworkTraces": "NOT_SUPPLIED",
+    "productionModified": false,
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "The owner reported both phones stopped and showed an error that the match had been interrupted after the second staging socket restart. After the first restart, the owner reported return to a fresh lobby and unchanged balances. Railway status afterward showed the staging socket online with no service issues or pending work. This supports the restart/notification gate only; it does not prove reward-ledger immutability or the result of the second restart's balance check."
+  },
   "tests": {
     "signupAndSignin": "PARTIAL",
     "profilePersistsAcrossSessions": "PASS",
@@ -1529,11 +1551,11 @@
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
     "sharedEconomyUsesStagingData": "PASS",
     "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
-    "restartEndsMatchAndNotifiesPlayers": "PARTIAL",
+    "restartEndsMatchAndNotifiesPlayers": "PASS",
     "stagingBrowserShowsRestartNotice": "PASS",
     "stagingBrowserFreshRoomAfterRestart": "PASS",
     "onlineInterruptedMatchMakesNoClaimRequest": "PASS",
-    "interruptedMatchCannotClaimRewards": "PARTIAL",
+    "interruptedMatchCannotClaimRewards": "PENDING",
     "freshRoomRequiredAfterRestart": "PASS",
     "ordinaryDisconnectReconnect": "PASS",
     "roomInviteReadyAndTeamAssignment": "PASS",

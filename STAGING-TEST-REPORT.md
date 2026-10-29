@@ -1050,11 +1050,12 @@ reward-denial gate remains pending, and `productionReadiness` remains
 
 ## Current merge-readiness check — 2026-10-28
 
-At staging branch commit `798d6e94896411b1ddd1dc4bab13a369c7d91c60`, the
+At source commit `798d6e94896411b1ddd1dc4bab13a369c7d91c60`, the
 frozen-lockfile install, typecheck, all 191 workspace tests, and workspace
-builds passed. The promotion verifier still returns **BLOCKED**; the exact
-remaining required evidence is listed below, and no status was promoted based
-only on local tests or owner-reported results:
+builds passed. Staging PR head `4b114d67b93f0996172ead95b164a9b33cd7a046`
+contains evidence-documentation changes only; GitHub's `Verify workspace`
+check passed at that head. The staging-evidence checks still correctly fail
+because required live evidence remains incomplete:
 
 | Required evidence | Current status |
 | --- | --- |
@@ -1062,19 +1063,39 @@ only on local tests or owner-reported results:
 | Sign-up and sign-in | **PARTIAL** — owner reported a successful existing-account sign-in/profile/refresh; a new sign-up was not verified |
 | Account progress, inventory, and history isolation | **PARTIAL** — owner reported separate balances/inventory and cross-device persistence; direct cross-account access and mission-history isolation were not verified |
 | Server-owned rewards and duplicate claims | **PARTIAL** — local regression tests pass and the owner reported different match credits; complete live claim/replay evidence is not recorded |
-| Restart ends match and notifies all players | **PARTIAL** — local lifecycle tests pass; a current two-pilot staging restart result is not recorded |
+| Restart ends match and notifies all players | **PASS** — owner reported both phones stopped and displayed an interrupted-match error after a staging socket restart |
 | Interrupted/expired match cannot claim rewards | **PENDING** — no live claim request was submitted; a safe run/event inspection path and before/after server evidence are still missing |
 
-The current read-only Railway staging check found all four services online, with
-no reported issues, failures, or pending work. The latest successful frontend
-deployment is `43ab9af0-22dc-4e65-97d0-ece864165a62` at
-`525519822c07dc19cb4c60d21e7ea62ccb91214d`; API and socket are at commit
-`798d6e94896411b1ddd1dc4bab13a369c7d91c60`. These Git SHAs differ, but a
-repository diff from the frontend commit to `798d6e9` contains only
-documentation and memory files, so the deployed runtime code is unchanged.
-No no-op deployment was triggered; exact commit-hash alignment remains open
-if the release process requires identical SHAs rather than identical runtime
-content.
+On 2026-10-28, the owner reported both phones were in an active Railway staging
+match when the staging socket was restarted in place. Both phones stopped and
+showed an error that the match had been interrupted. After the first restart,
+the owner reported that the room returned to a fresh lobby and both balances
+were unchanged. The second restart's room and balance state were not reported.
+The restart used the existing socket deployment
+`ed64bb4b-da38-4ea4-89cc-d008938c27db`; no new build was created. A read-only
+Railway status check afterward showed all four staging services online, with
+zero failures, issues, or pending work. No reward claim was submitted by the
+agent, and the reward ledger was not inspected. This passes only the
+restart-notification check; it does not pass the interrupted-reward-denial
+check.
+
+At the latest read-only deployment check, the frontend's latest successful
+runtime deployment remained `43ab9af0-22dc-4e65-97d0-ece864165a62` at
+`525519822c07dc19cb4c60d21e7ea62ccb91214d`. API deployment
+`d7f65747-263a-4033-86e3-9e8fac30c46e` and socket deployment
+`ed64bb4b-da38-4ea4-89cc-d008938c27db` ran documentation-only branch commit
+`4b114d67b93f0996172ead95b164a9b33cd7a046`. The frontend deployment attempt
+for that documentation commit was skipped as unnecessary. Thus commit hashes
+differ, while runtime code remains unchanged. Exact SHA alignment remains open
+if the release process requires identical commits rather than identical
+runtime content.
+
+The local promotion verifier was rerun against staging PR head
+`4b114d67b93f0996172ead95b164a9b33cd7a046`. It remains **BLOCKED** because
+overall evidence is PENDING, sign-up is PARTIAL, account/history isolation is
+PARTIAL, server-owned reward/replay evidence is PARTIAL, and interrupted
+reward-denial evidence is PENDING. Production settings and deployments remain
+untouched.
 
 No Production settings, auth credentials, database data, or deployments were
 changed. Production Clerk readiness remains unverified, and
