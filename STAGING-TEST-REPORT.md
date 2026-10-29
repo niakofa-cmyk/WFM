@@ -1047,3 +1047,35 @@ staging account/profile UI path at the reported level only. It does not verify
 Production Clerk or server-side reward-event state. The interrupted/expired
 reward-denial gate remains pending, and `productionReadiness` remains
 `NOT_CLAIMED`.
+
+## Current merge-readiness check — 2026-10-28
+
+At staging branch commit `798d6e94896411b1ddd1dc4bab13a369c7d91c60`, the
+frozen-lockfile install, typecheck, all 191 workspace tests, and workspace
+builds passed. The promotion verifier still returns **BLOCKED**; the exact
+remaining required evidence is listed below, and no status was promoted based
+only on local tests or owner-reported results:
+
+| Required evidence | Current status |
+| --- | --- |
+| Overall release evidence | **PENDING** |
+| Sign-up and sign-in | **PARTIAL** — owner reported a successful existing-account sign-in/profile/refresh; a new sign-up was not verified |
+| Account progress, inventory, and history isolation | **PARTIAL** — owner reported separate balances/inventory and cross-device persistence; direct cross-account access and mission-history isolation were not verified |
+| Server-owned rewards and duplicate claims | **PARTIAL** — local regression tests pass and the owner reported different match credits; complete live claim/replay evidence is not recorded |
+| Restart ends match and notifies all players | **PARTIAL** — local lifecycle tests pass; a current two-pilot staging restart result is not recorded |
+| Interrupted/expired match cannot claim rewards | **PENDING** — no live claim request was submitted; a safe run/event inspection path and before/after server evidence are still missing |
+
+The current read-only Railway staging check found all four services online, with
+no reported issues, failures, or pending work. The latest successful frontend
+deployment is `43ab9af0-22dc-4e65-97d0-ece864165a62` at
+`525519822c07dc19cb4c60d21e7ea62ccb91214d`; API and socket are at commit
+`798d6e94896411b1ddd1dc4bab13a369c7d91c60`. These Git SHAs differ, but a
+repository diff from the frontend commit to `798d6e9` contains only
+documentation and memory files, so the deployed runtime code is unchanged.
+No no-op deployment was triggered; exact commit-hash alignment remains open
+if the release process requires identical SHAs rather than identical runtime
+content.
+
+No Production settings, auth credentials, database data, or deployments were
+changed. Production Clerk readiness remains unverified, and
+`productionReadiness` remains `NOT_CLAIMED`.

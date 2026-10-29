@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
-  "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
-  "testedSourceCommitScope": "Current local full workspace-quality source, including the Production frontend API URL preflight and regression tests; it was not deployed to Railway staging. Live staging tests retain their individual deployed source and deployment identifiers. Overall release status remains pending.",
+  "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+  "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on this exact staging-branch tree. Live staging evidence remains tied to its individual deployment identifiers. The staging frontend last deployed runtime commit 5255198; API and socket are on 798d6e9. Repository diff confirms only documentation/memory changed between those commits, so runtime content is aligned even though commit hashes differ. Production was not changed.",
   "environment": {
     "separateRepl": true,
     "separateStagingDatabase": true,
@@ -32,11 +32,11 @@
   },
   "latestLocalWorkspaceCheck": {
     "verifiedOn": "2026-10-28",
-    "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
-    "testedWorkingTreeCommittedAs": "f576883983ff7e3a659c94fee307c120ab5910a1",
+    "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "testedWorkingTreeCommittedAs": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
     "workingTreeChangesIncluded": [],
     "documentationOnlyChangesDuringRun": [],
-    "scope": "The frozen-lockfile install and full workspace-quality checks passed on the source content committed as f576883983ff7e3a659c94fee307c120ab5910a1. This is local workspace evidence, not a Railway deployment. Live staging evidence remains tied to the deployment/source identifiers recorded per test; no Production deployment occurred.",
+    "scope": "The frozen-lockfile install, typecheck, full test suite, and workspace builds passed on the clean source tree committed as 798d6e94896411b1ddd1dc4bab13a369c7d91c60. This is local workspace evidence; live staging evidence remains tied to the deployment/source identifiers recorded per test. No Production deployment occurred.",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "apiTests": {
@@ -73,12 +73,13 @@
     "latestPromotionGateCheck": {
       "checkedOn": "2026-10-28",
       "headRefAtCheck": "staging",
-      "headCommitAtCheck": "45d9538c9f6991096ed64467205c96f7bf513c1a",
-      "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
+      "headCommitAtCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+      "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
       "result": "BLOCKED",
       "exitCode": 1,
       "requiredEnvironmentAssertions": "PASS",
       "replitInviteOnlyDeployment": "NOT_REQUIRED",
+      "applicationChangesAfterTest": false,
       "blockingConditions": [
         "overallStatus must be PASS",
         "tests.signupAndSignin must be PASS",
@@ -87,7 +88,7 @@
         "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
         "tests.interruptedMatchCannotClaimRewards must be PASS"
       ],
-      "scope": "Local verifier rerun after the owner-reported cross-device inventory check. The paired sync, two-pilot match, account swap, and inventory-continuity evidence do not clear mission-history isolation, duplicate/interrupted reward, or restart gates. No Production configuration change or deployment."
+      "scope": "Verifier rerun locally after the full frozen-lockfile workspace suite on the exact branch head. The tested-source comparison now passes; the listed owner/live evidence gates remain incomplete. No Production configuration change or deployment."
     },
     "workspaceBuilds": "PASS",
     "publicE2e": {
@@ -199,7 +200,7 @@
   },
   "latestFrozenWorkspaceQualityCheck": {
     "verifiedOn": "2026-10-28",
-    "testedSourceCommit": "f576883983ff7e3a659c94fee307c120ab5910a1",
+    "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
     "frozenLockfileInstall": "PASS",
     "typecheck": "PASS",
     "scriptsTests": {
@@ -1369,30 +1370,42 @@
     "checkedOn": "2026-10-28",
     "project": "wfm-staging",
     "environment": "staging",
-    "sourceBranch": "wfm-staging-socket-auth",
-    "sourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "sourceBranch": "staging",
+    "sourceCommit": "NOT_SINGLE_COMMIT; see each service",
     "services": {
       "frontend": {
         "name": "wfm-app-staging",
-        "deploymentId": "b11963fe-9de0-429c-a8d6-dcc27e3811d1",
-        "status": "SUCCESS"
+        "deploymentId": "43ab9af0-22dc-4e65-97d0-ece864165a62",
+        "status": "SUCCESS",
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
       },
       "api": {
         "name": "wfm-api-staging",
-        "deploymentId": "fbf44a4a-6e0b-4924-a26e-5a1b1fcbdb32",
-        "status": "SUCCESS"
+        "deploymentId": "3f860014-bc15-41f6-ae8a-0c7c3ba898f9",
+        "status": "SUCCESS",
+        "sourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60"
       },
       "socket": {
         "name": "wfm-socket-staging",
-        "deploymentId": "1aef0a09-4ee3-4868-a4ed-6957d10f89da",
-        "status": "SUCCESS"
+        "deploymentId": "c545bae7-ba90-480c-b5da-118cf31a953f",
+        "status": "SUCCESS",
+        "sourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60"
       }
     },
-    "allServicesShareSameSourceCommit": true,
-    "localBranchHeadAtMetadataCheck": "bcdf9b5a0b91fe289339a0085f514beab86926ad",
-    "originStagingBranchHeadAtMetadataCheck": "f576883983ff7e3a659c94fee307c120ab5910a1",
+    "allServicesShareSameSourceCommit": false,
+    "runtimeContentParity": true,
+    "environmentStatus": {
+      "onlineServices": 4,
+      "issues": 0,
+      "failures": 0,
+      "pendingWork": 0
+    },
+    "localBranchHeadAtMetadataCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "originStagingBranchHeadAtMetadataCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
     "runtimeFilesChangedAfterDeployedCommit": false,
-    "scope": "Read-only deployment metadata and repository diff. The same runtime commit was deployed to frontend, API, and socket; later branch changes are tests, documentation, and preflight/gate scripts. No Railway settings or deployments were changed."
+    "settingsChanged": false,
+    "deploymentsChanged": false,
+    "scope": "Read-only Railway status/deployment metadata plus repository diff. The frontend last successfully deployed 5255198; API and socket last deployed 798d6e9. Git commits differ, but the intervening repository changes are documentation and memory only, so runtime files match. All four staging services were online with no issues or pending work. No no-op deployment was triggered; exact commit-hash alignment remains outstanding if required."
   },
   "latestOwnerReportedPhysicalProfileSync": {
     "recordedOn": "2026-10-28",
