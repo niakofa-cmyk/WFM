@@ -263,9 +263,10 @@ deployment failures across three app services; their causes were not inspected.
 The report's statement that a missing `WFM_WING_REWARDS_ENABLED` variable proved
 rewards were disabled is not supported by the local socket bootstrap inspected
 for this update: it previously loaded settlement whenever `DATABASE_URL` was
-present and did not check that flag. The deployed commit is not present in the
-local Git object database, so the running socket source could not be compared
-directly. Treat live reward enablement as unverified.
+present and did not check that flag. At the initial inspection, the deployed
+commit was not yet available in the local Git object database, so the running
+socket source could not be compared directly. It was later fetched and merged
+as documented below; live reward enablement remains unverified.
 
 The local safety change adds a server-owned match mode, defaults client-created
 room-code rooms to `private`, ignores client-supplied mode fields, rejects
@@ -276,17 +277,19 @@ current bootstrap provides none. The code therefore does not enable rewards.
 The attachment is preserved in
 [`staging-deployment-report-2026-10-29.md`](staging-deployment-report-2026-10-29.md).
 
-The safety patch is committed in local merge commit `a318979`, which integrates
-the confirmed staging reward-ledger revision `970f35d`. It does not enable
-rewards: the socket bootstrap has no trusted competitive-room resolver, so
-room-code matches remain private and no-reward. Schema/ledger readback and live
-reward/duplicate evidence remain pending because the available Railway
+The safety patch is merged in `a318979` and pushed to staging as commit
+`5bb105b`, integrating the confirmed staging reward-ledger revision `970f35d`.
+Railway reports the staging frontend, API, and socket all online and successful
+on `5bb105b`, with no pending work or current failures. The change does not
+enable rewards: the socket bootstrap has no trusted competitive-room resolver,
+so room-code matches remain private and no-reward. Schema/ledger readback and
+live reward/duplicate evidence remain pending because the available Railway
 connection has no SQL-query operation. Production settings, data, and
 deployments remain untouched.
 
 Verification: focused reward/config/socket tests passed 16/16. Full workspace
 typecheck passed; all tests passed 204/204 (scripts 49, API 97, game 58); all
 workspace builds passed. The frozen-lockfile install was not rerun because no
-dependency or lockfile changed. At record time, the merge commit had not yet
-been pushed, and current staging deployment verification remained pending.
-The separate staging promotion evidence remains **PENDING**.
+dependency or lockfile changed. The staging promotion evidence remains
+**PENDING**; deployment health does not replace reward-ledger, interrupted-run,
+or physical-device evidence.

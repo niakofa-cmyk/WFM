@@ -1153,13 +1153,14 @@ Focused reward/config/socket tests passed **16/16**. Full workspace typecheck
 passed; all tests passed **204/204** (scripts 49, API 97, game 58); all
 workspace builds passed. The frozen-lockfile install was not rerun because no
 dependency or lockfile changed. No live reward or interrupted-claim request was
-submitted. At the time of this report update, the merge commit is committed
-locally but its staging push and Railway rollout still require verification.
+submitted. The merge was pushed to `staging`; Railway reports the frontend,
+API, and socket deployments successful on commit `5bb105b`, with no pending
+environment work and no current deployment failures.
 
 | Evidence gate | Status |
 | --- | --- |
-| Railway staging app/API/socket deployments before this merge | **PASS** — the last read-only snapshot showed all three successful at `970f35d` |
-| Merged safety patch pushed and deployed to staging | **PENDING** |
+| Merged safety patch deployed to Railway staging | **PASS** — frontend/API/socket successful on `5bb105b` |
+| Current staging environment status | **PASS** — three app services and Postgres online; no pending work; zero current failures |
 | Historical Railway deployment failures | **REVIEW** — five across three services; causes not inspected |
 | Staging schema/enum/index readback | **PENDING** |
 | Live reward event, balance, and replay verification | **PENDING** |
@@ -1168,3 +1169,6 @@ locally but its staging push and Railway rollout still require verification.
 | Production Clerk readiness | **NOT_CLAIMED** |
 
 No Railway variables, Production settings, data, or deployments were changed.
+Staging schema/ledger readback, live reward exact-once evidence, and
+interrupted/expired reward-denial evidence remain pending; deployment success
+does not certify those behaviors.

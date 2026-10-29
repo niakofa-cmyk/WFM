@@ -1776,21 +1776,39 @@
         "causesInspected": false
       }
     },
+    "postPushStagingDeploymentCheck": {
+      "deploymentCommit": "5bb105b3acbef9414eac77f206526984854703e0",
+      "frontend": {
+        "deploymentId": "6c17f14d-be8d-4c52-b871-64a4bbac420c",
+        "status": "SUCCESS"
+      },
+      "api": {
+        "deploymentId": "e8027404-997d-4a75-89df-766c06dcc5c5",
+        "status": "SUCCESS"
+      },
+      "socket": {
+        "deploymentId": "c3e87877-d6f2-4fdf-bd4-dcc184480705",
+        "status": "SUCCESS"
+      },
+      "postgres": "ONLINE",
+      "pendingEnvironmentWork": 0,
+      "currentFailures": 0
+    },
     "databaseSchemaAndLedgerReadback": "PENDING",
     "localCheckout": {
       "branch": "staging",
-      "head": "a318979",
-      "originStagingRef": "970f35d",
-      "branchAheadOfOriginBy": 3,
+      "pushedCodeCommit": "5bb105b",
+      "originStagingRefAtVerification": "5bb105b",
+      "branchAheadOfOriginAtVerification": 0,
       "reportedDeploymentCommitAvailableInLocalGit": true,
-      "worktreeStatus": "CLEAN"
+      "worktreeStatusAtVerification": "CLEAN"
     },
     "reconciliation": {
       "preMergeLocalHead": "dcde638",
       "mergeBase": "8019f82",
       "mergedRemoteStagingCommit": "970f35d",
       "mergeCommit": "a318979",
-      "status": "COMMITTED_NOT_PUSHED"
+      "status": "PUSHED_AND_DEPLOYED"
     },
     "localVerification": {
       "focusedRewardSocketAndConfigTests": {
@@ -1810,7 +1828,7 @@
     },
     "rewardConfiguration": {
       "ownerSuppliedReportClaim": "Missing WFM_WING_REWARDS_ENABLED means rewards are disabled; NOT_INDEPENDENTLY_VERIFIED",
-      "localPrePatchSourceFinding": "The checked-out socket bootstrap loaded reward settlement from DATABASE_URL and did not check WFM_WING_REWARDS_ENABLED. The deployed source commit was not present in the local Git object database, so the live source was not compared.",
+      "localPrePatchSourceFinding": "The initial local source loaded reward settlement from DATABASE_URL and did not check WFM_WING_REWARDS_ENABLED. The deployed source commit was unavailable during the first inspection, then later fetched and reconciled as 970f35d; the current safety implementation is deployed at 5bb105b.",
       "localSafetyPatch": {
         "enableFlag": "WFM_WING_REWARDS_ENABLED",
         "requiresExactValue": "true",
@@ -1818,7 +1836,7 @@
         "defaultRoomMode": "private",
         "trustedCompetitiveResolverRequired": true,
         "privatePracticeAndTestRoomsRewardEligible": false,
-        "sourceStatus": "COMMITTED_NOT_PUSHED"
+        "sourceStatus": "PUSHED_STAGING_DEPLOYED"
       }
     },
     "liveRewardAndDuplicateClaimEvidence": "PENDING",

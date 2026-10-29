@@ -97,9 +97,18 @@ The overlapping enum entry introduced by the merge was removed.
 After reconciliation, focused reward/config/socket tests passed 16/16; full
 workspace typecheck passed; all workspace tests passed 204/204 (scripts 49,
 API 97, game 58); and all workspace builds passed. No dependencies or lockfiles
-changed, so frozen-lockfile install was not rerun. The merge was committed
-locally as `a318979`; its staging push and Railway rollout had not yet been
-verified when this note was written. Live claims, database readback, and the
-independent interrupted/expired-denial check remain pending. Production was not
-changed.
+changed, so frozen-lockfile install was not rerun. The merge commit `a318979`
+was pushed to `staging` in commit `5bb105b`. Railway's read-only status reports
+all three staging services successful on `5bb105b`:
+
+| Service | Deployment ID | Status |
+| --- | --- | --- |
+| Frontend | `6c17f14d-be8d-4c52-b871-64a4bbac420c` | `SUCCESS` |
+| API | `e8027404-997d-4a75-89df-766c06dcc5c5` | `SUCCESS` |
+| Socket | `c3e87877-d6f2-4fdf-bd4-dcc184480705` | `SUCCESS` |
+
+The staging Postgres service is online; the environment has no pending work
+and zero current deployment failures. This is deployment-health evidence only:
+live claims, database schema/ledger readback, and the independent
+interrupted/expired-denial check remain pending. Production was not changed.
 
