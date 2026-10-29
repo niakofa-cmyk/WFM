@@ -26,9 +26,14 @@ const verifySessionToken = createClerkSessionVerifier({
   authorizedParties: allowedOrigins ? [...allowedOrigins] : undefined,
 });
 
+const settleWingMatch = process.env.DATABASE_URL
+  ? (await import("../game/wing-rewards")).settleCompletedWingMatch
+  : undefined;
+
 const runtime = await startWingSocketServer(port, "0.0.0.0", {
   allowedOrigins,
   verifySessionToken,
+  settleWingMatch,
 });
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 

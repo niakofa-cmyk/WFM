@@ -502,8 +502,13 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
 });
 
 test("a restarted socket notifies every pilot, rejects stale sessions, and accepts fresh rooms", async () => {
+  let settlementCalls = 0;
   let runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
+    settleWingMatch: async () => {
+      settlementCalls += 1;
+      return new Map();
+    },
   });
   const sockets: WebSocket[] = [];
   try {
@@ -555,6 +560,7 @@ test("a restarted socket notifies every pilot, rejects stale sessions, and accep
     oldSocket.send(JSON.stringify({ type: "interrupted_ack" }));
     peerSocket.send(JSON.stringify({ type: "interrupted_ack" }));
     await Promise.all([shutdown, repeatedShutdown]);
+    assert.equal(settlementCalls, 0);
     assert.deepEqual(await Promise.all(closed), [
       { code: 4002, reason: "server_restart" },
       { code: 4002, reason: "server_restart" },

@@ -19,6 +19,20 @@ const IDLE: StepInput = {
 
 export type WingInput = StepInput & { seq: number };
 
+export function isMeaningfulWingInput(input: WingInput) {
+  const axisThreshold = 0.08;
+  return (
+    Math.abs(input.throttle) >= axisThreshold ||
+    Math.abs(input.yaw) >= axisThreshold ||
+    Math.abs(input.strafe) >= axisThreshold ||
+    Math.abs(input.pitch) >= axisThreshold ||
+    Math.abs(input.evade) >= axisThreshold ||
+    input.fire ||
+    input.ult ||
+    input.lock
+  );
+}
+
 export type JoinResult =
   | { ok: true; slotId: number; team: 0 | 1; reconnectToken: string }
   | { ok: false; reason: "full" | "session_lost" };
@@ -164,8 +178,8 @@ export function createWing(seed = 1) {
     },
     input(slotId: number, packet: WingInput, now = Date.now()) {
       const slot = slots[slotId];
-      if (!slot?.isConnected) return;
-      if (!Number.isFinite(packet.seq) || packet.seq <= slot.lastSeq) return;
+      if (!slot?.isConnected) return false;
+      if (!Number.isFinite(packet.seq) || packet.seq <= slot.lastSeq) return false;
       slot.lastPacketTime = now;
       slot.lastSeq = packet.seq;
       slot.buffered = {
@@ -179,6 +193,7 @@ export function createWing(seed = 1) {
         evade: clamp(packet.evade),
         preset: packet.preset === 0 || packet.preset === 1 || packet.preset === 2 || packet.preset === 3 ? packet.preset : null,
       };
+      return true;
     },
     tick(now = Date.now()) {
       tickCount += 1;

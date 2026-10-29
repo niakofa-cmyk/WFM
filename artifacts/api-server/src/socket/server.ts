@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
@@ -6,10 +6,17 @@ import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import {
   createWing,
   DISCONNECT_GRACE_MS,
+  isMeaningfulWingInput,
   MAX_PLAYERS,
   TICK_RATE,
   type WingInput,
 } from "../game/wing";
+import { outcomeForTeam } from "../game/sim";
+import type {
+  CompletedWingMatch,
+  WingRewardNotice,
+  WingTeam,
+} from "../game/wing-reward-policy";
 
 const MAX_ROOMS = 64;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
@@ -30,6 +37,24 @@ type Room = {
   hostSlotId: number | null;
   readySlots: Set<number>;
   lastActivityAt: number;
+  matchId: string | null;
+  matchParticipants: Map<number, MatchParticipant>;
+  lastTickAt: number;
+  settlementPromise: Promise<void> | null;
+  settlementDone: boolean;
+  settlementAttempts: number;
+  nextSettlementAt: number;
+  pendingNoticeSent: boolean;
+  rewardNotices: Map<string, WingRewardNotice>;
+};
+
+type MatchParticipant = {
+  playerId: string;
+  slotId: number;
+  team: WingTeam;
+  acceptedInputs: number;
+  activeMs: number;
+  lastParticipatingInputAt: number | null;
 };
 
 type Client = {
@@ -57,6 +82,9 @@ export async function startWingSocketServer(
   host = "0.0.0.0",
   options: {
     verifySessionToken: SocketSessionVerifier;
+    settleWingMatch?: (
+      input: CompletedWingMatch,
+    ) => Promise<Map<string, WingRewardNotice>>;
     tickIntervalMs?: number;
     snapshotIntervalMs?: number;
     allowedOrigins?: ReadonlySet<string>;
@@ -276,6 +304,15 @@ export async function startWingSocketServer(
             hostSlotId: null,
             readySlots: new Set(),
             lastActivityAt: Date.now(),
+          matchId: null,
+          matchParticipants: new Map(),
+          lastTickAt: Date.now(),
+          settlementPromise: null,
+          settlementDone: false,
+          settlementAttempts: 0,
+          nextSettlementAt: 0,
+          pendingNoticeSent: false,
+          rewardNotices: new Map(),
           };
           rooms.set(room.id, room);
         }
@@ -340,6 +377,13 @@ export async function startWingSocketServer(
           reconnectToken: result.reconnectToken,
           snapshot: room.wing.snapshot(),
         });
+        const completedReward =
+          room.phase === "active" && room.wing.match.over
+            ? room.rewardNotices.get(client.playerId)
+            : undefined;
+        if (completedReward) {
+          send(socket, { type: "wing_reward", ...completedReward });
+        }
         if (room.phase === "lobby") broadcastLobby(room);
         return;
       }
@@ -379,6 +423,28 @@ export async function startWingSocketServer(
         }
         room.phase = "active";
         room.lastActivityAt = Date.now();
+        room.matchId = randomUUID();
+        room.lastTickAt = room.lastActivityAt;
+        room.matchParticipants.clear();
+        room.rewardNotices.clear();
+        room.settlementPromise = null;
+        room.settlementDone = false;
+        room.settlementAttempts = 0;
+        room.nextSettlementAt = 0;
+        room.pendingNoticeSent = false;
+        for (const player of current) {
+          const playerSocket = room.slotSockets.get(player.slotId);
+          const playerClient = playerSocket ? clients.get(playerSocket) : null;
+          if (!playerClient?.playerId) continue;
+          room.matchParticipants.set(player.slotId, {
+            playerId: playerClient.playerId,
+            slotId: player.slotId,
+            team: player.team,
+            acceptedInputs: 0,
+            activeMs: 0,
+            lastParticipatingInputAt: null,
+          });
+        }
         room.readySlots.clear();
         const message = {
           type: "started",
@@ -449,7 +515,17 @@ export async function startWingSocketServer(
           preset: value.preset,
         };
         client.lastInputAt = now;
-        client.room.wing.input(client.slotId, wingInput);
+        const accepted = client.room.wing.input(client.slotId, wingInput, now);
+        if (accepted && isMeaningfulWingInput(wingInput)) {
+          const participant = client.room.matchParticipants.get(client.slotId);
+          if (
+            participant &&
+            participant.playerId === client.playerId
+          ) {
+            participant.acceptedInputs += 1;
+            participant.lastParticipatingInputAt = now;
+          }
+        }
         return;
       }
 
@@ -493,6 +569,126 @@ export async function startWingSocketServer(
     // Per-socket close handlers own room and seat cleanup.
   });
 
+  function sendWingRewardNotices(
+    room: Room,
+    notices: Map<string, WingRewardNotice>,
+  ) {
+    for (const participant of room.matchParticipants.values()) {
+      const notice = notices.get(participant.playerId) ?? {
+        status: "unavailable" as const,
+        outcome: outcomeForTeam(room.wing.match, participant.team) ?? "draw",
+        gain: 0,
+        balanceAfter: null,
+        revision: null,
+        reason: "reward_result_unavailable",
+      };
+      room.rewardNotices.set(participant.playerId, notice);
+      const socket = room.slotSockets.get(participant.slotId);
+      const client = socket ? clients.get(socket) : null;
+      if (
+        socket?.readyState === WebSocket.OPEN &&
+        client?.playerId === participant.playerId
+      ) {
+        send(socket, { type: "wing_reward", ...notice });
+      }
+    }
+    room.settlementDone = true;
+  }
+
+  function markWingRewardUnavailable(room: Room, reason: string) {
+    const notices = new Map<string, WingRewardNotice>();
+    for (const participant of room.matchParticipants.values()) {
+      notices.set(participant.playerId, {
+        status: "unavailable",
+        outcome: outcomeForTeam(room.wing.match, participant.team) ?? "draw",
+        gain: 0,
+        balanceAfter: null,
+        revision: null,
+        reason,
+      });
+    }
+    sendWingRewardNotices(room, notices);
+  }
+
+  function startWingRewardSettlement(room: Room, now: number) {
+    if (
+      !room.matchId ||
+      !room.wing.match.over ||
+      room.settlementDone ||
+      room.settlementPromise ||
+      now < room.nextSettlementAt
+    ) {
+      return;
+    }
+    if (!options.settleWingMatch) {
+      markWingRewardUnavailable(room, "reward_database_unavailable");
+      return;
+    }
+    const result = room.wing.match.over;
+    if (result !== "win" && result !== "loss" && result !== "draw") {
+      markWingRewardUnavailable(room, "match_result_unavailable");
+      return;
+    }
+
+    const participants: CompletedWingMatch["participants"] = [
+      ...room.matchParticipants.values(),
+    ].map((participant) => {
+      const socket = room.slotSockets.get(participant.slotId);
+      const client = socket ? clients.get(socket) : null;
+      return {
+        playerId: participant.playerId,
+        team: participant.team,
+        activeSeconds: participant.activeMs / 1000,
+        acceptedInputs: participant.acceptedInputs,
+        connectedAtEnd:
+          socket?.readyState === WebSocket.OPEN &&
+          client?.playerId === participant.playerId,
+      };
+    });
+    const input: CompletedWingMatch = {
+      matchId: room.matchId,
+      result,
+      participants,
+    };
+
+    if (!room.pendingNoticeSent) {
+      room.pendingNoticeSent = true;
+      for (const participant of room.matchParticipants.values()) {
+        const socket = room.slotSockets.get(participant.slotId);
+        const client = socket ? clients.get(socket) : null;
+        if (
+          socket?.readyState === WebSocket.OPEN &&
+          client?.playerId === participant.playerId
+        ) {
+          send(socket, { type: "wing_reward_pending" });
+        }
+      }
+    }
+
+    room.settlementPromise = (async () => {
+      try {
+        const notices = await options.settleWingMatch!(input);
+        sendWingRewardNotices(room, notices);
+      } catch {
+        room.settlementAttempts += 1;
+        if (room.settlementAttempts >= 3) {
+          process.stderr.write(
+            `${JSON.stringify({
+              event: "wing_reward_settlement_failed",
+              attempts: room.settlementAttempts,
+            })}\n`,
+          );
+          markWingRewardUnavailable(room, "reward_verification_unavailable");
+        } else {
+          room.nextSettlementAt =
+            Date.now() + 250 * 2 ** (room.settlementAttempts - 1);
+        }
+      } finally {
+        room.settlementPromise = null;
+      }
+    })();
+  }
+
   let lastBroadcastAt = 0;
   const timer = setInterval(() => {
     const now = Date.now();
@@ -514,6 +710,11 @@ export async function startWingSocketServer(
       }
       room.wing.expireDisconnected(now);
       if (room.phase !== "active") continue;
+      const activeDeltaMs = Math.min(
+        250,
+        Math.max(0, now - room.lastTickAt),
+      );
+      room.lastTickAt = now;
       for (const socket of room.sockets) {
         const client = clients.get(socket);
         if (client && now - client.lastInputAt > DISCONNECT_GRACE_MS) {
@@ -521,6 +722,24 @@ export async function startWingSocketServer(
         }
       }
       room.wing.tick(now);
+      for (const participant of room.matchParticipants.values()) {
+        const socket = room.slotSockets.get(participant.slotId);
+        const client = socket ? clients.get(socket) : null;
+        if (
+          client?.playerId === participant.playerId &&
+          participant.lastParticipatingInputAt !== null &&
+          now - participant.lastParticipatingInputAt <= 1_000
+        ) {
+          participant.activeMs += activeDeltaMs;
+        }
+      }
+      if (room.wing.match.over && !room.settlementDone) {
+        startWingRewardSettlement(room, now);
+        if (!room.settlementDone) {
+          room.wing.match.fx.length = 0;
+          continue;
+        }
+      }
       if (!shouldBroadcast) {
         room.wing.match.fx.length = 0;
         continue;
@@ -581,6 +800,7 @@ export async function startWingSocketServer(
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
       const shutdownNotices: Promise<ShutdownNoticeResult>[] = [];
+      const settlementClosures: Promise<void>[] = [];
       const interruptedPayload = JSON.stringify({
         type: "interrupted",
         reason: "server_restart",
@@ -592,6 +812,27 @@ export async function startWingSocketServer(
           room?.phase === "active" &&
           !room.wing.match.over &&
           socket.readyState === WebSocket.OPEN;
+        if (
+          room?.wing.match.over &&
+          room.settlementPromise &&
+          socket.readyState === WebSocket.OPEN
+        ) {
+          const pendingSettlement = room.settlementPromise;
+          settlementClosures.push(
+            pendingSettlement.then(() => {
+              if (!room.settlementDone) {
+                markWingRewardUnavailable(
+                  room,
+                  "reward_verification_unavailable",
+                );
+              }
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.close(1001, "Server shutting down");
+              }
+            }),
+          );
+          continue;
+        }
         if (interrupted) {
           const shutdownTimer = setTimeout(() => socket.terminate(), 5_000);
           shutdownTimer.unref();
@@ -616,6 +857,7 @@ export async function startWingSocketServer(
       }
       closePromise = (async () => {
         const results = await Promise.all(shutdownNotices);
+        await Promise.all(settlementClosures);
         if (results.length > 0) {
           process.stdout.write(
             `${JSON.stringify({

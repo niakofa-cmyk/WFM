@@ -1,6 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/react";
-import type { StrikeResult, OnlineRoom } from "./Arena";
+import type {
+  StrikeResult,
+  OnlineRoom,
+  WingRewardNotice,
+} from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import {
@@ -789,7 +793,11 @@ export function WarApp() {
     }
   };
 
-  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[]; checksums?: number[] }) => {
+  const finish = (
+    next: StrikeResult,
+    replay: { seed: number; inputs: StepInput[]; checksums?: number[] },
+    wingReward?: WingRewardNotice,
+  ) => {
     if (onlineSession) {
       try {
         sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -797,8 +805,37 @@ export function WarApp() {
         // A completed room does not need a browser-stored reconnect token.
       }
       setResult(next);
-      setGain(0);
-      setCargoLine("Live wing operation complete.");
+      if (wingReward?.status === "awarded") {
+        setGain(wingReward.gain);
+        if (wingReward.balanceAfter !== null) {
+          setSave((previous) => ({
+            ...previous,
+            credits: wingReward.balanceAfter!,
+          }));
+        }
+        setCargoLine(
+          `Server verified ${wingReward.outcome}. +${wingReward.gain} credits added to your balance.`,
+        );
+      } else if (wingReward?.status === "daily_limit") {
+        setGain(0);
+        setCargoLine(
+          "Match verified. Your five-reward daily limit has been reached; no additional credits were added.",
+        );
+      } else if (wingReward?.status === "not_eligible") {
+        setGain(0);
+        setCargoLine(
+          wingReward.reason === "participation_threshold"
+            ? "Match verified, but the participation minimum was not met. No credits were added."
+            : wingReward.reason === "not_connected_at_completion"
+              ? "Match verified, but you were disconnected at completion. No credits were added."
+              : "Match verified, but eligible opposing human participation was not met. No credits were added.",
+        );
+      } else {
+        setGain(0);
+        setCargoLine(
+          "The match ended, but its credit reward could not be confirmed. Refresh your profile before flying again.",
+        );
+      }
       setAdvance("");
       setPhase("debrief");
       setOnlineSession(null);

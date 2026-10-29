@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWing, MAX_PLAYERS, type WingInput } from "./wing";
+import {
+  createWing,
+  isMeaningfulWingInput,
+  MAX_PLAYERS,
+  type WingInput,
+} from "./wing";
 
 const input = (seq: number, throttle = 1, lock = false): WingInput => ({
   seq,
@@ -37,14 +42,24 @@ test("sequenced input is acknowledged in the authoritative snapshot", () => {
   assert.equal(joined.ok, true);
   if (!joined.ok) return;
 
-  wing.input(joined.slotId, input(2), 1_001);
-  wing.input(joined.slotId, input(1, -1), 1_002);
+  assert.equal(wing.input(joined.slotId, input(2), 1_001), true);
+  assert.equal(wing.input(joined.slotId, input(1, -1), 1_002), false);
   wing.tick(1_034);
 
   const snapshot = wing.snapshot(1_034);
   assert.equal(snapshot.players[joined.slotId].lastSeq, 2);
   assert.equal(snapshot.match.player.ai, false);
   assert.doesNotThrow(() => JSON.stringify(snapshot));
+});
+
+test("only non-neutral controls count toward participation", () => {
+  const neutral = input(1, 0);
+  const movement = input(2, 0.1);
+  const firing = { ...input(3, 0), fire: true };
+
+  assert.equal(isMeaningfulWingInput(neutral), false);
+  assert.equal(isMeaningfulWingInput(movement), true);
+  assert.equal(isMeaningfulWingInput(firing), true);
 });
 
 test("lock inputs from all ten seats target hostiles independently", () => {

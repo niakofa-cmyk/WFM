@@ -7,6 +7,7 @@
 - [Socket shutdown checks](replit-socket-shutdown.md) — local shutdown passed; raw Railway clients closed 1006, while one browser pilot showed the restart notice.
 - [Offline progression](offline-progression-policy.md) — cached worlds are read-only; action identities persist for server validation; online rooms are separate from Strike reward claims.
 - [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
+- [Online Wing rewards](online-wing-rewards.md) — owner-approved 5v5 credit defaults require active, connected, opposing human pilots and one idempotent server ledger award.
 - [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
 - [Railway service-scoped preflight](railway-service-scoped-preflight.md) — use `railway run --no-local` with explicit service scope; status checks do not prove auth pairing.
 - [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.

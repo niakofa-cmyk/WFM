@@ -25,6 +25,7 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "quest_reward",
   "world_travel",
   "world_service",
+  "wing_reward",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {

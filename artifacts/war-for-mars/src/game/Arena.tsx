@@ -26,6 +26,15 @@ export type StrikeResult = {
   reason: string;
 };
 
+export type WingRewardNotice = {
+  status: "awarded" | "not_eligible" | "daily_limit" | "unavailable";
+  outcome: "win" | "loss" | "draw";
+  gain: number;
+  balanceAfter: number | null;
+  revision: number | null;
+  reason?: string;
+};
+
 export type OnlineSnapshot = {
   tick: number;
   time: number;
@@ -64,7 +73,11 @@ type ArenaProps = {
   gyro: boolean;
   drilled: boolean;
   onDrill: () => void;
-  onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[]; checksums?: number[] }) => void;
+  onDone: (
+    result: StrikeResult,
+    replay: { seed: number; inputs: StepInput[]; checksums?: number[] },
+    wingReward?: WingRewardNotice,
+  ) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
   onGraphicsError?: (message: string) => void;
   onPerformanceFrame?: (frame: LocalPerformanceFrame) => void;
@@ -565,6 +578,7 @@ export function Arena({
   const slotIdRef = useRef(online?.slotId ?? 0);
   const reconnectTokenRef = useRef(online?.reconnectToken ?? "");
   const snapshotRef = useRef<OnlineSnapshot | null>(online?.snapshot ?? null);
+  const wingRewardRef = useRef<WingRewardNotice | null>(null);
   const remoteFramesRef = useRef<RemoteFrame[]>([]);
   const activeSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
   const joinedSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
@@ -671,6 +685,45 @@ export function Arena({
           source.send(JSON.stringify(join));
         } catch {
           source.close();
+        }
+        return;
+      }
+      if (packet.type === "wing_reward_pending") {
+        setNetworkStatus("VERIFYING MATCH REWARD…");
+        return;
+      }
+      if (packet.type === "wing_reward") {
+        const status = packet.status;
+        const outcome = packet.outcome;
+        const gain = packet.gain;
+        const balanceAfter = packet.balanceAfter;
+        const revision = packet.revision;
+        if (
+          (status === "awarded" ||
+            status === "not_eligible" ||
+            status === "daily_limit" ||
+            status === "unavailable") &&
+          (outcome === "win" || outcome === "loss" || outcome === "draw") &&
+          typeof gain === "number" &&
+          Number.isSafeInteger(gain) &&
+          gain >= 0 &&
+          (balanceAfter === null ||
+            (typeof balanceAfter === "number" &&
+              Number.isSafeInteger(balanceAfter))) &&
+          (revision === null ||
+            (typeof revision === "number" && Number.isSafeInteger(revision)))
+        ) {
+          wingRewardRef.current = {
+            status,
+            outcome,
+            gain,
+            balanceAfter,
+            revision,
+            ...(typeof packet.reason === "string"
+              ? { reason: packet.reason }
+              : {}),
+          };
+          setNetworkStatus("");
         }
         return;
       }
@@ -2051,7 +2104,7 @@ export function Arena({
                   seed: seedRef.current,
                   inputs: replayRef.current,
                   ...(stagingTraceEnabled ? { checksums: checksumRef.current } : {}),
-                })}
+                }, wingRewardRef.current ?? undefined)}
             >
               Debrief
             </button>
