@@ -1031,3 +1031,19 @@ cross-account access attempts, and live reward-denial proof remain pending.
 Production was not changed or deployed.
 The owner confirmed gyro should remain device-local; no account-level gyro sync
 was requested.
+
+## Owner-reported staging account/profile refresh — 2026-10-28
+
+The owner supplied Android Chrome screenshots from the Railway staging host.
+The Clerk account menu showed **Development mode**, and the owner returned to
+the WFM start screen without signing out. The owner then reported that Armory
+inventory and balance loaded and that the same profile data remained after a
+browser refresh.
+
+This is owner-reported UI evidence; no credential values were accessed, and no
+live HTTP trace was captured. No room, match, or claim was reported during this
+profile-only check, and the agent submitted no reward claim. It confirms the
+staging account/profile UI path at the reported level only. It does not verify
+Production Clerk or server-side reward-event state. The interrupted/expired
+reward-denial gate remains pending, and `productionReadiness` remains
+`NOT_CLAIMED`.

@@ -1707,5 +1707,20 @@
     },
     "scope": "Committed and pushed to origin/staging, then all three Railway staging services were aligned to branch staging and deployed successfully. The owner reports staging phone sign-in/control tests. The agent made no live reward claim or staging sign-in and performed no database test write. Production settings and deployment are untouched."
   },
+  "latestOwnerReportedStagingAccountSmoke": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging",
+    "evidenceSource": "Owner-provided Android Chrome screenshots and follow-up report",
+    "clerkModeLabelObserved": "Development mode",
+    "wfmReturnedAfterClerkAccountPage": "OWNER_REPORTED_PASS",
+    "armoryInventoryAndBalanceLoaded": "OWNER_REPORTED_PASS",
+    "sameArmoryProfileDataAfterRefresh": "OWNER_REPORTED_PASS",
+    "roomOrMatchActivity": "NOT_REPORTED",
+    "agentSubmittedRewardClaim": false,
+    "ownerReportedRewardClaim": "NOT_REPORTED",
+    "liveHttpTraceCaptured": false,
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Authenticated staging UI/profile smoke only. This is not Production Clerk verification and does not establish interrupted/expired reward denial or server-side ledger state."
+  },
   "productionReadiness": "NOT_CLAIMED"
 }
