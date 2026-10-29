@@ -6,6 +6,7 @@ export const WING_REWARD_POLICY = Object.freeze({
 });
 
 export type WingOutcome = "win" | "loss" | "draw";
+export type WingRewardOutcome = WingOutcome;
 export type WingTeam = 0 | 1;
 export type WingMatchMode = "private" | "practice" | "test" | "competitive";
 
@@ -94,6 +95,20 @@ export interface WingRewardStore {
 function opposingOutcome(result: WingOutcome, team: WingTeam): WingOutcome {
   if (team === 0 || result === "draw") return result;
   return result === "win" ? "loss" : "win";
+}
+
+export const WING_REWARD_CREDITS: Readonly<Record<WingOutcome, number>> =
+  WING_REWARD_POLICY.credits;
+
+export function wingRewardCredits(outcome: WingOutcome): number {
+  return WING_REWARD_POLICY.credits[outcome];
+}
+
+export function playerWingOutcome(
+  matchOutcome: WingOutcome,
+  team: WingTeam,
+): WingOutcome {
+  return opposingOutcome(matchOutcome, team);
 }
 
 function qualifies(participant: WingRewardParticipant) {

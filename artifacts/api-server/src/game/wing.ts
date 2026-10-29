@@ -163,6 +163,11 @@ export function createWing(seed = 1) {
     canReconnect(reconnectToken: string) {
       return slots.some((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
     },
+    participants() {
+      return slots
+        .filter((slot) => slot.playerId !== null)
+        .map((slot) => ({ userId: slot.playerId as string, team: slot.team, slotId: slot.slotId, connected: slot.isConnected }));
+    },
     lastSeq(slotId: number) {
       return slots[slotId]?.lastSeq ?? 0;
     },

@@ -17,6 +17,7 @@ export type MarketPrices = { salt: number; iron: number; dust: number; resin: nu
 export const strikeRunStatus = pgEnum("strike_run_status", ["open", "claimed", "expired"]);
 export const progressionEventKind = pgEnum("progression_event_kind", [
   "strike_reward",
+  "wing_reward",
   "market_buy",
   "market_dock",
   "refit",
@@ -25,7 +26,6 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "quest_reward",
   "world_travel",
   "world_service",
-  "wing_reward",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {

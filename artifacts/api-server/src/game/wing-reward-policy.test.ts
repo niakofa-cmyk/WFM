@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  playerWingOutcome,
   settleWingMatchWithStore,
+  wingRewardCredits,
   WING_REWARD_POLICY,
   type CompletedWingMatch,
   type ExistingWingReward,
@@ -237,4 +239,16 @@ test("Wing reward inputs reject duplicate player identities", async () => {
   const result = await settleWingMatchWithStore(match, store, testNow);
   assert.equal(result.get("pilot-team-0")?.status, "not_eligible");
   assert.equal(events.size, 0);
+});
+
+test("Wing reward helpers use approved values and map team outcomes", () => {
+  assert.equal(wingRewardCredits("win"), 30);
+  assert.equal(wingRewardCredits("draw"), 15);
+  assert.equal(wingRewardCredits("loss"), 10);
+  assert.equal(playerWingOutcome("win", 0), "win");
+  assert.equal(playerWingOutcome("win", 1), "loss");
+  assert.equal(playerWingOutcome("loss", 0), "loss");
+  assert.equal(playerWingOutcome("loss", 1), "win");
+  assert.equal(playerWingOutcome("draw", 0), "draw");
+  assert.equal(playerWingOutcome("draw", 1), "draw");
 });
