@@ -73,8 +73,8 @@ not enable rewards or establish live ledger correctness.
 
 ## Safest next sequence
 
-1. Deploy and smoke-test the local safety patch on staging only after its source
-   is reviewed and pushed through the staging branch workflow.
+1. Push the locally committed merge `a318979` to the staging branch and verify
+   that only the staging frontend, API, and socket deploy the merged source.
 2. Use an owner-authorized, read-only staging database query to verify the
    `wing_reward` enum and existing unique idempotency index. Keep the database
    target explicitly scoped to staging and return no player identifiers.
@@ -84,4 +84,22 @@ not enable rewards or establish live ledger correctness.
    replay checks, capture sanitized before/after balances and event counts, and
    independently verify interrupted/expired denial without creating a reward.
 5. Keep the separate Production Clerk and release-promotion gates unchanged.
+
+## Follow-up: staging-source reconciliation
+
+The local `staging` branch fetched and integrated the confirmed remote staging
+commit `970f35d` (reward-ledger PR #5) with the local safety implementation in
+merge commit `a318979`. The existing stricter transactional reward settlement
+and approved 30/15/10 credit policy were retained; the schema includes one
+`wing_reward` enum value plus the unique `(user_id, idempotency_key)` index.
+The overlapping enum entry introduced by the merge was removed.
+
+After reconciliation, focused reward/config/socket tests passed 16/16; full
+workspace typecheck passed; all workspace tests passed 204/204 (scripts 49,
+API 97, game 58); and all workspace builds passed. No dependencies or lockfiles
+changed, so frozen-lockfile install was not rerun. The merge was committed
+locally as `a318979`; its staging push and Railway rollout had not yet been
+verified when this note was written. Live claims, database readback, and the
+independent interrupted/expired-denial check remain pending. Production was not
+changed.
 

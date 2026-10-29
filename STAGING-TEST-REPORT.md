@@ -1140,24 +1140,31 @@ The local safety patch now:
 
 The current socket bootstrap does not provide a competitive-room resolver, so
 room-code matches remain ineligible even if the enable flag is later set. This
-patch is local, uncommitted, and undeployed. It does not enable rewards.
+patch does not enable rewards.
 
-Focused reward/config/socket tests passed **15/15**. Full workspace typecheck
-passed; all tests passed **203/203** (scripts 49, API 96, game 58); all
+The staging branch has locally merged the confirmed `origin/staging` revision
+`970f35d` (reward-ledger PR #5) with local safety work in merge commit
+`a318979`. The reviewed reward implementation keeps the existing atomic,
+idempotent transaction path and the owner-approved 30/15/10 credit policy;
+the merged schema retains the unique user/idempotency index and contains one
+`wing_reward` enum label.
+
+Focused reward/config/socket tests passed **16/16**. Full workspace typecheck
+passed; all tests passed **204/204** (scripts 49, API 97, game 58); all
 workspace builds passed. The frozen-lockfile install was not rerun because no
 dependency or lockfile changed. No live reward or interrupted-claim request was
-submitted.
+submitted. At the time of this report update, the merge commit is committed
+locally but its staging push and Railway rollout still require verification.
 
 | Evidence gate | Status |
 | --- | --- |
-| Current Railway staging app/API/socket deployments | **PASS** — latest metadata shows all three successful at the reported commit |
+| Railway staging app/API/socket deployments before this merge | **PASS** — the last read-only snapshot showed all three successful at `970f35d` |
+| Merged safety patch pushed and deployed to staging | **PENDING** |
 | Historical Railway deployment failures | **REVIEW** — five across three services; causes not inspected |
 | Staging schema/enum/index readback | **PENDING** |
 | Live reward event, balance, and replay verification | **PENDING** |
 | Interrupted/expired reward denial | **PENDING** |
-| Local safety patch deployed to staging | **PENDING** |
 | Overall promotion status | **PENDING** |
 | Production Clerk readiness | **NOT_CLAIMED** |
 
-No files were pushed or committed, no Railway configuration or deployments were
-changed, and no Production settings, data, or deployments were touched.
+No Railway variables, Production settings, data, or deployments were changed.

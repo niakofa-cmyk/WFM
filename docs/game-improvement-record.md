@@ -276,13 +276,17 @@ current bootstrap provides none. The code therefore does not enable rewards.
 The attachment is preserved in
 [`staging-deployment-report-2026-10-29.md`](staging-deployment-report-2026-10-29.md).
 
-The local code/documentation patch is uncommitted and undeployed. Schema
-inspection and reward-ledger/duplicate evidence remain pending because the
-available Railway connection has no SQL-query operation. Production settings,
-data, and deployments remain untouched.
+The safety patch is committed in local merge commit `a318979`, which integrates
+the confirmed staging reward-ledger revision `970f35d`. It does not enable
+rewards: the socket bootstrap has no trusted competitive-room resolver, so
+room-code matches remain private and no-reward. Schema/ledger readback and live
+reward/duplicate evidence remain pending because the available Railway
+connection has no SQL-query operation. Production settings, data, and
+deployments remain untouched.
 
-Verification for this update: the focused API/socket reward and config tests
-passed 15/15. Full workspace typecheck passed; all workspace tests passed
-203/203 (scripts 49, API 96, game 58); all workspace builds passed. The frozen
-lockfile install was not rerun because no dependency or lockfile changed. The
-local staging promotion evidence remains **PENDING**.
+Verification: focused reward/config/socket tests passed 16/16. Full workspace
+typecheck passed; all tests passed 204/204 (scripts 49, API 97, game 58); all
+workspace builds passed. The frozen-lockfile install was not rerun because no
+dependency or lockfile changed. At record time, the merge commit had not yet
+been pushed, and current staging deployment verification remained pending.
+The separate staging promotion evidence remains **PENDING**.

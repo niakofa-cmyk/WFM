@@ -1763,6 +1763,7 @@
     "sourceReport": "docs/staging-deployment-report-2026-10-29.md",
     "reportedStagingMergeCommit": "970f35daa255f0c21ba5e850d5eba90f56ecb2b7",
     "railwayReadOnlyCheck": {
+      "snapshotCommit": "970f35daa255f0c21ba5e850d5eba90f56ecb2b7",
       "frontendDeployment": "SUCCESS",
       "apiDeployment": "SUCCESS",
       "socketDeployment": "SUCCESS",
@@ -1778,23 +1779,30 @@
     "databaseSchemaAndLedgerReadback": "PENDING",
     "localCheckout": {
       "branch": "staging",
-      "head": "845e692",
-      "originStagingRef": "c93374a",
-      "branchAheadOfOriginBy": 5,
-      "reportedDeploymentCommitAvailableInLocalGit": false,
-      "worktreeStatus": "CHANGED_UNCOMMITTED"
+      "head": "a318979",
+      "originStagingRef": "970f35d",
+      "branchAheadOfOriginBy": 3,
+      "reportedDeploymentCommitAvailableInLocalGit": true,
+      "worktreeStatus": "CLEAN"
+    },
+    "reconciliation": {
+      "preMergeLocalHead": "dcde638",
+      "mergeBase": "8019f82",
+      "mergedRemoteStagingCommit": "970f35d",
+      "mergeCommit": "a318979",
+      "status": "COMMITTED_NOT_PUSHED"
     },
     "localVerification": {
       "focusedRewardSocketAndConfigTests": {
-        "passed": 15,
+        "passed": 16,
         "failed": 0
       },
       "typecheck": "PASS",
       "workspaceTests": {
         "scripts": { "passed": 49, "failed": 0 },
-        "api": { "passed": 96, "failed": 0 },
+        "api": { "passed": 97, "failed": 0 },
         "game": { "passed": 58, "failed": 0 },
-        "totalPassed": 203
+        "totalPassed": 204
       },
       "workspaceBuild": "PASS",
       "frozenLockfileInstall": "NOT_RUN_NO_DEPENDENCY_OR_LOCKFILE_CHANGE",
@@ -1810,7 +1818,7 @@
         "defaultRoomMode": "private",
         "trustedCompetitiveResolverRequired": true,
         "privatePracticeAndTestRoomsRewardEligible": false,
-        "sourceStatus": "UNCOMMITTED_UNDEPLOYED"
+        "sourceStatus": "COMMITTED_NOT_PUSHED"
       }
     },
     "liveRewardAndDuplicateClaimEvidence": "PENDING",
