@@ -1,6 +1,9 @@
--- Additive staging migration for the opt-in public Wing leaderboard.
+-- Additive staging/development migration for the opt-in public Wing leaderboard.
 -- This does not expose player IDs, profile history, email, or online presence.
--- Apply to the isolated staging database only after reviewing the target.
+-- Apply only after independently confirming the target environment.
+-- Commit the enum addition before using the new value in a partial index.
+ALTER TYPE progression_event_kind ADD VALUE IF NOT EXISTS 'wing_reward';
+
 BEGIN;
 
 ALTER TABLE player_progress

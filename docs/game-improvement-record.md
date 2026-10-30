@@ -336,29 +336,31 @@ history, and live-online status. Signed-in pilots can opt in or out from Setting
 opting out clears the stored public callsign. Practice and private-room rewards
 do not contribute to the score.
 
-The database change is additive: two nullable/defaulted preference columns and
-indexes for opted-in profiles and eligible Wing reward events. The SQL is prepared
-in `docs/migrations/20261029_public_wing_leaderboard.sql`, but has **not** been
-applied to any database. The current workspace database lacks
-`public_leaderboard_opt_in`; API integration tests that write/read player
-profiles therefore fail until the additive migration is applied to a verified
-isolated test/staging database. Do not deploy the API or frontend to staging
-before that migration and passing DB-backed tests.
+The database change is additive: the `wing_reward` enum value, two
+leaderboard-preference columns, and indexes for opted-in profiles and eligible
+Wing reward events. On 2026-10-30, after owner approval, the corrected SQL in
+`docs/migrations/20261029_public_wing_leaderboard.sql` was applied to the
+Replit Development database only. Read-only schema checks confirmed the enum,
+both columns, and both indexes after the migration. Railway staging and
+Production databases were not modified.
 
-Verification: workspace typecheck and all workspace builds passed. WFM unit
-tests passed 60/60; scripts tests passed 49/49; focused leaderboard and Clerk
-verification tests passed 18/18; public browser E2E tests passed 8/8. The API
-integration suite reported 89/104 passing and 15 failures because the configured
-workspace database does not yet have the new columns; no migration was run.
-`git diff --check` passed. The frozen-lockfile install was not rerun because no
-dependency or lockfile changed. A prior WFM Development sign-in E2E passed 1/1
-before this schema change; it must be rerun against a migrated isolated database.
+Verification after that Development-only migration: scripts tests passed
+49/49, API tests passed 110/110, WFM tests passed 60/60, workspace typecheck
+passed, and workspace builds passed. Before the migration, 15 API tests failed
+because the Development schema lacked the leaderboard columns; all passed
+afterward. `git diff --check` passed. No dependencies or lockfile changed.
 
-The API suite attempted synthetic database fixtures through the configured
-workspace database URL; the reported failures occurred because the new columns
-are absent. The fixtures define cleanup by generated test IDs, but the database
-target was not independently verified, so this run is not evidence about
-staging or Production. No schema migration, Railway setting change, or deployment
-was run. The feature remains unpromoted pending owner approval for a staging-only
-schema migration and deploy. Production Clerk authorization and all existing
-reward, device, and promotion gates remain separate and unchanged.
+This is local/test evidence, not a staging deployment or live leaderboard,
+reward-ledger, authentication, physical-device, or Production-readiness
+certification. Staging and Production release gates remain separate.
+
+## Casual AI-fill Quick Match
+
+Implemented an optional casual queue separate from the ten-human competitive
+queue and private rooms. The socket owns a 30-second window, resets it after
+each newly accepted authenticated pilot, then starts with AI-controlled open
+seats; ten connected pilots start immediately. Casual matches are explicitly
+unranked and no-reward. Both app and socket require their own casual-queue
+feature flags; no Railway settings or deployments were changed for this code
+update. Focused socket/reward tests passed 22/22, WFM tests passed 60/60, and
+the workspace build passed. Live staging phone verification remains pending.
