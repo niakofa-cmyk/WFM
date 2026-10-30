@@ -361,6 +361,25 @@ queue and private rooms. The socket owns a 30-second window, resets it after
 each newly accepted authenticated pilot, then starts with AI-controlled open
 seats; ten connected pilots start immediately. Casual matches are explicitly
 unranked and no-reward. Both app and socket require their own casual-queue
-feature flags; no Railway settings or deployments were changed for this code
-update. Focused socket/reward tests passed 22/22, WFM tests passed 60/60, and
-the workspace build passed. Live staging phone verification remains pending.
+feature flags. Focused socket/reward tests passed 22/22, WFM tests passed 60/60,
+and the workspace build passed.
+
+## 2026-10-30 — Casual AI-fill Quick Match staging verification
+
+The casual queue source is deployed to Railway staging at commit `354912a`.
+Staging-only feature flags are enabled on the app
+(`VITE_WFM_CASUAL_AI_QUEUE_ENABLED`) and socket
+(`WFM_CASUAL_AI_QUEUE_ENABLED`). The app deployment
+`6b07f54e-2132-4aed-85ad-5414878ca717` and socket deployment
+`ae9c1156-304b-46b0-8e89-3414495399ee` succeeded. The API deployment for this
+source revision had already succeeded. No Production services or settings were
+changed.
+
+The owner reports a two-phone staging check with separate pilots: the second
+pilot reset the countdown to 30 seconds; the match auto-started with AI-filled
+seats at timeout; both phones showed the same field; and neither account's
+credits changed. This is owner-reported functional evidence, not a captured
+socket trace or reward-ledger inspection. It verifies the intended quick-match
+flow on staging but does not replace the live interrupted/expired reward-denial
+gate, database ledger verification, or the separate Production Clerk checks.
+Production readiness remains **NOT CLAIMED**.
