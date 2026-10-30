@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import {
   ApplyProgressionActionBody,
   ApplyProgressionActionResponse,
+  UpdateLeaderboardProfileBody,
+  UpdateLeaderboardProfileResponse,
   UpdateControlSchemeBody,
   UpdateControlSchemeResponse,
   GetGameProfileResponse,
@@ -12,6 +14,7 @@ import {
   getPlayerProfile,
   ProgressionError,
   updatePlayerControlScheme,
+  updatePlayerLeaderboardProfile,
 } from "../game/progression";
 
 const router: IRouter = Router();
@@ -39,6 +42,27 @@ router.patch("/game/profile/control-scheme", async (req, res, next): Promise<voi
     );
     res.json(UpdateControlSchemeResponse.parse(profile));
   } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/game/profile/leaderboard", async (req, res, next): Promise<void> => {
+  const parsed = UpdateLeaderboardProfileBody.strict().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_leaderboard_preference" });
+    return;
+  }
+  try {
+    const profile = await updatePlayerLeaderboardProfile(
+      playerIdFromRequest(req),
+      parsed.data,
+    );
+    res.json(UpdateLeaderboardProfileResponse.parse(profile));
+  } catch (error) {
+    if (error instanceof ProgressionError) {
+      res.status(error.status).json({ error: "invalid_leaderboard_preference" });
+      return;
+    }
     next(error);
   }
 });

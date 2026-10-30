@@ -9,6 +9,7 @@ import {
   type MarketPrices,
   type PlayerProgress,
 } from "@workspace/db";
+import { normalizeLeaderboardProfileUpdate } from "./public-leaderboard";
 import {
   adjudicateStrike,
   IncompleteStrikeReplay,
@@ -46,6 +47,8 @@ export type GameProfile = {
   cleared: number;
   tech: "stick" | "barrels" | "mark" | null;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string | null;
   revision: number;
 };
 
@@ -106,6 +109,8 @@ function toProfile(row: PlayerProgress): GameProfile {
     cleared: row.cleared,
     tech: row.tech as GameProfile["tech"],
     drilled: row.drilled,
+    publicLeaderboardOptIn: row.publicLeaderboardOptIn,
+    publicLeaderboardCallsign: row.publicLeaderboardCallsign,
     revision: row.revision,
   };
 }
@@ -150,6 +155,33 @@ export async function updatePlayerControlScheme(
       .where(eq(playerProgressTable.userId, userId))
       .returning();
     if (!updated) throw new Error("Player control preference could not be saved.");
+    return toProfile(updated);
+  });
+}
+
+export async function updatePlayerLeaderboardProfile(
+  userId: string,
+  input: { enabled: boolean; callsign?: string },
+): Promise<GameProfile> {
+  let setting: ReturnType<typeof normalizeLeaderboardProfileUpdate>;
+  try {
+    setting = normalizeLeaderboardProfileUpdate(input);
+  } catch {
+    throw new ProgressionError("Choose a 3–16 character public callsign.", 400);
+  }
+
+  return db.transaction(async (tx) => {
+    await lockOrCreateProfile(tx, userId);
+    const [updated] = await tx
+      .update(playerProgressTable)
+      .set({
+        publicLeaderboardOptIn: setting.enabled,
+        publicLeaderboardCallsign: setting.callsign,
+        updatedAt: new Date(),
+      })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player leaderboard preference could not be saved.");
     return toProfile(updated);
   });
 }

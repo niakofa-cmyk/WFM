@@ -43,6 +43,11 @@ export const getGameProfileResponsePaidMin = 0;
 export const getGameProfileResponseClearedMin = 0;
 export const getGameProfileResponseClearedMax = 4;
 
+export const getGameProfileResponsePublicLeaderboardCallsignMin = 3;
+export const getGameProfileResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const getGameProfileResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const getGameProfileResponseRevisionMin = 0;
 
 
@@ -67,7 +72,96 @@ export const GetGameProfileResponse = zod.object({
   "cleared": zod.number().int().min(getGameProfileResponseClearedMin).max(getGameProfileResponseClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(getGameProfileResponsePublicLeaderboardCallsignMin).max(getGameProfileResponsePublicLeaderboardCallsignMax).regex(getGameProfileResponsePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(getGameProfileResponseRevisionMin)
+})
+
+
+/**
+ * Returns only callsigns and aggregate server-verified Wing reward credits.
+ * @summary Get the public opt-in Wing credit leaderboard
+ */
+
+export const getPublicWingLeaderboardResponseEntriesItemCallsignMin = 3;
+export const getPublicWingLeaderboardResponseEntriesItemCallsignMax = 16;
+
+export const getPublicWingLeaderboardResponseEntriesItemScoreMin = 0;
+
+export const getPublicWingLeaderboardResponseEntriesMax = 25;
+
+
+
+export const GetPublicWingLeaderboardResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "rank": zod.number().int().min(1),
+  "callsign": zod.string().min(getPublicWingLeaderboardResponseEntriesItemCallsignMin).max(getPublicWingLeaderboardResponseEntriesItemCallsignMax),
+  "score": zod.number().int().min(getPublicWingLeaderboardResponseEntriesItemScoreMin)
+})).max(getPublicWingLeaderboardResponseEntriesMax)
+})
+
+
+/**
+ * @summary Set the authenticated player's public leaderboard preference
+ */
+export const updateLeaderboardProfileBodyCallsignMin = 3;
+export const updateLeaderboardProfileBodyCallsignMax = 16;
+
+
+export const updateLeaderboardProfileBodyCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+
+
+export const UpdateLeaderboardProfileBody = zod.object({
+  "enabled": zod.boolean(),
+  "callsign": zod.string().min(updateLeaderboardProfileBodyCallsignMin).max(updateLeaderboardProfileBodyCallsignMax).regex(updateLeaderboardProfileBodyCallsignRegExp).optional()
+})
+
+export const updateLeaderboardProfileResponseCreditsMin = 0;
+
+export const updateLeaderboardProfileResponseRefitMin = 0;
+export const updateLeaderboardProfileResponseRefitMax = 5;
+
+
+
+
+
+export const updateLeaderboardProfileResponsePaidMin = 0;
+
+export const updateLeaderboardProfileResponseClearedMin = 0;
+export const updateLeaderboardProfileResponseClearedMax = 4;
+
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignMin = 3;
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+export const updateLeaderboardProfileResponseRevisionMin = 0;
+
+
+
+export const UpdateLeaderboardProfileResponse = zod.object({
+  "credits": zod.number().int().min(updateLeaderboardProfileResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateLeaderboardProfileResponseRefitMin).max(updateLeaderboardProfileResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateLeaderboardProfileResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateLeaderboardProfileResponseClearedMin).max(updateLeaderboardProfileResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateLeaderboardProfileResponsePublicLeaderboardCallsignMin).max(updateLeaderboardProfileResponsePublicLeaderboardCallsignMax).regex(updateLeaderboardProfileResponsePublicLeaderboardCallsignRegExp).nullable(),
+  "revision": zod.number().int().min(updateLeaderboardProfileResponseRevisionMin)
 })
 
 
@@ -92,6 +186,11 @@ export const updateControlSchemeResponsePaidMin = 0;
 export const updateControlSchemeResponseClearedMin = 0;
 export const updateControlSchemeResponseClearedMax = 4;
 
+export const updateControlSchemeResponsePublicLeaderboardCallsignMin = 3;
+export const updateControlSchemeResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateControlSchemeResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const updateControlSchemeResponseRevisionMin = 0;
 
 
@@ -116,6 +215,8 @@ export const UpdateControlSchemeResponse = zod.object({
   "cleared": zod.number().int().min(updateControlSchemeResponseClearedMin).max(updateControlSchemeResponseClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateControlSchemeResponsePublicLeaderboardCallsignMin).max(updateControlSchemeResponsePublicLeaderboardCallsignMax).regex(updateControlSchemeResponsePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(updateControlSchemeResponseRevisionMin)
 })
 
@@ -142,6 +243,11 @@ export const applyProgressionActionResponseProfilePaidMin = 0;
 export const applyProgressionActionResponseProfileClearedMin = 0;
 export const applyProgressionActionResponseProfileClearedMax = 4;
 
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignMin = 3;
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const applyProgressionActionResponseProfileRevisionMin = 0;
 
 
@@ -167,6 +273,8 @@ export const ApplyProgressionActionResponse = zod.object({
   "cleared": zod.number().int().min(applyProgressionActionResponseProfileClearedMin).max(applyProgressionActionResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(applyProgressionActionResponseProfilePublicLeaderboardCallsignMin).max(applyProgressionActionResponseProfilePublicLeaderboardCallsignMax).regex(applyProgressionActionResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(applyProgressionActionResponseProfileRevisionMin)
 }),
   "transaction": zod.object({
@@ -206,6 +314,11 @@ export const startStrikeResponseProfilePaidMin = 0;
 export const startStrikeResponseProfileClearedMin = 0;
 export const startStrikeResponseProfileClearedMax = 4;
 
+export const startStrikeResponseProfilePublicLeaderboardCallsignMin = 3;
+export const startStrikeResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const startStrikeResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const startStrikeResponseProfileRevisionMin = 0;
 
 export const startStrikeResponseConfigRefitMin = 0;
@@ -240,6 +353,8 @@ export const StartStrikeResponse = zod.object({
   "cleared": zod.number().int().min(startStrikeResponseProfileClearedMin).max(startStrikeResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(startStrikeResponseProfilePublicLeaderboardCallsignMin).max(startStrikeResponseProfilePublicLeaderboardCallsignMax).regex(startStrikeResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(startStrikeResponseProfileRevisionMin)
 }),
   "config": zod.object({
@@ -330,6 +445,11 @@ export const claimStrikeResponseProfilePaidMin = 0;
 export const claimStrikeResponseProfileClearedMin = 0;
 export const claimStrikeResponseProfileClearedMax = 4;
 
+export const claimStrikeResponseProfilePublicLeaderboardCallsignMin = 3;
+export const claimStrikeResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const claimStrikeResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const claimStrikeResponseProfileRevisionMin = 0;
 
 
@@ -370,6 +490,8 @@ export const ClaimStrikeResponse = zod.object({
   "cleared": zod.number().int().min(claimStrikeResponseProfileClearedMin).max(claimStrikeResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(claimStrikeResponseProfilePublicLeaderboardCallsignMin).max(claimStrikeResponseProfilePublicLeaderboardCallsignMax).regex(claimStrikeResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(claimStrikeResponseProfileRevisionMin)
 }),
   "replayed": zod.boolean()

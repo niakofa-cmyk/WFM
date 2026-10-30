@@ -1180,7 +1180,28 @@ claim rejection, or interrupted/expired claim denial.
 | Overall promotion status | **PENDING** |
 | Production Clerk readiness | **NOT_CLAIMED** |
 
-No Railway variables, Production settings, data, or deployments were changed.
-Staging schema/ledger readback, live reward exact-once evidence, and
-interrupted/expired reward-denial evidence remain pending; deployment success
-does not certify those behaviors.
+No Railway variables, Production settings, deployments, or database queries were
+changed by the agent. The owner performed one staging purchase during the
+Activity Ledger check below. Staging schema/ledger readback, live reward
+exact-once evidence, and interrupted/expired reward-denial evidence remain
+pending; deployment success does not certify those behaviors.
+
+#### Owner-reported staging Activity Ledger check — 2026-10-29
+
+During a phone UI check following the staging-only instructions, Account A's
+Universe Activity Ledger showed entries. Account B had no prior activity; the
+owner then made one purchase in Account B, and its Activity Ledger showed the
+resulting activity. The owner reported that B's entry remained after refresh
+and after signing out and back in. After B's purchase, Account A's ledger
+remained unchanged and did not show B's entry. While signed out, no Activity
+Ledger was visible; the owner reported that Campaign and its ledger require
+sign-in.
+
+This is supplemental owner-reported UI evidence for Activity Ledger
+persistence, sign-in gating, and the absence of a visible B-entry leak into
+Account A. The exact staging host, deployment, device, transaction details,
+screenshots, and HTTP trace were not captured in this check. The Activity
+Ledger is not the 5v5 Wing reward ledger; no Wing reward event or claim was
+inspected or submitted, and no direct cross-account API request was attempted.
+The broader account-isolation gate remains **PARTIAL**, and the reward and
+interrupted/expired-claim gates remain **PENDING**.

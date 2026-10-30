@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
@@ -86,6 +87,7 @@ function SignUpPage() {
 }
 
 function PublicLanding() {
+  const { isSignedIn } = useAuth();
   return (
     <main className="relative flex min-h-dvh items-center bg-void px-6 py-12 text-bone sm:px-12">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_50%,rgba(138,58,36,0.25),transparent_52%)]" />
@@ -108,18 +110,29 @@ function PublicLanding() {
             >
               TRY SOLO FLIGHT
             </Link>
-            <Link
-              href="/sign-up"
-              className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
-            >
-              CREATE PILOT ACCOUNT
-            </Link>
-            <Link
-              href="/sign-in"
-              className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
-            >
-              SIGN IN
-            </Link>
+            {isSignedIn ? (
+              <Link
+                href="/"
+                className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+              >
+                OPEN HANGAR
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+                >
+                  CREATE PILOT ACCOUNT
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
+                >
+                  SIGN IN
+                </Link>
+              </>
+            )}
           </div>
         </section>
         <aside className="border border-bone/15 bg-panel/80 p-5">
@@ -133,6 +146,7 @@ function PublicLanding() {
           <p className="mt-6 border-t border-bone/10 pt-4 font-hud text-xs tracking-widest text-bone/70">
             PROGRESS IS VERIFIED BY THE SERVER
           </p>
+          <PublicWingLeaderboard />
         </aside>
       </div>
     </main>

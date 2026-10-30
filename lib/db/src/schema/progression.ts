@@ -1,4 +1,5 @@
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -49,10 +50,16 @@ export const playerProgressTable = pgTable("player_progress", {
   cleared: integer("cleared").notNull().default(0),
   tech: text("tech"),
   drilled: boolean("drilled").notNull().default(false),
+  publicLeaderboardOptIn: boolean("public_leaderboard_opt_in").notNull().default(false),
+  publicLeaderboardCallsign: text("public_leaderboard_callsign"),
   inventoryMigrated: boolean("inventory_migrated").notNull().default(false),
   revision: integer("revision").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("player_progress_public_leaderboard_idx")
+    .on(table.userId)
+    .where(sql`${table.publicLeaderboardOptIn} = true`),
+]);
 
 export const insertPlayerProgressSchema = createInsertSchema(playerProgressTable);
 export type PlayerProgress = typeof playerProgressTable.$inferSelect;
@@ -92,5 +99,8 @@ export const progressionEventsTable = pgTable(
     uniqueIndex("progression_events_user_key_uq").on(table.userId, table.idempotencyKey),
     uniqueIndex("progression_events_run_uq").on(table.runId),
     index("progression_events_user_created_idx").on(table.userId, table.createdAt),
+    index("progression_events_online_wing_idx")
+      .on(table.userId)
+      .where(sql`${table.kind} = 'wing_reward' AND ${table.result}->>'mode' = 'online-wing'`),
   ],
 );

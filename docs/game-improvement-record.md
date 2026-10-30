@@ -326,3 +326,39 @@ staging evidence for those two rooms, not map-balance certification or
 Production evidence. No Production settings, secrets, player data, or
 deployments were changed. The independent reward and Production-auth gates
 remain in force.
+
+## 2026-10-29 — Opt-in public Wing leaderboard
+
+Added a signed-out public leaderboard limited to an opted-in pilot's chosen
+callsign and the all-time sum of server-recorded 5v5 Online Wing reward credits.
+The endpoint omits account IDs, email, private Activity Ledger entries, match
+history, and live-online status. Signed-in pilots can opt in or out from Settings;
+opting out clears the stored public callsign. Practice and private-room rewards
+do not contribute to the score.
+
+The database change is additive: two nullable/defaulted preference columns and
+indexes for opted-in profiles and eligible Wing reward events. The SQL is prepared
+in `docs/migrations/20261029_public_wing_leaderboard.sql`, but has **not** been
+applied to any database. The current workspace database lacks
+`public_leaderboard_opt_in`; API integration tests that write/read player
+profiles therefore fail until the additive migration is applied to a verified
+isolated test/staging database. Do not deploy the API or frontend to staging
+before that migration and passing DB-backed tests.
+
+Verification: workspace typecheck and all workspace builds passed. WFM unit
+tests passed 60/60; scripts tests passed 49/49; focused leaderboard and Clerk
+verification tests passed 18/18; public browser E2E tests passed 8/8. The API
+integration suite reported 89/104 passing and 15 failures because the configured
+workspace database does not yet have the new columns; no migration was run.
+`git diff --check` passed. The frozen-lockfile install was not rerun because no
+dependency or lockfile changed. A prior WFM Development sign-in E2E passed 1/1
+before this schema change; it must be rerun against a migrated isolated database.
+
+The API suite attempted synthetic database fixtures through the configured
+workspace database URL; the reported failures occurred because the new columns
+are absent. The fixtures define cleanup by generated test IDs, but the database
+target was not independently verified, so this run is not evidence about
+staging or Production. No schema migration, Railway setting change, or deployment
+was run. The feature remains unpromoted pending owner approval for a staging-only
+schema migration and deploy. Production Clerk authorization and all existing
+reward, device, and promotion gates remain separate and unchanged.

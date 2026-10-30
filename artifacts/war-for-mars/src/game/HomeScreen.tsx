@@ -3,6 +3,8 @@ import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
 import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
 import type { Save } from "./save";
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
 
 type HomeProps = {
   state: MenuStateId;
@@ -16,6 +18,11 @@ type HomeProps = {
   tech: TechId | null;
   profile: Save;
   signedIn: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string;
+  publicLeaderboardSaving: boolean;
+  publicLeaderboardError: string;
+  onSavePublicLeaderboard: (enabled: boolean, callsign: string) => void;
   cleared: number;
   refitLabel: string;
   refitDisabled: boolean;
@@ -168,6 +175,14 @@ function MainMenu({
             <span className="text-xs text-muted">{item.detail}</span>
           </button>
         ))}
+        <Link
+          href="/leaderboard"
+          data-testid="link-public-wing-leaderboard"
+          className="flex h-14 flex-col justify-center border border-solar/50 bg-void/70 px-3 text-left"
+        >
+          <span className="font-hud text-lg leading-none tracking-widest text-solar">WING LEADERBOARD</span>
+          <span className="text-xs text-muted">Opt-in callsigns · verified Wing credits</span>
+        </Link>
         <button
           type="button"
           data-testid="button-open-galaxy"
@@ -242,6 +257,16 @@ function Armory(props: HomeProps) {
 }
 
 function Settings(props: HomeProps) {
+  const [enabled, setEnabled] = useState(props.publicLeaderboardOptIn);
+  const [callsign, setCallsign] = useState(props.publicLeaderboardCallsign);
+
+  useEffect(() => {
+    setEnabled(props.publicLeaderboardOptIn);
+    setCallsign(props.publicLeaderboardCallsign);
+  }, [props.publicLeaderboardOptIn, props.publicLeaderboardCallsign]);
+
+  const validCallsign = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$/.test(callsign.trim());
+
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
       <h2 className="font-hud text-4xl leading-none">SETTINGS</h2>
@@ -251,6 +276,48 @@ function Settings(props: HomeProps) {
         <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
       </div>
       <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
+      <section className="max-w-sm border border-solar/40 bg-void/70 p-3" data-testid="public-leaderboard-settings">
+        <p className="font-hud text-lg tracking-widest text-solar">PUBLIC WING LEADERBOARD</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          Only your callsign and total server-verified Wing credits are public. Your account, balance, match history, and online status stay private.
+        </p>
+        <label className="mt-3 flex min-h-11 items-center gap-3 text-sm text-bone">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+            data-testid="checkbox-leaderboard-opt-in"
+          />
+          Show me on the public board
+        </label>
+        <label htmlFor="leaderboard-callsign" className="mt-2 block text-xs tracking-widest text-muted">
+          PUBLIC CALLSIGN
+        </label>
+        <input
+          id="leaderboard-callsign"
+          data-testid="input-leaderboard-callsign"
+          autoComplete="off"
+          maxLength={16}
+          disabled={!enabled}
+          value={callsign}
+          onChange={(event) => setCallsign(event.target.value)}
+          placeholder="3–16 letters, numbers, spaces, _ or -"
+          className="mt-1 h-11 w-full border border-bone/25 bg-void px-3 text-bone placeholder:text-muted disabled:opacity-50"
+        />
+        <p className="mt-1 text-xs text-muted">Choose a callsign, not your real name, email, or other personal information.</p>
+        {props.publicLeaderboardError ? (
+          <p role="alert" className="mt-2 text-sm text-alert">{props.publicLeaderboardError}</p>
+        ) : null}
+        <button
+          type="button"
+          data-testid="button-save-leaderboard-preference"
+          disabled={props.publicLeaderboardSaving || (enabled && !validCallsign)}
+          onClick={() => props.onSavePublicLeaderboard(enabled, callsign.trim())}
+          className="mt-3 h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:opacity-40"
+        >
+          {props.publicLeaderboardSaving ? "SAVING…" : enabled ? "OPT IN AND SAVE" : "OPT OUT AND SAVE"}
+        </button>
+      </section>
       <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
       <Back onAction={props.onAction} />
     </div>

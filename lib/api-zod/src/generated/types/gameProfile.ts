@@ -41,6 +41,14 @@ export interface GameProfile {
   /** @nullable */
   tech: GameProfileTech;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     * @nullable
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$
+     */
+  publicLeaderboardCallsign: string | null;
   /** @minimum 0 */
   revision: number;
 }
