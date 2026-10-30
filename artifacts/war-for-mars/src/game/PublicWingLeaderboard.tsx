@@ -43,7 +43,7 @@ export function PublicWingLeaderboard() {
         <p className="mt-3 text-sm text-muted" role="status">Loading standings…</p>
       ) : entries.length === 0 ? (
         <p className="mt-3 border border-dashed border-bone/15 px-3 py-4 text-sm text-muted">
-          No pilots have opted in yet. Opt in from Settings after signing in.
+          No eligible Wing rewards yet. Private room-code matches do not qualify; standings require a positive, server-settled competitive Wing reward.
         </p>
       ) : (
         <ol className="mt-3 divide-y divide-bone/10" aria-label="Opt-in Wing standings">

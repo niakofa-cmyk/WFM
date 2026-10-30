@@ -24,6 +24,28 @@ test("landing page explains the game and offers a solo flight", async ({ page })
   );
 });
 
+test("empty Wing leaderboard explains its reward eligibility requirement", async ({ page }) => {
+  await page.route("**/api/game/leaderboard", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ entries: [] }),
+    }),
+  );
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
+  await expect(page.getByTestId("public-wing-leaderboard")).toContainText(
+    "No eligible Wing rewards yet.",
+  );
+  await expect(page.getByTestId("public-wing-leaderboard")).toContainText(
+    "Private room-code matches do not qualify",
+  );
+  await expect(page.getByTestId("public-wing-leaderboard")).toContainText(
+    "server-settled competitive Wing reward",
+  );
+});
+
 test("sign-up route renders the existing Clerk form", async ({ page }) => {
   await page.goto("/sign-up");
 
