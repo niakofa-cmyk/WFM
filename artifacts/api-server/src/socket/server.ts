@@ -272,6 +272,7 @@ export async function startWingSocketServer(
     client.room = room;
     client.slotId = result.slotId;
     client.queueEnteredAt = null;
+    client.lastInputAt = Date.now();
     room.sockets.add(socket);
     room.slotSockets.set(result.slotId, socket);
     if (previous && previous !== socket) {
@@ -334,6 +335,23 @@ export async function startWingSocketServer(
       socket: WebSocket;
       result: { slotId: number; team: 0 | 1; reconnectToken: string };
     }> = [];
+    const abortAssignment = () => {
+      rooms.delete(room.id);
+      for (const pilot of pilots) {
+        pilot.room = null;
+        pilot.slotId = null;
+        pilot.roomId = "";
+        pilot.queueEnteredAt = null;
+        if (pilot.playerId) {
+          pendingCompetitiveAssignments.delete(pilot.playerId);
+        }
+        const socket = socketForClient(pilot);
+        if (socket?.readyState === WebSocket.OPEN) {
+          send(socket, { type: "error", reason: "queue_assignment_failed" });
+          socket.close(1011, "Competitive match could not be assigned");
+        }
+      }
+    };
     for (const pilot of pilots) {
       const socket = socketForClient(pilot);
       const result =
@@ -341,25 +359,7 @@ export async function startWingSocketServer(
           ? attachQueuedPilot(socket, pilot, room)
           : null;
       if (!socket || !result) {
-        rooms.delete(room.id);
-        for (const attachedSocket of room.sockets) {
-          const attachedClient = clients.get(attachedSocket);
-          if (attachedClient) {
-            attachedClient.room = null;
-            attachedClient.slotId = null;
-            attachedClient.roomId = "";
-          }
-          attachedSocket.close(1011, "Competitive match could not be assigned");
-        }
-        for (const remainingPilot of pilots) {
-          if (remainingPilot.room !== room) {
-            const waitingSocket = socketForClient(remainingPilot);
-            if (waitingSocket?.readyState === WebSocket.OPEN) {
-              send(waitingSocket, { type: "error", reason: "queue_assignment_failed" });
-              waitingSocket.close(1011, "Competitive match could not be assigned");
-            }
-          }
-        }
+        abortAssignment();
         return false;
       }
       assignments.push({ pilot, socket, result });
@@ -367,7 +367,7 @@ export async function startWingSocketServer(
         (entry) => entry.userId === pilot.playerId,
       );
       if (!participant) {
-        rooms.delete(room.id);
+        abortAssignment();
         return false;
       }
       room.matchParticipants.set(participant.slotId, {

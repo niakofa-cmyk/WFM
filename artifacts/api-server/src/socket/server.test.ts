@@ -761,8 +761,8 @@ test("competitive queue waits for ten distinct authenticated pilots and auto-sta
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
     enableCompetitiveQueue: true,
-    tickIntervalMs: 60_000,
-    snapshotIntervalMs: 60_000,
+    tickIntervalMs: 25,
+    snapshotIntervalMs: 25,
   });
   const sockets: WebSocket[] = [];
   try {
@@ -789,11 +789,16 @@ test("competitive queue waits for ten distinct authenticated pilots and auto-sta
       assert.equal(runtime.roomCount, 0);
     }
 
+    await new Promise((resolve) => setTimeout(resolve, 5_100));
     const joined = pilots.map((socket) =>
       nextPacket(socket, (packet) => packet.type === "joined"),
     );
+    const activeSnapshots = pilots.map((socket) =>
+      nextPacket(socket, (packet) => packet.type === "snapshot"),
+    );
     pilots[MAX_PLAYERS - 1]!.send(JSON.stringify({ type: "queue_join" }));
     const assignments = await Promise.all(joined);
+    await Promise.all(activeSnapshots);
     const roomIds = new Set(assignments.map((packet) => String(packet.roomId)));
     assert.equal(roomIds.size, 1);
     assert.equal(runtime.queuedPilotCount, 0);

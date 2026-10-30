@@ -24,9 +24,10 @@ brief pilots before launch and keep the same field identity visible in flight.
   `VITE_WFM_COMPETITIVE_QUEUE_ENABLED=true` in the app build and
   `WFM_COMPETITIVE_QUEUE_ENABLED=true` in the socket service. It groups ten
   distinct authenticated pilots, assigns a balanced 5v5 field, and starts the
-  match without AI seats. Queue state and rooms are process-local, matching the
-  existing socket-room architecture; queued pilots must land on the same socket
-  process.
+  match without AI seats. The FIFO queue is capped at 1,000 waiting connections;
+  pilots may cancel, and wait entries expire after 15 minutes. Queue state and
+  rooms are process-local, matching the existing socket-room architecture;
+  queued pilots must land on the same socket process.
 
 Private room-code matches remain isolated and no-reward. The competitive queue
 is an opt-in 10-human matchmaker, not a single unlimited room, ranked ladder,
