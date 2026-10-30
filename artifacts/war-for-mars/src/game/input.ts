@@ -75,6 +75,30 @@ function clamp(n: number): number {
   return Math.max(-1, Math.min(1, n));
 }
 
+const STICK_DEAD_ZONE = 0.08;
+
+export function stickAxesFromDelta(dx: number, dy: number, maxDistance: number) {
+  if (
+    !Number.isFinite(dx) ||
+    !Number.isFinite(dy) ||
+    !Number.isFinite(maxDistance) ||
+    maxDistance <= 0
+  ) {
+    return { x: 0, y: 0 };
+  }
+
+  const distance = Math.hypot(dx, dy);
+  if (distance <= maxDistance * STICK_DEAD_ZONE) return { x: 0, y: 0 };
+
+  const magnitude =
+    (Math.min(distance, maxDistance) / maxDistance - STICK_DEAD_ZONE) /
+    (1 - STICK_DEAD_ZONE);
+  return {
+    x: clamp((dx / distance) * magnitude),
+    y: clamp((dy / distance) * magnitude),
+  };
+}
+
 export function readInput(bus: Bus): StepInput {
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;

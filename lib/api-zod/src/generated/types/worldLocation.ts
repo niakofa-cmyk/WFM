@@ -28,6 +28,11 @@ export interface WorldLocation {
   unlockAfter: number;
   unlocked: boolean;
   explored: boolean;
+  sector?: string;
+  requiredTechTier?: number;
+  requiredRep?: number;
+  /** @nullable */
+  lockReason?: string | null;
   description: string;
   services: string[];
 }

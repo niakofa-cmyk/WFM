@@ -3,11 +3,13 @@ import { and, eq } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   strikeRunsTable,
   type MarketPrices,
   type PlayerProgress,
 } from "@workspace/db";
+import { normalizeLeaderboardProfileUpdate } from "./public-leaderboard";
 import {
   adjudicateStrike,
   IncompleteStrikeReplay,
@@ -36,6 +38,7 @@ export type GameProfile = {
   shipId: ShipId;
   scheme: "arc" | "strafe";
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   hold: GoodId | null;
   paid: number;
@@ -44,6 +47,8 @@ export type GameProfile = {
   cleared: number;
   tech: "stick" | "barrels" | "mark" | null;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string | null;
   revision: number;
 };
 
@@ -95,6 +100,7 @@ function toProfile(row: PlayerProgress): GameProfile {
     shipId: row.shipId as ShipId,
     scheme: row.scheme as GameProfile["scheme"],
     refit: row.refit,
+    shieldMk2: row.shieldMk2,
     prices: row.prices,
     hold: row.hold as GoodId | null,
     paid: row.paid,
@@ -103,6 +109,8 @@ function toProfile(row: PlayerProgress): GameProfile {
     cleared: row.cleared,
     tech: row.tech as GameProfile["tech"],
     drilled: row.drilled,
+    publicLeaderboardOptIn: row.publicLeaderboardOptIn,
+    publicLeaderboardCallsign: row.publicLeaderboardCallsign,
     revision: row.revision,
   };
 }
@@ -129,6 +137,53 @@ export async function getPlayerProfile(userId: string): Promise<GameProfile> {
     .where(eq(playerProgressTable.userId, userId));
   if (!profile) throw new Error("Player profile could not be loaded.");
   return toProfile(profile);
+}
+
+export async function updatePlayerControlScheme(
+  userId: string,
+  scheme: GameProfile["scheme"],
+): Promise<GameProfile> {
+  return db.transaction(async (tx) => {
+    const current = await lockOrCreateProfile(tx, userId);
+    if (current.scheme === scheme) return toProfile(current);
+
+    const [updated] = await tx
+      .update(playerProgressTable)
+      // Control preferences must not advance progression revision: issued runs
+      // use that revision to bind their server-authoritative reward claim.
+      .set({ scheme, updatedAt: new Date() })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player control preference could not be saved.");
+    return toProfile(updated);
+  });
+}
+
+export async function updatePlayerLeaderboardProfile(
+  userId: string,
+  input: { enabled: boolean; callsign?: string },
+): Promise<GameProfile> {
+  let setting: ReturnType<typeof normalizeLeaderboardProfileUpdate>;
+  try {
+    setting = normalizeLeaderboardProfileUpdate(input);
+  } catch {
+    throw new ProgressionError("Choose a 3–16 character public callsign.", 400);
+  }
+
+  return db.transaction(async (tx) => {
+    await lockOrCreateProfile(tx, userId);
+    const [updated] = await tx
+      .update(playerProgressTable)
+      .set({
+        publicLeaderboardOptIn: setting.enabled,
+        publicLeaderboardCallsign: setting.callsign,
+        updatedAt: new Date(),
+      })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player leaderboard preference could not be saved.");
+    return toProfile(updated);
+  });
 }
 
 function missionAvailable(mission: MissionId, cleared: number): boolean {
@@ -173,6 +228,7 @@ export async function startPlayerStrike(userId: string, input: StrikeStartInput)
       shipId: input.shipId,
       faction: input.faction,
       refit: current.refit,
+      shieldMk2: current.shieldMk2,
       ...missionConfig,
       pace,
       tech: input.tech,
@@ -231,6 +287,9 @@ export async function applyPlayerAction(
       };
     }
 
+    await tx.insert(playerWorldStateTable).values({ userId }).onConflictDoNothing();
+    const [world] = await tx.select().from(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
+    if (world?.currentLocation !== "phobos-yard") throw new ProgressionError("Return to Phobos Yard for a ship refit.", 400);
     let refit = profile.refit;
     if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
     const amount = -120 * (refit + 1);

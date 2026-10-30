@@ -60,6 +60,67 @@ paths:
                 $ref: "#/components/schemas/GameProfile"
         "401":
           description: Authentication required
+  /game/leaderboard:
+    get:
+      operationId: getPublicWingLeaderboard
+      tags: [public-leaderboard]
+      summary: Get the public opt-in Wing credit leaderboard
+      description: Returns only callsigns and aggregate server-verified Wing reward credits.
+      responses:
+        "200":
+          description: Public Wing leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicWingLeaderboardResponse"
+  /game/profile/leaderboard:
+    patch:
+      operationId: updateLeaderboardProfile
+      tags: [progression]
+      summary: Set the authenticated player's public leaderboard preference
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaderboardProfileUpdateInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "400":
+          description: Invalid callsign or preference
+        "401":
+          description: Authentication required
+  /game/profile/control-scheme:
+    patch:
+      operationId: updateControlScheme
+      tags: [progression]
+      summary: Save the authenticated player's control scheme
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlSchemeInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "400":
+          description: Invalid control scheme
+        "401":
+          description: Authentication required
   /game/profile/actions:
     post:
       operationId: applyProgressionAction
@@ -185,6 +246,21 @@ paths:
           description: Authentication required
         "409":
           description: Idempotency key conflict
+  /world/services:
+    post:
+      operationId: executeWorldService
+      tags: [World]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorldServiceInput" }
+      responses:
+        "200":
+          description: Server-validated station or field activity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorldServiceResult" }
   /world:
     get:
       operationId: getWorld
@@ -316,13 +392,14 @@ components:
       required: [status, database]
     GameProfile:
       type: object
-      required: [credits, faction, shipId, scheme, refit, prices, hold, paid, pace, mission, cleared, tech, drilled, revision]
+      required: [credits, faction, shipId, scheme, refit, shieldMk2, prices, hold, paid, pace, mission, cleared, tech, drilled, publicLeaderboardOptIn, publicLeaderboardCallsign, revision]
       properties:
         credits: { type: integer, minimum: 0 }
         faction: { type: string, enum: [accord, ussf] }
         shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
         scheme: { type: string, enum: [arc, strafe] }
         refit: { type: integer, minimum: 0, maximum: 5 }
+        shieldMk2: { type: boolean }
         prices: { $ref: "#/components/schemas/MarketPrices" }
         hold: { type: [string, "null"], enum: [salt, iron, dust, resin, null] }
         paid: { type: integer, minimum: 0 }
@@ -331,7 +408,34 @@ components:
         cleared: { type: integer, minimum: 0, maximum: 4 }
         tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
         drilled: { type: boolean }
+        publicLeaderboardOptIn: { type: boolean }
+        publicLeaderboardCallsign: { type: [string, "null"], minLength: 3, maxLength: 16, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$" }
         revision: { type: integer, minimum: 0 }
+    LeaderboardProfileUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        callsign: { type: string, minLength: 3, maxLength: 16, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$" }
+    PublicWingLeaderboardResponse:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 25
+          items:
+            $ref: "#/components/schemas/PublicWingLeaderboardEntry"
+    PublicWingLeaderboardEntry:
+      type: object
+      additionalProperties: false
+      required: [rank, callsign, score]
+      properties:
+        rank: { type: integer, minimum: 1 }
+        callsign: { type: string, minLength: 3, maxLength: 16 }
+        score: { type: integer, minimum: 0 }
     ProgressionActionInput:
       type: object
       additionalProperties: false
@@ -339,6 +443,12 @@ components:
       properties:
         idempotencyKey: { type: string, format: uuid }
         action: { type: string, enum: [refit] }
+    ControlSchemeInput:
+      type: object
+      additionalProperties: false
+      required: [scheme]
+      properties:
+        scheme: { type: string, enum: [arc, strafe] }
     ProgressionActionResult:
       type: object
       required: [profile, transaction]
@@ -378,6 +488,7 @@ components:
             shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
             faction: { type: string, enum: [accord, ussf] }
             refit: { type: integer, minimum: 0, maximum: 5 }
+            shieldMk2: { type: boolean }
             pace: { type: string, enum: [practice, strike] }
             goal: { type: string, enum: [disc, beacons, ace, extract] }
             disc: { type: string, enum: [rust, beacon, night, dust] }
@@ -444,14 +555,21 @@ components:
         goodId: { $ref: "#/components/schemas/TradeGoodId" }
         side: { type: string, enum: [buy, sell] }
         quantity: { type: integer, minimum: 1, maximum: 50 }
+        totalLimit: { type: integer, minimum: 1 }
     MarketListing:
       type: object
-      required: [goodId, name, basePrice, price, stock, targetStock, demandScore, modifierBps, revision, updatedAt]
+      required: [goodId, name, basePrice, price, sellPrice, buyTotals, sellTotals, purpose, stock, targetStock, demandScore, modifierBps, revision, updatedAt]
       properties:
         goodId: { $ref: "#/components/schemas/TradeGoodId" }
         name: { type: string }
         basePrice: { type: integer, minimum: 1 }
         price: { type: integer, minimum: 1 }
+        sellPrice: { type: integer, minimum: 1 }
+        purpose: { type: string }
+        restricted: { type: boolean }
+        restrictionReason: { type: ["string", "null"] }
+        buyTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
+        sellTotals: { type: array, items: { type: integer, minimum: 1 }, minItems: 50, maxItems: 50 }
         stock: { type: integer, minimum: 0 }
         targetStock: { type: integer, minimum: 1 }
         demandScore: { type: integer, minimum: -100, maximum: 100 }
@@ -494,9 +612,12 @@ components:
         endsAt: { type: string, format: date-time }
     MarketSnapshot:
       type: object
-      required: [credits, inventory, listings, transactions, event]
+      required: [credits, inventory, listings, transactions, event, cargoUsed, cargoCapacity, rejections]
       properties:
         credits: { type: integer, minimum: 0 }
+        cargoUsed: { type: integer, minimum: 0 }
+        cargoCapacity: { type: integer, minimum: 1 }
+        rejections: { type: array, items: { $ref: "#/components/schemas/EconomyRejection" } }
         inventory:
           type: array
           items: { $ref: "#/components/schemas/InventoryHolding" }
@@ -526,6 +647,10 @@ components:
         unlockAfter: { type: integer, minimum: 0, maximum: 4 }
         unlocked: { type: boolean }
         explored: { type: boolean }
+        sector: { type: string }
+        requiredTechTier: { type: integer }
+        requiredRep: { type: integer }
+        lockReason: { type: ["string", "null"] }
         description: { type: string }
         services:
           type: array
@@ -544,15 +669,23 @@ components:
         reputationReward: { type: integer, minimum: 0 }
     WorldState:
       type: object
-      required: [event, reputation, currentLocation, routes, locations, discoveries, quests]
+      required: [event, reputation, currentLocation, routes, locations, discoveries, quests, hyperdriveTier, inventory, activities, history, cargoUsed, cargoCapacity, installedUpgrades, rejections]
       properties:
+        hyperdriveTier: { type: integer, minimum: 1, maximum: 3 }
+        cargoUsed: { type: integer, minimum: 0 }
+        cargoCapacity: { type: integer, minimum: 1 }
+        installedUpgrades: { type: array, items: { type: string, enum: [shield-mk2, cargo-expansion, drive-efficiency] } }
+        rejections: { type: array, items: { $ref: "#/components/schemas/EconomyRejection" } }
+        inventory: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        activities: { type: array, items: { $ref: "#/components/schemas/WorldActivity" } }
+        history: { type: array, items: { $ref: "#/components/schemas/WorldActivityRecord" } }
         event: { $ref: "#/components/schemas/WorldEvent" }
         reputation:
           type: object
           required: [accord, ussf]
           properties:
-            accord: { type: integer, minimum: 0 }
-            ussf: { type: integer, minimum: 0 }
+            accord: { type: integer, minimum: -100, maximum: 100 }
+            ussf: { type: integer, minimum: -100, maximum: 100 }
         currentLocation: { type: string }
         routes:
           type: array
@@ -580,6 +713,7 @@ components:
       properties:
         idempotencyKey: { type: string, format: uuid }
         destinationId: { type: string }
+        maxCost: { type: integer, minimum: 0 }
     WorldTravelResult:
       type: object
       required: [world, credits, travelCost, replayed]
@@ -615,5 +749,58 @@ components:
         world: { $ref: "#/components/schemas/WorldState" }
         credits: { type: integer, minimum: 0 }
         rewardCredits: { type: integer, minimum: 0 }
+        replayed: { type: boolean }
+    WorldActivity:
+      type: object
+      required: [id, title, description, risk, available, reason, daily, creditCost, rewardCredits, costs, rewards, reputationDelta, rivalReputationDelta]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        risk: { type: string }
+        available: { type: boolean }
+        reason: { type: ["string", "null"] }
+        daily: { type: boolean }
+        creditCost: { type: integer, minimum: 0 }
+        rewardCredits: { type: integer, minimum: 0 }
+        costs: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        rewards: { type: array, items: { $ref: "#/components/schemas/InventoryHolding" } }
+        reputationDelta: { type: integer }
+        rivalReputationDelta: { type: integer }
+    EconomyRejection:
+      type: object
+      required: [id, action, targetId, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string, enum: [trade, service] }
+        targetId: { type: string }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
+    WorldActivityRecord:
+      type: object
+      required: [id, title, creditsDelta, createdAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        creditsDelta: { type: integer }
+        createdAt: { type: string, format: date-time }
+    WorldServiceInput:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, serviceId, locationId, cycleDate]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        serviceId: { type: string }
+        creditLimit: { type: integer, minimum: 0 }
+        locationId: { type: string }
+        cycleDate: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    WorldServiceResult:
+      type: object
+      required: [world, credits, refit, message, replayed]
+      properties:
+        world: { $ref: "#/components/schemas/WorldState" }
+        credits: { type: integer, minimum: 0 }
+        refit: { type: integer, minimum: 0, maximum: 5 }
+        message: { type: string }
         replayed: { type: boolean }
 

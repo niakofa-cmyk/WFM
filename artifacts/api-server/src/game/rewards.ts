@@ -23,6 +23,7 @@ export type ReplayClaim = {
   shipId: ShipId;
   faction: Faction;
   refit: number;
+  shieldMk2?: boolean;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -152,6 +153,7 @@ export function adjudicateStrike(claim: ReplayClaim) {
     allyCount: claim.allyCount,
     foeCount: claim.foeCount,
     tech: claim.tech,
+    shieldMk2: claim.shieldMk2,
   });
   for (const input of claim.inputs) {
     if (match.over) {

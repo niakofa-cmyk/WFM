@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './controlSchemeInput';
+export * from './controlSchemeInputScheme';
+export * from './economyRejection';
+export * from './economyRejectionAction';
 export * from './exploreLocationResult';
 export * from './gameProfile';
 export * from './gameProfileFaction';
@@ -17,6 +21,7 @@ export * from './gameProfileShipId';
 export * from './gameProfileTech';
 export * from './healthStatus';
 export * from './inventoryHolding';
+export * from './leaderboardProfileUpdateInput';
 export * from './marketListing';
 export * from './marketPrices';
 export * from './marketSnapshot';
@@ -30,6 +35,8 @@ export * from './progressionActionInputAction';
 export * from './progressionActionResult';
 export * from './progressionActionResultTransaction';
 export * from './progressionActionResultTransactionKind';
+export * from './publicWingLeaderboardEntry';
+export * from './publicWingLeaderboardResponse';
 export * from './readinessCheckResponse';
 export * from './readinessCheckResponseStatus';
 export * from './strikeClaimInput';
@@ -54,6 +61,8 @@ export * from './strikeStartInputTech';
 export * from './strikeStepInput';
 export * from './strikeStepInputPreset';
 export * from './tradeGoodId';
+export * from './worldActivity';
+export * from './worldActivityRecord';
 export * from './worldEvent';
 export * from './worldExploreInput';
 export * from './worldLocation';
@@ -64,7 +73,10 @@ export * from './worldQuestActionInputAction';
 export * from './worldQuestActionResult';
 export * from './worldQuestStatus';
 export * from './worldRoute';
+export * from './worldServiceInput';
+export * from './worldServiceResult';
 export * from './worldState';
+export * from './worldStateInstalledUpgradesItem';
 export * from './worldStateReputation';
 export * from './worldTravelInput';
 export * from './worldTravelResult';

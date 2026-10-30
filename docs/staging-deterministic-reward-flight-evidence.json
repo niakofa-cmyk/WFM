@@ -1,0 +1,79 @@
+{
+  "status": "PASS",
+  "scope": "One authorized normal authenticated staging skirmish, accepted server reward, one identical duplicate claim, and same-session reload persistence",
+  "recordedAtUtc": "2026-10-26T12:58:33Z",
+  "target": "https://wfm-app-staging-staging.up.railway.app/",
+  "frontend": {
+    "commit": "e9786caa47de84cc67c7495e7a884664fff98c4b",
+    "deployment": "0cd2a738-bcd5-4192-9015-35fd14b6abd0",
+    "railwayStatus": "SUCCESS"
+  },
+  "api": {
+    "commit": "179064a436360a07357adf16174bb6d0f90bccd8",
+    "deployment": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+    "railwayStatus": "SUCCESS",
+    "deploymentExplicitlyAuthorized": true
+  },
+  "sourceParity": {
+    "frontendAndApiSimulationIdentical": true,
+    "apiCommitDiffersFromFrontendOnlyByDocumentation": true,
+    "simulationSha256": "8f4cf7ee0bc85234854d86658d3750829e6f63264e8166758b40d20be6e8084a",
+    "workspaceQualityPushRun": "40320534128",
+    "workspaceQualityPushResult": "success"
+  },
+  "checks": {
+    "existingApprovedStagingAccountUsed": true,
+    "newAccountCreated": false,
+    "browserAccessGateUnlocked": true,
+    "freshVerificationAccepted": true,
+    "authenticatedProfileBefore": {"status": 200, "credits": 90},
+    "webgl2Confirmed": true,
+    "renderedBattleScreenshotInspected": true,
+    "mission": "skirmish",
+    "ship": "mandjet",
+    "pace": "strike",
+    "flightCount": 1,
+    "normalFourSecondControlCycles": 95,
+    "replayFrames": 21600,
+    "clientPreview": {"outcome": "loss", "kills": 0, "relays": 1},
+    "uncaughtPageErrors": 0,
+    "clockManipulated": false,
+    "replayModified": false,
+    "diagnostics": {
+      "enabled": true,
+      "serverConfigCapturedInMemory": true,
+      "liveChecksumCount": 21601,
+      "liveChecksumsComparedAgainstStandaloneReplay": false,
+      "rawReplayInSessionStorage": false
+    },
+    "firstClaim": {"status": 200, "gain": 40, "replayed": false},
+    "profileAfterFirstClaim": {"status": 200, "credits": 130},
+    "identicalDuplicate": {
+      "attempts": 1,
+      "status": 200,
+      "replayed": true,
+      "originalGainReturned": 40,
+      "credits": 130,
+      "additionalCreditsAwarded": 0
+    },
+    "reload": {"signedIn": true, "profileStatus": 200, "credits": 130},
+    "signOut": {"signedIn": false, "profileStatus": 401},
+    "browserClosed": true
+  },
+  "acceptedRewardVerified": true,
+  "acceptedClaimIdempotencyVerified": true,
+  "awardedBalancePersistenceAfterReloadVerified": true,
+  "productionModified": false,
+  "rawReplayOrCredentialsWrittenToEvidence": false,
+  "releaseGate": "PENDING",
+  "productionReadiness": "NOT_CLAIMED",
+  "notVerified": [
+    "Independent explanation of the earlier live-Arena versus standalone-browser mismatch",
+    "Persistence in a new session or on another device",
+    "Two-account isolation",
+    "Public NiaKofa /kids/wfm/ route",
+    "Four campaign sorties",
+    "Multiplayer network interruption and restart behavior",
+    "Physical phone performance"
+  ]
+}

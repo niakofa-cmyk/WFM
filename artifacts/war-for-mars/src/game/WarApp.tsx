@@ -1,6 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { StrikeResult, OnlineRoom } from "./Arena";
+import { useAuth } from "@clerk/react";
+import type {
+  StrikeResult,
+  OnlineRoom,
+  WingRewardNotice,
+} from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
+import { currentWingSocketUrl } from "./socket-endpoint";
+import {
+  CLIENT_RECONNECT_WINDOW_MS,
+  SOCKET_HANDSHAKE_TIMEOUT_MS,
+  nextReconnectDelayMs,
+} from "./reconnect-policy";
 import {
   defaultSave,
   loadDevicePreferences,
@@ -14,7 +25,8 @@ import { sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
-  sendProgressionAction,
+  saveServerLeaderboardProfile,
+  saveServerControlScheme,
   startServerStrike,
 } from "./progression-api";
 import {
@@ -27,14 +39,44 @@ import {
   type TechId,
 } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import { DeploymentBriefing } from "./DeploymentBriefing";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
+import { useDurableAction } from "./useDurableAction";
+import { resolveArenaTech } from "./arena-config";
+import { createProfileSync } from "./profile-sync";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
+
+const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
+const competitiveQueueAvailable =
+  import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
+const casualAiQueueAvailable =
+  import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
+
+type StagingRewardDiagnostic = {
+  runId: string;
+  config: StrikeRun["config"] | null;
+  inputs: StepInput[];
+  preview: StrikeResult;
+  /** Bit-exact live Arena state checksums; compare with `pnpm run test:determinism -- --replay`. */
+  liveChecksums: number[] | null;
+  submittedAtUtc: string;
+  firstClaimResponse: {
+    status: number;
+    statusText: string;
+    body: unknown;
+    receivedAtUtc: string;
+  } | null;
+};
+
+type StagingDiagnosticWindow = Window & {
+  __wfmStagingRewardDiagnostic?: StagingRewardDiagnostic;
+};
 
 function ModuleLoading({ label }: { label: string }) {
   return (
@@ -63,11 +105,20 @@ type LobbySession = {
 };
 
 export function WarApp() {
+  const { getToken, userId } = useAuth();
+  const authUserIdRef = useRef(userId);
+  const controlSchemeSaveInFlightRef = useRef(false);
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
   const [profileError, setProfileError] = useState("");
   const [profileRetry, setProfileRetry] = useState(0);
+  const [leaderboardProfile, setLeaderboardProfile] = useState({
+    enabled: false,
+    callsign: "",
+  });
+  const [leaderboardSaving, setLeaderboardSaving] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -78,6 +129,8 @@ export function WarApp() {
   const [onlineSession, setOnlineSession] = useState<OnlineRoom | null>(null);
   const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
+  const [competitiveQueueing, setCompetitiveQueueing] = useState(false);
+  const [casualAiQueueing, setCasualAiQueueing] = useState(false);
   const [offlineAvailable, setOfflineAvailable] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [activeRun, setActiveRun] = useState<StrikeRun | null>(null);
@@ -90,7 +143,11 @@ export function WarApp() {
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-  const actionKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    authUserIdRef.current = userId;
+  }, [userId]);
+  const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
@@ -103,17 +160,22 @@ export function WarApp() {
   );
   const joinSocketRef = useRef<WebSocket | null>(null);
   const joinTimeoutRef = useRef<number | null>(null);
+  const joinAttemptTimeoutRef = useRef<number | null>(null);
   const lobbyRetryRef = useRef<number | null>(null);
 
   const failOnline = (reason: string) => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
     joinTimeoutRef.current = null;
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
+    joinAttemptTimeoutRef.current = null;
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     lobbyRetryRef.current = null;
     joinSocketRef.current?.close();
     joinSocketRef.current = null;
     setOnlineLobby(null);
     setOnlineSession(null);
+    setCompetitiveQueueing(false);
+    setCasualAiQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
   };
@@ -142,6 +204,7 @@ export function WarApp() {
       team: Number(packet.team) as 0 | 1,
       reconnectToken,
       name: "Pilot",
+      getSessionToken: () => getToken(),
     });
     setOnlineStatus("");
     setOfflineMode(false);
@@ -160,51 +223,140 @@ export function WarApp() {
       pilots_not_ready: "Every connected pilot must ready up before launch.",
       invalid_input: "The server rejected an invalid control packet.",
       rate_limited: "Too many messages were sent. Reconnect and try again.",
+      already_queued: "This account is already waiting in the competitive queue.",
+      already_in_match: "This account is already assigned to an active match.",
+      queue_capacity: "The competitive queue is full. Try again shortly.",
+      queue_wait_expired: "Queue wait expired. Rejoin when you are ready.",
+      competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
+      queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
+      queue_assignment_failed: "The match could not be assembled. Please rejoin the queue.",
+      competitive_queue_not_requested: "Reconnect through the matchmaking button you used.",
+      not_queued: "You are no longer waiting in matchmaking.",
+      auto_launch_only: "This quick match launches automatically when its pilot window ends.",
     };
     return messages[code] ?? "Could not connect to that room. Check the code and try again.";
   };
 
-  const joinOnline = (requestedRoomCode: string) => {
+  const joinOnline = (
+    requestedRoomCode: string,
+    queueMode: "competitive" | "casual_ai" | null = null,
+  ) => {
     if (joinSocketRef.current || onlineLobby || onlineSession) return;
-    const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
+    let normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
+    const matchmaking = queueMode !== null;
+    if (!matchmaking && !/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
       return;
     }
-    setRoomCode(normalizedRoomCode);
+    if (queueMode === "competitive") setCompetitiveQueueing(true);
+    else if (queueMode === "casual_ai") setCasualAiQueueing(true);
+    else setRoomCode(normalizedRoomCode);
     setOfflineMode(false);
     unlockAudio();
-    setOnlineStatus("Calling the wing…");
+    setOnlineStatus(
+      queueMode === "competitive"
+        ? "Connecting to competitive queue…"
+        : queueMode === "casual_ai"
+          ? "Finding pilots for a quick match…"
+          : "Calling the wing…",
+    );
     setOfflineAvailable(false);
     let url: URL;
     try {
-      url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-      url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      url.searchParams.set("room", normalizedRoomCode.toLowerCase());
-      const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
-      window.history.replaceState({}, "", roomPath);
-      let token = "";
-      try {
-        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
-      } catch {
-        token = "";
+      url = currentWingSocketUrl();
+      if (queueMode) {
+        url.searchParams.set("queue", queueMode === "casual_ai" ? "casual-ai" : "competitive");
+      } else {
+        url.searchParams.set("room", normalizedRoomCode.toLowerCase());
+        const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
+        window.history.replaceState({}, "", roomPath);
       }
+      let reconnectToken = "";
+      if (!matchmaking) {
+        try {
+          reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        } catch {
+          reconnectToken = "";
+        }
+      }
+      let waitingForQueue = matchmaking;
       let joined = false;
       let started = false;
-      let retries = 0;
+      let retryAttempt = 0;
+      let initialJoinDeadline = performance.now() + (matchmaking ? 60_000 : 5_000);
+      let reconnectDeadline = 0;
       let mySlotId: number | null = null;
       let myTeam: 0 | 1 = 0;
-      joinTimeoutRef.current = window.setTimeout(() => {
-        if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
-      }, 5000);
+      const clearAttemptTimeout = () => {
+        if (joinAttemptTimeoutRef.current != null) {
+          window.clearTimeout(joinAttemptTimeoutRef.current);
+        }
+        joinAttemptTimeoutRef.current = null;
+      };
+      const scheduleRetry = () => {
+        if (started) return;
+        const now = performance.now();
+        if (joined && reconnectDeadline === 0) {
+          reconnectDeadline = now + CLIENT_RECONNECT_WINDOW_MS;
+        }
+        const deadline = joined ? reconnectDeadline : initialJoinDeadline;
+        const delay = nextReconnectDelayMs(retryAttempt++, deadline, now);
+        if (delay == null) {
+          if (joined) {
+            failOnline("Signal was not restored before the room's reconnect hold expired. Rejoin the room.");
+          } else if (waitingForQueue) {
+            failOnline(
+              queueMode === "casual_ai"
+                ? "Quick-match connection was not restored. Tap QUICK MATCH to try again."
+                : "Queue connection was not restored. Tap Find Competitive Match to rejoin.",
+            );
+          }
+          return;
+        }
+        if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+        lobbyRetryRef.current = window.setTimeout(() => {
+          lobbyRetryRef.current = null;
+          connect(url);
+        }, delay);
+      };
+      if (!matchmaking) {
+        joinTimeoutRef.current = window.setTimeout(() => {
+          if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
+        }, 5000);
+      }
 
       const connect = (targetUrl: URL) => {
-        if (started || retries > 5) return;
-        const socket = new WebSocket(targetUrl);
+        if (started) return;
+        let socket: WebSocket;
+        try {
+          socket = new WebSocket(targetUrl);
+        } catch {
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          scheduleRetry();
+          return;
+        }
         joinSocketRef.current = socket;
+        let joinSent = false;
+        clearAttemptTimeout();
+        joinAttemptTimeoutRef.current = window.setTimeout(() => {
+          if (joinSocketRef.current !== socket || started) return;
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          socket.close();
+        }, SOCKET_HANDSHAKE_TIMEOUT_MS);
         socket.addEventListener("open", () => {
           if (joinSocketRef.current !== socket) return;
-          socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+          void getToken().then((sessionToken) => {
+            if (joinSocketRef.current !== socket || socket.readyState !== WebSocket.OPEN) return;
+            if (!sessionToken) {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
+            socket.send(JSON.stringify({ type: "authenticate", token: sessionToken }));
+          }).catch(() => {
+            if (joinSocketRef.current === socket) {
+              failOnline("Could not verify your sign-in session. Check your connection and try again.");
+            }
+          });
         });
         socket.addEventListener("message", (event) => {
           let packet: { type?: string; [key: string]: unknown };
@@ -213,9 +365,43 @@ export function WarApp() {
           } catch {
             return;
           }
+          if (packet.type === "authenticated") {
+            if (joinSent) return;
+            joinSent = true;
+            try {
+              socket.send(JSON.stringify(waitingForQueue
+                ? { type: "queue_join" }
+                : {
+                    type: "join",
+                    name: "Pilot",
+                    ...(reconnectToken ? { reconnectToken } : {}),
+                  }));
+            } catch {
+              socket.close();
+            }
+            return;
+          }
+          if (packet.type === "queue_status") {
+            const position = Number(packet.position);
+            const required = Number(packet.requiredPilots);
+            initialJoinDeadline = performance.now() + 60_000;
+            setCompetitiveQueueing(true);
+            setOnlineStatus(packet.reason === "server_capacity"
+              ? "COMPETITIVE QUEUE · MATCH CAPACITY TEMPORARILY FULL"
+              : `COMPETITIVE QUEUE · ${Number.isFinite(position) ? position : "?"}/${Number.isFinite(required) ? required : 10} PILOTS`);
+            return;
+          }
+          if (packet.type === "queue_cancelled") {
+            failOnline(queueMode === "casual_ai" ? "Quick match cancelled." : "Competitive queue cancelled.");
+            return;
+          }
           if (packet.type === "error") {
             if (started) return;
             const reason = String(packet.reason ?? "unavailable");
+            if (reason === "authentication_required") {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
             if (reason === "match_not_started" || reason === "invalid_lobby_action") {
               setOnlineStatus(showOnlineError(reason));
               return;
@@ -235,12 +421,35 @@ export function WarApp() {
             return;
           }
           if (packet.type === "joined") {
+            if (waitingForQueue) {
+              const assignedRoomId = String(packet.roomId ?? "").trim().toUpperCase();
+              if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(assignedRoomId)) {
+                failOnline("The queue returned an invalid match assignment.");
+                return;
+              }
+              normalizedRoomCode = assignedRoomId;
+              waitingForQueue = false;
+              url.searchParams.delete("queue");
+              url.searchParams.set("room", assignedRoomId.toLowerCase());
+              window.history.replaceState(
+                {},
+                "",
+                `${window.location.pathname}?room=${encodeURIComponent(assignedRoomId)}`,
+              );
+              setRoomCode(assignedRoomId);
+              setCompetitiveQueueing(false);
+              setCasualAiQueueing(false);
+            }
             joined = true;
-            retries = 0;
-            token = String(packet.reconnectToken ?? token);
-            if (token) {
+            retryAttempt = 0;
+            reconnectDeadline = 0;
+            clearAttemptTimeout();
+            if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+            lobbyRetryRef.current = null;
+            reconnectToken = String(packet.reconnectToken ?? reconnectToken);
+            if (reconnectToken) {
               try {
-                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, reconnectToken);
               } catch {
                 // The live socket can reconnect without browser storage.
               }
@@ -266,21 +475,33 @@ export function WarApp() {
                 roomId: normalizedRoomCode,
                 slotId,
                 team,
-                reconnectToken: token,
+                reconnectToken,
                 name: "Pilot",
                 ready: previous?.slotId === slotId ? previous.ready : false,
-                lobby: previous?.lobby ?? {
-                  phase: "lobby",
-                  hostSlotId: slotId,
-                  connectedCount: 1,
-                  maxPlayers: 10,
-                  players: snapshot.players.map((player) => ({
-                    slotId: player.slotId,
-                    team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
-                    connected: player.connected === true,
-                    name: typeof player.name === "string" ? player.name : null,
-                    ready: false,
-                  })),
+                lobby: {
+                  ...(previous?.lobby ?? {
+                    phase: "lobby" as const,
+                    hostSlotId: slotId,
+                    connectedCount: 1,
+                    maxPlayers: 10,
+                    battlefield: {
+                      disc: snapshot.match.disc,
+                      relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+                      rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
+                    },
+                    players: snapshot.players.map((player) => ({
+                      slotId: player.slotId,
+                      team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
+                      connected: player.connected === true,
+                      name: typeof player.name === "string" ? player.name : null,
+                      ready: false,
+                    })),
+                  }),
+                  matchMode: packet.matchMode === "casual_ai" ? "casual_ai" : "private",
+                  countdownSeconds:
+                    Number.isFinite(Number(packet.countdownSeconds))
+                      ? Number(packet.countdownSeconds)
+                      : null,
                 },
               }));
               setOnlineStatus("");
@@ -290,7 +511,6 @@ export function WarApp() {
             return;
           }
           if (packet.type === "lobby") {
-            retries = 0;
             const lobby = packet as unknown as LobbyState;
             setOnlineLobby((previous) => previous ? {
               ...previous,
@@ -301,34 +521,35 @@ export function WarApp() {
           }
           if (packet.type === "started") {
             started = true;
+            clearAttemptTimeout();
+            reconnectDeadline = 0;
             if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
             joinTimeoutRef.current = null;
             beginOnline(socket, {
               ...packet,
               slotId: mySlotId ?? -1,
               team: myTeam,
-              reconnectToken: token,
+              reconnectToken,
             }, normalizedRoomCode);
           }
         });
         socket.addEventListener("close", () => {
           if (started || joinSocketRef.current !== socket) return;
+          clearAttemptTimeout();
           if (!joined) {
-            failOnline("Room connection closed before joining. Check the room code and retry.");
+            setOnlineStatus(waitingForQueue
+              ? "Queue connection interrupted · retrying…"
+              : "Room connection interrupted · retrying…");
+            scheduleRetry();
             return;
           }
-          retries += 1;
-          setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
-          if (retries > 5) {
-            failOnline("Could not reconnect before the seat hold expired. Rejoin the room.");
-            return;
-          }
-          const delay = Math.min(2800, 450 * 2 ** (retries - 1));
-          lobbyRetryRef.current = window.setTimeout(() => connect(targetUrl), delay);
+            setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
+          scheduleRetry();
         });
         socket.addEventListener("error", () => {
-          if (!joined && joinSocketRef.current === socket) {
-            setOnlineStatus("Connection failed · retrying…");
+          if (joinSocketRef.current === socket) {
+            setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+            socket.close();
           }
         });
       };
@@ -338,8 +559,21 @@ export function WarApp() {
     }
   };
 
+  const cancelMatchmaking = () => {
+    const socket = joinSocketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify({ type: "queue_cancel" }));
+      } catch {
+        // Closing the queue socket also removes its waiting entry server-side.
+      }
+    }
+    failOnline(casualAiQueueing ? "Quick match cancelled." : "Competitive queue cancelled.");
+  };
+
   useEffect(() => () => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     joinSocketRef.current?.close();
   }, []);
@@ -354,25 +588,34 @@ export function WarApp() {
       .then((profile) => {
         if (cancelled) return;
         setSave(saveFromProfile(profile, device));
+        setLeaderboardProfile({
+          enabled: profile.publicLeaderboardOptIn,
+          callsign: profile.publicLeaderboardCallsign ?? "",
+        });
         try {
-          const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
-          if (rawPending) {
-            const pending = JSON.parse(rawPending) as {
-              runId?: unknown;
-              inputs?: unknown;
-              preview?: unknown;
-            };
-            if (
-              typeof pending.runId === "string" &&
-              Array.isArray(pending.inputs) &&
-              pending.inputs.length <= 22_000 &&
-              pending.preview &&
-              typeof pending.preview === "object"
-            ) {
-              const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
-              setPendingClaim(restored);
-              setResult(restored.preview);
-              setPhase("debrief");
+          if (stagingRewardDiagnosticsEnabled) {
+            // Diagnostics mode keeps raw replay inputs in memory only.
+            sessionStorage.removeItem("wfm-pending-claim-v1");
+          } else {
+            const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
+            if (rawPending) {
+              const pending = JSON.parse(rawPending) as {
+                runId?: unknown;
+                inputs?: unknown;
+                preview?: unknown;
+              };
+              if (
+                typeof pending.runId === "string" &&
+                Array.isArray(pending.inputs) &&
+                pending.inputs.length <= 22_000 &&
+                pending.preview &&
+                typeof pending.preview === "object"
+              ) {
+                const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
+                setPendingClaim(restored);
+                setResult(restored.preview);
+                setPhase("debrief");
+              }
             }
           }
         } catch {
@@ -391,6 +634,39 @@ export function WarApp() {
       cancelled = true;
     };
   }, [profileRetry]);
+
+  useEffect(() => {
+    // Never overwrite a flight snapshot or an in-progress account mutation.
+    if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
+    const sync = createProfileSync(loadServerProfile, (profile) => {
+      setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
+    }, () => {
+      setActionError("Profile sync unavailable. Your last loaded progress is unchanged; reconnect or reload before another purchase.");
+    });
+    const refresh = () => {
+      if (document.visibilityState !== "hidden") void sync.refresh();
+    };
+    // Other browsers do not share the writer's local state. Revalidate when
+    // returning to this window, recovering connectivity, and while visible.
+    window.addEventListener("wfm:profile-refresh", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const interval = window.setInterval(refresh, 30_000);
+    refresh();
+    return () => {
+      sync.dispose();
+      window.clearInterval(interval);
+      window.removeEventListener("wfm:profile-refresh", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
 
   useEffect(() => {
     if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
@@ -437,6 +713,68 @@ export function WarApp() {
     }));
   };
 
+  const persistControlScheme = async (scheme: Scheme) => {
+    if (
+      !ready ||
+      !userId ||
+      scheme === save.scheme ||
+      profileStatus !== "ready" ||
+      actionBusy ||
+      claimSubmitting ||
+      startingRun ||
+      activeRun ||
+      pendingClaim ||
+      phase === "fight" ||
+      controlSchemeSaveInFlightRef.current
+    ) {
+      return;
+    }
+
+    const requestUserId = userId;
+    controlSchemeSaveInFlightRef.current = true;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      const profile = await saveServerControlScheme(scheme);
+      if (authUserIdRef.current !== requestUserId) return;
+      setSave((previous) =>
+        saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }),
+      );
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setActionError(error instanceof Error ? error.message : "Could not save the control scheme.");
+      }
+    } finally {
+      controlSchemeSaveInFlightRef.current = false;
+      setActionBusy(false);
+    }
+  };
+
+  const persistLeaderboardProfile = async (enabled: boolean, callsign: string) => {
+    if (!userId || profileStatus !== "ready" || leaderboardSaving) return;
+    const requestUserId = userId;
+    setLeaderboardSaving(true);
+    setLeaderboardError("");
+    try {
+      const profile = await saveServerLeaderboardProfile(
+        enabled ? { enabled: true, callsign } : { enabled: false },
+      );
+      if (authUserIdRef.current !== requestUserId) return;
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setLeaderboardError(
+          error instanceof Error ? error.message : "Could not save leaderboard preference.",
+        );
+      }
+    } finally {
+      if (authUserIdRef.current === requestUserId) setLeaderboardSaving(false);
+    }
+  };
+
   const start = async () => {
     if (shell === MenuState.LOADING || startingRun) return;
     if (pendingClaim) {
@@ -475,24 +813,15 @@ export function WarApp() {
   };
 
   const performRefit = async () => {
-    if (actionBusy) return;
+    if (actionBusy || durable.blocked) return;
     if (pendingClaim) {
       setActionError("Retry the pending sortie verification before changing the yard ledger.");
       return;
     }
-    const idempotencyKey = actionKeyRef.current ?? crypto.randomUUID();
-    actionKeyRef.current = idempotencyKey;
     setActionBusy(true);
     setActionError("");
     try {
-      const result = await sendProgressionAction({
-        idempotencyKey,
-        action: "refit",
-      });
-      setSave((previous) =>
-        saveFromProfile(result.profile, { gyro: previous.gyro, drilled: previous.drilled }),
-      );
-      actionKeyRef.current = null;
+      await durable.run({ kind: "refit", data: { action: "refit" } }, "Standard Phobos ship refit");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The yard rejected that transaction.");
     } finally {
@@ -500,13 +829,33 @@ export function WarApp() {
     }
   };
 
-  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult) => {
+  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult, liveChecksums?: number[]) => {
     const pending = { runId, inputs, preview };
     setPendingClaim(pending);
-    try {
-      sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
-    } catch {
-      // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+    if (stagingRewardDiagnosticsEnabled) {
+      const diagnosticWindow = window as StagingDiagnosticWindow;
+      if (!diagnosticWindow.__wfmStagingRewardDiagnostic) {
+        diagnosticWindow.__wfmStagingRewardDiagnostic = {
+          runId,
+          config: activeRun?.runId === runId ? structuredClone(activeRun.config) : null,
+          inputs: inputs.map((frame) => ({ ...frame })),
+          preview: { ...preview },
+          liveChecksums: liveChecksums ? [...liveChecksums] : null,
+          submittedAtUtc: new Date().toISOString(),
+          firstClaimResponse: null,
+        };
+      }
+      try {
+        sessionStorage.removeItem("wfm-pending-claim-v1");
+      } catch {
+        // Diagnostics still remain available in this page's memory.
+      }
+    } else {
+      try {
+        sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
+      } catch {
+        // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+      }
     }
     setClaimError("");
     setClaimSubmitting(true);
@@ -517,6 +866,18 @@ export function WarApp() {
     setPhase("debrief");
     try {
       const grant = await claimServerStrike(runId, { inputs });
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          diagnostic.firstClaimResponse = {
+            status: 200,
+            statusText: "OK",
+            body: grant,
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setPendingClaim(null);
       try {
         sessionStorage.removeItem("wfm-pending-claim-v1");
@@ -544,6 +905,21 @@ export function WarApp() {
         error && typeof error === "object" && "status" in error
           ? Number((error as { status: unknown }).status)
           : 0;
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          const apiError = error && typeof error === "object"
+            ? error as { statusText?: unknown; data?: unknown }
+            : null;
+          diagnostic.firstClaimResponse = {
+            status,
+            statusText: typeof apiError?.statusText === "string" ? apiError.statusText : "",
+            body: apiError && "data" in apiError ? apiError.data : { message },
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setClaimError(message);
       if (status === 400 || status === 404 || status === 409) {
         setPendingClaim(null);
@@ -563,7 +939,11 @@ export function WarApp() {
     }
   };
 
-  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
+  const finish = (
+    next: StrikeResult,
+    replay: { seed: number; inputs: StepInput[]; checksums?: number[] },
+    wingReward?: WingRewardNotice,
+  ) => {
     if (onlineSession) {
       try {
         sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -571,8 +951,44 @@ export function WarApp() {
         // A completed room does not need a browser-stored reconnect token.
       }
       setResult(next);
-      setGain(0);
-      setCargoLine("Live wing operation complete.");
+      if (wingReward?.status === "awarded") {
+        setGain(wingReward.gain);
+        if (wingReward.balanceAfter !== null) {
+          setSave((previous) => ({
+            ...previous,
+            credits: wingReward.balanceAfter!,
+          }));
+        }
+        setCargoLine(
+          `Server verified ${wingReward.outcome}. +${wingReward.gain} credits added to your balance.`,
+        );
+      } else if (wingReward?.status === "daily_limit") {
+        setGain(0);
+        setCargoLine(
+          "Match verified. Your five-reward daily limit has been reached; no additional credits were added.",
+        );
+      } else if (wingReward?.status === "disabled") {
+        setGain(0);
+        setCargoLine(
+          "Online Wing rewards are disabled. No credits were added.",
+        );
+      } else if (wingReward?.status === "not_eligible") {
+        setGain(0);
+        setCargoLine(
+          wingReward.reason === "competitive_queue_required"
+            ? "Private, Practice, and test rooms are not reward-eligible. No credits were added."
+            : wingReward.reason === "participation_threshold"
+            ? "Match verified, but the participation minimum was not met. No credits were added."
+            : wingReward.reason === "not_connected_at_completion"
+              ? "Match verified, but you were disconnected at completion. No credits were added."
+              : "Match verified, but eligible opposing human participation was not met. No credits were added.",
+        );
+      } else {
+        setGain(0);
+        setCargoLine(
+          "The match ended, but its credit reward could not be confirmed. Refresh your profile before flying again.",
+        );
+      }
       setAdvance("");
       setPhase("debrief");
       setOnlineSession(null);
@@ -587,12 +1003,12 @@ export function WarApp() {
       setPhase("debrief");
       return;
     }
-    void submitClaim(activeRun.runId, replay.inputs, next);
+    void submitClaim(activeRun.runId, replay.inputs, next, replay.checksums);
   };
 
   if (profileStatus === "loading") {
     return (
-      <main className="flex h-dvh items-center justify-center bg-void px-6 text-center">
+      <main className="flex min-h-dvh items-center justify-center bg-void px-6 text-center">
         <p className="font-hud text-lg tracking-widest text-solar">CONNECTING TO PHOBOS YARD…</p>
       </main>
     );
@@ -600,7 +1016,7 @@ export function WarApp() {
 
   if (profileStatus === "error") {
     return (
-      <main className="flex h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
         <p className="font-hud text-sm tracking-widest text-alert">PLAYER PROFILE UNAVAILABLE</p>
         <h1 className="font-hud text-4xl text-bone">No progress is stored on this device.</h1>
         <p className="max-w-lg text-sm leading-relaxed text-muted">{profileError}</p>
@@ -673,6 +1089,7 @@ export function WarApp() {
         faction={runFaction}
         scheme={save.scheme}
         refit={runConfig?.refit ?? save.refit}
+        shieldMk2={runConfig?.shieldMk2 ?? save.shieldMk2 ?? false}
         pace={runConfig?.pace ?? pace}
         goal={runGoal}
         disc={runConfig?.disc ?? active?.disc ?? "rust"}
@@ -685,12 +1102,20 @@ export function WarApp() {
               : "STOP THE CAGE"
             : (active?.objective ?? "HOLD TWO RELAYS")
         }
-        tech={runConfig?.tech ?? save.tech}
+        tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
         gyro={save.gyro}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
+        onGraphicsError={(message) => {
+          setActionError(`3D flight stopped: ${message}. No reward was claimed. Return to setup and relaunch after checking your browser graphics settings.`);
+          if (onlineSession) onlineSession.socket.close();
+          setOnlineSession(null);
+          setActiveRun(null);
+          setPhase("brief");
+          setShell(MenuState.TITLE);
+        }}
         onNetworkExit={(reason) => {
           try {
             if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -739,7 +1164,7 @@ export function WarApp() {
             : "Wing lost"
           : "Split disc";
     return (
-      <main className="mx-auto flex h-dvh max-w-xl flex-col justify-center gap-4 overflow-y-auto px-5 py-8">
+      <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
         <h1 className="font-hud text-5xl leading-none text-bone">{title}</h1>
         <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">
@@ -815,12 +1240,26 @@ export function WarApp() {
         refit={save.refit}
         credits={save.credits}
         tech={save.tech}
+        profile={save}
+        signedIn={Boolean(userId)}
+        publicLeaderboardOptIn={leaderboardProfile.enabled}
+        publicLeaderboardCallsign={leaderboardProfile.callsign}
+        publicLeaderboardSaving={leaderboardSaving}
+        publicLeaderboardError={leaderboardError}
+        onSavePublicLeaderboard={persistLeaderboardProfile}
         cleared={save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
-        refitDisabled={save.refit >= 5 || save.credits < cost}
+        refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
+        onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+        onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
+        onCancelMatchmaking={cancelMatchmaking}
+        competitiveQueueing={competitiveQueueing}
+        competitiveQueueAvailable={competitiveQueueAvailable}
+        casualAiQueueing={casualAiQueueing}
+        casualAiQueueAvailable={casualAiQueueAvailable}
         roomCode={roomCode}
         onRoomCode={setRoomCode}
         onCreateRoom={() => {
@@ -841,7 +1280,7 @@ export function WarApp() {
         }}
         onFaction={pickFaction}
         onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
-        onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}
+        onScheme={(scheme: Scheme) => void persistControlScheme(scheme)}
         onGyro={() => {
           if (save.gyro) {
             disarmGyro();
@@ -878,8 +1317,8 @@ export function WarApp() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col px-4 pt-5">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 px-4 pb-5 pt-5">
+      <div className="flex flex-col gap-4 pb-3">
       <header>
         <p className="font-hud text-sm tracking-widest text-solar">USSF VS THE ACCORD</p>
         <h1 className="font-hud text-5xl leading-none text-bone sm:text-6xl">WAR FOR MARS</h1>
@@ -934,13 +1373,20 @@ export function WarApp() {
           );
         })}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        {active
-          ? active.brief
-          : save.pace === "strike"
-            ? "Six-minute Strike: hold two relays to drain enemy integrity. Kills also drain it; the higher integrity bar wins at 0:00."
-            : "Two-minute practice: learn the controls, capture relays, and break enemy integrity before the clock runs out."}
-      </p>
+      <DeploymentBriefing
+        mission={active?.name ?? "Arcade Skirmish"}
+        objective={active?.objective ?? "HOLD TWO RELAYS"}
+        description={
+          active?.brief
+          ?? (save.pace === "strike"
+            ? "A six-minute Strike against an AI-filled wing. Take the relays, pressure the enemy, and protect your integrity."
+            : "A two-minute practice flight against an AI-filled wing. Learn the controls and contest the relays.")
+        }
+        goal={goal}
+        pace={pace}
+        scheme={save.scheme}
+        gyro={save.gyro}
+      />
       <section className="border border-bone/15 px-3 py-3">
         <p className="font-hud text-sm tracking-widest text-solar">YARD CHANNEL</p>
         <ul className="mt-2 flex flex-col gap-2">
@@ -1150,7 +1596,7 @@ export function WarApp() {
           </button>
           <button
             type="button"
-            disabled={actionBusy || save.refit >= 5 || save.credits < cost}
+            disabled={actionBusy || durable.blocked || save.refit >= 5 || save.credits < cost}
             className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
             onClick={() => void performRefit()}
           >

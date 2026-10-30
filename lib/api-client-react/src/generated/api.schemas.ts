@@ -118,6 +118,7 @@ export interface GameProfile {
      * @maximum 5
      */
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   /** @nullable */
   hold: GameProfileHold;
@@ -133,8 +134,43 @@ export interface GameProfile {
   /** @nullable */
   tech: GameProfileTech;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     * @nullable
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$
+     */
+  publicLeaderboardCallsign: string | null;
   /** @minimum 0 */
   revision: number;
+}
+
+export interface LeaderboardProfileUpdateInput {
+  enabled: boolean;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$
+     */
+  callsign?: string;
+}
+
+export interface PublicWingLeaderboardEntry {
+  /** @minimum 1 */
+  rank: number;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     */
+  callsign: string;
+  /** @minimum 0 */
+  score: number;
+}
+
+export interface PublicWingLeaderboardResponse {
+  /** @maxItems 25 */
+  entries: PublicWingLeaderboardEntry[];
 }
 
 export type ProgressionActionInputAction = typeof ProgressionActionInputAction[keyof typeof ProgressionActionInputAction];
@@ -147,6 +183,18 @@ export const ProgressionActionInputAction = {
 export interface ProgressionActionInput {
   idempotencyKey: string;
   action: ProgressionActionInputAction;
+}
+
+export type ControlSchemeInputScheme = typeof ControlSchemeInputScheme[keyof typeof ControlSchemeInputScheme];
+
+
+export const ControlSchemeInputScheme = {
+  arc: 'arc',
+  strafe: 'strafe',
+} as const;
+
+export interface ControlSchemeInput {
+  scheme: ControlSchemeInputScheme;
 }
 
 export type ProgressionActionResultTransactionKind = typeof ProgressionActionResultTransactionKind[keyof typeof ProgressionActionResultTransactionKind];
@@ -321,6 +369,7 @@ export type StrikeRunConfig = {
      * @maximum 5
      */
   refit: number;
+  shieldMk2?: boolean;
   pace: StrikeRunConfigPace;
   goal: StrikeRunConfigGoal;
   disc: StrikeRunConfigDisc;
@@ -461,6 +510,8 @@ export interface MarketTradeInput {
      * @maximum 50
      */
   quantity: number;
+  /** @minimum 1 */
+  totalLimit?: number;
 }
 
 export interface MarketListing {
@@ -470,6 +521,24 @@ export interface MarketListing {
   basePrice: number;
   /** @minimum 1 */
   price: number;
+  /** @minimum 1 */
+  sellPrice: number;
+  purpose: string;
+  restricted?: boolean;
+  /** @nullable */
+  restrictionReason?: string | null;
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  buyTotals: number[];
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  sellTotals: number[];
   /** @minimum 0 */
   stock: number;
   /** @minimum 1 */
@@ -542,9 +611,30 @@ export interface WorldEvent {
   endsAt: string;
 }
 
+export type EconomyRejectionAction = typeof EconomyRejectionAction[keyof typeof EconomyRejectionAction];
+
+
+export const EconomyRejectionAction = {
+  trade: 'trade',
+  service: 'service',
+} as const;
+
+export interface EconomyRejection {
+  id: string;
+  action: EconomyRejectionAction;
+  targetId: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface MarketSnapshot {
   /** @minimum 0 */
   credits: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  rejections: EconomyRejection[];
   inventory: InventoryHolding[];
   listings: MarketListing[];
   transactions: MarketTransaction[];
@@ -588,6 +678,11 @@ export interface WorldLocation {
   unlockAfter: number;
   unlocked: boolean;
   explored: boolean;
+  sector?: string;
+  requiredTechTier?: number;
+  requiredRep?: number;
+  /** @nullable */
+  lockReason?: string | null;
   description: string;
   services: string[];
 }
@@ -620,12 +715,53 @@ export interface WorldQuest {
   reputationReward: number;
 }
 
+export type WorldStateInstalledUpgradesItem = typeof WorldStateInstalledUpgradesItem[keyof typeof WorldStateInstalledUpgradesItem];
+
+
+export const WorldStateInstalledUpgradesItem = {
+  'shield-mk2': 'shield-mk2',
+  'cargo-expansion': 'cargo-expansion',
+  'drive-efficiency': 'drive-efficiency',
+} as const;
+
 export type WorldStateReputation = {
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   accord: number;
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   ussf: number;
 };
+
+export interface WorldActivity {
+  id: string;
+  title: string;
+  description: string;
+  risk: string;
+  available: boolean;
+  /** @nullable */
+  reason: string | null;
+  daily: boolean;
+  /** @minimum 0 */
+  creditCost: number;
+  /** @minimum 0 */
+  rewardCredits: number;
+  costs: InventoryHolding[];
+  rewards: InventoryHolding[];
+  reputationDelta: number;
+  rivalReputationDelta: number;
+}
+
+export interface WorldActivityRecord {
+  id: string;
+  title: string;
+  creditsDelta: number;
+  createdAt: string;
+}
 
 export interface WorldRoute {
   destinationId: string;
@@ -635,6 +771,20 @@ export interface WorldRoute {
 }
 
 export interface WorldState {
+  /**
+     * @minimum 1
+     * @maximum 3
+     */
+  hyperdriveTier: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  installedUpgrades: WorldStateInstalledUpgradesItem[];
+  rejections: EconomyRejection[];
+  inventory: InventoryHolding[];
+  activities: WorldActivity[];
+  history: WorldActivityRecord[];
   event: WorldEvent;
   reputation: WorldStateReputation;
   currentLocation: string;
@@ -647,6 +797,8 @@ export interface WorldState {
 export interface WorldTravelInput {
   idempotencyKey: string;
   destinationId: string;
+  /** @minimum 0 */
+  maxCost?: number;
 }
 
 export interface WorldTravelResult {
@@ -688,6 +840,29 @@ export interface WorldQuestActionResult {
   credits: number;
   /** @minimum 0 */
   rewardCredits: number;
+  replayed: boolean;
+}
+
+export interface WorldServiceInput {
+  idempotencyKey: string;
+  serviceId: string;
+  /** @minimum 0 */
+  creditLimit?: number;
+  locationId: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  cycleDate: string;
+}
+
+export interface WorldServiceResult {
+  world: WorldState;
+  /** @minimum 0 */
+  credits: number;
+  /**
+     * @minimum 0
+     * @maximum 5
+     */
+  refit: number;
+  message: string;
   replayed: boolean;
 }
 

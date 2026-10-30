@@ -12,14 +12,18 @@
 @layer base {
   html {
     color-scheme: dark;
-    height: 100%;
+    min-height: 100%;
     background: var(--color-void);
   }
   body {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--color-void);
     color: var(--color-bone);
+  }
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

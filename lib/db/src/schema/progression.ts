@@ -1,4 +1,5 @@
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -17,6 +18,7 @@ export type MarketPrices = { salt: number; iron: number; dust: number; resin: nu
 export const strikeRunStatus = pgEnum("strike_run_status", ["open", "claimed", "expired"]);
 export const progressionEventKind = pgEnum("progression_event_kind", [
   "strike_reward",
+  "wing_reward",
   "market_buy",
   "market_dock",
   "refit",
@@ -24,6 +26,7 @@ export const progressionEventKind = pgEnum("progression_event_kind", [
   "quest_accept",
   "quest_reward",
   "world_travel",
+  "world_service",
 ]);
 
 export const playerProgressTable = pgTable("player_progress", {
@@ -33,6 +36,9 @@ export const playerProgressTable = pgTable("player_progress", {
   shipId: text("ship_id").notNull().default("mandjet"),
   scheme: text("scheme").notNull().default("arc"),
   refit: integer("refit").notNull().default(0),
+  shieldMk2: boolean("shield_mk2").notNull().default(false),
+  cargoExpansion: boolean("cargo_expansion").notNull().default(false),
+  driveEfficiency: boolean("drive_efficiency").notNull().default(false),
   prices: jsonb("prices")
     .$type<MarketPrices>()
     .notNull()
@@ -44,10 +50,16 @@ export const playerProgressTable = pgTable("player_progress", {
   cleared: integer("cleared").notNull().default(0),
   tech: text("tech"),
   drilled: boolean("drilled").notNull().default(false),
+  publicLeaderboardOptIn: boolean("public_leaderboard_opt_in").notNull().default(false),
+  publicLeaderboardCallsign: text("public_leaderboard_callsign"),
   inventoryMigrated: boolean("inventory_migrated").notNull().default(false),
   revision: integer("revision").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("player_progress_public_leaderboard_idx")
+    .on(table.userId)
+    .where(sql`${table.publicLeaderboardOptIn} = true`),
+]);
 
 export const insertPlayerProgressSchema = createInsertSchema(playerProgressTable);
 export type PlayerProgress = typeof playerProgressTable.$inferSelect;
@@ -87,5 +99,8 @@ export const progressionEventsTable = pgTable(
     uniqueIndex("progression_events_user_key_uq").on(table.userId, table.idempotencyKey),
     uniqueIndex("progression_events_run_uq").on(table.runId),
     index("progression_events_user_created_idx").on(table.userId, table.createdAt),
+    index("progression_events_online_wing_idx")
+      .on(table.userId)
+      .where(sql`${table.kind} = 'wing_reward' AND ${table.result}->>'mode' = 'online-wing'`),
   ],
 );

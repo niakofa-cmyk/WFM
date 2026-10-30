@@ -2,7 +2,10 @@ modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
 
 [deployment]
 router = "application"
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
+
+[deployment.build]
+args = ["pnpm", "--filter", "@workspace/db", "run", "push"]
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
@@ -41,3 +44,14 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+packages = ["glib", "nspr", "nss", "atk", "at-spi2-core", "dbus", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "xorg.libxcb", "libxkbcommon", "alsa-lib", "libgbm", "railway"]
+
+[userenv]
+
+[userenv.development]
+VITE_API_BASE_URL = ""
+WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
+
+[userenv.production]
+# Production API and socket services are published with the frontend on Replit.
+VITE_API_BASE_URL = ""

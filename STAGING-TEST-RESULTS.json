@@ -1,0 +1,1900 @@
+{
+  "overallStatus": "PENDING",
+  "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+  "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on source commit 798d6e94896411b1ddd1dc4bab13a369c7d91c60. Later staging-branch commits changed only evidence documentation. The frontend runtime remains at commit 5255198; API and socket have since been redeployed at documentation-only commit 4b114d67b93f0996172ead95b164a9b33cd7a046. Runtime code is unchanged across these revisions. Production was not changed.",
+  "environment": {
+    "separateRepl": true,
+    "separateStagingDatabase": true,
+    "stagingOnlyAuthentication": true,
+    "productionDataUntouched": true
+  },
+  "environmentEvidence": {
+    "separateRepl": "Owner confirmed this WFM staging branch is in a separate Repl.",
+    "replitInviteOnlyDeployment": "NOT_REQUIRED for WFM launch; owner decision recorded 2026-10-28. This Replit-specific property is not a promotion gate. Railway staging remains behind its approved access gateway, and API/socket services have no public domains.",
+    "separateStagingDatabase": "The owner-confirmed isolated Railway staging database is used by the private staging API. Live profile writes and restoration occurred only through the protected staging gateway.",
+    "stagingOnlyAuthentication": "Three browser contexts authenticated against staging Development Clerk: two sessions for one existing approved account and one for a distinct existing approved account. No users were created.",
+    "productionDataUntouched": "Only staging was pushed and tested. No Production deployment, key, account or player-data mutation was performed."
+  },
+  "workspaceQuality": {
+    "verifiedAtUtc": "2026-10-26T14:29:17Z",
+    "ciRunId": "40337785182",
+    "verifyWorkspaceJob": "PASS",
+    "typecheck": "PASS",
+    "apiTests": {
+      "passed": 70,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 32,
+      "failed": 0
+    },
+    "productionBuilds": "PASS"
+  },
+  "latestLocalWorkspaceCheck": {
+    "verifiedOn": "2026-10-28",
+    "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "testedWorkingTreeCommittedAs": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "workingTreeChangesIncluded": [],
+    "documentationOnlyChangesDuringRun": [],
+    "scope": "The frozen-lockfile install, typecheck, full test suite, and workspace builds passed on the clean source tree committed as 798d6e94896411b1ddd1dc4bab13a369c7d91c60. This is local workspace evidence; live staging evidence remains tied to the deployment/source identifiers recorded per test. No Production deployment occurred.",
+    "frozenLockfileInstall": "PASS",
+    "typecheck": "PASS",
+    "apiTests": {
+      "passed": 88,
+      "failed": 0
+    },
+    "scriptsTests": {
+      "passed": 49,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 54,
+      "failed": 0
+    },
+    "totalTestsPassed": 191,
+    "promotionPolicyRegression": {
+      "focusedTests": 3,
+      "passed": 3,
+      "failed": 0,
+      "legacyReplitInviteOnlyFalse": "NOT_A_GATE",
+      "requiredEnvironmentAssertions": [
+        "separateRepl",
+        "separateStagingDatabase",
+        "stagingOnlyAuthentication",
+        "productionDataUntouched"
+      ],
+      "missingFalseOrNonBooleanRequiredEvidence": "BLOCKED"
+    },
+    "promotionCliIntegrationTests": {
+      "passed": 11,
+      "failed": 0,
+      "scope": "Actual promotion verifier invoked in synthetic temporary Git repositories with sanitized process environments."
+    },
+    "latestPromotionGateCheck": {
+      "checkedOn": "2026-10-28",
+      "headRefAtCheck": "staging",
+      "headCommitAtCheck": "4b114d67b93f0996172ead95b164a9b33cd7a046",
+      "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+      "result": "BLOCKED",
+      "exitCode": 1,
+      "requiredEnvironmentAssertions": "PASS",
+      "replitInviteOnlyDeployment": "NOT_REQUIRED",
+      "applicationChangesAfterTest": false,
+      "blockingConditions": [
+        "overallStatus must be PASS",
+        "tests.signupAndSignin must be PASS",
+        "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
+        "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
+        "tests.interruptedMatchCannotClaimRewards must be PASS"
+      ],
+      "scope": "Local verifier rerun against current staging PR head 4b114d67b93f0996172ead95b164a9b33cd7a046 after recording the owner-reported two-phone restart result. Tested-source comparison passes; only the remaining listed evidence gates block promotion. No Production configuration change or deployment."
+    },
+    "workspaceBuilds": "PASS",
+    "publicE2e": {
+      "latestRunInThisCheck": "NOT_RUN; workspace-quality does not include the public Playwright suite.",
+      "previousRecordedRuns": [
+        {
+          "testedSourceCommit": "8cabc49fed9e6a1aafff73832411ed82b28d496a",
+          "passed": 6,
+          "failed": 0,
+          "responsiveViewports": ["390x844", "844x390"]
+        },
+        {
+          "testedSourceCommit": "d764623471cb4abcc3d1e970e656a797bac9ad26",
+          "passed": 6,
+          "failed": 0,
+          "scope": "Previously recorded public Playwright suite; not rerun in the current workspace-quality workflow."
+        }
+      ],
+      "physicalDeviceEvidence": false,
+      "scope": "Previous browser automation is supplemental only; the current workspace-quality run did not exercise a browser or physical device."
+    },
+    "socketLifecycleRegression": {
+      "allPilotsReceiveRestartNotice": "PASS",
+      "shutdownWaitsForPilotAcknowledgements": "PASS",
+      "missingAcknowledgementUsesBoundedTimeout": "PASS",
+      "restartCloseCode": 4002,
+      "newUpgradesRejectedDuringShutdown": "PASS",
+      "repeatedCloseIsSafe": "PASS",
+      "interruptedRoomCannotBecomeStrikeClaim": "PASS",
+      "staleRoomReconnectRejected": "PASS",
+      "freshRoomAfterRestart": "PASS",
+      "scope": "Local API/socket integration tests only. Live staging status is recorded separately."
+    },
+    "interruptedRewardRegression": {
+      "roomRestartNotice": "PASS",
+      "restartCloseCode": 4002,
+      "staleRoomReconnect": "session_lost",
+      "roomCodeRejectedByStrikeRunIdSchema": true,
+      "unknownStrikeRunClaimServiceStatus": 404,
+      "expiredClaimAndIdenticalRetry": "Both returned {error: expired}",
+      "acceptedDuplicateClaim": "One award; identical replay returned replayed=true",
+      "changedReplay": "Rejected with status 409 and no profile or event mutation",
+      "profileChangedByRejectedClaims": false,
+      "rewardEventsCreatedByInterruptedRoom": 0
+    },
+    "proposedSnippetSafetyRegression": {
+      "forgedXClerkUserIdWithoutClerkSession": "HTTP 401",
+      "clientCalculatedRewardFields": "Rejected by strict claim-body schema",
+      "scope": "Local tests only; no live account or reward request."
+    },
+    "clerkConfigurationCheck": {
+      "configuredPublishableKeyPreservation": "PASS",
+      "previewKeyMode": "Development",
+      "externalRailwayProductionConnection": "NOT_VERIFIED",
+      "productionSettingsChanged": false
+    }
+  },
+  "latestLocalStagingGateFollowup": {
+    "verifiedAtUtc": "2026-10-28T17:33:13Z",
+    "branch": "staging",
+    "testedSourceCommit": "f3fd084269a419f33e643c25f007bd08787779fb",
+    "scope": "Safe local staging-gate checks only. No live claim, Production sign-in, setting change, or deployment.",
+    "safeLocalTests": {
+      "scriptsAndPreflightGate": {
+        "passed": 47,
+        "failed": 0
+      },
+      "clerkAuthOptionsSyntheticRegression": {
+        "passed": 1,
+        "failed": 0,
+        "scope": "Synthetic auth/middleware regression only; does not verify Production key pairing."
+      },
+      "pureRewardAdjudication": {
+        "passed": 3,
+        "failed": 0
+      },
+      "unauthenticatedProgressionAndClaimRoutes": {
+        "passed": 2,
+        "failed": 0,
+        "scope": "Unauthenticated requests only; deliberately unreachable loopback DATABASE_URL."
+      },
+      "simulationDeterminism": {
+        "passed": 4,
+        "failed": 0
+      },
+      "browserServerSimulationParity": {
+        "passed": 5,
+        "failed": 0
+      },
+      "totalTestsPassed": 62
+    },
+    "promotionVerifier": {
+      "result": "BLOCKED",
+      "exitCode": 1,
+      "overallStatus": "PENDING",
+      "blockingConditions": [
+        "tests.signupAndSignin must be PASS",
+        "tests.profileSyncsAcrossDevices must be PASS",
+        "tests.accountProgressInventoryAndHistoryAreIsolated must be PASS",
+        "tests.serverOwnedRewardsAndDuplicateClaims must be PASS",
+        "tests.restartEndsMatchAndNotifiesPlayers must be PASS",
+        "tests.interruptedMatchCannotClaimRewards must be PASS"
+      ]
+    },
+    "liveClaimSubmitted": false,
+    "creditsAwarded": 0,
+    "productionSettingsChanged": false,
+    "productionDeploymentPerformed": false
+  },
+  "latestFrozenWorkspaceQualityCheck": {
+    "verifiedOn": "2026-10-28",
+    "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "frozenLockfileInstall": "PASS",
+    "typecheck": "PASS",
+    "scriptsTests": {
+      "passed": 49,
+      "failed": 0
+    },
+    "apiTests": {
+      "passed": 88,
+      "failed": 0
+    },
+    "gameTests": {
+      "passed": 54,
+      "failed": 0
+    },
+    "totalTestsPassed": 191,
+    "workspaceBuilds": "PASS",
+    "publicE2e": "NOT_RUN_IN_THIS_CHECK",
+    "scope": "Local workspace only. No application source, Clerk configuration, Railway configuration, or Production settings changed in this check; staging promotion evidence remains a separate gate."
+  },
+  "previewGameplay": {
+    "testedGameSourceCommit": "e9532ffa0bd34f80a1a699d8a6994cf5e0c8860b",
+    "mode": "Practice",
+    "renderer": "WebGL2",
+    "durationSeconds": 120,
+    "result": "DRAW",
+    "reason": "Time expired with both integrity bars tied.",
+    "debrief": "PASS",
+    "returnedToSetup": "PASS",
+    "returnedHome": "PASS",
+    "accountOrRewardPersistence": "NOT_USED"
+  },
+  "latestNetworkHarness": {
+    "testedSourceCommit": "32bacf977b5edc04fec29bb1b53a5847021cd974",
+    "simulatedClients": 10,
+    "gameSecondsAtCompletion": 180.7,
+    "latencyMs": 35,
+    "jitterMs": 20,
+    "frameLossRate": 0.12,
+    "hardReconnectSlots": [1, 8],
+    "result": "PASS",
+    "scope": "Synthetic automated test only; not a real-network or ten-human match."
+  },
+  "currentStagingRailwayHealth": {
+    "checkedAt": "2026-10-26T16:48:06Z",
+    "environment": "staging",
+    "pendingRailwayWork": 0,
+    "healthWindowHours": 24,
+    "currentlyOnline": 4,
+    "servicesWithRecentIssues": 3,
+    "failedDeploymentsInWindow": 5,
+    "services": {
+      "app": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T16:41:47.912Z",
+        "latestDeploymentCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
+        "recentFailedDeployments": 2,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "Earlier gateway deployments failed the STAGING_ACCESS_CODE single-line and length validation."
+      },
+      "api": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T12:48:36.605Z",
+        "recentFailedDeployments": 2,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "Earlier API deployments lacked DATABASE_URL and exited before the readiness endpoint responded."
+      },
+      "socket": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentAt": "2026-10-26T00:38:26.447Z",
+        "recentFailedDeployments": 1,
+        "failureCategory": "config_error",
+        "failureStage": "HEALTHCHECK",
+        "failureSummary": "An earlier socket deployment lacked WING_ALLOWED_ORIGINS and exited before the healthcheck responded."
+      },
+      "database": {
+        "currentState": "online",
+        "latestDeploymentStatus": "SUCCESS",
+        "recentFailedDeployments": 0
+      }
+    },
+    "interpretation": "The failed attempts are historical config/healthcheck failures followed by successful deployments. All current services are online, but Railway still reports the failures in its 24-hour window; this is not a workspace build failure or proof that remaining release evidence passed."
+  },
+  "latestStagingServiceRevisionAudit": {
+    "checkedAtUtc": "2026-10-26T20:40:51Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "sourceRepository": "niakofa-cmyk/WFM",
+    "configuredBranch": "staging",
+    "testedTreeCommit": "214d3ed595975bf561d6289505ac41d9596f27a9",
+    "testedTreeOriginBase": "0a0893d9b0855be3c344b4e335ea482b702c1479",
+    "originStagingCommit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3",
+    "localCommitsAheadOfOrigin": 4,
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "liveDeploymentId": "e57e96d4-3180-42d1-89d6-6d54039fcbd1",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T16:41:47.912Z",
+        "liveCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
+        "latestBranchTrigger": {
+          "deploymentId": "297d6d51-02e7-4279-b214-ce7d8af2d1eb",
+          "status": "SKIPPED",
+          "createdAtUtc": "2026-10-26T19:28:28.733Z",
+          "commit": "c68f729afc175b7f38bcc251992bfb2ac39b78e3"
+        },
+        "runtimeFilesMatchTestedTree": true
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "liveDeploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T12:48:36.605Z",
+        "liveCommit": "179064a436360a07357adf16174bb6d0f90bccd8",
+        "postDeploymentRuntimeChanges": [],
+        "postDeploymentTestChanges": [
+          "artifacts/api-server/src/game/progression.test.ts"
+        ],
+        "runtimeFilesMatchTestedTree": true
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "liveDeploymentId": "e4b46b2b-3467-4e19-9556-da34d5ff6c01",
+        "liveStatus": "SUCCESS",
+        "liveCreatedAtUtc": "2026-10-26T17:54:48.254Z",
+        "liveCommit": "acf080cc2c7cc4c21c19363e8c9e264b0415f090",
+        "postDeploymentRuntimeChanges": [],
+        "postDeploymentTestChanges": [
+          "artifacts/api-server/src/game/progression.test.ts"
+        ],
+        "runtimeFilesMatchTestedTree": true
+      }
+    },
+    "sharedSimulationFiles": {
+      "files": [
+        "sim.ts",
+        "detmath.ts",
+        "sim-trace.ts",
+        "ships.ts"
+      ],
+      "frontendDeployedHashesMatchTestedTree": true,
+      "apiDeployedHashesMatchTestedTree": true,
+      "socketDeployedHashesMatchTestedTree": true,
+      "frontendAndApiDeployedHashesMatch": true
+    },
+    "environmentStatus": {
+      "onlineServices": 4,
+      "servicesWithIssues": 0,
+      "failuresInEightHourWindow": 0,
+      "pendingWork": 0
+    },
+    "exactDeploymentCommitsEqualTestedTree": false,
+    "runtimeContentParity": "CONFIRMED",
+    "productionModified": false,
+    "deploymentTriggered": false,
+    "scope": "Read-only staging audit. Live deployment hashes differ from the tested tree, but all three services' runtime source content matches it; the API-only post-deployment source change is a regression test file. This does not supply the missing promotion PR head SHA."
+  },
+  "preSocketDeploymentRailwayStatus": {
+    "checkedAtUtc": "2026-10-26T21:46:21Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "originStagingCommit": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "deploymentId": "42391044-415f-4010-9a5e-f071158ec182",
+        "status": "SUCCESS",
+        "commit": "4a150fd234d58707871bb8a0d503b83d2b31a730"
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "deploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "status": "SUCCESS",
+        "deployedCommit": "179064a436360a07357adf16174bb6d0f90bccd8"
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "deploymentId": "e4b46b2b-3467-4e19-9556-da34d5ff6c01",
+        "status": "SUCCESS",
+        "deployedCommit": "acf080cc2c7cc4c21c19363e8c9e264b0415f090",
+        "newLifecycleCodeLive": false
+      }
+    },
+    "environmentSummary": {
+      "totalServices": 4,
+      "servicesWithIssues": 0,
+      "failuresInTwoHourWindow": 0,
+      "pendingWork": 0
+    },
+    "productionModified": false,
+    "railwayConfigurationChanged": false,
+    "manualDeploymentTriggered": false,
+    "scope": "Read-only status after the staging-branch push. The frontend deployment succeeded; API and socket remained on earlier successful deployments. The socket lifecycle fix is not live in staging. No live restart was run."
+  },
+  "latestStagingSocketDeployment": {
+    "checkedAtUtc": "2026-10-26T23:11:37.351Z",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "sourceRepository": "niakofa-cmyk/WFM",
+    "sourceBranch": "staging",
+    "sourcePinChangedFrom": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "sourcePin": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+    "deploymentId": "81498a06-c441-4571-9790-f60bba00d4d1",
+    "deploymentStatus": "SUCCESS",
+    "reportedDeploymentCommit": "bc87f40aa17d27973c0aa799b86ecd412f8be71d",
+    "socketRuntimeTreeMatchesTestedCommit": true,
+    "healthcheck": {
+      "path": "/healthz",
+      "result": "PASS"
+    },
+    "serviceOnlineAfterRestart": true,
+    "productionModified": false,
+    "otherRailwaySettingsChanged": false,
+    "scope": "After explicit approval, only the staging socket source pin changed from 4a150fd to tested commit 896c490. Railway deployment metadata reports staging branch head bc87f40 while the service source is explicitly pinned to 896c490; the live shutdown event confirms the acknowledgement implementation ran. The /healthz deployment check passed, the service is live, and no other Railway settings or Production configuration changed."
+  },
+  "latestStagingPostRestartHealth": {
+    "environment": "staging",
+    "verifiedAfterSocketRestartLogAtUtc": "2026-10-26T23:11:38.443680281Z",
+    "pendingRailwayWork": 0,
+    "services": {
+      "app": {
+        "state": "live",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentId": "e53e8af8-0ed8-48f4-acf2-457eb7ed1d01"
+      },
+      "api": {
+        "state": "live",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5"
+      },
+      "socket": {
+        "state": "live",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentId": "81498a06-c441-4571-9790-f60bba00d4d1"
+      },
+      "database": {
+        "state": "live",
+        "latestDeploymentStatus": "SUCCESS",
+        "latestDeploymentId": "6922606e-d6f1-4665-94bc-227174685123"
+      }
+    },
+    "socketListeningLog": {
+      "result": "PASS",
+      "message": "Wing socket server listening on 8099",
+      "timestampUtc": "2026-10-26T23:11:38.443686150Z"
+    },
+    "productionModified": false
+  },
+  "latestStagingMobileSmoke": {
+    "recordedAtUtc": "2026-10-26T16:47:45Z",
+    "environment": "staging",
+    "deployedCommit": "4e8ab0a1306f0b120c0169bb9c71a561d57b898f",
+    "deploymentStatus": "SUCCESS",
+    "gatewayStarted": "PASS",
+    "anonymousAccess": {
+      "rootStatus": 401,
+      "rootShowsPrivateAccessGate": true,
+      "playStatus": 401,
+      "playShowsPrivateAccessGate": true,
+      "publicHealthStatus": 200
+    },
+    "approvedStagingAccessUnlock": "PASS",
+    "soloFlight": "PASS",
+    "webglContext": "PASS",
+    "simulatedMobileViewports": [
+      { "width": 390, "height": 844 },
+      { "width": 844, "height": 390 }
+    ],
+    "flightControlsWithinViewport": {
+      "result": "PASS",
+      "controlsChecked": 4
+    },
+    "exitToSoloSetup": "PASS",
+    "uncaughtPageErrors": 0,
+    "clerkSignIn": "NOT_TESTED",
+    "progressionAndRewardPersistence": "NOT_TESTED",
+    "physicalDevices": "NOT_TESTED",
+    "scope": "Limited no-account staging browser smoke only. Replit invite-only deployment is not a launch requirement by owner decision; authenticated progression checks, physical-device checks, economy checks, and multiplayer release evidence remain separate."
+  },
+  "latestLiveMultiplayerRoomSmoke": {
+    "recordedAtUtc": "2026-10-26T17:17:22Z",
+    "environment": "staging",
+    "transport": "WSS through protected Railway staging gateway",
+    "result": "PASS",
+    "accessGate": "PASS",
+    "temporaryClients": 10,
+    "uniqueSeats": 10,
+    "teamCounts": {
+      "team0": 5,
+      "team1": 5
+    },
+    "fullRoomRejection": "PASS",
+    "hostOnlyStartGate": "PASS",
+    "startBeforeReadyGate": "PASS",
+    "allReadyStartBroadcast": "PASS",
+    "lateJoinAfterStartRejection": "PASS",
+    "disconnectReconnect": {
+      "result": "PASS",
+      "sameSeatAndTeamReclaimed": true,
+      "activeInputAcknowledged": true
+    },
+    "matchCompletion": "NOT_TESTED",
+    "rewardRequests": 0,
+    "accountSignIn": "NOT_TESTED",
+    "productionModified": false,
+    "accessSessionClosed": true,
+    "scope": "Temporary protocol clients in one unique live staging room through the protected gateway. No match completion, browser invite flow, physical-device, reward, or restart behavior was tested."
+  },
+  "latestLiveTenClientMatch": {
+    "recordedAtUtc": "2026-10-26T17:23:37.194Z",
+    "environment": "staging",
+    "transport": "WSS through protected Railway staging gateway",
+    "result": "PASS",
+    "clientCount": 10,
+    "uniqueSeats": 10,
+    "teamCounts": {
+      "team0": 5,
+      "team1": 5
+    },
+    "plannedMidmatchReconnects": 2,
+    "matchCompleted": true,
+    "finalOutcome": "loss",
+    "finalGameSeconds": 229.63333333332287,
+    "finalResultsConsistentAcrossClients": true,
+    "eachClientInputAcknowledged": true,
+    "allSlotsConnectedAtFinish": true,
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "Ten scripted protocol clients completed a live staging match after two controlled disconnect/reconnect events. This verifies server-level staging behavior, not human gameplay, browser UI, physical-device network impairment, or reward persistence."
+  },
+  "previousStagingSocketRestartCheck": {
+    "recordedAtUtc": "2026-10-26T17:34:29Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartMode": "Railway in-place restart of the existing deployment",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": {
+      "result": "PASS",
+      "serverError": "session_lost"
+    },
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "railwayConfigurationChanged": false,
+    "scope": "Authorized staging-only restart during an active two-client match. Clients did not receive the restart notice and closed abnormally; the service recovered, the old reconnect token was rejected, and a new room started. Reward claiming was not tested."
+  },
+  "latestLocalSocketSignalComparison": {
+    "recordedAtUtc": "2026-10-26T17:39:24Z",
+    "launchCommand": "pnpm --filter @workspace/api-server start:socket",
+    "wrapperResult": "FAIL",
+    "wrapperSignal": "SIGTERM sent to the pnpm process; no client shutdown notice or WebSocket close was observed within 10 seconds",
+    "directNodeResult": "PASS",
+    "directNodeNoticesReceived": 2,
+    "directNodeClientCloseCodes": [
+      4002,
+      4002
+    ],
+    "interpretation": "The pnpm wrapper did not close sockets locally, while direct Node did; a local gateway-plus-socket test also passed. Live results differ by harness: a two-client raw Railway probe closed both clients with 1006 and no notice, while a later one-pilot browser displayed the server-restart message. Multi-pilot delivery remains unresolved.",
+    "productionModified": false
+  },
+  "latestLocalGatewayShutdownCheck": {
+    "recordedAtUtc": "2026-10-26T17:59:16Z",
+    "result": "PASS",
+    "activeClients": 2,
+    "restartNoticeReceivedByAll": true,
+    "clientCloseCodes": [
+      4002,
+      4002
+    ],
+    "scope": "Local staging gateway proxy with a direct Node socket process; SIGTERM delivered the interruption notice to both clients and the proxy forwarded close code 4002. This does not establish Railway service-restart behavior."
+  },
+  "priorStagingSocketRestartCheckBeforeShutdownFix": {
+    "recordedAtUtc": "2026-10-26T17:56:33Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartMode": "Railway in-place restart after successful direct-Node start-command deployment",
+    "startCommand": "exec node --enable-source-maps artifacts/api-server/dist/socket.mjs",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": "NOT_TESTED_IN_THIS_RETEST",
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "After an explicitly authorized staging-only start-command update and successful deployment, an active two-client match was interrupted by an in-place Railway restart. Neither client received the interruption notice; both closed with 1006. The service recovered and a fresh room started. No reward claim was attempted."
+  },
+  "stagingSocketRestartCheckBeforeAckFix": {
+    "recordedAtUtc": "2026-10-26T22:01:16.329Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "deploymentId": "dbce4534-387a-4493-bf85-6cc3e5c585b3",
+    "sourcePin": "4a150fd234d58707871bb8a0d503b83d2b31a730",
+    "restartMode": "Authorized Railway in-place restart of the deployed staging socket",
+    "result": "PARTIAL",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "restartNotice": {
+      "result": "FAIL",
+      "receivedByAllClients": false,
+      "clientNoticesReceived": [
+        false,
+        false
+      ],
+      "clientCloseCodes": [
+        1006,
+        1006
+      ]
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": {
+      "result": "NOT_VERIFIED",
+      "driverSentReconnectToken": false
+    },
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true,
+      "roomWasDistinct": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "productionModified": false,
+    "scope": "The tested socket source was deployed to staging and Railway's /healthz check passed. In the live two-pilot restart, neither client received the restart notice and both closed with 1006. The service recovered and two clients started a distinct fresh room. The stale-session assertion is not counted because the probe did not send the prior reconnect token. No reward claim was attempted; no second restart was run."
+  },
+  "latestStagingSocketRestartCheck": {
+    "recordedAtUtc": "2026-10-26T23:11:38.443680281Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "deploymentId": "81498a06-c441-4571-9790-f60bba00d4d1",
+    "sourcePin": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+    "restartMode": "Authorized Railway in-place restart of the deployed staging socket",
+    "result": "PASS",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "clientInputHeartbeatMs": 250,
+    "restartNotice": {
+      "result": "PASS",
+      "receivedByAllClients": true,
+      "clientNoticesReceived": [
+        true,
+        true
+      ],
+      "clientAcknowledgementWrites": [
+        true,
+        true
+      ],
+      "clientCloseCodes": [
+        4002,
+        4002
+      ],
+      "clientCloseReasons": [
+        "server_restart",
+        "server_restart"
+      ],
+      "serverAcknowledgementTelemetry": {
+        "activeSockets": 2,
+        "acknowledged": 2,
+        "timedOut": 0,
+        "closedBeforeAck": 0,
+        "sendErrors": 0,
+        "timestampUtc": "2026-10-26T23:11:38.443680281Z"
+      }
+    },
+    "serviceRecovered": "PASS",
+    "oldRoomReconnect": {
+      "result": "PASS",
+      "driverSentReconnectToken": true,
+      "serverError": "session_lost"
+    },
+    "freshRoom": {
+      "result": "PASS",
+      "twoClientsJoinedAndStarted": true,
+      "roomWasDistinct": true
+    },
+    "rewardRequests": 0,
+    "accountSignIn": false,
+    "physicalDevicesTested": false,
+    "productionModified": false,
+    "scope": "Two raw WebSocket protocol pilots entered an active staging match through the protected staging gateway and sent neutral inputs every 250 ms to remain active. After the authorized socket restart, both received server_restart, wrote acknowledgements, and closed with code 4002; Railway logged acknowledged=2 with no timeouts or send errors. The old reconnect token was rejected with session_lost, and two clients started a distinct fresh room. No Clerk sign-in, reward request, or physical-device test was performed."
+  },
+  "latestStagingBrowserRestartCheck": {
+    "recordedAtUtc": "2026-10-26T18:56:31Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartAccepted": true,
+    "authenticatedBrowserPilots": 1,
+    "profileStatusBeforeMatch": 200,
+    "activeMatchBeforeRestart": true,
+    "canvasesBeforeRestart": 3,
+    "browserUiResult": "PASS",
+    "serverRestartMessageVisible": true,
+    "sessionLostFallbackVisible": false,
+    "noRewardsStatementVisible": true,
+    "matchActiveAfterRestart": false,
+    "canvasesAfterRestart": 0,
+    "clientCloseCode": "NOT_CAPTURED",
+    "claimRequests": 0,
+    "pageErrors": 0,
+    "serviceRecovered": "PASS",
+    "productionModified": false,
+    "scope": "An approved staging account reached an active one-pilot browser match. After the staging socket restart, the UI returned to the menu and showed its server_restart no-rewards message. This proves the visible message for one browser pilot, not delivery to all pilots; an earlier two-client raw protocol run observed close code 1006 and no notice."
+  },
+  "latestStagingBrowserFreshRoomCheck": {
+    "recordedAtUtc": "2026-10-26T19:27:05Z",
+    "environment": "staging",
+    "service": "wfm-socket-staging",
+    "restartAccepted": true,
+    "authenticatedBrowserPilots": 1,
+    "profileStatusBeforeMatch": 200,
+    "firstRoomActiveBeforeRestart": true,
+    "firstRoomCanvasCount": 3,
+    "serverRestartMessageVisible": true,
+    "noRewardsStatementVisible": true,
+    "sessionLostFallbackVisible": false,
+    "clientCloseCode": "NOT_CAPTURED",
+    "newRoomCreatedAfterNotice": true,
+    "newRoomCodeDistinct": true,
+    "newMatchStarted": true,
+    "newRoomCanvasCount": 3,
+    "claimRequests": 0,
+    "pageErrors": 0,
+    "serviceRecovered": "PASS",
+    "productionModified": false,
+    "scope": "One authenticated staging browser started an online room, received the server_restart no-rewards message after the staging socket restart, then used Create New Room to generate a different room and start another match. Room codes were not recorded. This establishes the browser recovery flow for one pilot, not all-player restart notification. The online-room path does not call the separate server-authorized Strike claim API."
+  },
+  "latestStagingAccountAndRoomUiCheck": {
+    "recordedAtUtc": "2026-10-26T19:54:58Z",
+    "environment": "staging",
+    "existingApprovedAccounts": 2,
+    "newAccountsCreated": 0,
+    "differentAccountsConfirmed": true,
+    "profileStatuses": [200, 200],
+    "worldReadStatuses": [200, 200],
+    "marketReadStatuses": [200, 200],
+    "marketDataPresent": [true, true],
+    "crossAccountProfileQueryReturnsCallerProfile": true,
+    "crossAccountProfileWriteRejected": true,
+    "crossAccountProfileWriteStatus": 400,
+    "profilesUnchangedAfterRejectedWrite": true,
+    "profileStabilityRetest": true,
+    "firstProfileComparisonAttemptUnchanged": false,
+    "roomInviteInitialAttempt": "INCONCLUSIVE",
+    "roomInviteRetry": {
+      "roomCodesMatch": true,
+      "bothAccountsJoined": true,
+      "teamAssignmentsValid": true,
+      "teamLabels": ["TEAM 1", "TEAM 2"],
+      "hostStartDisabledBeforeAllReady": true,
+      "matchStartedAfterBothReady": true,
+      "canvasCounts": [3, 3],
+      "claimRequests": 0,
+      "pageErrors": 0
+    },
+    "signOutProfileStatuses": [401, 401],
+    "productionModified": false,
+    "scope": "Protected staging only, using two existing approved accounts. /api/world and /api/market returned data for both accounts. A profile query carrying the other account's userId returned the authenticated caller's profile; a profile action carrying a foreign userId was rejected with HTTP 400. The first full-profile comparison differed; a repeat stability check and a second before/after comparison around the rejected write were stable. Browser room-code invite, separate team assignment, the host readiness gate, both-pilot readiness, and match start passed with three canvases per browser. No market trade, new account, reward claim, or Production change was made. This does not certify physical-device sync or world-state cross-account mutations."
+  },
+  "latestStagingSharedMarketTradeCheck": {
+    "recordedAtUtc": "2026-10-26T20:23:18Z",
+    "environment": "staging",
+    "existingApprovedAccounts": 2,
+    "initialChallengeSubmissions": {
+      "statuses": ["needs_client_trust", "needs_client_trust"],
+      "marketCallsSent": false
+    },
+    "challengeDiagnostics": {
+      "codeFieldCount": [1, 1],
+      "codeFieldType": ["text", "text"],
+      "codeFieldMaxLength": [6, 6],
+      "continueButtonVisible": [true, true],
+      "errorKind": ["none", "none"],
+      "turnstileFramePresent": [false, false]
+    },
+    "currentChallengeCodeSubmissions": 2,
+    "authenticatedProfileStatuses": [200, 200],
+    "marketReadAttempted": true,
+    "marketTradeRequestSent": true,
+    "marketTrade": {
+      "goodId": "salt",
+      "quantity": 1,
+      "maximumBuyTotal": 41,
+      "buyStatus": 200,
+      "sellStatus": 200,
+      "sharedStockDecreasedForObserver": true,
+      "sharedStockRestoredForObserver": true,
+      "marketRevisionAdvancedByTwo": true,
+      "traderInventoryRestored": true,
+      "traderCargoRestored": true,
+      "observerInventoryUnchanged": true,
+      "creditsDelta": -2,
+      "noCreditCreation": true,
+      "claimRequests": 0,
+      "pageErrors": 0,
+      "outcome": "PASS"
+    },
+    "signOutProfileStatuses": [401, 401],
+    "tradeCheckStatus": "PASS",
+    "productionModified": false,
+    "scope": "Protected staging only. Earlier codes left both contexts at needs_client_trust; the rendered challenge had one six-digit field, a visible Continue button, no visible error, and no Turnstile frame. Fresh codes for the active challenges authenticated both existing accounts and each profile returned HTTP 200. One salt was bought and sold back. The observer saw shared stock decrease and return, and the buyer's inventory/cargo returned to baseline. The buyer's balance decreased by two credits from spread/price impact; market revision advanced twice. Both accounts signed out to HTTP 401. Production was not accessed or modified."
+  },
+  "railwayBackend": {
+    "checkedAt": "2026-10-25T01:16:43Z",
+    "environment": "production",
+    "classification": "Historical Production hosting audit; not current staging or workspace-quality status. Current read-only inventory follows.",
+    "scope": "API and WebSocket backend; frontend remains on Replit",
+    "staged": false,
+    "servicesProvisioned": true,
+    "databaseStatus": "SUCCESS",
+    "apiStatus": "FAILED",
+    "apiMissingVariableNames": [
+      "CLERK_SECRET_KEY",
+      "CLERK_PUBLISHABLE_KEY",
+      "API_ALLOWED_ORIGINS"
+    ],
+    "socketStatus": "SUCCESS",
+    "socketHealthcheck": "PASS",
+    "socketStartCommand": "node --enable-source-maps artifacts/api-server/dist/socket.mjs",
+    "gameFrontendRailwayStatus": "FAILED_OUT_OF_SCOPE",
+    "publicDomainsCreated": false,
+    "credentialsCopied": false,
+    "schemaApplied": false,
+    "liveVerification": "PENDING",
+    "currentReadOnlyInventory": {
+      "checkedAt": "2026-10-26T16:35:48Z",
+      "environment": "production",
+      "pendingRailwayChanges": 0,
+      "healthWindowHours": 24,
+      "servicesWithIssues": 0,
+      "failedDeployments": 0,
+      "services": {
+        "api": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS",
+          "clerkVariableNamesPresent": [
+            "API_ALLOWED_ORIGINS",
+            "CLERK_PUBLISHABLE_KEY",
+            "CLERK_SECRET_KEY"
+          ]
+        },
+        "frontend": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS",
+          "clerkVariableNamesPresent": [
+            "VITE_CLERK_PUBLISHABLE_KEY"
+          ]
+        },
+        "socket": {
+          "state": "online",
+          "latestDeploymentStatus": "SUCCESS"
+        }
+      },
+      "secretValuesRead": false,
+      "clerkInstancePairing": "NOT_VERIFIED",
+      "productionSignIn": "NOT_TESTED",
+      "productionReadiness": "NOT_CLAIMED"
+    }
+  },
+  "latestAuthenticatedRewardFlight": {
+    "recordedAtUtc": "2026-10-26T12:58:33Z",
+    "evidence": "docs/staging-deterministic-reward-flight-evidence.json",
+    "acceptedReward": "PASS",
+    "identicalDuplicateAddsNoCredits": "PASS",
+    "awardedBalanceSurvivesReload": "PASS",
+    "balanceBefore": 90,
+    "balanceAfter": 130,
+    "scope": "One staging skirmish and same-session reload only; broader tests below remain pending."
+  },
+  "latestLocalExpiredRunRewardCheck": {
+    "recordedAtUtc": "2026-10-26T20:32:23Z",
+    "status": "PASS",
+    "testedSourceCommit": "0a0893d9b0855be3c344b4e335ea482b702c1479",
+    "workingTreeTestIncluded": "artifacts/api-server/src/game/progression.test.ts",
+    "serverIssuedRun": true,
+    "runExpiredBeforeClaim": true,
+    "claimOutcome": "expired",
+    "creditsChanged": false,
+    "clearedProgressChanged": false,
+    "profileRevisionChanged": false,
+    "rewardEventsCreated": 0,
+    "validRewardIssued": false,
+    "testDataCleanup": "PASS",
+    "stagingModified": false,
+    "productionModified": false,
+    "scope": "Local API progression test only. Staging restart UI checks remain separate; no live staging claim was attempted."
+  },
+  "latestLiveInterruptedRewardClaimAttempt": {
+    "recordedAtUtc": "2026-10-27T01:06:14Z",
+    "environment": "staging",
+    "status": "BLOCKED",
+    "existingApprovedAccountUsed": true,
+    "verificationChallengeSubmitted": true,
+    "authenticatedSessionEstablished": false,
+    "profileRequestSent": false,
+    "serverIssuedRunCreated": false,
+    "claimRequestSent": false,
+    "profileMutation": false,
+    "productionModified": false,
+    "physicalDeviceTested": false,
+    "blocker": "The staging verification challenge did not establish a Clerk session. No retry was attempted.",
+    "scope": "The check stopped before any authenticated profile or Strike API call. No reward claim or sortie was created. This is a blocked attempt, not interrupted-reward evidence."
+  },
+  "latestLiveInterruptedRewardClaimPreflight": {
+    "recordedAtUtc": "2026-10-27T12:02:15Z",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "credentialsStoredViaReplitSecrets": true,
+    "credentialsReadOrDisplayed": false,
+    "initialRequest": {
+      "method": "GET",
+      "path": "/",
+      "status": 401,
+      "outcome": "Expected private staging access-code page; no access code submitted."
+    },
+    "clerkSignInAttempted": false,
+    "authenticatedProfileRequestSent": false,
+    "claimRequestSent": false,
+    "genuineRunId": null,
+    "claimId": null,
+    "runInventoryReadRouteAvailable": false,
+    "readOnlyRailwayDatabaseQueryAvailable": false,
+    "appDeploymentId": "2bdf9127-6020-4d5f-9cc2-7063372f1fda",
+    "appSourceCommit": "a26cfa26dd6b45ccefc8dc26b78febf6d15c4da8",
+    "apiDeploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+    "apiSourcePin": "179064a436360a07357adf16174bb6d0f90bccd8",
+    "socketDeploymentId": "81498a06-c441-4571-9790-f60bba00d4d1",
+    "socketSourcePin": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+    "postgresDeploymentId": "6922606e-d6f1-4665-94bc-227174685123",
+    "servicesOnline": 4,
+    "servicesWithIssues": 0,
+    "pendingWork": 0,
+    "status": "BLOCKED",
+    "blocker": "No safe read-only path is available to identify a genuine expired/interrupted run and inspect reward-event records before and after. No run was manufactured and no claim request was sent.",
+    "profileOrRewardMutation": false,
+    "cleanup": "No access session, browser auth session, run, claim, or reward record was created.",
+    "productionModified": false
+  },
+  "latestLiveStagingBrowserSmoke": {
+    "status": "PASS_SUPPLEMENTAL",
+    "startedAtUtc": "2026-10-27T12:21:48.829Z",
+    "completedAtUtc": "2026-10-27T12:21:51.819Z",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "appDeploymentId": "2bdf9127-6020-4d5f-9cc2-7063372f1fda",
+    "appSourceCommit": "a26cfa26dd6b45ccefc8dc26b78febf6d15c4da8",
+    "browserProfile": "Playwright Pixel 7 emulation / Chromium; not a physical device",
+    "http": {
+      "initialAccessPage": 401,
+      "accessFormPost": 303,
+      "unlockedLandingPage": 200,
+      "gatewayLogoutPost": 303,
+      "gatewayCookieRemainingAfterLogout": false
+    },
+    "responsiveViewport": {
+      "width": 412,
+      "height": 915,
+      "documentOverflowAtLandingSetupAndFlight": false
+    },
+    "soloFlight": {
+      "canvasVisible": true,
+      "webgl2Available": true,
+      "enteredAndExited": true
+    },
+    "pageErrors": 0,
+    "rewardClaimRequests": 0,
+    "signedIn": false,
+    "rewardClaimSent": false,
+    "physicalDeviceEvidence": false,
+    "cleanup": "Staging gateway logout returned 303 and cleared the gateway cookie; browser context closed. No account session or run was created.",
+    "productionModified": false
+  },
+  "latestPhysicalAndroidPartialObservation": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "hostConfirmedByTester": "wfm-app-staging-staging.up.railway.app",
+    "device": "Physical Samsung Android phone, tester-reported",
+    "deviceMetadata": "Manufacturer Samsung; exact model, Android version, Chrome version, viewport, network, and screenshots were not supplied.",
+    "status": "PARTIAL_PRE_FIX_OBSERVATION",
+    "profileLoad": "PASS_REPORTED",
+    "portraitNotes": "Tester notes reported the logo centered and interface visible, with the background shifted right.",
+    "landscapeNotes": "Tester reported that the background appeared fully visible after rotating to landscape.",
+    "verticalTouchScrolling": "FAIL_REPORTED_ON_OBSERVED_SCREEN; other screens and devices were not assessed.",
+    "enteredGameFlight": false,
+    "rewardClaimActivity": "No reward activity was reported; tester had not entered a flight.",
+    "evidenceAttachments": [],
+    "requiresRetestAfterScrollFix": false,
+    "retestAfterScrollFix": "PASS_REPORTED_PARTIAL; see latestPhysicalAndroidScrollRetest.",
+    "releaseGate": "PENDING",
+    "productionModified": false,
+    "scope": "User-reported live physical-device observation, not independently captured or a complete device certification."
+  },
+  "latestPhysicalAndroidScrollRetest": {
+    "recordedAtUtc": "2026-10-27T13:37:25Z",
+    "testerObservationTimeUtc": "NOT_SUPPLIED",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "appDeploymentId": "083ab007-cf97-49d5-a49c-92a631f96fae",
+    "stagingBranchCommit": "56c4fc7a435368055c99b4da8a93a844c4b38ebf",
+    "scrollFixCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",
+    "device": "Physical Samsung Android phone, tester-reported",
+    "deviceMetadata": "Manufacturer Samsung; exact model, Android version, Chrome version, viewport, network, and screenshots were not supplied.",
+    "result": "PASS_REPORTED_PARTIAL",
+    "testerResponse": "Works now",
+    "requestedCheck": "After reloading staging, vertically swipe profile/home content.",
+    "exactScreenNamesSupplied": false,
+    "otherScreensAndDevices": "NOT_TESTED",
+    "flightControls": "NOT_TESTED",
+    "rewardClaimActivity": "No flight or claim result was reported.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "productionModified": false,
+    "scope": "Confirms only the tester-reported vertical-scroll result on one physical Samsung Android phone; does not certify all screens, devices, orientations, or gameplay controls."
+  },
+  "latestPhysicalAndroidPracticeOutcome": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "appDeploymentId": "083ab007-cf97-49d5-a49c-92a631f96fae",
+    "device": "Physical Samsung Android phone, tester-reported",
+    "deviceMetadata": "Manufacturer Samsung; exact model, Android version, Chrome version, viewport, network, and screenshots were not supplied.",
+    "mode": "Practice",
+    "screenAtReport": "Debrief",
+    "testerReportedResult": {
+      "kills": 6,
+      "relays": 2,
+      "creditGainDisplayed": 172,
+      "crate": "none",
+      "balanceDisplayed": 300,
+      "touchControls": "Controls worked; individual controls not enumerated."
+    },
+    "rewardInterpretation": "The signed-in WarApp path starts a server-authorized run and submits its replay on completion. The displayed credit gain strongly indicates a successful reward response, but the HTTP response and reward ledger were not independently captured.",
+    "noRewardPracticeTest": "NOT_VALID; authenticated Practice may award credits. The local /play Solo Flight route is the no-reward path.",
+    "exitFromDebrief": "PASS_REPORTED_HANGAR; owner confirmed the Hangar screen after being advised not to Fly Again or Retry Verification. Hangar navigation is screen-only and does not submit a claim.",
+    "additionalClaimOrFlightByAgent": false,
+    "productionModified": false,
+    "interruptedRewardGate": "PENDING; this was a completed Practice run, not an interrupted or expired-run claim test.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "scope": "User-reported staging result plus source-path review; no independent claim response or database event evidence."
+  },
+  "latestStagingAndroidLocalSoloFlight": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "route": "/play",
+    "device": "Physical Samsung Android phone, tester-reported",
+    "deviceMetadata": "Manufacturer Samsung; exact model, Android version, Chrome version, viewport, network, observation time, and screenshots were not supplied. Screenshots were not required by the owner for this Android-only check.",
+    "localNoRewardNotice": "PASS_REPORTED; owner confirmed the local no-reward notice was visible before launch.",
+    "controlResult": "PASS_REPORTED; owner later confirmed all listed local phone checks passed.",
+    "testedControls": [
+      "Both sticks together",
+      "Fire while moving or aiming",
+      "Ability",
+      "Touch release/cancel",
+      "Rotate and background/restore",
+      "Exit Solo Flight"
+    ],
+    "flightStats": "NOT_SUPPLIED; do not attribute the separate Development-preview flight stats to this staging run.",
+    "postRunCreditsOrBalance": "NOT_SUPPLIED; no account balance change is claimed.",
+    "finalScreenOrExit": "NOT_SUPPLIED",
+    "networkOrRewardLedgerEvidence": "NOT_CAPTURED; local Solo Flight does not use the authenticated server reward-claim flow.",
+    "productionModified": false,
+    "interruptedRewardGate": "PENDING; local Solo Flight does not exercise server reward-claim denial.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "scope": "Supplemental user-reported physical Android staging control evidence only; not profile-sync, interrupted-reward, or full device-matrix certification."
+  },
+  "latestPhysicalAndroidFollowup": {
+    "recordedOn": "2026-10-27",
+    "recordedAt": "NOT_SUPPLIED",
+    "environment": "staging",
+    "host": "wfm-app-staging-staging.up.railway.app",
+    "device": "REVVL 8, model TMRV085G, Android 16, T-Mobile; owner confirmed this is the same phone previously described as Samsung.",
+    "deviceMetadata": "Phone model-build string 1.15.12. The staging endurance report records Chrome 156.0.0.0. Network type and observation time for the earlier layout/control checks are not supplied. Two portrait screenshots are 1080x2408 and 1080x2096 image pixels; these are not verified display dimensions.",
+    "browser": "Android Chrome; Chrome 156.0.0.0 recorded in the staging endurance report.",
+    "stagingEnduranceSample": {
+      "capturedAtUtc": "2026-10-27T21:42:16.121Z",
+      "ownerConfirmedEnvironment": "Railway staging",
+      "reportedDevice": "REVVL 8 / Android 16; same phone identity was confirmed by owner",
+      "targetAndActiveSeconds": "360 / 360",
+      "averageFps": 74.2,
+      "firstMinuteAverageFps": 74.5,
+      "finalMinuteAverageFps": 77.8,
+      "p95FrameIntervalMs": 25,
+      "p99FrameIntervalMs": 33,
+      "framesOver50Ms": 4,
+      "totalActiveFrames": 27367,
+      "gapsOver250Ms": 0,
+      "backgroundsAndRestores": 0,
+      "memoryStability": "INCONCLUSIVE; final used-heap sample 18.5 MiB versus 15.1 MiB at 60 seconds, with non-monotonic intermediate readings.",
+      "thermalObservation": "NOT_SUPPLIED; browser API does not expose device thermal status.",
+      "scope": "Owner-confirmed physical Android staging endurance evidence. Duration and frame-pacing targets pass; not Production evidence."
+    },
+    "screenshotEvidence": [
+      {
+        "file": "attached_assets/1_1000000060_1793123563718.png",
+        "orientation": "portrait",
+        "visible": "Staging landing page.",
+        "imagePixels": "1080x2408"
+      },
+      {
+        "file": "attached_assets/0_1000000061_1793123563687.png",
+        "orientation": "portrait",
+        "visible": "Local Solo Flight setup and no-reward notice; no active flight controls shown.",
+        "imagePixels": "1080x2096"
+      }
+    ],
+    "profileSignInAndSignOut": "PASS_REPORTED",
+    "localSoloFlight": "PASS_REPORTED; tester says it worked without credits.",
+    "localControlLifecycleChecks": "PASS_REPORTED; all listed checks passed.",
+    "testedLocalChecks": [
+      "Both sticks together",
+      "Fire while moving or aiming",
+      "Ability",
+      "Touch release/cancel",
+      "Rotate and background/restore",
+      "Exit Solo Flight"
+    ],
+    "layoutAndScrollingAfterReload": "PASS_REPORTED_PARTIAL; tester answered 'Works as expected' without naming screens or orientations.",
+    "pairedDeviceProfileSync": "NOT_RUN; remains a separate feature gate because no second physical device was tested.",
+    "iphoneSafariTest": "NOT_REQUIRED; owner-approved Android-only physical-device scope.",
+    "rewardClaimNetworkEvidence": "NOT_CAPTURED",
+    "interruptedRewardGate": "PENDING",
+    "androidPhysicalEvidenceStatus": "PARTIAL; endurance duration/frame pacing pass, memory is inconclusive, and controls/lifecycle evidence is owner-reported.",
+    "physicalDeviceReleaseGate": "PENDING",
+    "productionModified": false,
+    "scope": "User-reported Android staging follow-up with two portrait screenshots plus a separately supplied 360-second staging endurance report. The screenshots corroborate the staging landing page and local no-reward setup notice, not active flight controls or profile sync. Android Chrome is the required physical-device scope; iPhone/Safari is not required. The report does not establish the separate physical cross-device sync or interrupted-reward gates."
+  },
+  "ownerApprovedPhysicalDeviceScope": {
+    "approvedOn": "2026-10-28",
+    "requiredPlatform": "Physical Android phone running Chrome",
+    "iosSafari": "NOT_REQUIRED",
+    "androidEvidenceStatus": "PARTIAL",
+    "stagingEnduranceDurationAndFramePacing": "PASS_REPORTED",
+    "stagingEnduranceMemoryStability": "INCONCLUSIVE",
+    "controlsLayoutAndLifecycle": "PASS_REPORTED_PARTIAL",
+    "physicalCrossDeviceProfileSync": "PENDING_SEPARATE_FEATURE_GATE",
+    "interruptedRewardDenial": "PENDING_SEPARATE_REWARD_INTEGRITY_GATE",
+    "productionReadiness": "NOT_CLAIMED",
+    "scope": "Owner-approved Android-only certification criteria. This changes the required device platform only; it does not convert partial Android results or separate sync/reward gates into passes."
+  },
+  "latestMobileScrollFixVerification": {
+    "verifiedAtUtc": "2026-10-27T13:13:31Z",
+    "testedSourceCommit": "72e3c7a47d5509f89d88efac738787f9d9055972",
+    "branch": "staging",
+    "frozenLockfileInstall": "PASS",
+    "typecheck": "PASS",
+    "workspaceTests": {
+      "scripts": { "passed": 17, "failed": 0 },
+      "api": { "passed": 73, "failed": 0 },
+      "game": { "passed": 35, "failed": 0 }
+    },
+    "workspaceBuild": "PASS",
+    "publicE2E": {
+      "passed": 7,
+      "failed": 0,
+      "verticalTouchScrollRegression": "PASS at 320x568 on landing and solo setup",
+      "arenaTouchLock": "PASS",
+      "physicalDeviceEvidence": false
+    },
+    "stagingDeployment": "SUCCESS",
+    "stagingDeploymentId": "083ab007-cf97-49d5-a49c-92a631f96fae",
+    "stagingBranchCommit": "56c4fc7a435368055c99b4da8a93a844c4b38ebf",
+    "stagingAppServiceState": "online",
+    "stagingEnvironment": {
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "pendingWork": 0
+    },
+    "stagingAppRootHttp": 401,
+    "stagingAppRootHttpMeaning": "Expected private staging access-code gate; no code was submitted.",
+    "stagingDeploymentVerifiedAtUtc": "2026-10-27T13:17:35.402Z",
+    "clerkConfigurationChanged": false,
+    "railwayProductionChanged": false,
+    "productionDeployment": false,
+    "scope": "Local workspace verification of content-page scrolling. Active Arena remains touch-locked for gameplay controls; physical staging retest is still required."
+  },
+  "latestInterruptedRewardAudit": {
+    "recordedOn": "2026-10-27",
+    "environment": "staging",
+    "liveClaimTest": "PENDING",
+    "liveClaimRequestSent": false,
+    "liveClaimResponse": "NO_REQUEST",
+    "reason": "Latest preflight could not establish disposable-account verification, verify the current staging API binding to an isolated staging database, or access a read-only run/status and reward-event inspection path. No live claim request was sent.",
+    "localIntegrationTest": "PASS",
+    "localRoomIdClaimRouteSchema": "Room code rejected by the Strike UUID parameter schema.",
+    "localUnknownStrikeRunClaim": {
+      "serviceResult": "ProgressionError",
+      "status": 404,
+      "message": "Sortie not found for this player.",
+      "profileUnchanged": true,
+      "strikeRunsCreated": 0,
+      "progressionEventsCreated": 0
+    },
+    "expiredRunRetry": {
+      "firstResult": "expired",
+      "identicalRetryResult": "expired",
+      "profileOrRewardMutation": false
+    },
+    "acceptedDuplicateReplay": {
+      "localConcurrentAndSequentialDuplicateTests": "PASS",
+      "previousLiveStagingEvidence": "PASS; first accepted claim awarded 40 credits, identical duplicate added 0, refreshed profile remained at 130 credits."
+    },
+    "currentStagingInventory": {
+      "capturedBeforeBranchPush": true,
+      "project": "wfm-staging",
+      "environment": "staging",
+      "serviceCount": 4,
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "recentFailures": 0,
+      "pendingWork": 0,
+      "app": {
+        "deploymentId": "e53e8af8-0ed8-48f4-acf2-457eb7ed1d01",
+        "status": "SUCCESS",
+        "branch": "staging",
+        "deploymentMetadataCommit": "bc87f40aa17d27973c0aa799b86ecd412f8be71d"
+      },
+      "api": {
+        "deploymentId": "3eb13bfb-7b48-4bfe-a7dd-b527df9d88d5",
+        "status": "SUCCESS",
+        "configuredSourceCommit": "179064a436360a07357adf16174bb6d0f90bccd8"
+      },
+      "socket": {
+        "deploymentId": "81498a06-c441-4571-9790-f60bba00d4d1",
+        "status": "SUCCESS",
+        "configuredSourcePin": "896c4904e2c60623f93005a75a86c7b5487a3cdc",
+        "deploymentMetadataCommit": "bc87f40aa17d27973c0aa799b86ecd412f8be71d"
+      },
+      "postgresDeploymentId": "6922606e-d6f1-4665-94bc-227174685123",
+      "productionModified": false
+    },
+    "physicalDeviceTested": false,
+    "physicalDeviceEvidenceInterpretation": "No agent-performed physical-device test was part of this reward audit. Separate owner-reported Samsung Android checks are recorded under latestPhysicalAndroidFollowup and remain supplemental.",
+    "physicalDeviceTesterAvailability": {
+      "androidChromeTester": "AVAILABLE",
+      "actualRun": "NOT_RUN",
+      "evidenceCaptured": false
+    },
+    "productionModified": false,
+    "scope": "The local integration test exercised a real socket restart and the reward service using a synthetic test profile. It did not send an authenticated HTTP request to live staging. The no-device flag describes this audit, not the separate owner-reported Samsung Android observations."
+  },
+  "latestProposedImplementationReview": {
+    "recordedOn": "2026-10-27",
+    "inMemoryClaimRegistry": "NOT_ADDED",
+    "trustedUserIdHeader": "NOT_ADDED",
+    "clientCalculatedRewardFields": "NOT_ACCEPTED_BY_STRICT_CLAIM_SCHEMA",
+    "newProfileSyncEndpoint": "NOT_ADDED",
+    "localProgressOverwriteFallback": "NOT_ADDED",
+    "hardCodedEvidenceGenerators": "NOT_ADDED_OR_RUN",
+    "userAgentSpoofingAsPhysicalEvidence": "NOT_CLAIMED",
+    "promotionStatusesChanged": false,
+    "clerkOrProductionSettingsChanged": false
+  },
+  "latestLiveProfileSync": {
+    "status": "PASS",
+    "recordedAtUtc": "2026-10-26T14:29:17Z",
+    "testedSourceCommit": "7b3127b87099f68ed9408e5b0b9d4b2f09a0dda8",
+    "stagingFrontendDeployment": "c5bbc4ec-5ea1-4677-8b37-dcfa0e491d4f",
+    "deploymentStatus": "SUCCESS",
+    "backendAndSharedSourceUnchangedFromDeployedApi": true,
+    "independentBrowserContexts": 3,
+    "sameAccountWriterAndReaderConfirmed": true,
+    "separateAccountConfirmed": true,
+    "automaticReaderUiSync": true,
+    "automaticReaderUiRestore": true,
+    "changeObservedAfterMs": 26779,
+    "writeStatus": 201,
+    "restoreStatus": 201,
+    "writerBefore": { "credits": 130, "revision": 6, "scheme": "arc" },
+    "temporaryScheme": "strafe",
+    "writerAfter": { "credits": 130, "revision": 8, "scheme": "arc" },
+    "writerProfileRestoredExceptRevision": true,
+    "secondAccountAfter": { "credits": 90, "revision": 0, "scheme": "arc" },
+    "secondAccountFullReturnedProfileUnchanged": true,
+    "unclaimedStagingSortieRecordsCreated": 2,
+    "rewardRequests": 0,
+    "uncaughtPageErrors": 0,
+    "afterSignOutProfileStatuses": [401, 401, 401],
+    "browsersClosed": true,
+    "stagingPublicApiDomains": 0,
+    "stagingPublicSocketDomains": 0,
+    "productionModified": false,
+    "scope": "Real protected-staging requests and automatic visible UI refresh, without reader reload or synthetic refresh events. Independent browser storage contexts on one host, not distinct physical devices. This does not certify separate inventory/history endpoints or rejected cross-account writes."
+  },
+  "latestStagingProfileRefresh": {
+    "recordedOn": "2026-10-28",
+    "environment": "isolated Railway staging",
+    "serviceSourceBranch": "wfm-staging-socket-auth",
+    "serviceSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "services": {
+      "frontend": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T12:01:10.175Z"
+      },
+      "api": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T12:39:52.389Z"
+      },
+      "socket": {
+        "deploymentStatus": "SUCCESS",
+        "deploymentCreatedAtUtc": "2026-10-28T09:57:19.322Z"
+      }
+    },
+    "noStagedChanges": true,
+    "deployedFrontendContainsAuthBridge": true,
+    "deployedApiClientAddsBearerAuthorization": true,
+    "ownerReportedProfileAfterAccessGateAndRefresh": "loads normally",
+    "httpStatusCaptured": false,
+    "browserNetworkEvidenceCaptured": false,
+    "deviceDetailsCapturedForThisCheck": false,
+    "agentSentFreshSignInChallenge": false,
+    "agentUsedSavedVerificationCode": false,
+    "productionModified": false,
+    "certificationImpact": "signupAndSignin remains PARTIAL; overallStatus remains PENDING; this single-device session observation does not itself establish cross-device sync. The paired physical sync is recorded separately."
+  },
+  "latestOwnerReportedStagingPhoneSession": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging host confirmed by owner; deployment revision not captured for this retest",
+    "device": {
+      "model": "REVVL 8 (TMRV085G), previously reported by owner",
+      "androidVersion": "16, previously reported by owner",
+      "chromeVersion": "NOT_SUPPLIED_FOR_THIS_RETEST"
+    },
+    "outcomes": {
+      "profileLoadedAfterSignIn": "OWNER_REPORTED_PASS",
+      "profilePreservedAfterRefresh": "OWNER_REPORTED_PASS",
+      "signOutAndReSignIn": "OWNER_REPORTED_PASS"
+    },
+    "httpStatusCaptured": false,
+    "screenshotCapturedForThisRetest": false,
+    "networkEvidenceCaptured": false,
+    "deploymentIdentifierCaptured": false,
+    "scope": "Authentication and session persistence only. No match or reward result was part of the reported check; this is not evidence for cross-device sync, account isolation, multiplayer restart, or reward integrity.",
+    "certificationImpact": "signupAndSignin remains PARTIAL; physical Android certification remains PARTIAL; the separate paired physical sync is recorded in latestOwnerReportedPhysicalProfileSync; overallStatus remains PENDING; productionReadiness remains NOT_CLAIMED."
+  },
+  "latestStagingDeploymentRevisionCheck": {
+    "checkedOn": "2026-10-28",
+    "project": "wfm-staging",
+    "environment": "staging",
+    "sourceBranch": "staging",
+    "sourceCommit": "NOT_SINGLE_COMMIT; see each service",
+    "services": {
+      "frontend": {
+        "name": "wfm-app-staging",
+        "deploymentId": "43ab9af0-22dc-4e65-97d0-ece864165a62",
+        "status": "SUCCESS",
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
+      },
+      "api": {
+        "name": "wfm-api-staging",
+        "deploymentId": "3f860014-bc15-41f6-ae8a-0c7c3ba898f9",
+        "status": "SUCCESS",
+        "sourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60"
+      },
+      "socket": {
+        "name": "wfm-socket-staging",
+        "deploymentId": "c545bae7-ba90-480c-b5da-118cf31a953f",
+        "status": "SUCCESS",
+        "sourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60"
+      }
+    },
+    "allServicesShareSameSourceCommit": false,
+    "runtimeContentParity": true,
+    "environmentStatus": {
+      "onlineServices": 4,
+      "issues": 0,
+      "failures": 0,
+      "pendingWork": 0
+    },
+    "localBranchHeadAtMetadataCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "originStagingBranchHeadAtMetadataCheck": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
+    "runtimeFilesChangedAfterDeployedCommit": false,
+    "settingsChanged": false,
+    "deploymentsChanged": false,
+    "scope": "Read-only Railway status/deployment metadata plus repository diff. The frontend last successfully deployed 5255198; API and socket last deployed 798d6e9. Git commits differ, but the intervening repository changes are documentation and memory only, so runtime files match. All four staging services were online with no issues or pending work. No no-op deployment was triggered; exact commit-hash alignment remains outstanding if required."
+  },
+  "latestOwnerReportedPhysicalProfileSync": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed test procedure; same host not re-entered in the result form",
+    "deployedSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "sameApprovedStagingAccountOnBothPhones": true,
+    "devices": [
+      {
+        "model": "REVVL 8",
+        "modelNumber": "TMRV085G",
+        "androidVersion": "16",
+        "browser": "Chrome per instructed procedure",
+        "browserVersion": "NOT_SUPPLIED"
+      },
+      {
+        "model": "Samsung Galaxy A42 5G",
+        "modelNumber": "SM-A426U",
+        "androidVersion": "13",
+        "browser": "Chrome per instructed procedure",
+        "browserVersion": "NOT_SUPPLIED"
+      }
+    ],
+    "outcomes": {
+      "strafeObservedOnSamsungWithoutRefresh": "OWNER_REPORTED_PASS",
+      "arcRestoredOnSamsungWithoutRefresh": "OWNER_REPORTED_PASS",
+      "profileErrorOnEitherPhone": false,
+      "signedOutOnBothPhones": true
+    },
+    "httpStatusCaptured": false,
+    "screenshotsOrNetworkTracesSupplied": false,
+    "networkTypeAndExactTestTime": "NOT_SUPPLIED",
+    "preferenceRestoredTo": "ARC",
+    "possibleUnclaimedStagingSortieRecords": "NOT_INSPECTED",
+    "matchOrRewardOutcome": "NOT_PART_OF_THIS_TEST",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Physical profile sync only. This does not establish account isolation, server-owned reward or duplicate-claim behavior, restart lifecycle, or overall staging readiness."
+  },
+  "latestOwnerReportedTwoAccountProfileCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed procedure; host not repeated in the result form",
+    "accounts": {
+      "revvl": "Account A, approved staging account",
+      "samsung": "Account B, separate approved staging account"
+    },
+    "retainedOwnProfileAfterRefresh": "OWNER_REPORTED_PASS",
+    "profileErrorOnEitherPhone": false,
+    "signedOutOnBothPhones": true,
+    "distinctSavedProfileMarkersCompared": "NOT_REPORTED",
+    "specificSavedProgressInventoryHistoryOrBalanceMarkers": "NOT_CAPTURED",
+    "crossAccountWriteTest": "NOT_RUN",
+    "matchOrReward": "NOT_PART_OF_THIS_TEST",
+    "status": "OWNER_REPORTED_PARTIAL",
+    "scope": "Confirms separate sessions and profile refresh at the owner-reported UI level only. The broader progress/inventory/history isolation gate remains PARTIAL."
+  },
+  "latestOwnerReportedTwoPilotMatchCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Private Railway staging room, confirmed through the staging-lobby check",
+    "deployedSourceCommit": "1cf6e5ff1c58833992b9b782ef90d437b4e4cc43",
+    "devicesAndAccounts": [
+      {
+        "device": "REVVL 8, TMRV085G, Android 16",
+        "account": "Account A, approved disposable staging account"
+      },
+      {
+        "device": "Samsung Galaxy A42 5G, SM-A426U, Android 13",
+        "account": "Account B, separate approved disposable staging account"
+      }
+    ],
+    "outcomes": {
+      "bothPilotsJoinedPrivateRoom": "OWNER_REPORTED_PASS",
+      "opposingTeamsAndCombatInteraction": "OWNER_REPORTED_PASS",
+      "matchReachedDebrief": "OWNER_REPORTED_PASS",
+      "movementAndWeaponControlsOnBothPhones": "OWNER_REPORTED_PASS",
+      "accountsReceivedDifferentCreditAwards": "OWNER_REPORTED_PASS",
+      "separateBalancesPersistedAfterHangarRefresh": "OWNER_REPORTED_PASS"
+    },
+    "exactCreditAmountsAndBeforeBalances": "NOT_SUPPLIED",
+    "serverRewardEventsOrLedger": "NOT_INSPECTED",
+    "duplicateOrReplayClaimTest": "NOT_RUN",
+    "interruptedOrExpiredClaimTest": "NOT_RUN",
+    "crossAccountReadOrWriteAttempt": "NOT_RUN",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Supports owner-reported two-phone live gameplay and separate balance persistence only. It is not independent server-ledger evidence and does not pass broader account isolation, duplicate/interrupted claim, restart, or overall staging readiness gates. Staging match/reward records and balances changed; no Production change."
+  },
+  "latestOwnerReportedCrossDeviceAccountSwapCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per the instructed procedure; host not repeated in the result response",
+    "accountsAfterSwap": {
+      "revvl": "Account B, separate approved disposable staging account",
+      "samsung": "Account A, approved disposable staging account"
+    },
+    "bothAccountsSignedInAndOut": "OWNER_REPORTED_PASS",
+    "correctDistinctAccountBalancesAfterRefresh": "OWNER_REPORTED_PASS",
+    "exactBalances": "NOT_SUPPLIED",
+    "profileErrors": "NOT_REPORTED",
+    "matchOrRewardWriteDuringThisCheck": "NONE_REPORTED",
+    "screenshotsOrNetworkTraces": "NOT_SUPPLIED",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "This earlier check supports account-bound profile and balance continuity after swapping accounts between phones. Inventory continuity was checked separately afterward; mission history and direct cross-account access or writes remain unverified."
+  },
+  "latestOwnerReportedCrossDeviceInventoryCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging per instructed procedure",
+    "accountsUsedOnBothPhones": "OWNER_REPORTED_PASS",
+    "devices": [
+      "REVVL 8, TMRV085G, Android 16",
+      "Samsung Galaxy A42 5G, SM-A426U, Android 13"
+    ],
+    "eachAccountRetainedItsOwnInventory": "OWNER_REPORTED_PASS",
+    "missionHistory": "NOT_CONFIRMED",
+    "directCrossAccountReadOrWriteAttempt": "NOT_RUN",
+    "flightRewardPurchaseOrInventoryChange": "NONE_REPORTED",
+    "exactInventoryDetailsOrScreenshots": "NOT_SUPPLIED",
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Supports account-bound inventory continuity across two accounts and two phones only. Mission-history isolation and direct cross-account access/write behavior remain unverified; the broader account-isolation gate remains PARTIAL."
+  },
+  "latestOwnerReportedStagingSocketRestartCheck": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging",
+    "service": "wfm-socket-staging",
+    "deploymentId": "ed64bb4b-da38-4ea4-89cc-d008938c27db",
+    "sourceCommit": "4b114d67b93f0996172ead95b164a9b33cd7a046",
+    "restartMode": "Railway in-place restart; no rebuild or new deployment",
+    "activeClients": 2,
+    "activeMatchBeforeRestart": true,
+    "bothClientsStopped": "OWNER_REPORTED_PASS",
+    "bothClientsDisplayedInterruptedMatchError": "OWNER_REPORTED_PASS",
+    "firstRestartRecovery": {
+      "returnedToFreshLobby": "OWNER_REPORTED_PASS",
+      "balancesUnchanged": "OWNER_REPORTED_PASS"
+    },
+    "secondRestartRecoveryAndBalance": "NOT_REPORTED",
+    "rewardClaimSubmittedByAgent": false,
+    "rewardLedgerInspected": false,
+    "screenshotsOrNetworkTraces": "NOT_SUPPLIED",
+    "productionModified": false,
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "The owner reported both phones stopped and showed an error that the match had been interrupted after the second staging socket restart. After the first restart, the owner reported return to a fresh lobby and unchanged balances. Railway status afterward showed the staging socket online with no service issues or pending work. This supports the restart/notification gate only; it does not prove reward-ledger immutability or the result of the second restart's balance check."
+  },
+  "tests": {
+    "signupAndSignin": "PARTIAL",
+    "profilePersistsAcrossSessions": "PASS",
+    "profileSyncsAcrossDevices": "PASS",
+    "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
+    "sharedEconomyUsesStagingData": "PASS",
+    "serverOwnedRewardsAndDuplicateClaims": "PARTIAL",
+    "restartEndsMatchAndNotifiesPlayers": "PASS",
+    "stagingBrowserShowsRestartNotice": "PASS",
+    "stagingBrowserFreshRoomAfterRestart": "PASS",
+    "onlineInterruptedMatchMakesNoClaimRequest": "PASS",
+    "interruptedMatchCannotClaimRewards": "PENDING",
+    "freshRoomRequiredAfterRestart": "PASS",
+    "ordinaryDisconnectReconnect": "PASS",
+    "roomInviteReadyAndTeamAssignment": "PASS",
+    "tenClientMatchCompletion": "PASS",
+    "networkImpairmentHarness": "PASS"
+  },
+  "evidenceFiles": [
+    "STAGING-TEST-REPORT.md",
+    "docs/staging-network-impairment-evidence.json",
+    "docs/staging-deterministic-reward-flight-evidence.json",
+    "docs/staging-reward-parity-flight-report.md",
+    "docs/game-runtime-forensic-report.md",
+    "docs/staging-deployment-report-2026-10-29.md"
+  ],
+  "latestSafeLocalCertification": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "checks": {
+      "scripts": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/scripts test",
+        "passed": 17,
+        "failed": 0
+      },
+      "pureRewardAdjudication": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/rewards.test.ts",
+        "passed": 3,
+        "failed": 0
+      },
+      "localUnauthenticatedRoutes": {
+        "command": "DATABASE_URL='postgresql://localtest:localtest@127.0.0.1:1/wfm-test-only' pnpm --filter @workspace/api-server exec tsx --test --test-concurrency=1 src/routes/progression.test.ts src/routes/strikes.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "responses": "Local unauthenticated requests returned HTTP 401 before claim processing.",
+        "databaseTarget": "Deliberately unreachable loopback URL; no staging or Production database was contacted."
+      },
+      "serverSimulationDeterminism": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/api-server exec tsx --test src/game/sim-determinism.test.ts",
+        "passed": 4,
+        "failed": 0
+      },
+      "browserServerSimulationParity": {
+        "command": "env -u DATABASE_URL pnpm --filter @workspace/war-for-mars exec tsx --test src/game/sim-parity.test.ts",
+        "passed": 5,
+        "failed": 0
+      }
+    },
+    "totalPassed": 31,
+    "totalFailed": 0,
+    "liveStagingClaimSubmitted": false,
+    "liveProductionClaimSubmitted": false,
+    "creditsAwarded": false,
+    "productionSignInAttempted": false,
+    "scope": "Local certification tests only; no live staging or Production reward claim was submitted."
+  },
+  "latestProductionClerkPreflight": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "execution": "Railway CLI injected selected Production frontend and API service variables into local preflight processes; no Railway variable or service configuration was changed.",
+    "railwayTokenPresent": true,
+    "railwayTokenUse": "Read-only preflight injection only.",
+    "railwayTokenRevoked": false,
+    "replitSecretDeleted": false,
+    "ownerCleanup": "PENDING; no safe Railway token-revocation or Replit-secret deletion operation is available to this workspace.",
+    "frontend": {
+      "structuralChecks": "PASS",
+      "exitCode": 2,
+      "VITE_CLERK_PUBLISHABLE_KEY": "PRESENT",
+      "productionOrigin": "NOT_CHECKED",
+      "publicIssuerInput": "MATCH",
+      "publicJwksInput": "MATCH"
+    },
+    "api": {
+      "structuralChecks": "PASS",
+      "exitCode": 2,
+      "CLERK_PUBLISHABLE_KEY": "PRESENT",
+      "CLERK_SECRET_KEY": "PRESENT",
+      "API_ALLOWED_ORIGINS": "MATCH",
+      "publicIssuerInput": "MATCH",
+      "publicJwksInput": "MATCH"
+    },
+    "publicIssuerAndJwksWereCommandScopedInputs": true,
+    "manualEnablement": {
+      "externalClerkKeyInstancePairing": "UNVERIFIED",
+      "emailDelivery": "UNVERIFIED",
+      "approvedDedicatedProductionAccount": "UNVERIFIED",
+      "protectedApiAndSessionSmokeTests": "NOT_RUN"
+    },
+    "productionSignIn": "NOT_RUN",
+    "productionEnablement": "BLOCKED",
+    "secretValuesPrinted": false,
+    "productionSettingsChanged": false,
+    "productionDeployment": false
+  },
+  "latestRailwayEnvironmentStatus": {
+    "recordedAtUtc": "2026-10-27T17:37:14Z",
+    "inspection": "Read-only Railway environment status; 24-hour recent-failure window.",
+    "staging": {
+      "serviceCount": 4,
+      "servicesOnline": 4,
+      "servicesWithIssues": 0,
+      "recentFailedDeployments": 0,
+      "pendingWork": 0,
+      "services": [
+        { "name": "wfm-app-staging", "state": "online" },
+        { "name": "wfm-socket-staging", "state": "online" },
+        { "name": "wfm-api-staging", "state": "online" },
+        { "name": "Postgres", "state": "online" }
+      ]
+    },
+    "production": {
+      "serviceCount": 6,
+      "servicesOnline": 6,
+      "servicesWithIssues": 0,
+      "recentFailedDeployments": 0,
+      "pendingWork": 0,
+      "services": [
+        { "name": "@workspace/war-for-mars", "state": "online" },
+        { "name": "@workspace/api-server", "state": "online" },
+        { "name": "@workspace/wing-socket", "state": "online" },
+        { "name": "@workspace/mockup-sandbox", "state": "online" },
+        { "name": "@workspace/war-for-mars-launch-video", "state": "online" },
+        { "name": "Postgres", "state": "online" }
+      ]
+    },
+    "scope": "Service health only; this does not prove Production Clerk readiness or clear release gates. No settings or deployments were changed."
+  },
+  "latestControlSchemePersistenceFix": {
+    "verifiedOn": "2026-10-28",
+    "branch": "staging",
+    "committed": true,
+    "commit": "8417c48645e83f1cc9b0a3c936a33e86cc866628",
+    "pushedToRemote": true,
+    "pushedBranch": "staging",
+    "deployedToStaging": true,
+    "sourceBranchBeforeDeployment": "wfm-staging-socket-auth",
+    "sourceBranchAfterDeployment": "staging",
+    "stagingDeploymentCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d",
+    "phoneRetest": "OWNER_REPORTED_PASS_FOR_ACCOUNT_SCOPED_CONTROL_SCHEME",
+    "gyroPersistencePolicy": "DEVICE_LOCAL_BY_DESIGN",
+    "gyroPersistenceOwnerDecision": "KEEP_DEVICE_LOCAL",
+    "stagingRuntime": {
+      "onlineServices": 4,
+      "pendingWork": 0,
+      "frontend": {
+        "deployment": "43ab9af0-22dc-4e65-97d0-ece864165a62",
+        "status": "SUCCESS",
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
+      },
+      "api": {
+        "deployment": "452c32de-9e24-496d-977a-5727931911c7",
+        "status": "SUCCESS",
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
+      },
+      "socket": {
+        "deployment": "f2d6750a-40ff-4508-9cfc-38781944ed8b",
+        "status": "SUCCESS",
+        "sourceCommit": "525519822c07dc19cb4c60d21e7ea62ccb91214d"
+      }
+    },
+    "productionSettingsChanged": false,
+    "productionDeployment": false,
+    "databaseSchemaChanged": false,
+    "cause": "ARC/STRAFE selection changed client state only; the server profile was updated when a server Strike started.",
+    "change": "Added an authenticated update for the existing account-owned control-scheme field. The preference update does not change progression revision.",
+    "ownerReportedEvidence": {
+      "creditsStayedAssociatedWithEachAccount": true,
+      "inventoryStayedAssociatedWithEachAccount": true,
+      "missionHistoryConfirmed": false,
+      "directCrossAccountReadOrWriteAttempted": false,
+      "controlSchemeSurvivedSignInAndAccountSwitch": true,
+      "controlSchemeSyncedAcrossBothPhones": true,
+      "accountBSchemeRemainedIsolated": true,
+      "gyroSyncedAcrossDevices": false,
+      "gyroDeviceLocalByDesign": true
+    },
+    "verification": {
+      "frozenLockfileInstall": "PASS",
+      "typecheck": "PASS",
+      "workspaceBuild": "PASS",
+      "scriptsTests": { "passed": 49, "failed": 0 },
+      "gameTests": { "passed": 54, "failed": 0 },
+      "focusedControlSchemeSchemaTest": { "passed": 1, "failed": 0 },
+      "focusedUnauthenticatedRouteTest": { "passed": 1, "failed": 0 },
+      "fullApiTestRun": "BLOCKED_FOR_SAFE_DATABASE_TESTING",
+      "databasePersistenceIntegrationTest": "NOT_RUN",
+      "fullApiTestRunNote": "DATABASE_URL was intentionally unset because its target was not verified as an isolated test database. Six API test files failed during database-client import; 66 API tests passed. The focused route and schema tests passed separately."
+    },
+    "scope": "Committed and pushed to origin/staging, then all three Railway staging services were aligned to branch staging and deployed successfully. The owner reports staging phone sign-in/control tests. The agent made no live reward claim or staging sign-in and performed no database test write. Production settings and deployment are untouched."
+  },
+  "latestOwnerReportedStagingAccountSmoke": {
+    "recordedOn": "2026-10-28",
+    "environment": "Railway staging",
+    "evidenceSource": "Owner-provided Android Chrome screenshots and follow-up report",
+    "clerkModeLabelObserved": "Development mode",
+    "wfmReturnedAfterClerkAccountPage": "OWNER_REPORTED_PASS",
+    "armoryInventoryAndBalanceLoaded": "OWNER_REPORTED_PASS",
+    "sameArmoryProfileDataAfterRefresh": "OWNER_REPORTED_PASS",
+    "roomOrMatchActivity": "NOT_REPORTED",
+    "agentSubmittedRewardClaim": false,
+    "ownerReportedRewardClaim": "NOT_REPORTED",
+    "liveHttpTraceCaptured": false,
+    "status": "OWNER_REPORTED_PASS",
+    "scope": "Authenticated staging UI/profile smoke only. This is not Production Clerk verification and does not establish interrupted/expired reward denial or server-side ledger state."
+  },
+  "latestRewardEligibilitySafetyPatch": {
+    "recordedOn": "2026-10-29",
+    "sourceReport": "docs/staging-deployment-report-2026-10-29.md",
+    "reportedStagingMergeCommit": "970f35daa255f0c21ba5e850d5eba90f56ecb2b7",
+    "railwayReadOnlyCheck": {
+      "snapshotCommit": "970f35daa255f0c21ba5e850d5eba90f56ecb2b7",
+      "frontendDeployment": "SUCCESS",
+      "apiDeployment": "SUCCESS",
+      "socketDeployment": "SUCCESS",
+      "allThreeServicesUseReportedCommit": true,
+      "postgres": "ONLINE",
+      "pendingEnvironmentChanges": 0,
+      "recentHistoricalFailures": {
+        "services": 3,
+        "count": 5,
+        "causesInspected": false
+      }
+    },
+    "postPushStagingDeploymentCheck": {
+      "deploymentCommit": "5bb105b3acbef9414eac77f206526984854703e0",
+      "frontend": {
+        "deploymentId": "6c17f14d-be8d-4c52-b871-64a4bbac420c",
+        "status": "SUCCESS"
+      },
+      "api": {
+        "deploymentId": "e8027404-997d-4a75-89df-766c06dcc5c5",
+        "status": "SUCCESS"
+      },
+      "socket": {
+        "deploymentId": "c3e87877-d6f2-4fdf-bd4-dcc184480705",
+        "status": "SUCCESS"
+      },
+      "postgres": "ONLINE",
+      "pendingEnvironmentWork": 0,
+      "currentFailures": 0
+    },
+    "databaseSchemaAndLedgerReadback": "PENDING",
+    "localCheckout": {
+      "branch": "staging",
+      "pushedCodeCommit": "5bb105b",
+      "originStagingRefAtVerification": "5bb105b",
+      "branchAheadOfOriginAtVerification": 0,
+      "reportedDeploymentCommitAvailableInLocalGit": true,
+      "worktreeStatusAtVerification": "CLEAN"
+    },
+    "reconciliation": {
+      "preMergeLocalHead": "dcde638",
+      "mergeBase": "8019f82",
+      "mergedRemoteStagingCommit": "970f35d",
+      "mergeCommit": "a318979",
+      "status": "PUSHED_AND_DEPLOYED"
+    },
+    "localVerification": {
+      "focusedRewardSocketAndConfigTests": {
+        "passed": 16,
+        "failed": 0
+      },
+      "typecheck": "PASS",
+      "workspaceTests": {
+        "scripts": { "passed": 49, "failed": 0 },
+        "api": { "passed": 97, "failed": 0 },
+        "game": { "passed": 58, "failed": 0 },
+        "totalPassed": 204
+      },
+      "workspaceBuild": "PASS",
+      "frozenLockfileInstall": "NOT_RUN_NO_DEPENDENCY_OR_LOCKFILE_CHANGE",
+      "gitDiffCheck": "PASS"
+    },
+    "rewardConfiguration": {
+      "ownerSuppliedReportClaim": "Missing WFM_WING_REWARDS_ENABLED means rewards are disabled; NOT_INDEPENDENTLY_VERIFIED",
+      "localPrePatchSourceFinding": "The initial local source loaded reward settlement from DATABASE_URL and did not check WFM_WING_REWARDS_ENABLED. The deployed source commit was unavailable during the first inspection, then later fetched and reconciled as 970f35d; the current safety implementation is deployed at 5bb105b.",
+      "localSafetyPatch": {
+        "enableFlag": "WFM_WING_REWARDS_ENABLED",
+        "requiresExactValue": "true",
+        "requiresDatabaseUrl": true,
+        "defaultRoomMode": "private",
+        "trustedCompetitiveResolverRequired": true,
+        "privatePracticeAndTestRoomsRewardEligible": false,
+        "sourceStatus": "PUSHED_STAGING_DEPLOYED"
+      }
+    },
+    "userReportedManualPrivateRoomRetest": {
+      "testDate": "2026-10-29",
+      "environment": "Railway staging",
+      "evidenceLevel": "USER_REPORTED_SUPPLEMENTAL",
+      "matchType": "private room-code match",
+      "accounts": {
+        "A": {
+          "startingCredits": 294,
+          "debriefCredits": 294,
+          "hangarCreditsAfterReturn": 294
+        },
+        "B": {
+          "startingCredits": 22,
+          "debriefCredits": 22,
+          "hangarCreditsAfterReturn": 22
+        }
+      },
+      "bothReachedDebrief": true,
+      "rewardClaimSubmitted": false,
+      "deviceDetails": "NOT_CAPTURED_FOR_THIS_RUN",
+      "serverLedgerInspected": false,
+      "scope": "Confirms only the owner-reported private-match visible balances and Hangar profile reload; it does not verify ledger writes, duplicate claims, or interrupted/expired claim denial."
+    },
+    "latestOwnerReportedActivityLedgerIsolationCheck": {
+      "recordedOn": "2026-10-29",
+      "environment": "Railway staging per the instructed phone flow; exact host and deployment not recaptured in this check",
+      "evidenceLevel": "OWNER_REPORTED_PHONE_UI",
+      "accounts": {
+        "A": "separate staging account",
+        "B": "separate staging account"
+      },
+      "observations": {
+        "accountAInitiallyHadActivityEntries": true,
+        "accountBHadPriorActivity": false,
+        "ownerMadeOnePurchaseOnAccountB": true,
+        "accountBActivityAppearedInLedger": true,
+        "accountBEntryPersistedAfterRefresh": true,
+        "accountBEntryPersistedAfterSignOutAndSignIn": true,
+        "accountALedgerUnchangedAfterAccountBPurchase": true,
+        "accountBEntryVisibleInAccountALedger": false,
+        "activityLedgerVisibleWhileSignedOut": false
+      },
+      "purchaseDetails": "NOT_SUPPLIED",
+      "deviceDetails": "NOT_CAPTURED_FOR_THIS_CHECK",
+      "screenshotsOrHttpTrace": "NOT_SUPPLIED",
+      "directCrossAccountApiRequest": false,
+      "databaseActivityLedgerInspected": false,
+      "wingRewardLedgerInspected": false,
+      "wingRewardClaimSubmitted": false,
+      "scope": "Supports owner-reported UI-level Activity Ledger persistence and no visible Account B entry leakage into Account A. It does not verify database-level ownership, direct cross-account API authorization, or 5v5 Wing reward settlement.",
+      "certificationImpact": "accountProgressInventoryAndHistoryAreIsolated remains PARTIAL; liveRewardAndDuplicateClaimEvidence and liveInterruptedExpiredClaimDenial remain PENDING; productionReadiness remains NOT_CLAIMED."
+    },
+    "liveRewardAndDuplicateClaimEvidence": "PENDING",
+    "liveInterruptedExpiredClaimDenial": "PENDING",
+    "productionSettingsOrDeploymentChanged": false,
+    "releaseStatus": "PENDING"
+  },
+  "productionReadiness": "NOT_CLAIMED"
+}

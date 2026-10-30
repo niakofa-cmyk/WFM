@@ -1,5 +1,28 @@
-- [Online and universe scope](online-multiplayer-scope.md) — isolated 10-seat rooms; alpha matches end on server restart; matchmaking/shared real-time galaxy are out of scope.
+- [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; competitive needs ten humans; AI-fill resets its 30-second countdown per pilot.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
 - [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
+- [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
+- [Socket shutdown checks](replit-socket-shutdown.md) — local shutdown passed; raw Railway clients closed 1006, while one browser pilot showed the restart notice.
+- [Offline progression](offline-progression-policy.md) — cached worlds are read-only; action identities persist for server validation; online rooms are separate from Strike reward claims.
+- [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
+- [Online Wing rewards](online-wing-rewards.md) — 10-human queue and reward enablement are separately gated; reward amounts, participation, daily cap, and ledger idempotency remain server-owned.
+- [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
+- [Railway service-scoped preflight](railway-service-scoped-preflight.md) — use `railway run --no-local` with explicit service scope; status checks do not prove auth pairing.
+- [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
+- [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
+- [WFM Clerk E2E account isolation](clerk-e2e-account-isolation.md) — use only an existing WFM Development test account; verify the Clerk instance before provisioning users.
+- [Managed Clerk hosting boundary](replit-managed-clerk-railway.md) — WFM targets Niakofa public entry + Railway backend; this requires authorized external Clerk, not Replit-managed tokens.
+- [Preview API isolation](preview-api-isolation.md) — Replit Development uses its same-origin API; do not route preview sessions to a Railway Production backend.
+- [HTTP hostname security tests](http-host-security-tests.md) — assert the server received the intended Host; fetch may replace a supplied header.
+- [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
+- [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.
+- [Replay runtime determinism](replay-runtime-determinism.md) — native Math trig/exp differ Node vs Chromium; sim must use detmath ports and pass the Chromium gate.
+- [Progression sync boundary](progression-sync-boundary.md) — keep flight snapshots immutable; ARC/STRAFE is account-scoped, gyro device-local, drilled profile-backed with local fallback.
+- [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
+- [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.
+- [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
+- [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
+- [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
+- [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.

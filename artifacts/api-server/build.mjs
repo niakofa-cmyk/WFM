@@ -15,6 +15,7 @@ async function buildAll() {
     entryPoints: {
       "index": path.resolve(artifactDir, "src/index.ts"),
       "socket": path.resolve(artifactDir, "src/socket/index.ts"),
+      "staging-gateway": path.resolve(artifactDir, "src/staging/index.ts"),
     },
     platform: "node",
     bundle: true,

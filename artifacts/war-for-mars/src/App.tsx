@@ -1,17 +1,21 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
+import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
+const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
+
+setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
@@ -83,8 +87,9 @@ function SignUpPage() {
 }
 
 function PublicLanding() {
+  const { isSignedIn } = useAuth();
   return (
-    <main className="relative flex min-h-dvh items-center overflow-hidden bg-void px-6 py-12 text-bone sm:px-12">
+    <main className="relative flex min-h-dvh items-center bg-void px-6 py-12 text-bone sm:px-12">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_50%,rgba(138,58,36,0.25),transparent_52%)]" />
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
         <section>
@@ -100,17 +105,34 @@ function PublicLanding() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/sign-up"
+              href="/play"
               className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
             >
-              CREATE PILOT ACCOUNT
+              TRY SOLO FLIGHT
             </Link>
-            <Link
-              href="/sign-in"
-              className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
-            >
-              SIGN IN
-            </Link>
+            {isSignedIn ? (
+              <Link
+                href="/"
+                className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+              >
+                OPEN HANGAR
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
+                >
+                  CREATE PILOT ACCOUNT
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
+                >
+                  SIGN IN
+                </Link>
+              </>
+            )}
           </div>
         </section>
         <aside className="border border-bone/15 bg-panel/80 p-5">
@@ -124,6 +146,7 @@ function PublicLanding() {
           <p className="mt-6 border-t border-bone/10 pt-4 font-hud text-xs tracking-widest text-bone/70">
             PROGRESS IS VERIFIED BY THE SERVER
           </p>
+          <PublicWingLeaderboard />
         </aside>
       </div>
     </main>
@@ -131,11 +154,14 @@ function PublicLanding() {
 }
 
 function SignedInGame() {
+  const client = useQueryClient();
+  useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
+      <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
@@ -143,8 +169,34 @@ function SignedInGame() {
   );
 }
 
+function AccountGameEntry() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Discovery and solo entry remain visible while hosted authentication loads.
+  // Never mount account/progression hooks until the session is confirmed.
+  return isLoaded && isSignedIn ? <SignedInGame key={userId} /> : <PublicLanding />;
+}
+
+function ApiAuthBridge() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setAuthTokenGetter(null);
+      return;
+    }
+
+    setAuthTokenGetter(() =>
+      isLoaded && isSignedIn ? getToken() : null,
+    );
+    return () => setAuthTokenGetter(null);
+  }, [getToken, isLoaded, isSignedIn]);
+
+  return null;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
+  const clerkPubKey = configuredClerkPublishableKey(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -159,13 +211,9 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ApiAuthBridge />
       <Switch>
-        <Route path="/" component={() => (
-          <>
-            <Show when="signed-in"><SignedInGame /></Show>
-            <Show when="signed-out"><PublicLanding /></Show>
-          </>
-        )} />
+        <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route component={PublicLanding} />
@@ -175,12 +223,16 @@ function Routes() {
 }
 
 function App() {
-  if (!clerkPubKey) {
-    throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
-  }
   return (
     <WouterRouter base={basePath}>
-      <Routes />
+      <Switch>
+        <Route path="/play">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
+            <SoloFlight />
+          </Suspense>
+        </Route>
+        <Route><Routes /></Route>
+      </Switch>
     </WouterRouter>
   );
 }

@@ -2,12 +2,22 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, readInput, type Bus } from "./input";
+import { clearInput, createBus, readInput, stickAxesFromDelta, type Bus } from "./input";
 import { gyroAim } from "./gyro";
+import { acknowledgeInterruptedNotice } from "./interrupted-ack";
+import { currentWingSocketUrl } from "./socket-endpoint";
+import {
+  CLIENT_RECONNECT_WINDOW_MS,
+  SOCKET_HANDSHAKE_TIMEOUT_MS,
+  nextReconnectDelayMs,
+} from "./reconnect-policy";
 import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, tickSparks } from "./juice";
+import type { LocalPerformanceFrame, LocalPerformanceVisibilityChange } from "./local-performance";
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
+import { matchChecksum } from "./sim-trace";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
+import { battlefieldProfile } from "./battlefield";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -15,6 +25,20 @@ export type StrikeResult = {
   deaths: number;
   relays: number;
   reason: string;
+};
+
+export type WingRewardNotice = {
+  status:
+    | "awarded"
+    | "not_eligible"
+    | "daily_limit"
+    | "disabled"
+    | "unavailable";
+  outcome: "win" | "loss" | "draw";
+  gain: number;
+  balanceAfter: number | null;
+  revision: number | null;
+  reason?: string;
 };
 
 export type OnlineSnapshot = {
@@ -35,6 +59,7 @@ export type OnlineRoom = {
   team: 0 | 1;
   reconnectToken: string;
   name: string;
+  getSessionToken: () => Promise<string | null>;
 };
 
 type ArenaProps = {
@@ -42,6 +67,7 @@ type ArenaProps = {
   faction: Faction;
   scheme: Scheme;
   refit: number;
+  shieldMk2?: boolean;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -53,10 +79,20 @@ type ArenaProps = {
   gyro: boolean;
   drilled: boolean;
   onDrill: () => void;
-  onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
+  onDone: (
+    result: StrikeResult,
+    replay: { seed: number; inputs: StepInput[]; checksums?: number[] },
+    wingReward?: WingRewardNotice,
+  ) => void;
   onNetworkExit: (reason: "server_restart" | "session_lost") => void;
+  onGraphicsError?: (message: string) => void;
+  onPerformanceFrame?: (frame: LocalPerformanceFrame) => void;
+  onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
+  localEndurance?: boolean;
   online?: OnlineRoom;
 };
+
+const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
 
 const IDLE: StepInput = {
   throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false,
@@ -414,51 +450,66 @@ function drawContacts(canvas: HTMLCanvasElement, match: Match, local: Craft = ma
 function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
+  const pointerOrigin = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const setAxis = (x: number, y: number) => {
+    if (root.current) {
+      root.current.dataset.axisX = x.toFixed(3);
+      root.current.dataset.axisY = y.toFixed(3);
+    }
+    onAxis(x, y);
+  };
   const place = (clientX: number, clientY: number) => {
     const el = root.current;
     const dot = knob.current;
-    if (!el || !dot) return;
+    const origin = pointerOrigin.current;
+    if (!el || !dot || !origin) return;
     const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    let dx = clientX - cx;
-    let dy = clientY - cy;
-    const max = rect.width * 0.36;
-    const len = Math.hypot(dx, dy) || 1;
-    const clamped = Math.min(max, len);
-    dx = (dx / len) * clamped;
-    dy = (dy / len) * clamped;
+    const max = Math.max(1, rect.width * 0.36);
+    const axis = stickAxesFromDelta(clientX - origin.x, clientY - origin.y, max);
+    const dx = axis.x * max;
+    const dy = axis.y * max;
     dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    onAxis(dx / max, dy / max);
+    setAxis(axis.x, axis.y);
   };
-  const reset = () => {
+  const reset = (pointerId?: number) => {
+    if (pointerId !== undefined && pointerOrigin.current?.pointerId !== pointerId) return;
+    pointerOrigin.current = null;
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    onAxis(0, 0);
+    setAxis(0, 0);
   };
   return (
     <div
       ref={root}
-      role="slider"
-      aria-label={label}
-      aria-valuemin={-1}
-      aria-valuemax={1}
-      aria-valuenow={0}
+      role="group"
+      aria-label={`${label} stick`}
+      data-testid={`stick-${label.toLowerCase()}`}
+      data-axis-x="0.000"
+      data-axis-y="0.000"
       className="relative size-28 touch-none rounded-full border border-bone/30 bg-panel/80"
       onPointerDown={(event) => {
         event.stopPropagation();
+        if (pointerOrigin.current) return;
         event.currentTarget.setPointerCapture(event.pointerId);
+        pointerOrigin.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+        };
         place(event.clientX, event.clientY);
       }}
       onPointerMove={(event) => {
-        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        if (
+          pointerOrigin.current?.pointerId !== event.pointerId ||
+          !event.currentTarget.hasPointerCapture(event.pointerId)
+        ) return;
         place(event.clientX, event.clientY);
       }}
       onPointerUp={(event) => {
         event.stopPropagation();
-        reset();
+        reset(event.pointerId);
       }}
-      onPointerCancel={reset}
-      onLostPointerCapture={reset}
+      onPointerCancel={(event) => reset(event.pointerId)}
+      onLostPointerCapture={(event) => reset(event.pointerId)}
     >
       <div
         ref={knob}
@@ -474,6 +525,7 @@ export function Arena({
   faction,
   scheme,
   refit,
+  shieldMk2 = false,
   pace,
   goal,
   disc,
@@ -487,6 +539,10 @@ export function Arena({
   onDrill,
   onDone,
   onNetworkExit,
+  onGraphicsError,
+  onPerformanceFrame,
+  onPerformanceVisibilityChange,
+  localEndurance = false,
   online,
 }: ArenaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -519,11 +575,16 @@ export function Arena({
   const matchRef = useRef<Match | null>(null);
   const onlineRef = useRef(online);
   onlineRef.current = online;
+  const performanceFrameRef = useRef(onPerformanceFrame);
+  performanceFrameRef.current = onPerformanceFrame;
+  const performanceVisibilityRef = useRef(onPerformanceVisibilityChange);
+  performanceVisibilityRef.current = onPerformanceVisibilityChange;
   const networkExitRef = useRef(onNetworkExit);
   networkExitRef.current = onNetworkExit;
   const slotIdRef = useRef(online?.slotId ?? 0);
   const reconnectTokenRef = useRef(online?.reconnectToken ?? "");
   const snapshotRef = useRef<OnlineSnapshot | null>(online?.snapshot ?? null);
+  const wingRewardRef = useRef<WingRewardNotice | null>(null);
   const remoteFramesRef = useRef<RemoteFrame[]>([]);
   const activeSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
   const joinedSocketRef = useRef<WebSocket | null>(online?.socket ?? null);
@@ -536,6 +597,10 @@ export function Arena({
   const serverEndedRef = useRef(Boolean(online?.snapshot.match.over));
   const seedRef = useRef(1);
   const replayRef = useRef<StepInput[]>([]);
+  // Staging diagnostics only: bit-exact state checksum after every applied step,
+  // so a rejected claim can be traced to the first frame where the live Arena
+  // and the reward server diverged.
+  const checksumRef = useRef<number[]>([]);
   const gyroOn = useRef(gyro);
   const drillCb = useRef(onDrill);
   gyroOn.current = gyro;
@@ -547,7 +612,8 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed });
+      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
+    checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -566,11 +632,31 @@ export function Arena({
     slotIdRef.current = online.slotId;
     reconnectTokenRef.current = online.reconnectToken;
     let disposed = false;
-    let retryTimer = 0;
-    let retryDelay = 700;
+    let retryTimer: number | null = null;
+    let handshakeTimer: number | null = null;
+    let retryAttempt = 0;
+    let reconnectDeadline = 0;
     let socket = online.socket;
+    const clearRetryTimer = () => {
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+      retryTimer = null;
+    };
+    const clearHandshakeTimer = () => {
+      if (handshakeTimer != null) window.clearTimeout(handshakeTimer);
+      handshakeTimer = null;
+    };
+    const endInterruptedMatch = () => {
+      disposed = true;
+      clearRetryTimer();
+      clearHandshakeTimer();
+      activeSocketRef.current = null;
+      joinedSocketRef.current = null;
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+      networkExitRef.current("session_lost");
+    };
 
     const onMessage = (event: MessageEvent) => {
+      const source = event.currentTarget as WebSocket;
       let packet: { type?: string; [key: string]: unknown };
       try {
         packet = JSON.parse(String(event.data));
@@ -580,7 +666,10 @@ export function Arena({
       if (packet.type === "joined") {
         const joinedSnapshot = packet.snapshot as OnlineSnapshot | undefined;
         if (!joinedSnapshot?.match) return;
-        joinedSocketRef.current = socket;
+        clearHandshakeTimer();
+        retryAttempt = 0;
+        reconnectDeadline = 0;
+        joinedSocketRef.current = source;
         slotIdRef.current = Number(packet.slotId);
         reconnectTokenRef.current = String(packet.reconnectToken ?? reconnectTokenRef.current);
         snapshotRef.current = joinedSnapshot;
@@ -589,6 +678,64 @@ export function Arena({
         serverEndedRef.current = Boolean(joinedSnapshot.match.over);
         const acknowledged = joinedSnapshot.players[slotIdRef.current]?.lastSeq ?? 0;
         pendingInputsRef.current = pendingInputsRef.current.filter((entry) => entry.seq > acknowledged);
+        setNetworkStatus("");
+        return;
+      }
+      if (packet.type === "authenticated") {
+        const join: { type: string; name: string; reconnectToken?: string } = {
+          type: "join",
+          name: online.name,
+        };
+        if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
+        try {
+          source.send(JSON.stringify(join));
+        } catch {
+          source.close();
+        }
+        return;
+      }
+      if (packet.type === "wing_reward_pending") {
+        setNetworkStatus("VERIFYING MATCH REWARD…");
+        return;
+      }
+      if (packet.type === "wing_reward") {
+        const status = packet.status;
+        const outcome = packet.outcome;
+        const gain = packet.gain;
+        const balanceAfter = packet.balanceAfter;
+        const revision = packet.revision;
+        if (
+          (status === "awarded" ||
+            status === "not_eligible" ||
+            status === "daily_limit" ||
+            status === "disabled" ||
+            status === "unavailable") &&
+          (outcome === "win" || outcome === "loss" || outcome === "draw") &&
+          typeof gain === "number" &&
+          Number.isSafeInteger(gain) &&
+          gain >= 0 &&
+          (balanceAfter === null ||
+            (typeof balanceAfter === "number" &&
+              Number.isSafeInteger(balanceAfter))) &&
+          (revision === null ||
+            (typeof revision === "number" && Number.isSafeInteger(revision)))
+        ) {
+          wingRewardRef.current = {
+            status,
+            outcome,
+            gain,
+            balanceAfter,
+            revision,
+            ...(typeof packet.reason === "string"
+              ? { reason: packet.reason }
+              : {}),
+          };
+          setNetworkStatus("");
+        }
+        return;
+      }
+      if (packet.type === "error" && packet.reason === "authentication_required") {
+        endInterruptedMatch();
         return;
       }
       if (packet.type === "snapshot") {
@@ -604,23 +751,27 @@ export function Arena({
       }
       if (packet.type === "interrupted") {
         disposed = true;
-        window.clearTimeout(retryTimer);
+        clearRetryTimer();
+        clearHandshakeTimer();
         activeSocketRef.current = null;
-        targetClose();
+        joinedSocketRef.current = null;
+        acknowledgeInterruptedNotice(source);
         networkExitRef.current(packet.reason === "server_restart" ? "server_restart" : "session_lost");
         return;
       }
       if (packet.type === "error") {
         if (packet.reason === "session_lost") {
           disposed = true;
-          window.clearTimeout(retryTimer);
+          clearRetryTimer();
+          clearHandshakeTimer();
           activeSocketRef.current = null;
-          targetClose();
+          joinedSocketRef.current = null;
+          if (source.readyState === WebSocket.OPEN || source.readyState === WebSocket.CONNECTING) source.close();
           networkExitRef.current("session_lost");
           return;
         }
         setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");
-        activeSocketRef.current?.close();
+        source.close();
       }
     };
 
@@ -628,8 +779,28 @@ export function Arena({
       remoteFramesRef.current = [captureRemoteFrame(online.snapshot)];
     }
 
-    const targetClose = () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+    const scheduleReconnect = () => {
+      if (disposed || serverEndedRef.current) return;
+      const now = performance.now();
+      if (reconnectDeadline === 0) reconnectDeadline = now + CLIENT_RECONNECT_WINDOW_MS;
+      const delay = nextReconnectDelayMs(retryAttempt++, reconnectDeadline, now);
+      if (delay == null) {
+        const remaining = Math.max(0, reconnectDeadline - now);
+        retryTimer = window.setTimeout(endInterruptedMatch, remaining);
+        return;
+      }
+      clearRetryTimer();
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        if (disposed) return;
+        try {
+          const url = currentWingSocketUrl();
+          url.searchParams.set("room", online.roomId.toLowerCase());
+          connect(new WebSocket(url));
+        } catch {
+          scheduleReconnect();
+        }
+      }, delay);
     };
 
     const connect = (target: WebSocket) => {
@@ -637,53 +808,54 @@ export function Arena({
       activeSocketRef.current = target;
       target.addEventListener("message", onMessage);
       target.addEventListener("open", () => {
-        retryDelay = 700;
-        setNetworkStatus("");
-        if (target !== online.socket) {
-          const join: { type: string; name: string; reconnectToken?: string } = {
-            type: "join",
-            name: online.name,
-          };
-          if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
-          target.send(JSON.stringify(join));
+        if (target === online.socket) {
+          joinedSocketRef.current = target;
+          setNetworkStatus("");
+          return;
         }
+        void online.getSessionToken().then((token) => {
+          if (target.readyState !== WebSocket.OPEN) return;
+          if (!token) {
+            endInterruptedMatch();
+            return;
+          }
+          target.send(JSON.stringify({ type: "authenticate", token }));
+        }).catch(endInterruptedMatch);
       });
       target.addEventListener("close", () => {
         target.removeEventListener("message", onMessage);
+        if (handshakeTimer != null) window.clearTimeout(handshakeTimer);
+        handshakeTimer = null;
         if (joinedSocketRef.current === target) joinedSocketRef.current = null;
         if (disposed || activeSocketRef.current !== target) return;
         activeSocketRef.current = null;
+        if (serverEndedRef.current) return;
         setNetworkStatus("SIGNAL LOST · RECONNECTING");
-        retryTimer = window.setTimeout(() => {
-          if (disposed) return;
-          const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-          url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-          url.searchParams.set("room", online.roomId.toLowerCase());
-          try {
-            connect(new WebSocket(url));
-          } catch {
-            retryDelay = Math.min(5000, retryDelay * 1.6);
-            retryTimer = window.setTimeout(() => connect(new WebSocket(url)), retryDelay);
-          }
-        }, retryDelay);
-        retryDelay = Math.min(5000, retryDelay * 1.6);
+        scheduleReconnect();
       });
+      if (target === online.socket && target.readyState === WebSocket.OPEN) {
+        // This socket was already admitted in the lobby before Arena mounted.
+        joinedSocketRef.current = target;
+        setNetworkStatus("");
+      } else if (target.readyState !== WebSocket.CLOSED) {
+        handshakeTimer = window.setTimeout(() => {
+          if (activeSocketRef.current === target && joinedSocketRef.current !== target) {
+            setNetworkStatus("ROOM SIGNAL LOST · RECONNECTING");
+            target.close();
+          }
+        }, SOCKET_HANDSHAKE_TIMEOUT_MS);
+      }
     };
 
     connect(socket);
     if (socket.readyState === WebSocket.CLOSED) {
       setNetworkStatus("SIGNAL LOST · RECONNECTING");
-      retryTimer = window.setTimeout(() => {
-        if (disposed) return;
-        const url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-        url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        url.searchParams.set("room", online.roomId.toLowerCase());
-        connect(new WebSocket(url));
-      }, retryDelay);
+      scheduleReconnect();
     }
     return () => {
       disposed = true;
-      window.clearTimeout(retryTimer);
+      clearRetryTimer();
+      clearHandshakeTimer();
       socket.removeEventListener("message", onMessage);
       if (activeSocketRef.current === socket) {
         activeSocketRef.current = null;
@@ -706,7 +878,9 @@ export function Arena({
         powerPreference: "high-performance",
       });
     } catch (err) {
-      setGlError(err instanceof Error ? err.message : "WebGL unavailable");
+      const message = err instanceof Error ? err.message : "WebGL unavailable";
+      setGlError(message);
+      onGraphicsError?.(message);
       return;
     }
     const look =
@@ -982,6 +1156,13 @@ export function Arena({
         setPaused(next);
         return;
       }
+      if (
+        event.code === "Space" &&
+        event.target instanceof HTMLButtonElement &&
+        !event.target.hasAttribute("data-flight-fire")
+      ) {
+        return;
+      }
       bus.keys.add(event.code);
       if (event.code === "Space" || event.code.startsWith("Arrow")) event.preventDefault();
     };
@@ -990,7 +1171,9 @@ export function Arena({
     };
     const clearHeld = () => clearInput(bus);
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") return;
+      const visible = document.visibilityState === "visible";
+      performanceVisibilityRef.current?.({ timestampMs: performance.now(), visible });
+      if (visible) return;
       clearHeld();
       if (!onlineRef.current) {
         pausedRef.current = true;
@@ -1020,6 +1203,7 @@ export function Arena({
     window.__controlsTest = {
       getYaw: () => pilotCraft(match, slotIdRef.current).yaw,
       getSpeed: () => pilotCraft(match, slotIdRef.current).speed,
+      getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
       },
@@ -1030,6 +1214,16 @@ export function Arena({
 
     let alive = true;
     let raf = 0;
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      alive = false;
+      cancelAnimationFrame(raf);
+      engineGain(0);
+      const message = "Graphics connection lost. Exit this flight and relaunch; no result has been submitted.";
+      setGlError(message);
+      onGraphicsError?.(message);
+    };
+    canvas.addEventListener("webglcontextlost", onContextLost);
     let last = performance.now();
     let acc = 0;
     let onlineAcc = 0;
@@ -1064,7 +1258,8 @@ export function Arena({
 
     const frame = (now: number) => {
       if (!alive) return;
-      const delta = Math.min(0.1, (now - last) / 1000);
+      const frameIntervalMs = Math.max(0, now - last);
+      const delta = Math.min(0.1, frameIntervalMs / 1000);
       last = now;
       const isOnline = Boolean(onlineRef.current);
       const held = isOnline ? false : pausedRef.current || hitstop > 0;
@@ -1131,6 +1326,7 @@ export function Arena({
           const played = first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null };
           if (replayRef.current.length < 22000) replayRef.current.push(played);
           step(match, played, FIXED);
+          if (stagingTraceEnabled && checksumRef.current.length <= 22000) checksumRef.current.push(matchChecksum(match));
           first = false;
           acc -= FIXED;
           steps += 1;
@@ -1473,7 +1669,9 @@ export function Arena({
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
-        button.dataset.on = index === match.preset ? "1" : "0";
+        const selected = index === match.preset;
+        button.dataset.on = selected ? "1" : "0";
+        button.setAttribute("aria-pressed", String(selected));
         button.style.opacity = match.presetCd > 0.05 && index !== match.preset ? "0.4" : "1";
       });
       const radar = radarRef.current;
@@ -1504,6 +1702,13 @@ export function Arena({
       callT = Math.max(0, callT - delta);
       if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
       if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
+      performanceFrameRef.current?.({
+        timestampMs: now,
+        frameIntervalMs,
+        gameSeconds: match.time,
+        pageVisible: document.visibilityState === "visible",
+        phase: match.over ? "post-match" : "active-play",
+      });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -1511,6 +1716,8 @@ export function Arena({
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      engineGain(0);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
       delete window.__controlsTest;
       observer.disconnect();
       window.removeEventListener("keydown", onKeyDown);
@@ -1539,12 +1746,16 @@ export function Arena({
 
   const bus = busRef.current;
   return (
-    <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
+    <div
+      data-testid="arena-stage"
+      data-local-endurance={localEndurance ? "true" : "false"}
+      className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none"
+    >
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (
         <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
-          {networkStatus || `LIVE WING · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
+          {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (
@@ -1706,7 +1917,14 @@ export function Arena({
           </p>
         ) : null}
 
-        <div className="absolute bottom-4 left-3 flex flex-col items-start gap-2">
+        <div
+          data-testid="flight-controls-left"
+          className="absolute bottom-4 left-3 flex flex-col items-start gap-2"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+            left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)",
+          }}
+        >
           <div className="pointer-events-auto flex flex-col gap-2">
             {PRESET_NAME.map((name, index) => (
               <button
@@ -1716,10 +1934,16 @@ export function Arena({
                   presetRefs.current[index] = node;
                 }}
                 data-on={index === 0 ? "1" : "0"}
+                data-testid={`flight-preset-${index}`}
+                aria-pressed={index === 0}
                 className="h-11 w-16 border border-bone/25 bg-panel font-hud text-base tracking-widest text-bone"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3;
+                }}
+                onClick={(event) => {
+                  if (event.detail !== 0 || !bus) return;
+                  bus.presetPulse = index as 0 | 1 | 2 | 3;
                 }}
               >
                 {name}
@@ -1738,7 +1962,14 @@ export function Arena({
           </div>
         </div>
 
-        <div className="absolute right-3 bottom-4 flex flex-col items-end gap-2">
+        <div
+          data-testid="flight-controls-right"
+          className="absolute right-3 bottom-4 flex flex-col items-end gap-2"
+          style={{
+            right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+          }}
+        >
           <div className="pointer-events-auto flex gap-2">
             <button
               ref={lockRef}
@@ -1747,6 +1978,9 @@ export function Arena({
               onPointerDown={(event) => {
                 event.stopPropagation();
                 if (bus) bus.lockPulse = true;
+              }}
+              onClick={(event) => {
+                if (event.detail === 0 && bus) bus.lockPulse = true;
               }}
             >
               LOCK
@@ -1757,6 +1991,10 @@ export function Arena({
               onPointerDown={(event) => {
                 event.stopPropagation();
                 if (!bus) return;
+                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
+              }}
+              onClick={(event) => {
+                if (event.detail !== 0 || !bus) return;
                 bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
               }}
             >
@@ -1771,11 +2009,17 @@ export function Arena({
                 unlockAudio();
                 if (bus) bus.ultPulse = true;
               }}
+              onClick={(event) => {
+                if (event.detail !== 0) return;
+                unlockAudio();
+                if (bus) bus.ultPulse = true;
+              }}
             >
               {ship.ultShort}
             </button>
             <button
               type="button"
+              data-flight-fire=""
               className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
               onPointerDown={(event) => {
                 event.stopPropagation();
@@ -1853,10 +2097,21 @@ export function Arena({
             <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
               {end.reason}
             </p>
+            {localEndurance && (
+              <p className="mt-3 text-xs leading-relaxed text-bone/70" data-testid="performance-endurance-hint">
+                This is a single local no-reward endurance run. If a result appears before the timer, the run stops
+                and its report remains partial; it will not restart another match.
+              </p>
+            )}
             <button
               type="button"
+              data-testid="button-arena-debrief"
               className="mt-5 h-12 w-full bg-solar font-hud text-lg tracking-widest text-void"
-              onClick={() => onDone(end, { seed: seedRef.current, inputs: replayRef.current })}
+              onClick={() => onDone(end, {
+                  seed: seedRef.current,
+                  inputs: replayRef.current,
+                  ...(stagingTraceEnabled ? { checksums: checksumRef.current } : {}),
+                }, wingRewardRef.current ?? undefined)}
             >
               Debrief
             </button>

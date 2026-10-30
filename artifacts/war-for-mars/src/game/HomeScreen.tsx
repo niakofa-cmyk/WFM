@@ -1,6 +1,10 @@
 import { menuTip, type MenuAction, type MenuStateId } from "./menu";
 import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
+import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
+import type { Save } from "./save";
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
 
 type HomeProps = {
   state: MenuStateId;
@@ -12,6 +16,13 @@ type HomeProps = {
   refit: number;
   credits: number;
   tech: TechId | null;
+  profile: Save;
+  signedIn: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string;
+  publicLeaderboardSaving: boolean;
+  publicLeaderboardError: string;
+  onSavePublicLeaderboard: (enabled: boolean, callsign: string) => void;
   cleared: number;
   refitLabel: string;
   refitDisabled: boolean;
@@ -21,6 +32,13 @@ type HomeProps = {
   roomCode: string;
   onRoomCode: (roomCode: string) => void;
   onCreateRoom: () => void;
+  onJoinCompetitiveQueue: () => void;
+  onJoinCasualAiQueue: () => void;
+  onCancelMatchmaking: () => void;
+  competitiveQueueing: boolean;
+  competitiveQueueAvailable: boolean;
+  casualAiQueueing: boolean;
+  casualAiQueueAvailable: boolean;
   onlineStatus?: string;
   offlineAvailable: boolean;
   onOfflineStrike: () => void;
@@ -36,7 +54,8 @@ export function HomeScreen(props: HomeProps) {
   const { state, onAction } = props;
   return (
     <section
-      className="relative h-dvh overflow-hidden bg-void text-bone"
+      data-testid="home-screen"
+      className="relative min-h-dvh bg-void text-bone"
       style={{
         backgroundImage: "url(/mars-front.jpg)",
         backgroundSize: "cover",
@@ -44,7 +63,7 @@ export function HomeScreen(props: HomeProps) {
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-transparent" />
-      <div className="relative flex h-full flex-col justify-between px-5 py-6 sm:px-10">
+      <div className="relative flex min-h-dvh flex-col justify-between px-5 py-6 sm:px-10">
         <p className="font-hud text-xs tracking-widest text-solar">USSF VS THE ACCORD · PHOBOS MOON</p>
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
@@ -83,6 +102,14 @@ function MainMenu({
   onAction,
   onOnline,
   onCreateRoom,
+  onJoinCompetitiveQueue,
+  onJoinCasualAiQueue,
+  onCancelMatchmaking,
+  competitiveQueueing,
+  competitiveQueueAvailable,
+  casualAiQueueing,
+  casualAiQueueAvailable,
+  signedIn,
   onRoomCode,
   roomCode,
   onlineStatus,
@@ -103,7 +130,7 @@ function MainMenu({
       <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
         <section className="border border-solar bg-void/80 p-3">
           <p className="font-hud text-lg tracking-widest text-solar">5V5 ONLINE WING</p>
-          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI.</p>
+          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
           <button
             type="button"
             data-testid="button-online-5v5"
@@ -136,6 +163,56 @@ function MainMenu({
               JOIN
             </button>
           </div>
+          {casualAiQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-casual-ai-queue"
+              disabled={!signedIn || casualAiQueueing || competitiveQueueing}
+              onClick={onJoinCasualAiQueue}
+              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+            >
+              <span className="block font-hud text-base leading-none tracking-widest">
+                {casualAiQueueing ? "CONNECTING TO QUICK MATCH" : "QUICK MATCH · AI FILL"}
+              </span>
+              <span className="text-xs text-muted">
+                {casualAiQueueing
+                  ? onlineStatus || "Joining the pilot window…"
+                  : signedIn
+                    ? "30-second pilot window · each new pilot resets it · AI fills seats · no rewards or rank."
+                    : "Sign in to join · casual, unranked, and no-reward."}
+              </span>
+            </button>
+          ) : null}
+          {competitiveQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-competitive-queue"
+              disabled={!signedIn || competitiveQueueing || casualAiQueueing}
+              onClick={onJoinCompetitiveQueue}
+              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+            >
+              <span className="block font-hud text-base leading-none tracking-widest">
+                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
+              </span>
+              <span className="text-xs text-muted">
+                {competitiveQueueing
+                  ? onlineStatus || "Waiting for ten authenticated human pilots."
+                  : signedIn
+                    ? "10 human pilots · auto-start · server-verified rewards when enabled."
+                    : "Sign in to queue · ten human pilots required."}
+              </span>
+            </button>
+          ) : null}
+          {competitiveQueueing || casualAiQueueing ? (
+            <button
+              type="button"
+              data-testid="button-cancel-matchmaking"
+              onClick={onCancelMatchmaking}
+              className="mt-1 h-10 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
+            >
+              {casualAiQueueing ? "CANCEL QUICK MATCH" : "CANCEL QUEUE"}
+            </button>
+          ) : null}
           {offlineAvailable ? (
             <button
               type="button"
@@ -163,6 +240,14 @@ function MainMenu({
             <span className="text-xs text-muted">{item.detail}</span>
           </button>
         ))}
+        <Link
+          href="/leaderboard"
+          data-testid="link-public-wing-leaderboard"
+          className="flex h-14 flex-col justify-center border border-solar/50 bg-void/70 px-3 text-left"
+        >
+          <span className="font-hud text-lg leading-none tracking-widest text-solar">WING LEADERBOARD</span>
+          <span className="text-xs text-muted">Opt-in callsigns · verified Wing credits</span>
+        </Link>
         <button
           type="button"
           data-testid="button-open-galaxy"
@@ -179,7 +264,7 @@ function MainMenu({
 
 function Armory(props: HomeProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4">
+    <div className="flex flex-col gap-3 py-4">
       <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
       <div className="grid max-w-xl grid-cols-2 gap-2">
         <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} />
@@ -237,6 +322,16 @@ function Armory(props: HomeProps) {
 }
 
 function Settings(props: HomeProps) {
+  const [enabled, setEnabled] = useState(props.publicLeaderboardOptIn);
+  const [callsign, setCallsign] = useState(props.publicLeaderboardCallsign);
+
+  useEffect(() => {
+    setEnabled(props.publicLeaderboardOptIn);
+    setCallsign(props.publicLeaderboardCallsign);
+  }, [props.publicLeaderboardOptIn, props.publicLeaderboardCallsign]);
+
+  const validCallsign = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$/.test(callsign.trim());
+
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
       <h2 className="font-hud text-4xl leading-none">SETTINGS</h2>
@@ -246,6 +341,49 @@ function Settings(props: HomeProps) {
         <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
       </div>
       <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
+      <section className="max-w-sm border border-solar/40 bg-void/70 p-3" data-testid="public-leaderboard-settings">
+        <p className="font-hud text-lg tracking-widest text-solar">PUBLIC WING LEADERBOARD</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          Only your callsign and total server-verified Wing credits are public. Your account, balance, match history, and online status stay private.
+        </p>
+        <label className="mt-3 flex min-h-11 items-center gap-3 text-sm text-bone">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+            data-testid="checkbox-leaderboard-opt-in"
+          />
+          Show me on the public board
+        </label>
+        <label htmlFor="leaderboard-callsign" className="mt-2 block text-xs tracking-widest text-muted">
+          PUBLIC CALLSIGN
+        </label>
+        <input
+          id="leaderboard-callsign"
+          data-testid="input-leaderboard-callsign"
+          autoComplete="off"
+          maxLength={16}
+          disabled={!enabled}
+          value={callsign}
+          onChange={(event) => setCallsign(event.target.value)}
+          placeholder="3–16 letters, numbers, spaces, _ or -"
+          className="mt-1 h-11 w-full border border-bone/25 bg-void px-3 text-bone placeholder:text-muted disabled:opacity-50"
+        />
+        <p className="mt-1 text-xs text-muted">Choose a callsign, not your real name, email, or other personal information.</p>
+        {props.publicLeaderboardError ? (
+          <p role="alert" className="mt-2 text-sm text-alert">{props.publicLeaderboardError}</p>
+        ) : null}
+        <button
+          type="button"
+          data-testid="button-save-leaderboard-preference"
+          disabled={props.publicLeaderboardSaving || (enabled && !validCallsign)}
+          onClick={() => props.onSavePublicLeaderboard(enabled, callsign.trim())}
+          className="mt-3 h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:opacity-40"
+        >
+          {props.publicLeaderboardSaving ? "SAVING…" : enabled ? "OPT IN AND SAVE" : "OPT OUT AND SAVE"}
+        </button>
+      </section>
+      <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
       <Back onAction={props.onAction} />
     </div>
   );
