@@ -32,6 +32,10 @@ type HomeProps = {
   roomCode: string;
   onRoomCode: (roomCode: string) => void;
   onCreateRoom: () => void;
+  onJoinCompetitiveQueue: () => void;
+  onCancelCompetitiveQueue: () => void;
+  competitiveQueueing: boolean;
+  competitiveQueueAvailable: boolean;
   onlineStatus?: string;
   offlineAvailable: boolean;
   onOfflineStrike: () => void;
@@ -95,6 +99,11 @@ function MainMenu({
   onAction,
   onOnline,
   onCreateRoom,
+  onJoinCompetitiveQueue,
+  onCancelCompetitiveQueue,
+  competitiveQueueing,
+  competitiveQueueAvailable,
+  signedIn,
   onRoomCode,
   roomCode,
   onlineStatus,
@@ -148,6 +157,36 @@ function MainMenu({
               JOIN
             </button>
           </div>
+          {competitiveQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-competitive-queue"
+              disabled={!signedIn || competitiveQueueing}
+              onClick={onJoinCompetitiveQueue}
+              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+            >
+              <span className="block font-hud text-base leading-none tracking-widest">
+                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
+              </span>
+              <span className="text-xs text-muted">
+                {competitiveQueueing
+                  ? onlineStatus || "Waiting for ten authenticated human pilots."
+                  : signedIn
+                    ? "10 human pilots · auto-start · server-verified rewards when enabled."
+                    : "Sign in to queue · ten human pilots required."}
+              </span>
+            </button>
+          ) : null}
+          {competitiveQueueing ? (
+            <button
+              type="button"
+              data-testid="button-cancel-competitive-queue"
+              onClick={onCancelCompetitiveQueue}
+              className="mt-1 h-10 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
+            >
+              CANCEL QUEUE
+            </button>
+          ) : null}
           {offlineAvailable ? (
             <button
               type="button"

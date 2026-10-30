@@ -53,6 +53,8 @@ const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ defau
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
 
 const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
+const competitiveQueueAvailable =
+  import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
 
 type StagingRewardDiagnostic = {
   runId: string;
@@ -125,6 +127,7 @@ export function WarApp() {
   const [onlineSession, setOnlineSession] = useState<OnlineRoom | null>(null);
   const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
+  const [competitiveQueueing, setCompetitiveQueueing] = useState(false);
   const [offlineAvailable, setOfflineAvailable] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [activeRun, setActiveRun] = useState<StrikeRun | null>(null);
@@ -168,6 +171,7 @@ export function WarApp() {
     joinSocketRef.current = null;
     setOnlineLobby(null);
     setOnlineSession(null);
+    setCompetitiveQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
   };
@@ -215,38 +219,55 @@ export function WarApp() {
       pilots_not_ready: "Every connected pilot must ready up before launch.",
       invalid_input: "The server rejected an invalid control packet.",
       rate_limited: "Too many messages were sent. Reconnect and try again.",
+      already_queued: "This account is already waiting in the competitive queue.",
+      already_in_match: "This account is already assigned to an active match.",
+      queue_capacity: "The competitive queue is full. Try again shortly.",
+      queue_wait_expired: "Queue wait expired. Rejoin when you are ready.",
+      competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
+      queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
+      queue_assignment_failed: "The match could not be assembled. Please rejoin the queue.",
+      competitive_queue_not_requested: "Reconnect through Find Competitive Match.",
+      not_queued: "You are no longer waiting in the competitive queue.",
     };
     return messages[code] ?? "Could not connect to that room. Check the code and try again.";
   };
 
-  const joinOnline = (requestedRoomCode: string) => {
+  const joinOnline = (requestedRoomCode: string, competitiveQueue = false) => {
     if (joinSocketRef.current || onlineLobby || onlineSession) return;
-    const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
+    let normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
+    if (!competitiveQueue && !/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
       return;
     }
-    setRoomCode(normalizedRoomCode);
+    if (competitiveQueue) setCompetitiveQueueing(true);
+    else setRoomCode(normalizedRoomCode);
     setOfflineMode(false);
     unlockAudio();
-    setOnlineStatus("Calling the wing…");
+    setOnlineStatus(competitiveQueue ? "Connecting to competitive queue…" : "Calling the wing…");
     setOfflineAvailable(false);
     let url: URL;
     try {
       url = currentWingSocketUrl();
-      url.searchParams.set("room", normalizedRoomCode.toLowerCase());
-      const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
-      window.history.replaceState({}, "", roomPath);
-      let reconnectToken = "";
-      try {
-        reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
-      } catch {
-        reconnectToken = "";
+      if (competitiveQueue) {
+        url.searchParams.set("queue", "competitive");
+      } else {
+        url.searchParams.set("room", normalizedRoomCode.toLowerCase());
+        const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
+        window.history.replaceState({}, "", roomPath);
       }
+      let reconnectToken = "";
+      if (!competitiveQueue) {
+        try {
+          reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        } catch {
+          reconnectToken = "";
+        }
+      }
+      let waitingForQueue = competitiveQueue;
       let joined = false;
       let started = false;
       let retryAttempt = 0;
-      const initialJoinDeadline = performance.now() + 5_000;
+      let initialJoinDeadline = performance.now() + (competitiveQueue ? 60_000 : 5_000);
       let reconnectDeadline = 0;
       let mySlotId: number | null = null;
       let myTeam: 0 | 1 = 0;
@@ -267,6 +288,8 @@ export function WarApp() {
         if (delay == null) {
           if (joined) {
             failOnline("Signal was not restored before the room's reconnect hold expired. Rejoin the room.");
+          } else if (waitingForQueue) {
+            failOnline("Queue connection was not restored. Tap Find Competitive Match to rejoin.");
           }
           return;
         }
@@ -276,9 +299,11 @@ export function WarApp() {
           connect(url);
         }, delay);
       };
-      joinTimeoutRef.current = window.setTimeout(() => {
-        if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
-      }, 5000);
+      if (!competitiveQueue) {
+        joinTimeoutRef.current = window.setTimeout(() => {
+          if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
+        }, 5000);
+      }
 
       const connect = (targetUrl: URL) => {
         if (started) return;
@@ -324,14 +349,30 @@ export function WarApp() {
             if (joinSent) return;
             joinSent = true;
             try {
-              socket.send(JSON.stringify({
-                type: "join",
-                name: "Pilot",
-                ...(reconnectToken ? { reconnectToken } : {}),
-              }));
+              socket.send(JSON.stringify(waitingForQueue
+                ? { type: "queue_join" }
+                : {
+                    type: "join",
+                    name: "Pilot",
+                    ...(reconnectToken ? { reconnectToken } : {}),
+                  }));
             } catch {
               socket.close();
             }
+            return;
+          }
+          if (packet.type === "queue_status") {
+            const position = Number(packet.position);
+            const required = Number(packet.requiredPilots);
+            initialJoinDeadline = performance.now() + 60_000;
+            setCompetitiveQueueing(true);
+            setOnlineStatus(packet.reason === "server_capacity"
+              ? "COMPETITIVE QUEUE · MATCH CAPACITY TEMPORARILY FULL"
+              : `COMPETITIVE QUEUE · ${Number.isFinite(position) ? position : "?"}/${Number.isFinite(required) ? required : 10} PILOTS`);
+            return;
+          }
+          if (packet.type === "queue_cancelled") {
+            failOnline("Competitive queue cancelled.");
             return;
           }
           if (packet.type === "error") {
@@ -360,6 +401,24 @@ export function WarApp() {
             return;
           }
           if (packet.type === "joined") {
+            if (waitingForQueue) {
+              const assignedRoomId = String(packet.roomId ?? "").trim().toUpperCase();
+              if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(assignedRoomId)) {
+                failOnline("The queue returned an invalid match assignment.");
+                return;
+              }
+              normalizedRoomCode = assignedRoomId;
+              waitingForQueue = false;
+              url.searchParams.delete("queue");
+              url.searchParams.set("room", assignedRoomId.toLowerCase());
+              window.history.replaceState(
+                {},
+                "",
+                `${window.location.pathname}?room=${encodeURIComponent(assignedRoomId)}`,
+              );
+              setRoomCode(assignedRoomId);
+              setCompetitiveQueueing(false);
+            }
             joined = true;
             retryAttempt = 0;
             reconnectDeadline = 0;
@@ -450,11 +509,13 @@ export function WarApp() {
           if (started || joinSocketRef.current !== socket) return;
           clearAttemptTimeout();
           if (!joined) {
-            setOnlineStatus("Room connection interrupted · retrying…");
+            setOnlineStatus(waitingForQueue
+              ? "Queue connection interrupted · retrying…"
+              : "Room connection interrupted · retrying…");
             scheduleRetry();
             return;
           }
-          setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
+            setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
           scheduleRetry();
         });
         socket.addEventListener("error", () => {
@@ -468,6 +529,18 @@ export function WarApp() {
     } catch {
       failOnline("Could not open the room connection. Try again.");
     }
+  };
+
+  const cancelCompetitiveQueue = () => {
+    const socket = joinSocketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify({ type: "queue_cancel" }));
+      } catch {
+        // Closing the queue socket also removes its waiting entry server-side.
+      }
+    }
+    failOnline("Competitive queue cancelled.");
   };
 
   useEffect(() => () => {
@@ -1152,6 +1225,10 @@ export function WarApp() {
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
+        onJoinCompetitiveQueue={() => joinOnline("", true)}
+        onCancelCompetitiveQueue={cancelCompetitiveQueue}
+        competitiveQueueing={competitiveQueueing}
+        competitiveQueueAvailable={competitiveQueueAvailable}
         roomCode={roomCode}
         onRoomCode={setRoomCode}
         onCreateRoom={() => {

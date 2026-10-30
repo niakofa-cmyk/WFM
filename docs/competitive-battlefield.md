@@ -7,7 +7,7 @@ readable combat spaces. A field should change the tactical picture—relay spaci
 cover, lighting, and approach lanes—not merely rename a room. The UI should
 brief pilots before launch and keep the same field identity visible in flight.
 
-## Implemented in the current staging source
+## Implemented in the current source
 
 - Each newly created 5v5 room receives one of the existing deterministic
   simulation fields: Rust Basin, Beacon Spur, Terminator Ridge, or Dustline
@@ -20,10 +20,18 @@ brief pilots before launch and keep the same field identity visible in flight.
   snapshot.
 - Reconnecting players and all room members see the same server-owned field.
   No client-selected map can change the current match layout.
+- The opt-in competitive queue is server-authoritative and guarded by
+  `VITE_WFM_COMPETITIVE_QUEUE_ENABLED=true` in the app build and
+  `WFM_COMPETITIVE_QUEUE_ENABLED=true` in the socket service. It groups ten
+  distinct authenticated pilots, assigns a balanced 5v5 field, and starts the
+  match without AI seats. Queue state and rooms are process-local, matching the
+  existing socket-room architecture; queued pilots must land on the same socket
+  process.
 
-This is **field rotation inside isolated room-code matches**, not a public queue,
-ranked ladder, geospatial matchmaking service, persistent map ownership system,
-or shared live galaxy. Room-code matches remain private and no-reward.
+Private room-code matches remain isolated and no-reward. The competitive queue
+is an opt-in 10-human matchmaker, not a single unlimited room, ranked ladder,
+geospatial service, persistent map-ownership system, or shared live galaxy. A
+separate open casual room has not been implemented.
 
 ## Review of the supplied implementation proposals
 
@@ -65,17 +73,20 @@ Regression coverage verifies deterministic server field rotation, battlefield
 briefing metadata and map bounds, plus that the socket lobby's map matches its
 authoritative match snapshot.
 
-These are code-level checks only. They do not certify map balance, deployed
-staging behavior, a real competitive matchmaking queue, reward-ledger state,
-or Production readiness. Production configuration and deployment were not
-changed. Keep the separate reward, physical-device, Clerk, and staging
+These are code-level checks only. They do not certify map balance, a deployed
+staging queue, a ten-human live match, reward-ledger state, or Production
+readiness. The queue and its UI remain disabled unless their exact opt-in flags
+are set; no Railway variables or deployments were changed. Competitive rewards
+still require their separate server reward flag, eligible participation, and
+staging database. Keep the separate reward, physical-device, Clerk, and staging
 promotion gates intact.
 
 ## Next design stages
 
 1. Collect map-by-map 5v5 playtest evidence before adjusting layouts or balance.
-2. If a public competitive queue is approved, design its server-owned room
-   issuance, capacity/rate limits, reconnect semantics, and privacy-safe region
-   handling separately from private room codes.
+2. Verify the exact queue flags, single-process staging routing, ten-human
+   threshold, disconnect/reconnect behavior, and reward-off behavior before
+   enabling the queue in staging. Multi-process shared matchmaking is not
+   implemented.
 3. Keep map result/reward settlement tied to verified server match state; never
    infer eligibility from map choice, room-code shape, or client telemetry.

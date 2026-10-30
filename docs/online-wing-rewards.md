@@ -9,9 +9,12 @@ database transaction.
 Reward eligibility is a server-owned match property, not a client choice. The
 current room-code flow creates private rooms; private, Practice, and test rooms
 are never reward-eligible. The server defaults a room to `private` and ignores
-client-provided mode fields. A future competitive queue must issue and register
-the room through trusted server code before it can be marked `competitive`.
-Until that queue exists, no current room-code match can receive Wing credits.
+client-provided mode fields. The opt-in competitive queue is the only current
+path that creates a `competitive` match: it requires ten distinct authenticated
+human pilots, assigns them to balanced teams, and starts the match on the
+server. The queue is disabled unless `WFM_COMPETITIVE_QUEUE_ENABLED` is exactly
+`"true"` on the socket service and `VITE_WFM_COMPETITIVE_QUEUE_ENABLED` is
+exactly `"true"` in the frontend build.
 
 | Player outcome | Credits |
 | --- | ---: |
@@ -83,10 +86,16 @@ bounded backoff and safe, identifier-free logs.
 
 The socket process also requires `WFM_WING_REWARDS_ENABLED` to be exactly
 `"true"` and a database URL before it loads the reward settlement module. An
-absent, misspelled, or differently cased value disables awards. This flag alone
-does not make a room eligible: an authoritative competitive-room resolver is
-also required. Keep the flag absent/false in staging until the competitive
-queue, schema, and ledger checks are ready.
+absent, misspelled, or differently cased value disables awards. Queue enablement
+and reward enablement are separate: the competitive mode is server-assigned by
+the queue, while the reward flag and database gate settlement. Keep reward
+enablement off until the queue, schema, and ledger checks are ready.
+
+The current queue, like the existing rooms, is in memory on one socket process.
+It groups only connections served by that process; it is not a shared,
+multi-replica matchmaking service and does not survive a restart. Confirm the
+staging socket's replica/routing behavior before enabling the queue there. A
+shared queue and cross-process match routing have not been implemented.
 
 ## Verification required before release
 

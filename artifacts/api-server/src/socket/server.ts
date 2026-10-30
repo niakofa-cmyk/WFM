@@ -20,6 +20,8 @@ import type {
 } from "../game/wing-reward-policy";
 
 const MAX_ROOMS = 64;
+const MAX_COMPETITIVE_QUEUE = 1_000;
+const COMPETITIVE_QUEUE_WAIT_MS = 15 * 60_000;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
 const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
@@ -41,6 +43,7 @@ type Room = {
   lastActivityAt: number;
   matchId: string | null;
   matchParticipants: Map<number, MatchParticipant>;
+  admittedPlayerIds: Set<string> | null;
   lastTickAt: number;
   settlementPromise: Promise<void> | null;
   settlementDone: boolean;
@@ -60,6 +63,7 @@ type MatchParticipant = {
 };
 
 type Client = {
+  socket: WebSocket;
   playerId: string | null;
   authenticating: boolean;
   roomId: string;
@@ -72,6 +76,14 @@ type Client = {
   invalidInputs: number;
   isAlive: boolean;
   lastInputAt: number;
+  queueRequested: boolean;
+  queueEnteredAt: number | null;
+};
+
+type PendingCompetitiveAssignment = {
+  roomId: string;
+  reconnectToken: string;
+  expiresAt: number;
 };
 
 type ShutdownNoticeResult =
@@ -84,6 +96,7 @@ export async function startWingSocketServer(
   host = "0.0.0.0",
   options: {
     verifySessionToken: SocketSessionVerifier;
+    enableCompetitiveQueue?: boolean;
     enableWingRewards?: boolean;
     /**
      * Trusted server-only resolver. It must return "competitive" only for
@@ -102,6 +115,11 @@ export async function startWingSocketServer(
 ) {
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
+  const competitiveQueue: Client[] = [];
+  const pendingCompetitiveAssignments = new Map<
+    string,
+    PendingCompetitiveAssignment
+  >();
   const shutdownAckWaiters = new Map<
     WebSocket,
     (result: ShutdownNoticeResult) => void
@@ -126,7 +144,10 @@ export async function startWingSocketServer(
     maxPayload: 8 * 1024,
     perMessageDeflate: false,
   });
-  const roomIds = new WeakMap<WebSocket, string>();
+  const connectionRequests = new WeakMap<
+    WebSocket,
+    { roomId: string; queueRequested: boolean }
+  >();
 
   httpServer.on("upgrade", (request, socket, head) => {
     if (isShuttingDown) {
@@ -154,25 +175,249 @@ export async function startWingSocketServer(
       return;
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
+    const queueRequested =
+      url.searchParams.get("queue") === "competitive" &&
+      !url.searchParams.has("room") &&
+      url.searchParams.size === 1;
+    const roomRequested =
+      !url.searchParams.has("queue") &&
+      ROOM_ID.test(roomId);
+    if (queueRequested && options.enableCompetitiveQueue !== true) {
+      rejectUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
     if (
       (url.pathname !== "/ws" && url.pathname !== "/ws/") ||
-      !ROOM_ID.test(roomId)
+      (!queueRequested && !roomRequested)
     ) {
       rejectUpgrade(socket, "400 Bad Request");
       return;
     }
     sockets.handleUpgrade(request, socket, head, (client) => {
-      roomIds.set(client, roomId);
+      connectionRequests.set(client, {
+        roomId: queueRequested ? "" : roomId,
+        queueRequested,
+      });
       sockets.emit("connection", client, request);
     });
   });
 
+  function createRoom(roomId: string, matchMode: WingMatchMode): Room {
+    return {
+      id: roomId,
+      wing: createWing(randomInt(1, 0x7fffffff)),
+      sockets: new Set(),
+      slotSockets: new Map(),
+      emptySince: null,
+      phase: "lobby",
+      matchMode,
+      hostSlotId: null,
+      readySlots: new Set(),
+      lastActivityAt: Date.now(),
+      matchId: null,
+      matchParticipants: new Map(),
+      admittedPlayerIds: matchMode === "competitive" ? new Set() : null,
+      lastTickAt: Date.now(),
+      settlementPromise: null,
+      settlementDone: false,
+      settlementAttempts: 0,
+      nextSettlementAt: 0,
+      pendingNoticeSent: false,
+      rewardNotices: new Map(),
+    };
+  }
+
+  function publishCompetitiveQueueStatus(reason?: string) {
+    const statusReason =
+      reason ?? (rooms.size >= MAX_ROOMS ? "server_capacity" : undefined);
+    competitiveQueue.forEach((queuedClient, index) => {
+      const socket = socketForClient(queuedClient);
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      send(socket, {
+        type: "queue_status",
+        mode: "competitive",
+        position: index + 1,
+        queuedCount: competitiveQueue.length,
+        requiredPilots: MAX_PLAYERS,
+        ...(statusReason ? { reason: statusReason } : {}),
+      });
+    });
+  }
+
+  function socketForClient(client: Client) {
+    return client.socket;
+  }
+
+  function removeFromCompetitiveQueue(client: Client) {
+    const index = competitiveQueue.indexOf(client);
+    if (index < 0) return false;
+    competitiveQueue.splice(index, 1);
+    client.queueEnteredAt = null;
+    publishCompetitiveQueueStatus();
+    return true;
+  }
+
+  function attachQueuedPilot(
+    socket: WebSocket,
+    client: Client,
+    room: Room,
+    reconnectToken?: string,
+  ): { slotId: number; team: 0 | 1; reconnectToken: string } | null {
+    const playerId = client.playerId;
+    if (!playerId) return null;
+    const result = room.wing.join(playerId, "Pilot", reconnectToken);
+    if (!result.ok) return null;
+    const previous = room.slotSockets.get(result.slotId);
+    client.roomId = room.id;
+    client.room = room;
+    client.slotId = result.slotId;
+    client.queueEnteredAt = null;
+    room.sockets.add(socket);
+    room.slotSockets.set(result.slotId, socket);
+    if (previous && previous !== socket) {
+      previous.close(4001, "Pilot reconnected");
+    }
+    room.emptySince = null;
+    room.lastActivityAt = Date.now();
+    if (room.hostSlotId === null) room.hostSlotId = result.slotId;
+    room.admittedPlayerIds?.add(playerId);
+    return result;
+  }
+
+  function sendJoinedPacket(
+    socket: WebSocket,
+    room: Room,
+    result: { slotId: number; team: 0 | 1; reconnectToken: string },
+    snapshot = room.wing.snapshot(),
+  ) {
+    send(socket, {
+      type: "joined",
+      roomId: room.id,
+      slotId: result.slotId,
+      team: result.team,
+      phase: room.phase,
+      matchMode: room.matchMode,
+      reconnectToken: result.reconnectToken,
+      snapshot,
+    });
+  }
+
+  function startCompetitiveMatch(pilots: Client[]) {
+    let roomId = "";
+    do {
+      roomId = randomUUID().replaceAll("-", "").slice(0, 20).toLowerCase();
+    } while (rooms.has(roomId));
+    const room = createRoom(roomId, "competitive");
+    const playerIds = pilots.map((pilot) => pilot.playerId);
+    if (
+      playerIds.some((playerId) => !playerId) ||
+      new Set(playerIds).size !== MAX_PLAYERS
+    ) {
+      for (const pilot of pilots) {
+        const socket = socketForClient(pilot);
+        if (socket) {
+          send(socket, { type: "error", reason: "queue_identity_conflict" });
+          socket.close(1008, "Competitive queue identity conflict");
+        }
+      }
+      return false;
+    }
+    room.admittedPlayerIds = new Set(playerIds as string[]);
+    room.phase = "active";
+    room.matchId = randomUUID();
+    room.lastActivityAt = Date.now();
+    room.lastTickAt = room.lastActivityAt;
+    rooms.set(room.id, room);
+
+    const assignments: Array<{
+      pilot: Client;
+      socket: WebSocket;
+      result: { slotId: number; team: 0 | 1; reconnectToken: string };
+    }> = [];
+    for (const pilot of pilots) {
+      const socket = socketForClient(pilot);
+      const result =
+        socket?.readyState === WebSocket.OPEN
+          ? attachQueuedPilot(socket, pilot, room)
+          : null;
+      if (!socket || !result) {
+        rooms.delete(room.id);
+        for (const attachedSocket of room.sockets) {
+          const attachedClient = clients.get(attachedSocket);
+          if (attachedClient) {
+            attachedClient.room = null;
+            attachedClient.slotId = null;
+            attachedClient.roomId = "";
+          }
+          attachedSocket.close(1011, "Competitive match could not be assigned");
+        }
+        for (const remainingPilot of pilots) {
+          if (remainingPilot.room !== room) {
+            const waitingSocket = socketForClient(remainingPilot);
+            if (waitingSocket?.readyState === WebSocket.OPEN) {
+              send(waitingSocket, { type: "error", reason: "queue_assignment_failed" });
+              waitingSocket.close(1011, "Competitive match could not be assigned");
+            }
+          }
+        }
+        return false;
+      }
+      assignments.push({ pilot, socket, result });
+      const participant = room.wing.participants().find(
+        (entry) => entry.userId === pilot.playerId,
+      );
+      if (!participant) {
+        rooms.delete(room.id);
+        return false;
+      }
+      room.matchParticipants.set(participant.slotId, {
+        playerId: participant.userId,
+        slotId: participant.slotId,
+        team: participant.team,
+        acceptedInputs: 0,
+        activeMs: 0,
+        lastParticipatingInputAt: null,
+      });
+      pendingCompetitiveAssignments.set(participant.userId, {
+        roomId: room.id,
+        reconnectToken: result.reconnectToken,
+        expiresAt: Date.now() + COMPETITIVE_QUEUE_WAIT_MS,
+      });
+    }
+    const snapshot = room.wing.snapshot();
+    for (const assignment of assignments) {
+      sendJoinedPacket(assignment.socket, room, assignment.result, snapshot);
+    }
+    publishCompetitiveQueueStatus();
+    return true;
+  }
+
+  function matchCompetitiveQueue() {
+    for (let index = competitiveQueue.length - 1; index >= 0; index -= 1) {
+      const client = competitiveQueue[index]!;
+      const socket = socketForClient(client);
+      if (!socket || socket.readyState !== WebSocket.OPEN || !client.playerId) {
+        competitiveQueue.splice(index, 1);
+        client.queueEnteredAt = null;
+      }
+    }
+    while (
+      competitiveQueue.length >= MAX_PLAYERS &&
+      rooms.size < MAX_ROOMS
+    ) {
+      const pilots = competitiveQueue.splice(0, MAX_PLAYERS);
+      if (!startCompetitiveMatch(pilots)) break;
+    }
+    publishCompetitiveQueueStatus();
+  }
+
   sockets.on("connection", (socket) => {
-    const roomId = roomIds.get(socket) ?? "";
+    const request = connectionRequests.get(socket);
     const client: Client = {
+      socket,
       playerId: null,
       authenticating: false,
-      roomId,
+      roomId: request?.roomId ?? "",
       room: null,
       slotId: null,
       messageWindow: Date.now(),
@@ -182,6 +427,8 @@ export async function startWingSocketServer(
       invalidInputs: 0,
       isAlive: true,
       lastInputAt: Date.now(),
+      queueRequested: request?.queueRequested ?? false,
+      queueEnteredAt: null,
     };
     clients.set(socket, client);
     let authenticationTimeout: ReturnType<typeof setTimeout> | null =
@@ -276,12 +523,93 @@ export async function startWingSocketServer(
         return;
       }
 
+      if (packet.type === "queue_join") {
+        if (!client.queueRequested || client.room || client.slotId !== null) {
+          send(socket, {
+            type: "error",
+            reason: "competitive_queue_not_requested",
+          });
+          return;
+        }
+        if (!client.playerId) {
+          rejectAuthentication();
+          return;
+        }
+        const pending = pendingCompetitiveAssignments.get(client.playerId);
+        if (pending) {
+          const pendingRoom = rooms.get(pending.roomId);
+          if (
+            pending.expiresAt > now &&
+            pendingRoom?.matchMode === "competitive" &&
+            pendingRoom.admittedPlayerIds?.has(client.playerId) &&
+            pendingRoom.wing.canReconnect(pending.reconnectToken)
+          ) {
+            const result = attachQueuedPilot(
+              socket,
+              client,
+              pendingRoom,
+              pending.reconnectToken,
+            );
+            if (result) {
+              sendJoinedPacket(socket, pendingRoom, result);
+              return;
+            }
+          }
+          pendingCompetitiveAssignments.delete(client.playerId);
+        }
+        const alreadyInMatch = [...rooms.values()].some(
+          (room) =>
+            room.phase === "active" &&
+            !room.wing.match.over &&
+            room.wing
+              .participants()
+              .some((participant) => participant.userId === client.playerId),
+        );
+        if (alreadyInMatch) {
+          send(socket, { type: "error", reason: "already_in_match" });
+          return;
+        }
+        if (
+          competitiveQueue.some(
+            (queuedClient) => queuedClient.playerId === client.playerId,
+          )
+        ) {
+          send(socket, { type: "error", reason: "already_queued" });
+          return;
+        }
+        if (competitiveQueue.length >= MAX_COMPETITIVE_QUEUE) {
+          send(socket, { type: "error", reason: "queue_capacity" });
+          return;
+        }
+        competitiveQueue.push(client);
+        client.queueEnteredAt = now;
+        matchCompetitiveQueue();
+        return;
+      }
+
+      if (packet.type === "queue_cancel") {
+        if (!client.queueRequested || !removeFromCompetitiveQueue(client)) {
+          send(socket, { type: "error", reason: "not_queued" });
+          return;
+        }
+        send(socket, { type: "queue_cancelled" });
+        matchCompetitiveQueue();
+        return;
+      }
+
       if (packet.type === "interrupted_ack") {
         shutdownAckWaiters.get(socket)?.("acknowledged");
         return;
       }
 
       if (packet.type === "join") {
+        if (client.queueRequested && client.room === null) {
+          send(socket, {
+            type: "error",
+            reason: "competitive_queue_join_required",
+          });
+          return;
+        }
         if (client.slotId !== null) {
           send(socket, { type: "error", reason: "already_joined" });
           return;
@@ -303,27 +631,7 @@ export async function startWingSocketServer(
             socket.close(1013, "Room capacity reached");
             return;
           }
-          room = {
-            id: client.roomId,
-            wing: createWing(randomInt(1, 0x7fffffff)),
-            sockets: new Set(),
-            slotSockets: new Map(),
-            emptySince: null,
-            phase: "lobby",
-            matchMode: resolveRoomMode(client.roomId),
-            hostSlotId: null,
-            readySlots: new Set(),
-            lastActivityAt: Date.now(),
-            matchId: null,
-            matchParticipants: new Map(),
-            lastTickAt: Date.now(),
-            settlementPromise: null,
-            settlementDone: false,
-            settlementAttempts: 0,
-            nextSettlementAt: 0,
-            pendingNoticeSent: false,
-            rewardNotices: new Map(),
-          };
+          room = createRoom(client.roomId, resolveRoomMode(client.roomId));
           rooms.set(room.id, room);
         }
 
@@ -349,6 +657,19 @@ export async function startWingSocketServer(
         const authenticatedPlayerId = client.playerId;
         if (authenticatedPlayerId === null) {
           rejectAuthentication();
+          return;
+        }
+        if (
+          room.matchMode === "competitive" &&
+          (!room.admittedPlayerIds?.has(authenticatedPlayerId) ||
+            !suppliedReconnectToken ||
+            !room.wing.canReconnect(suppliedReconnectToken))
+        ) {
+          send(socket, {
+            type: "error",
+            reason: "competitive_queue_required",
+          });
+          socket.close(1008, "This match is reserved for queued pilots");
           return;
         }
         const result = room.wing.join(
@@ -384,6 +705,7 @@ export async function startWingSocketServer(
           slotId: result.slotId,
           team: result.team,
           phase: room.phase,
+          matchMode: room.matchMode,
           reconnectToken: result.reconnectToken,
           snapshot: room.wing.snapshot(),
         });
@@ -526,6 +848,9 @@ export async function startWingSocketServer(
         };
         client.lastInputAt = now;
         const accepted = client.room.wing.input(client.slotId, wingInput, now);
+        if (accepted && client.playerId) {
+          pendingCompetitiveAssignments.delete(client.playerId);
+        }
         if (accepted && isMeaningfulWingInput(wingInput)) {
           const participant = client.room.matchParticipants.get(client.slotId);
           if (
@@ -549,6 +874,7 @@ export async function startWingSocketServer(
     socket.on("close", () => {
       clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
+      if (removeFromCompetitiveQueue(client)) matchCompetitiveQueue();
       const room = client.room;
       const slotId = client.slotId;
       clients.delete(socket);
@@ -742,6 +1068,24 @@ export async function startWingSocketServer(
     const now = Date.now();
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
+    for (const client of [...competitiveQueue]) {
+      if (
+        client.queueEnteredAt !== null &&
+        now - client.queueEnteredAt >= COMPETITIVE_QUEUE_WAIT_MS
+      ) {
+        removeFromCompetitiveQueue(client);
+        const socket = socketForClient(client);
+        if (socket?.readyState === WebSocket.OPEN) {
+          send(socket, { type: "error", reason: "queue_wait_expired" });
+          socket.close(1000, "Competitive queue wait expired");
+        }
+      }
+    }
+    for (const [playerId, assignment] of pendingCompetitiveAssignments) {
+      if (assignment.expiresAt <= now) {
+        pendingCompetitiveAssignments.delete(playerId);
+      }
+    }
     for (const [id, room] of rooms) {
       if (
         room.sockets.size === 0 &&
@@ -749,11 +1093,13 @@ export async function startWingSocketServer(
         now - room.emptySince > ROOM_IDLE_MS
       ) {
         rooms.delete(id);
+        matchCompetitiveQueue();
         continue;
       }
       if (room.phase === "lobby" && now - room.lastActivityAt > LOBBY_IDLE_MS) {
         rooms.delete(id);
         for (const socket of room.sockets) socket.close(1001, "Lobby expired");
+        matchCompetitiveQueue();
         continue;
       }
       room.wing.expireDisconnected(now);
@@ -838,6 +1184,9 @@ export async function startWingSocketServer(
     port: address.port,
     get roomCount() {
       return rooms.size;
+    },
+    get queuedPilotCount() {
+      return competitiveQueue.length;
     },
     async close() {
       if (closePromise) return closePromise;
@@ -994,6 +1343,7 @@ function broadcastLobby(room: Room) {
     type: "lobby",
     roomId: room.id,
     phase: room.phase,
+    matchMode: room.matchMode,
     hostSlotId: room.hostSlotId,
     connectedCount,
     maxPlayers: MAX_PLAYERS,

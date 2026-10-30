@@ -1,4 +1,4 @@
-- [Online and universe scope](online-multiplayer-scope.md) — isolated 10-seat rooms; alpha matches end on server restart; matchmaking/shared real-time galaxy are out of scope.
+- [Online and universe scope](online-multiplayer-scope.md) — private rooms remain no-reward; competitive queue waits for ten distinct authenticated humans; no global free-for-all or GPS.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
@@ -7,7 +7,7 @@
 - [Socket shutdown checks](replit-socket-shutdown.md) — local shutdown passed; raw Railway clients closed 1006, while one browser pilot showed the restart notice.
 - [Offline progression](offline-progression-policy.md) — cached worlds are read-only; action identities persist for server validation; online rooms are separate from Strike reward claims.
 - [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
-- [Online Wing rewards](online-wing-rewards.md) — owner-approved 5v5 credit defaults require active, connected, opposing human pilots and one idempotent server ledger award.
+- [Online Wing rewards](online-wing-rewards.md) — 10-human queue and reward enablement are separately gated; reward amounts, participation, daily cap, and ledger idempotency remain server-owned.
 - [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
 - [Railway service-scoped preflight](railway-service-scoped-preflight.md) — use `railway run --no-local` with explicit service scope; status checks do not prove auth pairing.
 - [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
@@ -25,4 +25,4 @@
 - [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
 - [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
 - [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
-- [Competitive battlefield direction](competitive-battlefield.md) — server-seeded in-game fields and tactical map UI; private room codes stay isolated/no-reward, with no GPS matchmaking.
+- [Competitive battlefield direction](competitive-battlefield.md) — server-seeded fields; approved queue waits for ten authenticated humans; private codes stay no-reward, with no GPS matchmaking.

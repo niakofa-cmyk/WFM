@@ -60,6 +60,7 @@ async function join(
     slotId: Number(packet.slotId),
     team: Number(packet.team),
     roomId: String(packet.roomId),
+    matchMode: String(packet.matchMode),
     reconnectToken: String(packet.reconnectToken),
   };
 }
@@ -222,6 +223,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
     );
     sockets.push(...mainRoomClients);
     const seats = await Promise.all(mainRoomClients.map((socket, index) => join(socket, `Pilot ${index}`)));
+    assert.ok(seats.every((seat) => seat.matchMode === "private"));
     assert.deepEqual(seats.map((seat) => seat.slotId).sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     assert.equal(seats.filter((seat) => seat.team === 0).length, 5);
     assert.equal(seats.filter((seat) => seat.team === 1).length, 5);
@@ -701,6 +703,7 @@ test("ten-client private rooms cannot be made reward-eligible by client fields",
     const seats = await Promise.all(pilots.map((socket, index) =>
       join(socket, `Pilot ${index}`, undefined, { matchMode: "competitive" }),
     ));
+    assert.ok(seats.every((seat) => seat.matchMode === "private"));
     assert.equal(seats.filter((seat) => seat.team === 0).length, 5);
     assert.equal(seats.filter((seat) => seat.team === 1).length, 5);
 
@@ -750,6 +753,189 @@ test("ten-client private rooms cannot be made reward-eligible by client fields",
   } finally {
     inputTimers.forEach(clearInterval);
     await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("competitive queue waits for ten distinct authenticated pilots and auto-starts one balanced match", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCompetitiveQueue: true,
+    tickIntervalMs: 60_000,
+    snapshotIntervalMs: 60_000,
+  });
+  const sockets: WebSocket[] = [];
+  try {
+    const url = `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`;
+    const pilots = await Promise.all(
+      Array.from({ length: MAX_PLAYERS }, (_, index) =>
+        connect(url, `queue-pilot-${index}`),
+      ),
+    );
+    sockets.push(...pilots);
+
+    for (let index = 0; index < MAX_PLAYERS - 1; index += 1) {
+      const status = nextPacket(
+        pilots[index]!,
+        (packet) =>
+          packet.type === "queue_status" &&
+          Number(packet.position) === index + 1,
+      );
+      pilots[index]!.send(JSON.stringify({ type: "queue_join" }));
+      const packet = await status;
+      assert.equal(packet.requiredPilots, MAX_PLAYERS);
+      assert.equal(packet.queuedCount, index + 1);
+      assert.equal(runtime.queuedPilotCount, index + 1);
+      assert.equal(runtime.roomCount, 0);
+    }
+
+    const joined = pilots.map((socket) =>
+      nextPacket(socket, (packet) => packet.type === "joined"),
+    );
+    pilots[MAX_PLAYERS - 1]!.send(JSON.stringify({ type: "queue_join" }));
+    const assignments = await Promise.all(joined);
+    const roomIds = new Set(assignments.map((packet) => String(packet.roomId)));
+    assert.equal(roomIds.size, 1);
+    assert.equal(runtime.queuedPilotCount, 0);
+    assert.equal(runtime.roomCount, 1);
+    assert.ok(assignments.every((packet) => packet.matchMode === "competitive"));
+    assert.ok(assignments.every((packet) => packet.phase === "active"));
+    assert.deepEqual(
+      assignments.map((packet) => Number(packet.slotId)).sort((a, b) => a - b),
+      Array.from({ length: MAX_PLAYERS }, (_, index) => index),
+    );
+    assert.equal(assignments.filter((packet) => packet.team === 0).length, 5);
+    assert.equal(assignments.filter((packet) => packet.team === 1).length, 5);
+    for (const assignment of assignments) {
+      const snapshot = assignment.snapshot as {
+        players: Array<{ connected: boolean }>;
+      };
+      assert.equal(snapshot.players.filter((player) => player.connected).length, 10);
+    }
+
+    const matchRoomId = String(assignments[0]!.roomId);
+    const intruder = await connect(
+      `ws://127.0.0.1:${runtime.port}/ws?room=${matchRoomId}`,
+      "queue-intruder",
+    );
+    sockets.push(intruder);
+    const rejected = nextPacket(intruder, (packet) => packet.type === "error");
+    intruder.send(
+      JSON.stringify({
+        type: "join",
+        name: "Forged queue pilot",
+        matchMode: "competitive",
+      }),
+    );
+    assert.equal((await rejected).reason, "match_started");
+
+    const firstAssignment = assignments[0]!;
+    const firstSocket = pilots[0]!;
+    await close(firstSocket);
+    const reconnect = await connect(
+      `ws://127.0.0.1:${runtime.port}/ws?room=${matchRoomId}`,
+      "queue-pilot-0",
+    );
+    sockets.push(reconnect);
+    const rejoined = await join(
+      reconnect,
+      "Pilot",
+      String(firstAssignment.reconnectToken),
+    );
+    assert.equal(rejoined.roomId, matchRoomId);
+    assert.equal(rejoined.slotId, Number(firstAssignment.slotId));
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("competitive queue rejects duplicate account entries and supports cancellation", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCompetitiveQueue: true,
+  });
+  const sockets: WebSocket[] = [];
+  try {
+    const url = `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`;
+    const first = await connect(url, "same-queue-account");
+    const duplicate = await connect(url, "same-queue-account");
+    sockets.push(first, duplicate);
+
+    const waiting = nextPacket(first, (packet) => packet.type === "queue_status");
+    first.send(JSON.stringify({ type: "queue_join" }));
+    assert.equal((await waiting).position, 1);
+    assert.equal(runtime.queuedPilotCount, 1);
+
+    const duplicateError = nextPacket(
+      duplicate,
+      (packet) => packet.type === "error",
+    );
+    duplicate.send(JSON.stringify({ type: "queue_join" }));
+    assert.equal((await duplicateError).reason, "already_queued");
+    assert.equal(runtime.queuedPilotCount, 1);
+
+    const cancelled = nextPacket(
+      first,
+      (packet) => packet.type === "queue_cancelled",
+    );
+    first.send(JSON.stringify({ type: "queue_cancel" }));
+    await cancelled;
+    assert.equal(runtime.queuedPilotCount, 0);
+    assert.equal(runtime.roomCount, 0);
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});
+
+test("competitive queue stays unavailable unless the socket operator enables it", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
+  const socket = new WebSocket(
+    `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`,
+  );
+  try {
+    const status = await new Promise<number>((resolve, reject) => {
+      socket.once("unexpected-response", (_request, response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      });
+      socket.once("error", reject);
+    });
+    assert.equal(status, 503);
+    assert.equal(runtime.queuedPilotCount, 0);
+    assert.equal(runtime.roomCount, 0);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
+test("competitive queue rejects unauthenticated queue requests", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCompetitiveQueue: true,
+  });
+  const socket = new WebSocket(
+    `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`,
+  );
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once("open", resolve);
+      socket.once("error", reject);
+    });
+    const rejected = nextPacket(
+      socket,
+      (packet) => packet.type === "error",
+    );
+    socket.send(JSON.stringify({ type: "queue_join", playerId: "spoofed" }));
+    assert.equal((await rejected).reason, "authentication_required");
+    assert.equal(runtime.queuedPilotCount, 0);
+    assert.equal(runtime.roomCount, 0);
+  } finally {
+    await close(socket);
     await runtime.close();
   }
 });
