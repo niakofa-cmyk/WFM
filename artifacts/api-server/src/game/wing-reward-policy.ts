@@ -8,7 +8,12 @@ export const WING_REWARD_POLICY = Object.freeze({
 export type WingOutcome = "win" | "loss" | "draw";
 export type WingRewardOutcome = WingOutcome;
 export type WingTeam = 0 | 1;
-export type WingMatchMode = "private" | "practice" | "test" | "competitive";
+export type WingMatchMode =
+  | "private"
+  | "practice"
+  | "test"
+  | "competitive"
+  | "casual_ai";
 
 export type WingRewardParticipant = {
   playerId: string;

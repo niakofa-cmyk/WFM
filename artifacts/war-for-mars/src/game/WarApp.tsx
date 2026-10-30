@@ -55,6 +55,8 @@ const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ def
 const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
 const competitiveQueueAvailable =
   import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
+const casualAiQueueAvailable =
+  import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
 
 type StagingRewardDiagnostic = {
   runId: string;
@@ -128,6 +130,7 @@ export function WarApp() {
   const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
   const [competitiveQueueing, setCompetitiveQueueing] = useState(false);
+  const [casualAiQueueing, setCasualAiQueueing] = useState(false);
   const [offlineAvailable, setOfflineAvailable] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [activeRun, setActiveRun] = useState<StrikeRun | null>(null);
@@ -172,6 +175,7 @@ export function WarApp() {
     setOnlineLobby(null);
     setOnlineSession(null);
     setCompetitiveQueueing(false);
+    setCasualAiQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
   };
@@ -226,48 +230,60 @@ export function WarApp() {
       competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
       queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
       queue_assignment_failed: "The match could not be assembled. Please rejoin the queue.",
-      competitive_queue_not_requested: "Reconnect through Find Competitive Match.",
-      not_queued: "You are no longer waiting in the competitive queue.",
+      competitive_queue_not_requested: "Reconnect through the matchmaking button you used.",
+      not_queued: "You are no longer waiting in matchmaking.",
+      auto_launch_only: "This quick match launches automatically when its pilot window ends.",
     };
     return messages[code] ?? "Could not connect to that room. Check the code and try again.";
   };
 
-  const joinOnline = (requestedRoomCode: string, competitiveQueue = false) => {
+  const joinOnline = (
+    requestedRoomCode: string,
+    queueMode: "competitive" | "casual_ai" | null = null,
+  ) => {
     if (joinSocketRef.current || onlineLobby || onlineSession) return;
     let normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
-    if (!competitiveQueue && !/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
+    const matchmaking = queueMode !== null;
+    if (!matchmaking && !/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
       return;
     }
-    if (competitiveQueue) setCompetitiveQueueing(true);
+    if (queueMode === "competitive") setCompetitiveQueueing(true);
+    else if (queueMode === "casual_ai") setCasualAiQueueing(true);
     else setRoomCode(normalizedRoomCode);
     setOfflineMode(false);
     unlockAudio();
-    setOnlineStatus(competitiveQueue ? "Connecting to competitive queue…" : "Calling the wing…");
+    setOnlineStatus(
+      queueMode === "competitive"
+        ? "Connecting to competitive queue…"
+        : queueMode === "casual_ai"
+          ? "Finding pilots for a quick match…"
+          : "Calling the wing…",
+    );
     setOfflineAvailable(false);
     let url: URL;
     try {
       url = currentWingSocketUrl();
-      if (competitiveQueue) {
-        url.searchParams.set("queue", "competitive");
+      if (queueMode) {
+        url.searchParams.set("queue", queueMode === "casual_ai" ? "casual-ai" : "competitive");
       } else {
         url.searchParams.set("room", normalizedRoomCode.toLowerCase());
         const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
         window.history.replaceState({}, "", roomPath);
       }
       let reconnectToken = "";
-      if (!competitiveQueue) {
+      if (!matchmaking) {
         try {
           reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
         } catch {
           reconnectToken = "";
         }
       }
-      let waitingForQueue = competitiveQueue;
+      let waitingForQueue = matchmaking;
       let joined = false;
       let started = false;
       let retryAttempt = 0;
-      let initialJoinDeadline = performance.now() + (competitiveQueue ? 60_000 : 5_000);
+      let initialJoinDeadline = performance.now() + (matchmaking ? 60_000 : 5_000);
       let reconnectDeadline = 0;
       let mySlotId: number | null = null;
       let myTeam: 0 | 1 = 0;
@@ -289,7 +305,11 @@ export function WarApp() {
           if (joined) {
             failOnline("Signal was not restored before the room's reconnect hold expired. Rejoin the room.");
           } else if (waitingForQueue) {
-            failOnline("Queue connection was not restored. Tap Find Competitive Match to rejoin.");
+            failOnline(
+              queueMode === "casual_ai"
+                ? "Quick-match connection was not restored. Tap QUICK MATCH to try again."
+                : "Queue connection was not restored. Tap Find Competitive Match to rejoin.",
+            );
           }
           return;
         }
@@ -299,7 +319,7 @@ export function WarApp() {
           connect(url);
         }, delay);
       };
-      if (!competitiveQueue) {
+      if (!matchmaking) {
         joinTimeoutRef.current = window.setTimeout(() => {
           if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
         }, 5000);
@@ -372,7 +392,7 @@ export function WarApp() {
             return;
           }
           if (packet.type === "queue_cancelled") {
-            failOnline("Competitive queue cancelled.");
+            failOnline(queueMode === "casual_ai" ? "Quick match cancelled." : "Competitive queue cancelled.");
             return;
           }
           if (packet.type === "error") {
@@ -418,6 +438,7 @@ export function WarApp() {
               );
               setRoomCode(assignedRoomId);
               setCompetitiveQueueing(false);
+              setCasualAiQueueing(false);
             }
             joined = true;
             retryAttempt = 0;
@@ -457,23 +478,30 @@ export function WarApp() {
                 reconnectToken,
                 name: "Pilot",
                 ready: previous?.slotId === slotId ? previous.ready : false,
-                lobby: previous?.lobby ?? {
-                  phase: "lobby",
-                  hostSlotId: slotId,
-                  connectedCount: 1,
-                  maxPlayers: 10,
-                  battlefield: {
-                    disc: snapshot.match.disc,
-                    relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
-                    rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
-                  },
-                  players: snapshot.players.map((player) => ({
-                    slotId: player.slotId,
-                    team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
-                    connected: player.connected === true,
-                    name: typeof player.name === "string" ? player.name : null,
-                    ready: false,
-                  })),
+                lobby: {
+                  ...(previous?.lobby ?? {
+                    phase: "lobby" as const,
+                    hostSlotId: slotId,
+                    connectedCount: 1,
+                    maxPlayers: 10,
+                    battlefield: {
+                      disc: snapshot.match.disc,
+                      relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+                      rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
+                    },
+                    players: snapshot.players.map((player) => ({
+                      slotId: player.slotId,
+                      team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
+                      connected: player.connected === true,
+                      name: typeof player.name === "string" ? player.name : null,
+                      ready: false,
+                    })),
+                  }),
+                  matchMode: packet.matchMode === "casual_ai" ? "casual_ai" : "private",
+                  countdownSeconds:
+                    Number.isFinite(Number(packet.countdownSeconds))
+                      ? Number(packet.countdownSeconds)
+                      : null,
                 },
               }));
               setOnlineStatus("");
@@ -531,7 +559,7 @@ export function WarApp() {
     }
   };
 
-  const cancelCompetitiveQueue = () => {
+  const cancelMatchmaking = () => {
     const socket = joinSocketRef.current;
     if (socket?.readyState === WebSocket.OPEN) {
       try {
@@ -540,7 +568,7 @@ export function WarApp() {
         // Closing the queue socket also removes its waiting entry server-side.
       }
     }
-    failOnline("Competitive queue cancelled.");
+    failOnline(casualAiQueueing ? "Quick match cancelled." : "Competitive queue cancelled.");
   };
 
   useEffect(() => () => {
@@ -1225,10 +1253,13 @@ export function WarApp() {
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
-        onJoinCompetitiveQueue={() => joinOnline("", true)}
-        onCancelCompetitiveQueue={cancelCompetitiveQueue}
+        onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+        onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
+        onCancelMatchmaking={cancelMatchmaking}
         competitiveQueueing={competitiveQueueing}
         competitiveQueueAvailable={competitiveQueueAvailable}
+        casualAiQueueing={casualAiQueueing}
+        casualAiQueueAvailable={casualAiQueueAvailable}
         roomCode={roomCode}
         onRoomCode={setRoomCode}
         onCreateRoom={() => {

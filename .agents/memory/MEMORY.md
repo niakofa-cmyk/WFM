@@ -1,4 +1,4 @@
-- [Online and universe scope](online-multiplayer-scope.md) — private rooms remain no-reward; competitive queue waits for ten distinct authenticated humans; no global free-for-all or GPS.
+- [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; competitive needs ten humans; AI-fill resets its 30-second countdown per pilot.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
@@ -25,4 +25,4 @@
 - [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
 - [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
 - [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
-- [Competitive battlefield direction](competitive-battlefield.md) — server-seeded fields; approved queue waits for ten authenticated humans; private codes stay no-reward, with no GPS matchmaking.
+- [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.

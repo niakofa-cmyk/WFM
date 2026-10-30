@@ -28,11 +28,20 @@ brief pilots before launch and keep the same field identity visible in flight.
   pilots may cancel, and wait entries expire after 15 minutes. Queue state and
   rooms are process-local, matching the existing socket-room architecture;
   queued pilots must land on the same socket process.
+- Casual Quick Match is a separate server-authoritative AI-fill queue, gated by
+  `VITE_WFM_CASUAL_AI_QUEUE_ENABLED=true` in the app build and
+  `WFM_CASUAL_AI_QUEUE_ENABLED=true` in the socket service. It starts a
+  30-second pilot window on the first authenticated entrant, resets the window
+  after each newly accepted human pilot, and starts automatically at expiry
+  with AI controlling open seats. A full ten-human lobby starts immediately.
+  This mode is unranked and cannot award Wing credits; the competitive queue
+  remains a separate ten-human mode.
 
 Private room-code matches remain isolated and no-reward. The competitive queue
 is an opt-in 10-human matchmaker, not a single unlimited room, ranked ladder,
-geospatial service, persistent map-ownership system, or shared live galaxy. A
-separate open casual room has not been implemented.
+geospatial service, persistent map-ownership system, or shared live galaxy.
+Casual AI-fill is not an open global room and does not share state between
+matches.
 
 ## Review of the supplied implementation proposals
 
@@ -74,20 +83,20 @@ Regression coverage verifies deterministic server field rotation, battlefield
 briefing metadata and map bounds, plus that the socket lobby's map matches its
 authoritative match snapshot.
 
-These are code-level checks only. They do not certify map balance, a deployed
-staging queue, a ten-human live match, reward-ledger state, or Production
-readiness. The queue and its UI remain disabled unless their exact opt-in flags
-are set; no Railway variables or deployments were changed. Competitive rewards
-still require their separate server reward flag, eligible participation, and
-staging database. Keep the separate reward, physical-device, Clerk, and staging
+These are code-level checks only. They do not certify map balance, deployed
+staging queues, a ten-human live match, reward-ledger state, or Production
+readiness. Each queue and its UI remain disabled unless their exact opt-in flags
+are set. Competitive rewards still require their separate server reward flag,
+eligible participation, and staging database; Casual Quick Match never earns
+rewards or rank. Keep the separate reward, physical-device, Clerk, and staging
 promotion gates intact.
 
 ## Next design stages
 
 1. Collect map-by-map 5v5 playtest evidence before adjusting layouts or balance.
-2. Verify the exact queue flags, single-process staging routing, ten-human
-   threshold, disconnect/reconnect behavior, and reward-off behavior before
-   enabling the queue in staging. Multi-process shared matchmaking is not
-   implemented.
+2. Verify each exact queue flag, single-process staging routing, countdown
+   reset, AI fill, ten-human competitive threshold, disconnect/reconnect
+   behavior, and reward-off behavior before enabling either queue in staging.
+   Multi-process shared matchmaking is not implemented.
 3. Keep map result/reward settlement tied to verified server match state; never
    infer eligibility from map choice, room-code shape, or client telemetry.

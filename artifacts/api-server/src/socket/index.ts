@@ -30,6 +30,8 @@ const verifySessionToken = createClerkSessionVerifier({
 const wingRewardsEnabled = isWingRewardsEnabled(process.env);
 const competitiveQueueEnabled =
   process.env.WFM_COMPETITIVE_QUEUE_ENABLED === "true";
+const casualAiQueueEnabled =
+  process.env.WFM_CASUAL_AI_QUEUE_ENABLED === "true";
 const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;
@@ -38,6 +40,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   allowedOrigins,
   verifySessionToken,
   enableCompetitiveQueue: competitiveQueueEnabled,
+  enableCasualAiQueue: casualAiQueueEnabled,
   enableWingRewards: wingRewardsEnabled,
   settleWingMatch,
 });

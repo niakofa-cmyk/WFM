@@ -22,6 +22,7 @@ import type {
 const MAX_ROOMS = 64;
 const MAX_COMPETITIVE_QUEUE = 1_000;
 const COMPETITIVE_QUEUE_WAIT_MS = 15 * 60_000;
+const DEFAULT_CASUAL_AI_FILL_WAIT_MS = 30_000;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
 const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
@@ -38,6 +39,8 @@ type Room = {
   emptySince: number | null;
   phase: "lobby" | "active";
   matchMode: WingMatchMode;
+  autoStartAt: number | null;
+  lastCountdownSecond: number | null;
   hostSlotId: number | null;
   readySlots: Set<number>;
   lastActivityAt: number;
@@ -77,6 +80,7 @@ type Client = {
   isAlive: boolean;
   lastInputAt: number;
   queueRequested: boolean;
+  aiFillQueueRequested: boolean;
   queueEnteredAt: number | null;
 };
 
@@ -97,7 +101,9 @@ export async function startWingSocketServer(
   options: {
     verifySessionToken: SocketSessionVerifier;
     enableCompetitiveQueue?: boolean;
+    enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
+    casualAiFillWaitMs?: number;
     /**
      * Trusted server-only resolver. It must return "competitive" only for
      * room IDs issued by an authoritative competitive queue. Never derive this
@@ -116,6 +122,8 @@ export async function startWingSocketServer(
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const competitiveQueue: Client[] = [];
+  const casualAiFillWaitMs = options.casualAiFillWaitMs ?? DEFAULT_CASUAL_AI_FILL_WAIT_MS;
+  let casualAiRoomId: string | null = null;
   const pendingCompetitiveAssignments = new Map<
     string,
     PendingCompetitiveAssignment
@@ -146,7 +154,11 @@ export async function startWingSocketServer(
   });
   const connectionRequests = new WeakMap<
     WebSocket,
-    { roomId: string; queueRequested: boolean }
+    {
+      roomId: string;
+      queueRequested: boolean;
+      aiFillQueueRequested: boolean;
+    }
   >();
 
   httpServer.on("upgrade", (request, socket, head) => {
@@ -175,14 +187,28 @@ export async function startWingSocketServer(
       return;
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
+    const queueOnly =
+      !url.searchParams.has("room") && url.searchParams.size === 1;
+    const competitiveQueueRequested =
+      queueOnly && url.searchParams.get("queue") === "competitive";
+    const aiFillQueueRequested =
+      queueOnly && url.searchParams.get("queue") === "casual-ai";
     const queueRequested =
-      url.searchParams.get("queue") === "competitive" &&
-      !url.searchParams.has("room") &&
-      url.searchParams.size === 1;
+      competitiveQueueRequested || aiFillQueueRequested;
     const roomRequested =
       !url.searchParams.has("queue") &&
       ROOM_ID.test(roomId);
-    if (queueRequested && options.enableCompetitiveQueue !== true) {
+    if (
+      competitiveQueueRequested &&
+      options.enableCompetitiveQueue !== true
+    ) {
+      rejectUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
+    if (
+      aiFillQueueRequested &&
+      options.enableCasualAiQueue !== true
+    ) {
       rejectUpgrade(socket, "503 Service Unavailable");
       return;
     }
@@ -197,6 +223,7 @@ export async function startWingSocketServer(
       connectionRequests.set(client, {
         roomId: queueRequested ? "" : roomId,
         queueRequested,
+        aiFillQueueRequested,
       });
       sockets.emit("connection", client, request);
     });
@@ -211,6 +238,8 @@ export async function startWingSocketServer(
       emptySince: null,
       phase: "lobby",
       matchMode,
+      autoStartAt: null,
+      lastCountdownSecond: null,
       hostSlotId: null,
       readySlots: new Set(),
       lastActivityAt: Date.now(),
@@ -298,9 +327,131 @@ export async function startWingSocketServer(
       team: result.team,
       phase: room.phase,
       matchMode: room.matchMode,
+      ...(room.matchMode === "casual_ai" && room.autoStartAt !== null
+        ? {
+            countdownSeconds: Math.max(
+              0,
+              Math.ceil((room.autoStartAt - Date.now()) / 1000),
+            ),
+          }
+        : {}),
       reconnectToken: result.reconnectToken,
       snapshot,
     });
+  }
+
+  function startCasualAiMatch(room: Room, now = Date.now()) {
+    if (room.phase !== "lobby" || room.matchMode !== "casual_ai") return false;
+    room.phase = "active";
+    room.autoStartAt = null;
+    room.lastCountdownSecond = null;
+    room.matchId = randomUUID();
+    room.lastActivityAt = now;
+    room.lastTickAt = now;
+    room.readySlots.clear();
+    room.matchParticipants.clear();
+    for (const player of room.wing.snapshot(now).players) {
+      if (!player.connected) continue;
+      const socket = room.slotSockets.get(player.slotId);
+      const client = socket ? clients.get(socket) : null;
+      if (!socket || !client?.playerId) continue;
+      room.matchParticipants.set(player.slotId, {
+        playerId: client.playerId,
+        slotId: player.slotId,
+        team: player.team,
+        acceptedInputs: 0,
+        activeMs: 0,
+        lastParticipatingInputAt: null,
+      });
+    }
+    if (casualAiRoomId === room.id) casualAiRoomId = null;
+    const snapshot = room.wing.snapshot(now);
+    for (const socket of room.sockets) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      send(socket, {
+        type: "started",
+        roomId: room.id,
+        matchMode: room.matchMode,
+        snapshot,
+      });
+    }
+    return true;
+  }
+
+  function joinCasualAiQueue(client: Client, socket: WebSocket, now: number) {
+    const playerId = client.playerId;
+    if (!playerId) {
+      send(socket, { type: "error", reason: "authentication_required" });
+      socket.close(1008, "Authentication required");
+      return;
+    }
+    if (
+      competitiveQueue.some((queued) => queued.playerId === playerId) ||
+      [...rooms.values()].some(
+        (room) =>
+          room.phase === "active" &&
+          !room.wing.match.over &&
+          room.wing
+            .participants()
+            .some((participant) => participant.userId === playerId),
+      )
+    ) {
+      send(socket, { type: "error", reason: "already_in_match" });
+      return;
+    }
+
+    let room = casualAiRoomId ? rooms.get(casualAiRoomId) ?? null : null;
+    if (room?.autoStartAt !== null && room?.autoStartAt !== undefined && room.autoStartAt <= now) {
+      startCasualAiMatch(room, now);
+      room = null;
+    }
+    if (
+      room &&
+      (room.phase !== "lobby" ||
+        room.matchMode !== "casual_ai" ||
+        room.wing.participants().length >= MAX_PLAYERS)
+    ) {
+      if (casualAiRoomId === room.id) casualAiRoomId = null;
+      room = null;
+    }
+    if (!room) {
+      if (rooms.size >= MAX_ROOMS) {
+        send(socket, { type: "error", reason: "capacity" });
+        return;
+      }
+      let roomId = "";
+      do {
+        roomId = randomUUID().replaceAll("-", "").slice(0, 20).toLowerCase();
+      } while (rooms.has(roomId));
+      room = createRoom(roomId, "casual_ai");
+      rooms.set(room.id, room);
+      casualAiRoomId = room.id;
+    }
+
+    if (
+      room.wing
+        .participants()
+        .some((participant) => participant.userId === playerId)
+    ) {
+      send(socket, { type: "error", reason: "already_queued" });
+      return;
+    }
+    const result = attachQueuedPilot(socket, client, room);
+    if (!result) {
+      send(socket, { type: "error", reason: "queue_assignment_failed" });
+      return;
+    }
+    room.autoStartAt = now + casualAiFillWaitMs;
+    room.lastCountdownSecond = Math.ceil(casualAiFillWaitMs / 1000);
+    room.lastActivityAt = now;
+    sendJoinedPacket(socket, room, result);
+    broadcastLobby(room);
+    const connectedCount = room.wing
+      .snapshot(now)
+      .players.filter((player) => player.connected).length;
+    if (connectedCount >= MAX_PLAYERS) {
+      startCasualAiMatch(room, now);
+    }
   }
 
   function startCompetitiveMatch(pilots: Client[]) {
@@ -428,6 +579,7 @@ export async function startWingSocketServer(
       isAlive: true,
       lastInputAt: Date.now(),
       queueRequested: request?.queueRequested ?? false,
+      aiFillQueueRequested: request?.aiFillQueueRequested ?? false,
       queueEnteredAt: null,
     };
     clients.set(socket, client);
@@ -535,6 +687,10 @@ export async function startWingSocketServer(
           rejectAuthentication();
           return;
         }
+        if (client.aiFillQueueRequested) {
+          joinCasualAiQueue(client, socket, now);
+          return;
+        }
         const pending = pendingCompetitiveAssignments.get(client.playerId);
         if (pending) {
           const pendingRoom = rooms.get(pending.roomId);
@@ -588,6 +744,15 @@ export async function startWingSocketServer(
       }
 
       if (packet.type === "queue_cancel") {
+        if (
+          client.aiFillQueueRequested &&
+          client.room?.matchMode === "casual_ai" &&
+          client.room.phase === "lobby"
+        ) {
+          send(socket, { type: "queue_cancelled" });
+          socket.close(1000, "Casual matchmaking cancelled");
+          return;
+        }
         if (!client.queueRequested || !removeFromCompetitiveQueue(client)) {
           send(socket, { type: "error", reason: "not_queued" });
           return;
@@ -722,6 +887,10 @@ export async function startWingSocketServer(
 
       if (packet.type === "ready" && client.room && client.slotId !== null) {
         const room = client.room;
+        if (room.matchMode === "casual_ai") {
+          send(socket, { type: "error", reason: "auto_launch_only" });
+          return;
+        }
         if (room.phase !== "lobby" || typeof packet.ready !== "boolean") {
           send(socket, { type: "error", reason: "invalid_lobby_action" });
           return;
@@ -735,6 +904,10 @@ export async function startWingSocketServer(
 
       if (packet.type === "start" && client.room && client.slotId !== null) {
         const room = client.room;
+        if (room.matchMode === "casual_ai") {
+          send(socket, { type: "error", reason: "auto_launch_only" });
+          return;
+        }
         const current = room.wing
           .snapshot()
           .players.filter((player) => player.connected);
@@ -1093,14 +1266,28 @@ export async function startWingSocketServer(
         now - room.emptySince > ROOM_IDLE_MS
       ) {
         rooms.delete(id);
+        if (casualAiRoomId === id) casualAiRoomId = null;
         matchCompetitiveQueue();
         continue;
       }
       if (room.phase === "lobby" && now - room.lastActivityAt > LOBBY_IDLE_MS) {
         rooms.delete(id);
+        if (casualAiRoomId === id) casualAiRoomId = null;
         for (const socket of room.sockets) socket.close(1001, "Lobby expired");
         matchCompetitiveQueue();
         continue;
+      }
+      if (room.phase === "lobby" && room.matchMode === "casual_ai") {
+        const secondsRemaining =
+          room.autoStartAt === null
+            ? 0
+            : Math.max(0, Math.ceil((room.autoStartAt - now) / 1000));
+        if (secondsRemaining === 0) {
+          startCasualAiMatch(room, now);
+        } else if (secondsRemaining !== room.lastCountdownSecond) {
+          room.lastCountdownSecond = secondsRemaining;
+          broadcastLobby(room);
+        }
       }
       room.wing.expireDisconnected(now);
       if (room.phase !== "active") continue;
@@ -1339,11 +1526,16 @@ function broadcastLobby(room: Room) {
   const snapshot = room.wing.snapshot();
   const players = snapshot.players;
   const connectedCount = players.filter((player) => player.connected).length;
+  const countdownSeconds =
+    room.matchMode === "casual_ai" && room.autoStartAt !== null
+      ? Math.max(0, Math.ceil((room.autoStartAt - Date.now()) / 1000))
+      : null;
   const payload = {
     type: "lobby",
     roomId: room.id,
     phase: room.phase,
     matchMode: room.matchMode,
+    countdownSeconds,
     hostSlotId: room.hostSlotId,
     connectedCount,
     maxPlayers: MAX_PLAYERS,

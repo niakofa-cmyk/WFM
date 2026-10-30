@@ -944,3 +944,129 @@ test("competitive queue rejects unauthenticated queue requests", async () => {
     await runtime.close();
   }
 });
+
+test("casual AI-fill queue is disabled by default and requires verified identity", async () => {
+  const disabledRuntime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+  });
+  const disabledSocket = new WebSocket(
+    `ws://127.0.0.1:${disabledRuntime.port}/ws?queue=casual-ai`,
+  );
+  try {
+    const status = await new Promise<number>((resolve, reject) => {
+      disabledSocket.once("unexpected-response", (_request, response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      });
+      disabledSocket.once("error", reject);
+    });
+    assert.equal(status, 503);
+    assert.equal(disabledRuntime.roomCount, 0);
+  } finally {
+    await close(disabledSocket);
+    await disabledRuntime.close();
+  }
+
+  const enabledRuntime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCasualAiQueue: true,
+  });
+  const unauthenticated = new WebSocket(
+    `ws://127.0.0.1:${enabledRuntime.port}/ws?queue=casual-ai`,
+  );
+  try {
+    await new Promise<void>((resolve, reject) => {
+      unauthenticated.once("open", resolve);
+      unauthenticated.once("error", reject);
+    });
+    const rejection = nextPacket(
+      unauthenticated,
+      (packet) => packet.type === "error",
+    );
+    unauthenticated.send(JSON.stringify({
+      type: "queue_join",
+      playerId: "untrusted-client-id",
+    }));
+    assert.equal((await rejection).reason, "authentication_required");
+    assert.equal(enabledRuntime.roomCount, 0);
+  } finally {
+    await close(unauthenticated);
+    await enabledRuntime.close();
+  }
+});
+
+test("casual AI-fill resets its server countdown for each pilot and starts with open AI seats", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCasualAiQueue: true,
+    casualAiFillWaitMs: 2_400,
+    snapshotIntervalMs: 50,
+  });
+  const sockets: WebSocket[] = [];
+  const url = `ws://127.0.0.1:${runtime.port}/ws?queue=casual-ai`;
+  const pause = (durationMs: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+  try {
+    const first = await connect(url, "casual-pilot-a");
+    sockets.push(first);
+    const firstJoined = nextPacket(first, (packet) => packet.type === "joined");
+    first.send(JSON.stringify({ type: "queue_join" }));
+    const firstLobby = await firstJoined;
+    assert.equal(firstLobby.matchMode, "casual_ai");
+    assert.equal(firstLobby.phase, "lobby");
+    assert.equal(firstLobby.countdownSeconds, 3);
+
+    await pause(1_300);
+
+    const second = await connect(url, "casual-pilot-b");
+    sockets.push(second);
+    const secondJoined = nextPacket(second, (packet) => packet.type === "joined");
+    const resetCountdown = nextPacket(
+      first,
+      (packet) =>
+        packet.type === "lobby" &&
+        packet.connectedCount === 2 &&
+        packet.countdownSeconds === 3,
+    );
+    second.send(JSON.stringify({ type: "queue_join" }));
+    const [secondLobby, resetLobby] = await Promise.all([
+      secondJoined,
+      resetCountdown,
+    ]);
+    assert.equal(secondLobby.matchMode, "casual_ai");
+    assert.equal(resetLobby.countdownSeconds, 3);
+
+    let startedEarly = false;
+    const observeEarlyStart = (data: Buffer) => {
+      try {
+        if ((JSON.parse(data.toString()) as Packet).type === "started") {
+          startedEarly = true;
+        }
+      } catch {
+        // Ignore non-JSON frames in this test observer.
+      }
+    };
+    first.on("message", observeEarlyStart);
+    await pause(1_200);
+    first.off("message", observeEarlyStart);
+    assert.equal(startedEarly, false, "new pilot should extend the launch window");
+
+    const firstStarted = nextPacket(first, (packet) => packet.type === "started");
+    const secondStarted = nextPacket(second, (packet) => packet.type === "started");
+    const [firstStart, secondStart] = await Promise.all([
+      firstStarted,
+      secondStarted,
+    ]);
+    assert.equal(firstStart.matchMode, "casual_ai");
+    assert.equal(secondStart.matchMode, "casual_ai");
+    const snapshot = firstStart.snapshot as {
+      players: Array<{ connected: boolean }>;
+    };
+    assert.equal(snapshot.players.length, MAX_PLAYERS);
+    assert.equal(snapshot.players.filter((player) => player.connected).length, 2);
+    assert.equal(snapshot.players.filter((player) => !player.connected).length, 8);
+  } finally {
+    await Promise.all(sockets.map(close));
+    await runtime.close();
+  }
+});

@@ -114,9 +114,9 @@ function completedMatch(
   };
 }
 
-test("private, practice, and test rooms cannot settle rewards", async () => {
+test("private, practice, test, and casual AI-fill rooms cannot settle rewards", async () => {
   const memory = createMemoryStore();
-  for (const matchMode of ["private", "practice", "test"] as const) {
+  for (const matchMode of ["private", "practice", "test", "casual_ai"] as const) {
     const result = await settleWingMatchWithStore({
       ...completedMatch(`ineligible-${matchMode}`),
       matchMode,

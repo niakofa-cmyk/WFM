@@ -33,9 +33,12 @@ type HomeProps = {
   onRoomCode: (roomCode: string) => void;
   onCreateRoom: () => void;
   onJoinCompetitiveQueue: () => void;
-  onCancelCompetitiveQueue: () => void;
+  onJoinCasualAiQueue: () => void;
+  onCancelMatchmaking: () => void;
   competitiveQueueing: boolean;
   competitiveQueueAvailable: boolean;
+  casualAiQueueing: boolean;
+  casualAiQueueAvailable: boolean;
   onlineStatus?: string;
   offlineAvailable: boolean;
   onOfflineStrike: () => void;
@@ -100,9 +103,12 @@ function MainMenu({
   onOnline,
   onCreateRoom,
   onJoinCompetitiveQueue,
-  onCancelCompetitiveQueue,
+  onJoinCasualAiQueue,
+  onCancelMatchmaking,
   competitiveQueueing,
   competitiveQueueAvailable,
+  casualAiQueueing,
+  casualAiQueueAvailable,
   signedIn,
   onRoomCode,
   roomCode,
@@ -157,11 +163,31 @@ function MainMenu({
               JOIN
             </button>
           </div>
+          {casualAiQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-casual-ai-queue"
+              disabled={!signedIn || casualAiQueueing || competitiveQueueing}
+              onClick={onJoinCasualAiQueue}
+              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+            >
+              <span className="block font-hud text-base leading-none tracking-widest">
+                {casualAiQueueing ? "CONNECTING TO QUICK MATCH" : "QUICK MATCH · AI FILL"}
+              </span>
+              <span className="text-xs text-muted">
+                {casualAiQueueing
+                  ? onlineStatus || "Joining the pilot window…"
+                  : signedIn
+                    ? "30-second pilot window · each new pilot resets it · AI fills seats · no rewards or rank."
+                    : "Sign in to join · casual, unranked, and no-reward."}
+              </span>
+            </button>
+          ) : null}
           {competitiveQueueAvailable ? (
             <button
               type="button"
               data-testid="button-competitive-queue"
-              disabled={!signedIn || competitiveQueueing}
+              disabled={!signedIn || competitiveQueueing || casualAiQueueing}
               onClick={onJoinCompetitiveQueue}
               className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
             >
@@ -177,14 +203,14 @@ function MainMenu({
               </span>
             </button>
           ) : null}
-          {competitiveQueueing ? (
+          {competitiveQueueing || casualAiQueueing ? (
             <button
               type="button"
-              data-testid="button-cancel-competitive-queue"
-              onClick={onCancelCompetitiveQueue}
+              data-testid="button-cancel-matchmaking"
+              onClick={onCancelMatchmaking}
               className="mt-1 h-10 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
             >
-              CANCEL QUEUE
+              {casualAiQueueing ? "CANCEL QUICK MATCH" : "CANCEL QUEUE"}
             </button>
           ) : null}
           {offlineAvailable ? (

@@ -10,6 +10,8 @@ type LobbyPlayer = {
 
 export type LobbyState = {
   phase: "lobby" | "active";
+  matchMode: "private" | "competitive" | "casual_ai";
+  countdownSeconds: number | null;
   hostSlotId: number | null;
   connectedCount: number;
   maxPlayers: number;
@@ -29,6 +31,7 @@ type Props = {
 };
 
 export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, onStart, onLeave }: Props) {
+  const isCasualAiFill = lobby.matchMode === "casual_ai";
   const isHost = lobby.hostSlotId === slotId;
   const everyoneReady =
     lobby.connectedCount > 0 &&
@@ -38,10 +41,16 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
   return (
     <main className="flex min-h-dvh w-full items-center justify-center bg-void px-4 py-8 text-bone">
       <section className="w-full max-w-2xl border border-solar/70 bg-void/95 p-5 shadow-2xl sm:p-8">
-        <p className="font-hud text-xs tracking-[0.24em] text-solar">PRIVATE WING · LOBBY</p>
-        <h1 className="mt-2 font-hud text-4xl leading-none sm:text-5xl">ASSEMBLE YOUR STRIKE</h1>
+        <p className="font-hud text-xs tracking-[0.24em] text-solar">
+          {isCasualAiFill ? "CASUAL QUICK MATCH · AI FILL · NO REWARDS" : "PRIVATE WING · LOBBY"}
+        </p>
+        <h1 className="mt-2 font-hud text-4xl leading-none sm:text-5xl">
+          {isCasualAiFill ? "PILOTS ARE ASSEMBLING" : "ASSEMBLE YOUR STRIKE"}
+        </h1>
         <p className="mt-3 text-sm text-muted">
-          Share this code with your group. The host launches when every connected pilot is ready. Empty seats fly with AI.
+          {isCasualAiFill
+            ? "The match launches when the countdown ends. Each new pilot resets the 30-second window; AI fills the remaining seats. This casual match earns no Wing credits and no leaderboard rank."
+            : "Share this code with your group. The host launches when every connected pilot is ready. Empty seats fly with AI."}
         </p>
         <section
           data-testid="panel-battlefield-briefing"
@@ -84,24 +93,43 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
             <h2 id="battlefield-title" className="mt-1 font-hud text-2xl leading-none">{battlefield.title}</h2>
             <p className="mt-2 text-xs leading-relaxed text-muted">{battlefield.briefing}</p>
             <p className="mt-2 font-hud text-[10px] tracking-widest text-bone/75">{battlefield.tacticalRead}</p>
-            <p className="mt-2 text-[10px] text-muted">Server-assigned field · private rooms remain no-reward</p>
+            <p className="mt-2 text-[10px] text-muted">
+              {isCasualAiFill
+                ? "Server-assigned field · casual AI-fill · no rewards"
+                : "Server-assigned field · private rooms remain no-reward"}
+            </p>
           </div>
         </section>
-        <div className="mt-5 flex items-center justify-between gap-3 border border-bone/20 bg-bone/5 p-3">
-          <div>
-            <p className="font-hud text-xs tracking-widest text-muted">ROOM CODE</p>
-            <p data-testid="text-lobby-room-code" className="font-hud text-2xl tracking-[0.2em] text-solar">{roomCode}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void navigator.clipboard?.writeText(roomCode)}
-            className="h-10 border border-bone/30 px-3 font-hud text-xs tracking-widest"
+        {isCasualAiFill ? (
+          <section
+            className="mt-5 border border-solar/50 bg-solar/10 p-3"
+            aria-live="polite"
+            data-testid="casual-ai-countdown"
           >
-            COPY CODE
-          </button>
-        </div>
+            <p className="font-hud text-xs tracking-widest text-muted">AUTO-LAUNCH COUNTDOWN</p>
+            <p className="mt-1 font-hud text-3xl text-solar">
+              {Math.max(0, lobby.countdownSeconds ?? 30)} SECONDS
+            </p>
+          </section>
+        ) : (
+          <div className="mt-5 flex items-center justify-between gap-3 border border-bone/20 bg-bone/5 p-3">
+            <div>
+              <p className="font-hud text-xs tracking-widest text-muted">ROOM CODE</p>
+              <p data-testid="text-lobby-room-code" className="font-hud text-2xl tracking-[0.2em] text-solar">{roomCode}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(roomCode)}
+              className="h-10 border border-bone/30 px-3 font-hud text-xs tracking-widest"
+            >
+              COPY CODE
+            </button>
+          </div>
+        )}
         <p className="mt-4 font-hud text-sm tracking-widest">
-          {lobby.connectedCount}/10 PILOTS CONNECTED · {isHost ? "YOU ARE HOST" : "WAITING FOR HOST"}
+          {lobby.connectedCount}/10 HUMAN PILOTS · {isCasualAiFill
+            ? `${10 - lobby.connectedCount} SEATS WILL BE AI`
+            : isHost ? "YOU ARE HOST" : "WAITING FOR HOST"}
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {([0, 1] as const).map((team) => {
@@ -118,11 +146,13 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
                     <li key={player.slotId} className="flex items-center justify-between text-sm">
                       <span className={player.connected ? "text-bone" : "text-muted"}>
                         {player.connected ? player.name || "Pilot" : "Open seat · AI"}
-                        {player.slotId === lobby.hostSlotId ? " · HOST" : ""}
+                        {!isCasualAiFill && player.slotId === lobby.hostSlotId ? " · HOST" : ""}
                         {player.slotId === slotId ? " · YOU" : ""}
                       </span>
                       <span className="font-hud text-xs tracking-widest">
-                        {player.connected ? (player.ready ? "READY" : "NOT READY") : "AI"}
+                        {player.connected
+                          ? isCasualAiFill ? "CONNECTED" : player.ready ? "READY" : "NOT READY"
+                          : "AI"}
                       </span>
                     </li>
                   ))}
@@ -132,27 +162,29 @@ export function OnlineLobby({ roomCode, slotId, lobby, ready, status, onReady, o
           })}
         </div>
         <p role="status" aria-live="polite" className="mt-4 min-h-5 text-sm text-alert">{status}</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => onReady(!ready)}
-            className={ready
-              ? "h-12 border border-solar bg-solar/10 font-hud tracking-widest text-solar"
-              : "h-12 bg-solar font-hud tracking-widest text-void"}
-          >
-            {ready ? "CANCEL READY" : "READY UP"}
-          </button>
-          <button
-            type="button"
-            disabled={!isHost || !everyoneReady}
-            onClick={onStart}
-            className="h-12 border border-bone/30 font-hud tracking-widest disabled:opacity-35"
-          >
-            {isHost ? (everyoneReady ? "START 5V5" : "WAITING FOR READY") : "HOST STARTS MATCH"}
-          </button>
-        </div>
+        {!isCasualAiFill ? (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onReady(!ready)}
+              className={ready
+                ? "h-12 border border-solar bg-solar/10 font-hud tracking-widest text-solar"
+                : "h-12 bg-solar font-hud tracking-widest text-void"}
+            >
+              {ready ? "CANCEL READY" : "READY UP"}
+            </button>
+            <button
+              type="button"
+              disabled={!isHost || !everyoneReady}
+              onClick={onStart}
+              className="h-12 border border-bone/30 font-hud tracking-widest disabled:opacity-35"
+            >
+              {isHost ? (everyoneReady ? "START 5V5" : "WAITING FOR READY") : "HOST STARTS MATCH"}
+            </button>
+          </div>
+        ) : null}
         <button type="button" onClick={onLeave} className="mt-3 h-10 w-full text-sm text-muted underline">
-          Leave lobby
+          {isCasualAiFill ? "Leave quick match" : "Leave lobby"}
         </button>
       </section>
     </main>
