@@ -425,5 +425,32 @@ passed 18/18; API typecheck and build passed. The local socket workflow rebuilt
 and emitted the readiness event but could not bind because port 8099 was already
 in use; the existing local `/healthz` responded 200. No process was stopped,
 and this code change has not been deployed. Enabling the staging competitive
-queue or rewards remains a separate operator decision; no staging or
-Production settings were changed.
+queue or rewards remained a separate operator decision at the time of this
+audit. Production settings were not changed.
+
+## 2026-10-31 — Staging competitive queue and Wing rewards enabled
+
+After explicit owner approval, the staging app was enabled to show the
+competitive-queue button, and the staging socket was enabled to accept the
+ten-human queue and settle eligible Wing rewards. The exact three additions
+were `VITE_WFM_COMPETITIVE_QUEUE_ENABLED` on `wfm-app-staging`, plus
+`WFM_COMPETITIVE_QUEUE_ENABLED` and `WFM_WING_REWARDS_ENABLED` on
+`wfm-socket-staging`. No shared variables or other resources were changed.
+The staged patch was non-destructive and was committed only to the `staging`
+environment.
+
+Railway reports the app and socket deployments successful; all four staging
+services are online with zero recent failures and no pending work. The
+unauthenticated staging homepage returned HTTP 401, so this check did not verify
+the signed-in game screen or its competitive-queue button. The local
+`socket_feature_readiness` source change is not included in the Railway source
+revision because it has not been pushed.
+
+The newly enabled gate is not yet a reward certification: no match or reward
+claim was run after activation, and no post-activation ledger query was made.
+Only a match formed by ten distinct authenticated human pilots can enter this
+reward-eligible queue; Casual AI-fill and private rooms remain no-reward.
+Participants must be connected at completion, play at least 60 active seconds,
+and submit at least 120 accepted inputs; the daily limit is five awards per
+pilot. Existing policy amounts remain 30 credits for a win, 15 for a draw, and
+10 for a loss. Production settings, data, and deployments remain untouched.
