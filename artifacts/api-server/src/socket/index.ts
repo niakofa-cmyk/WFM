@@ -2,7 +2,7 @@ import { startWingSocketServer } from "./server";
 import { parseSocketOrigins } from "./origin-policy";
 import { createClerkSessionVerifier } from "./clerk-session-verifier";
 import { resolveClerkIssuer } from "./clerk-issuer-policy";
-import { isWingRewardsEnabled } from "./reward-config";
+import { getSocketFeatureReadiness } from "./reward-config";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -27,11 +27,18 @@ const verifySessionToken = createClerkSessionVerifier({
   authorizedParties: allowedOrigins ? [...allowedOrigins] : undefined,
 });
 
-const wingRewardsEnabled = isWingRewardsEnabled(process.env);
-const competitiveQueueEnabled =
-  process.env.WFM_COMPETITIVE_QUEUE_ENABLED === "true";
-const casualAiQueueEnabled =
-  process.env.WFM_CASUAL_AI_QUEUE_ENABLED === "true";
+const featureReadiness = getSocketFeatureReadiness(process.env);
+const {
+  competitiveQueueEnabled,
+  casualAiQueueEnabled,
+  wingRewardsEnabled,
+} = featureReadiness;
+process.stdout.write(
+  `${JSON.stringify({
+    event: "socket_feature_readiness",
+    ...featureReadiness,
+  })}\n`,
+);
 const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;

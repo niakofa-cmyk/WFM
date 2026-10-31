@@ -401,3 +401,29 @@ read-only ledger evidence remain required; interrupted/expired denial remains
 unverified. These checks were SELECT-only; no claim was submitted and no
 database or Railway configuration was changed. Production remains untouched
 and readiness remains **NOT CLAIMED**.
+
+The follow-up source and staging-metadata audit found the reason this result is
+expected under the current configuration: the socket service has `DATABASE_URL`
+and the Casual AI-fill flag, but neither `WFM_WING_REWARDS_ENABLED` nor
+`WFM_COMPETITIVE_QUEUE_ENABLED` is configured on the service or as a shared
+staging variable. The app has only the Casual AI-fill flag; its competitive
+queue button is also gated by the absent `VITE_WFM_COMPETITIVE_QUEUE_ENABLED`
+flag. The socket starts competitive matchmaking and reward settlement only
+when their respective exact `"true"` flags are enabled; private room-code and
+Casual AI-fill matches remain no-reward. The existing debrief already tells
+pilots that private, Practice, and test rooms are ineligible and that disabled
+rewards do not add credits.
+The latest 201 socket runtime log entries contained no reward text or
+`wing_reward_settlement_failed` event; because the missing gates prevent
+settlement from running, this is consistent but not independent proof of
+successful reward behavior.
+
+Added a sanitized socket startup event, `socket_feature_readiness`, containing
+only boolean values for competitive queue, casual AI-fill, reward flag,
+database presence, and effective reward readiness. Focused API socket tests
+passed 18/18; API typecheck and build passed. The local socket workflow rebuilt
+and emitted the readiness event but could not bind because port 8099 was already
+in use; the existing local `/healthz` responded 200. No process was stopped,
+and this code change has not been deployed. Enabling the staging competitive
+queue or rewards remains a separate operator decision; no staging or
+Production settings were changed.
