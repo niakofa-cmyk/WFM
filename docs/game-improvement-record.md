@@ -383,3 +383,21 @@ socket trace or reward-ledger inspection. It verifies the intended quick-match
 flow on staging but does not replace the live interrupted/expired reward-denial
 gate, database ledger verification, or the separate Production Clerk checks.
 Production readiness remains **NOT CLAIMED**.
+
+## 2026-10-31 — Staging Online Wing reward-ledger readback
+
+Using the confirmed staging PostgreSQL service, read-only queries verified that
+the `wing_reward` enum value exists. The queried `online-wing` ledger contained
+zero reward events and no latest-event timestamp. The duplicate reward-key
+group count was zero, and the arithmetic query reported zero events and zero
+balance-delta mismatches.
+
+The zero duplicate and arithmetic counts are vacuous because there were no
+matching reward events. This confirms neither a successful award nor correct
+duplicate prevention under real settlement. It also does not establish whether
+the reported match was eligible, whether settlement was attempted, or why no
+ledger rows were written. A controlled eligible staging settlement and its
+read-only ledger evidence remain required; interrupted/expired denial remains
+unverified. These checks were SELECT-only; no claim was submitted and no
+database or Railway configuration was changed. Production remains untouched
+and readiness remains **NOT CLAIMED**.
