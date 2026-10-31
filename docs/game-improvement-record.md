@@ -454,3 +454,20 @@ Participants must be connected at completion, play at least 60 active seconds,
 and submit at least 120 accepted inputs; the daily limit is five awards per
 pilot. Existing policy amounts remain 30 credits for a win, 15 for a draw, and
 10 for a loss. Production settings, data, and deployments remain untouched.
+
+The remaining policy and socket checks do not require a live ten-pilot match.
+The in-memory reward-policy and socket tests passed 25/25, including private
+and Casual AI no-reward behavior, competitive ten-human queue gating, identity
+uniqueness, eligibility thresholds, outcomes, idempotency, and the daily limit.
+The full `workspace-quality` workflow also finished: typecheck/build completed,
+with 112 script tests and 60 WFM tests passing. These tests do not write to or
+inspect the Railway staging ledger.
+
+No synthetic award button was added. The existing staging reward diagnostic
+captures a Solo Strike claim through the real claim endpoint; it is not an
+Online Wing dry-run and could affect progression. A fake button would either
+write a real credit event or test only a simulated path, so neither would
+replace ledger evidence from a real competitive settlement. A two-phone check
+of queue visibility, waiting, cancellation, and unchanged balances can still
+be completed with fewer than ten pilots. The staging homepage's unauthenticated
+HTTP 401 means the signed-in queue UI must be checked on an authenticated phone.
