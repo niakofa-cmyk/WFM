@@ -486,3 +486,21 @@ deploy Railway or publish to a store. The first APK is debug-signed; Production
 signing and verified domain association remain separate steps. The Shell lacks
 Java/Android tooling, so native compilation is delegated to the repository's
 GitHub Actions build rather than claimed from the passing Node checks.
+
+Verified build: https://github.com/niakofa-cmyk/WFM/actions/runs/41274527388
+tested source `cf10f64800d1791aeac8d316399ddc5f78e3de3f`. Android configuration
+checks, JUnit task, lint, debug APK assembly, signature verification and artifact
+upload all succeeded. The local repository script suite passed 53/53; Android
+XML parsed and `git diff --check` passed. The shared Solo Flight setup also
+rendered in a 360×803 preview; this is not a native phone rendering test.
+
+APK download (GitHub sign-in may be required):
+https://github.com/niakofa-cmyk/WFM/actions/runs/41274527388/artifacts/13070946519
+
+The artifact contains a debug-signed staging APK and its public-certificate
+association candidate. It expires under the workflow's seven-day retention.
+The initial build compiled and passed native tests/lint but failed association
+packaging; the passing build pins the project's signing-verification tools and
+retains the APK if a later packaging step fails. No association file was
+published to a website, no device installation was performed, and Railway
+configuration, databases and Production remain unchanged by this work.
