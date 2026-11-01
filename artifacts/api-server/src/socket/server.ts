@@ -3,6 +3,9 @@ import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
+import { createSectorRuntime } from "./sector-runtime";
+import { sectorMission, type SectorProgress } from "../game/sector-missions";
+import type { CompletedSectorMission } from "../game/sector-completion";
 import {
   createWing,
   DISCONNECT_GRACE_MS,
@@ -82,6 +85,7 @@ type Client = {
   queueRequested: boolean;
   aiFillQueueRequested: boolean;
   queueEnteredAt: number | null;
+  sectorMission: string | null;
 };
 
 type PendingCompetitiveAssignment = {
@@ -103,6 +107,9 @@ export async function startWingSocketServer(
     enableCompetitiveQueue?: boolean;
     enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
+    enableSectorFlight?: boolean;
+    loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
+    settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
     casualAiFillWaitMs?: number;
     /**
      * Trusted server-only resolver. It must return "competitive" only for
@@ -119,6 +126,10 @@ export async function startWingSocketServer(
     shutdownAckTimeoutMs?: number;
   },
 ) {
+  const sectorRuntime = createSectorRuntime({
+    loadProgress: options.loadSectorProgress,
+    settle: options.settleSectorDiscovery,
+  });
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const competitiveQueue: Client[] = [];
@@ -158,6 +169,7 @@ export async function startWingSocketServer(
       roomId: string;
       queueRequested: boolean;
       aiFillQueueRequested: boolean;
+      sectorMission: string | null;
     }
   >();
 
@@ -187,6 +199,17 @@ export async function startWingSocketServer(
       return;
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
+    const sectorId = url.searchParams.get("sector");
+    if (sectorId !== null) {
+      if (!sectorMission(sectorId) || url.searchParams.size !== 2 || !ROOM_ID.test(roomId)) {
+        rejectUpgrade(socket, "400 Bad Request");
+        return;
+      }
+      if (options.enableSectorFlight !== true) {
+        rejectUpgrade(socket, "503 Service Unavailable");
+        return;
+      }
+    }
     const queueOnly =
       !url.searchParams.has("room") && url.searchParams.size === 1;
     const competitiveQueueRequested =
@@ -224,6 +247,7 @@ export async function startWingSocketServer(
         roomId: queueRequested ? "" : roomId,
         queueRequested,
         aiFillQueueRequested,
+        sectorMission: sectorId,
       });
       sockets.emit("connection", client, request);
     });
@@ -581,6 +605,7 @@ export async function startWingSocketServer(
       queueRequested: request?.queueRequested ?? false,
       aiFillQueueRequested: request?.aiFillQueueRequested ?? false,
       queueEnteredAt: null,
+      sectorMission: request?.sectorMission ?? null,
     };
     clients.set(socket, client);
     let authenticationTimeout: ReturnType<typeof setTimeout> | null =
@@ -672,6 +697,12 @@ export async function startWingSocketServer(
       if (packet.type === "authenticate") {
         send(socket, { type: "error", reason: "already_authenticated" });
         socket.close(1008, "Already authenticated");
+        return;
+      }
+
+      if (client.sectorMission) {
+        void sectorRuntime.handle(socket, client.playerId, client.sectorMission, client.roomId, packet)
+          .catch(() => send(socket, { type: "error", reason: "sector_service_unavailable" }));
         return;
       }
 
@@ -1045,6 +1076,7 @@ export async function startWingSocketServer(
     });
 
     socket.on("close", () => {
+      sectorRuntime.detach(socket);
       clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
       if (removeFromCompetitiveQueue(client)) matchCompetitiveQueue();
@@ -1239,6 +1271,7 @@ export async function startWingSocketServer(
   let lastBroadcastAt = 0;
   const timer = setInterval(() => {
     const now = Date.now();
+    sectorRuntime.advance(now);
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
     for (const client of [...competitiveQueue]) {
@@ -1380,6 +1413,7 @@ export async function startWingSocketServer(
       isShuttingDown = true;
       clearInterval(timer);
       clearInterval(heartbeat);
+      const sectorClosed = sectorRuntime.close();
       const httpClosed = new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
@@ -1442,6 +1476,7 @@ export async function startWingSocketServer(
       closePromise = (async () => {
         const results = await Promise.all(shutdownNotices);
         await Promise.all(settlementClosures);
+        await sectorClosed;
         if (results.length > 0) {
           process.stdout.write(
             `${JSON.stringify({

@@ -9,9 +9,16 @@ import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter
 import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
 import { SORTIES } from "./game/campaign";
+import { expeditionFeatureEnabled } from "./game/sector-client";
+
+const expeditionEnabled = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
+const SectorExpedition = lazy(() => import("./game/SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
 const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -115,6 +122,7 @@ function PublicLanding() {
           <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
             <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
             <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
+            {expeditionEnabled ? <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary`}>CO-OP EXPEDITION · 1-8 PILOTS</Link> : null}
             {isSignedIn ? (
               <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>
             ) : (
@@ -228,6 +236,11 @@ function Routes() {
         <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route path="/expedition">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading sector expedition…</main>}>
+            <SectorExpedition />
+          </Suspense>
+        </Route>
         <Route component={PublicLanding} />
       </Switch>
     </ClerkProvider>
@@ -240,7 +253,7 @@ function App() {
       <Switch>
         <Route path="/flight">
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
-            <RustDiscFlight />
+            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
           </Suspense>
         </Route>
         <Route path="/play">

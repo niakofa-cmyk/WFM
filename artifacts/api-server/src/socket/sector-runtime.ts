@@ -1,0 +1,256 @@
+import { randomUUID } from "node:crypto";
+import { WebSocket } from "ws";
+import { SHIPS, type ShipId } from "../game/ships";
+import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightState } from "../game/flight-sector";
+import {
+  sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
+  type SectorSnapshot, type SectorSettlement,
+} from "../game/sector-missions";
+import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
+
+type Pilot = {
+  userId: string; slot: number; shipId: ShipId; socket: WebSocket | null; ready: boolean;
+  flight: FlightState; input: FlightInput; seq: number; lastInput: number; disconnectedAt: number | null;
+  activeTicks: number; acceptedInputs: number; progress: SectorProgress; settlement: SectorSettlement;
+  proof: CompletedSectorMission | null; settling: Promise<void> | null; nextRetry: number; attempts: number;
+};
+type Room = {
+  code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
+  phase: SectorSnapshot["phase"]; tick: number; droneHull: number; touched: number;
+};
+type Options = {
+  loadProgress?: (userId: string) => Promise<SectorProgress>;
+  settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+  /** Trusted dependency seam for tests; runtime always uses stepFlight. */
+  physics?: typeof stepFlight;
+};
+const numericAxes = ["throttle", "pitch", "yaw", "roll"] as const;
+const buttons = ["boost", "brake", "fire", "lock", "missile", "countermeasure"] as const;
+export function parseSectorInput(value: unknown): FlightInput | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).length !== numericAxes.length + buttons.length) return null;
+  for (const key of numericAxes) {
+    const n = input[key];
+    if (typeof n !== "number" || !Number.isFinite(n) || n > 1 || n < (key === "throttle" ? 0 : -1)) return null;
+  }
+  if (buttons.some(key => typeof input[key] !== "boolean")) return null;
+  return { ...input } as FlightInput;
+}
+const neutral = (): FlightInput => ({ ...NEUTRAL_FLIGHT_INPUT, brake: true });
+function send(socket: WebSocket | null, value: unknown) {
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  if (socket.bufferedAmount > 1_048_576) { socket.close(1013, "Snapshot backpressure"); return; }
+  socket.send(JSON.stringify(value));
+}
+export function createSectorRuntime(options: Options) {
+  const rooms = new Map<string, Room>();
+  const seats = new Map<WebSocket, { room: Room; pilot: Pilot }>();
+  const loading = new Set<WebSocket>();
+  let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
+  const physics = options.physics ?? stepFlight;
+  function publish(room: Room) {
+    for (const own of room.pilots) {
+      const snapshot: SectorSnapshot = {
+        type: "sector_snapshot", version: 1, roomCode: room.code, missionId: room.mission.id,
+        phase: room.phase, tick: room.tick, ownSlot: own.slot, hostSlot: room.hostSlot,
+        pilots: room.pilots.map(pilot => ({
+          slot: pilot.slot, shipId: pilot.shipId, connected: pilot.socket?.readyState === WebSocket.OPEN,
+          ready: pilot.ready, flight: pilot.flight,
+        })),
+        progress: own.progress, settlement: own.settlement,
+      };
+      send(own.socket, snapshot);
+    }
+  }
+  async function settle(room: Room, pilot: Pilot, now: number) {
+    if (!pilot.proof || pilot.settling || pilot.settlement.status === "recorded") return;
+    if (!options.settle || !pilot.progress.persistenceAvailable) {
+      pilot.settlement = { status: "unavailable", reason: "discovery_database_unavailable" };
+      return;
+    }
+    pilot.settlement = { status: "pending", reason: "verifying_discovery" };
+    pilot.settling = (async () => {
+      try {
+        const saved = await options.settle!(pilot.proof!);
+        pilot.progress = saved.progress;
+        pilot.settlement = { status: "recorded", reason: "discovery_and_mission_access_saved", replayed: saved.replayed };
+      } catch {
+        pilot.attempts++;
+        pilot.nextRetry = now + 2000 * pilot.attempts;
+        pilot.settlement = { status: "unavailable", reason: "discovery_not_confirmed_retry_available" };
+      } finally { pilot.settling = null; publish(room); }
+    })();
+    await pilot.settling;
+  }
+  async function handle(socket: WebSocket, userId: string, missionId: string, code: string, packet: Record<string, unknown>, now = Date.now()) {
+    const error = (reason: string) => send(socket, { type: "error", reason });
+    if (closed) { error("server_restart"); return; }
+    if (packet.type === "sector_join") {
+      if (seats.has(socket) || loading.has(socket)) { error("already_joined"); return; }
+      if (packet.version !== 1) { error("sector_version_mismatch"); return; }
+      if (Object.keys(packet).some(key => !["type", "version", "shipId"].includes(key))) { error("invalid_sector_join"); return; }
+      const mission = sectorMission(missionId);
+      if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||
+          typeof packet.shipId !== "string" || !Object.hasOwn(SHIPS, packet.shipId)) { error("invalid_sector_join"); return; }
+      loading.add(socket);
+      let progress: SectorProgress;
+      try {
+        progress = options.loadProgress ? await options.loadProgress(userId) : { completed: [], persistenceAvailable: false };
+      } catch { error("discovery_database_unavailable"); loading.delete(socket); return; }
+      loading.delete(socket);
+      if (closed || socket.readyState !== WebSocket.OPEN) return;
+      if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
+      let room = rooms.get(code);
+      if (room && room.mission.id !== mission.id) { error("sector_mission_mismatch"); return; }
+      if (!room) {
+        if (rooms.size >= 32) { error("sector_capacity"); return; }
+        room = {
+          code, matchId: randomUUID(), mission, pilots: [], hostSlot: 0, phase: "lobby",
+          tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
+        };
+        rooms.set(code, room);
+      }
+      let pilot = room.pilots.find(p => p.userId === userId);
+      if (pilot?.disconnectedAt !== null && pilot?.disconnectedAt !== undefined &&
+          now - pilot.disconnectedAt > 5000 && room.phase !== "lobby" && pilot.flight.stage !== "complete") {
+        error("sector_reconnect_expired"); return;
+      }
+      if (!pilot && room.phase !== "lobby") { error("sector_match_in_progress"); return; }
+      if (room.phase === "interrupted") { error("server_restart"); return; }
+      if (!pilot && room.pilots.length >= 8) { error("sector_room_full"); return; }
+      // A single authenticated identity cannot occupy multiple rooms/connections.
+      for (const [otherSocket, seat] of seats) {
+        if (seat.pilot.userId === userId && otherSocket !== socket) {
+          detach(otherSocket, now);
+          otherSocket.close(4001, "Session moved");
+        }
+      }
+      if (!pilot) {
+        const shipId = packet.shipId as ShipId;
+        const slot = Array.from({ length: 8 }, (_, index) => index).find(index => !room!.pilots.some(p => p.slot === index))!;
+        pilot = {
+          userId, slot, shipId, socket, ready: false, flight: createFlight(shipId, mission.sector),
+          input: neutral(), seq: -1, lastInput: now, disconnectedAt: null,
+          activeTicks: 0, acceptedInputs: 0, progress,
+          settlement: { status: "not_started", reason: "complete_server_mission_to_record_discovery" },
+          proof: null, settling: null, nextRetry: 0, attempts: 0,
+        };
+        pilot.flight.position.x = slot * 8;
+        room.pilots.push(pilot);
+      }
+      pilot.socket = socket; pilot.disconnectedAt = null; pilot.seq = -1;
+      pilot.input = neutral(); pilot.lastInput = now; pilot.progress = progress;
+      seats.set(socket, { room, pilot }); room.touched = now; publish(room); return;
+    }
+    const seat = seats.get(socket);
+    if (!seat || seat.pilot.userId !== userId) { error("sector_join_required"); return; }
+    const { room, pilot } = seat;
+    room.touched = now;
+    if (packet.type === "sector_ready") {
+      if (Object.keys(packet).length !== 2 || typeof packet.ready !== "boolean" || room.phase !== "lobby") { error("invalid_sector_ready"); return; }
+      pilot.ready = packet.ready; publish(room); return;
+    }
+    if (packet.type === "sector_launch") {
+      if (Object.keys(packet).length !== 1 || room.phase !== "lobby" || pilot.slot !== room.hostSlot) { error("sector_host_required"); return; }
+      if (!room.pilots.every(p => p.socket?.readyState === WebSocket.OPEN && p.ready)) { error("sector_all_pilots_ready_required"); return; }
+      room.phase = "active"; publish(room); return;
+    }
+    if (packet.type === "sector_input") {
+      const input = parseSectorInput(packet.input);
+      if (Object.keys(packet).length !== 3 || !input || !Number.isSafeInteger(packet.seq) ||
+          (packet.seq as number) < 0 || (packet.seq as number) <= pilot.seq || (packet.seq as number) > 2147483647) {
+        error("invalid_sector_input"); return;
+      }
+      if (room.phase !== "active") return;
+      pilot.seq = packet.seq as number; pilot.input = input; pilot.lastInput = now; pilot.acceptedInputs++; return;
+    }
+    if (packet.type === "sector_retry" && Object.keys(packet).length === 1) {
+      if (now < pilot.nextRetry) { error("sector_retry_later"); return; }
+      void settle(room, pilot, now); return;
+    }
+    error("unknown_sector_message");
+  }
+  function detach(socket: WebSocket, now = Date.now()) {
+    loading.delete(socket);
+    const seat = seats.get(socket); seats.delete(socket);
+    if (!seat || seat.pilot.socket !== socket) return;
+    const { room, pilot } = seat;
+    pilot.socket = null; pilot.disconnectedAt = now; pilot.input = neutral(); pilot.ready = false;
+    if (room.phase === "lobby") {
+      room.pilots = room.pilots.filter(p => p !== pilot);
+      room.hostSlot = room.pilots[0]?.slot ?? 0;
+    }
+    room.touched = now; publish(room);
+  }
+  function advance(now = Date.now()) {
+    if (closed) return;
+    if (lastTick === null) lastTick = now;
+    accumulated += Math.max(0, Math.min(5 * SECTOR_STEP, (now - lastTick) / 1000));
+    lastTick = now;
+    let steps = 0;
+    while (accumulated >= SECTOR_STEP && steps++ < 5) {
+      accumulated -= SECTOR_STEP;
+      for (const room of rooms.values()) {
+        if (room.phase !== "active") continue;
+        room.tick++;
+        if (room.tick > 900 / SECTOR_STEP) { room.phase = "interrupted"; continue; }
+        for (const pilot of room.pilots) {
+          if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
+          const input = now - pilot.lastInput < 350 ? pilot.input : neutral();
+          if (now - pilot.lastInput < 350 &&
+              (input.throttle > 0.05 || Math.abs(input.pitch) + Math.abs(input.yaw) + Math.abs(input.roll) > 0.05 || input.fire)) pilot.activeTicks++;
+          pilot.flight.drone.hull = room.droneHull;
+          physics(pilot.flight, input, SECTOR_STEP, room.mission.sector);
+          room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
+          if (pilot.flight.stage === "complete" && !pilot.proof && pilot.settlement.status === "not_started") {
+            const proof: CompletedSectorMission = Object.freeze({
+              matchId: room.matchId, userId: pilot.userId, missionId: room.mission.id, rulesVersion: 1,
+              status: "completed", elapsed: pilot.flight.elapsed, activeTicks: pilot.activeTicks,
+              acceptedInputs: pilot.acceptedInputs, discoveries: pilot.flight.discoveries,
+              droneHull: room.droneHull, stage: "complete", connectedAtEnd: true,
+            });
+            if (validSectorCompletion(proof)) { pilot.proof = proof; void settle(room, pilot, now); }
+            else pilot.settlement = { status: "not_eligible", reason: "verified_participation_required" };
+          }
+        }
+        // Synchronize the shared objective for all pilots at the same authoritative tick.
+        for (const pilot of room.pilots) pilot.flight.drone.hull = room.droneHull;
+        if (room.pilots.every(p => ["complete", "destroyed"].includes(p.flight.stage) ||
+            (p.disconnectedAt !== null && now - p.disconnectedAt > 5000))) room.phase = "complete";
+      }
+    }
+    for (const [code, room] of rooms) {
+      for (const pilot of room.pilots) {
+        if (pilot.proof && pilot.settlement.status === "unavailable" &&
+            pilot.attempts > 0 && pilot.attempts < 3 && now >= pilot.nextRetry) void settle(room, pilot, now);
+      }
+      if (!room.pilots.some(p => p.socket?.readyState === WebSocket.OPEN) && now - room.touched > 10000) rooms.delete(code);
+      else if (room.phase === "lobby" && now - room.touched > 900000) {
+        room.phase = "interrupted"; publish(room);
+        for (const pilot of room.pilots) pilot.socket?.close(4002, "Lobby expired");
+      }
+      if (now - lastSnapshot >= 100) publish(room);
+    }
+    if (now - lastSnapshot >= 100) lastSnapshot = now;
+  }
+  return {
+    handle, detach, advance,
+    get roomCount() { return rooms.size; },
+    async close() {
+      closed = true;
+      const pending: Promise<void>[] = [];
+      for (const room of rooms.values()) {
+        if (room.phase === "active" || room.phase === "lobby") room.phase = "interrupted";
+        publish(room);
+        for (const pilot of room.pilots) {
+          if (pilot.settling) pending.push(pilot.settling);
+          send(pilot.socket, { type: "interrupted", reason: "server_restart" });
+          pilot.socket?.close(4002, "server_restart");
+        }
+      }
+      await Promise.all(pending);
+      seats.clear(); rooms.clear(); loading.clear();
+    },
+  };
+}

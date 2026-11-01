@@ -3,6 +3,7 @@ import { parseSocketOrigins } from "./origin-policy";
 import { createClerkSessionVerifier } from "./clerk-session-verifier";
 import { resolveClerkIssuer } from "./clerk-issuer-policy";
 import { getSocketFeatureReadiness } from "./reward-config";
+import { sectorFlightEnabled } from "./sector-feature";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -42,6 +43,12 @@ process.stdout.write(
 const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;
+// A new cooperative mode is not enabled by existing competitive/reward flags.
+// Production must explicitly opt in after isolated verification.
+const enableSectorFlight = sectorFlightEnabled(process.env);
+const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+  ? await import("../game/sector-progression")
+  : undefined;
 
 const runtime = await startWingSocketServer(port, "0.0.0.0", {
   allowedOrigins,
@@ -50,6 +57,9 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableCasualAiQueue: casualAiQueueEnabled,
   enableWingRewards: wingRewardsEnabled,
   settleWingMatch,
+  enableSectorFlight,
+  loadSectorProgress: sectorProgression?.loadSectorProgress,
+  settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
 });
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 

@@ -1,4 +1,5 @@
 import { SHIPS, type ShipId } from "./ships";
+import { detSin, detCos, detExp } from "./detmath";
 
 // Deliberately separate from reward-eligible sim.ts. No network, storage or rewards.
 export type Vector3 = { x: number; y: number; z: number };
@@ -13,7 +14,12 @@ export const NEUTRAL_FLIGHT_INPUT: FlightInput = {
   boost: false, brake: false, fire: false, lock: false, missile: false, countermeasure: false,
 };
 export type SectorRock = { id: string; position: Vector3; radius: number };
-export const RUST_DISC_SECTOR = {
+export type FlightSector = {
+  id: string; version: number; radius: number; relay: Vector3; extraction: Vector3;
+  rocks: SectorRock[]; drone?: Vector3; droneHull?: number;
+  planet?: { position: Vector3; radius: number };
+};
+export const RUST_DISC_SECTOR: FlightSector = {
   id: "rust-disc-flight-v1", version: 1, radius: 460,
   relay: { x: 0, y: 32, z: -110 },
   extraction: { x: 100, y: 20, z: -160 },
@@ -69,29 +75,32 @@ export function sphereHit(a: Vector3, b: Vector3, center: Vector3, radius: numbe
   const t = (-md - Math.sqrt(discriminant)) / dd;
   return t >= 0 && t <= 1 ? t : null;
 }
-export function createFlight(shipId: ShipId = "glide"): FlightState {
+export function createFlight(shipId: ShipId = "glide", sector: FlightSector = RUST_DISC_SECTOR): FlightState {
   return {
     shipId, position: v(0, 0, 70), velocity: v(), orientation: { ...v(), w: 1 },
     elapsed: 0, hull: 100, energy: 100, missiles: 3, lock: 0,
     fireCooldown: 0, missileCooldown: 0, flareCooldown: 0, collisionCooldown: 0,
     droneCooldown: 4, nextProjectile: 0,
-    drone: { position: v(0, 48, -210), hull: 60 }, projectiles: [],
+    drone: { position: sector.drone ? { ...sector.drone } : v(0, 48, -210), hull: sector.droneHull ?? 60 }, projectiles: [],
     stage: "relay", discoveries: 0, hits: 0, collisions: 0,
   };
 }
-export function flightObjective(state: FlightState): { label: string; position: Vector3 } {
-  if (state.stage === "relay") return { label: "Investigate damaged relay", position: RUST_DISC_SECTOR.relay };
+export function flightObjective(state: FlightState, sector: FlightSector = RUST_DISC_SECTOR): { label: string; position: Vector3 } {
+  if (state.stage === "relay") return { label: "Investigate damaged relay", position: sector.relay };
   if (state.stage === "drone") return { label: "Disable the training drone", position: state.drone.position };
-  return { label: "Return to extraction beacon", position: RUST_DISC_SECTOR.extraction };
+  return { label: "Return to extraction beacon", position: sector.extraction };
 }
-export function canLock(state: FlightState): boolean {
+export function canLock(state: FlightState, sector: FlightSector = RUST_DISC_SECTOR): boolean {
   if (state.stage !== "drone" || state.drone.hull <= 0) return false;
   const toward = sub(state.drone.position, state.position);
   return vectorLength(toward) < 350 && dot(flightForward(state.orientation), unit(toward)) > 0.94
-    && !RUST_DISC_SECTOR.rocks.some(rock => sphereHit(state.position, state.drone.position, rock.position, rock.radius) !== null);
+    && !collisionBodies(sector).some(rock => sphereHit(state.position, state.drone.position, rock.position, rock.radius) !== null);
+}
+function collisionBodies(sector: FlightSector): SectorRock[] {
+  return sector.planet ? [...sector.rocks, { id: "mars", ...sector.planet }] : sector.rocks;
 }
 /** Fixed-tick, mutable local trainer. Caller owns pause/accumulator; no catch-up on restore. */
-export function stepFlight(state: FlightState, input: FlightInput, seconds: number): void {
+export function stepFlight(state: FlightState, input: FlightInput, seconds: number, sector: FlightSector = RUST_DISC_SECTOR): void {
   if (state.stage === "complete" || state.stage === "destroyed" || !Number.isFinite(seconds) || seconds <= 0) return;
   const dt = Math.min(seconds, 1 / 30);
   const def = SHIPS[state.shipId];
@@ -104,7 +113,7 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   const angle = vectorLength(angular) * turn * dt;
   if (angle > 0) {
     const axis = unit(angular), half = angle * 0.5;
-    const q = product(state.orientation, { ...mul(axis, Math.sin(half)), w: Math.cos(half) });
+    const q = product(state.orientation, { ...mul(axis, detSin(half)), w: detCos(half) });
     const norm = Math.sqrt(dot(q, q) + q.w * q.w);
     state.orientation = { ...mul(q, 1 / norm), w: q.w / norm };
   }
@@ -112,13 +121,13 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   state.energy = clamp(state.energy + (boosting ? -28 : 13) * dt, 0, 100);
   const acceleration = def.accel * (boosting ? 2.6 : 1.4) * clamp(input.throttle, 0, 1);
   state.velocity = add(state.velocity, mul(flightForward(state.orientation), acceleration * dt));
-  state.velocity = mul(state.velocity, Math.exp(-(input.brake ? 5 : 0.32) * dt));
+  state.velocity = mul(state.velocity, detExp(-(input.brake ? 5 : 0.32) * dt));
   const speed = vectorLength(state.velocity), max = def.maxSpeed * (boosting ? 4 : 2.5);
   if (speed > max) state.velocity = mul(state.velocity, max / speed);
   const previous = state.position;
   let next = add(previous, mul(state.velocity, dt));
   let nearest: { rock: SectorRock; t: number } | null = null;
-  for (const rock of RUST_DISC_SECTOR.rocks) {
+  for (const rock of collisionBodies(sector)) {
     const t = sphereHit(previous, next, rock.position, rock.radius + 2);
     if (t !== null && (!nearest || t < nearest.t)) nearest = { rock, t };
   }
@@ -132,16 +141,16 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
       state.collisions++; state.collisionCooldown = 0.7;
     }
   }
-  if (vectorLength(next) > RUST_DISC_SECTOR.radius) {
-    next = mul(unit(next), RUST_DISC_SECTOR.radius); state.velocity = mul(state.velocity, -0.2);
+  if (vectorLength(next) > sector.radius) {
+    next = mul(unit(next), sector.radius); state.velocity = mul(state.velocity, -0.2);
   }
   state.position = next;
-  if (state.stage === "relay" && vectorLength(sub(next, RUST_DISC_SECTOR.relay)) < 24) {
+  if (state.stage === "relay" && vectorLength(sub(next, sector.relay)) < 24) {
     state.stage = "drone"; state.discoveries = 1;
   }
   if (state.stage === "drone" && state.drone.hull <= 0) state.stage = "extract";
-  if (state.stage === "extract" && vectorLength(sub(next, RUST_DISC_SECTOR.extraction)) < 26) state.stage = "complete";
-  state.lock = clamp(state.lock + ((input.lock && canLock(state)) ? dt / 1.2 : -dt * 2), 0, 1);
+  if (state.stage === "extract" && vectorLength(sub(next, sector.extraction)) < 26) state.stage = "complete";
+  state.lock = clamp(state.lock + ((input.lock && canLock(state, sector)) ? dt / 1.2 : -dt * 2), 0, 1);
   const launch = (hostile: boolean, guided: boolean) => {
     const origin = hostile ? state.drone.position : state.position;
     const direction = hostile ? unit(sub(state.position, origin)) : flightForward(state.orientation);
@@ -171,7 +180,7 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
     const end = add(projectile.position, mul(projectile.velocity, dt));
     const targetHit = sphereHit(projectile.position, end, target, projectile.hostile ? 3 : 7);
     let coverHit: number | null = null;
-    for (const rock of RUST_DISC_SECTOR.rocks) {
+    for (const rock of collisionBodies(sector)) {
       const t = sphereHit(projectile.position, end, rock.position, rock.radius);
       if (t !== null && (coverHit === null || t < coverHit)) coverHit = t;
     }

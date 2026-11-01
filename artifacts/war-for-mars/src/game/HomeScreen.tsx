@@ -8,6 +8,12 @@ import { Link } from "wouter";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
 import { ShipIllustration } from "./ShipIllustration";
 import { campaignBriefing } from "./command-briefing";
+import { expeditionFeatureEnabled } from "./sector-client";
+
+const EXPEDITION_ENABLED = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
 
 type HomeProps = {
   state: MenuStateId;
@@ -194,6 +200,12 @@ function MainMenu(props: HomeProps) {
           <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
           <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
         </Link>
+        {EXPEDITION_ENABLED ? (
+          <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
+            <span className="font-hud text-xl leading-none tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
+            <span className="text-xs text-muted">1-8 pilots · server-run · three missions to Mars</span>
+          </Link>
+        ) : null}
         <button type="button" onClick={() => onAction("DEPLOY")} className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-16 flex-col items-start justify-center gap-0 px-4">
           <span className="font-hud text-2xl leading-none tracking-widest">CAMPAIGN: DEPLOY</span>
           <span className="text-xs text-void/80">{brief.label}: {brief.sortie.name}</span>
