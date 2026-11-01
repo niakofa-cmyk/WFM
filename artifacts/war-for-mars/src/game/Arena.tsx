@@ -947,8 +947,9 @@ export function Arena({
         bumpMap: theaterTextures.mars,
         bumpScale: 0.3,
         emissive: look.mars,
-        emissiveIntensity: 0.65,
+        emissiveIntensity: 0.16,
         roughness: 1,
+        fog: false,
       }),
     );
     mars.position.set(-24, 6, -150);

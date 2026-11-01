@@ -50,8 +50,8 @@
   .wfm-scrim { background: linear-gradient(180deg, rgb(7 8 13 / 0.35) 0%, rgb(7 8 13 / 0.82) 45%, rgb(7 8 13 / 0.95) 100%); }
 }
 .wfm-chamfer { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
-.wfm-glass { background: rgb(20 24 32 / 0.82); backdrop-filter: blur(6px); }
-.wfm-rise { animation: wfm-rise 420ms cubic-bezier(.2,.7,.2,1) both; }
+.wfm-glass { background: rgb(20 24 32 / 0.94); }
+.wfm-rise { animation: wfm-rise 240ms cubic-bezier(.33,1,.68,1) both; }
 @keyframes wfm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .wfm-rise { animation: none; }

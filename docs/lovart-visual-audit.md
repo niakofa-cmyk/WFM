@@ -70,7 +70,7 @@ progression and reward rules. Do not embed a full concept UI screenshot as a
 working interface or imply fake telemetry, connections, prices or scores.
 
 Use small, optimized scenery/brand crops for command screens. Current production
-crops total approximately 222 KiB across five WebPs; the 24 reference sheets
+crops total 221,302 bytes (approximately 216 KiB) across five WebPs; the 24 reference sheets
 remain outside Git and deployment. Keep aspect ratios explicit and use the
 artifact's base path. No Lovart service request is required during gameplay.
 
@@ -87,3 +87,36 @@ Earlier phone tests apply to the earlier visuals; rerun a representative local,
 no-reward flight on physical Android after these visual changes reach staging.
 Keep that separate from multiplayer synchronization and reward certification.
 Nothing in this visual update authorizes a Production deployment.
+
+## Implemented visual pass and local results — 2026-11-01
+
+- Command/Armory/Settings presentation and galaxy header use responsive local
+  scenery, the cropped wordmark and current faction emblems. The historical
+  campaign artwork is not shipped. Functional screens remain real components.
+- Translucent graphite panels do not use background blur. Primary controls keep
+  dark labels on amber and the entrance transition respects reduced motion.
+- In-flight Mars now has a procedural, seam-safe surface and a thin atmospheric
+  limb. The arena floor has basalt detail. Ship materials distinguish machined
+  USSF metal from matte Accord ceramic without changing meshes or hitboxes.
+- Texture generation is render-only, consumes no shared random state, runs on
+  Arena initialization, and is capped at 144 KiB of RGBA data before mipmaps.
+  Both textures are explicitly disposed during flight teardown.
+- WFM unit tests: **65/65 passed**, including five new texture/resource tests.
+  Workspace typecheck passed. WFM production build passed in 5.60 seconds.
+- Portrait 360×803, landscape 803×385 and desktop 1280×900 command layouts were
+  checked using the actual component with synthetic no-account props. Images
+  loaded, page width matched viewport width, visible menu buttons met the
+  44px-height threshold, and there were no page exceptions. Armory was also
+  visually inspected in portrait. These are presentation checks, not sign-in or
+  persistence verification; galaxy's authenticated data flow was not exercised.
+- An actual public `/play` flight rendered through Chromium software WebGL at
+  803×385, its timer advanced, and the scene/HUD displayed without browser or
+  shader errors. This is not a GPU benchmark or a physical-device check.
+- Only the existing local web workflow was restarted. No Railway, database,
+  secret, authentication setting or Production deployment was changed.
+
+The existing ship geometry is still stylized; reference plates are not 3D
+models, and this pass does not claim cinematic mesh parity with them. A future
+ship-art pass needs optimized models and silhouette/visibility checks while
+retaining authoritative collision geometry. Physical Android frame cadence,
+heat and memory evidence remain to be collected for this visual revision.

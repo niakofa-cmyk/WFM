@@ -588,3 +588,42 @@ This is owner-reported phone evidence, not a reward-ledger audit or a test of
 ten-human competitive settlement, duplicate claims, all orientation transitions, disconnect
 recovery or Production. Existing earlier staging evidence remains valid within
 its original scope.
+
+## 2026-11-01 — Lovart-based graphics and command presentation
+
+Reviewed the owner's public Lovart canvas, its complete 67-entry message history
+and 24 image references. Preserved the source/revision audit in
+`docs/lovart-visual-audit.md`; extracted reference material is retained under the
+ignored `generated-artifacts/lovart-reference/` directory. Excluded the explicitly
+superseded campaign artwork and old Accord emblem.
+
+Implemented responsive orbital hangar scenery, the supplied wordmark and
+current faction insignia in command/Armory/Settings presentation and the galaxy
+header, with readable amber controls and reduced-motion support. Five optimized
+local WebPs total 221,302 bytes; the game does not fetch Lovart during play.
+
+Flight rendering now includes a small procedural Mars texture, atmospheric limb,
+basalt surface detail and faction-specific metal/ceramic ship materials. These
+are render-only changes: no simulation geometry, hitboxes, balance, input,
+network, authentication, reward or progression rules changed. GPU texture
+resources are released on teardown; source RGBA data is capped at 144 KiB before
+mipmaps. No background blur or new shadow/postprocessing pass was introduced.
+
+Validation:
+
+- WFM unit suite **65/65 passed**, including five new surface/resource tests.
+- Full workspace typecheck passed; WFM Vite build passed in **5.60 seconds**.
+- Local web workflow restarted cleanly; preview `/play` loaded.
+- Actual command component checked with synthetic, no-account props at
+  **360×803**, **803×385** and **1280×900**: art loaded, page width matched the
+  viewport, visible menu buttons met the 44px height threshold, and no page
+  exceptions occurred. Portrait Armory was visually inspected. This did not
+  exercise authenticated galaxy requests or real account state.
+- A real local no-reward flight rendered in Chromium software WebGL at
+  **803×385** with an advancing timer and no browser/shader errors.
+
+Earlier physical-phone results remain recorded for their original revision.
+New art still needs physical Android performance/endurance verification after
+a separately authorized staging release. Existing ship meshes remain stylized;
+reference artwork is not a replacement 3D model. No Railway settings, database,
+secrets, Production release or publishing changes were made for this visual pass.

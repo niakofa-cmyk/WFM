@@ -44,3 +44,13 @@ test("both GPU texture resources are disposed on flight teardown", () => {
   textures.dispose();
   assert.equal(disposed, 2);
 });
+
+test("basalt repeats without visible texture-edge jumps", () => {
+  const p = basaltSurfacePixels();
+  const size = THEATER_TEXTURE_BUDGET.basaltSize;
+  const pixel = (x: number, y: number) => p.slice((y * size + x) * 4, (y * size + x + 1) * 4);
+  for (let n = 0; n < size; n++) {
+    assert.deepEqual(pixel(0, n), pixel(size - 1, n));
+    assert.deepEqual(pixel(n, 0), pixel(n, size - 1));
+  }
+});
