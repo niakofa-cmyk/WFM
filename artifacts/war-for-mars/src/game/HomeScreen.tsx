@@ -163,6 +163,14 @@ function MainMenu(props: HomeProps) {
             </div>
           ))}
         </dl>
+        <button
+          type="button"
+          onClick={() => onAction("ARMORY")}
+          data-testid="button-change-ship-faction"
+          className="wfm-cmd wfm-cmd-secondary mt-3 min-h-12 w-full justify-center px-3 font-hud text-base tracking-widest"
+        >
+          CHANGE SHIP / FACTION
+        </button>
         <div className="mt-4 border-t border-bone/10 pt-3" data-testid="text-campaign-briefing">
           <PanelLabel>{brief.label} · {brief.completed}/{brief.total} CLEARED</PanelLabel>
           <p className="mt-1 font-hud text-2xl leading-none">{brief.sortie.name.toUpperCase()} <span className="text-base tracking-widest text-solar">· {brief.sortie.objective}</span></p>
