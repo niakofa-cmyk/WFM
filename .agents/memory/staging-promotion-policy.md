@@ -57,3 +57,14 @@ The owner clarified that phone-based mobile-app play is the primary product, not
 **Why:** the user explicitly asked to reestablish WFM as a mobile video game while retaining a dedicated Railway backend with PostgreSQL.
 
 **How to apply:** prioritize mobile packaging and device behavior, reuse the existing WFM Railway infrastructure where suitable, and distinguish a browser build from an installable mobile release. Mobile packaging does not resolve authentication or reward-verification gaps by itself.
+
+The owner selected Android first. Start with a staging Trusted Web Activity using
+the shared browser game, rather than a separate native flight engine.
+
+**Why:** WFM's WebGL renderer and browser-origin authentication can be reused
+without introducing native token bridges or weakening the Railway origin policy.
+
+**How to apply:** distinguish a compiled launcher, verified domain association,
+physical-device acceptance and a signed store release. TWA without a verified
+website/certificate association may show safe browser controls. Never infer
+Production or reward readiness from an APK build.

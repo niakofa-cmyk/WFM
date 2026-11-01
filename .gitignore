@@ -49,3 +49,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Android build output and local/signing configuration
+/generated-artifacts/
+**/android/.gradle/
+**/android/**/build/
+**/android/local.properties
+*.jks
+*.keystore

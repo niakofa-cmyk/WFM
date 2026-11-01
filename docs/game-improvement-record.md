@@ -471,3 +471,18 @@ replace ledger evidence from a real competitive settlement. A two-phone check
 of queue visibility, waiting, cancellation, and unchanged balances can still
 be completed with fewer than ten pilots. The staging homepage's unauthenticated
 HTTP 401 means the signed-in queue UI must be checked on an authenticated phone.
+
+## Android-first application preparation
+
+The owner selected Android first, with the existing shared game and Railway
+services retained. Added a staging-only Trusted Web Activity Android project,
+an APK-building GitHub Actions workflow, a public-certificate association
+generator and focused configuration/security tests. See `docs/android-app.md`
+for build instructions, domain-association requirements and phone acceptance.
+
+The launcher targets only the existing Railway staging game. It does not create
+a database, change authentication, add a native reward endpoint, modify origins,
+deploy Railway or publish to a store. The first APK is debug-signed; Production
+signing and verified domain association remain separate steps. The Shell lacks
+Java/Android tooling, so native compilation is delegated to the repository's
+GitHub Actions build rather than claimed from the passing Node checks.

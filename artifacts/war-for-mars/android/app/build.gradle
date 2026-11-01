@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.niakofa.wfm'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.niakofa.wfm'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    // Deliberately staging-only. Production needs a separately reviewed target,
+    // release signing, domain association and the existing promotion checks.
+    flavorDimensions += 'environment'
+    productFlavors {
+        staging {
+            dimension 'environment'
+            applicationIdSuffix '.staging'
+            versionNameSuffix '-staging'
+            buildConfigField 'String', 'GAME_URL',
+                    '"https://wfm-app-staging-staging.up.railway.app/"'
+            resValue 'string', 'app_name', 'WFM Staging'
+            resValue 'string', 'launch_url',
+                    'https://wfm-app-staging-staging.up.railway.app/'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
+    testImplementation 'junit:junit:4.13.2'
+}
