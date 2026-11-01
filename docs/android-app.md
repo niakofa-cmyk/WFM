@@ -123,6 +123,13 @@ uninstall **WFM Staging only**, then install the new APK. That removes that
 launcher's app-local state, not the server's player records. Do not clear Chrome
 storage, remove accounts or uninstall Chrome.
 
+Verified replacement:
+https://github.com/niakofa-cmyk/WFM/actions/runs/41276369322/artifacts/13071453431
+(seven-day retention). The build passed 5 Android JUnit tests, lint, assembly,
+signature verification and Android 13 / Chrome 109 installed-APK startup and
+relaunch checks with no native crashes. The clean emulator reached Chrome's
+first-run screen; sign-in and gameplay still require physical-phone verification.
+
 ## Production follow-up
 
 Keep `com.niakofa.wfm` reserved for a separately reviewed Production variant.

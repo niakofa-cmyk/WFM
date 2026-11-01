@@ -494,7 +494,7 @@ upload all succeeded. The local repository script suite passed 53/53; Android
 XML parsed and `git diff --check` passed. The shared Solo Flight setup also
 rendered in a 360×803 preview; this is not a native phone rendering test.
 
-APK download (GitHub sign-in may be required):
+Initial APK download (superseded by the startup fix below; do not reinstall):
 https://github.com/niakofa-cmyk/WFM/actions/runs/41274527388/artifacts/13070946519
 
 The artifact contains a debug-signed staging APK and its public-certificate
@@ -504,3 +504,39 @@ packaging; the passing build pins the project's signing-verification tools and
 retains the APK if a later packaging step fails. No association file was
 published to a website, no device installation was performed, and Railway
 configuration, databases and Production remain unchanged by this work.
+
+### 2026-11-01 — Android immediate-startup crash reproduced and fixed
+
+The owner reported that the installed staging app stopped immediately on opening.
+An installed-APK Android 13 / Chrome emulator test reproduced a fatal startup
+exception: Browser Helper tried to toggle its undeclared
+`ManageDataLauncherActivity` component. The previous compile/lint/JUnit checks
+had passed; Robolectric's package-manager shadow did not enforce that Android
+registration requirement.
+
+Version `0.1.1-staging` / code `2` adds the required component, application
+manage-space declaration and matching staging URL, without changing the browser
+authentication flow, Railway services or any player data.
+
+Verified replacement build:
+https://github.com/niakofa-cmyk/WFM/actions/runs/41276369322
+at source `20868a1ebd5341a74130bb3d11dc1776530c72cc`.
+Results: Node Android checks 4/4; Android JUnit 5/5; lint, compilation,
+APK assembly/signature verification and packaging passed. Installed-APK cold
+start and relaunch passed with empty native crash logs. The emulator used
+Android 13 and its bundled Chrome 109; its screenshot shows Chrome's first-run
+screen. This proves native startup/browser handoff, not sign-in or gameplay.
+
+Replacement APK download (GitHub sign-in may be required):
+https://github.com/niakofa-cmyk/WFM/actions/runs/41276369322/artifacts/13071453431
+
+The same run retains clean-emulator startup logs/screenshot and test reports.
+Artifacts expire after seven days. A physical-phone install/retest remains
+necessary. Debug certificates may differ across CI runs: uninstall only the old
+WFM Staging app if Android rejects replacement; do not clear Chrome storage.
+
+Railway's staging-only status check reported all four services online, no recent
+failures and no pending changes. The public app address and `/healthz` return
+the expected private-staging HTTP 401 access page. No live sign-in, database
+query, reward request, Railway deployment/configuration change or Production
+action was performed.
