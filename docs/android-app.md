@@ -15,7 +15,7 @@ The first build is deliberately **staging-only**:
 - Launcher label: **WFM Staging**.
 - Launch target: `https://wfm-app-staging-staging.up.railway.app/`.
 - Minimum Android: 8.0 / API 26; compile and target SDK: 36.
-- Version: `0.1.0-staging` / code `1`.
+- Version: `0.1.1-staging` / code `2`.
 - Existing Railway app/API/socket/Postgres are reused; no database is created,
   migrated, reset or copied by the Android build.
 - The staging access gate still applies, followed by normal Clerk authentication.
@@ -32,7 +32,11 @@ successful phone sign-in or live match.
 The `Android staging APK` GitHub Actions workflow builds on changes to the
 Android source, associated checks or workflow, and also supports manual runs.
 It runs Node configuration tests, Android JUnit tests, Android lint, and
-`assembleStagingDebug`. Its artifact contains:
+`assembleStagingDebug`. It also installs and starts the actual APK on an
+Android 13 emulator with Chrome, checks the crash log, and requires a foreground
+browser handoff. That runtime check caught a missing Browser Helper manifest
+component which compilation/lint and the no-browser lifecycle test did not catch.
+Its artifact contains:
 
 1. `wfm-staging.apk` — debug-signed test app, not a store release.
 2. `apk-sha256.txt` — file integrity checksum.
@@ -104,6 +108,20 @@ Use the REVVL and Samsung staging accounts already approved by the owner:
 
 Record Android/browser/app versions, exact build/run and observed results.
 No automated build replaces these phone checks.
+
+### Replacing the initial crashing APK
+
+The initial `0.1.0-staging` launcher omitted Browser Helper's
+`ManageDataLauncherActivity` declaration. Real Android threw an
+`IllegalArgumentException` during startup when the helper tried to toggle that
+component. The `0.1.1-staging` fix declares the component and its staging-only
+manage-space URL; it does not change server access or authentication.
+
+Install the replacement only from the passing runtime-checked build. If Android
+rejects an in-place update because this debug build has a different certificate,
+uninstall **WFM Staging only**, then install the new APK. That removes that
+launcher's app-local state, not the server's player records. Do not clear Chrome
+storage, remove accounts or uninstall Chrome.
 
 ## Production follow-up
 

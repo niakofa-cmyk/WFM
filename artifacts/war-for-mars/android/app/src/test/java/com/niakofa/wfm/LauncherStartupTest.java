@@ -4,10 +4,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.content.Intent;
+import android.content.ComponentName;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Looper;
 import com.google.androidbrowserhelper.trusted.LauncherActivityMetadata;
+import com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -21,6 +23,22 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 33)
 public class LauncherStartupTest {
+    @Test public void libraryManagedDataComponentExistsAndUsesTheSameStagingTarget() throws Exception {
+        String packageName = RuntimeEnvironment.getApplication().getPackageName();
+        PackageManager packages = RuntimeEnvironment.getApplication().getPackageManager();
+        ActivityInfo info = packages.getActivityInfo(
+                new ComponentName(packageName, ManageDataLauncherActivity.class.getName()),
+                PackageManager.GET_META_DATA | PackageManager.MATCH_DISABLED_COMPONENTS);
+        assertEquals(ManageDataLauncherActivity.class.getName(), info.name);
+        assertEquals(BuildConfig.GAME_URL,
+                info.metaData.getString("android.support.customtabs.trusted.MANAGE_SPACE_URL"));
+        assertEquals(ManageDataLauncherActivity.class.getName(),
+                packages.getApplicationInfo(packageName, 0).manageSpaceActivityName);
+        // Real Android rejects toggling a non-existent component. Robolectric's
+        // setComponentEnabledSetting alone does not detect that omission.
+        assertEquals(false, info.exported);
+    }
+
     @Test public void installedManifestResolvesTheActualLauncherClass() throws Exception {
         String packageName = RuntimeEnvironment.getApplication().getPackageName();
         PackageManager packages = RuntimeEnvironment.getApplication().getPackageManager();

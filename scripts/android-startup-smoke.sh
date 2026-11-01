@@ -30,5 +30,16 @@ if ! grep -E 'mResumedActivity|topResumedActivity' "$out/activities.txt" | grep 
   echo "::error::No WFM crash was recorded, but Chrome did not become the foreground activity."
   exit 1
 fi
+adb shell am force-stop "$package"
+adb logcat -c
+adb shell am start -W -n "$package/com.niakofa.wfm.LauncherActivity" > "$out/relaunch.txt" 2>&1
+sleep 8
+adb logcat -d -b crash > "$out/relaunch-crash.txt"
+if grep -qE "Error:|Exception" "$out/relaunch.txt" ||
+    grep -q "Process: $package" "$out/relaunch-crash.txt"; then
+  cat "$out/relaunch-crash.txt"
+  echo "::error::The installed WFM staging APK crashed on relaunch."
+  exit 1
+fi
 echo "Installed APK launched and handed off to Chrome without a WFM native crash."
 echo "This does not certify sign-in, domain association, gameplay or rewards."

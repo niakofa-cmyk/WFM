@@ -34,6 +34,9 @@ test('Android launcher pins HTTPS staging, ignores external intent URL data and 
   assert.doesNotMatch(launcher, /getIntent\(|new WebView|import android\.webkit|addJavascriptInterface|Bearer/);
   assert.match(manifest, /android:usesCleartextTraffic="false"/);
   assert.match(manifest, /android:allowBackup="false"/);
+  assert.match(manifest, /android:manageSpaceActivity="com\.google\.androidbrowserhelper\.trusted\.ManageDataLauncherActivity"/);
+  assert.match(manifest, /<activity\s+android:name="com\.google\.androidbrowserhelper\.trusted\.ManageDataLauncherActivity"/);
+  assert.match(manifest, /android\.support\.customtabs\.trusted\.MANAGE_SPACE_URL/);
   assert.doesNotMatch(manifest, /BROWSABLE|android:scheme="http"|allowMixedContent/);
   assert.doesNotMatch(config, /https:\/\/niakofa\.com/);
 });
