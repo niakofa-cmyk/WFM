@@ -5,7 +5,8 @@ import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
 import type { Save } from "./save";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, ShipSchematic, Wordmark } from "./CommandArt";
+import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
+import { ShipIllustration } from "./ShipIllustration";
 import { campaignBriefing } from "./command-briefing";
 
 type HomeProps = {
@@ -147,7 +148,7 @@ function MainMenu(props: HomeProps) {
       {/* Briefing: selected ship + campaign */}
       <CommandPanel className="wfm-rise-2 order-1 p-4 lg:order-2" data-testid="panel-command-briefing">
         <div className="flex items-start gap-4">
-          <ShipSchematic faction={faction} role={def.role} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
+          <ShipIllustration ship={ship} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
           <div className="min-w-0">
             <PanelLabel tone={faction === "accord" ? "spectral" : "solar"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
             <p data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-wide">{def.name.toUpperCase()}</p>
@@ -367,20 +368,7 @@ function Armory(props: HomeProps) {
         <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} mark="accord" />
         <Pick on={props.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => props.onFaction("ussf")} mark="ussf" />
       </div>
-      <div className="grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
-        {ROSTER[props.faction].map((id) => {
-          const def = SHIPS[id];
-          return (
-            <Pick
-              key={id}
-              on={props.ship === id}
-              label={def.name}
-              detail={`${def.role} · ${def.ultShort}`}
-              click={() => props.onShip(id)}
-            />
-          );
-        })}
-      </div>
+      <HullBay {...props} />
       <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
         {TECHS.map((tech) => {
           const locked = props.cleared < tech.need;
@@ -524,5 +512,56 @@ function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; 
         <span className={on ? "text-xs text-void/80" : "text-xs text-muted"}>{detail}</span>
       </span>
     </button>
+  );
+}
+
+function HullBay({ faction, ship, onShip }: HomeProps) {
+  const sel = SHIPS[ship];
+  const accord = faction === "accord";
+  const tone = accord ? "text-spectral" : "text-solar";
+  const ring = accord ? "border-spectral" : "border-solar";
+  return (
+    <div className="grid max-w-3xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <CommandPanel className="p-3" data-testid="panel-selected-hull" data-ship-id={ship}>
+        <PanelLabel tone={accord ? "spectral" : "solar"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+        <ShipIllustration ship={ship} className="mx-auto mt-2 h-44 w-44 sm:h-52 sm:w-52" />
+        <p data-testid="text-armory-selected-ship" className="font-hud text-3xl leading-none tracking-wide">{sel.name.toUpperCase()}</p>
+        <p className={`mt-1 font-hud text-xs tracking-[0.2em] ${tone}`}>{sel.role.toUpperCase()} · ULT {sel.ultName.toUpperCase()}</p>
+        <p className="mt-2 text-sm leading-relaxed text-bone/85">{sel.blurb}</p>
+        <dl className="mt-3 grid grid-cols-4 gap-px border border-bone/10 bg-bone/10 font-hud">
+          {([["SHIELD", sel.shield], ["HULL", sel.hull], ["SPEED", sel.maxSpeed], ["ULT CD", `${sel.ultCd}s`]] as const).map(([k, v]) => (
+            <div key={k} className="bg-panel px-2 py-1.5">
+              <dt className="text-[9px] tracking-[0.2em] text-muted">{k}</dt>
+              <dd className="text-lg leading-none">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </CommandPanel>
+      <div className="grid grid-cols-2 content-start gap-2" role="group" aria-label={`${FACTION_NAME[faction]} hulls`}>
+        {ROSTER[faction].map((id) => {
+          const def = SHIPS[id];
+          const on = id === ship;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onShip(id)}
+              data-testid={`card-ship-${id}`}
+              data-ship-id={id}
+              className={`wfm-glass flex min-h-11 min-w-0 flex-col border bg-void/60 p-2 text-left text-bone transition-transform active:scale-[0.98] ${on ? `${ring} border-2` : "border-bone/20"}`}
+            >
+              <ShipIllustration ship={id} caption={false} grid={false} className={`mx-auto h-20 w-20 ${on ? "" : "opacity-70"}`} />
+              <span className="mt-1 flex items-center justify-between gap-1">
+                <span className="truncate font-hud text-base leading-none">{def.name.toUpperCase()}</span>
+                {on ? <span className={`font-hud text-[9px] tracking-widest ${tone}`}>ACTIVE</span> : null}
+              </span>
+              <span className="text-[11px] text-muted">{def.role} · {def.ultShort}</span>
+              <span className="mt-1 font-hud text-[10px] tracking-wider text-bone/70">SH {def.shield} · HL {def.hull} · SPD {def.maxSpeed}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

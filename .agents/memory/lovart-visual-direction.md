@@ -31,3 +31,14 @@ code: the audit itself states it did not verify the live game. Read
 `docs/opening-experience-rebuild.md` for verified coverage and limitations;
 do not treat proposed routes, trailer sequences, telemetry or art as implemented
 game capabilities.
+
+Selection artwork may interpret the concept hulls without replacing flight
+geometry; identify it explicitly as an illustration.
+
+**Why:** the owner wants visible ship graphics during selection, while opening
+another live 3D renderer on the Android menu would add GPU cost and concept
+silhouettes must not silently change ship balance or collision behavior.
+
+**How to apply:** favor lightweight ship-specific menu artwork, retain
+code-owned faction assignments and stats, and treat any later flight-model
+replacement as separate work with its own gameplay verification.

@@ -656,3 +656,24 @@ See `docs/opening-experience-rebuild.md` for exact coverage and limitations.
 This record is not evidence of a Production deployment, new trailer,
 new native APK, physical-phone performance or competitive settlement.
 The owner declined an additional two-phone graphics test; none was requested.
+
+## 2026-11-01 — Illustrated hull selection
+
+Added distinct, labelled selection illustrations for all eight ships, an
+illustrated Armory card roster and larger selected-hull preview. The command
+briefing now shows the chosen hull instead of a shared faction outline.
+**Change Ship / Faction** opens the existing Armory. Faction names/emblems,
+selected borders, ACTIVE labels and accessible pressed states distinguish
+selection without relying on color alone.
+
+Preserved existing callbacks, ship IDs, faction assignments, upgrades and stats.
+These lightweight static SVGs interpret the retained concept roster and hull
+archetypes; they do not replace gameplay meshes or hitboxes.
+
+Verification: **74/74 tests passed**, WFM typecheck passed, build passed
+in **5.45 seconds**. Synthetic component checks covered all eight selections,
+faction switching, Back/reopen and command-preview updates at phone portrait,
+landscape and desktop sizes. No horizontal overflow, undersized ship-card
+targets, browser exceptions or POST requests occurred in that fixture.
+See `docs/opening-experience-rebuild.md` for boundaries and retained evidence.
+No Production, staging deployment, Git push or physical-phone retest occurred.

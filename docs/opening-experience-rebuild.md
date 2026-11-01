@@ -1,5 +1,36 @@
 # WFM opening experience — implementation and verification
 
+## Ship-selection illustration extension
+
+The Armory now shows four selectable illustrated ship cards per faction and
+a larger selected-hull preview, with code-owned names, roles, ultimate abilities
+and stats. All eight hulls have distinct static SVG geometry. The command
+briefing uses the same ship-specific illustration, reached through
+**Change Ship / Faction**. Cards expose their selected state with
+`aria-pressed` and retain the existing `onShip`/`onFaction` callbacks.
+
+The four Accord hulls interpret the retained roster concept silhouettes.
+USSF drawings interpret their existing frame archetypes. Concept lettering
+does not override `ships.ts` faction assignments or stats. These drawings are
+labelled **HULL ILLUSTRATION**: they are selection art, not new flight models,
+hitboxes, textured renders or exact replicas of the concept plates.
+
+Verification: **74/74 tests passed**, WFM typecheck passed and the build passed
+in **5.45 seconds**. Four new tests cover all eight accessible illustrations,
+distinct geometry, authoritative faction colors and dependency-free static
+rendering. The restarted web workflow served cleanly.
+
+An isolated browser fixture using the actual HomeScreen component and synthetic
+state checked all eight card selections, faction switching, Back/reopen and
+command-preview updates. Layouts at **360×803**, **803×385** and **1280×900**
+had no horizontal overflow; ship-card targets exceeded 44px. The fixture
+recorded no page exceptions or POST requests. Screenshots are retained in the
+ignored `generated-artifacts/ship-selection/` folder.
+
+This does not certify authenticated persistence or physical-device performance.
+No sign-in, room creation, reward claim, deployment, push, database or Railway
+change was performed for this extension.
+
 ## Source and interpretation
 
 The owner's complete 782-line document is retained verbatim in
