@@ -5,6 +5,7 @@ import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
 import type { Save } from "./save";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { CommandBackdrop, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
 
 type HomeProps = {
   state: MenuStateId;
@@ -55,16 +56,15 @@ export function HomeScreen(props: HomeProps) {
   return (
     <section
       data-testid="home-screen"
-      className="relative min-h-dvh bg-void text-bone"
-      style={{
-        backgroundImage: "url(/mars-front.jpg)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+      className="relative min-h-dvh overflow-x-hidden bg-void text-bone"
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-transparent" />
-      <div className="relative flex min-h-dvh flex-col justify-between px-5 py-6 sm:px-10">
-        <p className="font-hud text-xs tracking-widest text-solar">USSF VS THE ACCORD · PHOBOS MOON</p>
+      <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} />
+      <div className="relative flex min-h-dvh flex-col justify-between px-4 py-5 sm:px-10">
+        <div className="flex items-center gap-3 border-b border-bone/10 pb-3">
+          <FactionMark faction="ussf" className="h-7 w-7" />
+          <p className="min-w-0 flex-1 font-hud text-[11px] tracking-[0.22em] text-solar">USSF VS THE ACCORD · PHOBOS YARD</p>
+          <FactionMark faction="accord" className="h-7 w-7 opacity-80" />
+        </div>
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
         {state === "MAIN_MENU" ? <MainMenu {...props} /> : null}
@@ -88,12 +88,8 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
     <button type="button" className="flex flex-1 flex-col items-start justify-center text-left" onClick={() => onAction("START")}>
       <h1 className="sr-only">WAR FOR MARS</h1>
-      <img
-        src="/war-for-mars-logo.jpg"
-        alt=""
-        className="w-full max-w-3xl mix-blend-screen"
-      />
-      <p className="mt-2 font-hud text-sm tracking-widest text-solar">PRESS TO ENTER</p>
+      <Wordmark className="wfm-rise w-full max-w-2xl" />
+      <p className="wfm-chamfer mt-6 flex min-h-11 items-center bg-solar px-5 font-hud text-sm tracking-[0.24em] text-void">PRESS TO ENTER</p>
     </button>
   );
 }
@@ -126,16 +122,17 @@ function MainMenu({
   ];
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
-      <img src="/war-for-mars-logo.jpg" alt="WAR FOR MARS" className="w-full max-w-md mix-blend-screen" />
-      <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
-        <section className="border border-solar bg-void/80 p-3">
-          <p className="font-hud text-lg tracking-widest text-solar">5V5 ONLINE WING</p>
+      <Wordmark className="w-full max-w-xs sm:max-w-md" />
+      <span className="sr-only">WAR FOR MARS</span>
+      <div className="wfm-rise mt-3 flex w-full max-w-sm flex-col gap-2">
+        <section className="wfm-glass border border-solar/60 p-3">
+          <PanelLabel>5V5 ONLINE WING</PanelLabel>
           <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
           <button
             type="button"
             data-testid="button-online-5v5"
             onClick={onCreateRoom}
-            className="h-12 w-full bg-solar px-3 text-left text-void"
+            className="wfm-chamfer mt-1 min-h-12 w-full bg-solar px-3 py-1 text-left text-void"
           >
             <span className="block font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
             <span className="text-xs text-void/80">{onlineStatus || "Generate a code and launch the 5v5."}</span>
@@ -208,7 +205,7 @@ function MainMenu({
               type="button"
               data-testid="button-cancel-matchmaking"
               onClick={onCancelMatchmaking}
-              className="mt-1 h-10 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
+              className="mt-1 min-h-11 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
             >
               {casualAiQueueing ? "CANCEL QUICK MATCH" : "CANCEL QUEUE"}
             </button>
@@ -232,8 +229,8 @@ function MainMenu({
             onClick={() => onAction(item.action)}
             className={
               index === 0
-                ? "h-14 border border-solar bg-void/70 px-3 text-left"
-                : "h-14 border border-bone/25 bg-void/55 px-3 text-left"
+                ? "min-h-14 border-l-4 border-solar wfm-glass px-3 py-1 text-left"
+                : "min-h-14 border-l-4 border-bone/25 wfm-glass px-3 py-1 text-left"
             }
           >
             <span className="block font-hud text-lg leading-none tracking-widest text-bone">{item.label}</span>
@@ -243,7 +240,7 @@ function MainMenu({
         <Link
           href="/leaderboard"
           data-testid="link-public-wing-leaderboard"
-          className="flex h-14 flex-col justify-center border border-solar/50 bg-void/70 px-3 text-left"
+          className="wfm-glass flex min-h-14 flex-col justify-center border-l-4 border-solar/60 px-3 text-left"
         >
           <span className="font-hud text-lg leading-none tracking-widest text-solar">WING LEADERBOARD</span>
           <span className="text-xs text-muted">Opt-in callsigns · verified Wing credits</span>
@@ -252,7 +249,7 @@ function MainMenu({
           type="button"
           data-testid="button-open-galaxy"
           onClick={onGalaxy}
-          className="h-14 border border-solar/50 bg-void/70 px-3 text-left"
+          className="wfm-glass min-h-14 border-l-4 border-solar/60 px-3 py-1 text-left"
         >
           <span className="block font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
           <span className="text-xs text-muted">World event · locations · side operations</span>
@@ -267,8 +264,8 @@ function Armory(props: HomeProps) {
     <div className="flex flex-col gap-3 py-4">
       <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
       <div className="grid max-w-xl grid-cols-2 gap-2">
-        <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} />
-        <Pick on={props.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => props.onFaction("ussf")} />
+        <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} mark="accord" />
+        <Pick on={props.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => props.onFaction("ussf")} mark="ussf" />
       </div>
       <div className="grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
         {ROSTER[props.faction].map((id) => {
@@ -284,7 +281,7 @@ function Armory(props: HomeProps) {
           );
         })}
       </div>
-      <div className="grid max-w-xl grid-cols-3 gap-2">
+      <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
         {TECHS.map((tech) => {
           const locked = props.cleared < tech.need;
           return (
@@ -295,12 +292,12 @@ function Armory(props: HomeProps) {
               onClick={() => props.onTech(tech.id)}
               className={
                 props.tech === tech.id
-                  ? "h-14 bg-solar px-2 text-left text-void"
-                  : "h-14 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
+                  ? "min-h-14 bg-solar px-2 py-1 text-left text-void"
+                  : "wfm-glass min-h-14 min-w-0 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
               }
             >
               <span className="block font-hud text-xs tracking-widest">{tech.name.toUpperCase()}</span>
-              <span className="text-xs text-muted">{locked ? "Locked" : tech.detail}</span>
+              <span className={props.tech === tech.id ? "text-xs text-void/80" : "text-xs text-muted"}>{locked ? "Locked" : tech.detail}</span>
             </button>
           );
         })}
@@ -310,7 +307,7 @@ function Armory(props: HomeProps) {
         <button
           type="button"
           disabled={props.refitDisabled}
-          className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
+          className="wfm-chamfer min-h-11 bg-solar px-4 font-hud tracking-widest text-void disabled:bg-transparent disabled:outline disabled:outline-1 disabled:outline-bone/20 disabled:text-muted"
           onClick={props.onRefit}
         >
           {props.refitLabel}
@@ -341,8 +338,8 @@ function Settings(props: HomeProps) {
         <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
       </div>
       <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
-      <section className="max-w-sm border border-solar/40 bg-void/70 p-3" data-testid="public-leaderboard-settings">
-        <p className="font-hud text-lg tracking-widest text-solar">PUBLIC WING LEADERBOARD</p>
+      <section className="wfm-glass max-w-sm border border-solar/40 p-3" data-testid="public-leaderboard-settings">
+        <PanelLabel>PUBLIC WING LEADERBOARD</PanelLabel>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           Only your callsign and total server-verified Wing credits are public. Your account, balance, match history, and online status stay private.
         </p>
@@ -395,7 +392,7 @@ function Loading({ tip, ship }: { tip: string; ship: string }) {
       <p className="font-hud text-sm tracking-widest text-solar">{ship.toUpperCase()} · LAUNCH</p>
       <p className="max-w-md text-sm leading-relaxed text-bone">{tip}</p>
       <div className="h-1 w-full max-w-md overflow-hidden bg-bone/20">
-        <div className="h-full w-1/2 animate-pulse bg-solar" />
+        <div className="wfm-pulse h-full w-1/2 animate-pulse bg-solar" />
       </div>
     </div>
   );
@@ -405,7 +402,7 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
     <button
       type="button"
-      className="h-11 max-w-xs border border-bone/30 font-hud tracking-widest text-bone"
+      className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone"
       onClick={() => onAction("BACK")}
     >
       BACK
@@ -413,15 +410,19 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
   );
 }
 
-function Pick({ on, label, detail, click }: { on: boolean; label: string; detail: string; click: () => void }) {
+function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; detail: string; click: () => void; mark?: Faction }) {
   return (
     <button
       type="button"
+      aria-pressed={on}
       onClick={click}
-      className={on ? "h-14 bg-solar px-3 text-left text-void" : "h-14 border border-bone/25 bg-void/60 px-3 text-left text-bone"}
+      className={`flex min-h-14 min-w-0 items-center gap-2 px-3 py-1 text-left ${on ? "bg-solar text-void" : "wfm-glass border border-bone/25 text-bone"}`}
     >
-      <span className="block font-hud text-lg leading-none">{label}</span>
-      <span className={on ? "text-xs text-void/80" : "text-xs text-muted"}>{detail}</span>
+      {mark ? <FactionMark faction={mark} className={`h-9 w-9 rounded-sm ${on ? "bg-void p-0.5" : ""}`} /> : null}
+      <span className="min-w-0">
+        <span className="block font-hud text-lg leading-none">{label}</span>
+        <span className={on ? "text-xs text-void/80" : "text-xs text-muted"}>{detail}</span>
+      </span>
     </button>
   );
 }

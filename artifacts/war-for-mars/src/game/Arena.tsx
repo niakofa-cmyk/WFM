@@ -18,6 +18,7 @@ import { matchChecksum } from "./sim-trace";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
 import { battlefieldProfile } from "./battlefield";
+import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -209,8 +210,10 @@ function tag(mesh: THREE.Mesh, intensity: number, group: THREE.Group) {
 function buildShip(id: ShipId): THREE.Group {
   const g = new THREE.Group();
   const accord = SHIPS[id].faction === "accord";
-  const hull = metal(accord ? 0xc8923a : 0xb7c3cc, accord ? 0x5a3410 : 0x1a242c, accord ? 0.42 : 0.25);
-  const hot = metal(accord ? 0xffd7a1 : 0xd5ecff, accord ? 0xffb25a : 0x7eb6d4, 0.85);
+  const hull = metal(accord ? 0x44454a : 0xb4afa4, accord ? 0x162126 : 0x30261a, 0.25);
+  hull.metalness = accord ? 0.18 : 0.62;
+  hull.roughness = accord ? 0.78 : 0.48;
+  const hot = metal(accord ? 0xb2c6c8 : 0xe0a15a, accord ? 0x739da5 : 0xe0a15a, 0.85);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.72, 8), hot);
   nose.geometry.rotateX(Math.PI / 2);
   nose.position.z = 1.45;
@@ -902,10 +905,14 @@ export function Arena({
     const sun = new THREE.DirectionalLight(look.sun, 1.7);
     sun.position.set(-50, 40, -20);
     scene.add(sun);
+    const theaterTextures = createTheaterTextures();
 
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(ARENA_R, 72),
-      new THREE.MeshStandardMaterial({ color: look.ground, roughness: 1, metalness: 0 }),
+      new THREE.MeshStandardMaterial({
+        color: look.ground, roughness: 1, metalness: 0,
+        map: theaterTextures.basalt, bumpMap: theaterTextures.basalt, bumpScale: 0.12,
+      }),
     );
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
@@ -935,7 +942,10 @@ export function Arena({
     const mars = new THREE.Mesh(
       new THREE.SphereGeometry(28, 32, 24),
       new THREE.MeshStandardMaterial({
-        color: look.mars,
+        color: 0xffffff,
+        map: theaterTextures.mars,
+        bumpMap: theaterTextures.mars,
+        bumpScale: 0.3,
         emissive: look.mars,
         emissiveIntensity: 0.65,
         roughness: 1,
@@ -943,6 +953,9 @@ export function Arena({
     );
     mars.position.set(-24, 6, -150);
     scene.add(mars);
+    const marsLimb = createMarsLimb(look.sun);
+    marsLimb.position.copy(mars.position);
+    scene.add(marsLimb);
 
     for (const rock of match.rocks) {
       const mesh = new THREE.Mesh(
@@ -1740,6 +1753,7 @@ export function Arena({
       });
       geos.forEach((geo) => geo.dispose());
       mats.forEach((mat) => mat.dispose());
+      theaterTextures.dispose();
       renderer.dispose();
     };
   }, [ship.ultShort]);

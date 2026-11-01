@@ -37,3 +37,23 @@
     color: var(--color-void);
   }
 }
+
+/* Lovart command presentation */
+.wfm-backdrop-img { object-position: 62% 50%; }
+.wfm-scrim {
+  background:
+    linear-gradient(90deg, rgb(7 8 13 / 0.94) 0%, rgb(7 8 13 / 0.78) 38%, rgb(7 8 13 / 0.25) 75%, rgb(7 8 13 / 0.5) 100%),
+    linear-gradient(0deg, rgb(7 8 13 / 0.9) 0%, transparent 40%);
+}
+.wfm-scrim-dense { background: linear-gradient(180deg, rgb(7 8 13 / 0.55) 0%, rgb(7 8 13 / 0.92) 55%, var(--color-void) 100%); }
+@media (orientation: portrait) {
+  .wfm-scrim { background: linear-gradient(180deg, rgb(7 8 13 / 0.35) 0%, rgb(7 8 13 / 0.82) 45%, rgb(7 8 13 / 0.95) 100%); }
+}
+.wfm-chamfer { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.wfm-glass { background: rgb(20 24 32 / 0.82); backdrop-filter: blur(6px); }
+.wfm-rise { animation: wfm-rise 420ms cubic-bezier(.2,.7,.2,1) both; }
+@keyframes wfm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wfm-rise { animation: none; }
+  .wfm-pulse { animation: none !important; }
+}

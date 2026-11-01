@@ -3,6 +3,7 @@ import { getGetWorldQueryKey, useGetWorld } from "@workspace/api-client-react";
 import type { WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
+import { CommandBackdrop, FactionMark } from "./CommandArt";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
@@ -70,7 +71,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
           type="button"
           data-testid="button-galaxy-back"
           onClick={onBack}
-          className="mt-3 h-10 px-5 font-hud tracking-widest text-muted"
+          className="mt-3 min-h-11 px-5 font-hud tracking-widest text-muted"
         >
           BACK TO HANGAR
         </button>
@@ -91,8 +92,9 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   const discovered = new Set(world.discoveries);
 
   return (
-    <main className="min-h-dvh bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="relative min-h-dvh overflow-x-hidden bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
+      <div className="absolute inset-x-0 top-0 h-[22rem]"><CommandBackdrop dense /></div>
+      <div className="relative mx-auto max-w-6xl">
         {cached ? <p role="status" data-testid="status-world-cached" className="mb-3 border border-alert/50 bg-alert/10 px-3 py-2 font-hud text-xs tracking-widest text-bone">OFFLINE SNAPSHOT - NOT LIVE. Showing last known theater state; nothing is confirmed until the server acknowledges.</p> : null}
         {durable.pending || durable.error ? <p role="status" data-testid="status-world-pending" className="mb-3 border border-solar/40 px-3 py-2 text-xs text-bone">{durable.pending ? `Awaiting server confirmation: ${durable.pending.label}` : durable.error}</p> : null}
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-solar/30 pb-5">
@@ -116,7 +118,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
               type="button"
               data-testid="button-galaxy-back"
               onClick={onBack}
-              className="h-11 border border-bone/30 px-4 font-hud text-xs tracking-widest text-bone sm:text-sm"
+              className="min-h-11 border border-bone/30 bg-void/70 px-4 font-hud text-xs tracking-widest text-bone sm:text-sm"
             >
               BACK TO HANGAR
             </button>
@@ -182,7 +184,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                       data-testid={`button-explore-${currentLocation.id}`}
                       disabled={busy}
                       onClick={() => void exploreLocation(currentLocation)}
-                      className="mt-4 h-10 w-full border border-solar/50 font-hud text-xs tracking-widest text-solar disabled:opacity-40 sm:w-auto sm:px-5"
+                      className="mt-4 min-h-11 w-full border border-solar/50 font-hud text-xs tracking-widest text-solar disabled:opacity-40 sm:w-auto sm:px-5"
                     >
                       {explore.isPending ? "RECORDING DISCOVERY…" : "EXPLORE CURRENT LOCATION"}
                     </button>
@@ -252,7 +254,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                             data-testid={`button-travel-${route.destinationId}`}
                             disabled={!available || !canAfford || busy}
                             onClick={() => void travelTo(route.destinationId)}
-                            className="h-10 min-w-28 bg-solar px-3 font-hud text-xs tracking-widest text-void disabled:border disabled:border-bone/10 disabled:bg-transparent disabled:text-muted"
+                            className="min-h-11 min-w-28 bg-solar px-3 font-hud text-xs tracking-widest text-void disabled:border disabled:border-bone/10 disabled:bg-transparent disabled:text-muted"
                           >
                             {travel.isPending ? "IN TRANSIT…" : !available ? "UNAVAILABLE" : canAfford ? "TRAVEL" : "INSUFFICIENT"}
                           </button>
@@ -269,15 +271,15 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
             <section className="border border-bone/15 bg-panel/65 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-solar">FACTION STANDING</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="border-l-2 border-solar bg-void/45 p-3">
-                  <p className="text-[10px] tracking-widest text-muted">THE ACCORD</p>
-                  <p data-testid="text-reputation-accord" className="mt-1 font-mono text-3xl">
+                <div className="min-w-0 border-l-2 border-[#a9c9cc] bg-void/45 p-3">
+                  <p className="flex items-center gap-2 text-[10px] tracking-widest text-muted"><FactionMark faction="accord" className="h-6 w-6" />THE ACCORD</p>
+                  <p data-testid="text-reputation-accord" className="mt-1 font-mono text-2xl sm:text-3xl">
                     {world.reputation.accord.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.accord)}</span>
                   </p>
                 </div>
-                <div className="border-l-2 border-bone/50 bg-void/45 p-3">
-                  <p className="text-[10px] tracking-widest text-muted">USSF</p>
-                  <p data-testid="text-reputation-ussf" className="mt-1 font-mono text-3xl">
+                <div className="min-w-0 border-l-2 border-bone/50 bg-void/45 p-3">
+                  <p className="flex items-center gap-2 text-[10px] tracking-widest text-muted"><FactionMark faction="ussf" className="h-6 w-6" />USSF</p>
+                  <p data-testid="text-reputation-ussf" className="mt-1 font-mono text-2xl sm:text-3xl">
                     {world.reputation.ussf.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.ussf)}</span>
                   </p>
                 </div>
@@ -337,7 +339,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                             data-testid={`button-${action}-quest-${quest.id}`}
                             disabled={busy}
                             onClick={() => void actQuest(quest, action)}
-                            className="mt-3 h-10 w-full bg-solar font-hud text-xs tracking-widest text-void disabled:opacity-45"
+                            className="mt-3 min-h-11 w-full bg-solar font-hud text-xs tracking-widest text-void disabled:opacity-45"
                           >
                             {questAction.isPending
                               ? "UPDATING CONTRACT…"
