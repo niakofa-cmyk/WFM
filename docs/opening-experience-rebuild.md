@@ -1,5 +1,31 @@
 # WFM opening experience — implementation and verification
 
+## Selected hull persistence correction
+
+Hull selection was previously local until starting a sortie. The account
+freshness check therefore restored the server's older hull after leaving
+Armory. Selection is now an isolated Armory draft with **Save Hull**,
+**Saving Hull**, **Hull Saved**, and a retryable error. Back saves dirty
+selections before leaving and stays in Armory if saving fails.
+
+The authenticated `PATCH /api/game/profile/loadout` stores a validated
+faction/ship pair in the existing player row. Identity comes from verified
+authentication, not the body. No migration is needed. The transactional update
+changes neither credits nor progression revision, and cannot modify an issued
+sortie's configuration. Hangar hull/faction controls use the same API.
+The API spec and generated client/validators are updated together.
+
+Validation: **74/74 frontend tests**, **9/9 focused progression/API tests**,
+full workspace typecheck, frontend build and API build passed. Database tests
+use disposable synthetic players and check subsequent profile reads,
+idempotent preference saving, ownership isolation and immutable issued runs.
+The local screen fixture checks Save, save-on-Back, failure/retry, draft
+survival during refresh and the saved command preview. It uses synthetic state,
+not a signed-in user's data. Both local workflows restarted cleanly.
+
+Frontend and API must be released together for staging or Production to use
+this correction. No remote release, push or real-account sign-in was performed.
+
 ## Ship-selection illustration extension
 
 The Armory now shows four selectable illustrated ship cards per faction and

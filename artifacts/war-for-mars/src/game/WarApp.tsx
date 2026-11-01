@@ -27,6 +27,7 @@ import {
   loadServerProfile,
   saveServerLeaderboardProfile,
   saveServerControlScheme,
+  saveServerLoadout,
   startServerStrike,
 } from "./progression-api";
 import {
@@ -108,6 +109,9 @@ export function WarApp() {
   const { getToken, userId } = useAuth();
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
+  const loadoutSaveInFlightRef = useRef(false);
+  const [loadoutSaving, setLoadoutSaving] = useState(false);
+  const [loadoutError, setLoadoutError] = useState("");
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -639,6 +643,7 @@ export function WarApp() {
     // Never overwrite a flight snapshot or an in-progress account mutation.
     if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
     const sync = createProfileSync(loadServerProfile, (profile) => {
+      if (loadoutSaveInFlightRef.current) return;
       setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
       setLeaderboardProfile({
         enabled: profile.publicLeaderboardOptIn,
@@ -706,11 +711,42 @@ export function WarApp() {
   const goal = active?.goal ?? "disc";
 
   const pickFaction = (faction: Faction) => {
-    setSave((prev) => ({
-      ...prev,
+    void persistLoadout({
       faction,
-      ship: ROSTER[faction].includes(prev.ship) ? prev.ship : ROSTER[faction][0],
-    }));
+      shipId: ROSTER[faction].includes(save.ship) ? save.ship : ROSTER[faction][0],
+    });
+  };
+
+  const persistLoadout = async (input: { faction: Faction; shipId: ShipId }): Promise<boolean> => {
+    if (!ready || !userId || profileStatus !== "ready" || actionBusy ||
+        loadoutSaveInFlightRef.current || claimSubmitting || startingRun) {
+      setLoadoutError("Wait for the current profile action to finish, then save again.");
+      return false;
+    }
+    const requestUserId = userId;
+    loadoutSaveInFlightRef.current = true;
+    setLoadoutSaving(true);
+    setLoadoutError("");
+    setActionError("");
+    setActionBusy(true);
+    try {
+      const profile = await saveServerLoadout(input);
+      if (authUserIdRef.current !== requestUserId) return false;
+      setSave(previous => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      return true;
+    } catch {
+      if (authUserIdRef.current === requestUserId) {
+        setLoadoutError("Hull not saved. Check your connection and press Save Hull to retry.");
+        setActionError("Hull not saved. Check your connection and retry your selection.");
+      }
+      return false;
+    } finally {
+      loadoutSaveInFlightRef.current = false;
+      if (authUserIdRef.current === requestUserId) {
+        setLoadoutSaving(false);
+        setActionBusy(false);
+      }
+    }
   };
 
   const persistControlScheme = async (scheme: Scheme) => {
@@ -1231,6 +1267,7 @@ export function WarApp() {
     return (
       <div className="relative">
       <HomeScreen
+        key={userId}
         state={shell}
         tipIndex={sortie}
         faction={save.faction}
@@ -1279,7 +1316,10 @@ export function WarApp() {
           setShell(MenuState.LOADING);
         }}
         onFaction={pickFaction}
-        onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
+        onShip={(id: ShipId) => void persistLoadout({ faction: save.faction, shipId: id })}
+        onSaveLoadout={persistLoadout}
+        loadoutSaving={loadoutSaving}
+        loadoutError={loadoutError}
         onScheme={(scheme: Scheme) => void persistControlScheme(scheme)}
         onGyro={() => {
           if (save.gyro) {
@@ -1478,7 +1518,7 @@ export function WarApp() {
             <button
               key={id}
               type="button"
-                onClick={() => setSave((prev) => ({ ...prev, ship: id }))}
+                onClick={() => void persistLoadout({ faction: save.faction, shipId: id })}
               className={
                 on
                   ? "border border-solar bg-panel px-3 py-2 text-left"

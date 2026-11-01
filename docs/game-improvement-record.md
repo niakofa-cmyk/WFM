@@ -677,3 +677,24 @@ landscape and desktop sizes. No horizontal overflow, undersized ship-card
 targets, browser exceptions or POST requests occurred in that fixture.
 See `docs/opening-experience-rebuild.md` for boundaries and retained evidence.
 No Production, staging deployment, Git push or physical-phone retest occurred.
+
+## 2026-11-01 — Hull preference persistence
+
+Fixed the owner's report that selected hulls reverted to the default after
+leaving Armory. The profile refresh was overwriting a local-only choice.
+Armory now keeps a draft, exposes Save Hull with pending/saved/error states,
+and saves on Back before navigating. A failed request retains the draft for
+retry. The selected command hull updates only after server acknowledgment.
+
+Added a strict authenticated loadout preference operation using the existing
+player table and transaction/ownership checks. Faction/hull pairing is validated;
+credits, progression revision and issued flight configuration are unchanged.
+No schema migration or authentication configuration changes were needed.
+
+Validation passed: 74 frontend tests, 9 focused backend tests (no skips),
+workspace typecheck and both frontend/API builds. Disposable-player database
+checks confirmed subsequent profile reads retain the choice and another
+player remains unchanged. Synthetic browser checks covered save-on-Back,
+explicit save, failure/retry, profile-refresh drafts and responsive selection.
+Local app/API restarted successfully. Changes are local; frontend and API need
+coordinated release before this applies to Railway.

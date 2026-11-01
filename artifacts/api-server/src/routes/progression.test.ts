@@ -13,6 +13,12 @@ test("profile and reward routes reject unauthenticated and forged progression re
   try {
     const station = await fetch(`${baseUrl}/world/services`, { method: "POST" });
     assert.equal(station.status, 401);
+    const loadout = await fetch(`${baseUrl}/game/profile/loadout`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-clerk-user-id": "forged-user" },
+      body: JSON.stringify({ faction: "ussf", shipId: "glide" }),
+    });
+    assert.equal(loadout.status, 401);
     const [profile, controlScheme, action, start, legacyClaim, forgedClaim, market, trade, world, travel, explore, quest] = await Promise.all([
       fetch(`${baseUrl}/game/profile`, {
         headers: { "x-clerk-user-id": "forged-user" },

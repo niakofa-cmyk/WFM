@@ -185,6 +185,33 @@ export interface ProgressionActionInput {
   action: ProgressionActionInputAction;
 }
 
+export type LoadoutInputFaction = typeof LoadoutInputFaction[keyof typeof LoadoutInputFaction];
+
+
+export const LoadoutInputFaction = {
+  accord: 'accord',
+  ussf: 'ussf',
+} as const;
+
+export type LoadoutInputShipId = typeof LoadoutInputShipId[keyof typeof LoadoutInputShipId];
+
+
+export const LoadoutInputShipId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface LoadoutInput {
+  faction: LoadoutInputFaction;
+  shipId: LoadoutInputShipId;
+}
+
 export type ControlSchemeInputScheme = typeof ControlSchemeInputScheme[keyof typeof ControlSchemeInputScheme];
 
 

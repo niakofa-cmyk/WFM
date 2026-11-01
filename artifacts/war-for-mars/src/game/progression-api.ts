@@ -4,6 +4,8 @@ import {
   getGameProfile,
   startStrike,
   updateControlScheme,
+  updateLoadout,
+  type LoadoutInput,
   updateLeaderboardProfile,
   type ControlSchemeInput,
   type LeaderboardProfileUpdateInput,
@@ -13,6 +15,7 @@ import {
 } from "@workspace/api-client-react";
 
 export const loadServerProfile = () => getGameProfile();
+export const saveServerLoadout = (input: LoadoutInput) => updateLoadout(input);
 export const saveServerControlScheme = (scheme: ControlSchemeInput["scheme"]) =>
   updateControlScheme({ scheme });
 export const saveServerLeaderboardProfile = (input: LeaderboardProfileUpdateInput) =>

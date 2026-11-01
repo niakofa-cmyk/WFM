@@ -139,6 +139,26 @@ export async function getPlayerProfile(userId: string): Promise<GameProfile> {
   return toProfile(profile);
 }
 
+export async function updatePlayerLoadout(
+  userId: string,
+  input: { faction: Faction; shipId: ShipId },
+): Promise<GameProfile> {
+  if (!ROSTER[input.faction]?.includes(input.shipId)) {
+    throw new ProgressionError("This hull does not belong to the selected faction.", 400);
+  }
+  return db.transaction(async (tx) => {
+    const current = await lockOrCreateProfile(tx, userId);
+    if (current.faction === input.faction && current.shipId === input.shipId) return toProfile(current);
+    const [updated] = await tx.update(playerProgressTable)
+      // Selection is a preference, not progression. Never invalidate an issued run.
+      .set({ faction: input.faction, shipId: input.shipId, updatedAt: new Date() })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player hull selection could not be saved.");
+    return toProfile(updated);
+  });
+}
+
 export async function updatePlayerControlScheme(
   userId: string,
   scheme: GameProfile["scheme"],

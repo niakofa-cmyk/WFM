@@ -6,6 +6,8 @@ import {
   UpdateLeaderboardProfileResponse,
   UpdateControlSchemeBody,
   UpdateControlSchemeResponse,
+  UpdateLoadoutBody,
+  UpdateLoadoutResponse,
   GetGameProfileResponse,
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
@@ -14,6 +16,7 @@ import {
   getPlayerProfile,
   ProgressionError,
   updatePlayerControlScheme,
+  updatePlayerLoadout,
   updatePlayerLeaderboardProfile,
 } from "../game/progression";
 
@@ -25,6 +28,24 @@ router.get("/game/profile", async (req, res, next) => {
     const profile = await getPlayerProfile(playerIdFromRequest(req));
     res.json(GetGameProfileResponse.parse(profile));
   } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/game/profile/loadout", async (req, res, next): Promise<void> => {
+  const parsed = UpdateLoadoutBody.strict().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_loadout" });
+    return;
+  }
+  try {
+    const profile = await updatePlayerLoadout(playerIdFromRequest(req), parsed.data);
+    res.json(UpdateLoadoutResponse.parse(profile));
+  } catch (error) {
+    if (error instanceof ProgressionError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

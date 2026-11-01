@@ -15,6 +15,7 @@ import {
   ClaimStrikeBody,
   StartStrikeBody,
   UpdateControlSchemeBody,
+  UpdateLoadoutBody,
 } from "@workspace/api-zod";
 import {
   applyPlayerAction,
@@ -23,6 +24,7 @@ import {
   ProgressionError,
   startPlayerStrike,
   updatePlayerControlScheme,
+  updatePlayerLoadout,
 } from "./progression";
 import {
   adjudicateStrike,
@@ -200,6 +202,23 @@ test("progression request schemas reject client-authored balances and campaign c
   assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "strafe" }).success, true);
   assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "shaft" }).success, false);
   assert.equal(UpdateControlSchemeBody.strict().safeParse({ scheme: "arc", userId: "forged" }).success, false);
+  assert.equal(UpdateLoadoutBody.strict().safeParse({ faction: "ussf", shipId: "glide" }).success, true);
+  for (const body of [
+    { faction: "ussf", shipId: "unknown" },
+    { faction: "unknown", shipId: "glide" },
+    { faction: "ussf" },
+    { faction: "ussf", shipId: "glide", userId: "forged" },
+    { faction: "ussf", shipId: "glide", credits: 999999 },
+  ]) {
+    assert.equal(UpdateLoadoutBody.strict().safeParse(body).success, false);
+  }
+});
+
+test("loadout rejects mismatched faction and hull before accessing storage", async () => {
+  await assert.rejects(
+    updatePlayerLoadout("synthetic_invalid_loadout", { faction: "ussf", shipId: "mandjet" }),
+    (error: unknown) => error instanceof ProgressionError && error.status === 400,
+  );
 });
 
 test(
@@ -231,6 +250,12 @@ test(
       assert.equal((await getPlayerProfile(firstUser)).scheme, "strafe");
       assert.equal((await getPlayerProfile(secondUser)).scheme, secondInitial.scheme);
 
+      const firstLoadout = await updatePlayerLoadout(firstUser, { faction: "ussf", shipId: "glide" });
+      assert.deepEqual(firstLoadout, { ...firstSchemeUpdate, faction: "ussf", shipId: "glide" });
+      assert.deepEqual(await getPlayerProfile(firstUser), firstLoadout);
+      assert.deepEqual(await getPlayerProfile(secondUser), secondInitial);
+      assert.deepEqual(await updatePlayerLoadout(firstUser, { faction: "ussf", shipId: "glide" }), firstLoadout);
+
       await db
         .update(playerProgressTable)
         .set({ credits: 400 })
@@ -243,6 +268,10 @@ test(
       assert.equal((await getPlayerProfile(secondUser)).credits, 90);
 
       const firstRun = await startPlayerStrike(firstUser, selection);
+      const duringRunLoadout = await updatePlayerLoadout(firstUser, { faction: "ussf", shipId: "sentinel" });
+      assert.equal(duringRunLoadout.revision, firstRun.config.profileRevision);
+      assert.equal(firstRun.config.shipId, "mandjet");
+      assert.equal(firstRun.config.faction, "accord");
       const duringRunPreference = await updatePlayerControlScheme(firstUser, "strafe");
       assert.equal(duringRunPreference.revision, firstRun.config.profileRevision);
       await assert.rejects(

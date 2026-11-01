@@ -47,6 +47,9 @@ type HomeProps = {
   onOfflineStrike: () => void;
   onFaction: (faction: Faction) => void;
   onShip: (ship: ShipId) => void;
+  onSaveLoadout: (input: { faction: Faction; shipId: ShipId }) => Promise<boolean>;
+  loadoutSaving: boolean;
+  loadoutError: string;
   onScheme: (scheme: Scheme) => void;
   onGyro: () => void;
   onTech: (tech: TechId) => void;
@@ -361,14 +364,42 @@ function OnlineWing({
 }
 
 function Armory(props: HomeProps) {
+  // Draft is deliberately separate from the periodically refreshed account.
+  // Only an acknowledged save changes the command screen's equipped hull.
+  const [draft, setDraft] = useState({ faction: props.faction, ship: props.ship });
+  const dirty = draft.faction !== props.faction || draft.ship !== props.ship;
+  const pickFaction = (faction: Faction) => setDraft(previous => ({
+    faction,
+    ship: ROSTER[faction].includes(previous.ship) ? previous.ship : ROSTER[faction][0],
+  }));
+  const saveHull = () => props.onSaveLoadout({ faction: draft.faction, shipId: draft.ship });
+  const back = async () => {
+    if (!dirty || await saveHull()) props.onAction("BACK");
+  };
   return (
     <div className="flex flex-col gap-3 py-4">
       <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
+      <fieldset disabled={props.loadoutSaving} className="contents">
       <div className="grid max-w-xl grid-cols-2 gap-2">
-        <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} mark="accord" />
-        <Pick on={props.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => props.onFaction("ussf")} mark="ussf" />
+        <Pick on={draft.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => pickFaction("accord")} mark="accord" />
+        <Pick on={draft.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => pickFaction("ussf")} mark="ussf" />
       </div>
-      <HullBay {...props} />
+      <HullBay {...props} {...draft} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
+      </fieldset>
+      <div className="max-w-3xl">
+        <button
+          type="button"
+          data-testid="button-save-hull"
+          disabled={props.loadoutSaving || !dirty}
+          onClick={() => void saveHull()}
+          className="wfm-cmd wfm-cmd-primary min-h-12 w-full justify-center px-3 font-hud tracking-widest disabled:opacity-60"
+        >
+          {props.loadoutSaving ? "SAVING HULL…" : dirty ? "SAVE HULL" : "HULL SAVED"}
+        </button>
+        <p role={props.loadoutError ? "alert" : "status"} className="mt-2 text-sm text-bone">
+          {props.loadoutError || (dirty ? "Unsaved selection. Save Hull or Back saves it to your pilot profile." : "Selected hull is saved to your pilot profile.")}
+        </p>
+      </div>
       <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
         {TECHS.map((tech) => {
           const locked = props.cleared < tech.need;
@@ -401,7 +432,10 @@ function Armory(props: HomeProps) {
           {props.refitLabel}
         </button>
       </div>
-      <Back onAction={props.onAction} />
+      <button type="button" disabled={props.loadoutSaving} onClick={() => void back()}
+        className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone disabled:opacity-60">
+        {props.loadoutSaving ? "SAVING…" : "BACK"}
+      </button>
     </div>
   );
 }

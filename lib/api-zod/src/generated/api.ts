@@ -166,6 +166,63 @@ export const UpdateLeaderboardProfileResponse = zod.object({
 
 
 /**
+ * @summary Save the authenticated player's selected faction and hull
+ */
+export const UpdateLoadoutBody = zod.object({
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide'])
+})
+
+export const updateLoadoutResponseCreditsMin = 0;
+
+export const updateLoadoutResponseRefitMin = 0;
+export const updateLoadoutResponseRefitMax = 5;
+
+
+
+
+
+export const updateLoadoutResponsePaidMin = 0;
+
+export const updateLoadoutResponseClearedMin = 0;
+export const updateLoadoutResponseClearedMax = 4;
+
+export const updateLoadoutResponsePublicLeaderboardCallsignMin = 3;
+export const updateLoadoutResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateLoadoutResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+export const updateLoadoutResponseRevisionMin = 0;
+
+
+
+export const UpdateLoadoutResponse = zod.object({
+  "credits": zod.number().int().min(updateLoadoutResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateLoadoutResponseRefitMin).max(updateLoadoutResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateLoadoutResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateLoadoutResponseClearedMin).max(updateLoadoutResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateLoadoutResponsePublicLeaderboardCallsignMin).max(updateLoadoutResponsePublicLeaderboardCallsignMax).regex(updateLoadoutResponsePublicLeaderboardCallsignRegExp).nullable(),
+  "revision": zod.number().int().min(updateLoadoutResponseRevisionMin)
+})
+
+
+/**
  * @summary Save the authenticated player's control scheme
  */
 export const UpdateControlSchemeBody = zod.object({

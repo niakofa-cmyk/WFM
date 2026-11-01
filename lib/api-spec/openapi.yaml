@@ -97,6 +97,30 @@ paths:
           description: Invalid callsign or preference
         "401":
           description: Authentication required
+  /game/profile/loadout:
+    patch:
+      operationId: updateLoadout
+      tags: [progression]
+      summary: Save the authenticated player's selected faction and hull
+      security:
+        - ClerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoadoutInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameProfile"
+        "400":
+          description: Invalid ship or faction pairing
+        "401":
+          description: Authentication required
   /game/profile/control-scheme:
     patch:
       operationId: updateControlScheme
@@ -443,6 +467,13 @@ components:
       properties:
         idempotencyKey: { type: string, format: uuid }
         action: { type: string, enum: [refit] }
+    LoadoutInput:
+      type: object
+      additionalProperties: false
+      required: [faction, shipId]
+      properties:
+        faction: { type: string, enum: [accord, ussf] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
     ControlSchemeInput:
       type: object
       additionalProperties: false
