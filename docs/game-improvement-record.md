@@ -552,10 +552,13 @@ After installing the replacement, the owner confirmed:
   reopening it shows the same balance and inventory.
 - Steering and firing work before and after switching to another Android app
   and returning during the requested local, no-reward Solo Flight check.
+- During flight, rotating the screen to landscape leaves the controllers
+  functioning correctly, as subsequently confirmed by the owner.
 
 These are physical-phone observations, not an instrumented network trace.
 The phone/browser versions were not reconfirmed during this sequence. They do
-not certify rotation, competitive reward settlement or Production readiness.
+not certify rotation back to portrait, every device/orientation combination,
+competitive reward settlement or Production readiness.
 Earlier browser-only multiplayer evidence is not automatically installed-app
 evidence; the additional installed-app procedure is recorded below.
 
@@ -582,6 +585,6 @@ the second phone to staging in Chrome; it does not establish two installed-APK
 clients or record a new per-device browser/version inventory.
 
 This is owner-reported phone evidence, not a reward-ledger audit or a test of
-ten-human competitive settlement, duplicate claims, rotation, disconnect
+ten-human competitive settlement, duplicate claims, all orientation transitions, disconnect
 recovery or Production. Existing earlier staging evidence remains valid within
 its original scope.
