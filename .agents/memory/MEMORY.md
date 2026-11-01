@@ -27,4 +27,4 @@
 - [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
 - [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.
 - [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
-- [Lovart visual direction](lovart-visual-direction.md) — use the supplied canvas with revision precedence; concept art does not override gameplay or certify phone performance.
+- [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.

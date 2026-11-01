@@ -7,6 +7,8 @@ import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
+import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
+import { SORTIES } from "./game/campaign";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
@@ -88,67 +90,75 @@ function SignUpPage() {
 
 function PublicLanding() {
   const { isSignedIn } = useAuth();
+  const cta = "wfm-cmd wfm-chamfer min-h-12 justify-center px-6 font-hud text-lg tracking-widest";
   return (
-    <main className="relative flex min-h-dvh items-center bg-void px-6 py-12 text-bone sm:px-12">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_50%,rgba(138,58,36,0.25),transparent_52%)]" />
-      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
-        <section>
-          <p className="font-hud text-sm tracking-[0.28em] text-solar">PHOBOS MOON · 5V5 COMBAT</p>
-          <h1 className="mt-4 max-w-3xl font-hud text-7xl leading-[0.82] tracking-tight text-bone sm:text-9xl">
-            WAR
-            <br />
-            FOR MARS
+    <main className="relative min-h-dvh overflow-x-hidden bg-void text-bone">
+      <section className="relative flex min-h-[92dvh] items-end">
+        <CommandBackdrop />
+        <div className="wfm-safe relative mx-auto w-full max-w-6xl pb-14 pt-24 sm:px-12">
+          <div className="wfm-rise flex items-center gap-3">
+            <FactionMark faction="ussf" className="h-10 w-10" />
+            <span aria-hidden="true" className="h-8 w-px bg-bone/25" />
+            <FactionMark faction="accord" className="h-10 w-10" />
+            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
+          </div>
+          <h1 className="mt-6">
+            <span className="sr-only">WAR FOR MARS</span>
+            <Wordmark className="wfm-arrive w-full max-w-4xl" />
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+          <span aria-hidden="true" className="wfm-sweep mt-5 block h-px w-full max-w-4xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
+          <p className="wfm-rise-2 mt-6 max-w-xl text-base leading-relaxed text-bone/85 sm:text-lg">
             Fly the campaign, refit your ship, or bring a wing into a private ten-pilot match.
             Your account keeps campaign progress and credits safe on the server.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/play"
-              className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
-            >
-              TRY SOLO FLIGHT
-            </Link>
+          <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
+            <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
             {isSignedIn ? (
-              <Link
-                href="/"
-                className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
-              >
-                OPEN HANGAR
-              </Link>
+              <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>
             ) : (
               <>
-                <Link
-                  href="/sign-up"
-                  className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
-                >
-                  CREATE PILOT ACCOUNT
-                </Link>
-                <Link
-                  href="/sign-in"
-                  className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
-                >
-                  SIGN IN
-                </Link>
+                <Link href="/sign-up" className={`${cta} wfm-cmd-secondary`}>CREATE PILOT ACCOUNT</Link>
+                <Link href="/sign-in" className={`${cta} wfm-cmd-quiet`}>SIGN IN</Link>
               </>
             )}
           </div>
-        </section>
-        <aside className="border border-bone/15 bg-panel/80 p-5">
-          <p className="font-hud text-sm tracking-widest text-solar">PHOBOS YARD BRIEF</p>
-          <p className="mt-3 font-hud text-3xl leading-none text-bone">FOUR SORTIES. ONE OPEN WAR.</p>
-          <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted">
-            <li>Hold the rust disc and answer the first signal.</li>
-            <li>Light the pale beacons, then hunt the night-side Warden.</li>
-            <li>Choose whether the final cage makes it through the dust lane.</li>
-          </ul>
-          <p className="mt-6 border-t border-bone/10 pt-4 font-hud text-xs tracking-widest text-bone/70">
-            PROGRESS IS VERIFIED BY THE SERVER
-          </p>
+        </div>
+      </section>
+
+      <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-4 py-12 sm:px-12 md:grid-cols-2">
+        {([
+          ["ussf", "USSF", "Sensors, wards, the glide. Amber glass and long patience.", "text-solar"],
+          ["accord", "THE ACCORD", "Solar, stealth, the rings. They found the signal first.", "text-spectral"],
+        ] as const).map(([id, name, line, tone]) => (
+          <CommandPanel key={id} className="flex items-center gap-4 p-5">
+            <FactionMark faction={id} className="h-16 w-16" />
+            <div>
+              <p className={`font-hud text-3xl leading-none tracking-wide ${tone}`}>{name}</p>
+              <p className="mt-1 text-sm text-muted">{line}</p>
+            </div>
+          </CommandPanel>
+        ))}
+      </section>
+
+      <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-6 pb-16 sm:px-12 md:grid-cols-[1.2fr_0.8fr]">
+        <div>
+          <PanelLabel>PHOBOS YARD BRIEF</PanelLabel>
+          <p className="mt-3 font-hud text-4xl leading-none sm:text-5xl">FOUR SORTIES. ONE OPEN WAR.</p>
+          <ol className="mt-6 grid gap-2 sm:grid-cols-2">
+            {SORTIES.map((sortie, i) => (
+              <li key={sortie.id} className="wfm-panel p-4">
+                <p className="font-hud text-xs tracking-[0.22em] text-muted">SORTIE {String(i + 1).padStart(2, "0")}</p>
+                <p className="font-hud text-2xl leading-none">{sortie.name.toUpperCase()}</p>
+                <p className="mt-1 font-hud text-sm tracking-widest text-solar">{sortie.objective}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 font-hud text-xs tracking-widest text-bone/70">PROGRESS IS VERIFIED BY THE SERVER</p>
+        </div>
+        <CommandPanel accent className="p-5">
           <PublicWingLeaderboard />
-        </aside>
-      </div>
+        </CommandPanel>
+      </section>
     </main>
   );
 }

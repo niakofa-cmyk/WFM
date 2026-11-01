@@ -627,3 +627,32 @@ New art still needs physical Android performance/endurance verification after
 a separately authorized staging release. Existing ship meshes remain stylized;
 reference artwork is not a replacement 3D model. No Railway settings, database,
 secrets, Production release or publishing changes were made for this visual pass.
+
+## 2026-11-01 — Forensic-audit opening rebuild
+
+Read the owner's full 782-line audit and preserved its original text verbatim
+in `docs/references/wfm-forensic-design-audit.md`. The source describes some
+older UI; reconciled it against the current code and retained the previous
+Lovart artwork rather than discarding that work.
+
+Implemented the audit's recommended first three screens: a branded public
+landing, cinematic title arrival and reorganized command center. Added shared
+panels, button treatments, intrinsic image dimensions, faction accents,
+safe-area spacing, visible focus and reduced-motion behavior. Command briefing
+uses actual selected-ship definitions, credits, campaign completion and sorties.
+The ship illustration is labelled schematic, not a replacement flight model.
+All room/queue actions and existing feature gates are preserved.
+
+Verification: **70/70 unit tests passed**, full workspace typecheck passed,
+game build passed in **5.29 seconds** on the final run. Local portrait, landscape and desktop
+checks showed no horizontal overflow, loaded artwork and command targets at
+least 44px high. Isolated synthetic command callbacks, queue-disabled states,
+title transition, reduced motion and blocked-artwork fallback were checked.
+Queue cancellation remains accessible when availability flags are withdrawn
+during a search; nested-router link generation was also checked.
+No authenticated account or multiplayer match was needed for these checks.
+
+See `docs/opening-experience-rebuild.md` for exact coverage and limitations.
+This record is not evidence of a Production deployment, new trailer,
+new native APK, physical-phone performance or competitive settlement.
+The owner declined an additional two-phone graphics test; none was requested.

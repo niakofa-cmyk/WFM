@@ -5,7 +5,8 @@ import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
 import type { Save } from "./save";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { CommandBackdrop, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
+import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, ShipSchematic, Wordmark } from "./CommandArt";
+import { campaignBriefing } from "./command-briefing";
 
 type HomeProps = {
   state: MenuStateId;
@@ -53,18 +54,23 @@ type HomeProps = {
 
 export function HomeScreen(props: HomeProps) {
   const { state, onAction } = props;
+  const commandState = state === "MAIN_MENU";
   return (
     <section
       data-testid="home-screen"
       className="relative min-h-dvh overflow-x-hidden bg-void text-bone"
     >
-      <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} />
-      <div className="relative flex min-h-dvh flex-col justify-between px-4 py-5 sm:px-10">
-        <div className="flex items-center gap-3 border-b border-bone/10 pb-3">
-          <FactionMark faction="ussf" className="h-7 w-7" />
-          <p className="min-w-0 flex-1 font-hud text-[11px] tracking-[0.22em] text-solar">USSF VS THE ACCORD · PHOBOS YARD</p>
-          <FactionMark faction="accord" className="h-7 w-7 opacity-80" />
-        </div>
+      <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} faction={commandState ? props.faction : undefined} />
+      <div className="wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10">
+        {commandState ? (
+          <CommandTopBar {...props} />
+        ) : (
+          <div className="flex items-center gap-3 border-b border-bone/10 pb-3 pr-12">
+            <FactionMark faction="ussf" className="h-7 w-7" />
+            <p className="min-w-0 flex-1 font-hud text-[11px] tracking-[0.22em] text-solar">USSF VS THE ACCORD · PHOBOS THEATER</p>
+            <FactionMark faction="accord" className="h-7 w-7 opacity-80" />
+          </div>
+        )}
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
         {state === "MAIN_MENU" ? <MainMenu {...props} /> : null}
@@ -78,24 +84,138 @@ export function HomeScreen(props: HomeProps) {
 
 function Boot() {
   return (
-    <div className="flex flex-1 items-center">
-      <p className="font-hud text-sm tracking-widest text-bone">LINKING THE WING</p>
+    <div className="flex flex-1 items-center" role="status">
+      <p className="font-hud text-sm tracking-widest text-bone">
+        <span className="wfm-blink mr-2 inline-block h-2 w-2 bg-solar align-middle" aria-hidden="true" />
+        LINKING THE WING
+      </p>
     </div>
   );
 }
 
 function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
-    <button type="button" className="flex flex-1 flex-col items-start justify-center text-left" onClick={() => onAction("START")}>
+    <button
+      type="button"
+      className="group flex flex-1 flex-col items-start justify-center text-left"
+      onClick={() => onAction("START")}
+    >
       <h1 className="sr-only">WAR FOR MARS</h1>
-      <Wordmark className="wfm-rise w-full max-w-2xl" />
-      <p className="wfm-chamfer mt-6 flex min-h-11 items-center bg-solar px-5 font-hud text-sm tracking-[0.24em] text-void">PRESS TO ENTER</p>
+      <span className="wfm-rise flex items-center gap-3">
+        <FactionMark faction="ussf" className="h-12 w-12 sm:h-16 sm:w-16" />
+        <span aria-hidden="true" className="h-10 w-px bg-bone/25" />
+        <FactionMark faction="accord" className="h-12 w-12 sm:h-16 sm:w-16" />
+      </span>
+      <Wordmark className="wfm-arrive mt-6 w-full max-w-3xl" />
+      <span aria-hidden="true" className="wfm-sweep mt-4 block h-px w-full max-w-3xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
+      <span className="wfm-rise-2 mt-4 block font-hud text-sm tracking-[0.32em] text-muted">USSF VS THE ACCORD · PHOBOS THEATER</span>
+      <span className="wfm-rise-3 wfm-chamfer wfm-cmd wfm-cmd-primary mt-8 min-h-14 px-7 font-hud text-lg tracking-[0.28em] group-hover:bg-[#ebb173]">
+        ENTER THE WAR
+      </span>
     </button>
   );
 }
 
-function MainMenu({
-  onAction,
+function CommandTopBar({ faction, credits, cleared, signedIn, ship }: HomeProps) {
+  const { completed, total } = campaignBriefing(cleared);
+  return (
+    <header className="wfm-rise flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-bone/10 pb-3 pr-12">
+      <Wordmark className="w-36 sm:w-48" />
+      <span className="sr-only">WAR FOR MARS</span>
+      <div className="ml-auto flex items-center gap-4 font-hud text-xs tracking-[0.18em]">
+        <span className="flex items-center gap-2" data-testid="text-command-faction">
+          <FactionMark faction={faction} className="h-6 w-6" />
+          <span className={faction === "accord" ? "text-spectral" : "text-solar"}>{FACTION_NAME[faction]}</span>
+        </span>
+        <span className="hidden text-muted sm:inline">{SHIPS[ship].name.toUpperCase()}</span>
+        <span data-testid="text-command-credits" className="text-bone">{credits} CR</span>
+        <span data-testid="text-command-progress" className="text-muted">{completed}/{total} SORTIES</span>
+        <span className={signedIn ? "text-muted" : "text-alert"}>{signedIn ? "SIGNED IN" : "GUEST"}</span>
+      </div>
+    </header>
+  );
+}
+
+const FACTION_NAME: Record<Faction, string> = { ussf: "USSF", accord: "THE ACCORD" };
+
+function MainMenu(props: HomeProps) {
+  const { onAction, onGalaxy, ship, faction, cleared } = props;
+  const def = SHIPS[ship];
+  const brief = campaignBriefing(cleared);
+  return (
+    <div className="grid flex-1 content-center gap-4 py-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
+      {/* Briefing: selected ship + campaign */}
+      <CommandPanel className="wfm-rise-2 order-1 p-4 lg:order-2" data-testid="panel-command-briefing">
+        <div className="flex items-start gap-4">
+          <ShipSchematic faction={faction} role={def.role} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
+          <div className="min-w-0">
+            <PanelLabel tone={faction === "accord" ? "spectral" : "solar"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+            <p data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-wide">{def.name.toUpperCase()}</p>
+            <p className="mt-1 font-hud text-sm tracking-[0.2em] text-muted">{def.role.toUpperCase()} · ULT {def.ultShort}</p>
+            <p className="mt-2 text-sm leading-relaxed text-bone/85">{def.blurb}</p>
+          </div>
+        </div>
+        <dl className="mt-4 grid grid-cols-3 gap-px border border-bone/10 bg-bone/10 font-hud">
+          {[["SHIELD", def.shield], ["HULL", def.hull], ["TOP SPEED", def.maxSpeed]].map(([k, v]) => (
+            <div key={k} className="bg-panel px-3 py-2">
+              <dt className="text-[10px] tracking-[0.22em] text-muted">{k}</dt>
+              <dd className="text-xl leading-none">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="mt-4 border-t border-bone/10 pt-3" data-testid="text-campaign-briefing">
+          <PanelLabel>{brief.label} · {brief.completed}/{brief.total} CLEARED</PanelLabel>
+          <p className="mt-1 font-hud text-2xl leading-none">{brief.sortie.name.toUpperCase()} <span className="text-base tracking-widest text-solar">· {brief.sortie.objective}</span></p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{brief.sortie.brief}</p>
+          <div className="mt-3 flex gap-1" aria-hidden="true">
+            {Array.from({ length: brief.total }, (_, i) => (
+              <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />
+            ))}
+          </div>
+        </div>
+      </CommandPanel>
+
+      {/* Primary commands */}
+      <nav aria-label="Primary commands" className="wfm-rise order-2 flex flex-col gap-2 lg:order-1">
+        <PanelLabel>COMMAND</PanelLabel>
+        <button type="button" onClick={() => onAction("DEPLOY")} className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-16 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-2xl leading-none tracking-widest">CAMPAIGN: DEPLOY</span>
+          <span className="text-xs text-void/80">{brief.label}: {brief.sortie.name}</span>
+        </button>
+        <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-lg leading-none tracking-widest">ARCADE SKIRMISH</span>
+          <span className="text-xs text-muted">Open disc. Practice or strike.</span>
+        </button>
+        <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
+          <span className="text-xs text-muted">World event · locations · side operations</span>
+        </button>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+            <span className="font-hud text-sm leading-none tracking-widest">ARMORY & UPGRADES</span>
+            <span className="truncate text-[11px] text-muted">{def.name}</span>
+          </button>
+          <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+            <span className="font-hud text-sm leading-none tracking-widest">SETTINGS</span>
+            <span className="text-[11px] text-muted">Stick, tilt, the glass</span>
+          </button>
+          <Link
+            href="/leaderboard"
+            data-testid="link-public-wing-leaderboard"
+            className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3"
+          >
+            <span className="font-hud text-sm leading-none tracking-widest text-solar">WING LEADERBOARD</span>
+            <span className="text-[11px] text-muted">Opt-in callsigns · verified Wing credits</span>
+          </Link>
+        </div>
+      </nav>
+
+      <OnlineWing {...props} />
+    </div>
+  );
+}
+
+function OnlineWing({
   onOnline,
   onCreateRoom,
   onJoinCompetitiveQueue,
@@ -111,64 +231,67 @@ function MainMenu({
   onlineStatus,
   offlineAvailable,
   onOfflineStrike,
-  onGalaxy,
-  ship,
 }: HomeProps) {
-  const items: { action: MenuAction; label: string; detail: string }[] = [
-    { action: "DEPLOY", label: "CAMPAIGN: DEPLOY", detail: "Sorties, the yard, the cage" },
-    { action: "ARCADE", label: "ARCADE SKIRMISH", detail: "Open disc. Practice or strike." },
-    { action: "ARMORY", label: "ARMORY & UPGRADES", detail: SHIPS[ship].name },
-    { action: "SETTINGS", label: "SETTINGS", detail: "Stick, tilt, the glass" },
-  ];
+  const queueing = competitiveQueueing || casualAiQueueing;
   return (
-    <div className="flex flex-1 flex-col justify-center gap-3">
-      <Wordmark className="w-full max-w-xs sm:max-w-md" />
-      <span className="sr-only">WAR FOR MARS</span>
-      <div className="wfm-rise mt-3 flex w-full max-w-sm flex-col gap-2">
-        <section className="wfm-glass border border-solar/60 p-3">
-          <PanelLabel>5V5 ONLINE WING</PanelLabel>
-          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
+    <CommandPanel accent className="wfm-rise-3 order-3 p-4" data-testid="panel-online-wing">
+      <PanelLabel>5V5 ONLINE WING</PanelLabel>
+      {queueing || onlineStatus ? (
+        <p role="status" className="mt-2 flex items-center gap-2 font-hud text-sm tracking-widest text-bone">
+          {queueing ? <span aria-hidden="true" className="wfm-blink h-2 w-2 bg-solar" /> : null}
+          {onlineStatus || (casualAiQueueing ? "JOINING THE PILOT WINDOW" : "WAITING FOR TEN HUMAN PILOTS")}
+        </p>
+      ) : null}
+
+      <div className="mt-3 border-l-2 border-bone/20 pl-3">
+        <p className="font-hud text-xs tracking-[0.2em] text-muted">PRIVATE ROOM · NO WING CREDITS</p>
+        <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
+        <button
+          type="button"
+          data-testid="button-online-5v5"
+          onClick={onCreateRoom}
+          className="wfm-cmd wfm-cmd-secondary wfm-chamfer min-h-12 w-full flex-col items-start justify-center gap-0 px-3"
+        >
+          <span className="font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
+          <span className="text-xs text-muted">Generate a code and launch the 5v5.</span>
+        </button>
+        <div className="mt-2 flex gap-2">
+          <label className="sr-only" htmlFor="online-room-code">Room code</label>
+          <input
+            id="online-room-code"
+            data-testid="input-room-code"
+            autoCapitalize="characters"
+            autoComplete="off"
+            maxLength={24}
+            onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
+            placeholder="6–24 CHAR ROOM CODE"
+            value={roomCode}
+            className="h-11 min-w-0 flex-1 scroll-mb-24 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
+          />
           <button
             type="button"
-            data-testid="button-online-5v5"
-            onClick={onCreateRoom}
-            className="wfm-chamfer mt-1 min-h-12 w-full bg-solar px-3 py-1 text-left text-void"
+            data-testid="button-join-room"
+            disabled={roomCode.trim().length < 6}
+            onClick={() => onOnline(roomCode)}
+            className="wfm-cmd wfm-cmd-quiet h-11 justify-center px-4 font-hud tracking-widest"
           >
-            <span className="block font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
-            <span className="text-xs text-void/80">{onlineStatus || "Generate a code and launch the 5v5."}</span>
+            JOIN
           </button>
-          <div className="mt-2 flex gap-2">
-            <label className="sr-only" htmlFor="online-room-code">Room code</label>
-            <input
-              id="online-room-code"
-              data-testid="input-room-code"
-              autoCapitalize="characters"
-              autoComplete="off"
-              maxLength={24}
-              onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-              placeholder="6–24 CHAR ROOM CODE"
-              value={roomCode}
-              className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-            />
-            <button
-              type="button"
-              data-testid="button-join-room"
-              disabled={roomCode.trim().length < 6}
-              onClick={() => onOnline(roomCode)}
-              className="h-11 border border-bone/40 px-3 font-hud tracking-widest text-bone disabled:opacity-40"
-            >
-              JOIN
-            </button>
-          </div>
+        </div>
+      </div>
+
+      {casualAiQueueAvailable || competitiveQueueAvailable || queueing ? (
+        <div className="mt-4 border-l-2 border-solar/60 pl-3">
+          <p className="font-hud text-xs tracking-[0.2em] text-muted">MATCHMAKING</p>
           {casualAiQueueAvailable ? (
             <button
               type="button"
               data-testid="button-casual-ai-queue"
               disabled={!signedIn || casualAiQueueing || competitiveQueueing}
               onClick={onJoinCasualAiQueue}
-              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+              className="wfm-cmd wfm-cmd-quiet mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
             >
-              <span className="block font-hud text-base leading-none tracking-widest">
+              <span className="font-hud text-base leading-none tracking-widest text-solar">
                 {casualAiQueueing ? "CONNECTING TO QUICK MATCH" : "QUICK MATCH · AI FILL"}
               </span>
               <span className="text-xs text-muted">
@@ -186,9 +309,9 @@ function MainMenu({
               data-testid="button-competitive-queue"
               disabled={!signedIn || competitiveQueueing || casualAiQueueing}
               onClick={onJoinCompetitiveQueue}
-              className="mt-2 h-12 w-full border border-solar/70 bg-void/80 px-3 text-left text-solar disabled:opacity-50"
+              className="wfm-cmd wfm-cmd-secondary mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
             >
-              <span className="block font-hud text-base leading-none tracking-widest">
+              <span className="font-hud text-base leading-none tracking-widest text-solar">
                 {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
               </span>
               <span className="text-xs text-muted">
@@ -200,62 +323,31 @@ function MainMenu({
               </span>
             </button>
           ) : null}
-          {competitiveQueueing || casualAiQueueing ? (
+          {queueing ? (
             <button
               type="button"
               data-testid="button-cancel-matchmaking"
               onClick={onCancelMatchmaking}
-              className="mt-1 min-h-11 w-full border border-alert/50 px-3 text-left font-hud text-sm tracking-widest text-alert"
+              className="wfm-cmd mt-2 min-h-11 w-full border border-alert/60 bg-void/80 px-3 font-hud text-sm tracking-widest text-alert"
             >
               {casualAiQueueing ? "CANCEL QUICK MATCH" : "CANCEL QUEUE"}
             </button>
           ) : null}
-          {offlineAvailable ? (
-            <button
-              type="button"
-              data-testid="button-offline-strike"
-              onClick={onOfflineStrike}
-              className="mt-2 h-11 w-full border border-alert/50 px-3 text-left text-alert"
-            >
-              <span className="block font-hud text-sm tracking-widest">START OFFLINE STRIKE</span>
-              <span className="text-xs">Room unavailable · play the local AI-filled match instead.</span>
-            </button>
-          ) : null}
-        </section>
-        {items.map((item, index) => (
-          <button
-            key={item.action}
-            type="button"
-            onClick={() => onAction(item.action)}
-            className={
-              index === 0
-                ? "min-h-14 border-l-4 border-solar wfm-glass px-3 py-1 text-left"
-                : "min-h-14 border-l-4 border-bone/25 wfm-glass px-3 py-1 text-left"
-            }
-          >
-            <span className="block font-hud text-lg leading-none tracking-widest text-bone">{item.label}</span>
-            <span className="text-xs text-muted">{item.detail}</span>
-          </button>
-        ))}
-        <Link
-          href="/leaderboard"
-          data-testid="link-public-wing-leaderboard"
-          className="wfm-glass flex min-h-14 flex-col justify-center border-l-4 border-solar/60 px-3 text-left"
-        >
-          <span className="font-hud text-lg leading-none tracking-widest text-solar">WING LEADERBOARD</span>
-          <span className="text-xs text-muted">Opt-in callsigns · verified Wing credits</span>
-        </Link>
+        </div>
+      ) : null}
+
+      {offlineAvailable ? (
         <button
           type="button"
-          data-testid="button-open-galaxy"
-          onClick={onGalaxy}
-          className="wfm-glass min-h-14 border-l-4 border-solar/60 px-3 py-1 text-left"
+          data-testid="button-offline-strike"
+          onClick={onOfflineStrike}
+          className="wfm-cmd mt-3 min-h-11 w-full flex-col items-start justify-center gap-0 border border-alert/60 bg-void/80 px-3 py-1 text-alert"
         >
-          <span className="block font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
-          <span className="text-xs text-muted">World event · locations · side operations</span>
+          <span className="font-hud text-sm tracking-widest">START OFFLINE STRIKE</span>
+          <span className="text-xs">Room unavailable · play the local AI-filled match instead.</span>
         </button>
-      </div>
-    </div>
+      ) : null}
+    </CommandPanel>
   );
 }
 

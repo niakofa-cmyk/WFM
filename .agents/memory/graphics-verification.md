@@ -19,3 +19,14 @@ browser also failed before launch on missing system libraries.
 **How to apply:** distinguish browser-runtime provisioning from app build
 failures, use the supported project-side browser for software-rendering evidence,
 and never equate software-rendering success with physical GPU performance.
+
+Isolated browser component fixtures must share the application's resolved
+provider module, including Vite's dependency-version query string.
+
+**Why:** importing a separate unversioned Wouter module creates another context;
+links then appear to ignore the fixture's base even when application routing is
+correct.
+
+**How to apply:** use the provider import URL from the transformed application
+module when mounting a fixture. Distinguish fixture-context errors from real
+route failures before changing production navigation.
