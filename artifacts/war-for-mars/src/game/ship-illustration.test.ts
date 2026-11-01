@@ -34,7 +34,7 @@ test("illustrations take faction color from code-owned ship definitions", () => 
     for (const ship of roster) {
       assert.equal(SHIPS[ship].faction, faction);
       assert.ok(render(ship).includes(
-        faction === "accord" ? "var(--color-spectral)" : "var(--color-solar)",
+        faction === "accord" ? "var(--color-solar)" : "var(--color-spectral)",
       ));
     }
   }

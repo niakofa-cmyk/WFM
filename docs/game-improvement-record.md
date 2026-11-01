@@ -698,3 +698,29 @@ player remains unchanged. Synthetic browser checks covered save-on-Back,
 explicit save, failure/retry, profile-refresh drafts and responsive selection.
 Local app/API restarted successfully. Changes are local; frontend and API need
 coordinated release before this applies to Railway.
+
+## 2026-11-01 — Open-universe flight foundation and faction correction
+
+Read the complete owner-supplied open-universe vision and preserved its original
+text at `docs/references/wfm-open-universe-flight-vision.md` (byte-identical).
+The implementation/evidence boundary is documented in
+`docs/open-universe-flight-foundation.md`.
+
+Corrected faction colors throughout hull selection, schematics, command
+accents and combat ship materials: **blue USSF, warm amber Accord**. Ship roles,
+assignments, balance, saved-loadout behavior and competitive simulation remain
+unchanged.
+
+Added a public, lazy-loaded Rust Disc local trainer at `/flight`, linked from
+arrival and command. It includes XYZ/quaternion flight, acceleration/momentum,
+braking/boost, a versioned obstacle field, discovery/encounter/extraction,
+projectiles, line-of-sight locks, guided missiles and countermeasures. The
+renderer adds original 3D hulls, Mars, debris, mission markers, camera options,
+mobile controls, pause/orientation recovery, quality tiers and GPU teardown.
+
+Verification: **89 frontend tests passed (0 skipped)**, workspace and final
+frontend typechecks passed, production build passed, and local software-WebGL
+smoke checks passed with **0 page exceptions / 0 trainer API calls or writes**.
+This is not physical Android or online-sector evidence. No reward, campaign,
+auth, database, server simulation, Railway configuration, push or deployment
+changes were made. The new trainer is deliberately ineligible for progression.

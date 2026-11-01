@@ -210,10 +210,10 @@ function tag(mesh: THREE.Mesh, intensity: number, group: THREE.Group) {
 function buildShip(id: ShipId): THREE.Group {
   const g = new THREE.Group();
   const accord = SHIPS[id].faction === "accord";
-  const hull = metal(accord ? 0x44454a : 0xb4afa4, accord ? 0x162126 : 0x30261a, 0.25);
+  const hull = metal(accord ? 0x625044 : 0x71869c, accord ? 0x30261a : 0x14202c, 0.25);
   hull.metalness = accord ? 0.18 : 0.62;
   hull.roughness = accord ? 0.78 : 0.48;
-  const hot = metal(accord ? 0xb2c6c8 : 0xe0a15a, accord ? 0x739da5 : 0xe0a15a, 0.85);
+  const hot = metal(accord ? 0xe0a15a : 0x78bfff, accord ? 0xe0a15a : 0x78bfff, 0.85);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.72, 8), hot);
   nose.geometry.rotateX(Math.PI / 2);
   nose.position.z = 1.45;

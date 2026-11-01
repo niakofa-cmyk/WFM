@@ -35,6 +35,16 @@ game capabilities.
 Selection artwork may interpret the concept hulls without replacing flight
 geometry; identify it explicitly as an illustration.
 
+The owner's corrected faction color direction is explicit: **blue is USSF;
+Accord hulls must not use blue and instead use the warm solar/amber family.**
+
+**Why:** the owner corrected the older visual references, which had assigned
+these colors to the wrong faction.
+
+**How to apply:** apply this identity consistently to menu illustrations,
+selection accents and flight hull materials. Keep team hostility markings
+separate from faction identity and preserve the code-owned ship roster.
+
 **Why:** the owner wants visible ship graphics during selection, while opening
 another live 3D renderer on the Android menu would add GPU cost and concept
 silhouettes must not silently change ship balance or collision behavior.

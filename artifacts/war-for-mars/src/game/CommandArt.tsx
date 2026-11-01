@@ -93,7 +93,7 @@ const USSF_PATH = "M60 4 L70 34 L104 50 L114 78 L70 70 L66 112 L54 112 L50 70 L6
  * drawn from the faction family, not a model of the flight geometry.
  */
 export function ShipSchematic({ faction, role, className = "" }: { faction: Faction; role: string; className?: string }) {
-  const stroke = faction === "accord" ? "var(--color-spectral)" : "var(--color-solar)";
+  const stroke = faction === "accord" ? "var(--color-solar)" : "var(--color-spectral)";
   return (
     <figure className={`relative ${className}`}>
       <svg viewBox="0 0 120 120" role="img" aria-label={`${role} schematic outline`} className="h-full w-full">

@@ -12,6 +12,7 @@ import { SORTIES } from "./game/campaign";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
+const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -113,6 +114,7 @@ function PublicLanding() {
           </p>
           <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
             <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
+            <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
             {isSignedIn ? (
               <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>
             ) : (
@@ -127,8 +129,8 @@ function PublicLanding() {
 
       <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-4 py-12 sm:px-12 md:grid-cols-2">
         {([
-          ["ussf", "USSF", "Sensors, wards, the glide. Amber glass and long patience.", "text-solar"],
-          ["accord", "THE ACCORD", "Solar, stealth, the rings. They found the signal first.", "text-spectral"],
+          ["ussf", "USSF", "Sensors, wards, the glide. Blue signatures and precision flight.", "text-spectral"],
+          ["accord", "THE ACCORD", "Solar, stealth, the rings. Amber energy and unfamiliar geometry.", "text-solar"],
         ] as const).map(([id, name, line, tone]) => (
           <CommandPanel key={id} className="flex items-center gap-4 p-5">
             <FactionMark faction={id} className="h-16 w-16" />
@@ -236,6 +238,11 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <Switch>
+        <Route path="/flight">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
+            <RustDiscFlight />
+          </Suspense>
+        </Route>
         <Route path="/play">
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
             <SoloFlight />

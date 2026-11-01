@@ -128,7 +128,7 @@ export function ShipIllustration({
   grid?: boolean;
 }) {
   const def = SHIPS[ship];
-  const tone = def.faction === "accord" ? "var(--color-spectral)" : "var(--color-solar)";
+  const tone = def.faction === "accord" ? "var(--color-solar)" : "var(--color-spectral)";
   const art = ART[ship];
   return (
     <figure className={`relative ${className}`} data-testid={`img-hull-${ship}`} data-ship-id={ship}>

@@ -129,7 +129,7 @@ function CommandTopBar({ faction, credits, cleared, signedIn, ship }: HomeProps)
       <div className="ml-auto flex items-center gap-4 font-hud text-xs tracking-[0.18em]">
         <span className="flex items-center gap-2" data-testid="text-command-faction">
           <FactionMark faction={faction} className="h-6 w-6" />
-          <span className={faction === "accord" ? "text-spectral" : "text-solar"}>{FACTION_NAME[faction]}</span>
+          <span className={faction === "accord" ? "text-solar" : "text-spectral"}>{FACTION_NAME[faction]}</span>
         </span>
         <span className="hidden text-muted sm:inline">{SHIPS[ship].name.toUpperCase()}</span>
         <span data-testid="text-command-credits" className="text-bone">{credits} CR</span>
@@ -153,7 +153,7 @@ function MainMenu(props: HomeProps) {
         <div className="flex items-start gap-4">
           <ShipIllustration ship={ship} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
           <div className="min-w-0">
-            <PanelLabel tone={faction === "accord" ? "spectral" : "solar"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
             <p data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-wide">{def.name.toUpperCase()}</p>
             <p className="mt-1 font-hud text-sm tracking-[0.2em] text-muted">{def.role.toUpperCase()} · ULT {def.ultShort}</p>
             <p className="mt-2 text-sm leading-relaxed text-bone/85">{def.blurb}</p>
@@ -190,6 +190,10 @@ function MainMenu(props: HomeProps) {
       {/* Primary commands */}
       <nav aria-label="Primary commands" className="wfm-rise order-2 flex flex-col gap-2 lg:order-1">
         <PanelLabel>COMMAND</PanelLabel>
+        <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
+          <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
+        </Link>
         <button type="button" onClick={() => onAction("DEPLOY")} className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-16 flex-col items-start justify-center gap-0 px-4">
           <span className="font-hud text-2xl leading-none tracking-widest">CAMPAIGN: DEPLOY</span>
           <span className="text-xs text-void/80">{brief.label}: {brief.sortie.name}</span>
@@ -552,12 +556,12 @@ function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; 
 function HullBay({ faction, ship, onShip }: HomeProps) {
   const sel = SHIPS[ship];
   const accord = faction === "accord";
-  const tone = accord ? "text-spectral" : "text-solar";
-  const ring = accord ? "border-spectral" : "border-solar";
+  const tone = accord ? "text-solar" : "text-spectral";
+  const ring = accord ? "border-solar" : "border-spectral";
   return (
     <div className="grid max-w-3xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <CommandPanel className="p-3" data-testid="panel-selected-hull" data-ship-id={ship}>
-        <PanelLabel tone={accord ? "spectral" : "solar"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+        <PanelLabel tone={accord ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
         <ShipIllustration ship={ship} className="mx-auto mt-2 h-44 w-44 sm:h-52 sm:w-52" />
         <p data-testid="text-armory-selected-ship" className="font-hud text-3xl leading-none tracking-wide">{sel.name.toUpperCase()}</p>
         <p className={`mt-1 font-hud text-xs tracking-[0.2em] ${tone}`}>{sel.role.toUpperCase()} · ULT {sel.ultName.toUpperCase()}</p>
