@@ -555,6 +555,33 @@ After installing the replacement, the owner confirmed:
 
 These are physical-phone observations, not an instrumented network trace.
 The phone/browser versions were not reconfirmed during this sequence. They do
-not certify rotation, a full match, multiplayer through the installed app,
-reward settlement or Production readiness. Earlier browser-only multiplayer
-evidence is not automatically installed-app evidence.
+not certify rotation, competitive reward settlement or Production readiness.
+Earlier browser-only multiplayer evidence is not automatically installed-app
+evidence; the additional installed-app procedure is recorded below.
+
+#### Owner-reported two-phone private-match check
+
+The initial lobby attempt was inconclusive: the owner reported separate rooms
+and different menu options. Read-only Railway metadata confirmed the staging
+frontend and socket service shared a deployed revision and each had one replica.
+No deployment, settings change or data clearing was performed.
+
+The owner then followed the single-creator/second-pilot-Join procedure using the
+exact staging address, and confirmed both pilots appeared in one private lobby.
+After launching, the owner reported:
+
+- Both phones were on the same battlefield.
+- The match ran without observed issues; steering and firing worked.
+- The match completed and returned to Hangar.
+- Neither balance received additional credits or other adjustments.
+
+This passes the observed two-phone private-match flow for the installed-app
+verification sequence and is consistent with private matches remaining
+no-reward. The procedure used the installed app on the first phone and directed
+the second phone to staging in Chrome; it does not establish two installed-APK
+clients or record a new per-device browser/version inventory.
+
+This is owner-reported phone evidence, not a reward-ledger audit or a test of
+ten-human competitive settlement, duplicate claims, rotation, disconnect
+recovery or Production. Existing earlier staging evidence remains valid within
+its original scope.
