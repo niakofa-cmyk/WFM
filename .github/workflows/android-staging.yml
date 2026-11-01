@@ -43,14 +43,23 @@ jobs:
           set -euo pipefail
           mkdir -p generated-artifacts/android
           apk=artifacts/war-for-mars/android/app/build/outputs/apk/staging/debug/app-staging-debug.apk
-          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
-          "$apksigner" verify --print-certs "$apk" > generated-artifacts/android/public-certificate.txt
-          digest="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' generated-artifacts/android/public-certificate.txt)"
-          fingerprint="$(printf '%s' "$digest" | sed 's/../&:/g; s/:$//')"
-          node scripts/android-assetlinks.mjs "$fingerprint" > generated-artifacts/android/assetlinks-candidate.json
           cp "$apk" generated-artifacts/android/wfm-staging.apk
           sha256sum generated-artifacts/android/wfm-staging.apk > generated-artifacts/android/apk-sha256.txt
+          # Use the build tools selected by this project, not an unrelated runner preview.
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          if ! "$apksigner" verify --print-certs "$apk" > generated-artifacts/android/public-certificate.txt 2> generated-artifacts/android/certificate-diagnostic.txt; then
+            echo "::error::APK certificate verification failed: $(tr '\n' ' ' < generated-artifacts/android/certificate-diagnostic.txt)"
+            exit 1
+          fi
+          digest="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' generated-artifacts/android/public-certificate.txt)"
+          fingerprint="$(printf '%s' "$digest" | sed 's/../&:/g; s/:$//')"
+          if ! node scripts/android-assetlinks.mjs "$fingerprint" > generated-artifacts/android/assetlinks-candidate.json; then
+            rm -f generated-artifacts/android/assetlinks-candidate.json
+            echo "::error::No valid SHA-256 fingerprint was found in the verified APK certificate report."
+            exit 1
+          fi
       - name: Upload APK and public association candidate
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wfm-android-staging-${{ github.sha }}
