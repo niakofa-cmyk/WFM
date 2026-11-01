@@ -531,8 +531,9 @@ Replacement APK download (GitHub sign-in may be required):
 https://github.com/niakofa-cmyk/WFM/actions/runs/41276369322/artifacts/13071453431
 
 The same run retains clean-emulator startup logs/screenshot and test reports.
-Artifacts expire after seven days. A physical-phone install/retest remains
-necessary. Debug certificates may differ across CI runs: uninstall only the old
+Artifacts expire after seven days. Initial physical-phone checks are now
+owner-confirmed below; multiplayer and other untested paths remain separate.
+Debug certificates may differ across CI runs: uninstall only the old
 WFM Staging app if Android rejects replacement; do not clear Chrome storage.
 
 Railway's staging-only status check reported all four services online, no recent
@@ -540,3 +541,20 @@ failures and no pending changes. The public app address and `/healthz` return
 the expected private-staging HTTP 401 access page. No live sign-in, database
 query, reward request, Railway deployment/configuration change or Production
 action was performed.
+
+#### Owner-reported installed-app phone checks
+
+After installing the replacement, the owner confirmed:
+
+- The app opens to Railway staging instead of stopping immediately.
+- Armory displays credits and inventory correctly.
+- After closing the app from Android's recent-apps screen without signing out,
+  reopening it shows the same balance and inventory.
+- Steering and firing work before and after switching to another Android app
+  and returning during the requested local, no-reward Solo Flight check.
+
+These are physical-phone observations, not an instrumented network trace.
+The phone/browser versions were not reconfirmed during this sequence. They do
+not certify rotation, a full match, multiplayer through the installed app,
+reward settlement or Production readiness. Earlier browser-only multiplayer
+evidence is not automatically installed-app evidence.
