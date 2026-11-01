@@ -19,7 +19,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +37,20 @@ jobs:
       - name: Build and verify staging app
         working-directory: artifacts/war-for-mars/android
         run: gradle --no-daemon :app:testStagingDebugUnitTest :app:lintStagingDebug :app:assembleStagingDebug
+      - name: Enable emulator acceleration on the disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and cold-start the APK on Android 13 with Chrome
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash scripts/android-startup-smoke.sh
       - name: Prepare public domain-association candidate
         shell: bash
         run: |
@@ -71,4 +85,11 @@ jobs:
         with:
           name: wfm-android-reports-${{ github.sha }}
           path: artifacts/war-for-mars/android/app/build/reports/
+          retention-days: 7
+      - name: Upload clean-emulator startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfm-android-startup-${{ github.sha }}
+          path: generated-artifacts/android-startup/
           retention-days: 7
