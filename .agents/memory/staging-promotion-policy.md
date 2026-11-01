@@ -51,3 +51,9 @@ Single-player and real-time multiplayer are two modes of the same game. Use the 
 **Why:** the user selected browser play plus mobile applications and asked to preserve one game ecosystem.
 
 **How to apply:** progress from development and private staging through browser launch, mobile beta and public mobile release. Adapt platform controls/features without assuming the browser build or a website wrapper is already suitable for app-store release.
+
+The owner clarified that phone-based mobile-app play is the primary product, not merely a later distribution channel.
+
+**Why:** the user explicitly asked to reestablish WFM as a mobile video game while retaining a dedicated Railway backend with PostgreSQL.
+
+**How to apply:** prioritize mobile packaging and device behavior, reuse the existing WFM Railway infrastructure where suitable, and distinguish a browser build from an installable mobile release. Mobile packaging does not resolve authentication or reward-verification gaps by itself.
