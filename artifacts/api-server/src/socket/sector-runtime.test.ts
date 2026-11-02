@@ -157,3 +157,55 @@ test("shutdown interruption and malformed completion never create settlement", a
   for (const invalid of [{ ...proof, elapsed: NaN }, { ...proof, discoveries: 0 }, { ...proof, activeTicks: 0 },
     { ...proof, connectedAtEnd: false }, { ...proof, stage: "relay" }]) assert.equal(validSectorCompletion(invalid as CompletedSectorMission), false);
 });
+
+test("a disconnected authenticated pilot cannot open a second room while its old seat exists", async () => {
+  const runtime = createSectorRuntime({
+    loadProgress: async () => ({ completed: [], persistenceAvailable: true }),
+  });
+  const first = socket();
+  await runtime.handle(first.ws, "same-account", "rust-disc", "first-room", {
+    type: "sector_join", version: 1, shipId: "glide",
+  }, 0);
+  await runtime.handle(first.ws, "same-account", "rust-disc", "first-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(first.ws, "same-account", "rust-disc", "first-room", {
+    type: "sector_launch",
+  }, 2);
+
+  runtime.detach(first.ws, 100);
+  first.ws.close();
+
+  const second = socket();
+  await runtime.handle(second.ws, "same-account", "rust-disc", "second-room", {
+    type: "sector_join", version: 1, shipId: "mandjet",
+  }, 200);
+  assert.equal(second.packets.at(-1).reason, "sector_session_exists");
+  assert.equal(second.packets.some(packet => packet.type === "sector_snapshot"), false);
+  await runtime.close();
+});
+
+test("concurrent joins reserve an authenticated identity while progress loads", async () => {
+  let releaseProgress!: (progress: { completed: []; persistenceAvailable: true }) => void;
+  const progressGate = new Promise<{ completed: []; persistenceAvailable: true }>(resolve => {
+    releaseProgress = resolve;
+  });
+  const runtime = createSectorRuntime({ loadProgress: async () => progressGate });
+  const first = socket();
+  const second = socket();
+
+  const firstJoin = runtime.handle(first.ws, "same-account", "rust-disc", "race-room-a", {
+    type: "sector_join", version: 1, shipId: "glide",
+  }, 0);
+  await Promise.resolve();
+  await runtime.handle(second.ws, "same-account", "rust-disc", "race-room-b", {
+    type: "sector_join", version: 1, shipId: "mandjet",
+  }, 1);
+
+  assert.equal(second.packets.at(-1).reason, "sector_session_exists");
+  releaseProgress({ completed: [], persistenceAvailable: true });
+  await firstJoin;
+  assert.equal(first.latest().roomCode, "race-room-a");
+  assert.equal(first.latest().pilots.length, 1);
+  await runtime.close();
+});
