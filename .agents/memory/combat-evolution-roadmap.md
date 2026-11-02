@@ -22,9 +22,23 @@ works reliably.
 effects, command permissions, and mission resolution on the authenticated
 server. Reuse the existing account-scoped zero-credit discovery event; do not
 create a parallel reward ledger or player/session schema. Keep competitive Wing
-and its reward contract separate. Next work should validate balance, mobile
-readability/performance, multiplayer interruption recovery, and staging behavior
-before expanding systems or enabling this feature in Production. Pilot transfer
-is still out of scope. Never copy House of the Dying Sun's protected material.
-Require deterministic browser/server parity and idempotent progression; local
-checks are not Production evidence.
+and its reward contract separate. As of 2026-11-02, the Iron Eclipse code is
+deployed to the dedicated Railway staging app, API, and socket services on the
+same staging revision; all three are online with no reported deployment
+failures. The two staging feature switches are enabled, while Production remains
+untouched. This confirms deployment and service health only: no authenticated
+phone flight has yet been run against this deployment. The next gate is an
+authenticated staging session that creates a co-op room, verifies shared flight
+and squad commands, disables the capital defenses, completes extraction, and
+confirms the zero-credit result. Pilot transfer is still out of scope. Never
+copy House of the Dying Sun's protected material. Require deterministic
+browser/server parity and idempotent progression; local checks are not
+Production evidence.
+
+**Why:** a successful build and healthy services do not prove mobile rendering,
+live authentication, multiplayer synchronization, mission completion, or
+progression behavior on the deployed revision.
+
+**How to apply:** keep the next test on the staging host and use authenticated
+accounts only. Do not turn on Wing rewards or promote any setting to Production
+as part of this mission test.

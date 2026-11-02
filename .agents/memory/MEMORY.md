@@ -30,4 +30,4 @@
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons use server flight and account-scoped zero-credit discoveries, separate from Wing rewards and original campaign clears.
-- [Combat evolution roadmap](combat-evolution-roadmap.md) — Iron Eclipse is the first integrated server-authoritative flight, AI command, capital-system, extraction, and zero-credit progression slice.
+- [Combat evolution roadmap](combat-evolution-roadmap.md) — Iron Eclipse is deployed to staging; authenticated phone flight and multiplayer validation remain before any Production decision.
