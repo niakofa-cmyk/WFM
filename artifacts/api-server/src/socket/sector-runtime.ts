@@ -100,9 +100,9 @@ export function createSectorRuntime(options: Options) {
 
       // A disconnected pilot still owns a seat during the room's reconnect
       // lifecycle. Do not let that identity silently create a second room.
-      const existingPilot = [...rooms.values()].find(candidate =>
-        candidate.pilots.some(existing => existing.userId === userId));
-      if (existingPilot && existingPilot.code !== code) { error("sector_session_exists"); return; }
+      const existingOtherRoom = [...rooms.values()].some(candidate =>
+        candidate.code !== code && candidate.pilots.some(existing => existing.userId === userId));
+      if (existingOtherRoom) { error("sector_session_exists"); return; }
       const pendingJoin = joiningUsers.get(userId);
       if (pendingJoin && pendingJoin !== socket) { error("sector_session_exists"); return; }
 
