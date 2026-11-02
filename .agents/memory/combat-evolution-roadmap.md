@@ -15,11 +15,14 @@ itself advises narrow, testable packages and explicitly says not to expand
 campaign, persistent war or procedural content before the core combat slice
 works reliably.
 
-**How to apply:** build momentum-based 3D flight first; then server-authorized
-squad orders, eligible cooperative transfer, functional capital subsystems,
-objective-driven missions, validated replay variants and only then strategic
-world persistence. Keep the existing planar competitive Wing sim and reward
-contract separate unless a deliberate migration is designed and tested. Never
-copy House of the Dying Sun's protected material. Require deterministic
-browser/server parity, idempotent progression and mobile profiling for relevant
-changes; local flight is not Production evidence.
+**How to apply:** momentum-based 3D flight and host-issued human coordination
+orders (Attack, Defend, Escort, Regroup) are now the first two slices. These
+orders do not control AI, transfer a human ship, or change combat/reward math.
+Design any autonomous units as a new server-owned simulation before adding AI
+orders. Continue with eligible cooperative transfer, functional capital
+subsystems, objective-driven missions, validated replay variants and only then
+strategic world persistence. Keep competitive Wing and its reward contract
+separate unless a deliberate migration is designed and tested. Never copy House
+of the Dying Sun's protected material. Require deterministic browser/server
+parity, idempotent progression and mobile profiling; local checks are not
+Production evidence.

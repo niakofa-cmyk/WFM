@@ -44,8 +44,14 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     progress: { completed: [], persistenceAvailable: true }, settlement: { status: "not_started", reason: "" },
   };
   assert.ok(parseSectorSnapshot(snap));
-  assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true } }));
+  assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true, tacticalCommands: true } }));
   assert.equal(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: "yes" } }), null);
+  const command = {
+    order: "escort", target: "pilot", targetSlot: 1, issuedBySlot: 0, issuedAtTick: 3,
+  };
+  const withCommand = { ...snap, hostSlot: 0, pilots: [...snap.pilots, { ...snap.pilots[0], slot: 1 }], command };
+  assert.ok(parseSectorSnapshot(withCommand));
+  assert.equal(parseSectorSnapshot({ ...withCommand, command: { ...command, issuedBySlot: 1 } }), null);
   assert.equal(parseSectorSnapshot({ ...snap, version: 2 }), null);
   assert.equal(parseSectorSnapshot({ ...snap, missionId: "nope" }), null);
 });

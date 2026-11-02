@@ -69,6 +69,15 @@ test("two authenticated real WebSocket clients see the same moving XYZ scene and
     const active = waitForPacket(a, p => p.type === "sector_snapshot" && p.phase === "active");
     a.send(JSON.stringify({ type: "sector_launch" }));
     await active;
+    const nonHostRejected = waitForPacket(b, p => p.type === "error" && p.reason === "sector_command_host_required");
+    b.send(JSON.stringify({ type: "sector_command", order: "attack" }));
+    await nonHostRejected;
+    const orderA = waitForPacket(a, p => p.type === "sector_snapshot" && (p.command as any)?.order === "escort");
+    const orderB = waitForPacket(b, p => p.type === "sector_snapshot" && (p.command as any)?.order === "escort");
+    a.send(JSON.stringify({ type: "sector_command", order: "escort", targetSlot: 1 }));
+    const [orderedA, orderedB] = await Promise.all([orderA, orderB]);
+    assert.deepEqual(orderedA.command, orderedB.command);
+    assert.equal((orderedA.command as any).issuedBySlot, orderedA.hostSlot);
     const movingA = waitForPacket(a, p => p.type === "sector_snapshot" && (p.tick as number) >= 12);
     const movingB = waitForPacket(b, p => p.type === "sector_snapshot" && (p.tick as number) >= 12);
     a.send(JSON.stringify({ type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 1, pitch: 1 } }));

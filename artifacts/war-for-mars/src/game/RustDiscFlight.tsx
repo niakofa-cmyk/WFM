@@ -9,7 +9,7 @@ import {
   createFlight, stepFlight, flightObjective, flightForward, vectorLength,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
 } from "./flight-sector";
-import type { SectorMission, SectorSnapshot } from "./sector-missions";
+import type { SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 
 /**
@@ -24,6 +24,8 @@ import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from ".
 export type ExpeditionTransport = {
   snapshotRef: MutableRefObject<SectorSnapshot | null>;
   sendInput: (input: FlightInput) => void;
+  sendCommand: (command: SectorCommandRequest) => boolean;
+  notice: string;
   mission: SectorMission;
   connection: "connected" | "reconnecting" | "lost";
   onExit: () => void;
@@ -37,6 +39,7 @@ type Hud = {
   objective: string; distance: number; stage: FlightState["stage"]; elapsed: number; droneHull: number;
   flare: number; incoming: number; camera: "chase" | "cockpit";
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
+  tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
 };
 
 const STEP = 1 / 60;
@@ -545,6 +548,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           incoming: projectiles.filter(p => p.hostile).length, camera: cameraModeRef.current,
           vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
           drifting: inp.drift === true,
+          tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
+          command: snapNow?.command ?? null,
           crew: snapNow ? snapNow.pilots.map(p => ({ slot: p.slot, shipId: p.shipId, connected: p.connected, hull: p.flight.hull, own: p.slot === snapNow.ownSlot, host: p.slot === snapNow.hostSlot, stage: p.flight.stage })) : [],
         });
       }
@@ -640,7 +645,11 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               className="pointer-events-none absolute left-0 top-0 -ml-8 -mt-6 w-16 text-center font-hud text-[10px] tracking-[0.2em] opacity-0" />
           ))}
           {hud ? <FlightHud hud={hud} shipId={shipId} droneMax={expedition?.mission.sector.droneHull ?? 60} /> : null}
-          {net && hud ? <CrewStrip crew={hud.crew} mission={expedition!.mission.title} /> : null}
+          {net && hud ? <CrewStrip crew={hud.crew} mission={expedition!.mission.title} command={hud.command} /> : null}
+          {net && hud?.tacticalCommandsAvailable && hud.crew.some(c => c.own && c.host) ? (
+            <SquadOrders crew={hud.crew} command={hud.command} notice={expedition!.notice}
+              disabled={expedition!.connection !== "connected"} onCommand={expedition!.sendCommand} />
+          ) : null}
           {net && expedition!.connection !== "connected" ? (
             <div role="alert" className="pointer-events-none absolute inset-x-0 top-16 z-[5] mx-auto w-fit border-l-2 border-[#ff7a5c] bg-[#140d12]/90 px-4 py-2 font-hud text-xs tracking-[0.2em] text-[#ff7a5c]" data-testid="status-net-connection">
               {expedition!.connection === "reconnecting" ? "LINK INTERRUPTED · RECONNECTING · HOLDING POSITION" : "LINK LOST · THE SERVER CONTINUES WITHOUT YOU"}
@@ -764,10 +773,11 @@ function Bar({ label, value, color, testId }: { label: string; value: number; co
   );
 }
 
-function CrewStrip({ crew, mission }: { crew: CrewRow[]; mission: string }) {
+function CrewStrip({ crew, mission, command }: { crew: CrewRow[]; mission: string; command: SectorTacticalCommand | null }) {
   return (
     <div className="pointer-events-none absolute left-3 top-16 w-40 font-hud" data-testid="panel-crew">
       <p className="truncate text-[9px] tracking-[0.25em] text-muted">{mission.toUpperCase()} · SERVER</p>
+      {command ? <p className="mt-1 border-l border-solar pl-1.5 text-[9px] leading-snug text-solar" data-testid="status-crew-order">{describeSectorCommand(command)}</p> : null}
       <ul className="mt-1 space-y-0.5">
         {crew.map(c => {
           const accent = FACTION_PALETTE[SHIPS[c.shipId].faction].accent;
@@ -811,6 +821,71 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
         {hud.lock > 0 ? <div className="absolute -inset-3 rounded-full border-2" style={{ borderColor: hud.lock >= 1 ? "#ff7a5c" : pal.accent, opacity: 0.4 + hud.lock * 0.6 }} /> : null}
       </div>
       {hud.lock >= 1 ? <p className="absolute left-1/2 top-[58%] -translate-x-1/2 text-xs tracking-[0.3em] text-[#ff7a5c]">LOCKED · FIRE MISSILE</p> : null}
+    </div>
+  );
+}
+
+function describeSectorCommand(command: SectorTacticalCommand): string {
+  if (command.order === "attack") return "ORDER · ATTACK HOSTILE DRONE";
+  const target = slotLabel(command.targetSlot);
+  if (command.order === "defend") return `ORDER · DEFEND ${target}`;
+  if (command.order === "escort") return `ORDER · ESCORT ${target}`;
+  return `ORDER · REGROUP ON ${target}`;
+}
+
+function SquadOrders({ crew, command, notice, disabled, onCommand }: {
+  crew: CrewRow[]; command: SectorTacticalCommand | null; notice: string; disabled: boolean;
+  onCommand: (request: SectorCommandRequest) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(-1);
+  const wingmates = crew.filter(pilot => !pilot.own && pilot.connected);
+  const targetSlot = wingmates.some(pilot => pilot.slot === selectedSlot)
+    ? selectedSlot : wingmates[0]?.slot ?? -1;
+  const [sendError, setSendError] = useState("");
+  useEffect(() => { if (notice) setOpen(true); }, [notice]);
+  const issue = (request: SectorCommandRequest) => {
+    setSendError("");
+    if (!onCommand(request)) setSendError("ORDER NOT SENT · LINK UNAVAILABLE");
+  };
+  return (
+    <div className="pointer-events-auto absolute right-2 top-32 z-[8] w-52 font-hud sm:right-4 sm:top-28" data-testid="panel-squad-orders">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}
+        className="min-h-10 w-full border border-solar/60 bg-void/90 px-3 text-[10px] tracking-[0.2em] text-solar"
+        data-testid="button-squad-orders">
+        {open ? "CLOSE ORDERS" : "SQUAD ORDERS"}
+      </button>
+      {open ? (
+        <section className="mt-1 border border-bone/25 bg-void/95 p-2 shadow-xl" aria-label="Tactical squad orders">
+          <p className="mb-2 text-[9px] tracking-[0.15em] text-muted">HOST AUTHORITY · FLIGHT CONTINUES</p>
+          <label className="mb-2 block text-[9px] tracking-[0.12em] text-muted">
+            WINGMATE
+            <select value={String(targetSlot)} onChange={event => setSelectedSlot(Number(event.target.value))}
+              disabled={disabled || wingmates.length === 0}
+              className="mt-1 min-h-9 w-full border border-bone/25 bg-void px-2 text-[10px] text-bone"
+              data-testid="select-squad-target">
+              {wingmates.length === 0 ? <option value="-1">NO CONNECTED WINGMATES</option> :
+                wingmates.map(pilot => <option key={pilot.slot} value={pilot.slot}>{slotLabel(pilot.slot)}</option>)}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={disabled} onClick={() => issue({ type: "sector_command", order: "attack" })}
+              className="min-h-10 border border-[#ff7a5c]/60 bg-[#ff7a5c]/10 px-1 text-[9px] tracking-wider disabled:opacity-40"
+              data-testid="button-order-attack">ATTACK DRONE</button>
+            <button type="button" disabled={disabled || targetSlot < 0} onClick={() => issue({ type: "sector_command", order: "defend", targetSlot })}
+              className="min-h-10 border border-bone/30 px-1 text-[9px] tracking-wider disabled:opacity-40"
+              data-testid="button-order-defend">DEFEND PILOT</button>
+            <button type="button" disabled={disabled || targetSlot < 0} onClick={() => issue({ type: "sector_command", order: "escort", targetSlot })}
+              className="min-h-10 border border-bone/30 px-1 text-[9px] tracking-wider disabled:opacity-40"
+              data-testid="button-order-escort">ESCORT PILOT</button>
+            <button type="button" disabled={disabled} onClick={() => issue({ type: "sector_command", order: "regroup" })}
+              className="min-h-10 border border-spectral/60 bg-spectral/10 px-1 text-[9px] tracking-wider disabled:opacity-40"
+              data-testid="button-order-regroup">REGROUP</button>
+          </div>
+          {command ? <p className="mt-2 text-[9px] leading-snug text-solar" data-testid="text-current-order">{describeSectorCommand(command)}</p> : null}
+          {sendError || notice ? <p role="status" className="mt-2 text-[9px] leading-snug text-[#ff7a5c]">{sendError || notice}</p> : null}
+        </section>
+      ) : null}
     </div>
   );
 }

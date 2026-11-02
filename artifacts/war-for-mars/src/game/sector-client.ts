@@ -1,7 +1,7 @@
 import { NEUTRAL_FLIGHT_INPUT, type FlightInput } from "./flight-sector";
 import {
   SECTOR_MISSIONS, SECTOR_PROTOCOL_VERSION, sectorMission,
-  type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot,
+  type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
 } from "./sector-missions";
 import { SHIPS, type ShipId } from "./ships";
 
@@ -62,9 +62,27 @@ export function parseSectorSnapshot(raw: unknown): SectorSnapshot | null {
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&
       (!p.capabilities || typeof p.capabilities !== "object" ||
-       typeof p.capabilities.vectorDrift !== "boolean")) return null;
+       typeof p.capabilities.vectorDrift !== "boolean" ||
+       (p.capabilities.tacticalCommands !== undefined && typeof p.capabilities.tacticalCommands !== "boolean"))) return null;
   for (const pilot of p.pilots) {
     if (!pilot || typeof pilot.slot !== "number" || !(pilot.shipId in SHIPS) || !pilot.flight) return null;
+  }
+  if (p.command !== undefined && p.command !== null) {
+    const command = p.command as SectorTacticalCommand;
+    const hasPilot = (slot: number) => p.pilots!.some(pilot => pilot.slot === slot);
+    const commonValid = Number.isSafeInteger(command.issuedBySlot) &&
+      command.issuedBySlot === p.hostSlot &&
+      Number.isSafeInteger(command.issuedAtTick) && command.issuedAtTick >= 0;
+    if (!commonValid) return null;
+    if (command.order === "attack") {
+      if (command.target !== "drone" || command.targetSlot !== null) return null;
+    } else if (["defend", "escort", "regroup"].includes(command.order)) {
+      if (command.target !== "pilot" || !Number.isSafeInteger(command.targetSlot) ||
+          command.targetSlot < 0 || command.targetSlot >= SECTOR_MAX_PILOTS ||
+          !hasPilot(command.targetSlot) ||
+          (command.order !== "regroup" && command.targetSlot === command.issuedBySlot) ||
+          (command.order === "regroup" && command.targetSlot !== p.hostSlot)) return null;
+    } else return null;
   }
   return p as SectorSnapshot;
 }

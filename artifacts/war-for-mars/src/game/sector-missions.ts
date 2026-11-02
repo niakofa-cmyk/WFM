@@ -48,16 +48,25 @@ export type SectorSettlement = {
 export type SectorPilotSnapshot = {
   slot: number; shipId: ShipId; connected: boolean; ready: boolean; flight: FlightState;
 };
+export type SectorCommandRequest =
+  | { type: "sector_command"; order: "attack" }
+  | { type: "sector_command"; order: "defend" | "escort"; targetSlot: number }
+  | { type: "sector_command"; order: "regroup" };
+export type SectorTacticalCommand =
+  | { order: "attack"; target: "drone"; targetSlot: null; issuedBySlot: number; issuedAtTick: number }
+  | { order: "defend" | "escort" | "regroup"; target: "pilot"; targetSlot: number; issuedBySlot: number; issuedAtTick: number };
 export type SectorSnapshot = {
   type: "sector_snapshot"; version: 1; roomCode: string; missionId: SectorMissionId;
   phase: "lobby" | "active" | "complete" | "interrupted"; tick: number;
   ownSlot: number; hostSlot: number; pilots: SectorPilotSnapshot[];
   progress: SectorProgress; settlement: SectorSettlement;
-  capabilities?: { vectorDrift: boolean };
+  capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean };
+  command?: SectorTacticalCommand | null;
 };
 export type SectorClientPacket =
   | { type: "sector_join"; version: 1; shipId: ShipId }
   | { type: "sector_ready"; ready: boolean }
   | { type: "sector_launch" }
   | { type: "sector_input"; seq: number; input: FlightInput }
+  | SectorCommandRequest
   | { type: "sector_retry" };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { createSectorRuntime, parseSectorInput } from "./sector-runtime";
+import { createSectorRuntime, parseSectorCommand, parseSectorInput } from "./sector-runtime";
 import { sectorFlightEnabled } from "./sector-feature";
 import { NEUTRAL_FLIGHT_INPUT, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
@@ -37,6 +37,17 @@ test("3D inputs exclude forged coordinates, results, identities, unknown buttons
     { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
   ]) assert.equal(parseSectorInput(value), null);
 });
+test("tactical command packets accept only the four exact, bounded order shapes", () => {
+  assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "attack" }), { type: "sector_command", order: "attack" });
+  assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "regroup" }), { type: "sector_command", order: "regroup" });
+  assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "defend", targetSlot: 2 }), { type: "sector_command", order: "defend", targetSlot: 2 });
+  assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "escort", targetSlot: 2 }), { type: "sector_command", order: "escort", targetSlot: 2 });
+  for (const packet of [
+    {}, { type: "sector_command", order: "teleport" }, { type: "sector_command", order: "attack", targetSlot: 2 },
+    { type: "sector_command", order: "escort" }, { type: "sector_command", order: "defend", targetSlot: -1 },
+    { type: "sector_command", order: "escort", targetSlot: 8 }, { type: "sector_command", order: "regroup", userId: "forged" },
+  ]) assert.equal(parseSectorCommand(packet), null);
+});
 test("server and browser 3D physics/catalog are byte-identical and use deterministic transcendental math", () => {
   for (const file of ["flight-sector.ts", "sector-missions.ts"]) {
     const source = readFileSync(new URL(`../game/${file}`, import.meta.url), "utf8");
@@ -50,15 +61,41 @@ test("two pilots ready/launch into identical authoritative XYZ room state; host 
   const a = socket(), b = socket(), late = socket();
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "glide" }, 0);
   assert.equal(a.latest().capabilities?.vectorDrift, true);
+  assert.equal(a.latest().capabilities?.tacticalCommands, true);
   await runtime.handle(b.ws, "synthetic-b", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "mandjet" }, 0);
   await runtime.handle(b.ws, "synthetic-b", "rust-disc", "flight-room", { type: "sector_launch" }, 0);
   assert.equal(b.packets.at(-1).reason, "sector_host_required");
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_launch" }, 0);
   assert.equal(a.packets.at(-1).reason, "sector_all_pilots_ready_required");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "attack" }, 0);
+  assert.equal(a.packets.at(-1).reason, "sector_command_active_match_required");
   for (const [s, id] of [[a, "synthetic-a"], [b, "synthetic-b"]] as const) {
     await runtime.handle(s.ws, id, "rust-disc", "flight-room", { type: "sector_ready", ready: true }, 0);
   }
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_launch" }, 0);
+  await runtime.handle(b.ws, "synthetic-b", "rust-disc", "flight-room", { type: "sector_command", order: "attack" }, 0);
+  assert.equal(b.packets.at(-1).reason, "sector_command_host_required");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "escort", targetSlot: 8 }, 0);
+  assert.equal(a.packets.at(-1).reason, "invalid_sector_command");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "defend", targetSlot: 0 }, 0);
+  assert.equal(a.packets.at(-1).reason, "sector_command_target_unavailable");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "escort", targetSlot: 7 }, 0);
+  assert.equal(a.packets.at(-1).reason, "sector_command_target_unavailable");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "attack" }, 0);
+  assert.deepEqual(a.latest().command, {
+    order: "attack", target: "drone", targetSlot: null, issuedBySlot: 0, issuedAtTick: 0,
+  });
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "regroup" }, 500);
+  assert.equal(a.packets.at(-1).reason, "sector_command_rate_limited");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "defend", targetSlot: 1 }, 800);
+  assert.equal(a.latest().command?.order, "defend");
+  assert.deepEqual(a.latest().command, b.latest().command);
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "escort", targetSlot: 1 }, 1600);
+  assert.equal(a.latest().command?.order, "escort");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "regroup" }, 2400);
+  assert.deepEqual(a.latest().command, {
+    order: "regroup", target: "pilot", targetSlot: 0, issuedBySlot: 0, issuedAtTick: 0,
+  });
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_input", seq: 1, input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 1, pitch: 1 } }, 0);
   runtime.advance(0);
   for (let t = 17; t <= 300; t += 17) runtime.advance(t);
@@ -73,6 +110,10 @@ test("two pilots ready/launch into identical authoritative XYZ room state; host 
   assert.equal(a.packets.at(-1).reason, "invalid_sector_input");
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_complete", credits: 100 }, 300);
   assert.equal(a.packets.at(-1).reason, "unknown_sector_message");
+  await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_command", order: "escort", targetSlot: 1 }, 3200);
+  assert.equal(a.latest().command?.targetSlot, 1);
+  runtime.detach(b.ws, 3300);
+  assert.equal(a.latest().command, null);
   runtime.detach(a.ws, 300); a.ws.close();
   const restored = socket();
   await runtime.handle(restored.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "sentinel" }, 1000);

@@ -4,7 +4,7 @@ import { SHIPS, type ShipId } from "../game/ships";
 import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightState } from "../game/flight-sector";
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
-  type SectorSnapshot, type SectorSettlement,
+  type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
 
@@ -17,6 +17,7 @@ type Pilot = {
 type Room = {
   code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
   phase: SectorSnapshot["phase"]; tick: number; droneHull: number; touched: number;
+  command: SectorTacticalCommand | null; commandAt: number | null;
 };
 type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
@@ -43,6 +44,21 @@ export function parseSectorInput(value: unknown): FlightInput | null {
   if (Object.hasOwn(input, "drift") && typeof input.drift !== "boolean") return null;
   return { ...input, drift: input.drift === true } as FlightInput;
 }
+export function parseSectorCommand(value: unknown): SectorCommandRequest | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const packet = value as Record<string, unknown>;
+  if (packet.type !== "sector_command" || typeof packet.order !== "string") return null;
+  const exactKeys = (...expected: string[]) =>
+    Object.keys(packet).length === expected.length && expected.every(key => Object.hasOwn(packet, key));
+  if (packet.order === "attack" && exactKeys("type", "order")) return { type: "sector_command", order: "attack" };
+  if (packet.order === "regroup" && exactKeys("type", "order")) return { type: "sector_command", order: "regroup" };
+  if ((packet.order === "defend" || packet.order === "escort") &&
+      exactKeys("type", "order", "targetSlot") &&
+      Number.isSafeInteger(packet.targetSlot) && (packet.targetSlot as number) >= 0 && (packet.targetSlot as number) < 8) {
+    return { type: "sector_command", order: packet.order, targetSlot: packet.targetSlot as number };
+  }
+  return null;
+}
 const neutral = (): FlightInput => ({ ...NEUTRAL_FLIGHT_INPUT, brake: true });
 function send(socket: WebSocket | null, value: unknown) {
   if (socket?.readyState !== WebSocket.OPEN) return;
@@ -62,7 +78,8 @@ export function createSectorRuntime(options: Options) {
       const snapshot: SectorSnapshot = {
         type: "sector_snapshot", version: 1, roomCode: room.code, missionId: room.mission.id,
         phase: room.phase, tick: room.tick, ownSlot: own.slot, hostSlot: room.hostSlot,
-        capabilities: { vectorDrift: true },
+        capabilities: { vectorDrift: true, tacticalCommands: true },
+        command: room.command,
         pilots: room.pilots.map(pilot => ({
           slot: pilot.slot, shipId: pilot.shipId, connected: pilot.socket?.readyState === WebSocket.OPEN,
           ready: pilot.ready, flight: pilot.flight,
@@ -138,6 +155,7 @@ export function createSectorRuntime(options: Options) {
         room = {
           code, matchId: randomUUID(), mission, pilots: [], hostSlot: 0, phase: "lobby",
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
+          command: null, commandAt: null,
         };
         rooms.set(code, room);
       }
@@ -202,6 +220,40 @@ export function createSectorRuntime(options: Options) {
       budget.count++;
       pilot.seq = packet.seq as number; pilot.input = input; pilot.lastInput = now; pilot.acceptedInputs++; return;
     }
+    if (packet.type === "sector_command") {
+      if (room.phase !== "active") { error("sector_command_active_match_required"); return; }
+      if (pilot.slot !== room.hostSlot) { error("sector_command_host_required"); return; }
+      const request = parseSectorCommand(packet);
+      if (!request) { error("invalid_sector_command"); return; }
+      if (room.commandAt !== null && now - room.commandAt < 750) {
+        error("sector_command_rate_limited");
+        return;
+      }
+      let command: SectorTacticalCommand;
+      if (request.order === "attack") {
+        if (room.droneHull <= 0) { error("sector_command_target_unavailable"); return; }
+        command = {
+          order: "attack", target: "drone", targetSlot: null,
+          issuedBySlot: pilot.slot, issuedAtTick: room.tick,
+        };
+      } else {
+        const targetSlot = request.order === "regroup" ? room.hostSlot : request.targetSlot;
+        const target = room.pilots.find(candidate =>
+          candidate.slot === targetSlot &&
+          candidate.slot !== pilot.slot &&
+          candidate.socket?.readyState === WebSocket.OPEN);
+        if (request.order !== "regroup" && !target) { error("sector_command_target_unavailable"); return; }
+        command = {
+          order: request.order, target: "pilot",
+          targetSlot: request.order === "regroup" ? room.hostSlot : target!.slot,
+          issuedBySlot: pilot.slot, issuedAtTick: room.tick,
+        };
+      }
+      room.command = command;
+      room.commandAt = now;
+      publish(room);
+      return;
+    }
     if (packet.type === "sector_retry" && Object.keys(packet).length === 1) {
       if (now < pilot.nextRetry) { error("sector_retry_later"); return; }
       void settle(room, pilot, now); return;
@@ -215,6 +267,10 @@ export function createSectorRuntime(options: Options) {
     if (!seat || seat.pilot.socket !== socket) return;
     const { room, pilot } = seat;
     pilot.socket = null; pilot.disconnectedAt = now; pilot.input = neutral(); pilot.ready = false;
+    if (room.command && (
+      room.command.issuedBySlot === pilot.slot ||
+      (room.command.target === "pilot" && room.command.targetSlot === pilot.slot)
+    )) room.command = null;
     if (room.phase === "lobby") {
       room.pilots = room.pilots.filter(p => p !== pilot);
       room.hostSlot = room.pilots[0]?.slot ?? 0;

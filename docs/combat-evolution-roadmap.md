@@ -32,9 +32,10 @@ requirements, not later polish.
 - Sector progression reuses authenticated player records and idempotent
   progression events. It is distinct from competitive Wing credits.
 - The existing mission chain is Rust Disc → Mars Approach → Pale Beacons.
-- No tactical squad-command overlay, player transfer, capital-ship subsystem
-  combat, branching persistent campaign or procedural operation generator was
-  established by this implementation.
+- A server-validated host order palette now coordinates connected human pilots.
+  It is not autonomous AI squad control.
+- Player transfer, capital-ship subsystem combat, branching persistent campaign
+  and procedural operation generation remain unimplemented.
 
 ## First implemented slice — vector drift
 
@@ -51,14 +52,32 @@ Wing simulation and not evidence of a Production release. Server and client
 physics sources must remain byte-identical, and cross-runtime determinism tests
 must pass before promotion.
 
+## Second implemented slice — cooperative squad orders
+
+The active co-op sector exposes four host-issued calls: Attack the shared hostile
+drone, Defend a connected wingmate, Escort a connected wingmate, and Regroup on
+the host. The server derives the issuer from the authenticated socket seat,
+requires the host role and active match phase, validates targets against
+connected room members, limits command frequency, and broadcasts the accepted
+order in each authoritative snapshot. Orders are cleared when their issuer or
+human target disconnects. The command palette is capability-gated and does not
+pause flight.
+
+This first pass is a tactical coordination tool for human pilots. It does not
+claim to steer friendly AI, apply combat bonuses, alter damage, create rewards,
+or transfer control of a player's ship. Those effects require a separate
+server-owned unit simulation and fairness review. Competitive Wing and reward
+contracts remain untouched.
+
 ## Staged implementation and acceptance gates
 
 1. **Flight foundation:** vector drift, accessible control assistance, boost,
    targeting and combat feedback. Validate bounded speed/energy, collision,
    deterministic browser/server replay and representative mobile performance.
-2. **Tactical squad command:** begin with attack, defend, escort and regroup.
-   The server validates account, match, unit ownership, order, target and
-   permissions. Multiplayer never pauses; rejected commands explain why.
+2. **Tactical squad command:** human-pilot coordination v1 is implemented.
+   Next, consider autonomous friendly AI only after defining server-owned units,
+   targeting behavior, damage effects and abuse/fairness limits. Multiplayer
+   never pauses; rejected commands explain why.
 3. **Pilot transfer:** later, in eligible cooperative modes only; never take
    over another human's ship without explicit consent. Competitive use requires
    a separate fairness decision.

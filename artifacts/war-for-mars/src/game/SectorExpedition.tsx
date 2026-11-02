@@ -10,7 +10,7 @@ import { RustDiscFlight, type ExpeditionTransport } from "./RustDiscFlight";
 import type { FlightInput } from "./flight-sector";
 import {
   SECTOR_MISSIONS, sectorMission,
-  type SectorClientPacket, type SectorMissionId, type SectorProgress, type SectorSnapshot,
+  type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
@@ -243,9 +243,16 @@ function ExpeditionClient() {
   const transport = useMemo<ExpeditionTransport>(() => ({
     snapshotRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
+    sendCommand: command => {
+      if (snapshotRef.current?.phase !== "active" ||
+          snapshotRef.current.capabilities?.tacticalCommands !== true) return false;
+      setNotice("");
+      return send(command);
+    },
+    notice,
     onExit: leave,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [activeMission, connection]);
+  }), [activeMission, connection, notice, send]);
 
   if (view === "flight" && snapshotRef.current) {
     return <RustDiscFlight key={`${snapshotRef.current.roomCode}-${activeMission.id}`} expedition={transport} />;

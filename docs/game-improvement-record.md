@@ -1,5 +1,24 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-02 — Server-validated cooperative squad orders
+
+Added a capability-gated, in-flight command palette for cooperative sector
+hosts. Attack targets the shared hostile drone; Defend and Escort target a
+connected non-host pilot; Regroup targets the host. The server derives issuer
+identity from the authenticated socket seat, requires active phase and host
+authority, rejects unknown/self/offline/out-of-room targets, rate-limits
+commands, and publishes the result to all pilots without pausing the match.
+
+Orders are human coordination calls only. They do not pilot teammates, modify
+damage or rewards, or affect competitive Wing. Older sector clients remain
+compatible because the new controls are shown only when the server advertises
+the capability. Automated verification: API and game typechecks passed; focused
+API runtime tests passed (including host, phase, exact payload, target,
+broadcast and rate-limit cases); focused client snapshot tests passed. Full
+workspace typecheck passed; all 277 tests passed (API 127, game 97, scripts 53);
+the full build and `git diff --check` passed. The existing Three.js chunk-size
+warning remains. No staging or Production deployment was made.
+
 ## 2026-11-02 — Combat evolution reference and vector drift
 
 Read both supplied combat-evolution documents in full and retained them as
