@@ -149,6 +149,26 @@ test("cover blocks shots before the target, countermeasure clears only hostile m
   assert.ok(state.flareCooldown > 0);
 });
 
+test("projectile simulation reuses its array while firing and removing expired shots", () => {
+  const state = targetingState();
+  const projectileBuffer = state.projectiles;
+  run(state, 360, { fire: true });
+  assert.equal(state.projectiles, projectileBuffer, "per-tick projectile compaction must not allocate replacement arrays");
+  assert.ok(state.projectiles.length <= 64);
+});
+
+test("countermeasures preserve the projectile buffer and remove only hostile guided shots", () => {
+  const state = targetingState();
+  state.projectiles = [
+    { id: 100, position: { x: 200, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: -10 }, ttl: 5, hostile: true, guided: true },
+    { id: 101, position: { x: 200, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: -10 }, ttl: 5, hostile: false, guided: true },
+  ];
+  const projectileBuffer = state.projectiles;
+  run(state, 1, { countermeasure: true });
+  assert.equal(state.projectiles, projectileBuffer);
+  assert.deepEqual(state.projectiles.map(p => p.id), [101]);
+});
+
 test("discovery and extraction are proximity-gated; terminal states cannot keep simulating", () => {
   const state = createFlight();
   run(state, 1); assert.equal(state.stage, "relay");

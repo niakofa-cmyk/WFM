@@ -245,7 +245,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       setFailure("WebGL initialisation failed on this device. Try the LOW quality setting, enable hardware acceleration, or use a recent Chrome build.");
       setPhase("unsupported"); return;
     }
-    const dprCap = quality === "high" ? 2 : 1.25;
+    // On touch devices, lower internal resolution avoids spending GPU time on
+    // high-DPI subpixels while preserving the same scene and control layout.
+    const dprCap = quality === "high" ? 2 : 1;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, dprCap));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -417,6 +419,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const ownPilot = () => { const sn = expeditionRef.current?.snapshotRef.current; return sn?.pilots.find(p => p.slot === sn.ownSlot); };
     let state: FlightState = netMode ? (ownPilot()?.flight ?? createFlight(shipId, sector)) : createFlight(shipId);
     const others = new Map<number, { group: THREE.Group; shipId: ShipId; engines: THREE.Object3D }>();
+    const remoteProjectiles: FlightState["projectiles"] = [];
+    const seenPilots = new Set<number>();
+    const seenWing = new Set<string>();
     let projectiles = state.projectiles;
     let inputTimer: number | undefined;
     if (netMode) {
@@ -439,6 +444,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       renderer.setSize(w, h, false);
       renderer.domElement.style.width = "100%"; renderer.domElement.style.height = "100%";
       camera.aspect = w / h; camera.fov = w / h < 1 ? 82 : 68; camera.updateProjectionMatrix();
+      camera.userData.lastProjectionFov = camera.fov;
     };
     resize();
     const ro = new ResizeObserver(resize); ro.observe(mount);
@@ -483,12 +489,14 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         const snap = expeditionRef.current?.snapshotRef.current;
         const own = snap?.pilots.find(p => p.slot === snap.ownSlot);
         if (own) state = own.flight;
-        projectiles = [];
-        const seen = new Set<number>();
+        remoteProjectiles.length = 0;
+        seenPilots.clear();
         for (const p of snap?.pilots ?? []) {
-          for (const pr of p.flight.projectiles) projectiles.push(pr);
+          for (const pr of p.flight.projectiles) {
+            if (remoteProjectiles.length < 64) remoteProjectiles.push(pr);
+          }
           if (p.slot === snap!.ownSlot) continue;
-          seen.add(p.slot);
+          seenPilots.add(p.slot);
           let o = others.get(p.slot);
           if (!o || o.shipId !== p.shipId) {
             if (o) scene.remove(o.group);
@@ -504,7 +512,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           o.group.quaternion.slerp(tmpQ, blend);
           o.engines.visible = p.connected;
         }
-        for (const [slot, o] of others) if (!seen.has(slot)) { scene.remove(o.group); others.delete(slot); }
+        for (const [slot, o] of others) if (!seenPilots.has(slot)) { scene.remove(o.group); others.delete(slot); }
+        projectiles = remoteProjectiles;
       } else if (pausedRef.current || ended) { acc = 0; renderer.render(scene, camera); return; }
       const authoritativeOperation = ironEclipse
         ? expeditionRef.current?.snapshotRef.current?.operation ?? null
@@ -524,13 +533,16 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           group.visible = true;
           group.position.set(subsystem.position.x, subsystem.position.y, subsystem.position.z);
           const mat = subsystem.disabled ? subsystemDisabledMat : subsystemActiveMat;
-          group.children.forEach(child => { (child as THREE.Mesh).material = mat; });
+          if (group.userData.disabled !== subsystem.disabled) {
+            group.children.forEach(child => { (child as THREE.Mesh).material = mat; });
+            group.userData.disabled = subsystem.disabled;
+          }
           group.scale.setScalar(subsystem.id === op.target ? 1.45 : 1);
         }
         for (const [id, group] of operationSubsystems) {
           if (!op.subsystems.some(item => item.id === id)) group.visible = false;
         }
-        const seenWing = new Set<string>();
+        seenWing.clear();
         for (const unit of op.wing) {
           seenWing.add(unit.id);
           let wingUnit = operationWing.get(unit.id);
@@ -572,7 +584,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       tmpQ.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w); ship.quaternion.slerp(tmpQ, blend);
       const inp = inputRef.current;
       const thrust = 0.35 + inp.throttle * (inp.boost && state.energy > 2 ? 2.2 : 1);
-      engines.children.forEach(c => { if (c.name === "plume") c.scale.set(1, 1, thrust * (0.9 + Math.random() * 0.15)); });
+      let plumeIndex = 0;
+      engines.children.forEach(c => {
+        if (c.name !== "plume") return;
+        const pulse = 0.95 + Math.sin(state.elapsed * 23 + plumeIndex++ * 1.7) * 0.05;
+        c.scale.set(1, 1, thrust * pulse);
+      });
 
       const d = state.drone.position;
       drone.position.set(d.x, d.y, d.z);
@@ -613,7 +630,11 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       camera.lookAt(camLook);
       const sp = vectorLength(state.velocity);
       const targetFov = (camera.aspect < 1 ? 82 : 68) + (reducedMotion.current ? 0 : Math.min(14, sp * 0.08));
-      camera.fov += (targetFov - camera.fov) * 0.08; camera.updateProjectionMatrix();
+      camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-dt * 5));
+      if (Math.abs(camera.fov - camera.userData.lastProjectionFov) > 0.15) {
+        camera.updateProjectionMatrix();
+        camera.userData.lastProjectionFov = camera.fov;
+      }
       dust.position.set(Math.round(state.position.x / 160) * 160, Math.round(state.position.y / 160) * 160, Math.round(state.position.z / 160) * 160);
       stars.position.copy(camera.position); mars.rotation.y += reducedMotion.current ? 0 : 0.00004;
 

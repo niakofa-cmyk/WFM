@@ -35,10 +35,23 @@ copy House of the Dying Sun's protected material. Require deterministic
 browser/server parity and idempotent progression; local checks are not
 Production evidence.
 
+For flight-performance work, keep simulation and collision decisions
+deterministic and byte-identical in browser and server copies. Reduce hot-loop
+allocation and rendering cost before lowering network authority, simulation
+frequency, or gameplay detail; server ownership and the existing input/snapshot
+cadence are not performance knobs to weaken casually. Treat code-level
+optimizations as hypotheses until frame-interval data from actual Android play
+confirms the experience improved.
+
 **Why:** a successful build and healthy services do not prove mobile rendering,
 live authentication, multiplayer synchronization, mission completion, or
-progression behavior on the deployed revision.
+progression behavior on the deployed revision. Lower-allocation simulation can
+reduce garbage-collection pauses, but only representative device measurements
+can confirm whether GPU load, network timing, thermal throttling, or another
+runtime bottleneck remains.
 
 **How to apply:** keep the next test on the staging host and use authenticated
 accounts only. Do not turn on Wing rewards or promote any setting to Production
-as part of this mission test.
+as part of this mission test. Capture frame intervals and note whether stalls
+coincide with combat/projectile density or network reconnects; distinguish
+browser frame cadence from GPU timing and server/network latency.

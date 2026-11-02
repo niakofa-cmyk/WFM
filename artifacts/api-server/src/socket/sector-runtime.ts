@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
 import { SHIPS, type ShipId } from "../game/ships";
-import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightState } from "../game/flight-sector";
+import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
@@ -25,6 +25,7 @@ type Room = {
   phase: SectorSnapshot["phase"]; tick: number; droneHull: number; touched: number;
   command: SectorTacticalCommand | null; commandAt: number | null;
   operation: IronEclipseState | null;
+  flightSector: FlightSector;
 };
 type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
@@ -184,6 +185,9 @@ export function createSectorRuntime(options: Options) {
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
           command: null, commandAt: null,
           operation: mission.id === "iron-eclipse" ? createIronEclipseState(mission.sector) : null,
+          // Keep a per-room mutable wrapper so the hot simulation loop does
+          // not allocate a replacement sector object for every pilot/tick.
+          flightSector: { ...mission.sector },
         };
         rooms.set(code, room);
       }
@@ -349,9 +353,9 @@ export function createSectorRuntime(options: Options) {
         const pointDefenseDisabled = room.operation?.view.subsystems.some(
           item => item.id === "point-defense" && item.disabled,
         ) === true;
-        const flightSector = pointDefenseDisabled
-          ? { ...room.mission.sector, hostileFireDisabled: true }
-          : room.mission.sector;
+        room.flightSector.hostileFireDisabled =
+          room.mission.sector.hostileFireDisabled === true || pointDefenseDisabled;
+        const flightSector = room.flightSector;
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
           const input = now - pilot.lastInput < 350 ? pilot.input : neutral();

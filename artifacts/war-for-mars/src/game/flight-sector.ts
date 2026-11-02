@@ -70,9 +70,15 @@ export function flightForward(q: Rotation): Vector3 {
 }
 /** First normalized segment intersection, including start-inside; null means no hit. */
 export function sphereHit(a: Vector3, b: Vector3, center: Vector3, radius: number): number | null {
-  const d = sub(b, a), m = sub(a, center), c = dot(m, m) - radius * radius;
+  // Keep the hot collision path allocation-free: this runs for each live
+  // projectile/rock pair on every simulation tick, including server rooms.
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  const mx = a.x - center.x, my = a.y - center.y, mz = a.z - center.z;
+  const c = mx * mx + my * my + mz * mz - radius * radius;
   if (c <= 0) return 0;
-  const dd = dot(d, d), md = dot(m, d), discriminant = md * md - dd * c;
+  const dd = dx * dx + dy * dy + dz * dz;
+  const md = mx * dx + my * dy + mz * dz;
+  const discriminant = md * md - dd * c;
   if (dd < 1e-12 || discriminant < 0) return null;
   const t = (-md - Math.sqrt(discriminant)) / dd;
   return t >= 0 && t <= 1 ? t : null;
@@ -95,11 +101,22 @@ export function flightObjective(state: FlightState, sector: FlightSector = RUST_
 export function canLock(state: FlightState, sector: FlightSector = RUST_DISC_SECTOR): boolean {
   if (state.stage !== "drone" || state.drone.hull <= 0) return false;
   const toward = sub(state.drone.position, state.position);
-  return vectorLength(toward) < 350 && dot(flightForward(state.orientation), unit(toward)) > 0.94
-    && !collisionBodies(sector).some(rock => sphereHit(state.position, state.drone.position, rock.position, rock.radius) !== null);
+  if (vectorLength(toward) >= 350 || dot(flightForward(state.orientation), unit(toward)) <= 0.94) return false;
+  for (const rock of collisionBodies(sector)) {
+    if (sphereHit(state.position, state.drone.position, rock.position, rock.radius) !== null) return false;
+  }
+  return true;
 }
-function collisionBodies(sector: FlightSector): SectorRock[] {
-  return sector.planet ? [...sector.rocks, { id: "mars", ...sector.planet }] : sector.rocks;
+const collisionBodyCache = new WeakMap<FlightSector, readonly SectorRock[]>();
+function collisionBodies(sector: FlightSector): readonly SectorRock[] {
+  if (!sector.planet) return sector.rocks;
+  const cached = collisionBodyCache.get(sector);
+  if (cached) return cached;
+  // Sector collision geometry is immutable after construction; only mission
+  // flags such as hostileFireDisabled change during a flight.
+  const bodies = [...sector.rocks, { id: "mars", ...sector.planet }];
+  collisionBodyCache.set(sector, bodies);
+  return bodies;
 }
 /** Fixed-tick, mutable local trainer. Caller owns pause/accumulator; no catch-up on restore. */
 export function stepFlight(state: FlightState, input: FlightInput, seconds: number, sector: FlightSector = RUST_DISC_SECTOR): void {
@@ -130,7 +147,8 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   const previous = state.position;
   let next = add(previous, mul(state.velocity, dt));
   let nearest: { rock: SectorRock; t: number } | null = null;
-  for (const rock of collisionBodies(sector)) {
+  const bodies = collisionBodies(sector);
+  for (const rock of bodies) {
     const t = sphereHit(previous, next, rock.position, rock.radius + 2);
     if (t !== null && (!nearest || t < nearest.t)) nearest = { rock, t };
   }
@@ -169,12 +187,21 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   }
   if (state.stage === "drone" && !sector.hostileFireDisabled && !state.droneCooldown) { launch(true, true); state.droneCooldown = 5; }
   if (input.countermeasure && !state.flareCooldown) {
-    state.projectiles = state.projectiles.filter(p => !p.hostile || !p.guided);
+    let write = 0;
+    for (let read = 0; read < state.projectiles.length; read++) {
+      const projectile = state.projectiles[read]!;
+      if (!projectile.hostile || !projectile.guided) state.projectiles[write++] = projectile;
+    }
+    state.projectiles.length = write;
     state.flareCooldown = 8;
   }
-  state.projectiles = state.projectiles.filter(projectile => {
+  // Compact in place instead of allocating a new array on every fixed tick.
+  // This substantially reduces garbage collection during multi-pilot combat.
+  let liveProjectiles = 0;
+  for (let read = 0; read < state.projectiles.length; read++) {
+    const projectile = state.projectiles[read]!;
     projectile.ttl -= dt;
-    if (projectile.ttl <= 0) return false;
+    if (projectile.ttl <= 0) continue;
     const target = projectile.hostile ? state.position : state.drone.position;
     if (projectile.guided) {
       const desired = mul(unit(sub(target, projectile.position)), 85);
@@ -183,20 +210,21 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
     const end = add(projectile.position, mul(projectile.velocity, dt));
     const targetHit = sphereHit(projectile.position, end, target, projectile.hostile ? 3 : 7);
     let coverHit: number | null = null;
-    for (const rock of collisionBodies(sector)) {
+    for (const rock of bodies) {
       const t = sphereHit(projectile.position, end, rock.position, rock.radius);
       if (t !== null && (coverHit === null || t < coverHit)) coverHit = t;
     }
-    if (coverHit !== null && (targetHit === null || coverHit <= targetHit)) return false;
+    if (coverHit !== null && (targetHit === null || coverHit <= targetHit)) continue;
     if (targetHit !== null) {
       if (projectile.hostile) state.hull = Math.max(0, state.hull - 12);
       else if (state.stage === "drone") {
         state.drone.hull = Math.max(0, state.drone.hull - (projectile.guided ? 40 : 12)); state.hits++;
       }
-      return false;
+      continue;
     }
     projectile.position = end;
-    return true;
-  });
+    state.projectiles[liveProjectiles++] = projectile;
+  }
+  state.projectiles.length = liveProjectiles;
   if (state.hull <= 0) state.stage = "destroyed";
 }

@@ -141,7 +141,14 @@ Production-default feature gate remains in force.
    may affect strategic locations. Competitive matches remain self-contained.
 8. **Mobile presentation and performance:** prioritize silhouette and combat
    information; profile real Android devices before increasing actor, particle,
-   bandwidth or simulation budgets.
+   bandwidth or simulation budgets. The current performance pass removes
+   per-collision temporary vectors, per-tick projectile-array replacement, and
+   per-frame multiplayer render collections; it also reuses a room's flight
+   sector and avoids unnecessary camera projection updates. Mobile LOW quality
+   now caps render pixel ratio at 1.0. These changes reduce CPU allocation and
+   GPU fill pressure, but do not establish a measured device frame-rate result.
+   Record frame-interval evidence on representative Android hardware before
+   claiming the live multiplayer hitch is resolved or raising visual budgets.
 9. **Controlled release:** narrow feature branches, automated regression tests
    and evidence from the exact staging revision. Do not treat design documents,
    local tests or successful profile reads as Production certification.
