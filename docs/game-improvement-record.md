@@ -1,4 +1,28 @@
-# Cooperative sectors — 2026-11-01
+# WAR FOR MARS — Game improvement record
+
+## 2026-11-02 — Cooperative sector session identity guard
+
+Prevented one authenticated account from claiming multiple cooperative-sector
+seats through disconnected or concurrent sockets. The socket runtime now reserves
+the authenticated account while loading progression and rejects joins to another
+room while a pilot seat for that account remains. The existing same-room
+reconnect path is preserved. Reservations are released on disconnect, load
+failure, and shutdown; a late progress response from a disconnected socket
+cannot create a seat.
+
+This change uses the existing authenticated identity and in-memory room state.
+It adds no identity headers, tables, migrations, reward paths, or client-trusted
+claims. No Railway resources, database data, Production settings, or deployments
+were changed.
+
+Focused verification: sector runtime tests passed 10/10 and API typecheck passed.
+Full workspace typecheck and build passed; all 275 workspace tests passed
+(scripts 53, API 126, game 96). The game build retains its non-blocking
+Three.js chunk-size warning. This local code change has not been deployed to
+staging; staging evidence must be collected against the exact revision before
+promotion.
+
+## 2026-11-01 — Cooperative sectors
 
 Added the first server-authoritative cooperative expedition chain: Rust Disc
 relay recovery → Mars orbital approach → Pale Beacons. Kept local `/flight`
@@ -9,8 +33,6 @@ account-owned and idempotent; existing Wing payouts and original campaign
 clear tracking are unchanged. Mars is a physical flyable globe in an
 orbital-survey mission; landing is not implemented. Production defaults off
 and neither Production settings nor deployments were changed.
-# WAR FOR MARS — Game improvement record
-
 This is the dated project record for material game improvements and verification
 milestones. It complements source history and the detailed staging evidence;
 it does not replace either one. Keep secret values, account identifiers, and

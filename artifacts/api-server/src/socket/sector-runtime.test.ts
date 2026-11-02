@@ -6,7 +6,7 @@ import { sectorFlightEnabled } from "./sector-feature";
 import { NEUTRAL_FLIGHT_INPUT, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import { validSectorCompletion } from "../game/sector-completion";
-import type { SectorSnapshot } from "../game/sector-missions";
+import type { SectorProgress, SectorSnapshot } from "../game/sector-missions";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
@@ -97,6 +97,89 @@ test("mission unlocks and private progress come from the authenticated account; 
   assert.equal(new Set(d.latest().pilots.map(p => p.slot)).size, 2);
   assert.deepEqual(d.latest().progress.completed, []);
   assert.deepEqual(a.latest().progress.completed, ["rust-disc"]);
+  await runtime.close();
+});
+test("a disconnected pilot cannot join a second sector room but can reconnect to the held seat", async () => {
+  const runtime = createSectorRuntime({});
+  const original = socket();
+  const join = { type: "sector_join", version: 1, shipId: "glide" };
+  await runtime.handle(original.ws, "pilot-a", "rust-disc", "first-room", join, 0);
+  await runtime.handle(original.ws, "pilot-a", "rust-disc", "first-room", { type: "sector_ready", ready: true }, 1);
+  await runtime.handle(original.ws, "pilot-a", "rust-disc", "first-room", { type: "sector_launch" }, 2);
+  runtime.detach(original.ws, 100);
+  original.ws.close();
+
+  const secondRoom = socket();
+  await runtime.handle(secondRoom.ws, "pilot-a", "rust-disc", "second-room", join, 200);
+  assert.equal(secondRoom.packets.at(-1).reason, "sector_session_exists");
+  assert.equal(runtime.roomCount, 1);
+
+  const reconnect = socket();
+  await runtime.handle(reconnect.ws, "pilot-a", "rust-disc", "first-room", join, 300);
+  assert.equal(reconnect.latest().roomCode, "first-room");
+  assert.equal(reconnect.latest().pilots.length, 1);
+  await runtime.close();
+});
+test("concurrent sockets cannot load progress and claim rooms for the same account", async () => {
+  let finishLoad!: (progress: SectorProgress) => void;
+  const pendingProgress = new Promise<SectorProgress>(resolve => { finishLoad = resolve; });
+  let loadCount = 0;
+  const runtime = createSectorRuntime({
+    loadProgress: async () => { loadCount++; return pendingProgress; },
+  });
+  const first = socket(), second = socket();
+  const join = { type: "sector_join", version: 1, shipId: "glide" };
+  const firstJoin = runtime.handle(first.ws, "pilot-a", "rust-disc", "first-room", join, 0);
+  assert.equal(loadCount, 1);
+
+  await runtime.handle(second.ws, "pilot-a", "rust-disc", "second-room", join, 0);
+  assert.equal(second.packets.at(-1).reason, "sector_session_exists");
+  finishLoad({ completed: [], persistenceAvailable: true });
+  await firstJoin;
+
+  assert.equal(loadCount, 1);
+  assert.equal(runtime.roomCount, 1);
+  assert.equal(first.latest().pilots.length, 1);
+  await runtime.close();
+});
+test("disconnect and progress-load failure release account join reservations", async () => {
+  const progressLoads: ((progress: SectorProgress) => void)[] = [];
+  let failNextLoad = false;
+  const runtime = createSectorRuntime({
+    loadProgress: async () => {
+      if (failNextLoad) {
+        failNextLoad = false;
+        throw new Error("synthetic progress store failure");
+      }
+      return new Promise<SectorProgress>(resolve => progressLoads.push(resolve));
+    },
+  });
+  const join = { type: "sector_join", version: 1, shipId: "glide" };
+  const disconnected = socket();
+  const disconnectedJoin = runtime.handle(disconnected.ws, "pilot-a", "rust-disc", "stale-room", join, 0);
+  runtime.detach(disconnected.ws, 1);
+  disconnected.ws.close();
+
+  const retry = socket();
+  const retryJoin = runtime.handle(retry.ws, "pilot-a", "rust-disc", "retry-room", join, 2);
+  assert.equal(progressLoads.length, 2);
+  progressLoads[0]!({ completed: [], persistenceAvailable: true });
+  await disconnectedJoin;
+  assert.equal(runtime.roomCount, 0);
+  progressLoads[1]!({ completed: [], persistenceAvailable: true });
+  await retryJoin;
+  assert.equal(runtime.roomCount, 1);
+
+  failNextLoad = true;
+  const failed = socket();
+  await runtime.handle(failed.ws, "pilot-b", "rust-disc", "failed-room", join, 3);
+  assert.equal(failed.packets.at(-1).reason, "discovery_database_unavailable");
+  const afterFailure = socket();
+  const successfulRetry = runtime.handle(afterFailure.ws, "pilot-b", "rust-disc", "recovered-room", join, 4);
+  assert.equal(progressLoads.length, 3);
+  progressLoads[2]!({ completed: [], persistenceAvailable: true });
+  await successfulRetry;
+  assert.equal(afterFailure.latest().roomCode, "recovered-room");
   await runtime.close();
 });
 test("only complete server simulation with participation can settle; retries use the same frozen proof", async () => {
