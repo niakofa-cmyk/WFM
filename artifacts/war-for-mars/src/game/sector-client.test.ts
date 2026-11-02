@@ -44,6 +44,8 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     progress: { completed: [], persistenceAvailable: true }, settlement: { status: "not_started", reason: "" },
   };
   assert.ok(parseSectorSnapshot(snap));
+  assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true } }));
+  assert.equal(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: "yes" } }), null);
   assert.equal(parseSectorSnapshot({ ...snap, version: 2 }), null);
   assert.equal(parseSectorSnapshot({ ...snap, missionId: "nope" }), null);
 });
@@ -51,6 +53,8 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
 test("hold input is neutral with zero throttle and brake; sanitize clamps", () => {
   assert.deepEqual(holdInput(), { ...NEUTRAL_FLIGHT_INPUT, throttle: 0, brake: true });
   assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, throttle: 3, yaw: Number.NaN }).throttle, 1);
+  assert.equal("drift" in sanitizeInput(NEUTRAL_FLIGHT_INPUT), false);
+  assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, drift: true }).drift, true);
 });
 
 test("seq restarts per socket and terminal closes stop reconnect", () => {

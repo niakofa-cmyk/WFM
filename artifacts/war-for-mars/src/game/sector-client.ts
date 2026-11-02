@@ -60,6 +60,9 @@ export function parseSectorSnapshot(raw: unknown): SectorSnapshot | null {
   if (!Array.isArray(p.pilots) || p.pilots.length > SECTOR_MAX_PILOTS) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
+  if (p.capabilities !== undefined &&
+      (!p.capabilities || typeof p.capabilities !== "object" ||
+       typeof p.capabilities.vectorDrift !== "boolean")) return null;
   for (const pilot of p.pilots) {
     if (!pilot || typeof pilot.slot !== "number" || !(pilot.shipId in SHIPS) || !pilot.flight) return null;
   }
@@ -83,10 +86,12 @@ export function holdInput(): FlightInput { return { ...NEUTRAL_FLIGHT_INPUT, thr
 
 export function sanitizeInput(i: FlightInput): FlightInput {
   const c = (v: number, lo: number) => (Number.isFinite(v) ? Math.max(lo, Math.min(1, v)) : 0);
-  return {
+  const clean: FlightInput = {
     throttle: c(i.throttle, 0), pitch: c(i.pitch, -1), yaw: c(i.yaw, -1), roll: c(i.roll, -1),
     boost: !!i.boost, brake: !!i.brake, fire: !!i.fire, lock: !!i.lock, missile: !!i.missile, countermeasure: !!i.countermeasure,
   };
+  if (i.drift === true) clean.drift = true;
+  return clean;
 }
 
 export function slotLabel(slot: number): string { return `PILOT ${String(slot + 1).padStart(2, "0")}`; }

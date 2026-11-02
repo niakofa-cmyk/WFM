@@ -28,11 +28,13 @@ test("new sector feature fails closed in Production and rejects ambiguous declar
 });
 test("3D inputs exclude forged coordinates, results, identities, unknown buttons and non-finite axes", () => {
   assert.ok(parseSectorInput(NEUTRAL_FLIGHT_INPUT));
+  assert.ok(parseSectorInput({ ...NEUTRAL_FLIGHT_INPUT, drift: true }));
   for (const value of [
     {}, { ...NEUTRAL_FLIGHT_INPUT, position: { x: 1000 } }, { ...NEUTRAL_FLIGHT_INPUT, credits: 10000 },
     { ...NEUTRAL_FLIGHT_INPUT, throttle: 2 }, { ...NEUTRAL_FLIGHT_INPUT, yaw: NaN },
     { ...NEUTRAL_FLIGHT_INPUT, pitch: Infinity }, { ...NEUTRAL_FLIGHT_INPUT, fire: "true" },
     { ...NEUTRAL_FLIGHT_INPUT, userId: "other" },
+    { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
   ]) assert.equal(parseSectorInput(value), null);
 });
 test("server and browser 3D physics/catalog are byte-identical and use deterministic transcendental math", () => {
@@ -47,6 +49,7 @@ test("two pilots ready/launch into identical authoritative XYZ room state; host 
   const runtime = createSectorRuntime({});
   const a = socket(), b = socket(), late = socket();
   await runtime.handle(a.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "glide" }, 0);
+  assert.equal(a.latest().capabilities?.vectorDrift, true);
   await runtime.handle(b.ws, "synthetic-b", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "mandjet" }, 0);
   await runtime.handle(b.ws, "synthetic-b", "rust-disc", "flight-room", { type: "sector_launch" }, 0);
   assert.equal(b.packets.at(-1).reason, "sector_host_required");

@@ -44,6 +44,21 @@ test("momentum persists without thrust and braking stops it much faster", () => 
   assert.ok(vectorLength(brake.velocity) < vectorLength(coast.velocity) / 5);
 });
 
+test("vector drift preserves the travel vector through a turn and brake overrides drift", () => {
+  const drift = createFlight(), normal = createFlight(), emergencyBrake = createFlight();
+  for (const state of [drift, normal, emergencyBrake]) run(state, 60, { throttle: 1 });
+  const sideFacing = { x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2 };
+  for (const state of [drift, normal, emergencyBrake]) state.orientation = { ...sideFacing };
+  run(drift, 60, { drift: true });
+  run(normal, 60);
+  run(emergencyBrake, 60, { drift: true, brake: true });
+  assert.ok(Math.abs(flightForward(drift.orientation).x) > 0.99);
+  assert.ok(drift.velocity.z < 0, "the original forward travel vector should remain");
+  assert.ok(Math.abs(drift.velocity.x) < 1e-6, "turning must not rotate existing velocity");
+  assert.ok(vectorLength(drift.velocity) > vectorLength(normal.velocity) * 1.2);
+  assert.ok(vectorLength(emergencyBrake.velocity) < vectorLength(drift.velocity) / 5);
+});
+
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
   const heavy = createFlight("mandjet"), fast = createFlight("shakuna");
   run(heavy, 40, { throttle: 1, boost: true }); run(fast, 40, { throttle: 1, boost: true });

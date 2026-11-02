@@ -8,6 +8,7 @@ export type FlightInput = {
   throttle: number; pitch: number; yaw: number; roll: number;
   boost: boolean; brake: boolean; fire: boolean; lock: boolean;
   missile: boolean; countermeasure: boolean;
+  drift?: boolean;
 };
 export const NEUTRAL_FLIGHT_INPUT: FlightInput = {
   throttle: 0, pitch: 0, yaw: 0, roll: 0,
@@ -121,7 +122,8 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   state.energy = clamp(state.energy + (boosting ? -28 : 13) * dt, 0, 100);
   const acceleration = def.accel * (boosting ? 2.6 : 1.4) * clamp(input.throttle, 0, 1);
   state.velocity = add(state.velocity, mul(flightForward(state.orientation), acceleration * dt));
-  state.velocity = mul(state.velocity, detExp(-(input.brake ? 5 : 0.32) * dt));
+  const drag = input.brake ? 5 : input.drift ? 0.04 : 0.32;
+  state.velocity = mul(state.velocity, detExp(-drag * dt));
   const speed = vectorLength(state.velocity), max = def.maxSpeed * (boosting ? 4 : 2.5);
   if (speed > max) state.velocity = mul(state.velocity, max / speed);
   const previous = state.position;

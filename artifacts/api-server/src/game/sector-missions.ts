@@ -53,6 +53,7 @@ export type SectorSnapshot = {
   phase: "lobby" | "active" | "complete" | "interrupted"; tick: number;
   ownSlot: number; hostSlot: number; pilots: SectorPilotSnapshot[];
   progress: SectorProgress; settlement: SectorSettlement;
+  capabilities?: { vectorDrift: boolean };
 };
 export type SectorClientPacket =
   | { type: "sector_join"; version: 1; shipId: ShipId }

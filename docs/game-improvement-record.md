@@ -1,5 +1,28 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-02 — Combat evolution reference and vector drift
+
+Read both supplied combat-evolution documents in full and retained them as
+workspace references in `attached_assets/`. Added
+`docs/combat-evolution-roadmap.md` and a linked memory note to preserve their
+19-part analysis, staged roadmap, and implementation boundaries.
+
+Implemented the first contained combat slice in the existing 3D Rust Disc
+sector: a hold-to-drift control preserves the ship's current velocity while the
+pilot changes orientation. Braking overrides drift. The authoritative sector
+server accepts and simulates the input, advertises support in its snapshot, and
+keeps old clients valid; new clients expose the control only after capability
+advertisement. Competitive Wing simulation, rewards, ship statistics, auth,
+schema and persistence are unchanged.
+
+Verification: `pnpm run typecheck` passed; `pnpm test` passed all 276 tests
+(API 126, WFM 97, scripts 53); `pnpm run build` passed; `git diff --check`
+passed. The build reports the existing Three.js chunk-size advisory (the engine
+chunk is over 500 kB), but completes successfully. This first slice does not
+mean the broader tactical-command, capital-ship, campaign, procedural-mission
+or persistent-war roadmap is complete. No staging or Production deployment
+was made.
+
 ## 2026-11-02 — Cooperative sector session identity guard
 
 Prevented one authenticated account from claiming multiple cooperative-sector

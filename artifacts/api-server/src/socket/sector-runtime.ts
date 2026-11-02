@@ -26,16 +26,22 @@ type Options = {
 };
 const numericAxes = ["throttle", "pitch", "yaw", "roll"] as const;
 const buttons = ["boost", "brake", "fire", "lock", "missile", "countermeasure"] as const;
+const inputKeys = new Set<string>([...numericAxes, ...buttons, "drift"]);
 export function parseSectorInput(value: unknown): FlightInput | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
-  if (Object.keys(input).length !== numericAxes.length + buttons.length) return null;
+  const keys = Object.keys(input);
+  if (keys.length < numericAxes.length + buttons.length ||
+      keys.length > numericAxes.length + buttons.length + 1 ||
+      keys.some(key => !inputKeys.has(key)) ||
+      [...numericAxes, ...buttons].some(key => !Object.hasOwn(input, key))) return null;
   for (const key of numericAxes) {
     const n = input[key];
     if (typeof n !== "number" || !Number.isFinite(n) || n > 1 || n < (key === "throttle" ? 0 : -1)) return null;
   }
   if (buttons.some(key => typeof input[key] !== "boolean")) return null;
-  return { ...input } as FlightInput;
+  if (Object.hasOwn(input, "drift") && typeof input.drift !== "boolean") return null;
+  return { ...input, drift: input.drift === true } as FlightInput;
 }
 const neutral = (): FlightInput => ({ ...NEUTRAL_FLIGHT_INPUT, brake: true });
 function send(socket: WebSocket | null, value: unknown) {
@@ -56,6 +62,7 @@ export function createSectorRuntime(options: Options) {
       const snapshot: SectorSnapshot = {
         type: "sector_snapshot", version: 1, roomCode: room.code, missionId: room.mission.id,
         phase: room.phase, tick: room.tick, ownSlot: own.slot, hostSlot: room.hostSlot,
+        capabilities: { vectorDrift: true },
         pilots: room.pilots.map(pilot => ({
           slot: pilot.slot, shipId: pilot.shipId, connected: pilot.socket?.readyState === WebSocket.OPEN,
           ready: pilot.ready, flight: pilot.flight,

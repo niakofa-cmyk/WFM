@@ -35,7 +35,8 @@ type Quality = "low" | "high";
 type Hud = {
   speed: number; throttle: number; hull: number; energy: number; missiles: number; lock: number;
   objective: string; distance: number; stage: FlightState["stage"]; elapsed: number; droneHull: number;
-  flare: number; incoming: number; camera: "chase" | "cockpit"; crew: CrewRow[];
+  flare: number; incoming: number; camera: "chase" | "cockpit";
+  vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
 };
 
 const STEP = 1 / 60;
@@ -409,6 +410,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
     const keyInput = () => {
       const k = keysRef.current, inp = inputRef.current;
+      const vectorDriftAvailable = !netMode ||
+        expeditionRef.current?.snapshotRef.current?.capabilities?.vectorDrift === true;
+      inp.drift = vectorDriftAvailable && k.has("KeyG");
       if (k.size === 0) return;
       const axis = (a: string, b: string) => (k.has(a) ? 1 : 0) - (k.has(b) ? 1 : 0);
       const p = axis("KeyS", "KeyW") || axis("ArrowDown", "ArrowUp");
@@ -539,6 +543,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           lock: state.lock, objective: obj.label, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           elapsed: state.elapsed, droneHull: state.drone.hull, flare: state.flareCooldown,
           incoming: projectiles.filter(p => p.hostile).length, camera: cameraModeRef.current,
+          vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
+          drifting: inp.drift === true,
           crew: snapNow ? snapNow.pilots.map(p => ({ slot: p.slot, shipId: p.shipId, connected: p.connected, hull: p.flight.hull, own: p.slot === snapNow.ownSlot, host: p.slot === snapNow.hostSlot, stage: p.flight.stage })) : [],
         });
       }
@@ -556,12 +562,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       if (e.code === "Escape" || e.code === "KeyP") { if (!e.repeat) setPausedBoth(!pausedRef.current); return; }
       if (pausedRef.current) return;
       const inp = inputRef.current;
-      if (["Space", "ShiftLeft", "ShiftRight", "KeyX", "KeyL", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+      if (["Space", "ShiftLeft", "ShiftRight", "KeyX", "KeyL", "KeyG", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
       keysRef.current.add(e.code);
       if (e.code === "Space") inp.fire = true;
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") inp.boost = true;
       if (e.code === "KeyX") inp.brake = true;
       if (e.code === "KeyL") inp.lock = true;
+      if (e.code === "KeyG" && (!netMode || expeditionRef.current?.snapshotRef.current?.capabilities?.vectorDrift === true)) inp.drift = true;
       if (e.code === "KeyM") pulseRef.current.missile = true;
       if (e.code === "KeyC") pulseRef.current.countermeasure = true;
       if (e.code === "KeyV" && !e.repeat) cameraModeRef.current = cameraModeRef.current === "chase" ? "cockpit" : "chase";
@@ -573,6 +580,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") inp.boost = false;
       if (e.code === "KeyX") inp.brake = false;
       if (e.code === "KeyL") inp.lock = false;
+      if (e.code === "KeyG") inp.drift = false;
       if (["KeyW", "KeyS", "ArrowUp", "ArrowDown"].includes(e.code)) inp.pitch = 0;
       if (["KeyA", "KeyD", "ArrowLeft", "ArrowRight"].includes(e.code)) inp.yaw = 0;
       if (["KeyQ", "KeyE"].includes(e.code)) inp.roll = 0;
@@ -638,7 +646,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               {expedition!.connection === "reconnecting" ? "LINK INTERRUPTED · RECONNECTING · HOLDING POSITION" : "LINK LOST · THE SERVER CONTINUES WITHOUT YOU"}
             </div>
           ) : null}
-          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} />
+          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
           {paused && !portraitBlock ? (
             <Overlay translucent={net} title={net ? "CONTROLS PAUSED" : "HOLDING POSITION"} sub={net
               ? "Your hull is transmitting neutral throttle and brake. The expedition server keeps running and your crew keeps flying; you are still visible and can take damage."
@@ -648,7 +656,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               <OverlayButton onClick={toggleCam} testId="button-camera">TOGGLE CHASE / COCKPIT</OverlayButton>
               {net ? null : <OverlayButton onClick={toBriefing} testId="button-briefing">BACK TO BRIEFING</OverlayButton>}
               <OverlayButton onClick={exit} testId="button-exit">{net ? "LEAVE EXPEDITION" : "EXIT TO COMMAND"}</OverlayButton>
-              <p className="mt-2 font-hud text-[10px] tracking-[0.2em] text-muted">KEYS: W/S PITCH · A/D YAW · Q/E ROLL · R/F THROTTLE · SHIFT BOOST · X BRAKE · SPACE GUNS · L LOCK · M MISSILE · C FLARE · V CAMERA · P PAUSE</p>
+              <p className="mt-2 font-hud text-[10px] tracking-[0.2em] text-muted">KEYS: W/S PITCH · A/D YAW · Q/E ROLL · R/F THROTTLE · SHIFT BOOST · X BRAKE · G DRIFT · SPACE GUNS · L LOCK · M MISSILE · C FLARE · V CAMERA · P PAUSE</p>
             </Overlay>
           ) : null}
           {portraitBlock ? (
@@ -794,6 +802,7 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
       <div className="absolute right-3 top-14 text-right text-[11px] tracking-[0.2em]">
         <p data-testid="text-speed"><span className="text-2xl tracking-normal">{Math.round(hud.speed)}</span> M/S</p>
         <p className="text-muted">THR {Math.round(hud.throttle * 100)}% · MSL {hud.missiles} · FLR {hud.flare > 0 ? Math.ceil(hud.flare) + "S" : "RDY"}</p>
+        {hud.drifting ? <p className="text-solar" data-testid="status-vector-drift">VECTOR DRIFT ACTIVE</p> : null}
         <p className="text-muted">{hud.camera === "chase" ? "CHASE CAM" : "COCKPIT"}</p>
       </div>
       <div className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2">
@@ -816,9 +825,9 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
 }
 
 // ---------- Touch controls ----------
-function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, throttle }: {
+function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, throttle, vectorDriftAvailable }: {
   inputRef: MutableRefObject<FlightInput>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
-  disabled: boolean; onPause: () => void; onCamera: () => void; throttle: number;
+  disabled: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
   const knob = useRef<HTMLDivElement>(null);
   const thrKnob = useRef<HTMLDivElement>(null);
@@ -846,7 +855,7 @@ function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, thrott
   };
   const capture = (e: ReactPointerEvent<HTMLElement>) => { if (disabled) return false; e.currentTarget.setPointerCapture(e.pointerId); return true; };
 
-  const hold = (key: "fire" | "boost" | "brake" | "lock", label: string, cls = "") => (
+  const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", label: string, cls = "") => (
     <HoldButton label={label} cls={cls} testId={`button-${key}`} disabled={disabled}
       on={() => { inputRef.current[key] = true; }} off={() => { inputRef.current[key] = false; }} />
   );
@@ -890,8 +899,9 @@ function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, thrott
         {hold("lock", "LOCK")}
         <PulseButton label="MSL" testId="button-missile" disabled={disabled} fire={() => { pulseRef.current.missile = true; }} />
         <PulseButton label="FLARE" testId="button-countermeasure" disabled={disabled} fire={() => { pulseRef.current.countermeasure = true; }} />
+        {vectorDriftAvailable ? hold("drift", "DRIFT", "border-solar/50") : null}
         {hold("boost", "BOOST")}
-        {hold("fire", "FIRE", "col-span-2 border-solar/70 text-solar")}
+        {hold("fire", "FIRE", "border-solar/70 text-solar")}
       </div>
     </div>
   );
@@ -907,6 +917,8 @@ function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: str
   const end = () => { off(); setActive(false); };
   return (
     <button data-testid={testId} disabled={disabled}
+      aria-pressed={active}
+      title={keyLabel(label)}
       className={`min-h-14 min-w-14 border border-bone/30 px-2 text-[10px] tracking-widest ${active ? "bg-bone/30" : "bg-void/45"} ${cls}`}
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); on(); setActive(true); }}
       onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}
@@ -914,6 +926,10 @@ function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: str
       {label}
     </button>
   );
+}
+
+function keyLabel(label: string): string {
+  return label === "DRIFT" ? "Hold to preserve your travel direction while turning." : label;
 }
 
 function PulseButton({ label, fire, testId, disabled }: { label: string; fire: () => void; testId: string; disabled: boolean }) {
