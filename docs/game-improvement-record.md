@@ -1,3 +1,14 @@
+# Cooperative sectors — 2026-11-01
+
+Added the first server-authoritative cooperative expedition chain: Rust Disc
+relay recovery → Mars orbital approach → Pale Beacons. Kept local `/flight`
+offline and unauthenticated. Reused the existing authenticated WebSocket
+service, deterministic 3D flight kernel, schema, discoveries table, player
+locks, and progression-event ledger. Discovery rewards are zero-credit,
+account-owned and idempotent; existing Wing payouts and original campaign
+clear tracking are unchanged. Mars is a physical flyable globe in an
+orbital-survey mission; landing is not implemented. Production defaults off
+and neither Production settings nor deployments were changed.
 # WAR FOR MARS — Game improvement record
 
 This is the dated project record for material game improvements and verification

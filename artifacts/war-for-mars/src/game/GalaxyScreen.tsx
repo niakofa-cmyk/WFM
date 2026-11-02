@@ -4,6 +4,9 @@ import type { WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
 import { CommandBackdrop, FactionMark } from "./CommandArt";
+import { Link } from "wouter";
+import { SECTOR_MISSIONS, sectorMission } from "./sector-missions";
+import { expeditionFeatureEnabled } from "./sector-client";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
@@ -16,6 +19,10 @@ const statusLabel: Record<string, string> = {
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const errorText = (error: unknown) =>
   `${error instanceof Error ? error.message : "No response."} Outcome unknown: the server may or may not have applied this action. Retry the retained request to find out.`;
+const showSectorExpedition = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
 
 export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
@@ -366,11 +373,22 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                 </p>
               ) : (
                 <ul className="mt-3 space-y-2">
-                  {world.discoveries.map((discovery) => (
-                    <li key={discovery} className="border-l border-solar/50 pl-3 text-sm text-bone/80">
-                      {locations.find((location) => location.id === discovery)?.name ?? discovery}
+                  {world.discoveries.map((discovery) => {
+                    const expeditionId = discovery.startsWith("flight:") ? discovery.slice("flight:".length) : "";
+                    const expedition = sectorMission(expeditionId);
+                    return (
+                      <li key={discovery} className="border-l border-solar/50 pl-3 text-sm text-bone/80">
+                        {expedition ? `${expedition.title} · VERIFIED FLIGHT` : locations.find((location) => location.id === discovery)?.name ?? discovery}
+                      </li>
+                    );
+                  })}
+                  {showSectorExpedition && world.discoveries.some(discovery => discovery.startsWith("flight:")) ? (
+                    <li className="pt-3">
+                      <Link href="/expedition" data-testid="link-discovery-expedition" className="wfm-cmd wfm-cmd-secondary min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest">
+                        CONTINUE {SECTOR_MISSIONS[world.discoveries.some(d => d === "flight:rust-disc") ? 1 : 2]!.title.toUpperCase()}
+                      </Link>
                     </li>
-                  ))}
+                  ) : null}
                 </ul>
               )}
             </section>

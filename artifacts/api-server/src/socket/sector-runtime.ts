@@ -48,6 +48,7 @@ export function createSectorRuntime(options: Options) {
   const seats = new Map<WebSocket, { room: Room; pilot: Pilot }>();
   const loading = new Set<WebSocket>();
   let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
+  const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
   const physics = options.physics ?? stepFlight;
   function publish(room: Room) {
     for (const own of room.pilots) {
@@ -103,6 +104,11 @@ export function createSectorRuntime(options: Options) {
       if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
       let room = rooms.get(code);
       if (room && room.mission.id !== mission.id) { error("sector_mission_mismatch"); return; }
+      const previousSeat = [...seats.entries()].find(([, seat]) => seat.pilot.userId === userId);
+      if (previousSeat && previousSeat[1].room !== room) {
+        error("sector_session_exists");
+        return;
+      }
       if (!room) {
         if (rooms.size >= 32) { error("sector_capacity"); return; }
         room = {
@@ -110,6 +116,10 @@ export function createSectorRuntime(options: Options) {
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
         };
         rooms.set(code, room);
+      }
+      if (previousSeat && previousSeat[0] !== socket) {
+        detach(previousSeat[0], now);
+        previousSeat[0].close(4001, "Session moved");
       }
       let pilot = room.pilots.find(p => p.userId === userId);
       if (pilot?.disconnectedAt !== null && pilot?.disconnectedAt !== undefined &&
@@ -119,13 +129,6 @@ export function createSectorRuntime(options: Options) {
       if (!pilot && room.phase !== "lobby") { error("sector_match_in_progress"); return; }
       if (room.phase === "interrupted") { error("server_restart"); return; }
       if (!pilot && room.pilots.length >= 8) { error("sector_room_full"); return; }
-      // A single authenticated identity cannot occupy multiple rooms/connections.
-      for (const [otherSocket, seat] of seats) {
-        if (seat.pilot.userId === userId && otherSocket !== socket) {
-          detach(otherSocket, now);
-          otherSocket.close(4001, "Session moved");
-        }
-      }
       if (!pilot) {
         const shipId = packet.shipId as ShipId;
         const slot = Array.from({ length: 8 }, (_, index) => index).find(index => !room!.pilots.some(p => p.slot === index))!;
@@ -163,6 +166,16 @@ export function createSectorRuntime(options: Options) {
         error("invalid_sector_input"); return;
       }
       if (room.phase !== "active") return;
+      let budget = inputBudget.get(socket);
+      if (!budget || now - budget.windowAt >= 1000) {
+        budget = { windowAt: now, count: 0 };
+        inputBudget.set(socket, budget);
+      }
+      if (budget.count >= 30 || (pilot.seq >= 0 && (packet.seq as number) - pilot.seq > 120)) {
+        error("sector_input_rate_limited");
+        return;
+      }
+      budget.count++;
       pilot.seq = packet.seq as number; pilot.input = input; pilot.lastInput = now; pilot.acceptedInputs++; return;
     }
     if (packet.type === "sector_retry" && Object.keys(packet).length === 1) {
@@ -173,6 +186,7 @@ export function createSectorRuntime(options: Options) {
   }
   function detach(socket: WebSocket, now = Date.now()) {
     loading.delete(socket);
+    inputBudget.delete(socket);
     const seat = seats.get(socket); seats.delete(socket);
     if (!seat || seat.pilot.socket !== socket) return;
     const { room, pilot } = seat;

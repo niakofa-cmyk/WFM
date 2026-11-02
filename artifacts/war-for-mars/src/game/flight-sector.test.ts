@@ -169,5 +169,8 @@ test("local flight sector has no progression, storage, auth or network capabilit
   const source = await readFile(new URL("./flight-sector.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
   const imports = source.match(/^import .* from ["'](.+)["'];/gm);
-  assert.deepEqual(imports, ['import { SHIPS, type ShipId } from "./ships";']);
+  assert.deepEqual(imports, [
+    'import { SHIPS, type ShipId } from "./ships";',
+    'import { detSin, detCos, detExp } from "./detmath";',
+  ]);
 });

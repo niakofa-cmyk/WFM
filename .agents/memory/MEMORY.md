@@ -29,3 +29,4 @@
 - [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
+- [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons use server flight and account-scoped zero-credit discoveries, separate from Wing rewards and original campaign clears.
