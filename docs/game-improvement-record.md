@@ -1,5 +1,20 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-02 — Staging rollout for cooperative squad orders
+
+Fast-forwarded the Railway `staging` branch from `50f9ab1` to
+`341af7f8d468ee4247cee36033c5f15d98951df4`. This rollout contains the full
+tested feature-branch delta (30 commits, 91 files), including the cooperative
+3D sector foundation, Android staging launcher, visual updates, and host-issued
+squad orders.
+
+Railway reports the app, API, and socket deployments successful on that exact
+SHA. All four staging services, including PostgreSQL, are online with no pending
+work or reported failures. The read-only staging gateway health endpoint returned
+HTTP 200. No database migration or query, Production change, sign-in, match, or
+physical-phone test was performed. A two-pilot order test and cooperative
+discovery acceptance check remain pending.
+
 ## 2026-11-02 — Server-validated cooperative squad orders
 
 Added a capability-gated, in-flight command palette for cooperative sector
@@ -17,7 +32,8 @@ API runtime tests passed (including host, phase, exact payload, target,
 broadcast and rate-limit cases); focused client snapshot tests passed. Full
 workspace typecheck passed; all 277 tests passed (API 127, game 97, scripts 53);
 the full build and `git diff --check` passed. The existing Three.js chunk-size
-warning remains. No staging or Production deployment was made.
+warning remains. When this implementation entry was written, no staging or
+Production deployment had yet been made; see the rollout record above.
 
 ## 2026-11-02 — Combat evolution reference and vector drift
 
