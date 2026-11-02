@@ -5,8 +5,14 @@ import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type 
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
+  type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
+import {
+  absorbWingDamage, advanceIronEclipse, completeIronEclipse, createIronEclipseState,
+  damageIronEclipseTarget, ironEclipseSnapshot, ironEclipseTarget, markIronEclipseCapitalEngaged,
+  setIronEclipseOrder, setIronEclipseTarget, type IronEclipseState,
+} from "../game/iron-eclipse";
 
 type Pilot = {
   userId: string; slot: number; shipId: ShipId; socket: WebSocket | null; ready: boolean;
@@ -18,6 +24,7 @@ type Room = {
   code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
   phase: SectorSnapshot["phase"]; tick: number; droneHull: number; touched: number;
   command: SectorTacticalCommand | null; commandAt: number | null;
+  operation: IronEclipseState | null;
 };
 type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
@@ -59,6 +66,21 @@ export function parseSectorCommand(value: unknown): SectorCommandRequest | null 
   }
   return null;
 }
+export function parseIronEclipseCommand(value: unknown): IronEclipseCommandRequest | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const packet = value as Record<string, unknown>;
+  const exactKeys = (...expected: string[]) =>
+    Object.keys(packet).length === expected.length && expected.every(key => Object.hasOwn(packet, key));
+  if (packet.type === "iron_eclipse_order" && exactKeys("type", "order") &&
+      ["attack", "defend", "escort", "regroup"].includes(packet.order as string)) {
+    return packet as IronEclipseCommandRequest;
+  }
+  if (packet.type === "iron_eclipse_target" && exactKeys("type", "target") &&
+      ["point-defense", "shield-array", "reactor"].includes(packet.target as string)) {
+    return packet as IronEclipseCommandRequest;
+  }
+  return null;
+}
 const neutral = (): FlightInput => ({ ...NEUTRAL_FLIGHT_INPUT, brake: true });
 function send(socket: WebSocket | null, value: unknown) {
   if (socket?.readyState !== WebSocket.OPEN) return;
@@ -78,8 +100,13 @@ export function createSectorRuntime(options: Options) {
       const snapshot: SectorSnapshot = {
         type: "sector_snapshot", version: 1, roomCode: room.code, missionId: room.mission.id,
         phase: room.phase, tick: room.tick, ownSlot: own.slot, hostSlot: room.hostSlot,
-        capabilities: { vectorDrift: true, tacticalCommands: true },
+        capabilities: {
+          vectorDrift: true,
+          tacticalCommands: room.operation === null,
+          ironEclipse: room.operation !== null,
+        },
         command: room.command,
+        ...(room.operation ? { operation: ironEclipseSnapshot(room.operation) } : {}),
         pilots: room.pilots.map(pilot => ({
           slot: pilot.slot, shipId: pilot.shipId, connected: pilot.socket?.readyState === WebSocket.OPEN,
           ready: pilot.ready, flight: pilot.flight,
@@ -156,6 +183,7 @@ export function createSectorRuntime(options: Options) {
           code, matchId: randomUUID(), mission, pilots: [], hostSlot: 0, phase: "lobby",
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
           command: null, commandAt: null,
+          operation: mission.id === "iron-eclipse" ? createIronEclipseState(mission.sector) : null,
         };
         rooms.set(code, room);
       }
@@ -222,6 +250,7 @@ export function createSectorRuntime(options: Options) {
     }
     if (packet.type === "sector_command") {
       if (room.phase !== "active") { error("sector_command_active_match_required"); return; }
+      if (room.operation) { error("iron_eclipse_command_required"); return; }
       if (pilot.slot !== room.hostSlot) { error("sector_command_host_required"); return; }
       const request = parseSectorCommand(packet);
       if (!request) { error("invalid_sector_command"); return; }
@@ -250,6 +279,28 @@ export function createSectorRuntime(options: Options) {
         };
       }
       room.command = command;
+      room.commandAt = now;
+      publish(room);
+      return;
+    }
+    if (packet.type === "iron_eclipse_order" || packet.type === "iron_eclipse_target") {
+      if (!room.operation) { error("iron_eclipse_mission_required"); return; }
+      if (room.phase !== "active") { error("iron_eclipse_active_match_required"); return; }
+      if (pilot.slot !== room.hostSlot) { error("iron_eclipse_host_required"); return; }
+      const request = parseIronEclipseCommand(packet);
+      if (!request) { error("invalid_iron_eclipse_command"); return; }
+      if (room.commandAt !== null && now - room.commandAt < 500) {
+        error("iron_eclipse_command_rate_limited");
+        return;
+      }
+      if (request.type === "iron_eclipse_target") {
+        if (!setIronEclipseTarget(room.operation, request.target as IronEclipseSubsystemId)) {
+          error("iron_eclipse_target_unavailable");
+          return;
+        }
+      } else {
+        setIronEclipseOrder(room.operation, request.order as IronEclipseOrder);
+      }
       room.commandAt = now;
       publish(room);
       return;
@@ -289,14 +340,49 @@ export function createSectorRuntime(options: Options) {
         if (room.phase !== "active") continue;
         room.tick++;
         if (room.tick > 900 / SECTOR_STEP) { room.phase = "interrupted"; continue; }
+        if (room.operation) {
+          if (room.pilots.some(p => p.flight.discoveries > 0)) markIronEclipseCapitalEngaged(room.operation);
+          const host = room.pilots.find(p => p.slot === room.hostSlot);
+          advanceIronEclipse(room.operation, SECTOR_STEP, host?.flight.position ?? room.mission.sector.relay, room.mission.sector.relay);
+          room.droneHull = ironEclipseTarget(room.operation)?.hull ?? 0;
+        }
+        const pointDefenseDisabled = room.operation?.view.subsystems.some(
+          item => item.id === "point-defense" && item.disabled,
+        ) === true;
+        const flightSector = pointDefenseDisabled
+          ? { ...room.mission.sector, hostileFireDisabled: true }
+          : room.mission.sector;
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
           const input = now - pilot.lastInput < 350 ? pilot.input : neutral();
           if (now - pilot.lastInput < 350 &&
               (input.throttle > 0.05 || Math.abs(input.pitch) + Math.abs(input.yaw) + Math.abs(input.roll) > 0.05 || input.fire)) pilot.activeTicks++;
+          const operationTarget = room.operation ? ironEclipseTarget(room.operation) : undefined;
+          if (room.operation) {
+            const targetPosition = operationTarget?.position ?? room.operation.view.capitalPosition;
+            pilot.flight.drone.position = { ...targetPosition };
+            if (pointDefenseDisabled) pilot.flight.projectiles = pilot.flight.projectiles.filter(projectile => !projectile.hostile);
+          }
           pilot.flight.drone.hull = room.droneHull;
-          physics(pilot.flight, input, SECTOR_STEP, room.mission.sector);
-          room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
+          const hullBefore = pilot.flight.hull;
+          physics(pilot.flight, input, SECTOR_STEP, flightSector);
+          if (room.operation) {
+            const playerDamage = Math.max(0, room.droneHull - pilot.flight.drone.hull);
+            if (playerDamage > 0) damageIronEclipseTarget(room.operation, playerDamage);
+            room.droneHull = ironEclipseTarget(room.operation)?.hull ?? 0;
+            if (room.operation.view.phase === "extract" && pilot.flight.stage === "drone") pilot.flight.stage = "extract";
+            else if (room.operation.view.phase !== "extract" && pilot.flight.stage === "extract") pilot.flight.stage = "drone";
+            const receivedDamage = Math.max(0, hullBefore - pilot.flight.hull);
+            const absorbed = absorbWingDamage(room.operation, pilot.flight.position, room.mission.sector.relay, receivedDamage);
+            if (absorbed > 0) {
+              pilot.flight.hull = Math.min(100, pilot.flight.hull + absorbed);
+              if (pilot.flight.stage === "destroyed" && pilot.flight.hull > 0) {
+                pilot.flight.stage = room.operation.view.phase === "extract" ? "extract" : pilot.flight.discoveries > 0 ? "drone" : "relay";
+              }
+            }
+          } else {
+            room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
+          }
           if (pilot.flight.stage === "complete" && !pilot.proof && pilot.settlement.status === "not_started") {
             const proof: CompletedSectorMission = Object.freeze({
               matchId: room.matchId, userId: pilot.userId, missionId: room.mission.id, rulesVersion: 1,
@@ -309,9 +395,21 @@ export function createSectorRuntime(options: Options) {
           }
         }
         // Synchronize the shared objective for all pilots at the same authoritative tick.
-        for (const pilot of room.pilots) pilot.flight.drone.hull = room.droneHull;
+        for (const pilot of room.pilots) {
+          pilot.flight.drone.hull = room.droneHull;
+          if (room.operation) {
+            const targetPosition = ironEclipseTarget(room.operation)?.position ?? room.operation.view.capitalPosition;
+            pilot.flight.drone.position = { ...targetPosition };
+          }
+        }
         if (room.pilots.every(p => ["complete", "destroyed"].includes(p.flight.stage) ||
-            (p.disconnectedAt !== null && now - p.disconnectedAt > 5000))) room.phase = "complete";
+            (p.disconnectedAt !== null && now - p.disconnectedAt > 5000))) {
+          if (room.operation) {
+            const succeeded = room.pilots.some(p => p.flight.stage === "complete");
+            completeIronEclipse(room.operation, succeeded);
+            room.phase = succeeded ? "complete" : "failed";
+          } else room.phase = "complete";
+        }
       }
     }
     for (const [code, room] of rooms) {

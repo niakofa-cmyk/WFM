@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { createSectorRuntime, parseSectorCommand, parseSectorInput } from "./sector-runtime";
+import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
 import { sectorFlightEnabled } from "./sector-feature";
 import { NEUTRAL_FLIGHT_INPUT, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
@@ -47,6 +47,17 @@ test("tactical command packets accept only the four exact, bounded order shapes"
     { type: "sector_command", order: "escort" }, { type: "sector_command", order: "defend", targetSlot: -1 },
     { type: "sector_command", order: "escort", targetSlot: 8 }, { type: "sector_command", order: "regroup", userId: "forged" },
   ]) assert.equal(parseSectorCommand(packet), null);
+});
+test("Iron Eclipse command packets accept only host order and enumerated subsystem target shapes", () => {
+  assert.deepEqual(parseIronEclipseCommand({ type: "iron_eclipse_order", order: "attack" }), { type: "iron_eclipse_order", order: "attack" });
+  assert.deepEqual(parseIronEclipseCommand({ type: "iron_eclipse_order", order: "regroup" }), { type: "iron_eclipse_order", order: "regroup" });
+  assert.deepEqual(parseIronEclipseCommand({ type: "iron_eclipse_target", target: "point-defense" }), { type: "iron_eclipse_target", target: "point-defense" });
+  assert.deepEqual(parseIronEclipseCommand({ type: "iron_eclipse_target", target: "shield-array" }), { type: "iron_eclipse_target", target: "shield-array" });
+  for (const packet of [
+    {}, { type: "iron_eclipse_order", order: "pause" }, { type: "iron_eclipse_order", order: "attack", userId: "spoof" },
+    { type: "iron_eclipse_target", target: "reactor", position: { x: 1000, y: 0, z: 0 } },
+    { type: "iron_eclipse_target", target: "not-a-subsystem" },
+  ]) assert.equal(parseIronEclipseCommand(packet), null);
 });
 test("server and browser 3D physics/catalog are byte-identical and use deterministic transcendental math", () => {
   for (const file of ["flight-sector.ts", "sector-missions.ts"]) {
@@ -123,6 +134,34 @@ test("two pilots ready/launch into identical authoritative XYZ room state; host 
   const expired = socket();
   await runtime.handle(expired.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "glide" }, 7000);
   assert.equal(expired.packets.at(-1).reason, "sector_reconnect_expired");
+  await runtime.close();
+});
+test("Iron Eclipse snapshots share server state and only the host can issue an available target/order", async () => {
+  const runtime = createSectorRuntime({ loadProgress: async () => ({ completed: [], persistenceAvailable: true }) });
+  const host = socket(), wing = socket();
+  const room = "iron-eclipse-room";
+  for (const [client, user, shipId] of [[host, "synthetic-host", "glide"], [wing, "synthetic-wing", "sentinel"]] as const) {
+    await runtime.handle(client.ws, user, "iron-eclipse", room, { type: "sector_join", version: 1, shipId }, 0);
+  }
+  assert.equal(host.latest().capabilities?.ironEclipse, true);
+  assert.equal(host.latest().operation?.wing.length, 3);
+  for (const [client, user] of [[host, "synthetic-host"], [wing, "synthetic-wing"]] as const) {
+    await runtime.handle(client.ws, user, "iron-eclipse", room, { type: "sector_ready", ready: true }, 1);
+  }
+  await runtime.handle(host.ws, "synthetic-host", "iron-eclipse", room, { type: "sector_launch" }, 2);
+  await runtime.handle(wing.ws, "synthetic-wing", "iron-eclipse", room, { type: "iron_eclipse_order", order: "attack" }, 3);
+  assert.equal(wing.packets.at(-1).reason, "iron_eclipse_host_required");
+  await runtime.handle(host.ws, "synthetic-host", "iron-eclipse", room, { type: "iron_eclipse_target", target: "reactor" }, 4);
+  assert.equal(host.packets.at(-1).reason, "iron_eclipse_target_unavailable");
+  await runtime.handle(host.ws, "synthetic-host", "iron-eclipse", room, { type: "iron_eclipse_order", order: "attack" }, 600);
+  assert.equal(host.latest().operation?.order, "attack");
+  assert.deepEqual(host.latest().operation, wing.latest().operation);
+  await runtime.handle(host.ws, "synthetic-host", "iron-eclipse", room, { type: "sector_command", order: "attack" }, 1200);
+  assert.equal(host.packets.at(-1).reason, "iron_eclipse_command_required");
+  runtime.advance(1200);
+  runtime.advance(1300);
+  assert.deepEqual(host.latest().operation, wing.latest().operation);
+  assert.doesNotMatch(JSON.stringify(host.latest()), /synthetic-host|synthetic-wing/);
   await runtime.close();
 });
 test("mission unlocks and private progress come from the authenticated account; lobby slot reuse stays unique", async () => {

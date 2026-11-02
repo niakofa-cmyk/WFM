@@ -19,6 +19,7 @@ export type FlightSector = {
   id: string; version: number; radius: number; relay: Vector3; extraction: Vector3;
   rocks: SectorRock[]; drone?: Vector3; droneHull?: number;
   planet?: { position: Vector3; radius: number };
+  hostileFireDisabled?: boolean;
 };
 export const RUST_DISC_SECTOR: FlightSector = {
   id: "rust-disc-flight-v1", version: 1, radius: 460,
@@ -166,7 +167,7 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   if (input.missile && state.lock >= 1 && !state.missileCooldown && state.missiles > 0) {
     launch(false, true); state.missiles--; state.missileCooldown = 2; state.lock = 0;
   }
-  if (state.stage === "drone" && !state.droneCooldown) { launch(true, true); state.droneCooldown = 5; }
+  if (state.stage === "drone" && !sector.hostileFireDisabled && !state.droneCooldown) { launch(true, true); state.droneCooldown = 5; }
   if (input.countermeasure && !state.flareCooldown) {
     state.projectiles = state.projectiles.filter(p => !p.hostile || !p.guided);
     state.flareCooldown = 8;

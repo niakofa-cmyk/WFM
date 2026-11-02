@@ -8,21 +8,23 @@ The owner's full combat-evolution references are retained in
 and
 `attached_assets/Pasted-Worked-for-1m-33s-WAR-FOR-MARS-HOUSE-OF-THE-DYING-SUN-A_1793630625490.txt`.
 See `docs/combat-evolution-roadmap.md` for verified starting state and staged
-acceptance gates.
+acceptance gates. The first integrated combat vertical slice is Operation Iron
+Eclipse: vector-drift 3D flight, a server-owned AI wing, host tactical orders,
+functional capital systems, extraction objectives, and zero-credit discovery
+persistence through the existing cooperative-sector system.
 
 **Why:** the user asked to preserve and implement the full vision. The source
 itself advises narrow, testable packages and explicitly says not to expand
 campaign, persistent war or procedural content before the core combat slice
 works reliably.
 
-**How to apply:** momentum-based 3D flight and host-issued human coordination
-orders (Attack, Defend, Escort, Regroup) are now the first two slices. These
-orders do not control AI, transfer a human ship, or change combat/reward math.
-Design any autonomous units as a new server-owned simulation before adding AI
-orders. Continue with eligible cooperative transfer, functional capital
-subsystems, objective-driven missions, validated replay variants and only then
-strategic world persistence. Keep competitive Wing and its reward contract
-separate unless a deliberate migration is designed and tested. Never copy House
-of the Dying Sun's protected material. Require deterministic browser/server
-parity, idempotent progression and mobile profiling; local checks are not
-Production evidence.
+**How to apply:** keep Iron Eclipse state, AI movement and damage, subsystem
+effects, command permissions, and mission resolution on the authenticated
+server. Reuse the existing account-scoped zero-credit discovery event; do not
+create a parallel reward ledger or player/session schema. Keep competitive Wing
+and its reward contract separate. Next work should validate balance, mobile
+readability/performance, multiplayer interruption recovery, and staging behavior
+before expanding systems or enabling this feature in Production. Pilot transfer
+is still out of scope. Never copy House of the Dying Sun's protected material.
+Require deterministic browser/server parity and idempotent progression; local
+checks are not Production evidence.

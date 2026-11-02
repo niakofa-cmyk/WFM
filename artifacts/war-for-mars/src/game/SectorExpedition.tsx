@@ -10,7 +10,7 @@ import { RustDiscFlight, type ExpeditionTransport } from "./RustDiscFlight";
 import type { FlightInput } from "./flight-sector";
 import {
   SECTOR_MISSIONS, sectorMission,
-  type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
+  type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
@@ -202,7 +202,7 @@ function ExpeditionClient() {
       if (intentionalRef.current) return;
       if (isTerminalClose(event.code)) { fail(describeTerminal(event.reason || String(event.code))); return; }
       const phase = snapshotRef.current?.phase;
-      if (phase === "complete" || phase === "interrupted") return;
+      if (phase === "complete" || phase === "interrupted" || phase === "failed") return;
       scheduleOrFail();
     });
   }, [fail, handleSnapshot, scheduleReconnect, send, seq]);
@@ -243,9 +243,12 @@ function ExpeditionClient() {
   const transport = useMemo<ExpeditionTransport>(() => ({
     snapshotRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
-    sendCommand: command => {
-      if (snapshotRef.current?.phase !== "active" ||
-          snapshotRef.current.capabilities?.tacticalCommands !== true) return false;
+    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => {
+      const current = snapshotRef.current;
+      if (current?.phase !== "active") return false;
+      if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
+        if (current.missionId !== "iron-eclipse" || !current.operation || current.ownSlot !== current.hostSlot) return false;
+      } else if (current.capabilities?.tacticalCommands !== true) return false;
       setNotice("");
       return send(command);
     },
@@ -326,7 +329,7 @@ function Select(props: {
     <div className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
       <section>
         <h1 className="font-hud text-5xl leading-[0.9] sm:text-6xl">THE ROUTE<br />TO MARS</h1>
-        <p className="mt-2 max-w-lg text-sm text-bone/80">Three sectors, flown together. Each recorded clear opens the next for your account. No friendly fire, no PvP, one shared sentinel.</p>
+        <p className="mt-2 max-w-lg text-sm text-bone/80">Follow the three-sector route to Mars or fly the independent Iron Eclipse operation. Clears record to your pilot account; no PvP, shared objectives, and server-run results.</p>
         <p className="mt-2 font-hud text-[11px] tracking-[0.2em] text-muted" data-testid="text-progress">
           {props.progress
             ? `ACCOUNT PROGRESS · ${props.progress.completed.length}/${SECTOR_MISSIONS.length} RECORDED${props.progress.persistenceAvailable ? "" : " · RECORDS UNAVAILABLE"}`
@@ -343,7 +346,7 @@ function Select(props: {
                 <button type="button" disabled={st === "locked"} onClick={() => props.setMissionId(m.id)} aria-pressed={on} data-testid={`button-mission-${m.id}`}
                   className={`w-full border p-4 text-left transition-transform active:scale-[0.99] disabled:opacity-45 ${on ? "border-solar bg-solar/10" : "border-bone/15 bg-void/60"}`}>
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="font-hud text-xs tracking-[0.25em] text-muted">SECTOR {String(missionNumber(m.id)).padStart(2, "0")}</span>
+                   <span className="font-hud text-xs tracking-[0.25em] text-muted">{m.id === "iron-eclipse" ? "OPERATION" : "SECTOR"} {String(missionNumber(m.id)).padStart(2, "0")}</span>
                     <span className={`font-hud text-[10px] tracking-[0.2em] ${st === "complete" ? "text-solar" : st === "locked" ? "text-[#ff7a5c]" : "text-spectral"}`}>{LOCK_LABEL[st]}</span>
                   </span>
                   <span className="mt-1 block font-hud text-2xl leading-none">{m.title.toUpperCase()}</span>
@@ -421,9 +424,20 @@ function Lobby({ snap, connection, onReady, onLaunch, onLeave }: {
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]" data-testid="screen-expedition-lobby">
       <section>
-        <p className="font-hud text-xs tracking-[0.3em] text-muted">SECTOR {String(missionNumber(mission.id)).padStart(2, "0")} · LOBBY</p>
+        <p className="font-hud text-xs tracking-[0.3em] text-muted">{mission.id === "iron-eclipse" ? "OPERATION" : "SECTOR"} {String(missionNumber(mission.id)).padStart(2, "0")} · LOBBY</p>
         <h1 className="mt-1 font-hud text-4xl leading-none">{mission.title.toUpperCase()}</h1>
         <p className="mt-2 text-sm text-bone/80">{mission.description}</p>
+        {mission.id === "iron-eclipse" ? (
+          <div className="mt-4 border-l-2 border-solar/70 bg-solar/[0.06] px-3 py-2" data-testid="brief-iron-eclipse">
+            <p className="font-hud text-[10px] tracking-[0.24em] text-solar">OPERATION BRIEF · CAPITAL SYSTEMS</p>
+            <ol className="mt-2 space-y-1 text-xs leading-relaxed text-bone/75">
+              <li><strong className="font-hud text-solar">ENGAGE</strong> · Build momentum, hold drift through turns, lock and disable point defense.</li>
+              <li><strong className="font-hud text-solar">COORDINATE</strong> · Host orders: attack, defend, escort, regroup. Flight never pauses.</li>
+              <li><strong className="font-hud text-solar">BREAK THE CAPITAL</strong> · Reactor targeting unlocks when point defense is down; the shield array is optional.</li>
+              <li><strong className="font-hud text-solar">EXTRACT</strong> · Reach the beacon for a server-validated, zero-credit discovery record.</li>
+            </ol>
+          </div>
+        ) : null}
         <button type="button" onClick={copy} data-testid="button-copy-code" className="mt-5 block w-full border border-dashed border-solar/60 bg-solar/5 px-4 py-3 text-left">
           <span className="block font-hud text-[10px] tracking-[0.3em] text-muted">INVITATION CODE · TAP TO COPY</span>
           <span className="block font-hud text-4xl tracking-[0.15em] text-solar" data-testid="text-room-code">{snap.roomCode}</span>
@@ -478,18 +492,26 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
   const won = snap.phase === "complete";
   const [label, line] = SETTLEMENT_COPY[snap.settlement.status];
   const next = SECTOR_MISSIONS.find(m => m.prerequisite === mission.id);
+  const operationRows: [string, ReactNode][] = snap.operation ? [
+    ["PRIMARY OBJECTIVE", snap.operation.objectives.primary.toUpperCase()],
+    ["SHIELD ARRAY", snap.operation.objectives.shieldArray.toUpperCase()],
+    ["WING SURVIVAL", snap.operation.objectives.wingSurvival.toUpperCase()],
+  ] : [];
   const rows: [string, ReactNode][] = [
     ["MISSION", mission.title.toUpperCase()],
     ["WING", `${snap.pilots.length} PILOT${snap.pilots.length === 1 ? "" : "S"}`],
     ["YOUR HULL", own ? `${Math.round(own.flight.hull)}% · ${SHIPS[own.shipId].name.toUpperCase()}` : "-"],
     ["DISCOVERIES", String(own?.flight.discoveries ?? 0)],
     ["CREDITS", "0 CR"],
-    ["NEXT SECTOR", next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
+    ["NEXT SECTOR", mission.id === "iron-eclipse" ? "STANDALONE OPERATION"
+      : next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
+    ...operationRows,
   ];
+  const resultTitle = snap.phase === "failed" ? "OPERATION FAILED" : won ? "SECTOR CLEARED" : "INTERRUPTED";
   return (
     <div className="mt-8 max-w-2xl" data-testid="screen-expedition-debrief">
       <p className="font-hud text-xs tracking-[0.3em] text-muted">ROOM {snap.roomCode} · SERVER DEBRIEF</p>
-      <h1 className={`font-hud text-6xl leading-none ${won ? "text-solar" : "text-[#ff7a5c]"}`}>{won ? "SECTOR CLEARED" : "INTERRUPTED"}</h1>
+      <h1 className={`font-hud text-5xl leading-none sm:text-6xl ${won ? "text-solar" : "text-[#ff7a5c]"}`}>{resultTitle}</h1>
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 border-y border-bone/15 py-3 font-hud text-sm">
         {rows.map(([k, v]) => <div key={k} className="contents"><dt className="tracking-[0.2em] text-muted">{k}</dt><dd className="text-right">{v}</dd></div>)}
       </dl>

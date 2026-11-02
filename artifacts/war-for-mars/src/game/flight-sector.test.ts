@@ -173,6 +173,20 @@ test("invalid inputs and excessive frame deltas cannot poison or fast-forward st
   near(state.elapsed, elapsed);
 });
 
+test("capital point-defense shutdown suppresses server-controlled hostile fire", () => {
+  const active = createFlight();
+  active.stage = "drone";
+  active.droneCooldown = 0;
+  stepFlight(active, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...RUST_DISC_SECTOR, hostileFireDisabled: false });
+  assert.ok(active.projectiles.some(projectile => projectile.hostile));
+
+  const disabled = createFlight();
+  disabled.stage = "drone";
+  disabled.droneCooldown = 0;
+  stepFlight(disabled, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...RUST_DISC_SECTOR, hostileFireDisabled: true });
+  assert.equal(disabled.projectiles.some(projectile => projectile.hostile), false);
+});
+
 test("USSF hulls are blue and Accord hulls are warm, with no roster reassignment", () => {
   assert.equal(FACTION_PALETTE.ussf.accent, "#78bfff");
   assert.equal(FACTION_PALETTE.accord.accent, "#e0a15a");

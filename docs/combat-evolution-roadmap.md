@@ -32,10 +32,13 @@ requirements, not later polish.
 - Sector progression reuses authenticated player records and idempotent
   progression events. It is distinct from competitive Wing credits.
 - The existing mission chain is Rust Disc → Mars Approach → Pale Beacons.
-- A server-validated host order palette now coordinates connected human pilots.
-  It is not autonomous AI squad control.
-- Player transfer, capital-ship subsystem combat, branching persistent campaign
-  and procedural operation generation remain unimplemented.
+- A server-validated host order palette coordinates connected human pilots in
+  the original sector route.
+- Operation Iron Eclipse adds a separate server-simulated three-ship AI wing,
+  capital subsystem combat, and extraction objectives without changing the
+  original route or competitive Wing.
+- Player transfer, a broad capital-ship subsystem suite, branching persistent
+  campaign, and procedural operation generation remain unimplemented.
 
 ## First implemented slice — vector drift
 
@@ -69,24 +72,67 @@ or transfer control of a player's ship. Those effects require a separate
 server-owned unit simulation and fairness review. Competitive Wing and reward
 contracts remain untouched.
 
+## Third implemented slice — Operation Iron Eclipse
+
+Iron Eclipse is an independent, repeatable cooperative operation in the existing
+3D Mars flight environment. It pairs one player-controlled interceptor with
+three server-owned AI wing fighters and one capital ship with three functional
+subsystems: point defense, shield array, and reactor. The point-defense network
+fires hostile guided weapons until disabled; the shield array reduces reactor
+damage and is an optional objective; destroying the reactor transitions the
+mission into extraction. The primary objective is complete only when the pilot
+returns to the extraction zone. The debrief reports success, failure, and
+whether each optional objective was complete or missed.
+
+The host can issue exactly four non-pausing orders to the AI wing: Attack,
+Defend, Escort, and Regroup. The server checks authenticated room-seat ownership,
+host authority, active phase, bounded packet shape, target availability, and
+command rate. The client renders the server snapshots as a capital silhouette,
+subsystem markers and health, AI ship models and health, objectives, target, and
+orders. Client-side host gating is presentation only; authorization remains on
+the socket server.
+
+Server simulation owns AI movement and attacks, target/subsystem health,
+point-defense shutdown, shield mitigation, extraction state, objective results,
+and mission outcome. Existing bounded 3D inputs and shared browser/server flight
+physics remain the player flight and weapon authority. Commands do not pause
+flight. Reactor targeting stays unavailable until point defense is disabled.
+
+On successful extraction, Iron Eclipse uses the existing authenticated,
+idempotent sector-discovery settlement. It records an account-scoped discovery
+and a zero-credit ledger event; it adds no reward credits, tables, migrations,
+or alternate identity/session system. It does not settle the competitive Wing
+reward ledger and does not alter that mode's rules.
+
+Automated coverage exercises subsystem gating and damage effects, all four wing
+orders, server-owned snapshot agreement and host-only command enforcement,
+fail-closed target packets, hostile-fire suppression after point-defense
+shutdown, objective success/failure, parser bounds, and zero-credit persistence
+for the standalone mission. This verifies local implementation contracts only:
+the phone experience, network interruptions, staging behavior, balance, and
+Production release still require their own verification. The existing
+Production-default feature gate remains in force.
+
 ## Staged implementation and acceptance gates
 
 1. **Flight foundation:** vector drift, accessible control assistance, boost,
    targeting and combat feedback. Validate bounded speed/energy, collision,
    deterministic browser/server replay and representative mobile performance.
 2. **Tactical squad command:** human-pilot coordination v1 is implemented.
-   Next, consider autonomous friendly AI only after defining server-owned units,
-   targeting behavior, damage effects and abuse/fairness limits. Multiplayer
-   never pauses; rejected commands explain why.
+   Iron Eclipse adds a separate server-owned AI wing and host orders; expand
+   behavior only with bounded server simulation and clear command authority.
+   Multiplayer never pauses; rejected commands explain why.
 3. **Pilot transfer:** later, in eligible cooperative modes only; never take
    over another human's ship without explicit consent. Competitive use requires
    a separate fairness decision.
-4. **Capital-ship encounters:** implement health-bearing shields, weapons,
-   engines and point defense whose destruction changes actual behavior before
-   adding hangars, communications or more elaborate effects.
-5. **Objective-driven missions:** typed definitions for primary/optional goals,
-   dependencies, success/failure, difficulty modifiers and validated result
-   persistence.
+4. **Capital-ship encounters:** Iron Eclipse establishes point defense, a
+   damage-mitigating shield array, and a reactor whose destruction changes the
+   encounter into extraction. Expand to additional systems only after validating
+   these effects and mobile performance.
+5. **Objective-driven missions:** Iron Eclipse establishes one server-validated
+   primary objective, two optional outcomes, explicit failure, and reuse of
+   existing result persistence. Add authored mission variants before procedural
+   generation.
 6. **Replayable operations:** authored variants first, then constrained,
    server-selected procedural challenges. Reject impossible or incompatible
    combinations before launch.

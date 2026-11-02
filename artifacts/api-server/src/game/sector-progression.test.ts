@@ -8,7 +8,7 @@ import type { CompletedSectorMission } from "./sector-completion";
 
 after(async () => { await pool.end(); });
 test("synthetic sector discoveries persist per account, pay no currency, unlock in order and are atomic/idempotent", async () => {
-  const a = `test_sector_${randomUUID()}`, b = `test_sector_other_${randomUUID()}`;
+  const a = `test_sector_${randomUUID()}`, b = `test_sector_other_${randomUUID()}`, c = `test_iron_eclipse_${randomUUID()}`;
   const result = (userId = a): CompletedSectorMission => ({
     matchId: randomUUID(), userId, missionId: "rust-disc", rulesVersion: 1,
     status: "completed", elapsed: 40, activeTicks: 1000, acceptedInputs: 100,
@@ -42,8 +42,17 @@ test("synthetic sector discoveries persist per account, pay no currency, unlock 
     assert.equal(events.length, 3);
     assert.ok(events.every(event => event.amount === event.balanceAfter - event.balanceBefore));
     assert.equal((await loadSectorProgress(a)).persistenceAvailable, true);
+    const iron = await settleSectorDiscovery({ ...result(c), missionId: "iron-eclipse" });
+    assert.equal(iron.replayed, false, "Iron Eclipse is a standalone operation, not a campaign prerequisite");
+    assert.deepEqual((await loadSectorProgress(c)).completed, ["iron-eclipse"]);
+    const [ironProfile] = await db.select().from(playerProgressTable).where(eq(playerProgressTable.userId, c));
+    assert.equal(ironProfile!.credits, 90);
+    const ironEvents = await db.select().from(progressionEventsTable).where(eq(progressionEventsTable.userId, c));
+    assert.equal(ironEvents.length, 1);
+    assert.equal(ironEvents[0]!.amount, 0);
+    assert.equal(ironEvents[0]!.balanceAfter, ironEvents[0]!.balanceBefore);
   } finally {
-    for (const userId of [a, b]) for (const table of [worldDiscoveriesTable, progressionEventsTable, playerWorldStateTable, playerProgressTable]) {
+    for (const userId of [a, b, c]) for (const table of [worldDiscoveriesTable, progressionEventsTable, playerWorldStateTable, playerProgressTable]) {
       await db.delete(table).where(eq(table.userId, userId));
     }
   }

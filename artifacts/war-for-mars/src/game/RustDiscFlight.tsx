@@ -9,7 +9,7 @@ import {
   createFlight, stepFlight, flightObjective, flightForward, vectorLength,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
 } from "./flight-sector";
-import type { SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
+import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 
 /**
@@ -24,7 +24,7 @@ import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from ".
 export type ExpeditionTransport = {
   snapshotRef: MutableRefObject<SectorSnapshot | null>;
   sendInput: (input: FlightInput) => void;
-  sendCommand: (command: SectorCommandRequest) => boolean;
+  sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => boolean;
   notice: string;
   mission: SectorMission;
   connection: "connected" | "reconnecting" | "lost";
@@ -40,6 +40,7 @@ type Hud = {
   flare: number; incoming: number; camera: "chase" | "cockpit";
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
   tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
+  operation: IronEclipseSnapshot | null;
 };
 
 const STEP = 1 / 60;
@@ -147,6 +148,7 @@ function webglAvailable(): boolean {
 export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?: () => void; expedition?: ExpeditionTransport; expeditionHref?: string }) {
   const [, setLocation] = useLocation();
   const net = !!expedition;
+  const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
   const expeditionRef = useRef(expedition);
   expeditionRef.current = expedition;
   const [phase, setPhase] = useState<Phase>(net ? "flight" : "briefing");
@@ -263,6 +265,50 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     scene.add(new THREE.HemisphereLight(0xe8c6a8, 0x12141c, 0.55));
     const sun = new THREE.DirectionalLight(0xffe2c0, 2.4); sun.position.set(-300, 200, 200); scene.add(sun);
     const rim = new THREE.DirectionalLight(0x78a8d8, 0.6); rim.position.set(200, -80, -300); scene.add(rim);
+
+    // Operation Iron Eclipse: authority remains in the snapshot; these meshes
+    // are only a 3D reading of the server's current positions and subsystem state.
+    const capital = new THREE.Group();
+    const capitalHullMat = new THREE.MeshStandardMaterial({ color: 0x51463f, metalness: 0.78, roughness: 0.58, flatShading: true });
+    const capitalTrimMat = new THREE.MeshStandardMaterial({ color: 0xe0a15a, metalness: 0.52, roughness: 0.34, emissive: 0x9b4f25, emissiveIntensity: 0.48 });
+    const capitalDarkMat = new THREE.MeshStandardMaterial({ color: 0x232a31, metalness: 0.82, roughness: 0.44 });
+    [capitalHullMat, capitalTrimMat, capitalDarkMat].forEach(track);
+    const capitalParts: [THREE.BufferGeometry, THREE.Material, [number, number, number], [number, number, number]?][] = [
+      [new THREE.BoxGeometry(34, 13, 92), capitalHullMat, [0, 0, 0]],
+      [new THREE.BoxGeometry(57, 3.5, 25), capitalHullMat, [0, -1, 20]],
+      [new THREE.BoxGeometry(48, 5, 23), capitalDarkMat, [0, 7, -5]],
+      [new THREE.BoxGeometry(22, 9, 28), capitalHullMat, [0, 3, -29]],
+      [new THREE.BoxGeometry(5, 8, 72), capitalTrimMat, [0, 8, 3]],
+      [new THREE.BoxGeometry(48, 2, 4), capitalTrimMat, [0, 0, 15]],
+      [new THREE.BoxGeometry(2, 3, 18), capitalTrimMat, [-17, 2, -17]],
+      [new THREE.BoxGeometry(2, 3, 18), capitalTrimMat, [17, 2, -17]],
+      [new THREE.CylinderGeometry(3.2, 4.6, 20, 8), capitalDarkMat, [-10, 0, 52], [Math.PI / 2, 0, 0]],
+      [new THREE.CylinderGeometry(3.2, 4.6, 20, 8), capitalDarkMat, [10, 0, 52], [Math.PI / 2, 0, 0]],
+    ];
+    for (const [geo, mat, pos, rot] of capitalParts) {
+      track(geo);
+      const mesh = new THREE.Mesh(geo, mat); mesh.position.set(...pos);
+      if (rot) mesh.rotation.set(...rot);
+      capital.add(mesh);
+    }
+    capital.visible = false;
+    scene.add(capital);
+    const operationSubsystems = new Map<string, THREE.Group>();
+    const operationWing = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const subsystemGeo = new THREE.OctahedronGeometry(4, 0); track(subsystemGeo);
+    const subsystemActiveMat = new THREE.MeshStandardMaterial({ color: 0xff7a5c, emissive: 0xb63420, emissiveIntensity: 0.55, metalness: 0.3, roughness: 0.45 });
+    const subsystemDisabledMat = new THREE.MeshStandardMaterial({ color: 0x69736f, emissive: 0x29332f, emissiveIntensity: 0.15, metalness: 0.3, roughness: 0.8 });
+    [subsystemActiveMat, subsystemDisabledMat].forEach(track);
+    const subsystemRingGeo = new THREE.TorusGeometry(7, 0.35, 6, 28); track(subsystemRingGeo);
+    const wingOperationVisible = !!ironEclipse;
+    if (wingOperationVisible) {
+      for (const id of ["point-defense", "shield-array", "reactor"] as const) {
+        const group = new THREE.Group();
+        const marker = new THREE.Mesh(subsystemGeo, subsystemActiveMat); group.add(marker);
+        const ring = new THREE.Mesh(subsystemRingGeo, subsystemActiveMat); ring.rotation.x = Math.PI / 2; group.add(ring);
+        operationSubsystems.set(id, group); group.visible = false; scene.add(group);
+      }
+    }
 
     // Mars + thin haze
     const marsTex = marsTexture(); track(marsTex);
@@ -460,6 +506,54 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         }
         for (const [slot, o] of others) if (!seen.has(slot)) { scene.remove(o.group); others.delete(slot); }
       } else if (pausedRef.current || ended) { acc = 0; renderer.render(scene, camera); return; }
+      const authoritativeOperation = ironEclipse
+        ? expeditionRef.current?.snapshotRef.current?.operation ?? null
+        : null;
+      if (authoritativeOperation) {
+        const op = authoritativeOperation;
+        capital.visible = true;
+        capital.position.set(op.capitalPosition.x, op.capitalPosition.y, op.capitalPosition.z);
+        for (const subsystem of op.subsystems) {
+          let group = operationSubsystems.get(subsystem.id);
+          if (!group) {
+            group = new THREE.Group();
+            const marker = new THREE.Mesh(subsystemGeo, subsystemActiveMat); group.add(marker);
+            const ring = new THREE.Mesh(subsystemRingGeo, subsystemActiveMat); ring.rotation.x = Math.PI / 2; group.add(ring);
+            operationSubsystems.set(subsystem.id, group); scene.add(group);
+          }
+          group.visible = true;
+          group.position.set(subsystem.position.x, subsystem.position.y, subsystem.position.z);
+          const mat = subsystem.disabled ? subsystemDisabledMat : subsystemActiveMat;
+          group.children.forEach(child => { (child as THREE.Mesh).material = mat; });
+          group.scale.setScalar(subsystem.id === op.target ? 1.45 : 1);
+        }
+        for (const [id, group] of operationSubsystems) {
+          if (!op.subsystems.some(item => item.id === id)) group.visible = false;
+        }
+        const seenWing = new Set<string>();
+        for (const unit of op.wing) {
+          seenWing.add(unit.id);
+          let wingUnit = operationWing.get(unit.id);
+          if (!wingUnit || wingUnit.shipId !== unit.shipId) {
+            if (wingUnit) scene.remove(wingUnit.group);
+            const group = buildHull(unit.shipId, track);
+            group.scale.setScalar(2.2);
+            scene.add(group);
+            wingUnit = { group, shipId: unit.shipId };
+            operationWing.set(unit.id, wingUnit);
+          }
+          wingUnit.group.visible = true;
+          wingUnit.group.position.set(unit.position.x, unit.position.y, unit.position.z);
+          wingUnit.group.rotation.y = 0;
+          const enginesGroup = wingUnit.group.getObjectByName("engines");
+          if (enginesGroup) enginesGroup.visible = unit.connected && unit.hull > 0;
+        }
+        for (const [id, unit] of operationWing) if (!seenWing.has(id)) unit.group.visible = false;
+      } else {
+        capital.visible = false;
+        operationSubsystems.forEach(group => { group.visible = false; });
+        operationWing.forEach(unit => { unit.group.visible = false; });
+      }
       if (!netMode) acc += dt;
       let steps = 0;
       while (!netMode && acc >= STEP && steps < MAX_CATCHUP) {
@@ -525,10 +619,16 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
       renderer.render(scene, camera);
 
+      const snapNow = netMode ? expeditionRef.current?.snapshotRef.current : null;
       const obj = flightObjective(state, sector);
+      const activeSubsystem = authoritativeOperation?.subsystems.find(item => item.id === authoritativeOperation.target);
+      const objectiveLabel = !ironEclipse ? obj.label
+        : state.stage === "relay" ? "Rendezvous at the squadron beacon"
+          : state.stage === "drone" ? `Disable ${activeSubsystem?.label.toLowerCase() ?? "the capital subsystem"}`
+            : state.stage === "extract" ? "Break contact and reach extraction"
+              : obj.label;
       place(markerRef.current, obj.position, state.stage !== "complete" && state.stage !== "destroyed");
       place(droneMarkerRef.current, d, state.stage === "drone" && state.drone.hull > 0);
-      const snapNow = netMode ? expeditionRef.current?.snapshotRef.current : null;
       let mi = 0;
       for (const [slot, o] of others) {
         const el = pilotMarkerRefs.current[mi++]; if (!el) continue;
@@ -543,13 +643,14 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         const dx = obj.position.x - state.position.x, dy = obj.position.y - state.position.y, dz = obj.position.z - state.position.z;
         setHud({
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
-          lock: state.lock, objective: obj.label, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
+          lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           elapsed: state.elapsed, droneHull: state.drone.hull, flare: state.flareCooldown,
           incoming: projectiles.filter(p => p.hostile).length, camera: cameraModeRef.current,
           vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
           drifting: inp.drift === true,
           tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
           command: snapNow?.command ?? null,
+          operation: ironEclipse ? snapNow?.operation ?? null : null,
           crew: snapNow ? snapNow.pilots.map(p => ({ slot: p.slot, shipId: p.shipId, connected: p.connected, hull: p.flight.hull, own: p.slot === snapNow.ownSlot, host: p.slot === snapNow.hostSlot, stage: p.flight.stage })) : [],
         });
       }
@@ -644,11 +745,17 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
             <div key={i} ref={el => { pilotMarkerRefs.current[i] = el; }} data-testid={`marker-pilot-${i}`}
               className="pointer-events-none absolute left-0 top-0 -ml-8 -mt-6 w-16 text-center font-hud text-[10px] tracking-[0.2em] opacity-0" />
           ))}
-          {hud ? <FlightHud hud={hud} shipId={shipId} droneMax={expedition?.mission.sector.droneHull ?? 60} /> : null}
+          {hud ? <FlightHud hud={hud} shipId={shipId}
+            droneMax={hud.operation?.subsystems.find(item => item.id === hud.operation?.target)?.maxHull ?? expedition?.mission.sector.droneHull ?? 60} /> : null}
           {net && hud ? <CrewStrip crew={hud.crew} mission={expedition!.mission.title} command={hud.command} /> : null}
-          {net && hud?.tacticalCommandsAvailable && hud.crew.some(c => c.own && c.host) ? (
+          {net && !ironEclipse && hud?.tacticalCommandsAvailable && hud.crew.some(c => c.own && c.host) ? (
             <SquadOrders crew={hud.crew} command={hud.command} notice={expedition!.notice}
               disabled={expedition!.connection !== "connected"} onCommand={expedition!.sendCommand} />
+          ) : null}
+          {ironEclipse && hud?.operation ? (
+            <IronEclipsePanel operation={hud.operation} notice={expedition!.notice}
+              disabled={expedition!.connection !== "connected" || !hud.crew.some(c => c.own && c.host)}
+              onCommand={expedition!.sendCommand} />
           ) : null}
           {net && expedition!.connection !== "connected" ? (
             <div role="alert" className="pointer-events-none absolute inset-x-0 top-16 z-[5] mx-auto w-fit border-l-2 border-[#ff7a5c] bg-[#140d12]/90 px-4 py-2 font-hud text-xs tracking-[0.2em] text-[#ff7a5c]" data-testid="status-net-connection">
@@ -887,6 +994,122 @@ function SquadOrders({ crew, command, notice, disabled, onCommand }: {
         </section>
       ) : null}
     </div>
+  );
+}
+
+const OP_PHASE_LABEL: Record<IronEclipseSnapshot["phase"], string> = {
+  engage: "ENGAGE", capital: "CAPITAL ASSAULT", extract: "EXTRACTION",
+  complete: "OPERATION COMPLETE", failed: "OPERATION FAILED",
+};
+const OP_ORDER_LABEL: Record<IronEclipseOrder, string> = {
+  attack: "ATTACK", defend: "DEFEND", escort: "ESCORT", regroup: "REGROUP",
+};
+const OP_OBJECTIVES: [keyof IronEclipseSnapshot["objectives"], string][] = [
+  ["primary", "PRIMARY · DISABLE THE CAPITAL"],
+  ["shieldArray", "OPTIONAL · SHIELD ARRAY"],
+  ["wingSurvival", "OPTIONAL · WING SURVIVAL"],
+];
+
+function IronEclipsePanel({ operation, notice, disabled, onCommand }: {
+  operation: IronEclipseSnapshot; notice: string; disabled: boolean;
+  onCommand: ExpeditionTransport["sendCommand"];
+}) {
+  const [open, setOpen] = useState(true);
+  const [sendError, setSendError] = useState("");
+  const pointDefenseDisabled = operation.subsystems.some(item => item.id === "point-defense" && item.disabled);
+  const available = operation.subsystems.filter(item => !item.disabled && item.hull > 0 &&
+    (item.id !== "reactor" || pointDefenseDisabled));
+  const orderDisabled = disabled || operation.phase === "complete" || operation.phase === "failed";
+  const targetDisabled = orderDisabled || operation.phase !== "capital" || available.length === 0;
+  const target = operation.subsystems.find(item => item.id === operation.target);
+  const issue = (packet: IronEclipseCommandRequest) => {
+    if (disabled) return;
+    setSendError("");
+    if (!onCommand(packet)) setSendError("COMMAND NOT SENT · LINK UNAVAILABLE");
+  };
+  const setTarget = (id: IronEclipseSubsystemId) =>
+    issue({ type: "iron_eclipse_target", target: id });
+  const issueOrder = (order: IronEclipseOrder) =>
+    issue({ type: "iron_eclipse_order", order });
+  return (
+    <aside className="pointer-events-auto absolute right-2 top-16 z-[8] w-[min(17rem,calc(100vw-1rem))] font-hud sm:right-4 sm:top-28" data-testid="panel-iron-eclipse">
+      <button type="button" aria-expanded={open} aria-controls="iron-eclipse-controls" onClick={() => setOpen(value => !value)}
+        className="min-h-11 w-full border border-solar/70 bg-[#11151a]/95 px-3 text-left text-[10px] tracking-[0.22em] text-solar"
+        data-testid="button-operation-panel">
+        <span className="flex items-center justify-between"><span>IRON ECLIPSE · {OP_PHASE_LABEL[operation.phase]}</span><span aria-hidden="true">{open ? "−" : "+"}</span></span>
+      </button>
+      {open ? (
+        <section id="iron-eclipse-controls" aria-label="Operation Iron Eclipse status and tactical controls" className="mt-1 max-h-[48dvh] overflow-y-auto border border-bone/25 bg-[#11151a]/95 p-2.5 shadow-xl sm:max-h-[62dvh]">
+          <p className="mb-1 text-[9px] tracking-[0.2em] text-muted">{disabled ? "VIEW ONLY · FLIGHT CONTINUES" : "HOST AUTHORITY · FLIGHT CONTINUES"}</p>
+          <p className="mb-1 text-[8px] tracking-[0.1em] text-bone/55" data-testid="text-capital-position">
+            CAPITAL POSITION · X {Math.round(operation.capitalPosition.x)} / Y {Math.round(operation.capitalPosition.y)} / Z {Math.round(operation.capitalPosition.z)}
+          </p>
+          <ul className="space-y-1 border-y border-bone/10 py-2" aria-label="Operation objective outcomes">
+            {OP_OBJECTIVES.map(([key, label]) => {
+              const status = operation.objectives[key];
+              return <li key={key} className="flex items-center justify-between gap-2 text-[9px] tracking-[0.1em]" data-testid={`status-operation-objective-${key}`}>
+                <span className="text-bone/75">{label}</span>
+                <span className={status === "complete" ? "text-solar" : status === "missed" ? "text-[#ff9a7f]" : "text-muted"}>
+                  {status === "complete" ? "COMPLETE" : status === "missed" ? "MISSED" : "PENDING"}
+                </span>
+              </li>;
+            })}
+          </ul>
+          <ul className="mt-2 space-y-1" aria-label="Capital subsystem integrity">
+            {operation.subsystems.map(system => {
+              const pct = system.maxHull > 0 ? Math.max(0, Math.min(100, system.hull / system.maxHull * 100)) : 0;
+              return <li key={system.id} aria-label={`${system.label}, ${system.disabled ? "disabled" : `${Math.round(system.hull)} of ${system.maxHull} hull`}, position X ${Math.round(system.position.x)}, Y ${Math.round(system.position.y)}, Z ${Math.round(system.position.z)}`} className="border-l-2 border-[#ff7a5c]/70 bg-bone/[0.035] px-2 py-1" data-testid={`status-subsystem-${system.id}`}>
+                <div className="flex items-center justify-between gap-2 text-[9px] tracking-[0.12em]">
+                  <span>{system.label}</span>
+                  <span className={system.disabled ? "text-muted" : "text-[#ff9a7f]"}>{system.disabled ? "DISABLED" : `${Math.round(system.hull)} / ${system.maxHull}`}</span>
+                </div>
+                <div className="mt-1 h-1 bg-bone/15"><div className={`h-full ${system.disabled ? "bg-muted" : "bg-[#ff7a5c]"}`} style={{ width: `${pct}%` }} /></div>
+                <p className="mt-1 text-[7px] leading-tight text-bone/40">X {Math.round(system.position.x)} · Y {Math.round(system.position.y)} · Z {Math.round(system.position.z)}</p>
+              </li>;
+            })}
+          </ul>
+          <div className="mt-2 grid grid-cols-3 gap-1" aria-label="AI wing status">
+            {operation.wing.map(unit => {
+              const ship = SHIPS[unit.shipId];
+              const factionColor = FACTION_PALETTE[ship.faction].accent;
+              const pct = unit.maxHull > 0 ? Math.max(0, Math.min(100, unit.hull / unit.maxHull * 100)) : 0;
+              return <div key={unit.id} className="min-w-0 border border-bone/15 px-1.5 py-1" data-testid={`status-wing-${unit.id}`} aria-label={`${ship.name}, ${Math.round(unit.hull)} of ${unit.maxHull} hull, ${unit.connected ? "connected" : "disconnected"}, position X ${Math.round(unit.position.x)}, Y ${Math.round(unit.position.y)}, Z ${Math.round(unit.position.z)}`}>
+                <p className="truncate text-[8px] tracking-[0.08em]" style={{ color: factionColor }}>{ship.name.toUpperCase()}</p>
+                <p className="text-[8px] text-bone/65">{unit.connected ? "LINK" : "NO LINK"} · {Math.round(unit.hull)}/{unit.maxHull}</p>
+                <p className="text-[7px] leading-tight text-bone/45">X {Math.round(unit.position.x)} · Y {Math.round(unit.position.y)} · Z {Math.round(unit.position.z)}</p>
+                <div className="mt-1 h-1 bg-bone/15"><div className="h-full" style={{ width: `${pct}%`, background: factionColor }} /></div>
+              </div>;
+            })}
+          </div>
+          <div className="mt-2 border-t border-bone/10 pt-2">
+            <div className="flex items-center justify-between gap-2 text-[9px] tracking-[0.12em]" data-testid="text-operation-command">
+              <span className="text-muted">SERVER TARGET</span>
+              <span className="text-solar">{target?.label ?? "NO TARGET"}</span>
+            </div>
+            <p className="mt-1 text-[9px] tracking-[0.12em] text-bone/75" data-testid="text-operation-order">WING ORDER · {OP_ORDER_LABEL[operation.order]}</p>
+            <label className="mt-2 block text-[9px] tracking-[0.12em] text-muted" htmlFor="operation-target">CAPITAL SUBSYSTEM</label>
+            <select id="operation-target" value={operation.target ?? ""} disabled={targetDisabled}
+              onChange={event => setTarget(event.target.value as IronEclipseSubsystemId)}
+              className="mt-1 min-h-10 w-full border border-bone/25 bg-[#0b0e12] px-2 text-[10px] text-bone disabled:opacity-45"
+              data-testid="select-operation-target">
+              {!operation.target && available.length > 0 ? <option value="" disabled>SELECT A SUBSYSTEM</option> : null}
+              {target && !available.some(item => item.id === target.id)
+                ? <option value={target.id} disabled>{target.label} · INACTIVE</option> : null}
+              {available.length ? available.map(system => <option key={system.id} value={system.id}>{system.label}</option>)
+                : <option value="">NO ACTIVE SUBSYSTEMS</option>}
+            </select>
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              {(["attack", "defend", "escort", "regroup"] as const).map(order => (
+                <button key={order} type="button" disabled={orderDisabled} onClick={() => issueOrder(order)}
+                  className={`min-h-10 border px-1 text-[9px] tracking-[0.15em] disabled:opacity-40 ${order === "attack" ? "border-[#ff7a5c]/60 bg-[#ff7a5c]/10 text-[#ff9a7f]" : order === "regroup" ? "border-spectral/60 bg-spectral/10 text-spectral" : "border-bone/25 text-bone"}`}
+                  data-testid={`button-operation-order-${order}`}>{OP_ORDER_LABEL[order]}</button>
+              ))}
+            </div>
+            {sendError || notice ? <p role="status" className="mt-2 text-[9px] leading-snug text-[#ff9a7f]">{sendError || notice}</p> : null}
+          </div>
+        </section>
+      ) : null}
+    </aside>
   );
 }
 
