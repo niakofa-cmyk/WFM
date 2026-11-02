@@ -47,6 +47,9 @@ export function createSectorRuntime(options: Options) {
   const rooms = new Map<string, Room>();
   const seats = new Map<WebSocket, { room: Room; pilot: Pilot }>();
   const loading = new Set<WebSocket>();
+  // Reserve authenticated identities while progress is loading. Socket-local
+  // loading guards alone allow two concurrent sockets for one account to race.
+  const joiningUsers = new Map<string, WebSocket>();
   let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
   const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
   const physics = options.physics ?? stepFlight;
@@ -94,12 +97,28 @@ export function createSectorRuntime(options: Options) {
       const mission = sectorMission(missionId);
       if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||
           typeof packet.shipId !== "string" || !Object.hasOwn(SHIPS, packet.shipId)) { error("invalid_sector_join"); return; }
+
+      // A disconnected pilot still owns a seat during the room's reconnect
+      // lifecycle. Do not let that identity silently create a second room.
+      const existingPilot = [...rooms.values()].find(candidate =>
+        candidate.pilots.some(existing => existing.userId === userId));
+      if (existingPilot && existingPilot.code !== code) { error("sector_session_exists"); return; }
+      const pendingJoin = joiningUsers.get(userId);
+      if (pendingJoin && pendingJoin !== socket) { error("sector_session_exists"); return; }
+
+      joiningUsers.set(userId, socket);
       loading.add(socket);
       let progress: SectorProgress;
       try {
         progress = options.loadProgress ? await options.loadProgress(userId) : { completed: [], persistenceAvailable: false };
-      } catch { error("discovery_database_unavailable"); loading.delete(socket); return; }
+      } catch {
+        loading.delete(socket);
+        if (joiningUsers.get(userId) === socket) joiningUsers.delete(userId);
+        error("discovery_database_unavailable");
+        return;
+      }
       loading.delete(socket);
+      if (joiningUsers.get(userId) === socket) joiningUsers.delete(userId);
       if (closed || socket.readyState !== WebSocket.OPEN) return;
       if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
       let room = rooms.get(code);
@@ -186,6 +205,9 @@ export function createSectorRuntime(options: Options) {
   }
   function detach(socket: WebSocket, now = Date.now()) {
     loading.delete(socket);
+    for (const [userId, joiningSocket] of joiningUsers) {
+      if (joiningSocket === socket) joiningUsers.delete(userId);
+    }
     inputBudget.delete(socket);
     const seat = seats.get(socket); seats.delete(socket);
     if (!seat || seat.pilot.socket !== socket) return;
@@ -264,7 +286,7 @@ export function createSectorRuntime(options: Options) {
         }
       }
       await Promise.all(pending);
-      seats.clear(); rooms.clear(); loading.clear();
+      seats.clear(); rooms.clear(); loading.clear(); joiningUsers.clear();
     },
   };
 }
