@@ -4,7 +4,7 @@ import test from "node:test";
 import { FACTION_PALETTE } from "./faction-palette";
 import { SHIPS } from "./ships";
 import {
-  createFlight, flightForward, flightObjective, stepFlight, sphereHit, canLock,
+  createFlight, flightForward, flightObjective, stepFlight, sphereHit, canLock, removeHostileProjectilesInPlace,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, vectorLength,
   type FlightInput, type FlightState,
 } from "./flight-sector";
@@ -167,6 +167,18 @@ test("countermeasures preserve the projectile buffer and remove only hostile gui
   run(state, 1, { countermeasure: true });
   assert.equal(state.projectiles, projectileBuffer);
   assert.deepEqual(state.projectiles.map(p => p.id), [101]);
+});
+
+test("point-defense suppression can remove hostile shots without replacing the projectile buffer", () => {
+  const shots = [
+    { id: 1, position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, ttl: 1, hostile: true, guided: true },
+    { id: 2, position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, ttl: 1, hostile: false, guided: false },
+    { id: 3, position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, ttl: 1, hostile: true, guided: false },
+  ];
+  const buffer = shots;
+  removeHostileProjectilesInPlace(shots);
+  assert.equal(shots, buffer);
+  assert.deepEqual(shots.map(projectile => projectile.id), [2]);
 });
 
 test("discovery and extraction are proximity-gated; terminal states cannot keep simulating", () => {

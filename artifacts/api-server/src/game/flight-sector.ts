@@ -49,6 +49,14 @@ export type FlightState = {
   stage: "relay" | "drone" | "extract" | "complete" | "destroyed";
   discoveries: number; hits: number; collisions: number;
 };
+export function removeHostileProjectilesInPlace(projectiles: FlightProjectile[]): void {
+  let write = 0;
+  for (let read = 0; read < projectiles.length; read++) {
+    const projectile = projectiles[read]!;
+    if (!projectile.hostile) projectiles[write++] = projectile;
+  }
+  projectiles.length = write;
+}
 const v = (x = 0, y = 0, z = 0): Vector3 => ({ x, y, z });
 const add = (a: Vector3, b: Vector3): Vector3 => v(a.x + b.x, a.y + b.y, a.z + b.z);
 const sub = (a: Vector3, b: Vector3): Vector3 => v(a.x - b.x, a.y - b.y, a.z - b.z);

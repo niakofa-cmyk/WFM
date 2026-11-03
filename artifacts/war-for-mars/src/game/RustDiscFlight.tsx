@@ -9,6 +9,7 @@ import {
   createFlight, stepFlight, flightObjective, flightForward, vectorLength,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
 } from "./flight-sector";
+import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 
@@ -23,6 +24,7 @@ import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from ".
  */
 export type ExpeditionTransport = {
   snapshotRef: MutableRefObject<SectorSnapshot | null>;
+  latencyRef: MutableRefObject<number | null>;
   sendInput: (input: FlightInput) => void;
   sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => boolean;
   notice: string;
@@ -34,6 +36,7 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
+type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
 type Hud = {
   speed: number; throttle: number; hull: number; energy: number; missiles: number; lock: number;
   objective: string; distance: number; stage: FlightState["stage"]; elapsed: number; droneHull: number;
@@ -163,6 +166,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const [portrait, setPortrait] = useState(false);
   const [portraitDismissed, setPortraitDismissed] = useState(false);
   const [hud, setHud] = useState<Hud | null>(null);
+  const [performanceOpen, setPerformanceOpen] = useState(false);
+  const [performanceReadout, setPerformanceReadout] = useState<PerformanceReadout | null>(null);
   const [summary, setSummary] = useState<FlightState | null>(null);
   const [failure, setFailure] = useState("");
 
@@ -173,6 +178,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const inputRef = useRef<FlightInput>({ ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 });
   const pulseRef = useRef({ missile: false, countermeasure: false });
   const pausedRef = useRef(false);
+  const performanceOpenRef = useRef(false);
+  const performanceReadoutRef = useRef<PerformanceReadout | null>(null);
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   const keysRef = useRef(new Set<string>());
   const reducedMotion = useRef(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
@@ -248,7 +255,10 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     // On touch devices, lower internal resolution avoids spending GPU time on
     // high-DPI subpixels while preserving the same scene and control layout.
     const dprCap = quality === "high" ? 2 : 1;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, dprCap));
+    const basePixelRatio = Math.min(window.devicePixelRatio || 1, dprCap);
+    const framePacing = new FramePacingMonitor();
+    const adaptiveResolution = new AdaptiveResolutionController();
+    renderer.setPixelRatio(basePixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.setClearColor(0x0a0710);
@@ -483,6 +493,18 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       if (lost) return;
       let dt = (now - last) / 1000; last = now;
       dt = Math.min(dt, 0.25);
+      const frameWindow = framePacing.record(now);
+      if (frameWindow) {
+        const nextScale = adaptiveResolution.update(frameWindow, now);
+        if (nextScale !== null) renderer.setPixelRatio(basePixelRatio * nextScale);
+        const readout = {
+          window: frameWindow,
+          scale: adaptiveResolution.currentScale,
+          rttMs: expeditionRef.current?.latencyRef.current ?? null,
+        };
+        performanceReadoutRef.current = readout;
+        if (performanceOpenRef.current) setPerformanceReadout(readout);
+      }
       const blend = netMode && !reducedMotion.current ? 1 - Math.exp(-dt * 16) : 1;
       if (netMode) {
         // Authoritative render: keep updating even while local controls are paused.
@@ -602,9 +624,11 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       exMat.opacity = state.stage === "extract" ? 0.55 + 0.25 * Math.sin(state.elapsed * 4) : 0.12;
       exRing.rotation.z = state.elapsed * 0.3;
 
+      let incomingCount = 0;
       for (let i = 0; i < pool.length; i++) {
         const m = pool[i]!, p = projectiles[i];
         if (!p) { m.visible = false; continue; }
+        if (p.hostile) incomingCount++;
         m.visible = true;
         m.geometry = p.guided ? missileGeo : boltGeo;
         m.material = p.hostile ? hostileMat : friendlyMat;
@@ -666,7 +690,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
           lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           elapsed: state.elapsed, droneHull: state.drone.hull, flare: state.flareCooldown,
-          incoming: projectiles.filter(p => p.hostile).length, camera: cameraModeRef.current,
+          incoming: incomingCount, camera: cameraModeRef.current,
           vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
           drifting: inp.drift === true,
           tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
@@ -745,6 +769,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
   };
   const toggleCam = () => { cameraModeRef.current = cameraModeRef.current === "chase" ? "cockpit" : "chase"; };
+  const togglePerformance = () => {
+    const next = !performanceOpenRef.current;
+    performanceOpenRef.current = next;
+    setPerformanceOpen(next);
+    if (next) setPerformanceReadout(performanceReadoutRef.current);
+  };
 
   // ---------- Render ----------
   return (
@@ -783,6 +813,19 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               {expedition!.connection === "reconnecting" ? "LINK INTERRUPTED · RECONNECTING · HOLDING POSITION" : "LINK LOST · THE SERVER CONTINUES WITHOUT YOU"}
             </div>
           ) : null}
+          {performanceOpen ? (
+            <div className="pointer-events-none absolute right-3 top-3 z-30 w-44 border border-spectral/50 bg-[#080b12]/90 px-3 py-2 font-mono text-[10px] leading-relaxed text-bone shadow-xl sm:right-5 sm:top-5 sm:w-52"
+              data-testid="panel-flight-performance" role="status" aria-label="Flight performance diagnostics">
+              <p className="font-hud tracking-[0.16em] text-spectral">FLIGHT DIAGNOSTICS</p>
+              {performanceReadout ? (
+                <>
+                  <p>{performanceReadout.window.fps.toFixed(0)} FPS · P95 ≈ {performanceReadout.window.p95FrameMs.toFixed(1)} ms</p>
+                  <p>LONG FRAMES {performanceReadout.window.longFrameCount}/s · RES {Math.round(performanceReadout.scale * 100)}%</p>
+                  <p>NETWORK RTT {net ? performanceReadout.rttMs === null ? "MEASURING" : `${performanceReadout.rttMs} ms` : "LOCAL ONLY"}</p>
+                </>
+              ) : <p>CALIBRATING · 1 SECOND</p>}
+            </div>
+          ) : null}
           <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
           {paused && !portraitBlock ? (
             <Overlay translucent={net} title={net ? "CONTROLS PAUSED" : "HOLDING POSITION"} sub={net
@@ -791,6 +834,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               <OverlayButton primary onClick={() => setPausedBoth(false)} testId="button-resume">{net ? "RESUME CONTROLS" : "RESUME"}</OverlayButton>
               {net ? null : <OverlayButton onClick={restart} testId="button-restart">RESTART SORTIE</OverlayButton>}
               <OverlayButton onClick={toggleCam} testId="button-camera">TOGGLE CHASE / COCKPIT</OverlayButton>
+              <OverlayButton onClick={togglePerformance} testId="button-flight-performance">
+                {performanceOpen ? "HIDE PERFORMANCE HUD" : "SHOW PERFORMANCE HUD"}
+              </OverlayButton>
               {net ? null : <OverlayButton onClick={toBriefing} testId="button-briefing">BACK TO BRIEFING</OverlayButton>}
               <OverlayButton onClick={exit} testId="button-exit">{net ? "LEAVE EXPEDITION" : "EXIT TO COMMAND"}</OverlayButton>
               <p className="mt-2 font-hud text-[10px] tracking-[0.2em] text-muted">KEYS: W/S PITCH · A/D YAW · Q/E ROLL · R/F THROTTLE · SHIFT BOOST · X BRAKE · G DRIFT · SPACE GUNS · L LOCK · M MISSILE · C FLARE · V CAMERA · P PAUSE</p>

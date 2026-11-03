@@ -37,6 +37,28 @@ test("3D inputs exclude forged coordinates, results, identities, unknown buttons
     { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
   ]) assert.equal(parseSectorInput(value), null);
 });
+test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {
+  const runtime = createSectorRuntime({});
+  const pilot = socket();
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room", { type: "sector_ping", nonce: 1 }, 0);
+  assert.equal(pilot.packets.at(-1).reason, "sector_join_required");
+
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room",
+    { type: "sector_join", version: 1, shipId: "glide" }, 10);
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room",
+    { type: "sector_ping", nonce: 1 }, 1000);
+  assert.deepEqual(pilot.packets.at(-1), { type: "sector_pong", nonce: 1 });
+  const packetCount = pilot.packets.length;
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room",
+    { type: "sector_ping", nonce: 2 }, 1500);
+  assert.equal(pilot.packets.length, packetCount, "sub-second probes are silently rate-limited");
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room",
+    { type: "sector_ping", nonce: 2, userId: "forged" }, 2000);
+  assert.equal(pilot.packets.at(-1).reason, "invalid_sector_ping");
+  await runtime.handle(pilot.ws, "synthetic-pilot", "rust-disc", "latency-room",
+    { type: "sector_ping", nonce: 2 }, 2000);
+  assert.deepEqual(pilot.packets.at(-1), { type: "sector_pong", nonce: 2 });
+});
 test("tactical command packets accept only the four exact, bounded order shapes", () => {
   assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "attack" }), { type: "sector_command", order: "attack" });
   assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "regroup" }), { type: "sector_command", order: "regroup" });

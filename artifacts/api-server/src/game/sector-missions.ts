@@ -115,6 +115,7 @@ export type SectorClientPacket =
   | { type: "sector_ready"; ready: boolean }
   | { type: "sector_launch" }
   | { type: "sector_input"; seq: number; input: FlightInput }
+  | { type: "sector_ping"; nonce: number }
   | SectorCommandRequest
   | IronEclipseCommandRequest
   | { type: "sector_retry" };

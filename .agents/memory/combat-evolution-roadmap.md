@@ -43,6 +43,13 @@ cadence are not performance knobs to weaken casually. Treat code-level
 optimizations as hypotheses until frame-interval data from actual Android play
 confirms the experience improved.
 
+The flight diagnostic HUD reports local animation-frame cadence, approximate
+P95 frame interval, long frames, adaptive render scale, and (for authenticated
+co-op) an echoed WebSocket RTT. It does not persist or upload telemetry. Adaptive
+resolution may only alter rendering; never use client timing to change
+simulation, collision, rewards, or authoritative input cadence. Follow
+`docs/wfm-flight-performance.md` for the device-check protocol.
+
 **Why:** a successful build and healthy services do not prove mobile rendering,
 live authentication, multiplayer synchronization, mission completion, or
 progression behavior on the deployed revision. Lower-allocation simulation can

@@ -7,6 +7,7 @@ import { ShipIllustration } from "./ShipIllustration";
 import { ROSTER, SHIPS, type ShipId } from "./ships";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { RustDiscFlight, type ExpeditionTransport } from "./RustDiscFlight";
+import { RoundTripProbe } from "./flight-performance";
 import type { FlightInput } from "./flight-sector";
 import {
   SECTOR_MISSIONS, sectorMission,
@@ -92,6 +93,10 @@ function ExpeditionClient() {
   const deadlineRef = useRef<number | null>(null);
   const timersRef = useRef<number[]>([]);
   const lastUiRef = useRef(0);
+  const latencyRef = useRef<number | null>(null);
+  const probeRef = useRef<RoundTripProbe | null>(null);
+  if (!probeRef.current) probeRef.current = new RoundTripProbe();
+  const probe = probeRef.current;
   const openRef = useRef<(s: Session) => void>(() => undefined);
 
   const clearTimers = () => { timersRef.current.forEach(t => window.clearTimeout(t)); timersRef.current = []; };
@@ -100,6 +105,7 @@ function ExpeditionClient() {
     intentionalRef.current = true;
     const ws = socketRef.current; socketRef.current = null;
     authedRef.current = false;
+    probe.clear(); latencyRef.current = null;
     clearTimers();
     if (ws && ws.readyState <= WebSocket.OPEN) ws.close(1000, "leave");
   }, []);
@@ -115,6 +121,20 @@ function ExpeditionClient() {
     if (!ws || ws.readyState !== WebSocket.OPEN || !authedRef.current) return false;
     try { ws.send(JSON.stringify(packet)); return true; } catch { return false; }
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!authedRef.current || snapshotRef.current?.phase !== "active") {
+        probe.clear();
+        return;
+      }
+      const now = performance.now();
+      probe.expire(now);
+      const nonce = probe.begin(now);
+      if (nonce !== null && !send({ type: "sector_ping", nonce })) probe.clear();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [probe, send]);
 
   const scheduleReconnect = useCallback((session: Session) => {
     const now = Date.now();
@@ -148,6 +168,7 @@ function ExpeditionClient() {
     catch (e) { fail(e instanceof Error ? e.message : "The expedition server address is invalid."); return; }
     intentionalRef.current = false;
     authedRef.current = false;
+    probe.clear(); latencyRef.current = null;
     seq.reset();
     let ws: WebSocket;
     try { ws = new WebSocket(url); } catch { scheduleOrFail(); return; }
@@ -170,8 +191,15 @@ function ExpeditionClient() {
     });
     ws.addEventListener("message", event => {
       if (socketRef.current !== ws) return;
-      let packet: { type?: unknown; code?: unknown; reason?: unknown; message?: unknown };
+      let packet: { type?: unknown; code?: unknown; reason?: unknown; message?: unknown; nonce?: unknown };
       try { packet = JSON.parse(String(event.data)); } catch { return; }
+      if (packet.type === "sector_pong") {
+        if (typeof packet.nonce === "number") {
+          const rtt = probe.accept(packet.nonce, performance.now());
+          if (rtt !== null) latencyRef.current = rtt;
+        }
+        return;
+      }
       if (packet.type === "authenticated") {
         if (authedRef.current) return;
         authedRef.current = true;
@@ -205,7 +233,7 @@ function ExpeditionClient() {
       if (phase === "complete" || phase === "interrupted" || phase === "failed") return;
       scheduleOrFail();
     });
-  }, [fail, handleSnapshot, scheduleReconnect, send, seq]);
+  }, [fail, handleSnapshot, scheduleReconnect, send, seq, probe]);
   openRef.current = open;
 
   useEffect(() => () => closeSocket(), [closeSocket]);
@@ -241,7 +269,7 @@ function ExpeditionClient() {
 
   const activeMission = sectorMission(snapshot?.missionId ?? sessionRef.current?.missionId ?? missionId) ?? SECTOR_MISSIONS[0]!;
   const transport = useMemo<ExpeditionTransport>(() => ({
-    snapshotRef, mission: activeMission, connection,
+    snapshotRef, latencyRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
     sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => {
       const current = snapshotRef.current;

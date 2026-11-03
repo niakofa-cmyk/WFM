@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
 import { SHIPS, type ShipId } from "../game/ships";
-import { createFlight, stepFlight, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
+import { createFlight, stepFlight, removeHostileProjectilesInPlace, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
@@ -36,6 +36,10 @@ type Options = {
 const numericAxes = ["throttle", "pitch", "yaw", "roll"] as const;
 const buttons = ["boost", "brake", "fire", "lock", "missile", "countermeasure"] as const;
 const inputKeys = new Set<string>([...numericAxes, ...buttons, "drift"]);
+const idleInput: FlightInput = { ...NEUTRAL_FLIGHT_INPUT, brake: true };
+const copyPosition = (target: FlightState["drone"]["position"], source: FlightState["drone"]["position"]) => {
+  target.x = source.x; target.y = source.y; target.z = source.z;
+};
 export function parseSectorInput(value: unknown): FlightInput | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
@@ -95,6 +99,7 @@ export function createSectorRuntime(options: Options) {
   const joiningUsers = new Map<string, WebSocket>();
   let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
   const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
+  const latencyProbeBudget = new WeakMap<WebSocket, number>();
   const physics = options.physics ?? stepFlight;
   function publish(room: Room) {
     for (const own of room.pilots) {
@@ -223,6 +228,17 @@ export function createSectorRuntime(options: Options) {
     const seat = seats.get(socket);
     if (!seat || seat.pilot.userId !== userId) { error("sector_join_required"); return; }
     const { room, pilot } = seat;
+    if (packet.type === "sector_ping") {
+      if (Object.keys(packet).length !== 2 || !Number.isSafeInteger(packet.nonce) ||
+          (packet.nonce as number) < 1 || (packet.nonce as number) > 2_147_483_647) {
+        error("invalid_sector_ping"); return;
+      }
+      const lastProbeAt = latencyProbeBudget.get(socket);
+      if (lastProbeAt !== undefined && now - lastProbeAt < 1000) return;
+      latencyProbeBudget.set(socket, now);
+      send(socket, { type: "sector_pong", nonce: packet.nonce });
+      return;
+    }
     room.touched = now;
     if (packet.type === "sector_ready") {
       if (Object.keys(packet).length !== 2 || typeof packet.ready !== "boolean" || room.phase !== "lobby") { error("invalid_sector_ready"); return; }
@@ -318,6 +334,7 @@ export function createSectorRuntime(options: Options) {
   function detach(socket: WebSocket, now = Date.now()) {
     releaseSocketReservation(socket);
     inputBudget.delete(socket);
+    latencyProbeBudget.delete(socket);
     const seat = seats.get(socket); seats.delete(socket);
     if (!seat || seat.pilot.socket !== socket) return;
     const { room, pilot } = seat;
@@ -358,14 +375,14 @@ export function createSectorRuntime(options: Options) {
         const flightSector = room.flightSector;
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
-          const input = now - pilot.lastInput < 350 ? pilot.input : neutral();
+          const input = now - pilot.lastInput < 350 ? pilot.input : idleInput;
           if (now - pilot.lastInput < 350 &&
               (input.throttle > 0.05 || Math.abs(input.pitch) + Math.abs(input.yaw) + Math.abs(input.roll) > 0.05 || input.fire)) pilot.activeTicks++;
           const operationTarget = room.operation ? ironEclipseTarget(room.operation) : undefined;
           if (room.operation) {
             const targetPosition = operationTarget?.position ?? room.operation.view.capitalPosition;
-            pilot.flight.drone.position = { ...targetPosition };
-            if (pointDefenseDisabled) pilot.flight.projectiles = pilot.flight.projectiles.filter(projectile => !projectile.hostile);
+            copyPosition(pilot.flight.drone.position, targetPosition);
+            if (pointDefenseDisabled) removeHostileProjectilesInPlace(pilot.flight.projectiles);
           }
           pilot.flight.drone.hull = room.droneHull;
           const hullBefore = pilot.flight.hull;
@@ -403,7 +420,7 @@ export function createSectorRuntime(options: Options) {
           pilot.flight.drone.hull = room.droneHull;
           if (room.operation) {
             const targetPosition = ironEclipseTarget(room.operation)?.position ?? room.operation.view.capitalPosition;
-            pilot.flight.drone.position = { ...targetPosition };
+            copyPosition(pilot.flight.drone.position, targetPosition);
           }
         }
         if (room.pilots.every(p => ["complete", "destroyed"].includes(p.flight.stage) ||
