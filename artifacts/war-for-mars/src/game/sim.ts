@@ -1,4 +1,7 @@
 import { otherFaction, PRESET_PIPS, refitMul, ROSTER, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
+import type { FlightInput, OrbitalFlight } from "./orbital-flight";
+import { armorSpill } from "./orbital-damage";
+import { stepOrbital } from "./orbital-sim";
 
 export const ARENA_R = 78;
 export const MATCH_SECONDS = 120;
@@ -15,15 +18,17 @@ export type Craft = {
   boost: number; boostDmg: number; rammed: boolean; untargetable: number; root: number; jam: number;
   dmgMul: number; dmgMulT: number; nextCrit: boolean; recover: number; hurtT: number; guard: number;
   evadeCd: number; radius: number; ace: boolean; human: StepInput | null; lockTargetId: number | null;
+  space?: OrbitalFlight;
 };
 
 export type Bullet = {
   x: number; z: number; vx: number; vz: number; life: number; dmg: number;
+  y?: number; vy?: number; missile?: boolean;
   faction: Faction; r: number; homeId: number | null; own: boolean;
 };
 
 export type Relay = { x: number; z: number; own: -1 | 0 | 1; cap: number };
-export type Fx =
+export type Fx = (
   | { k: "shot"; x: number; z: number; big: boolean; you: boolean }
   | { k: "hit"; x: number; z: number; you: boolean; fromX: number; fromZ: number; dmg: number }
   | { k: "boom"; x: number; z: number }
@@ -36,7 +41,8 @@ export type Fx =
   | { k: "guard"; x: number; z: number }
   | { k: "jam"; x: number; z: number }
   | { k: "ping" }
-  | { k: "down"; name: string };
+  | { k: "down"; name: string }
+) & { y?: number };
 
 export type Runner = {
   x: number; z: number; yaw: number; hull: number; hullMax: number; alive: boolean; radius: number;
@@ -55,7 +61,7 @@ export type Match = {
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
 };
 
-export type StepInput = {
+export type StepInput = FlightInput & {
   throttle: number; yaw: number; strafe: number; pitch: number; fire: boolean; ult: boolean;
   lock: boolean; evade: number; preset: PresetId | null;
 };
@@ -512,7 +518,7 @@ function hurt(match: Match, c: Craft, dmg: number, fromX?: number, fromZ?: numbe
   const absorbed = Math.min(c.shield, left);
   c.shield -= absorbed;
   left -= absorbed;
-  c.hull -= left;
+  c.hull -= armorSpill(c, left);
   c.hurtT = 2;
   c.cloak = 0;
   pushFx(match, {
@@ -943,6 +949,10 @@ function tickRunner(match: Match, dt: number) {
 }
 export function step(match: Match, input: StepInput, dt: number) {
   if (match.over) return;
+  if (match.player.space) {
+    stepOrbital(match, input, dt, { hurt, tickTimers });
+    return;
+  }
   const player = match.player;
   match.presetCd = Math.max(0, match.presetCd - dt);
   if (input.preset != null && match.presetCd <= 0 && input.preset !== match.preset) {

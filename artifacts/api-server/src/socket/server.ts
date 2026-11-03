@@ -1,4 +1,5 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { randomInt } from "node:crypto";
+import { WING_PROTOCOL_VERSION, type VerifySocketSession } from "./auth";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import {
@@ -28,6 +29,9 @@ type Room = {
 
 type Client = {
   playerId: string;
+  expiresAt: number;
+  authenticating: boolean;
+  authTimer: ReturnType<typeof setTimeout>;
   roomId: string;
   room: Room | null;
   slotId: number | null;
@@ -45,8 +49,14 @@ const MAX_INPUTS_PER_SECOND = 45;
 export async function startWingSocketServer(
   port: number,
   host = "0.0.0.0",
-  options: { tickIntervalMs?: number; snapshotIntervalMs?: number } = {},
+  options: {
+    tickIntervalMs?: number;
+    snapshotIntervalMs?: number;
+    verifySession?: VerifySocketSession;
+    authTimeoutMs?: number;
+  } = {},
 ) {
+  const verifySession: VerifySocketSession = options.verifySession ?? (async () => null);
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const tickIntervalMs = options.tickIntervalMs ?? 1000 / TICK_RATE;
@@ -77,8 +87,13 @@ export async function startWingSocketServer(
       return;
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
-    if ((url.pathname !== "/ws" && url.pathname !== "/ws/") || !ROOM_ID.test(roomId)) {
+    if ((url.pathname !== "/ws" && url.pathname !== "/ws/") || !ROOM_ID.test(roomId) ||
+        [...url.searchParams.keys()].some((key) => key !== "room")) {
       rejectUpgrade(socket, "400 Bad Request");
+      return;
+    }
+    if (sockets.clients.size >= 1024) {
+      rejectUpgrade(socket, "503 Service Unavailable");
       return;
     }
     sockets.handleUpgrade(request, socket, head, (client) => {
@@ -87,10 +102,15 @@ export async function startWingSocketServer(
     });
   });
 
-  sockets.on("connection", (socket) => {
+  sockets.on("connection", (socket, request) => {
     const roomId = roomIds.get(socket) ?? "";
+    const authTimer = setTimeout(() => socket.terminate(), options.authTimeoutMs ?? 5000);
+    authTimer.unref();
     const client: Client = {
-      playerId: randomUUID(),
+      playerId: "",
+      expiresAt: 0,
+      authenticating: false,
+      authTimer,
       roomId,
       room: null,
       slotId: null,
@@ -104,7 +124,8 @@ export async function startWingSocketServer(
     };
     clients.set(socket, client);
 
-    socket.on("message", (data, isBinary) => {
+    socket.on("message", async (data, isBinary) => {
+      if (socket.readyState !== WebSocket.OPEN) return;
       if (isBinary) {
         socket.close(1003, "Text messages only");
         return;
@@ -130,6 +151,48 @@ export async function startWingSocketServer(
         socket.close(1008, "Message rate exceeded");
         return;
       }
+
+      if (client.authenticating) return;
+      if (!client.playerId) {
+        if (packet.type !== "join" || typeof packet.sessionToken !== "string" ||
+            packet.sessionToken.length === 0 || packet.sessionToken.length > 7000) {
+          send(socket, { type: "error", reason: "authentication_required" });
+          socket.close(1008, "Authentication required");
+          return;
+        }
+        if (packet.protocol !== WING_PROTOCOL_VERSION) {
+          send(socket, { type: "error", reason: "protocol_mismatch", protocol: WING_PROTOCOL_VERSION });
+          socket.close(1008, "Unsupported protocol");
+          return;
+        }
+        client.authenticating = true;
+        let session;
+        try {
+          session = await verifySession(packet.sessionToken, request.headers.origin);
+        } catch {
+          session = null;
+        }
+        if (!clients.has(socket) || socket.readyState !== WebSocket.OPEN) return;
+        client.authenticating = false;
+        if (!session || !session.playerId || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) {
+          send(socket, { type: "error", reason: "authentication_failed" });
+          socket.close(1008, "Authentication failed");
+          return;
+        }
+        client.playerId = session.playerId;
+        client.expiresAt = session.expiresAt;
+        clearTimeout(client.authTimer);
+      }
+      if (client.expiresAt <= Date.now()) {
+        send(socket, { type: "error", reason: "session_expired" });
+        if (client.slotId !== null && client.room?.slotSockets.get(client.slotId) === socket) {
+          client.room.wing.disconnect(client.slotId);
+        }
+        socket.close(4003, "Session expired");
+        return;
+      }
+      // A replaced transport cannot continue issuing commands while its close frame drains.
+      if (client.room && client.slotId !== null && client.room.slotSockets.get(client.slotId) !== socket) return;
 
       if (packet.type === "join") {
         if (client.slotId !== null) {
@@ -171,15 +234,15 @@ export async function startWingSocketServer(
             ? packet.name.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 24) || "Pilot"
             : "Pilot";
         const reconnectToken = suppliedReconnectToken;
-        if (room.phase === "active" && (!reconnectToken || !room.wing.canReconnect(reconnectToken))) {
+        if (room.phase === "active" && (!reconnectToken || !room.wing.canReconnect(reconnectToken, client.playerId))) {
           send(socket, { type: "error", reason: reconnectToken ? "session_lost" : "match_started" });
           socket.close(1008, "This match has already started");
           return;
         }
         const result = room.wing.join(client.playerId, name, reconnectToken);
         if (!result.ok) {
-          send(socket, { type: "error", reason: "full" });
-          socket.close(1008, "Wing is full");
+          send(socket, { type: "error", reason: result.reason });
+          socket.close(1008, "Seat request rejected");
           return;
         }
 
@@ -194,6 +257,7 @@ export async function startWingSocketServer(
         if (room.phase === "lobby" && room.hostSlotId === null) room.hostSlotId = result.slotId;
         send(socket, {
           type: "joined",
+          protocol: WING_PROTOCOL_VERSION,
           roomId: room.id,
           slotId: result.slotId,
           team: result.team,
@@ -308,6 +372,7 @@ export async function startWingSocketServer(
     });
 
     socket.on("close", () => {
+      clearTimeout(client.authTimer);
       const room = client.room;
       const slotId = client.slotId;
       clients.delete(socket);
@@ -342,6 +407,15 @@ export async function startWingSocketServer(
     const now = Date.now();
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
+    for (const [socket, client] of clients) {
+      if (client.playerId && client.expiresAt <= now && socket.readyState === WebSocket.OPEN) {
+        send(socket, { type: "error", reason: "session_expired" });
+        if (client.slotId !== null && client.room?.slotSockets.get(client.slotId) === socket) {
+          client.room.wing.disconnect(client.slotId, now);
+        }
+        socket.close(4003, "Session expired");
+      }
+    }
     for (const [id, room] of rooms) {
       if (room.sockets.size === 0 && room.emptySince !== null && now - room.emptySince > ROOM_IDLE_MS) {
         rooms.delete(id);

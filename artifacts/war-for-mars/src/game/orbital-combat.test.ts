@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createMatch, step, type StepInput } from "./sim";
+import { prepareOrbital } from "./orbital-sim";
+import { integrateFlight, rotate } from "./orbital-flight";
+import { launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
+import { armorSpill } from "./orbital-damage";
+import { clearInput, createBus, readInput } from "./input";
+
+const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
+function lab() {
+  const match = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", { foeCount: 3, allyCount: 1, seed: 1938 }));
+  match.rocks = []; match.allies = [];
+  return match;
+}
+
+test("default combat remains planar and does not receive orbital state or armor", () => {
+  const match = createMatch("duskbreaker", "ussf", 0, "practice", { seed: 1938 });
+  assert.equal(match.player.space, undefined);
+  step(match, { ...idle, throttle: 1, pitch: 1 }, 1 / 60);
+  assert.equal(match.player.space, undefined);
+  assert.ok(match.player.z < 28);
+  assert.equal(armorSpill(match.player, 20), 20);
+});
+
+test("orbital pitch yaw roll and vertical/lateral translation are real spatial controls", () => {
+  const match = lab(); const pilot = match.player;
+  for (let i = 0; i < 30; i++) integrateFlight(pilot, { ...idle, pitch: .4, yaw: .2, roll: .5, throttle: 1, vertical: .3, strafe: .3 }, 1 / 60, 1, match);
+  const space = pilot.space!;
+  assert.ok(space.y > 0); assert.ok(Math.abs(pilot.x) > .1); assert.ok(pilot.z < 28);
+  assert.ok(Math.abs(space.q[0]) > .01); assert.ok(Math.abs(space.q[1]) > .01); assert.ok(Math.abs(space.q[2]) > .01);
+  assert.ok(Math.abs(Math.hypot(...space.q) - 1) < 1e-12);
+  const forward = rotate(space.q, 0, 0, -1);
+  assert.ok(forward.y > 0);
+});
+
+test("inertia preserves vector while brake dissipates it and boost spends energy", () => {
+  const a = lab(); const b = lab();
+  a.player.space!.assist = false; b.player.space!.assist = false;
+  a.player.space!.vx = b.player.space!.vx = 10;
+  integrateFlight(a.player, idle, .1, 1, a);
+  integrateFlight(b.player, { ...idle, brake: true }, .1, 1, b);
+  assert.equal(a.player.space!.vx, 10);
+  assert.ok(b.player.space!.vx < 6);
+  const before = a.player.space!.energy;
+  integrateFlight(a.player, { ...idle, boost: true, throttle: 1 }, .1, 1, a);
+  assert.ok(a.player.space!.energy < before);
+  assert.ok(a.player.space!.vz < 0);
+});
+
+test("missiles require acquired, in-range, visible targets and consume ammo once", () => {
+  const match = lab(); const p = match.player; const e = match.enemies[0];
+  p.lockTargetId = e.id;
+  assert.equal(launchMissile(match, p), false);
+  for (let i = 0; i < 80; i++) updateAcquisition(match, p, 1 / 60);
+  assert.equal(p.space!.lockProgress, 1);
+  assert.equal(launchMissile(match, p), true);
+  assert.equal(p.space!.ammo, 7); assert.equal(launchMissile(match, p), false);
+  assert.equal(match.bullets[0].homeId, e.id);
+  e.space!.y = 60;
+  updateAcquisition(match, p, 1 / 60);
+  assert.equal(p.space!.lockProgress, 0);
+  e.space!.y = 0; e.z = -100;
+  assert.equal(targetSolution(p, e).available, false);
+  e.z = -4; e.cloak = 1;
+  assert.equal(targetSolution(p, e).available, false);
+});
+
+test("swept projectile collision detects fast hits but not ships above the trajectory", () => {
+  const bullet = { x: 0, y: 0, z: -10, vx: 0, vy: 0, vz: -100, r: .3, dmg: 10, faction: "ussf" as const, life: 1, homeId: null, own: true };
+  assert.equal(segmentHit(0, 0, -5, bullet, 0, 0, 0, 1), true);
+  assert.equal(segmentHit(0, 5, -5, bullet, 0, 0, 0, 1), false);
+});
+
+test("damage follows shields then armor then hull and destruction emits one explosion", () => {
+  const match = lab(); const e = match.enemies[0];
+  e.shield = 10; e.space!.armor = 10; e.hull = 10; e.fireCd = 1000; e.hurtT = 1;
+  match.bullets.push({ x: e.x, y: e.space!.y, z: e.z, vx: 0, vy: 0, vz: 0, r: .4, dmg: 20, faction: "ussf", life: 1, homeId: null, own: true });
+  step(match, idle, 1 / 60);
+  assert.equal(e.shield, 0); assert.equal(e.space!.armor, 4); assert.equal(e.hull, 6);
+  match.bullets.push({ x: e.x, y: e.space!.y, z: e.z, vx: 0, vy: 0, vz: 0, r: .4, dmg: 30, faction: "ussf", life: 1, homeId: null, own: true });
+  step(match, idle, 1 / 60);
+  assert.equal(e.alive, false); assert.equal(match.kills, 1);
+  assert.equal(match.fx.filter((fx) => fx.k === "boom").length, 1);
+});
+
+test("representative target, acquire, pulse, missile, damage and destruction loop", () => {
+  const match = lab();
+  step(match, { ...idle, lock: true }, 1 / 60);
+  const target = match.enemies[0];
+  assert.equal(match.player.lockTargetId, target.id);
+  let launched = false;
+  for (let i = 0; i < 800 && target.alive; i++) {
+    const launch = !launched && match.player.space!.lockProgress === 1;
+    step(match, { ...idle, fire: true, missile: launch }, 1 / 60);
+    if (launch) launched = true;
+  }
+  assert.ok(launched); assert.equal(match.player.space!.ammo, 7);
+  assert.equal(target.alive, false); assert.ok(match.kills >= 1); assert.ok(match.fx.some((fx) => fx.k === "ping"));
+});
+
+test("orbital input pulses are edge triggered and clear on focus loss", () => {
+  const bus = createBus("arc"); bus.orbital = true;
+  bus.keys = new Set(["KeyM", "KeyG", "KeyH", "KeyC", "KeyQ"]);
+  const first = readInput(bus); const second = readInput(bus);
+  assert.equal(first.missile, true); assert.equal(second.missile, false);
+  assert.equal(first.inertial, true); assert.equal(second.inertial, false);
+  assert.equal(first.vertical, 1); assert.equal(first.roll, 1);
+  clearInput(bus); assert.equal(readInput(bus).vertical, 0);
+});
+
+test("aim assistance cannot track cloaked or sensor-blocked targets", () => {
+  const match = lab(); const p = match.player; const e = match.enemies[0];
+  p.lockTargetId = e.id; e.x = 2;
+  assert.ok(primaryBullet(match, p, 10).vx > 0);
+  e.cloak = 1;
+  assert.equal(primaryBullet(match, p, 10).vx, 0);
+  e.cloak = 0; p.jam = 1;
+  assert.equal(primaryBullet(match, p, 10).vx, 0);
+});

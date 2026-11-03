@@ -4,6 +4,7 @@ import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
 import { startNetworkImpairmentProxy } from "./impairment-proxy";
 import { startWingSocketServer } from "./server";
+import { TEST_ORIGIN, testJoin, testVerifier } from "./auth.test-fixtures";
 
 type Packet = { type?: string; [key: string]: unknown };
 type Seat = { slotId: number; team: number; reconnectToken: string };
@@ -62,7 +63,7 @@ function nextPacket(
 }
 
 async function connect(url: string) {
-  const socket = new WebSocket(url);
+  const socket = new WebSocket(url, { origin: TEST_ORIGIN });
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
     socket.once("error", reject);
@@ -77,7 +78,7 @@ async function join(socket: WebSocket, name: string, reconnectToken?: string, la
     10_000,
     `join response for ${label}`,
   );
-  socket.send(JSON.stringify({ type: "join", name, ...(reconnectToken ? { reconnectToken } : {}) }));
+  socket.send(JSON.stringify(testJoin(name, reconnectToken)));
   const packet = await joined;
   if (packet.type === "error") {
     throw new Error(`Join for ${name} was rejected: ${String(packet.reason ?? "unknown")}.`);
@@ -119,6 +120,7 @@ function waitUntil(predicate: () => boolean, timeoutMs: number, label: string) {
 
 test("ten impaired pilots share authoritative match state, reconnect, and finish together", async (t) => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySession: testVerifier,
     tickIntervalMs: 1,
     snapshotIntervalMs: 33,
   });
@@ -241,7 +243,7 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
         `reconnect for Pilot ${pilotIndex}`,
       );
       assert.equal(reclaimed.slotId, seat.slotId);
-      assert.equal(reclaimed.reconnectToken, seat.reconnectToken);
+      assert.notEqual(reclaimed.reconnectToken, seat.reconnectToken);
       assert.equal(reclaimed.phase, "active");
       inputReady[pilotIndex] = true;
     };

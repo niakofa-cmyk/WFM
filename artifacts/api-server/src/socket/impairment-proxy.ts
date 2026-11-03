@@ -140,7 +140,7 @@ export async function startNetworkImpairmentProxy(
     }
 
     webSockets.handleUpgrade(request, rawSocket, head, (downstream) => {
-      const upstream = new WebSocket(targetUrl);
+      const upstream = new WebSocket(targetUrl, { origin: request.headers.origin });
       upstreams.add(upstream);
       const pending: PendingFrame[] = [];
 

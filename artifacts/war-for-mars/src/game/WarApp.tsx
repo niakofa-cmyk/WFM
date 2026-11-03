@@ -1,4 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/react";
+import { roomSessionKey, sendAuthenticatedJoin, WING_PROTOCOL_VERSION } from "./wing-session";
 import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import {
@@ -63,6 +65,9 @@ type LobbySession = {
 };
 
 export function WarApp() {
+  const { getToken, userId } = useAuth();
+  const getSessionToken = useCallback(() => getToken({ skipCache: true }), [getToken]);
+  const sessionKey = (room: string) => roomSessionKey(room, userId ?? "signed-out");
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -128,7 +133,7 @@ export function WarApp() {
     const reconnectToken = String(packet.reconnectToken ?? "");
     if (reconnectToken) {
       try {
-        sessionStorage.setItem(`wfm-room-${roomId}`, reconnectToken);
+        sessionStorage.setItem(sessionKey(roomId), reconnectToken);
       } catch {
         // The live socket still reconnects; storage may be disabled in private browsing.
       }
@@ -141,6 +146,8 @@ export function WarApp() {
       slotId,
       team: Number(packet.team) as 0 | 1,
       reconnectToken,
+      getSessionToken,
+      sessionKey: sessionKey(roomId),
       name: "Pilot",
     });
     setOnlineStatus("");
@@ -152,6 +159,11 @@ export function WarApp() {
 
   const showOnlineError = (code: string) => {
     const messages: Record<string, string> = {
+      authentication_required: "Sign in again before joining the wing.",
+      authentication_failed: "Your session could not be verified. Sign in again and retry.",
+      session_expired: "Refreshing your session · reconnecting…",
+      protocol_mismatch: "The client and server versions differ. Reload after the release is updated.",
+      already_joined: "This account already holds a seat in that room. Reconnect from the original session.",
       capacity: "The server is at room capacity. Try again later.",
       full: "That room already has ten pilots. Join another room.",
       match_started: "That match has already started. Use a new room code for a new lobby.",
@@ -166,6 +178,7 @@ export function WarApp() {
 
   const joinOnline = (requestedRoomCode: string) => {
     if (joinSocketRef.current || onlineLobby || onlineSession) return;
+    if (!userId) { setOnlineStatus("Sign in before joining the wing."); return; }
     const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
@@ -185,7 +198,7 @@ export function WarApp() {
       window.history.replaceState({}, "", roomPath);
       let token = "";
       try {
-        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        token = sessionStorage.getItem(sessionKey(normalizedRoomCode)) ?? "";
       } catch {
         token = "";
       }
@@ -203,8 +216,10 @@ export function WarApp() {
         const socket = new WebSocket(targetUrl);
         joinSocketRef.current = socket;
         socket.addEventListener("open", () => {
-          if (joinSocketRef.current !== socket) return;
-          socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+          void sendAuthenticatedJoin(socket, getSessionToken, "Pilot", token,
+            () => joinSocketRef.current === socket && !started).catch(() => {
+            if (joinSocketRef.current === socket) failOnline("Your session could not be verified. Sign in again and retry.");
+          });
         });
         socket.addEventListener("message", (event) => {
           let packet: { type?: string; [key: string]: unknown };
@@ -216,6 +231,7 @@ export function WarApp() {
           if (packet.type === "error") {
             if (started) return;
             const reason = String(packet.reason ?? "unavailable");
+            if (reason === "session_expired") { socket.close(); return; }
             if (reason === "match_not_started" || reason === "invalid_lobby_action") {
               setOnlineStatus(showOnlineError(reason));
               return;
@@ -226,7 +242,7 @@ export function WarApp() {
             }
             if (reason === "session_lost") {
               try {
-                sessionStorage.removeItem(`wfm-room-${normalizedRoomCode}`);
+                sessionStorage.removeItem(sessionKey(normalizedRoomCode));
               } catch {
                 // A fresh room can still be created if storage is unavailable.
               }
@@ -235,12 +251,13 @@ export function WarApp() {
             return;
           }
           if (packet.type === "joined") {
+            if (packet.protocol !== WING_PROTOCOL_VERSION) { failOnline(showOnlineError("protocol_mismatch")); return; }
             joined = true;
             retries = 0;
             token = String(packet.reconnectToken ?? token);
             if (token) {
               try {
-                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+                sessionStorage.setItem(sessionKey(normalizedRoomCode), token);
               } catch {
                 // The live socket can reconnect without browser storage.
               }
@@ -647,7 +664,7 @@ export function WarApp() {
           joinSocketRef.current?.close();
           joinSocketRef.current = null;
           try {
-            sessionStorage.removeItem(`wfm-room-${onlineLobby.roomId}`);
+            sessionStorage.removeItem(sessionKey(onlineLobby.roomId));
           } catch {
             // The room can still be left when browser storage is unavailable.
           }
@@ -693,16 +710,18 @@ export function WarApp() {
         onDone={finish}
         onNetworkExit={(reason) => {
           try {
-            if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
+            if (onlineSession) sessionStorage.removeItem(onlineSession.sessionKey);
           } catch {
             // Keep the server-restart message visible even without browser storage.
           }
           setOnlineSession(null);
           joinSocketRef.current = null;
           setOnlineStatus(
-            reason === "server_restart"
-              ? "The match ended because the server restarted. No match rewards were issued. Create or join a new room."
-              : "The previous match could not be restored after an interruption. No match rewards were issued. Create or join a new room.",
+            reason === "authentication_failed" || reason === "protocol_mismatch"
+              ? showOnlineError(reason)
+              : reason === "server_restart"
+                ? "The match ended because the server restarted. No match rewards were issued. Create or join a new room."
+                : "The previous match could not be restored after an interruption. No match rewards were issued. Create or join a new room.",
           );
           setOfflineAvailable(true);
           setResult(null);
