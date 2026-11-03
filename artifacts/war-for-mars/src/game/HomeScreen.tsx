@@ -110,7 +110,7 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
       className="group flex flex-1 flex-col items-start justify-center text-left"
       onClick={() => onAction("START")}
     >
-      <h1 className="sr-only">WAR FOR MARS</h1>
+      <h1 className="sr-only">WAR FOR MARS: INFINITE WAR</h1>
       <span className="wfm-rise flex items-center gap-3">
         <FactionMark faction="ussf" className="h-12 w-12 sm:h-16 sm:w-16" />
         <span aria-hidden="true" className="h-10 w-px bg-bone/25" />
@@ -118,7 +118,7 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
       </span>
       <Wordmark className="wfm-arrive mt-6 w-full max-w-3xl" />
       <span aria-hidden="true" className="wfm-sweep mt-4 block h-px w-full max-w-3xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
-      <span className="wfm-rise-2 mt-4 block font-hud text-sm tracking-[0.32em] text-muted">USSF VS THE ACCORD · PHOBOS THEATER</span>
+      <span className="wfm-rise-2 mt-4 block font-hud text-sm tracking-[0.32em] text-muted">THE INFINITE WAR · USSF VS THE ACCORD · PHOBOS THEATER</span>
       <span className="wfm-rise-3 wfm-chamfer wfm-cmd wfm-cmd-primary mt-8 min-h-14 px-7 font-hud text-lg tracking-[0.28em] group-hover:bg-[#ebb173]">
         ENTER THE WAR
       </span>
@@ -131,7 +131,8 @@ function CommandTopBar({ faction, credits, cleared, signedIn, ship }: HomeProps)
   return (
     <header className="wfm-rise flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-bone/10 pb-3 pr-12">
       <Wordmark className="w-36 sm:w-48" />
-      <span className="sr-only">WAR FOR MARS</span>
+      <span className="sr-only">WAR FOR MARS: INFINITE WAR</span>
+      <span className="font-hud text-[9px] tracking-[0.2em] text-solar">THE INFINITE WAR</span>
       <div className="ml-auto flex items-center gap-4 font-hud text-xs tracking-[0.18em]">
         <span className="flex items-center gap-2" data-testid="text-command-faction">
           <FactionMark faction={faction} className="h-6 w-6" />
@@ -199,6 +200,10 @@ function MainMenu(props: HomeProps) {
         <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 px-4">
           <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
           <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
+        </Link>
+        <Link href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
+          <span className="font-hud text-xl leading-none tracking-widest text-solar">ORBITAL COMBAT LAB</span>
+          <span className="text-xs text-muted">Vector flight, target lock, and guided missiles · offline training, no rewards.</span>
         </Link>
         {EXPEDITION_ENABLED ? (
           <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">

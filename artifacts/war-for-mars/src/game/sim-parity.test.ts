@@ -5,7 +5,16 @@ import test from "node:test";
 // Every module the reward server uses to adjudicate a replay must be identical
 // in the browser. Source equality is necessary but not sufficient: the
 // cross-runtime gate (pnpm run test:determinism) proves the runtimes agree.
-const SHARED_SIMULATION_MODULES = ["sim.ts", "detmath.ts", "sim-trace.ts", "ships.ts"];
+const SHARED_SIMULATION_MODULES = [
+  "sim.ts",
+  "detmath.ts",
+  "sim-trace.ts",
+  "ships.ts",
+  "orbital-flight.ts",
+  "orbital-damage.ts",
+  "orbital-sim.ts",
+  "orbital-weapons.ts",
+];
 const RENDERER_IMPORT =
   /(?:from\s*|import\s*(?:\(\s*)?)["'](?:three(?:\/[^"']*)?|react(?:-dom)?|@react-three\/[^"']*)["']/;
 

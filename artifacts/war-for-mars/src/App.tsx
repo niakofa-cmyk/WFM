@@ -108,7 +108,7 @@ function PublicLanding() {
             <FactionMark faction="ussf" className="h-10 w-10" />
             <span aria-hidden="true" className="h-8 w-px bg-bone/25" />
             <FactionMark faction="accord" className="h-10 w-10" />
-            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
+            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">THE INFINITE WAR · USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
           </div>
           <h1 className="mt-6">
             <span className="sr-only">WAR FOR MARS</span>
@@ -122,6 +122,7 @@ function PublicLanding() {
           <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
             <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
             <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
+            <Link href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary`}>ORBITAL COMBAT LAB · OFFLINE</Link>
             {expeditionEnabled ? <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary`}>CO-OP EXPEDITION · 1-8 PILOTS</Link> : null}
             {isSignedIn ? (
               <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>

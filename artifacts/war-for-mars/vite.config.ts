@@ -115,9 +115,14 @@ function bundleAuditPlugin(): Plugin {
 const auditPlugins =
   process.env.WFM_BUNDLE_REPORT === '1' ? [bundleAuditPlugin()] : [];
 
-export default defineConfig({
-  base: basePath,
-  plugins: [react(), tailwindcss({ optimize: false }), ...auditPlugins],
+export default defineConfig(({ mode }) => ({
+  base: mode === 'combat-lab' ? './' : basePath,
+  publicDir: 'public',
+  plugins: [
+    react(),
+    tailwindcss({ optimize: false }),
+    ...(mode === 'combat-lab' ? [] : auditPlugins),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
@@ -133,8 +138,9 @@ export default defineConfig({
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
-    emptyOutDir: true,
+    emptyOutDir: mode !== 'combat-lab',
     rollupOptions: {
+      input: path.resolve(import.meta.dirname, mode === 'combat-lab' ? 'combat-lab.html' : 'index.html'),
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/three/')) return 'three-engine';
@@ -156,4 +162,4 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
   },
-});
+}));
