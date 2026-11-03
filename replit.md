@@ -30,7 +30,9 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-The long-term product goal is a connected player journey from understanding the USSF–Accord conflict, choosing and configuring a ship, and completing readable battles to earning server-validated progress, improving ships, and exploring a changing Mars-centered universe. Treat `docs/player-journey-direction.md` as the product reference for feature work; distinguish implemented and verified features from future goals.
+WFM's primary product blueprint is `docs/references/wfm-infinite-war-blueprint.md`, with the owner's complete source preserved in `attached_assets/Pasted-WAR-FOR-MARS-The-Infinite-War-Open-Universe-Multiplayer_1793690415379.txt`. Its central principle is: “The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.”
+
+Use the blueprint as the product north-star: connect exploration, combat, competitive and cooperative operations, and persistent faction conflict through staged, playable releases. Its future capacity and feature proposals are goals, not claims about current behavior. Distinguish implemented and verified features from future work. Keep movement, weapons, damage, objectives, competitive results, rewards, and war consequences authoritative on trusted servers; use bounded sectors, feature flags, and Development/Staging/Production gates. `docs/player-journey-direction.md`, `docs/combat-evolution-roadmap.md`, `docs/open-universe-flight-foundation.md`, and `docs/competitive-battlefield.md` remain supporting implementation references.
 
 ## User preferences
 
