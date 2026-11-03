@@ -85,7 +85,7 @@ test("empty slot zero is AI-controlled and reconnect reclaims its seat", () => {
   if (!joined.ok) return;
   wing.disconnect(joined.slotId, 2_010);
 
-  const rejoined = wing.join("new-connection", "Pilot", joined.reconnectToken, 2_500);
+  const rejoined = wing.join("pilot", "Pilot", joined.reconnectToken, 2_500);
   assert.equal(rejoined.ok, true);
   if (rejoined.ok) assert.equal(rejoined.slotId, joined.slotId);
 });
@@ -107,4 +107,42 @@ test("disconnect reservations expire without advancing a lobby match", () => {
     assert.equal(replacement.slotId, joined.slotId);
     assert.notEqual(replacement.reconnectToken, joined.reconnectToken);
   }
+});
+
+
+test("reconnect requires its original account and never falls back to a new seat", () => {
+  const wing = createWing(15);
+  const seat = wing.join("owner", "Owner", null, 1000);
+  assert.ok(seat.ok);
+  if (!seat.ok) return;
+  assert.deepEqual(wing.join("thief", "Thief", seat.reconnectToken, 1001), { ok: false, reason: "session_lost" });
+  assert.deepEqual(wing.join("owner", "Duplicate", null, 1002), { ok: false, reason: "already_joined" });
+  assert.deepEqual(wing.join("stranger", "Unknown", "not-a-token", 1003), { ok: false, reason: "session_lost" });
+  assert.equal(wing.snapshot(1004).players.filter((player) => player.connected).length, 1);
+});
+
+test("reconnect rotates its capability, clears held controls and preserves sequence acknowledgement", () => {
+  const wing = createWing(16);
+  const seat = wing.join("owner", "Owner", null, 1000);
+  assert.ok(seat.ok);
+  if (!seat.ok) return;
+  wing.input(seat.slotId, input(9), 1001);
+  const reclaimed = wing.join("owner", "Owner", seat.reconnectToken, 1002);
+  assert.ok(reclaimed.ok);
+  if (!reclaimed.ok) return;
+  assert.equal(reclaimed.slotId, seat.slotId);
+  assert.notEqual(reclaimed.reconnectToken, seat.reconnectToken);
+  assert.equal(wing.lastSeq(seat.slotId), 9);
+  assert.deepEqual(wing.join("owner", "Stale", seat.reconnectToken, 1003), { ok: false, reason: "session_lost" });
+  wing.tick(1034);
+  assert.equal(wing.snapshot(1034).match.player.speed, 0);
+});
+
+test("join itself expires disconnected reservations even between timer sweeps", () => {
+  const wing = createWing(17);
+  const seat = wing.join("owner", "Owner", null, 1000);
+  assert.ok(seat.ok);
+  if (!seat.ok) return;
+  wing.disconnect(seat.slotId, 1010);
+  assert.deepEqual(wing.join("owner", "Owner", seat.reconnectToken, 6011), { ok: false, reason: "session_lost" });
 });

@@ -8,6 +8,11 @@ import { addTrauma, decayTrauma, emitSparks, freshSpark, shakeMag, shakeNoise, t
 import { PRESET_NAME, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { ARENA_R, aimYaw, createMatch, outcomeForTeam, outcomeReason, relayCallout, relaysHeld, step, wrap, type Craft, type Disc, type Goal, type Match, type Pace, type StepInput } from "./sim";
 import type { TechId } from "./campaign";
+import { prepareOrbital } from "./orbital-sim";
+import { rotate } from "./orbital-flight";
+import { targetSolution } from "./orbital-weapons";
+import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
+import { sendAuthenticatedJoin, terminalSocketError, WING_PROTOCOL_VERSION, type SessionTokenProvider } from "./wing-session";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -34,6 +39,8 @@ export type OnlineRoom = {
   slotId: number;
   team: 0 | 1;
   reconnectToken: string;
+  getSessionToken: SessionTokenProvider;
+  sessionKey: string;
   name: string;
 };
 
@@ -54,8 +61,9 @@ type ArenaProps = {
   drilled: boolean;
   onDrill: () => void;
   onDone: (result: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => void;
-  onNetworkExit: (reason: "server_restart" | "session_lost") => void;
+  onNetworkExit: (reason: "server_restart" | "session_lost" | "authentication_failed" | "protocol_mismatch") => void;
   online?: OnlineRoom;
+  orbital?: boolean;
 };
 
 const IDLE: StepInput = {
@@ -488,7 +496,11 @@ export function Arena({
   onDone,
   onNetworkExit,
   online,
+  orbital = false,
 }: ArenaProps) {
+  if (orbital && online) throw new Error("Combat Lab cannot connect to live matches.");
+  const telemetryRef = useRef<HTMLParagraphElement>(null);
+  const missileRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const radarRef = useRef<HTMLCanvasElement>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -548,6 +560,10 @@ export function Arena({
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
       : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed });
+    if (orbital) {
+      prepareOrbital(matchRef.current);
+      busRef.current.orbital = true;
+    }
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -578,11 +594,17 @@ export function Arena({
         return;
       }
       if (packet.type === "joined") {
+        if (packet.protocol !== WING_PROTOCOL_VERSION) {
+          disposed = true; targetClose(); networkExitRef.current("protocol_mismatch"); return;
+        }
         const joinedSnapshot = packet.snapshot as OnlineSnapshot | undefined;
         if (!joinedSnapshot?.match) return;
         joinedSocketRef.current = socket;
         slotIdRef.current = Number(packet.slotId);
         reconnectTokenRef.current = String(packet.reconnectToken ?? reconnectTokenRef.current);
+        try { sessionStorage.setItem(online.sessionKey, reconnectTokenRef.current); } catch {
+          // The live transport keeps its rotated capability if storage is unavailable.
+        }
         snapshotRef.current = joinedSnapshot;
         remoteFramesRef.current = [captureRemoteFrame(joinedSnapshot)];
         setConnectedPilots(joinedSnapshot.players.filter((player) => player.connected).length);
@@ -611,6 +633,13 @@ export function Arena({
         return;
       }
       if (packet.type === "error") {
+        if (terminalSocketError(packet.reason)) {
+          disposed = true;
+          window.clearTimeout(retryTimer);
+          targetClose();
+          networkExitRef.current(packet.reason === "protocol_mismatch" ? "protocol_mismatch" : "authentication_failed");
+          return;
+        }
         if (packet.reason === "session_lost") {
           disposed = true;
           window.clearTimeout(retryTimer);
@@ -640,12 +669,11 @@ export function Arena({
         retryDelay = 700;
         setNetworkStatus("");
         if (target !== online.socket) {
-          const join: { type: string; name: string; reconnectToken?: string } = {
-            type: "join",
-            name: online.name,
-          };
-          if (reconnectTokenRef.current) join.reconnectToken = reconnectTokenRef.current;
-          target.send(JSON.stringify(join));
+          void sendAuthenticatedJoin(target, online.getSessionToken, online.name, reconnectTokenRef.current,
+            () => !disposed && activeSocketRef.current === target).catch(() => {
+            if (disposed || activeSocketRef.current !== target) return;
+            disposed = true; target.close(); networkExitRef.current("authentication_failed");
+          });
         }
       });
       target.addEventListener("close", () => {
@@ -721,7 +749,13 @@ export function Arena({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(look.clear, look.fog);
+    scene.fog = orbital ? null : new THREE.FogExp2(look.clear, look.fog);
+    const orbitalAssets = orbital ? addOrbitalEnvironment(scene) : null;
+    const makeShip = orbital ? buildOrbitalShip : buildShip;
+    if (orbital) {
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+    }
     const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 520);
     scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
     scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
@@ -734,18 +768,19 @@ export function Arena({
       new THREE.MeshStandardMaterial({ color: look.ground, roughness: 1, metalness: 0 }),
     );
     floor.rotation.x = -Math.PI / 2;
+    floor.visible = !orbital;
     scene.add(floor);
     const ringPts: THREE.Vector3[] = [];
     for (let i = 0; i <= 80; i++) {
       const a = (i / 80) * Math.PI * 2;
       ringPts.push(new THREE.Vector3(Math.cos(a) * ARENA_R, 0.05, Math.sin(a) * ARENA_R));
     }
-    scene.add(
-      new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(ringPts),
-        new THREE.LineBasicMaterial({ color: look.ring }),
-      ),
+    const boundary = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(ringPts),
+      new THREE.LineBasicMaterial({ color: look.ring }),
     );
+    boundary.visible = !orbital;
+    scene.add(boundary);
     const starPositions = new Float32Array(700 * 3);
     for (let i = 0; i < 700; i++) {
       const r = 160 + Math.random() * 180;
@@ -768,14 +803,15 @@ export function Arena({
       }),
     );
     mars.position.set(-24, 6, -150);
+    mars.visible = !orbital;
     scene.add(mars);
 
     for (const rock of match.rocks) {
-      const mesh = new THREE.Mesh(
+      const mesh = orbital ? orbitalRock(rock.r, rock.x) : new THREE.Mesh(
         new THREE.DodecahedronGeometry(rock.r, 0),
         metal(0x3a342c, 0x140e0c, 0.08),
       );
-      mesh.position.set(rock.x, rock.r * 0.35, rock.z);
+      mesh.position.set(rock.x, orbital ? .9 : rock.r * 0.35, rock.z);
       mesh.rotation.set(rock.x, rock.z, 0);
       scene.add(mesh);
     }
@@ -796,17 +832,18 @@ export function Arena({
     });
 
     const scenePilot = pilotCraft(match, slotIdRef.current);
-    const playerGroup = buildShip(scenePilot.ship);
+    const playerGroup = makeShip(scenePilot.ship);
     const marker = new THREE.Mesh(
       new THREE.RingGeometry(1.35, 1.52, 24),
       new THREE.MeshBasicMaterial({ color: 0xe0a15a, side: THREE.DoubleSide }),
     );
     marker.rotation.x = -Math.PI / 2;
     marker.position.y = -0.82;
+    marker.visible = !orbital;
     playerGroup.add(marker);
     scene.add(playerGroup);
     const allyGroups = match.allies.map((ally) => {
-      const group = buildShip(ally.ship);
+      const group = makeShip(ally.ship);
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(1.15, 1.28, 20),
         new THREE.MeshBasicMaterial({ color: 0xe6e1d6, side: THREE.DoubleSide }),
@@ -818,7 +855,7 @@ export function Arena({
       return group;
     });
     const enemyGroups = match.enemies.map((enemy) => {
-      const group = buildShip(enemy.ship);
+      const group = makeShip(enemy.ship);
       if (enemy.ace) {
         const ring = new THREE.Mesh(
           new THREE.RingGeometry(1.45, 1.62, 24),
@@ -909,7 +946,7 @@ export function Arena({
       scene.add(mesh);
       bursts.push({ mesh, mat, t: 0, life: 0.3, grow: 6 });
     }
-    const burst = (x: number, z: number, color: number, life: number, grow: number) => {
+    const burst = (x: number, z: number, color: number, life: number, grow: number, y = 0) => {
       let slot = bursts[0];
       for (const item of bursts) {
         if (item.t <= 0) {
@@ -922,7 +959,8 @@ export function Arena({
       slot.life = life;
       slot.grow = grow;
       slot.mat.color.setHex(color);
-      slot.mesh.position.set(x, 0.4, z);
+      slot.mesh.position.set(x, orbital ? .9 + y : .4, z);
+      if (orbital) slot.mesh.quaternion.copy(camera.quaternion);
       slot.mesh.scale.setScalar(0.4);
       slot.mesh.visible = true;
     };
@@ -944,9 +982,23 @@ export function Arena({
       }),
     );
     scene.add(sparkPoints);
+    const impactSparks = (x: number, z: number, count: number, speed: number, life: number, y = 0) => {
+      const free = orbital ? sparkPool.filter((spark) => spark.life <= 0) : [];
+      emitSparks(sparkPool, x, z, count, speed, life);
+      for (const spark of free) if (spark.life > 0) spark.y += y + .2;
+    };
+    const debrisGeometry = new THREE.BoxGeometry(.4, .08, .7);
+    const debrisMaterial = new THREE.MeshStandardMaterial({ color: 0x766b5d, metalness: .7, roughness: .6 });
+    const debris = Array.from({ length: orbital ? 24 : 0 }, (_, i) => {
+      const mesh = new THREE.Mesh(debrisGeometry, debrisMaterial);
+      mesh.visible = false;
+      scene.add(mesh);
+      const angle = i * 2.39996;
+      return { mesh, t: 0, velocity: new THREE.Vector3(Math.cos(angle) * (1 + i % 3), Math.sin(i * 4) * 2, Math.sin(angle) * (1 + i % 4)) };
+    });
     const _pop = new THREE.Vector3();
-    const pops = Array.from({ length: 6 }, () => ({ t: 0, x: 0, z: 0, text: "" }));
-    const popNumber = (text: string, x: number, z: number) => {
+    const pops = Array.from({ length: 6 }, () => ({ t: 0, x: 0, y: 0, z: 0, text: "" }));
+    const popNumber = (text: string, x: number, z: number, y = 0) => {
       let slot = pops[0];
       for (const item of pops) {
         if (item.t <= 0) {
@@ -957,6 +1009,7 @@ export function Arena({
       }
       slot.t = 0.7;
       slot.x = x;
+      slot.y = y;
       slot.z = z;
       slot.text = text;
     };
@@ -1080,7 +1133,7 @@ export function Arena({
         bus.gyroYaw = 0;
         bus.gyroPitch = 0;
       }
-      const sample = isOnline ? IDLE : held ? IDLE : readInput(bus);
+      const sample = isOnline || held || (orbital && acc < FIXED) ? IDLE : readInput(bus);
       if (isOnline) {
         acc = 0;
         const authoritative = snapshotRef.current;
@@ -1128,7 +1181,7 @@ export function Arena({
         let first = true;
         let steps = 0;
         while (acc >= FIXED && steps < 5 && !match.over) {
-          const played = first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null };
+          const played = first ? sample : { ...sample, ult: false, lock: false, evade: 0, preset: null, ...(orbital ? { inertial: false, missile: false, aimAssist: false } : {}) };
           if (replayRef.current.length < 22000) replayRef.current.push(played);
           step(match, played, FIXED);
           first = false;
@@ -1153,12 +1206,12 @@ export function Arena({
       }
       for (const ev of match.fx) {
         if (ev.k === "shot") {
-          burst(ev.x, ev.z, ev.you ? 0xffd9a0 : 0xc45c48, 0.12, ev.big ? 5 : 2.4);
+          burst(ev.x, ev.z, ev.you ? 0xffd9a0 : 0xc45c48, 0.12, ev.big ? 5 : 2.4, ev.y);
           if (ev.you) sfxShot(ev.big);
         } else if (ev.k === "hit") {
-          burst(ev.x, ev.z, ev.you ? 0xc45c48 : 0xffd9a0, 0.16, 3.2);
-          emitSparks(sparkPool, ev.x, ev.z, ev.you ? 10 : 6, ev.you ? 8 : 5, 0.28);
-          if (!ev.you && ev.dmg > 0) popNumber(String(Math.max(1, Math.round(ev.dmg))), ev.x, ev.z);
+          burst(ev.x, ev.z, ev.you ? 0xc45c48 : 0xffd9a0, 0.16, 3.2, ev.y);
+          impactSparks(ev.x, ev.z, ev.you ? 10 : 6, ev.you ? 8 : 5, 0.28, ev.y);
+          if (!ev.you && ev.dmg > 0) popNumber(String(Math.max(1, Math.round(ev.dmg))), ev.x, ev.z, ev.y);
           if (shakeRef.current) trauma = addTrauma(trauma, ev.you ? 0.34 : 0.08);
           if (ev.you && shakeRef.current) hitstop = Math.min(0.07, Math.max(hitstop, 0.03));
           if (ev.you) {
@@ -1169,10 +1222,15 @@ export function Arena({
             });
           }
         } else if (ev.k === "boom") {
-          burst(ev.x, ev.z, 0xc45c48, 0.45, 14);
-          emitSparks(sparkPool, ev.x, ev.z, 16, 12, 0.42);
+          burst(ev.x, ev.z, 0xc45c48, 0.45, 14, ev.y);
+          impactSparks(ev.x, ev.z, 16, 12, 0.42, ev.y);
+          debris.forEach((fragment) => {
+            fragment.t = 12;
+            fragment.mesh.visible = true;
+            fragment.mesh.position.set(ev.x, .9 + (ev.y ?? 0), ev.z);
+          });
           sfxBoom();
-          wrecks.push({ x: ev.x, z: ev.z, t: 1.6 });
+          wrecks.push({ x: ev.x, z: ev.z, t: orbital ? 12 : 1.6 });
           if (shakeRef.current) {
             trauma = addTrauma(trauma, 0.7);
             hitstop = Math.min(0.08, Math.max(hitstop, 0.05));
@@ -1224,7 +1282,7 @@ export function Arena({
           outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
           kills: match.kills,
           deaths: match.deaths,
-          reason: outcomeReason(match, slotIdRef.current >= 5 ? 1 : 0),
+          reason: orbital ? (match.over === "win" ? "All defenders destroyed. Combat Lab complete — no credits or campaign rewards." : !match.player.alive ? "Your ship was destroyed. Retry the no-reward training operation." : "Operation time expired. Retry and eliminate all defenders.") : outcomeReason(match, slotIdRef.current >= 5 ? 1 : 0),
           relays: slotIdRef.current >= 5
             ? match.relays.filter((relay) => relay.own === -1).length
             : relaysHeld(match),
@@ -1269,6 +1327,15 @@ export function Arena({
         orient(group, pose?.yaw ?? enemy.yaw, pose?.pitch ?? 0, pose?.steer ?? enemy.steer);
         paint(group, enemy);
       });
+      if (orbital) {
+        const poses: Array<[THREE.Group, Craft]> = [[playerGroup, player], ...match.allies.map((c, i) => [allyGroups[i], c] as [THREE.Group, Craft]), ...match.enemies.map((c, i) => [enemyGroups[i], c] as [THREE.Group, Craft])];
+        for (const [group, craft] of poses) {
+          if (!craft.space) continue;
+          group.position.set(craft.x, .9 + craft.space.y, craft.z);
+          group.quaternion.fromArray(craft.space.q);
+          group.rotateY(Math.PI);
+        }
+      }
       if (match.runner) {
         cage.visible = match.runner.alive;
         cage.position.set(match.runner.x, 0.85, match.runner.z);
@@ -1292,8 +1359,10 @@ export function Arena({
           continue;
         }
         mesh.visible = true;
-        mesh.position.set(bullet.x, 0.85, bullet.z);
-        mesh.scale.setScalar(bullet.r > 0.5 ? 2.2 : 1);
+        mesh.position.set(bullet.x, .85 + (bullet.y ?? 0), bullet.z);
+        mesh.scale.set(orbital ? .65 : 1, orbital ? .65 : 1, orbital ? (bullet.missile ? 3.5 : 2.5) : 1);
+        if (orbital) mesh.quaternion.setFromUnitVectors(_fwd.set(0, 0, 1), _tmp.set(bullet.vx, bullet.vy ?? 0, bullet.vz).normalize());
+        else mesh.scale.setScalar(bullet.r > 0.5 ? 2.2 : 1);
         (mesh.material as THREE.MeshBasicMaterial).color.setHex(
           bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
         );
@@ -1302,7 +1371,8 @@ export function Arena({
       const locked = hostiles.find((enemy) => enemy.id === player.lockTargetId && enemy.alive);
       bracket.visible = Boolean(locked);
       if (locked) {
-        bracket.position.set(locked.x, 0.2, locked.z);
+        bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
+        if (orbital) bracket.quaternion.copy(camera.quaternion);
         bracket.scale.setScalar(Math.max(1, locked.radius / 1.5));
       }
 
@@ -1332,6 +1402,15 @@ export function Arena({
         item.mesh.scale.setScalar(0.4 + u * item.grow);
         item.mat.opacity = item.t / item.life;
       }
+      for (const fragment of debris) {
+        fragment.t = Math.max(0, fragment.t - delta);
+        fragment.mesh.visible = fragment.t > 0;
+        if (!fragment.mesh.visible) continue;
+        fragment.mesh.position.addScaledVector(fragment.velocity, delta);
+        fragment.mesh.rotateX(delta * .8);
+        fragment.mesh.rotateZ(delta * .5);
+        fragment.mesh.scale.setScalar(Math.min(1, fragment.t));
+      }
       empT = Math.max(0, empT - delta);
       emp.visible = empT > 0;
       if (emp.visible) {
@@ -1345,6 +1424,14 @@ export function Arena({
       const fwz = -Math.cos(player.yaw);
       _cam.set(player.x - fwx * 16, 7.4, player.z - fwz * 16);
       _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
+      if (orbital && player.space) {
+        const offset = rotate(player.space.q, 0, 4, 15);
+        const ahead = rotate(player.space.q, 0, 1.1, -24);
+        _cam.set(player.x + offset.x, .9 + player.space.y + offset.y, player.z + offset.z);
+        _look.set(player.x + ahead.x, .9 + player.space.y + ahead.y, player.z + ahead.z);
+        const up = rotate(player.space.q, 0, 1, 0);
+        camera.up.set(up.x, up.y, up.z);
+      }
       const blend = 1 - Math.exp(-5 * delta);
       camera.position.lerp(_cam, blend);
       trauma = decayTrauma(trauma, delta);
@@ -1375,7 +1462,7 @@ export function Arena({
           return;
         }
         pop.t = Math.max(0, pop.t - delta);
-        _pop.set(pop.x, 1.6 + (0.7 - pop.t) * 3, pop.z);
+        _pop.set(pop.x, pop.y + 1.6 + (0.7 - pop.t) * 3, pop.z);
         _pop.project(camera);
         el.textContent = pop.text;
         el.style.opacity = String(Math.max(0, pop.t / 0.7));
@@ -1453,16 +1540,32 @@ export function Arena({
       if (!painting) paintClock = 0;
       paintOn = painting;
       if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
+      if (orbital && player.space) {
+        const s = player.space;
+        const solution = locked ? targetSolution(player, locked, match.rocks) : null;
+        const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
+        const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
+        if (telemetryRef.current) {
+          telemetryRef.current.textContent = `LAB · NO REWARDS · ${match.kills}/${match.enemies.length} DESTROYED\nSPD ${Math.hypot(s.vx, s.vy, s.vz).toFixed(1)} · ALT ${s.y.toFixed(1)} · ENERGY ${Math.ceil(s.energy)} · ARMOR ${Math.ceil(s.armor)}\n${s.assist ? "FLIGHT ASSIST" : "INERTIAL"} · ${s.aimAssist ? "AIM ASSIST" : "MANUAL AIM"}\n${locked ? `${locked.faction.toUpperCase()} · ${solution!.distance.toFixed(0)} m · SHD ${shield}% · HULL ${hull}% · LOCK ${Math.floor(s.lockProgress * 100)}%` : "R / TARGET: SELECT AN ENEMY"}`;
+          telemetryRef.current.dataset.kills = String(match.kills);
+          telemetryRef.current.dataset.ammo = String(s.ammo);
+          telemetryRef.current.dataset.lock = String(s.lockProgress);
+        }
+        if (missileRef.current) {
+          missileRef.current.textContent = s.missileCd > 0 ? `MISSILE ${s.missileCd.toFixed(1)}s` : `MISSILE ${s.ammo} · ${Math.floor(s.lockProgress * 100)}%`;
+          missileRef.current.disabled = !player.alive || s.lockProgress < 1 || s.missileCd > 0 || s.ammo <= 0;
+        }
+      }
       if (pipRef.current) {
         pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;
       }
       if (wingRef.current) {
         const roster = invertedTeam ? match.enemies : match.allies;
         const up = roster.filter((ally) => ally.alive).length;
-        wingRef.current.textContent = `WING ${up}/${roster.length}`;
+        wingRef.current.textContent = orbital ? "TRAINING OPERATION" : `WING ${up}/${roster.length}`;
       }
       if (relayRef.current) {
-        relayRef.current.textContent = relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
+        relayRef.current.textContent = orbital ? "DESTROY ALL DEFENDERS · TRAINING ONLY" : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
       }
       if (ultRef.current) {
         ultRef.current.textContent =
@@ -1531,15 +1634,18 @@ export function Arena({
         if (Array.isArray(mat)) mat.forEach((item) => mats.add(item));
         else if (mat) mats.add(mat);
       });
+      geos.add(debrisGeometry);
+      mats.add(debrisMaterial);
       geos.forEach((geo) => geo.dispose());
       mats.forEach((mat) => mat.dispose());
+      orbitalAssets?.textures.forEach((texture) => texture.dispose());
       renderer.dispose();
     };
   }, [ship.ultShort]);
 
   const bus = busRef.current;
   return (
-    <div className="relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none">
+    <div className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}>
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (
@@ -1586,11 +1692,11 @@ export function Arena({
                 <div ref={hullRef} className="h-full w-full bg-alert" />
               </div>
             </div>
-            <p ref={pipRef} className="mt-1 font-hud text-xs tracking-wide text-muted">
+            <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-xs tracking-wide text-muted">
               ENG 2.0  WEP 2.0  DEF 2.0
             </p>
           </div>
-          <div className="text-center">
+          <div className="lab-status-center text-center">
             <span
               ref={clockRef}
               className="font-hud text-3xl leading-none text-bone"
@@ -1634,7 +1740,7 @@ export function Arena({
                 {tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}
               </p>
             ) : null}
-            <div className="mt-1 flex items-center gap-2">
+            <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center gap-2`}>
               <span className="font-hud text-xs text-solar">YOU</span>
               <div className="h-2 w-16 overflow-hidden bg-panel">
                 <div ref={youRef} className="h-full w-full bg-solar" />
@@ -1683,8 +1789,8 @@ export function Arena({
           </div>
         </div>
 
-        <p className="absolute top-16 right-3 left-3 hidden text-center font-hud text-xs tracking-widest text-muted sm:block">
-          {scheme === "arc"
+        <p className={`${orbital ? "lab-key-help " : ""}absolute top-16 right-3 left-3 hidden text-center font-hud text-xs tracking-widest text-muted sm:block`}>
+          {orbital ? "W/S THRUST · A/D YAW · I/K PITCH · Q/E ROLL · Z/X SLIDE · C/V LIFT · SHIFT BOOST · B BRAKE · R TARGET · M MISSILE" : scheme === "arc"
             ? "A NOSE LEFT  ·  D NOSE RIGHT  ·  W BURN  ·  SPACE FIRE  ·  F ULT"
             : "A SLIDE LEFT  ·  D SLIDE RIGHT  ·  AIM STICK TURNS  ·  W BURN"}
         </p>
@@ -1700,6 +1806,7 @@ export function Arena({
           </div>
           <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
         </div>
+        {orbital ? <p ref={telemetryRef} data-testid="lab-telemetry" className="absolute left-3 top-28 max-w-[65vw] whitespace-pre-line border-l-2 border-solar bg-void/85 p-2 font-mono text-[10px] leading-5 sm:text-xs" /> : null}
         {coach ? (
           <p className="pointer-events-none absolute bottom-36 left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/80 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">
             {coach}
@@ -1707,8 +1814,11 @@ export function Arena({
         ) : null}
 
         <div className="absolute bottom-4 left-3 flex flex-col items-start gap-2">
+          {orbital ? <div className="pointer-events-auto grid grid-cols-3 gap-1">
+            {[["UP", "KeyC"], ["DOWN", "KeyV"], ["BOOST", "ShiftLeft"], ["ROLL L", "KeyQ"], ["ROLL R", "KeyE"], ["BRAKE", "KeyB"], ["SLIDE L", "KeyZ"], ["SLIDE R", "KeyX"], ["DRIFT G", "KeyG"]].map(([label, code]) => <button key={code} type="button" className="h-11 min-w-11 border border-bone/30 bg-panel px-1 font-hud text-[10px]" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); bus?.keys.add(code); }} onPointerUp={() => bus?.keys.delete(code)} onPointerCancel={() => bus?.keys.delete(code)} onLostPointerCapture={() => bus?.keys.delete(code)}>{label}</button>)}
+          </div> : null}
           <div className="pointer-events-auto flex flex-col gap-2">
-            {PRESET_NAME.map((name, index) => (
+            {(orbital ? [] : PRESET_NAME).map((name, index) => (
               <button
                 key={name}
                 type="button"
@@ -1739,7 +1849,7 @@ export function Arena({
         </div>
 
         <div className="absolute right-3 bottom-4 flex flex-col items-end gap-2">
-          <div className="pointer-events-auto flex gap-2">
+          <div className={`${orbital ? "lab-weapons " : ""}pointer-events-auto flex gap-2`}>
             <button
               ref={lockRef}
               type="button"
@@ -1751,7 +1861,7 @@ export function Arena({
             >
               LOCK
             </button>
-            <button
+            {!orbital ? <button
               type="button"
               className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
               onPointerDown={(event) => {
@@ -1761,8 +1871,8 @@ export function Arena({
               }}
             >
               DODGE
-            </button>
-            <button
+            </button> : null}
+            {orbital ? <button ref={missileRef} type="button" aria-label="Launch guided missile" className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-xs text-solar disabled:opacity-40" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); unlockAudio(); bus?.keys.add("KeyM"); }} onPointerUp={() => bus?.keys.delete("KeyM")} onLostPointerCapture={() => bus?.keys.delete("KeyM")}>MISSILE</button> : <button
               ref={ultRef}
               type="button"
               className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-sm tracking-widest text-solar"
@@ -1773,7 +1883,7 @@ export function Arena({
               }}
             >
               {ship.ultShort}
-            </button>
+            </button>}
             <button
               type="button"
               className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
@@ -1827,9 +1937,9 @@ export function Arena({
       {end ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/80 p-6">
           <div className="w-full max-w-sm border border-solar/50 bg-panel p-5">
-            <p className="font-hud text-sm tracking-widest text-solar">STRIKE CLOSED</p>
+            <p className="font-hud text-sm tracking-widest text-solar">{orbital ? "COMBAT LAB · TRAINING ONLY" : "STRIKE CLOSED"}</p>
             <h2 className="font-hud text-4xl leading-none text-bone">
-              {end.outcome === "win"
+              {orbital ? (end.outcome === "win" ? "Sector cleared" : "Operation ended") : end.outcome === "win"
                 ? goal === "extract"
                   ? faction === "ussf"
                     ? "Cage away"
@@ -1848,7 +1958,7 @@ export function Arena({
                   : "Split disc"}
             </h2>
             <p className="mt-3 text-sm text-muted">
-              {end.kills} kills · {end.deaths} losses · {end.relays} relays still yours
+              {end.kills} kills · {end.deaths} losses{orbital ? " · No rewards issued" : ` · ${end.relays} relays still yours`}
             </p>
             <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
               {end.reason}

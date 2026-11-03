@@ -4,6 +4,7 @@ import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
 import { startNetworkImpairmentProxy } from "./impairment-proxy";
 import { startWingSocketServer } from "./server";
+import { TEST_ORIGIN, testJoin, testVerifier } from "./auth.test-fixtures";
 
 type Packet = { type?: string; [key: string]: unknown };
 
@@ -30,7 +31,7 @@ function nextPacket(socket: WebSocket, accept: (packet: Packet) => boolean, time
 }
 
 async function connect(url: string) {
-  const socket = new WebSocket(url);
+  const socket = new WebSocket(url, { origin: TEST_ORIGIN });
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
     socket.once("error", reject);
@@ -40,7 +41,7 @@ async function connect(url: string) {
 
 async function join(socket: WebSocket, name: string, reconnectToken?: string) {
   const joinedPacket = nextPacket(socket, (packet) => packet.type === "joined");
-  socket.send(JSON.stringify({ type: "join", name, reconnectToken }));
+  socket.send(JSON.stringify(testJoin(name, reconnectToken)));
   const packet = await joinedPacket;
   return {
     slotId: Number(packet.slotId),
@@ -59,7 +60,7 @@ function close(socket: WebSocket) {
 }
 
 test("ten-client lobby gates launch, reconnects safely, and isolates separate rooms", async () => {
-  const runtime = await startWingSocketServer(0, "127.0.0.1");
+  const runtime = await startWingSocketServer(0, "127.0.0.1", { verifySession: testVerifier });
   const sockets: WebSocket[] = [];
   try {
     const url = (roomId: string) => `ws://127.0.0.1:${runtime.port}/ws?room=${roomId}`;
@@ -75,7 +76,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
     const overflow = await connect(url("mars-alpha"));
     sockets.push(overflow);
     const fullRoomError = nextPacket(overflow, (packet) => packet.type === "error");
-    overflow.send(JSON.stringify({ type: "join", name: "Eleventh pilot" }));
+    overflow.send(JSON.stringify(testJoin("Eleventh pilot")));
     assert.equal((await fullRoomError).reason, "full");
 
     const nonHostStart = nextPacket(
@@ -106,7 +107,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
     const lateJoiner = await connect(url("mars-alpha"));
     sockets.push(lateJoiner);
     const lateError = nextPacket(lateJoiner, (packet) => packet.type === "error");
-    lateJoiner.send(JSON.stringify({ type: "join", name: "Late pilot" }));
+    lateJoiner.send(JSON.stringify(testJoin("Late pilot")));
     assert.equal((await lateError).reason, "match_started");
 
     const beforeReconnect = seats[0];
@@ -114,15 +115,11 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
     const replacement = await connect(url("mars-alpha"));
     sockets.push(replacement);
     const rejoined = nextPacket(replacement, (packet) => packet.type === "joined");
-    replacement.send(JSON.stringify({
-      type: "join",
-      name: "Pilot 0",
-      reconnectToken: beforeReconnect.reconnectToken,
-    }));
+    replacement.send(JSON.stringify(testJoin("Pilot 0", beforeReconnect.reconnectToken)));
     const reclaimedPacket = await rejoined;
     assert.equal(Number(reclaimedPacket.slotId), beforeReconnect.slotId);
     assert.equal(reclaimedPacket.phase, "active");
-    assert.equal(String(reclaimedPacket.reconnectToken), beforeReconnect.reconnectToken);
+    assert.notEqual(String(reclaimedPacket.reconnectToken), beforeReconnect.reconnectToken);
 
     const inputAck = nextPacket(
       replacement,
@@ -190,6 +187,7 @@ test("ten-client lobby gates launch, reconnects safely, and isolates separate ro
 
 test("two pilots control separate slots and receive identical authoritative snapshots", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySession: testVerifier,
     tickIntervalMs: 2,
     snapshotIntervalMs: 20,
   });
@@ -268,6 +266,7 @@ test("two pilots control separate slots and receive identical authoritative snap
 
 test("seeded impairment proxy exercises delayed, jittered, and lost input/snapshot frames", async (t) => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySession: testVerifier,
     tickIntervalMs: 2,
     snapshotIntervalMs: 20,
   });
@@ -330,7 +329,7 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
     clients.push(socket);
     const reclaimed = await join(socket, "Impaired pilot", seat.reconnectToken);
     assert.equal(reclaimed.slotId, seat.slotId);
-    assert.equal(reclaimed.reconnectToken, seat.reconnectToken);
+    assert.notEqual(reclaimed.reconnectToken, seat.reconnectToken);
     const afterReconnect = nextPacket(
       socket,
       (packet) =>
@@ -390,7 +389,7 @@ test("seeded impairment proxy exercises delayed, jittered, and lost input/snapsh
 });
 
 test("a restarted socket rejects stale sessions and accepts fresh rooms", async () => {
-  let runtime = await startWingSocketServer(0, "127.0.0.1");
+  let runtime = await startWingSocketServer(0, "127.0.0.1", { verifySession: testVerifier });
   const sockets: WebSocket[] = [];
   try {
     const oldSocket = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
@@ -410,12 +409,12 @@ test("a restarted socket rejects stale sessions and accepts fresh rooms", async 
     await runtime.close();
     assert.equal((await interrupted).reason, "server_restart");
     assert.deepEqual(await closed, { code: 4002, reason: "server_restart" });
-    runtime = await startWingSocketServer(0, "127.0.0.1");
+    runtime = await startWingSocketServer(0, "127.0.0.1", { verifySession: testVerifier });
 
     const staleSession = await connect(`ws://127.0.0.1:${runtime.port}/ws?room=mars-recovery`);
     sockets.push(staleSession);
     const expired = nextPacket(staleSession, (packet) => packet.type === "error");
-    staleSession.send(JSON.stringify({ type: "join", name: "Pilot", reconnectToken: oldSeat.reconnectToken }));
+    staleSession.send(JSON.stringify(testJoin("Pilot", oldSeat.reconnectToken)));
     assert.equal((await expired).reason, "session_lost");
     assert.equal(runtime.roomCount, 0);
 
@@ -447,6 +446,7 @@ test("a restarted socket rejects stale sessions and accepts fresh rooms", async 
 
 test("ten concurrent pilots receive the authoritative match result at the strike boundary", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySession: testVerifier,
     tickIntervalMs: 1,
     snapshotIntervalMs: 33,
   });

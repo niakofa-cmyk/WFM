@@ -21,7 +21,7 @@ export type WingInput = StepInput & { seq: number };
 
 export type JoinResult =
   | { ok: true; slotId: number; team: 0 | 1; reconnectToken: string }
-  | { ok: false; reason: "full" };
+  | { ok: false; reason: "full" | "session_lost" | "already_joined" };
 
 export type SlotSnapshot = {
   slotId: number;
@@ -122,15 +122,18 @@ export function createWing(seed = 1) {
       return tickCount;
     },
     join(playerId: string, name: string, reconnectToken?: string | null, now = Date.now()): JoinResult {
+      expireDisconnected(now);
       if (reconnectToken) {
-        const existing = slots.find((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
-        if (existing) {
-          existing.isConnected = true;
-          existing.lastPacketTime = now;
-          existing.name = name;
-          return { ok: true, slotId: existing.slotId, team: existing.team, reconnectToken: existing.reconnectToken ?? reconnectToken };
-        }
+        const existing = slots.find((slot) => slot.reconnectToken === reconnectToken && slot.playerId === playerId);
+        if (!existing) return { ok: false, reason: "session_lost" };
+        existing.isConnected = true;
+        existing.lastPacketTime = now;
+        existing.name = name;
+        existing.buffered = null;
+        existing.reconnectToken = token();
+        return { ok: true, slotId: existing.slotId, team: existing.team, reconnectToken: existing.reconnectToken };
       }
+      if (slots.some((slot) => slot.playerId === playerId)) return { ok: false, reason: "already_joined" };
       const teamCounts = ([0, 1] as const).map(
         (team) => slots.filter((slot) => slot.team === team && slot.playerId !== null).length,
       );
@@ -143,8 +146,9 @@ export function createWing(seed = 1) {
       if (!stale) return { ok: false, reason: "full" };
       return claim(stale, playerId, name, now);
     },
-    canReconnect(reconnectToken: string) {
-      return slots.some((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
+    canReconnect(reconnectToken: string, playerId?: string) {
+      return slots.some((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null &&
+        (playerId === undefined || slot.playerId === playerId));
     },
     lastSeq(slotId: number) {
       return slots[slotId]?.lastSeq ?? 0;
