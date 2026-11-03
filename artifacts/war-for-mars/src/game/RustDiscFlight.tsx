@@ -5,8 +5,9 @@ import { SHIPS, ROSTER, type ShipId } from "./ships";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
 import { stickAxesFromDelta } from "./input";
+import { combatLockCue } from "./combat-readout";
 import {
-  createFlight, stepFlight, flightObjective, flightForward, vectorLength,
+  canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
 } from "./flight-sector";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
@@ -37,9 +38,14 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
 type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
+type CombatTargetReadout = {
+  name: string; affiliation: string; distance: number; hull: number; maxHull: number;
+  lockable: boolean; lockHeld: boolean;
+};
 type Hud = {
   speed: number; throttle: number; hull: number; energy: number; missiles: number; lock: number;
   objective: string; distance: number; stage: FlightState["stage"]; elapsed: number; droneHull: number;
+  target: CombatTargetReadout | null; hits: number;
   flare: number; incoming: number; camera: "chase" | "cockpit";
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
   tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
@@ -686,9 +692,26 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       if (now - lastHud > 120) {
         lastHud = now;
         const dx = obj.position.x - state.position.x, dy = obj.position.y - state.position.y, dz = obj.position.z - state.position.z;
+        const selectedSubsystem = authoritativeOperation?.subsystems.find(item => item.id === authoritativeOperation.target);
+        const targetActive = state.stage === "drone" && state.drone.hull > 0;
+        const targetPosition = selectedSubsystem?.position ?? state.drone.position;
+        const targetDx = targetPosition.x - state.position.x;
+        const targetDy = targetPosition.y - state.position.y;
+        const targetDz = targetPosition.z - state.position.z;
+        const targetMaxHull = selectedSubsystem?.maxHull ?? expeditionRef.current?.mission.sector.droneHull ?? RUST_DISC_SECTOR.droneHull ?? 60;
         setHud({
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
           lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
+          target: targetActive ? {
+            name: selectedSubsystem?.label ?? "TRAINING DRONE",
+            affiliation: selectedSubsystem ? "HOSTILE CAPITAL" : "HOSTILE CONTACT",
+            distance: Math.sqrt(targetDx * targetDx + targetDy * targetDy + targetDz * targetDz),
+            hull: selectedSubsystem?.hull ?? state.drone.hull,
+            maxHull: targetMaxHull,
+            lockable: canLock(state, sector),
+            lockHeld: inp.lock,
+          } : null,
+          hits: state.hits,
           elapsed: state.elapsed, droneHull: state.drone.hull, flare: state.flareCooldown,
           incoming: incomingCount, camera: cameraModeRef.current,
           vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
@@ -826,7 +849,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               ) : <p>CALIBRATING · 1 SECOND</p>}
             </div>
           ) : null}
-          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
           {paused && !portraitBlock ? (
             <Overlay translucent={net} title={net ? "CONTROLS PAUSED" : "HOLDING POSITION"} sub={net
               ? "Your hull is transmitting neutral throttle and brake. The expedition server keeps running and your crew keeps flying; you are still visible and can take damage."
@@ -887,7 +910,7 @@ function Briefing(props: {
           <p className="mt-2 font-hud text-sm tracking-[0.25em] text-solar">MARS HIGH ORBIT · TRAINING SORTIE</p>
           <ol className="mt-6 space-y-3 border-l-2 border-bone/20 pl-4 text-sm">
             <li><span className="font-hud tracking-widest text-bone">01 SURVEY</span><span className="block text-muted">A relay went quiet inside the debris disc. Fly within 24m to pull its log.</span></li>
-            <li><span className="font-hud tracking-widest text-bone">02 ENGAGE</span><span className="block text-muted">A training drone wakes and fires guided rounds. Guns, or hold LOCK and loose a missile. Flares clear incoming.</span></li>
+            <li><span className="font-hud tracking-widest text-bone">02 ENGAGE</span><span className="block text-muted">After the relay, center the hostile contact in your reticle. Hold GUNS for primary fire; hold LOCK until confirmed, then tap MSL. Flares clear incoming rounds.</span></li>
             <li><span className="font-hud tracking-widest text-bone">03 EXTRACT</span><span className="block text-muted">Reach the beacon ring. Rocks are solid and the drone cannot shoot through them.</span></li>
           </ol>
           <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -979,6 +1002,27 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
         {hud.stage === "drone" ? <p className="text-[10px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
         {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-xs tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
       </div>
+      <div className="pointer-events-none absolute left-1/2 top-[4.4rem] z-[4] w-64 -translate-x-1/2 border border-[#ff7a5c]/50 bg-[#080b12]/90 px-2.5 py-1.5 text-center shadow-lg sm:w-72" data-testid="panel-combat-target">
+        {hud.target ? (
+          <>
+            <div className="flex items-center justify-between gap-2 font-hud text-[9px] tracking-[0.18em]">
+              <span className="truncate text-[#ff7a5c]">{hud.target.affiliation} · {hud.target.name}</span>
+              <span className="shrink-0 text-bone">{Math.round(hud.target.distance)}M</span>
+            </div>
+            <div className="mt-1 h-1 bg-bone/15" role="progressbar" aria-label={`${hud.target.name} hull`} aria-valuemin={0} aria-valuemax={hud.target.maxHull} aria-valuenow={hud.target.hull}>
+              <div className="h-full bg-[#ff7a5c]" style={{ width: `${Math.max(0, Math.min(100, hud.target.hull / Math.max(1, hud.target.maxHull) * 100))}%` }} />
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-2 text-[9px] tracking-[0.12em]">
+              <span className="text-bone/80">{combatLockCue({ targetActive: true, canAcquire: hud.target.lockable, lockHeld: hud.target.lockHeld, lock: hud.lock })}</span>
+              <span className="shrink-0 text-solar">HITS {hud.hits}</span>
+            </div>
+          </>
+        ) : (
+          <p className="font-hud text-[9px] tracking-[0.14em] text-muted" data-testid="status-no-combat-target">
+            {combatLockCue({ targetActive: false, canAcquire: false, lockHeld: false, lock: hud.lock })}
+          </p>
+        )}
+      </div>
       <div className="absolute left-3 top-2 space-y-1.5">
         <Bar label="HULL" value={hud.hull} color={hud.hull < 30 ? "#ff7a5c" : "#e6e1d6"} testId="status-hull" />
         <Bar label="ENERGY" value={hud.energy} color={pal.accent} testId="status-energy" />
@@ -994,7 +1038,7 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
         <div className="absolute left-0 top-1/2 h-px w-2 bg-bone/70" /><div className="absolute right-0 top-1/2 h-px w-2 bg-bone/70" />
         {hud.lock > 0 ? <div className="absolute -inset-3 rounded-full border-2" style={{ borderColor: hud.lock >= 1 ? "#ff7a5c" : pal.accent, opacity: 0.4 + hud.lock * 0.6 }} /> : null}
       </div>
-      {hud.lock >= 1 ? <p className="absolute left-1/2 top-[58%] -translate-x-1/2 text-xs tracking-[0.3em] text-[#ff7a5c]">LOCKED · FIRE MISSILE</p> : null}
+      {hud.lock >= 1 ? <p className="absolute left-1/2 top-[58%] -translate-x-1/2 text-xs tracking-[0.3em] text-[#ff7a5c]">LOCKED · TAP MISSILE</p> : null}
     </div>
   );
 }
@@ -1190,9 +1234,9 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
 }
 
 // ---------- Touch controls ----------
-function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, throttle, vectorDriftAvailable }: {
+function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, onCamera, throttle, vectorDriftAvailable }: {
   inputRef: MutableRefObject<FlightInput>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
-  disabled: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
+  disabled: boolean; missileReady: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
   const knob = useRef<HTMLDivElement>(null);
   const thrKnob = useRef<HTMLDivElement>(null);
@@ -1262,11 +1306,11 @@ function TouchControls({ inputRef, pulseRef, disabled, onPause, onCamera, thrott
         {hold("brake", "BRAKE")}
         {rollHold(1, "ROLL R")}
         {hold("lock", "LOCK")}
-        <PulseButton label="MSL" testId="button-missile" disabled={disabled} fire={() => { pulseRef.current.missile = true; }} />
-        <PulseButton label="FLARE" testId="button-countermeasure" disabled={disabled} fire={() => { pulseRef.current.countermeasure = true; }} />
+        <PulseButton label="MSL" testId="button-missile" disabled={disabled || !missileReady} title={missileReady ? "Launch one guided missile" : "Acquire a target lock before launching a missile"} fire={() => { pulseRef.current.missile = true; }} />
+        <PulseButton label="FLARE" testId="button-countermeasure" disabled={disabled} title="Clear incoming hostile guided missiles" fire={() => { pulseRef.current.countermeasure = true; }} />
         {vectorDriftAvailable ? hold("drift", "DRIFT", "border-solar/50") : null}
         {hold("boost", "BOOST")}
-        {hold("fire", "FIRE", "border-solar/70 text-solar")}
+        {hold("fire", "GUNS", "border-solar/70 text-solar")}
       </div>
     </div>
   );
@@ -1283,6 +1327,7 @@ function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: str
   return (
     <button data-testid={testId} disabled={disabled}
       aria-pressed={active}
+      aria-label={keyLabel(label)}
       title={keyLabel(label)}
       className={`min-h-14 min-w-14 border border-bone/30 px-2 text-[10px] tracking-widest ${active ? "bg-bone/30" : "bg-void/45"} ${cls}`}
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); on(); setActive(true); }}
@@ -1294,13 +1339,22 @@ function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: str
 }
 
 function keyLabel(label: string): string {
-  return label === "DRIFT" ? "Hold to preserve your travel direction while turning." : label;
+  const help: Record<string, string> = {
+    DRIFT: "Hold to preserve your travel direction while turning.",
+    LOCK: "Hold while the hostile contact is centered, close, and unobstructed.",
+    GUNS: "Hold to fire primary guns at the center reticle.",
+    BOOST: "Hold to spend energy for extra thrust.",
+    BRAKE: "Hold to reduce speed quickly.",
+    "ROLL L": "Hold to roll left.",
+    "ROLL R": "Hold to roll right.",
+  };
+  return help[label] ?? label;
 }
 
-function PulseButton({ label, fire, testId, disabled }: { label: string; fire: () => void; testId: string; disabled: boolean }) {
+function PulseButton({ label, fire, testId, disabled, title }: { label: string; fire: () => void; testId: string; disabled: boolean; title: string }) {
   return (
-    <button data-testid={testId} disabled={disabled} onPointerDown={fire} onContextMenu={e => e.preventDefault()}
-      className="min-h-14 min-w-14 border border-bone/30 bg-void/45 px-2 text-[10px] tracking-widest active:bg-bone/30">{label}</button>
+    <button aria-label={title} title={title} data-testid={testId} disabled={disabled} onPointerDown={fire} onContextMenu={e => e.preventDefault()}
+      className="min-h-14 min-w-14 border border-bone/30 bg-void/45 px-2 text-[10px] tracking-widest active:bg-bone/30 disabled:opacity-30">{label}</button>
   );
 }
 

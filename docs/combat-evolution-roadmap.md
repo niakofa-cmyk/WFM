@@ -2,6 +2,15 @@
 
 ## Source references
 
+WFM's primary long-term product direction is the Infinite War blueprint:
+`docs/references/wfm-infinite-war-blueprint.md`. Its complete owner-supplied
+source remains unchanged at
+`attached_assets/Pasted-WAR-FOR-MARS-The-Infinite-War-Open-Universe-Multiplayer_1793690415379.txt`.
+The central goal is to make competitive engagements operations inside a
+connected universe whose validated outcomes can affect the larger war. The
+blueprint is a staged north-star, not a statement that all proposed systems
+already exist.
+
 The complete owner-supplied references remain unchanged in `attached_assets/`:
 
 - `Pasted-Build-the-WFM-Combat-Evolution-If-I-were-directing-WFM-_1793630574307.txt`
@@ -112,6 +121,23 @@ for the standalone mission. This verifies local implementation contracts only:
 the phone experience, network interruptions, staging behavior, balance, and
 Production release still require their own verification. The existing
 Production-default feature gate remains in force.
+
+## Combat visibility increment
+
+The first Infinite War combat-foundation increment makes the existing Rust Disc
+and cooperative-sector combat loop easier to read without changing simulation
+or server authority. The flight HUD identifies the active hostile drone or
+selected Iron Eclipse subsystem, shows its distance and hull, counts confirmed
+hits, and explains whether lock is unavailable, acquiring, or complete. The
+mobile missile control is enabled only when a target is active, a full lock is
+reported, and ammunition remains; primary guns stay independently available.
+Briefing copy now explains the reticle → guns/lock → missile sequence.
+
+This does not add free target cycling, assisted aim, new weapon types,
+ship-specific loadouts, broader player-vs-player target selection, or new
+damage rules. Those remain follow-on work. The 5v5 Wing arena is still separate
+from open-universe/co-op sectors; this HUD is not evidence that the two modes
+have been connected.
 
 ## Staged implementation and acceptance gates
 
