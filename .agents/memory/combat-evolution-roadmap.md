@@ -22,18 +22,19 @@ works reliably.
 effects, command permissions, and mission resolution on the authenticated
 server. Reuse the existing account-scoped zero-credit discovery event; do not
 create a parallel reward ledger or player/session schema. Keep competitive Wing
-and its reward contract separate. As of 2026-11-02, the Iron Eclipse code is
-deployed to the dedicated Railway staging app, API, and socket services on the
-same staging revision; all three are online with no reported deployment
-failures. The two staging feature switches are enabled, while Production remains
-untouched. This confirms deployment and service health only: no authenticated
-phone flight has yet been run against this deployment. The next gate is an
-authenticated staging session that creates a co-op room, verifies shared flight
-and squad commands, disables the capital defenses, completes extraction, and
-confirms the zero-credit result. Pilot transfer is still out of scope. Never
-copy House of the Dying Sun's protected material. Require deterministic
-browser/server parity and idempotent progression; local checks are not
-Production evidence.
+and its reward contract separate. As of 2026-11-03, the current flight and
+performance revision is deployed to the dedicated Railway staging app, API, and
+socket services from the same staging revision. Railway reports all three
+services and PostgreSQL online, with no pending deployments or recent failures.
+This confirms deployment and service health only: frame pacing, co-op RTT, and
+the authenticated mission flow still need an Android phone check on this
+revision. Next, use the in-game performance HUD during an authenticated staging
+flight, then complete a co-op mission that verifies shared flight, squad
+commands, capital-defense state, extraction, and the zero-credit result. The
+two staging feature switches are enabled, while Production remains untouched.
+Pilot transfer is still out of scope. Never copy House of the Dying Sun's
+protected material. Require deterministic browser/server parity and idempotent
+progression; local checks are not Production evidence.
 
 For flight-performance work, keep simulation and collision decisions
 deterministic and byte-identical in browser and server copies. Reduce hot-loop
