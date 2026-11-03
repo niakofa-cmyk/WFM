@@ -32,3 +32,4 @@
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
+- [Engine selection](wfm-engine-selection.md) — keep Three.js while measuring; compare a small Unity combat slice on the same target hardware before any migration.
