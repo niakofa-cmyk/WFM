@@ -122,7 +122,7 @@ function PublicLanding() {
           <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
             <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
             <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
-            <Link href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary`}>ORBITAL COMBAT LAB · OFFLINE</Link>
+            <a href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary`}>ORBITAL COMBAT LAB · OFFLINE</a>
             {expeditionEnabled ? <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary`}>CO-OP EXPEDITION · 1-8 PILOTS</Link> : null}
             {isSignedIn ? (
               <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>

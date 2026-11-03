@@ -201,10 +201,10 @@ function MainMenu(props: HomeProps) {
           <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
           <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
         </Link>
-        <Link href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
+        <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
           <span className="font-hud text-xl leading-none tracking-widest text-solar">ORBITAL COMBAT LAB</span>
           <span className="text-xs text-muted">Vector flight, target lock, and guided missiles · offline training, no rewards.</span>
-        </Link>
+        </a>
         {EXPEDITION_ENABLED ? (
           <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
             <span className="font-hud text-xl leading-none tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
