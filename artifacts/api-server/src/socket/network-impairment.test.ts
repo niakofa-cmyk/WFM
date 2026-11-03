@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { MAX_PLAYERS } from "../game/wing";
 import { startNetworkImpairmentProxy } from "./impairment-proxy";
 import { startWingSocketServer } from "./server";
+import { authenticateTestSocket, createSocketTestAuth } from "./test-session-auth";
 
 type Packet = { type?: string; [key: string]: unknown };
 type Seat = { slotId: number; team: number; reconnectToken: string };
@@ -14,6 +16,7 @@ type Snapshot = {
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const testAuth = createSocketTestAuth();
 
 function nextPacket(
   socket: WebSocket,
@@ -61,12 +64,13 @@ function nextPacket(
   });
 }
 
-async function connect(url: string) {
+async function connect(url: string, playerId = `pilot-${randomUUID()}`) {
   const socket = new WebSocket(url);
   await new Promise<void>((resolve, reject) => {
     socket.once("open", resolve);
     socket.once("error", reject);
   });
+  await authenticateTestSocket(socket, testAuth, playerId);
   return socket;
 }
 
@@ -119,6 +123,7 @@ function waitUntil(predicate: () => boolean, timeoutMs: number, label: string) {
 
 test("ten impaired pilots share authoritative match state, reconnect, and finish together", async (t) => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
     tickIntervalMs: 1,
     snapshotIntervalMs: 33,
   });
@@ -178,7 +183,10 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
     };
 
     for (let slotId = 0; slotId < MAX_PLAYERS; slotId += 1) {
-      const socket = await connect(`ws://127.0.0.1:${proxies[slotId].port}/ws?room=impaired-ten`);
+      const socket = await connect(
+        `ws://127.0.0.1:${proxies[slotId].port}/ws?room=impaired-ten`,
+        `pilot-${slotId}`,
+      );
       sockets.push(socket);
       socketsByPilot[slotId] = socket;
       observe(slotId, socket);
@@ -230,7 +238,10 @@ test("ten impaired pilots share authoritative match state, reconnect, and finish
       inputReady[pilotIndex] = false;
       await terminate(priorSocket);
       await delay(250);
-      const replacement = await connect(`ws://127.0.0.1:${proxies[pilotIndex].port}/ws?room=impaired-ten`);
+      const replacement = await connect(
+        `ws://127.0.0.1:${proxies[pilotIndex].port}/ws?room=impaired-ten`,
+        `pilot-${pilotIndex}`,
+      );
       sockets.push(replacement);
       socketsByPilot[pilotIndex] = replacement;
       observe(pilotIndex, replacement);

@@ -1,0 +1,95 @@
+name: Android staging APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'artifacts/war-for-mars/android/**'
+      - 'scripts/android-*'
+      - '.github/workflows/android-staging.yml'
+  pull_request:
+    paths:
+      - 'artifacts/war-for-mars/android/**'
+      - 'scripts/android-*'
+      - '.github/workflows/android-staging.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check Android configuration and association generator
+        run: node --test scripts/android-app.test.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build and verify staging app
+        working-directory: artifacts/war-for-mars/android
+        run: gradle --no-daemon :app:testStagingDebugUnitTest :app:lintStagingDebug :app:assembleStagingDebug
+      - name: Enable emulator acceleration on the disposable runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and cold-start the APK on Android 13 with Chrome
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash scripts/android-startup-smoke.sh
+      - name: Prepare public domain-association candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p generated-artifacts/android
+          apk=artifacts/war-for-mars/android/app/build/outputs/apk/staging/debug/app-staging-debug.apk
+          cp "$apk" generated-artifacts/android/wfm-staging.apk
+          sha256sum generated-artifacts/android/wfm-staging.apk > generated-artifacts/android/apk-sha256.txt
+          # Use the build tools selected by this project, not an unrelated runner preview.
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          if ! "$apksigner" verify --print-certs "$apk" > generated-artifacts/android/public-certificate.txt 2> generated-artifacts/android/certificate-diagnostic.txt; then
+            echo "::error::APK certificate verification failed: $(tr '\n' ' ' < generated-artifacts/android/certificate-diagnostic.txt)"
+            exit 1
+          fi
+          digest="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' generated-artifacts/android/public-certificate.txt)"
+          fingerprint="$(printf '%s' "$digest" | sed 's/../&:/g; s/:$//')"
+          if ! node scripts/android-assetlinks.mjs "$fingerprint" > generated-artifacts/android/assetlinks-candidate.json; then
+            rm -f generated-artifacts/android/assetlinks-candidate.json
+            echo "::error::No valid SHA-256 fingerprint was found in the verified APK certificate report."
+            exit 1
+          fi
+      - name: Upload APK and public association candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfm-android-staging-${{ github.sha }}
+          path: generated-artifacts/android/
+          retention-days: 7
+      - name: Upload unit and lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfm-android-reports-${{ github.sha }}
+          path: artifacts/war-for-mars/android/app/build/reports/
+          retention-days: 7
+      - name: Upload clean-emulator startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfm-android-startup-${{ github.sha }}
+          path: generated-artifacts/android-startup/
+          retention-days: 7

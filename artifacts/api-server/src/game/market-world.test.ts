@@ -13,6 +13,7 @@ import {
   progressionEventsTable,
   pool,
   worldDiscoveriesTable,
+  economyRejectionsTable,
 } from "@workspace/db";
 import { MarketError, getMarketSnapshot, tradeMarket } from "./market";
 import {
@@ -28,6 +29,7 @@ after(async () => {
 });
 
 async function cleanUser(userId: string) {
+  await db.delete(economyRejectionsTable).where(eq(economyRejectionsTable.userId, userId));
   await db.delete(marketTransactionsTable).where(eq(marketTransactionsTable.userId, userId));
   await db.delete(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
   await db.delete(playerQuestsTable).where(eq(playerQuestsTable.userId, userId));
@@ -154,7 +156,8 @@ test("world discoveries, quests, reputation, and global events persist server-si
     assert.equal(first.event.eventId, second.event.eventId);
     assert.equal(first.event.cycleDate.getTime(), second.event.cycleDate.getTime());
     assert.equal(first.currentLocation, "phobos-yard");
-    assert.deepEqual(first.routes, [{ destinationId: "rust-disc", costCredits: 8, available: true }]);
+    assert.deepEqual(first.routes.find((route) => route.destinationId === "rust-disc"), { destinationId: "rust-disc", costCredits: 8, available: true });
+    assert.equal(first.routes.find((route) => route.destinationId === "outer-fringe")?.available, false);
     assert.equal(first.quests.find((quest) => quest.id === "rust-recording")?.status, "available");
     await assert.rejects(
       exploreWorldLocation(firstUser, "rust-disc", randomUUID()),

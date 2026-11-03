@@ -9,4 +9,6 @@
 export interface WorldTravelInput {
   idempotencyKey: string;
   destinationId: string;
+  /** @minimum 0 */
+  maxCost?: number;
 }

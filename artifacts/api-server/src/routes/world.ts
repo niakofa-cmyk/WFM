@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import {
+  ExecuteWorldServiceBody,
+  ExecuteWorldServiceResponse,
   ActOnWorldQuestBody,
   ActOnWorldQuestParams,
   ActOnWorldQuestResponse,
@@ -12,9 +14,21 @@ import {
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
 import { WorldError, actOnWorldQuest, exploreWorldLocation, getWorldSnapshot, travelToWorldLocation } from "../game/world";
+import { executeWorldService } from "../game/world-services";
 
 const router: IRouter = Router();
 router.use(requirePlayerAuth);
+
+router.post("/world/services", async (req, res, next) => {
+  const body = ExecuteWorldServiceBody.strict().safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "invalid_station_request" }); return; }
+  try {
+    res.json(ExecuteWorldServiceResponse.parse(await executeWorldService(playerIdFromRequest(req), body.data)));
+  } catch (error) {
+    if (error instanceof WorldError) { res.status(error.status).json({ error: error.message }); return; }
+    next(error);
+  }
+});
 
 router.get("/world", async (req, res, next) => {
   try {
@@ -37,6 +51,7 @@ router.post("/world/travel", async (req, res, next) => {
           playerIdFromRequest(req),
           body.data.destinationId,
           body.data.idempotencyKey,
+          body.data.maxCost,
         ),
       ),
     );

@@ -1,0 +1,65 @@
+Excellent. We'll treat **single-player and real-time multiplayer as two modes of the same game**, with browser and mobile app support as the distribution goals.
+
+## Recommended game architecture
+
+```text
+                 SPACE GAME
+                     |
+          +----------+----------+
+          |                     |
+          v                     v
+    SINGLE-PLAYER          MULTIPLAYER
+          |                     |
+          v                     v
+    Solo gameplay         Matchmaking
+                                |
+                                v
+                       Authoritative server
+                         on Railway
+                                |
+                                v
+                       Persistent game data
+
+       Shared game client and gameplay systems
+                     |
+            +--------+--------+
+            |                 |
+            v                 v
+      Web browser       Mobile applications
+                         iOS + Android
+```
+
+This is the target architecture, not a claim that these components are already implemented.
+
+### My implementation priorities
+
+1. **Finish the core game.** Make sure the controls, gameplay loop, scoring, and victory or defeat conditions work reliably.
+2. **Make single-player fully playable.** Players should be able to enjoy the game without waiting for other players or depending on a multiplayer connection.
+3. **Stabilize multiplayer.** Verify matchmaking, synchronized gameplay, disconnect handling, reconnection, and match isolation.
+4. **Implement match persistence where required.** Decide which matches can resume after a server restart and which should end.
+5. **Validate cross-platform controls.** Test mobile browsers, desktop browsers, and native app builds.
+6. **Prepare production infrastructure.** Keep staging isolated from production and validate server capacity, security, monitoring, and recovery.
+7. **Release progressively.** Start with private testers, then a browser release, followed by mobile beta testing and public app-store releases.
+
+## Where each part should live
+
+| Component            | Recommended starting point             |
+| -------------------- | -------------------------------------- |
+| Development          | Replit                                 |
+| Private staging      | Your existing staging Repl             |
+| Multiplayer backend  | Railway, subject to deployment testing |
+| Browser distribution | Your game website; optionally itch.io  |
+| Android distribution | Google Play                            |
+| iOS distribution     | Apple App Store                        |
+
+**One important decision:** Don't publish the current staging environment as your production game just to get online quickly. First verify that the deployed game actually supports both modes and that multiplayer works between independent devices.
+
+## Next step: Let's work from your actual repository
+
+I want to avoid recommending changes that duplicate functionality you already have.
+
+Your existing project is associated with the GitHub repository **`niakofa-cmyk/WFM`**.
+
+Would you like me to **inspect the current repository and deployment setup, identify what's already implemented, and establish a prioritized production-launch plan for single-player, multiplayer, browser, and mobile**?
+
+That would let us base the next steps on the actual code rather than assumptions.

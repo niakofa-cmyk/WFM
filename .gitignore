@@ -31,6 +31,8 @@ node_modules
 /.sass-cache
 /connect.lock
 /coverage
+/artifacts/war-for-mars/test-results/
+/artifacts/war-for-mars/playwright-report/
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
@@ -47,3 +49,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Android build output and local/signing configuration
+/generated-artifacts/
+**/android/.gradle/
+**/android/**/build/
+**/android/local.properties
+*.jks
+*.keystore

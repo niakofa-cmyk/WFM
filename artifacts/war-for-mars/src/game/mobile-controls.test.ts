@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { armGyro, disarmGyro, gyroAim } from "./gyro";
-import { clearInput, createBus, readInput } from "./input";
+import { clearInput, createBus, readInput, stickAxesFromDelta } from "./input";
 
 function installOrientationWindow(permission: "granted" | "denied") {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -76,6 +76,19 @@ test("touch sticks, firing, target lock, ability, evade, and power selection com
   assert.equal(next.preset, null);
 });
 
+test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate drag", () => {
+  assert.deepEqual(stickAxesFromDelta(0, 0, 40), { x: 0, y: 0 });
+  assert.deepEqual(stickAxesFromDelta(2, -1, 40), { x: 0, y: 0 });
+  assert.deepEqual(stickAxesFromDelta(40, 0, 40), { x: 1, y: 0 });
+
+  const diagonal = stickAxesFromDelta(80, 80, 40);
+  assert.ok(Math.abs(Math.hypot(diagonal.x, diagonal.y) - 1) < 1e-9);
+
+  const bus = createBus("arc");
+  bus.leftX = stickAxesFromDelta(40, 0, 40).x;
+  assert.equal(readInput(bus).yaw, -1);
+});
+
 test("lost focus clears held keys, both sticks, and latched buttons", () => {
   const bus = createBus("strafe");
   bus.keys.add("Space");
@@ -105,6 +118,21 @@ test("lost focus clears held keys, both sticks, and latched buttons", () => {
     preset: null,
   });
   assert.equal(bus.override, null);
+});
+
+test("missing sensor APIs and insecure pages retain touch-only controls", async () => {
+  const fixture = installOrientationWindow("granted");
+  try {
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: false });
+    assert.equal(await armGyro(), false);
+    assert.equal(fixture.added(), 0);
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
+    Object.defineProperty(window, "DeviceOrientationEvent", { configurable: true, value: undefined });
+    assert.equal(await armGyro(), false);
+    assert.equal(fixture.added(), 0);
+  } finally {
+    fixture.restore();
+  }
 });
 
 test("gyro denial keeps touch steering available and does not retain sensor listeners", async () => {

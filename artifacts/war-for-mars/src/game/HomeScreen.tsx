@@ -1,6 +1,19 @@
 import { menuTip, type MenuAction, type MenuStateId } from "./menu";
 import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
+import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
+import type { Save } from "./save";
+import { useEffect, useState } from "react";
+import { Link } from "wouter";
+import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
+import { ShipIllustration } from "./ShipIllustration";
+import { campaignBriefing } from "./command-briefing";
+import { expeditionFeatureEnabled } from "./sector-client";
+
+const EXPEDITION_ENABLED = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
 
 type HomeProps = {
   state: MenuStateId;
@@ -12,6 +25,13 @@ type HomeProps = {
   refit: number;
   credits: number;
   tech: TechId | null;
+  profile: Save;
+  signedIn: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string;
+  publicLeaderboardSaving: boolean;
+  publicLeaderboardError: string;
+  onSavePublicLeaderboard: (enabled: boolean, callsign: string) => void;
   cleared: number;
   refitLabel: string;
   refitDisabled: boolean;
@@ -21,11 +41,21 @@ type HomeProps = {
   roomCode: string;
   onRoomCode: (roomCode: string) => void;
   onCreateRoom: () => void;
+  onJoinCompetitiveQueue: () => void;
+  onJoinCasualAiQueue: () => void;
+  onCancelMatchmaking: () => void;
+  competitiveQueueing: boolean;
+  competitiveQueueAvailable: boolean;
+  casualAiQueueing: boolean;
+  casualAiQueueAvailable: boolean;
   onlineStatus?: string;
   offlineAvailable: boolean;
   onOfflineStrike: () => void;
   onFaction: (faction: Faction) => void;
   onShip: (ship: ShipId) => void;
+  onSaveLoadout: (input: { faction: Faction; shipId: ShipId }) => Promise<boolean>;
+  loadoutSaving: boolean;
+  loadoutError: string;
   onScheme: (scheme: Scheme) => void;
   onGyro: () => void;
   onTech: (tech: TechId) => void;
@@ -34,18 +64,23 @@ type HomeProps = {
 
 export function HomeScreen(props: HomeProps) {
   const { state, onAction } = props;
+  const commandState = state === "MAIN_MENU";
   return (
     <section
-      className="relative h-dvh overflow-hidden bg-void text-bone"
-      style={{
-        backgroundImage: "url(/mars-front.jpg)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
+      data-testid="home-screen"
+      className="relative min-h-dvh overflow-x-hidden bg-void text-bone"
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-void via-void/80 to-transparent" />
-      <div className="relative flex h-full flex-col justify-between px-5 py-6 sm:px-10">
-        <p className="font-hud text-xs tracking-widest text-solar">USSF VS THE ACCORD · PHOBOS MOON</p>
+      <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} faction={commandState ? props.faction : undefined} />
+      <div className="wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10">
+        {commandState ? (
+          <CommandTopBar {...props} />
+        ) : (
+          <div className="flex items-center gap-3 border-b border-bone/10 pb-3 pr-12">
+            <FactionMark faction="ussf" className="h-7 w-7" />
+            <p className="min-w-0 flex-1 font-hud text-[11px] tracking-[0.22em] text-solar">USSF VS THE ACCORD · PHOBOS THEATER</p>
+            <FactionMark faction="accord" className="h-7 w-7 opacity-80" />
+          </div>
+        )}
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
         {state === "MAIN_MENU" ? <MainMenu {...props} /> : null}
@@ -59,147 +94,329 @@ export function HomeScreen(props: HomeProps) {
 
 function Boot() {
   return (
-    <div className="flex flex-1 items-center">
-      <p className="font-hud text-sm tracking-widest text-bone">LINKING THE WING</p>
+    <div className="flex flex-1 items-center" role="status">
+      <p className="font-hud text-sm tracking-widest text-bone">
+        <span className="wfm-blink mr-2 inline-block h-2 w-2 bg-solar align-middle" aria-hidden="true" />
+        LINKING THE WING
+      </p>
     </div>
   );
 }
 
 function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
-    <button type="button" className="flex flex-1 flex-col items-start justify-center text-left" onClick={() => onAction("START")}>
+    <button
+      type="button"
+      className="group flex flex-1 flex-col items-start justify-center text-left"
+      onClick={() => onAction("START")}
+    >
       <h1 className="sr-only">WAR FOR MARS</h1>
-      <img
-        src="/war-for-mars-logo.jpg"
-        alt=""
-        className="w-full max-w-3xl mix-blend-screen"
-      />
-      <p className="mt-2 font-hud text-sm tracking-widest text-solar">PRESS TO ENTER</p>
+      <span className="wfm-rise flex items-center gap-3">
+        <FactionMark faction="ussf" className="h-12 w-12 sm:h-16 sm:w-16" />
+        <span aria-hidden="true" className="h-10 w-px bg-bone/25" />
+        <FactionMark faction="accord" className="h-12 w-12 sm:h-16 sm:w-16" />
+      </span>
+      <Wordmark className="wfm-arrive mt-6 w-full max-w-3xl" />
+      <span aria-hidden="true" className="wfm-sweep mt-4 block h-px w-full max-w-3xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
+      <span className="wfm-rise-2 mt-4 block font-hud text-sm tracking-[0.32em] text-muted">USSF VS THE ACCORD · PHOBOS THEATER</span>
+      <span className="wfm-rise-3 wfm-chamfer wfm-cmd wfm-cmd-primary mt-8 min-h-14 px-7 font-hud text-lg tracking-[0.28em] group-hover:bg-[#ebb173]">
+        ENTER THE WAR
+      </span>
     </button>
   );
 }
 
-function MainMenu({
-  onAction,
+function CommandTopBar({ faction, credits, cleared, signedIn, ship }: HomeProps) {
+  const { completed, total } = campaignBriefing(cleared);
+  return (
+    <header className="wfm-rise flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-bone/10 pb-3 pr-12">
+      <Wordmark className="w-36 sm:w-48" />
+      <span className="sr-only">WAR FOR MARS</span>
+      <div className="ml-auto flex items-center gap-4 font-hud text-xs tracking-[0.18em]">
+        <span className="flex items-center gap-2" data-testid="text-command-faction">
+          <FactionMark faction={faction} className="h-6 w-6" />
+          <span className={faction === "accord" ? "text-solar" : "text-spectral"}>{FACTION_NAME[faction]}</span>
+        </span>
+        <span className="hidden text-muted sm:inline">{SHIPS[ship].name.toUpperCase()}</span>
+        <span data-testid="text-command-credits" className="text-bone">{credits} CR</span>
+        <span data-testid="text-command-progress" className="text-muted">{completed}/{total} SORTIES</span>
+        <span className={signedIn ? "text-muted" : "text-alert"}>{signedIn ? "SIGNED IN" : "GUEST"}</span>
+      </div>
+    </header>
+  );
+}
+
+const FACTION_NAME: Record<Faction, string> = { ussf: "USSF", accord: "THE ACCORD" };
+
+function MainMenu(props: HomeProps) {
+  const { onAction, onGalaxy, ship, faction, cleared } = props;
+  const def = SHIPS[ship];
+  const brief = campaignBriefing(cleared);
+  return (
+    <div className="grid flex-1 content-center gap-4 py-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
+      {/* Briefing: selected ship + campaign */}
+      <CommandPanel className="wfm-rise-2 order-1 p-4 lg:order-2" data-testid="panel-command-briefing">
+        <div className="flex items-start gap-4">
+          <ShipIllustration ship={ship} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
+          <div className="min-w-0">
+            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+            <p data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-wide">{def.name.toUpperCase()}</p>
+            <p className="mt-1 font-hud text-sm tracking-[0.2em] text-muted">{def.role.toUpperCase()} · ULT {def.ultShort}</p>
+            <p className="mt-2 text-sm leading-relaxed text-bone/85">{def.blurb}</p>
+          </div>
+        </div>
+        <dl className="mt-4 grid grid-cols-3 gap-px border border-bone/10 bg-bone/10 font-hud">
+          {[["SHIELD", def.shield], ["HULL", def.hull], ["TOP SPEED", def.maxSpeed]].map(([k, v]) => (
+            <div key={k} className="bg-panel px-3 py-2">
+              <dt className="text-[10px] tracking-[0.22em] text-muted">{k}</dt>
+              <dd className="text-xl leading-none">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <button
+          type="button"
+          onClick={() => onAction("ARMORY")}
+          data-testid="button-change-ship-faction"
+          className="wfm-cmd wfm-cmd-secondary mt-3 min-h-12 w-full justify-center px-3 font-hud text-base tracking-widest"
+        >
+          CHANGE SHIP / FACTION
+        </button>
+        <div className="mt-4 border-t border-bone/10 pt-3" data-testid="text-campaign-briefing">
+          <PanelLabel>{brief.label} · {brief.completed}/{brief.total} CLEARED</PanelLabel>
+          <p className="mt-1 font-hud text-2xl leading-none">{brief.sortie.name.toUpperCase()} <span className="text-base tracking-widest text-solar">· {brief.sortie.objective}</span></p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{brief.sortie.brief}</p>
+          <div className="mt-3 flex gap-1" aria-hidden="true">
+            {Array.from({ length: brief.total }, (_, i) => (
+              <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />
+            ))}
+          </div>
+        </div>
+      </CommandPanel>
+
+      {/* Primary commands */}
+      <nav aria-label="Primary commands" className="wfm-rise order-2 flex flex-col gap-2 lg:order-1">
+        <PanelLabel>COMMAND</PanelLabel>
+        <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
+          <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
+        </Link>
+        {EXPEDITION_ENABLED ? (
+          <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
+            <span className="font-hud text-xl leading-none tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
+            <span className="text-xs text-muted">1-8 pilots · server-run · three missions to Mars</span>
+          </Link>
+        ) : null}
+        <button type="button" onClick={() => onAction("DEPLOY")} className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-16 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-2xl leading-none tracking-widest">CAMPAIGN: DEPLOY</span>
+          <span className="text-xs text-void/80">{brief.label}: {brief.sortie.name}</span>
+        </button>
+        <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-lg leading-none tracking-widest">ARCADE SKIRMISH</span>
+          <span className="text-xs text-muted">Open disc. Practice or strike.</span>
+        </button>
+        <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
+          <span className="font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
+          <span className="text-xs text-muted">World event · locations · side operations</span>
+        </button>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+            <span className="font-hud text-sm leading-none tracking-widest">ARMORY & UPGRADES</span>
+            <span className="truncate text-[11px] text-muted">{def.name}</span>
+          </button>
+          <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+            <span className="font-hud text-sm leading-none tracking-widest">SETTINGS</span>
+            <span className="text-[11px] text-muted">Stick, tilt, the glass</span>
+          </button>
+          <Link
+            href="/leaderboard"
+            data-testid="link-public-wing-leaderboard"
+            className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3"
+          >
+            <span className="font-hud text-sm leading-none tracking-widest text-solar">WING LEADERBOARD</span>
+            <span className="text-[11px] text-muted">Opt-in callsigns · verified Wing credits</span>
+          </Link>
+        </div>
+      </nav>
+
+      <OnlineWing {...props} />
+    </div>
+  );
+}
+
+function OnlineWing({
   onOnline,
   onCreateRoom,
+  onJoinCompetitiveQueue,
+  onJoinCasualAiQueue,
+  onCancelMatchmaking,
+  competitiveQueueing,
+  competitiveQueueAvailable,
+  casualAiQueueing,
+  casualAiQueueAvailable,
+  signedIn,
   onRoomCode,
   roomCode,
   onlineStatus,
   offlineAvailable,
   onOfflineStrike,
-  onGalaxy,
-  ship,
 }: HomeProps) {
-  const items: { action: MenuAction; label: string; detail: string }[] = [
-    { action: "DEPLOY", label: "CAMPAIGN: DEPLOY", detail: "Sorties, the yard, the cage" },
-    { action: "ARCADE", label: "ARCADE SKIRMISH", detail: "Open disc. Practice or strike." },
-    { action: "ARMORY", label: "ARMORY & UPGRADES", detail: SHIPS[ship].name },
-    { action: "SETTINGS", label: "SETTINGS", detail: "Stick, tilt, the glass" },
-  ];
+  const queueing = competitiveQueueing || casualAiQueueing;
   return (
-    <div className="flex flex-1 flex-col justify-center gap-3">
-      <img src="/war-for-mars-logo.jpg" alt="WAR FOR MARS" className="w-full max-w-md mix-blend-screen" />
-      <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
-        <section className="border border-solar bg-void/80 p-3">
-          <p className="font-hud text-lg tracking-widest text-solar">5V5 ONLINE WING</p>
-          <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI.</p>
-          <button
-            type="button"
-            data-testid="button-online-5v5"
-            onClick={onCreateRoom}
-            className="h-12 w-full bg-solar px-3 text-left text-void"
-          >
-            <span className="block font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
-            <span className="text-xs text-void/80">{onlineStatus || "Generate a code and launch the 5v5."}</span>
-          </button>
-          <div className="mt-2 flex gap-2">
-            <label className="sr-only" htmlFor="online-room-code">Room code</label>
-            <input
-              id="online-room-code"
-              data-testid="input-room-code"
-              autoCapitalize="characters"
-              autoComplete="off"
-              maxLength={24}
-              onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-              placeholder="6–24 CHAR ROOM CODE"
-              value={roomCode}
-              className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-            />
-            <button
-              type="button"
-              data-testid="button-join-room"
-              disabled={roomCode.trim().length < 6}
-              onClick={() => onOnline(roomCode)}
-              className="h-11 border border-bone/40 px-3 font-hud tracking-widest text-bone disabled:opacity-40"
-            >
-              JOIN
-            </button>
-          </div>
-          {offlineAvailable ? (
-            <button
-              type="button"
-              data-testid="button-offline-strike"
-              onClick={onOfflineStrike}
-              className="mt-2 h-11 w-full border border-alert/50 px-3 text-left text-alert"
-            >
-              <span className="block font-hud text-sm tracking-widest">START OFFLINE STRIKE</span>
-              <span className="text-xs">Room unavailable · play the local AI-filled match instead.</span>
-            </button>
-          ) : null}
-        </section>
-        {items.map((item, index) => (
-          <button
-            key={item.action}
-            type="button"
-            onClick={() => onAction(item.action)}
-            className={
-              index === 0
-                ? "h-14 border border-solar bg-void/70 px-3 text-left"
-                : "h-14 border border-bone/25 bg-void/55 px-3 text-left"
-            }
-          >
-            <span className="block font-hud text-lg leading-none tracking-widest text-bone">{item.label}</span>
-            <span className="text-xs text-muted">{item.detail}</span>
-          </button>
-        ))}
+    <CommandPanel accent className="wfm-rise-3 order-3 p-4" data-testid="panel-online-wing">
+      <PanelLabel>5V5 ONLINE WING</PanelLabel>
+      {queueing || onlineStatus ? (
+        <p role="status" className="mt-2 flex items-center gap-2 font-hud text-sm tracking-widest text-bone">
+          {queueing ? <span aria-hidden="true" className="wfm-blink h-2 w-2 bg-solar" /> : null}
+          {onlineStatus || (casualAiQueueing ? "JOINING THE PILOT WINDOW" : "WAITING FOR TEN HUMAN PILOTS")}
+        </p>
+      ) : null}
+
+      <div className="mt-3 border-l-2 border-bone/20 pl-3">
+        <p className="font-hud text-xs tracking-[0.2em] text-muted">PRIVATE ROOM · NO WING CREDITS</p>
+        <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
         <button
           type="button"
-          data-testid="button-open-galaxy"
-          onClick={onGalaxy}
-          className="h-14 border border-solar/50 bg-void/70 px-3 text-left"
+          data-testid="button-online-5v5"
+          onClick={onCreateRoom}
+          className="wfm-cmd wfm-cmd-secondary wfm-chamfer min-h-12 w-full flex-col items-start justify-center gap-0 px-3"
         >
-          <span className="block font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
-          <span className="text-xs text-muted">World event · locations · side operations</span>
+          <span className="font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
+          <span className="text-xs text-muted">Generate a code and launch the 5v5.</span>
         </button>
+        <div className="mt-2 flex gap-2">
+          <label className="sr-only" htmlFor="online-room-code">Room code</label>
+          <input
+            id="online-room-code"
+            data-testid="input-room-code"
+            autoCapitalize="characters"
+            autoComplete="off"
+            maxLength={24}
+            onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
+            placeholder="6–24 CHAR ROOM CODE"
+            value={roomCode}
+            className="h-11 min-w-0 flex-1 scroll-mb-24 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
+          />
+          <button
+            type="button"
+            data-testid="button-join-room"
+            disabled={roomCode.trim().length < 6}
+            onClick={() => onOnline(roomCode)}
+            className="wfm-cmd wfm-cmd-quiet h-11 justify-center px-4 font-hud tracking-widest"
+          >
+            JOIN
+          </button>
+        </div>
       </div>
-    </div>
+
+      {casualAiQueueAvailable || competitiveQueueAvailable || queueing ? (
+        <div className="mt-4 border-l-2 border-solar/60 pl-3">
+          <p className="font-hud text-xs tracking-[0.2em] text-muted">MATCHMAKING</p>
+          {casualAiQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-casual-ai-queue"
+              disabled={!signedIn || casualAiQueueing || competitiveQueueing}
+              onClick={onJoinCasualAiQueue}
+              className="wfm-cmd wfm-cmd-quiet mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
+            >
+              <span className="font-hud text-base leading-none tracking-widest text-solar">
+                {casualAiQueueing ? "CONNECTING TO QUICK MATCH" : "QUICK MATCH · AI FILL"}
+              </span>
+              <span className="text-xs text-muted">
+                {casualAiQueueing
+                  ? onlineStatus || "Joining the pilot window…"
+                  : signedIn
+                    ? "30-second pilot window · each new pilot resets it · AI fills seats · no rewards or rank."
+                    : "Sign in to join · casual, unranked, and no-reward."}
+              </span>
+            </button>
+          ) : null}
+          {competitiveQueueAvailable ? (
+            <button
+              type="button"
+              data-testid="button-competitive-queue"
+              disabled={!signedIn || competitiveQueueing || casualAiQueueing}
+              onClick={onJoinCompetitiveQueue}
+              className="wfm-cmd wfm-cmd-secondary mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
+            >
+              <span className="font-hud text-base leading-none tracking-widest text-solar">
+                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
+              </span>
+              <span className="text-xs text-muted">
+                {competitiveQueueing
+                  ? onlineStatus || "Waiting for ten authenticated human pilots."
+                  : signedIn
+                    ? "10 human pilots · auto-start · server-verified rewards when enabled."
+                    : "Sign in to queue · ten human pilots required."}
+              </span>
+            </button>
+          ) : null}
+          {queueing ? (
+            <button
+              type="button"
+              data-testid="button-cancel-matchmaking"
+              onClick={onCancelMatchmaking}
+              className="wfm-cmd mt-2 min-h-11 w-full border border-alert/60 bg-void/80 px-3 font-hud text-sm tracking-widest text-alert"
+            >
+              {casualAiQueueing ? "CANCEL QUICK MATCH" : "CANCEL QUEUE"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {offlineAvailable ? (
+        <button
+          type="button"
+          data-testid="button-offline-strike"
+          onClick={onOfflineStrike}
+          className="wfm-cmd mt-3 min-h-11 w-full flex-col items-start justify-center gap-0 border border-alert/60 bg-void/80 px-3 py-1 text-alert"
+        >
+          <span className="font-hud text-sm tracking-widest">START OFFLINE STRIKE</span>
+          <span className="text-xs">Room unavailable · play the local AI-filled match instead.</span>
+        </button>
+      ) : null}
+    </CommandPanel>
   );
 }
 
 function Armory(props: HomeProps) {
+  // Draft is deliberately separate from the periodically refreshed account.
+  // Only an acknowledged save changes the command screen's equipped hull.
+  const [draft, setDraft] = useState({ faction: props.faction, ship: props.ship });
+  const dirty = draft.faction !== props.faction || draft.ship !== props.ship;
+  const pickFaction = (faction: Faction) => setDraft(previous => ({
+    faction,
+    ship: ROSTER[faction].includes(previous.ship) ? previous.ship : ROSTER[faction][0],
+  }));
+  const saveHull = () => props.onSaveLoadout({ faction: draft.faction, shipId: draft.ship });
+  const back = async () => {
+    if (!dirty || await saveHull()) props.onAction("BACK");
+  };
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-4">
+    <div className="flex flex-col gap-3 py-4">
       <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
+      <fieldset disabled={props.loadoutSaving} className="contents">
       <div className="grid max-w-xl grid-cols-2 gap-2">
-        <Pick on={props.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => props.onFaction("accord")} />
-        <Pick on={props.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => props.onFaction("ussf")} />
+        <Pick on={draft.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => pickFaction("accord")} mark="accord" />
+        <Pick on={draft.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => pickFaction("ussf")} mark="ussf" />
       </div>
-      <div className="grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
-        {ROSTER[props.faction].map((id) => {
-          const def = SHIPS[id];
-          return (
-            <Pick
-              key={id}
-              on={props.ship === id}
-              label={def.name}
-              detail={`${def.role} · ${def.ultShort}`}
-              click={() => props.onShip(id)}
-            />
-          );
-        })}
+      <HullBay {...props} {...draft} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
+      </fieldset>
+      <div className="max-w-3xl">
+        <button
+          type="button"
+          data-testid="button-save-hull"
+          disabled={props.loadoutSaving || !dirty}
+          onClick={() => void saveHull()}
+          className="wfm-cmd wfm-cmd-primary min-h-12 w-full justify-center px-3 font-hud tracking-widest disabled:opacity-60"
+        >
+          {props.loadoutSaving ? "SAVING HULL…" : dirty ? "SAVE HULL" : "HULL SAVED"}
+        </button>
+        <p role={props.loadoutError ? "alert" : "status"} className="mt-2 text-sm text-bone">
+          {props.loadoutError || (dirty ? "Unsaved selection. Save Hull or Back saves it to your pilot profile." : "Selected hull is saved to your pilot profile.")}
+        </p>
       </div>
-      <div className="grid max-w-xl grid-cols-3 gap-2">
+      <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
         {TECHS.map((tech) => {
           const locked = props.cleared < tech.need;
           return (
@@ -210,12 +427,12 @@ function Armory(props: HomeProps) {
               onClick={() => props.onTech(tech.id)}
               className={
                 props.tech === tech.id
-                  ? "h-14 bg-solar px-2 text-left text-void"
-                  : "h-14 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
+                  ? "min-h-14 bg-solar px-2 py-1 text-left text-void"
+                  : "wfm-glass min-h-14 min-w-0 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
               }
             >
               <span className="block font-hud text-xs tracking-widest">{tech.name.toUpperCase()}</span>
-              <span className="text-xs text-muted">{locked ? "Locked" : tech.detail}</span>
+              <span className={props.tech === tech.id ? "text-xs text-void/80" : "text-xs text-muted"}>{locked ? "Locked" : tech.detail}</span>
             </button>
           );
         })}
@@ -225,18 +442,31 @@ function Armory(props: HomeProps) {
         <button
           type="button"
           disabled={props.refitDisabled}
-          className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
+          className="wfm-chamfer min-h-11 bg-solar px-4 font-hud tracking-widest text-void disabled:bg-transparent disabled:outline disabled:outline-1 disabled:outline-bone/20 disabled:text-muted"
           onClick={props.onRefit}
         >
           {props.refitLabel}
         </button>
       </div>
-      <Back onAction={props.onAction} />
+      <button type="button" disabled={props.loadoutSaving} onClick={() => void back()}
+        className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone disabled:opacity-60">
+        {props.loadoutSaving ? "SAVING…" : "BACK"}
+      </button>
     </div>
   );
 }
 
 function Settings(props: HomeProps) {
+  const [enabled, setEnabled] = useState(props.publicLeaderboardOptIn);
+  const [callsign, setCallsign] = useState(props.publicLeaderboardCallsign);
+
+  useEffect(() => {
+    setEnabled(props.publicLeaderboardOptIn);
+    setCallsign(props.publicLeaderboardCallsign);
+  }, [props.publicLeaderboardOptIn, props.publicLeaderboardCallsign]);
+
+  const validCallsign = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$/.test(callsign.trim());
+
   return (
     <div className="flex flex-1 flex-col justify-center gap-3">
       <h2 className="font-hud text-4xl leading-none">SETTINGS</h2>
@@ -246,6 +476,49 @@ function Settings(props: HomeProps) {
         <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
       </div>
       <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
+      <section className="wfm-glass max-w-sm border border-solar/40 p-3" data-testid="public-leaderboard-settings">
+        <PanelLabel>PUBLIC WING LEADERBOARD</PanelLabel>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          Only your callsign and total server-verified Wing credits are public. Your account, balance, match history, and online status stay private.
+        </p>
+        <label className="mt-3 flex min-h-11 items-center gap-3 text-sm text-bone">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+            data-testid="checkbox-leaderboard-opt-in"
+          />
+          Show me on the public board
+        </label>
+        <label htmlFor="leaderboard-callsign" className="mt-2 block text-xs tracking-widest text-muted">
+          PUBLIC CALLSIGN
+        </label>
+        <input
+          id="leaderboard-callsign"
+          data-testid="input-leaderboard-callsign"
+          autoComplete="off"
+          maxLength={16}
+          disabled={!enabled}
+          value={callsign}
+          onChange={(event) => setCallsign(event.target.value)}
+          placeholder="3–16 letters, numbers, spaces, _ or -"
+          className="mt-1 h-11 w-full border border-bone/25 bg-void px-3 text-bone placeholder:text-muted disabled:opacity-50"
+        />
+        <p className="mt-1 text-xs text-muted">Choose a callsign, not your real name, email, or other personal information.</p>
+        {props.publicLeaderboardError ? (
+          <p role="alert" className="mt-2 text-sm text-alert">{props.publicLeaderboardError}</p>
+        ) : null}
+        <button
+          type="button"
+          data-testid="button-save-leaderboard-preference"
+          disabled={props.publicLeaderboardSaving || (enabled && !validCallsign)}
+          onClick={() => props.onSavePublicLeaderboard(enabled, callsign.trim())}
+          className="mt-3 h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:opacity-40"
+        >
+          {props.publicLeaderboardSaving ? "SAVING…" : enabled ? "OPT IN AND SAVE" : "OPT OUT AND SAVE"}
+        </button>
+      </section>
+      <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
       <Back onAction={props.onAction} />
     </div>
   );
@@ -257,7 +530,7 @@ function Loading({ tip, ship }: { tip: string; ship: string }) {
       <p className="font-hud text-sm tracking-widest text-solar">{ship.toUpperCase()} · LAUNCH</p>
       <p className="max-w-md text-sm leading-relaxed text-bone">{tip}</p>
       <div className="h-1 w-full max-w-md overflow-hidden bg-bone/20">
-        <div className="h-full w-1/2 animate-pulse bg-solar" />
+        <div className="wfm-pulse h-full w-1/2 animate-pulse bg-solar" />
       </div>
     </div>
   );
@@ -267,7 +540,7 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
     <button
       type="button"
-      className="h-11 max-w-xs border border-bone/30 font-hud tracking-widest text-bone"
+      className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone"
       onClick={() => onAction("BACK")}
     >
       BACK
@@ -275,15 +548,70 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
   );
 }
 
-function Pick({ on, label, detail, click }: { on: boolean; label: string; detail: string; click: () => void }) {
+function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; detail: string; click: () => void; mark?: Faction }) {
   return (
     <button
       type="button"
+      aria-pressed={on}
       onClick={click}
-      className={on ? "h-14 bg-solar px-3 text-left text-void" : "h-14 border border-bone/25 bg-void/60 px-3 text-left text-bone"}
+      className={`flex min-h-14 min-w-0 items-center gap-2 px-3 py-1 text-left ${on ? "bg-solar text-void" : "wfm-glass border border-bone/25 text-bone"}`}
     >
-      <span className="block font-hud text-lg leading-none">{label}</span>
-      <span className={on ? "text-xs text-void/80" : "text-xs text-muted"}>{detail}</span>
+      {mark ? <FactionMark faction={mark} className={`h-9 w-9 rounded-sm ${on ? "bg-void p-0.5" : ""}`} /> : null}
+      <span className="min-w-0">
+        <span className="block font-hud text-lg leading-none">{label}</span>
+        <span className={on ? "text-xs text-void/80" : "text-xs text-muted"}>{detail}</span>
+      </span>
     </button>
+  );
+}
+
+function HullBay({ faction, ship, onShip }: HomeProps) {
+  const sel = SHIPS[ship];
+  const accord = faction === "accord";
+  const tone = accord ? "text-solar" : "text-spectral";
+  const ring = accord ? "border-solar" : "border-spectral";
+  return (
+    <div className="grid max-w-3xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <CommandPanel className="p-3" data-testid="panel-selected-hull" data-ship-id={ship}>
+        <PanelLabel tone={accord ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
+        <ShipIllustration ship={ship} className="mx-auto mt-2 h-44 w-44 sm:h-52 sm:w-52" />
+        <p data-testid="text-armory-selected-ship" className="font-hud text-3xl leading-none tracking-wide">{sel.name.toUpperCase()}</p>
+        <p className={`mt-1 font-hud text-xs tracking-[0.2em] ${tone}`}>{sel.role.toUpperCase()} · ULT {sel.ultName.toUpperCase()}</p>
+        <p className="mt-2 text-sm leading-relaxed text-bone/85">{sel.blurb}</p>
+        <dl className="mt-3 grid grid-cols-4 gap-px border border-bone/10 bg-bone/10 font-hud">
+          {([["SHIELD", sel.shield], ["HULL", sel.hull], ["SPEED", sel.maxSpeed], ["ULT CD", `${sel.ultCd}s`]] as const).map(([k, v]) => (
+            <div key={k} className="bg-panel px-2 py-1.5">
+              <dt className="text-[9px] tracking-[0.2em] text-muted">{k}</dt>
+              <dd className="text-lg leading-none">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </CommandPanel>
+      <div className="grid grid-cols-2 content-start gap-2" role="group" aria-label={`${FACTION_NAME[faction]} hulls`}>
+        {ROSTER[faction].map((id) => {
+          const def = SHIPS[id];
+          const on = id === ship;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onShip(id)}
+              data-testid={`card-ship-${id}`}
+              data-ship-id={id}
+              className={`wfm-glass flex min-h-11 min-w-0 flex-col border bg-void/60 p-2 text-left text-bone transition-transform active:scale-[0.98] ${on ? `${ring} border-2` : "border-bone/20"}`}
+            >
+              <ShipIllustration ship={id} caption={false} grid={false} className={`mx-auto h-20 w-20 ${on ? "" : "opacity-70"}`} />
+              <span className="mt-1 flex items-center justify-between gap-1">
+                <span className="truncate font-hud text-base leading-none">{def.name.toUpperCase()}</span>
+                {on ? <span className={`font-hud text-[9px] tracking-widest ${tone}`}>ACTIVE</span> : null}
+              </span>
+              <span className="text-[11px] text-muted">{def.role} · {def.ultShort}</span>
+              <span className="mt-1 font-hud text-[10px] tracking-wider text-bone/70">SH {def.shield} · HL {def.hull} · SPD {def.maxSpeed}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -1,17 +1,31 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
+import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
+import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
+import { SORTIES } from "./game/campaign";
+import { expeditionFeatureEnabled } from "./game/sector-client";
+
+const expeditionEnabled = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
+const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
+const SectorExpedition = lazy(() => import("./game/SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
+const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
+
+setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
@@ -83,59 +97,91 @@ function SignUpPage() {
 }
 
 function PublicLanding() {
+  const { isSignedIn } = useAuth();
+  const cta = "wfm-cmd wfm-chamfer min-h-12 justify-center px-6 font-hud text-lg tracking-widest";
   return (
-    <main className="relative flex min-h-dvh items-center overflow-hidden bg-void px-6 py-12 text-bone sm:px-12">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_50%,rgba(138,58,36,0.25),transparent_52%)]" />
-      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 md:grid-cols-[1.15fr_0.85fr]">
-        <section>
-          <p className="font-hud text-sm tracking-[0.28em] text-solar">PHOBOS MOON · 5V5 COMBAT</p>
-          <h1 className="mt-4 max-w-3xl font-hud text-7xl leading-[0.82] tracking-tight text-bone sm:text-9xl">
-            WAR
-            <br />
-            FOR MARS
+    <main className="relative min-h-dvh overflow-x-hidden bg-void text-bone">
+      <section className="relative flex min-h-[92dvh] items-end">
+        <CommandBackdrop />
+        <div className="wfm-safe relative mx-auto w-full max-w-6xl pb-14 pt-24 sm:px-12">
+          <div className="wfm-rise flex items-center gap-3">
+            <FactionMark faction="ussf" className="h-10 w-10" />
+            <span aria-hidden="true" className="h-8 w-px bg-bone/25" />
+            <FactionMark faction="accord" className="h-10 w-10" />
+            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
+          </div>
+          <h1 className="mt-6">
+            <span className="sr-only">WAR FOR MARS</span>
+            <Wordmark className="wfm-arrive w-full max-w-4xl" />
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+          <span aria-hidden="true" className="wfm-sweep mt-5 block h-px w-full max-w-4xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
+          <p className="wfm-rise-2 mt-6 max-w-xl text-base leading-relaxed text-bone/85 sm:text-lg">
             Fly the campaign, refit your ship, or bring a wing into a private ten-pilot match.
             Your account keeps campaign progress and credits safe on the server.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/sign-up"
-              className="inline-flex h-12 items-center bg-solar px-6 font-hud text-lg tracking-widest text-void"
-            >
-              CREATE PILOT ACCOUNT
-            </Link>
-            <Link
-              href="/sign-in"
-              className="inline-flex h-12 items-center border border-bone/30 px-6 font-hud text-lg tracking-widest text-bone"
-            >
-              SIGN IN
-            </Link>
+          <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
+            <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
+            <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
+            {expeditionEnabled ? <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary`}>CO-OP EXPEDITION · 1-8 PILOTS</Link> : null}
+            {isSignedIn ? (
+              <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>
+            ) : (
+              <>
+                <Link href="/sign-up" className={`${cta} wfm-cmd-secondary`}>CREATE PILOT ACCOUNT</Link>
+                <Link href="/sign-in" className={`${cta} wfm-cmd-quiet`}>SIGN IN</Link>
+              </>
+            )}
           </div>
-        </section>
-        <aside className="border border-bone/15 bg-panel/80 p-5">
-          <p className="font-hud text-sm tracking-widest text-solar">PHOBOS YARD BRIEF</p>
-          <p className="mt-3 font-hud text-3xl leading-none text-bone">FOUR SORTIES. ONE OPEN WAR.</p>
-          <ul className="mt-5 space-y-3 text-sm leading-relaxed text-muted">
-            <li>Hold the rust disc and answer the first signal.</li>
-            <li>Light the pale beacons, then hunt the night-side Warden.</li>
-            <li>Choose whether the final cage makes it through the dust lane.</li>
-          </ul>
-          <p className="mt-6 border-t border-bone/10 pt-4 font-hud text-xs tracking-widest text-bone/70">
-            PROGRESS IS VERIFIED BY THE SERVER
-          </p>
-        </aside>
-      </div>
+        </div>
+      </section>
+
+      <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-4 py-12 sm:px-12 md:grid-cols-2">
+        {([
+          ["ussf", "USSF", "Sensors, wards, the glide. Blue signatures and precision flight.", "text-spectral"],
+          ["accord", "THE ACCORD", "Solar, stealth, the rings. Amber energy and unfamiliar geometry.", "text-solar"],
+        ] as const).map(([id, name, line, tone]) => (
+          <CommandPanel key={id} className="flex items-center gap-4 p-5">
+            <FactionMark faction={id} className="h-16 w-16" />
+            <div>
+              <p className={`font-hud text-3xl leading-none tracking-wide ${tone}`}>{name}</p>
+              <p className="mt-1 text-sm text-muted">{line}</p>
+            </div>
+          </CommandPanel>
+        ))}
+      </section>
+
+      <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-6 pb-16 sm:px-12 md:grid-cols-[1.2fr_0.8fr]">
+        <div>
+          <PanelLabel>PHOBOS YARD BRIEF</PanelLabel>
+          <p className="mt-3 font-hud text-4xl leading-none sm:text-5xl">FOUR SORTIES. ONE OPEN WAR.</p>
+          <ol className="mt-6 grid gap-2 sm:grid-cols-2">
+            {SORTIES.map((sortie, i) => (
+              <li key={sortie.id} className="wfm-panel p-4">
+                <p className="font-hud text-xs tracking-[0.22em] text-muted">SORTIE {String(i + 1).padStart(2, "0")}</p>
+                <p className="font-hud text-2xl leading-none">{sortie.name.toUpperCase()}</p>
+                <p className="mt-1 font-hud text-sm tracking-widest text-solar">{sortie.objective}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 font-hud text-xs tracking-widest text-bone/70">PROGRESS IS VERIFIED BY THE SERVER</p>
+        </div>
+        <CommandPanel accent className="p-5">
+          <PublicWingLeaderboard />
+        </CommandPanel>
+      </section>
     </main>
   );
 }
 
 function SignedInGame() {
+  const client = useQueryClient();
+  useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
+      <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
@@ -143,8 +189,34 @@ function SignedInGame() {
   );
 }
 
+function AccountGameEntry() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Discovery and solo entry remain visible while hosted authentication loads.
+  // Never mount account/progression hooks until the session is confirmed.
+  return isLoaded && isSignedIn ? <SignedInGame key={userId} /> : <PublicLanding />;
+}
+
+function ApiAuthBridge() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!apiBaseUrl) {
+      setAuthTokenGetter(null);
+      return;
+    }
+
+    setAuthTokenGetter(() =>
+      isLoaded && isSignedIn ? getToken() : null,
+    );
+    return () => setAuthTokenGetter(null);
+  }, [getToken, isLoaded, isSignedIn]);
+
+  return null;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
+  const clerkPubKey = configuredClerkPublishableKey(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -159,15 +231,16 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ApiAuthBridge />
       <Switch>
-        <Route path="/" component={() => (
-          <>
-            <Show when="signed-in"><SignedInGame /></Show>
-            <Show when="signed-out"><PublicLanding /></Show>
-          </>
-        )} />
+        <Route path="/" component={AccountGameEntry} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route path="/expedition">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading sector expedition…</main>}>
+            <SectorExpedition />
+          </Suspense>
+        </Route>
         <Route component={PublicLanding} />
       </Switch>
     </ClerkProvider>
@@ -175,12 +248,21 @@ function Routes() {
 }
 
 function App() {
-  if (!clerkPubKey) {
-    throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
-  }
   return (
     <WouterRouter base={basePath}>
-      <Routes />
+      <Switch>
+        <Route path="/flight">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
+            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
+          </Suspense>
+        </Route>
+        <Route path="/play">
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
+            <SoloFlight />
+          </Suspense>
+        </Route>
+        <Route><Routes /></Route>
+      </Switch>
     </WouterRouter>
   );
 }

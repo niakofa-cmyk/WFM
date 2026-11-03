@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App-side association only; the website must separately verify the APK certificate. -->
+    <string name="asset_statements" translatable="false">
+        [{\"relation\":[\"delegate_permission/common.handle_all_urls\"],\"target\":{\"namespace\":\"web\",\"site\":\"https://wfm-app-staging-staging.up.railway.app\"}}]
+    </string>
+</resources>
