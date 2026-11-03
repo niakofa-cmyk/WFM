@@ -6,6 +6,8 @@ import test from "node:test";
 // in the browser. Source equality is necessary but not sufficient: the
 // cross-runtime gate (pnpm run test:determinism) proves the runtimes agree.
 const SHARED_SIMULATION_MODULES = ["sim.ts", "detmath.ts", "sim-trace.ts", "ships.ts"];
+const RENDERER_IMPORT =
+  /(?:from\s*|import\s*(?:\(\s*)?)["'](?:three(?:\/[^"']*)?|react(?:-dom)?|@react-three\/[^"']*)["']/;
 
 for (const file of SHARED_SIMULATION_MODULES) {
   test(`browser and server ${file} stay byte-identical`, async () => {
@@ -17,6 +19,15 @@ for (const file of SHARED_SIMULATION_MODULES) {
       browserSource,
       serverSource,
       "The browser can display a terminal result that the reward server cannot reproduce when the simulation sources drift.",
+    );
+  });
+
+  test(`shared ${file} stays independent from rendering libraries`, async () => {
+    const browserSource = await readFile(new URL(`./${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(
+      browserSource,
+      RENDERER_IMPORT,
+      `${file} is shared with server adjudication and must not depend on a renderer or UI framework.`,
     );
   });
 }
