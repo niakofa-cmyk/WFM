@@ -34,6 +34,8 @@ WFM's primary product blueprint is `docs/references/wfm-infinite-war-blueprint.m
 
 Use the blueprint as the product north-star: connect exploration, combat, competitive and cooperative operations, and persistent faction conflict through staged, playable releases. Its future capacity and feature proposals are goals, not claims about current behavior. Distinguish implemented and verified features from future work. Keep movement, weapons, damage, objectives, competitive results, rewards, and war consequences authoritative on trusted servers; use bounded sectors, feature flags, and Development/Staging/Production gates. `docs/player-journey-direction.md`, `docs/combat-evolution-roadmap.md`, `docs/open-universe-flight-foundation.md`, and `docs/competitive-battlefield.md` remain supporting implementation references.
 
+The renderer/engine decision is governed by `docs/references/wfm-engine-selection.md`; the complete owner-provided source is preserved in `attached_assets/Pasted-Worked-for-27s-WAR-FOR-MARS-Choosing-the-Right-Engine-f_1793711493465.txt`. Keep the Three.js prototype operational while measuring it and compare a bounded Unity combat prototype on equivalent target devices before committing to migration. The persistent universe, combat rules, multiplayer authority, and rewards must remain independent of the rendering engine.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
