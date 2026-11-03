@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { IDLE_ORBITAL, ORBITAL_DT } from "@workspace/orbital-sim";
+import * as sharedDetmath from "@workspace/orbital-sim/detmath";
 import { createOrbitalAuthority } from "../../../api-server/src/game/orbital-authority";
 import { SHIPS as serverShips } from "../../../api-server/src/game/ships";
 import { SHIPS } from "./ships";
@@ -8,8 +10,35 @@ import { createMatch, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight } from "./orbital-flight";
 import { launchMissile, primaryBullet, updateAcquisition } from "./orbital-weapons";
+import * as gameDetmath from "./detmath";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
+
+test("shared orbital simulation avoids runtime-approximated Math functions", async () => {
+  const modules = await Promise.all([
+    readFile(new URL("../../../../lib/orbital-sim/src/flight.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../../../lib/orbital-sim/src/weapons.ts", import.meta.url), "utf8"),
+  ]);
+  for (const source of modules) {
+    assert.doesNotMatch(source, /\bMath\.(?:sin|cos|atan2|asin|acos|exp|hypot)\s*\(/);
+  }
+});
+
+test("browser and server math adapters use the same shared deterministic source", () => {
+  const inputs = [-1000, -Math.PI, -2.4, -0.1, 0, 0.1, 1.4, Math.PI, 1000];
+  for (const x of inputs) {
+    assert.equal(gameDetmath.detSin(x), sharedDetmath.detSin(x));
+    assert.equal(gameDetmath.detCos(x), sharedDetmath.detCos(x));
+    assert.equal(gameDetmath.detAtan(x), sharedDetmath.detAtan(x));
+    assert.equal(gameDetmath.detExp(x), sharedDetmath.detExp(x));
+    assert.equal(gameDetmath.detHypot(x, x / 2), sharedDetmath.detHypot(x, x / 2));
+    assert.equal(gameDetmath.detAcos(Math.max(-1, Math.min(1, x / 2))), sharedDetmath.detAcos(Math.max(-1, Math.min(1, x / 2))));
+  }
+  for (const [y, x] of [[0, 0], [1, 0], [-1, 2], [2, -1], [-4, -3]] as const) {
+    assert.equal(gameDetmath.detAtan2(y, x), sharedDetmath.detAtan2(y, x));
+  }
+});
+
 test("client and server share roster flight axes, boost, inertia and braking", () => {
   assert.deepEqual(SHIPS, serverShips);
   const server = createOrbitalAuthority();

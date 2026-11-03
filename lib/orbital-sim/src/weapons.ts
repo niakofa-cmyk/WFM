@@ -1,13 +1,16 @@
+import { detAcos, detHypot } from "./detmath";
 import { LOCK_SECONDS, MISSILE_RANGE, PROJECTILE_LIMIT, rotate, type Rock, type SpatialBullet, type SpatialCraft } from "./flight";
 
+const hypot3 = (x: number, y: number, z: number) => detHypot(detHypot(x, y), z);
+
 export function distance3(a: { x: number; z: number; space?: { y: number } }, b: { x: number; z: number; space?: { y: number } }) {
-  return Math.hypot(a.x - b.x, (a.space?.y ?? 0) - (b.space?.y ?? 0), a.z - b.z);
+  return hypot3(a.x - b.x, (a.space?.y ?? 0) - (b.space?.y ?? 0), a.z - b.z);
 }
 export function segmentHit(x: number, y: number, z: number, b: { x: number; y?: number; z: number }, px: number, py: number, pz: number, radius: number) {
   const dx = b.x - px; const dy = (b.y ?? 0) - py; const dz = b.z - pz;
   const length = dx * dx + dy * dy + dz * dz;
   const t = length > 0 ? Math.max(0, Math.min(1, ((x - px) * dx + (y - py) * dy + (z - pz) * dz) / length)) : 0;
-  return Math.hypot(x - px - t * dx, y - py - t * dy, z - pz - t * dz) < radius;
+  return hypot3(x - px - t * dx, y - py - t * dy, z - pz - t * dz) < radius;
 }
 export function targetSolution(pilot: SpatialCraft, target: SpatialCraft, rocks: readonly Rock[] = []) {
   const s = pilot.space;
@@ -15,7 +18,7 @@ export function targetSolution(pilot: SpatialCraft, target: SpatialCraft, rocks:
   const distance = distance3(pilot, target);
   const f = rotate(s.q, 0, 0, -1);
   const dot = (f.x * (target.x - pilot.x) + f.y * ((target.space?.y ?? 0) - s.y) + f.z * (target.z - pilot.z)) / Math.max(.001, distance);
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const angle = detAcos(Math.max(-1, Math.min(1, dot)));
   const endpoint = { x: target.x, y: target.space?.y ?? 0, z: target.z };
   const blocked = rocks.some((rock) => segmentHit(rock.x, rock.y ?? 0, rock.z, endpoint, pilot.x, s.y, pilot.z, rock.r));
   return { distance, angle, available: pilot.alive && target.alive && target.id !== pilot.id && target.cloak <= 0 && target.untargetable <= 0 && pilot.jam <= 0 && distance <= MISSILE_RANGE && angle <= .3 && !blocked };
@@ -49,7 +52,7 @@ export function spawnPrimary(pilot: SpatialCraft, target: SpatialCraft | undefin
     const dx = target.x + (target.space?.vx ?? 0) * t - pilot.x;
     const dy = (target.space?.y ?? 0) + (target.space?.vy ?? 0) * t - s.y;
     const dz = target.z + (target.space?.vz ?? 0) * t - pilot.z;
-    const length = Math.max(.001, Math.hypot(dx, dy, dz));
+    const length = Math.max(.001, hypot3(dx, dy, dz));
     direction = { x: dx / length, y: dy / length, z: dz / length };
   }
   return { x: pilot.x + direction.x * 2, y: s.y + direction.y * 2, z: pilot.z + direction.z * 2,
@@ -57,16 +60,16 @@ export function spawnPrimary(pilot: SpatialCraft, target: SpatialCraft | undefin
 }
 export function guideMissile(b: SpatialBullet, target: SpatialCraft, dt: number) {
   const dx = target.x - b.x; const dy = (target.space?.y ?? 0) - (b.y ?? 0); const dz = target.z - b.z;
-  const distance = Math.max(.001, Math.hypot(dx, dy, dz));
-  const speed = Math.hypot(b.vx, b.vy ?? 0, b.vz);
+  const distance = Math.max(.001, hypot3(dx, dy, dz));
+  const speed = hypot3(b.vx, b.vy ?? 0, b.vz);
   if (speed <= 0) throw new Error("Guided projectile must have positive speed.");
   const dot = (b.vx * dx + (b.vy ?? 0) * dy + b.vz * dz) / Math.max(.001, speed * distance);
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const angle = detAcos(Math.max(-1, Math.min(1, dot)));
   const mix = angle < 1e-5 ? 1 : Math.min(1, 2.5 * dt / angle);
   let vx = b.vx / speed * (1 - mix) + dx / distance * mix;
   let vy = (b.vy ?? 0) / speed * (1 - mix) + dy / distance * mix;
   let vz = b.vz / speed * (1 - mix) + dz / distance * mix;
-  const length = Math.max(.001, Math.hypot(vx, vy, vz));
+  const length = Math.max(.001, hypot3(vx, vy, vz));
   vx /= length; vy /= length; vz /= length;
   b.vx = vx * speed; b.vy = vy * speed; b.vz = vz * speed;
 }

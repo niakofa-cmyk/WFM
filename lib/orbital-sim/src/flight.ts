@@ -1,3 +1,5 @@
+import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
+
 export const ORBITAL_RULES_VERSION = 1 as const;
 export const ORBITAL_TICK_RATE = 30;
 export const ORBITAL_DT = 1 / ORBITAL_TICK_RATE;
@@ -25,7 +27,7 @@ export type SpatialBullet = {
   life: number; dmg: number; r: number; homeId: number | null; missile?: boolean;
 };
 export function newFlight(yaw = 0): OrbitalFlight {
-  return { y: 0, vx: 0, vy: 0, vz: 0, q: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)], energy: 100, assist: true, armor: 40, armorMax: 40, lockProgress: 0, lockTargetId: null, missileCd: 0, ammo: 8, aimAssist: true };
+  return { y: 0, vx: 0, vy: 0, vz: 0, q: [0, detSin(yaw / 2), 0, detCos(yaw / 2)], energy: 100, assist: true, armor: 40, armorMax: 40, lockProgress: 0, lockTargetId: null, missileCd: 0, ammo: 8, aimAssist: true };
 }
 export function rotate(q: Quaternion, x: number, y: number, z: number) {
   const [qx, qy, qz, qw] = q;
@@ -33,9 +35,9 @@ export function rotate(q: Quaternion, x: number, y: number, z: number) {
   return { x: x + qw * tx + qy * tz - qz * ty, y: y + qw * ty + qz * tx - qx * tz, z: z + qw * tz + qx * ty - qy * tx };
 }
 function turn(q: Quaternion, x: number, y: number, z: number, angle: number): Quaternion {
-  const s = Math.sin(angle / 2); const c = Math.cos(angle / 2); const [a,b,d,w] = q;
+  const s = detSin(angle / 2); const c = detCos(angle / 2); const [a,b,d,w] = q;
   const result: Quaternion = [w*x*s+a*c+b*z*s-d*y*s, w*y*s-a*z*s+b*c+d*x*s, w*z*s+a*y*s-b*x*s+d*c, w*c-a*x*s-b*y*s-d*z*s];
-  const length = Math.hypot(...result);
+  const length = detHypot(detHypot(result[0], result[1]), detHypot(result[2], result[3]));
   return result.map((n) => n / length) as Quaternion;
 }
 const clamp = (n: number) => Math.max(-1, Math.min(1, n));
@@ -51,25 +53,25 @@ export function integrateSpatialFlight(craft: SpatialCraft, input: FlightControl
   s.q = turn(s.q, 1, 0, 0, clamp(input.pitch) * rate * dt);
   s.q = turn(s.q, 0, 0, 1, clamp(input.roll ?? 0) * rate * dt);
   const f = rotate(s.q, 0, 0, -1);
-  craft.yaw = Math.atan2(-f.x, -f.z); craft.pitch = Math.asin(Math.max(-1, Math.min(1, f.y))); craft.steer = input.yaw;
+  craft.yaw = detAtan2(-f.x, -f.z); craft.pitch = detAtan2(f.y, detHypot(f.x, f.z)); craft.steer = input.yaw;
   const boosting = !disrupted && (input.boost || craft.boost > 0) && s.energy > .1;
   s.energy = Math.max(0, Math.min(100, s.energy + (boosting ? -28 : 15) * dt));
   const thrust = rotate(s.q, -clamp(input.strafe), clamp(input.vertical ?? 0), -clamp(input.throttle));
   const engineCondition = .55 + .45 * Math.max(0, craft.hull / craft.hullMax);
   const acceleration = disrupted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
-  const length = Math.max(1, Math.hypot(thrust.x, thrust.y, thrust.z));
+  const length = Math.max(1, detHypot(detHypot(thrust.x, thrust.y), thrust.z));
   s.vx += thrust.x / length * acceleration * dt; s.vy += thrust.y / length * acceleration * dt; s.vz += thrust.z / length * acceleration * dt;
   const damping = input.brake ? 7 : s.assist ? 1.65 : 0;
-  const drag = Math.exp(-damping * dt);
+  const drag = detExp(-damping * dt);
   s.vx *= drag; s.vy *= drag; s.vz *= drag;
-  const speed = Math.hypot(s.vx, s.vy, s.vz);
+  const speed = detHypot(detHypot(s.vx, s.vy), s.vz);
   const maximum = def.maxSpeed * speedMul * (boosting ? 1.9 : 1.15);
   if (speed > maximum) {
-    const factor = Math.max(maximum / speed, Math.exp(-2 * dt));
+    const factor = Math.max(maximum / speed, detExp(-2 * dt));
     s.vx *= factor; s.vy *= factor; s.vz *= factor;
   }
   craft.x += s.vx * dt; s.y += s.vy * dt; craft.z += s.vz * dt;
-  const boundary = Math.hypot(craft.x, s.y, craft.z);
+  const boundary = detHypot(detHypot(craft.x, s.y), craft.z);
   if (boundary > 78) {
     const normal = { x: craft.x / boundary, y: s.y / boundary, z: craft.z / boundary };
     craft.x = normal.x * 78; s.y = normal.y * 78; craft.z = normal.z * 78;
@@ -78,7 +80,7 @@ export function integrateSpatialFlight(craft: SpatialCraft, input: FlightControl
   }
   for (const rock of rocks) {
     const dx = craft.x - rock.x; const dy = s.y - (rock.y ?? 0); const dz = craft.z - rock.z;
-    const distance = Math.hypot(dx, dy, dz); const minimum = rock.r + craft.radius;
+    const distance = detHypot(detHypot(dx, dy), dz); const minimum = rock.r + craft.radius;
     if (distance < minimum && distance > .001) {
       craft.x = rock.x + dx / distance * minimum; s.y = (rock.y ?? 0) + dy / distance * minimum; craft.z = rock.z + dz / distance * minimum;
       const inward = Math.min(0, (s.vx * dx + s.vy * dy + s.vz * dz) / distance);
