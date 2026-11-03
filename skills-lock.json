@@ -140,6 +140,13 @@
       "sourceType": "git",
       "skillPath": "skills/clerk-webhooks/SKILL.md",
       "computedHash": "7a9fd8c5c956ad8672eef0592e83df89ce1fc78080a0af9cb853abfe2e549b16"
+    },
+    "needle-engine": {
+      "source": "https://github.replit.internal/needle-tools/ai.git",
+      "sourceUrl": "https://github.replit.internal/needle-tools/ai.git",
+      "sourceType": "git",
+      "skillPath": "providers/claude/plugin/skills/needle-engine/SKILL.md",
+      "computedHash": "7b30e6d8a345ac9a33206eab715a8e68720269bcbe63924cff34326e60694cce"
     }
   }
 }
