@@ -9,9 +9,10 @@ import { stickAxesFromDelta } from "./input";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
-  RUST_DISC_SECTOR, type FlightInput, type FlightMotionRuntime, type FlightState,
+  RUST_DISC_SECTOR, type FlightInput, type FlightMotionRuntime, type FlightSector, type FlightState,
 } from "./flight-sector";
 import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
+import { PilotActionButton } from "./PilotActionButton";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
@@ -186,6 +187,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
     typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches ?? false) ? "low" : "high");
   const [runId, setRunId] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [portrait, setPortrait] = useState(false);
   const [portraitDismissed, setPortraitDismissed] = useState(false);
   const [hud, setHud] = useState<Hud | null>(null);
@@ -195,6 +197,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
   const [failure, setFailure] = useState("");
 
   const mountRef = useRef<HTMLDivElement>(null);
+  const mapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const mapOpenRef = useRef(false);
   const pilotMarkerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const markerRef = useRef<HTMLDivElement>(null);
   const droneMarkerRef = useRef<HTMLDivElement>(null);
@@ -206,6 +210,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   const keysRef = useRef(new Set<string>());
   const reducedMotion = useRef(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
+  mapOpenRef.current = mapOpen;
 
   const resetControls = useCallback(() => {
     const t = inputRef.current.throttle;
@@ -652,6 +657,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
       }
       if (steps === MAX_CATCHUP) acc = 0;
 
+      if (mapOpenRef.current && mapCanvasRef.current) drawFlightMap(mapCanvasRef.current, state, sector);
+
       // Visual sync
       if (!netMode) projectiles = state.projectiles;
       tmpV.set(state.position.x, state.position.y, state.position.z); ship.position.lerp(tmpV, blend);
@@ -905,7 +912,30 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
               ) : <p>CALIBRATING · 1 SECOND</p>}
             </div>
           ) : null}
-          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused}
+            missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} missiles={hud?.missiles ?? 0} incoming={hud?.incoming ?? 0}
+            onPause={() => setPausedBoth(true)} onCamera={toggleCam} onMap={() => setMapOpen(true)} throttle={hud?.throttle ?? 0.35}
+            vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          {mapOpen && hud ? (
+            <div className="pilot-map-backdrop absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rust Disc tactical map">
+              <div className="pilot-map-panel">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-hud text-xs tracking-[0.24em] text-solar">RUST DISC · SECTOR MAP</p>
+                    <p className="mt-1 font-hud text-sm tracking-wider text-bone">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
+                  </div>
+                  <PilotActionButton icon="pause" label="Close sector map" testId="button-close-tactical-map" onActivate={() => setMapOpen(false)} />
+                </div>
+                <canvas ref={mapCanvasRef} width={320} height={320} className="pilot-map-canvas" aria-label="Sector map showing your ship, rocks, relay, extraction, and active hostile" />
+                <div className="pilot-map-legend font-hud text-[10px] tracking-widest">
+                  <span><i className="pilot-map-key pilot-map-friendly" /> PILOT</span>
+                  <span><i className="pilot-map-key pilot-map-hostile" /> ACTIVE HOSTILE</span>
+                  <span><i className="pilot-map-key pilot-map-objective" /> MISSION</span>
+                </div>
+                <p className="mt-2 text-center font-hud text-[9px] tracking-widest text-muted">MAP OPEN · FLIGHT SIMULATION CONTINUES</p>
+              </div>
+            </div>
+          ) : null}
           {paused && !portraitBlock ? (
             <Overlay translucent={net} title={net ? "CONTROLS PAUSED" : "HOLDING POSITION"} sub={net
               ? "Your hull is transmitting neutral throttle and brake. The expedition server keeps running and your crew keeps flying; you are still visible and can take damage."
@@ -1079,23 +1109,23 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
     <div className="pointer-events-none absolute inset-0 font-hud">
       <div className="absolute left-1/2 top-2 -translate-x-1/2 text-center">
         <p className="text-[10px] tracking-[0.3em] text-muted">{STAGE_LABEL[hud.stage]} · {String(Math.floor(t / 60)).padStart(2, "0")}:{String(t % 60).padStart(2, "0")}</p>
-        <p className="text-sm tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
-        {hud.stage === "drone" ? <p className="text-[10px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
-        {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-xs tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
+        <p className="mt-0.5 text-xs tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
+        {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
+        {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-[10px] tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
       </div>
-      <div className="pointer-events-none absolute left-1/2 top-[4.4rem] z-[4] w-64 -translate-x-1/2 border border-[#ff7a5c]/50 bg-[#080b12]/90 px-2.5 py-1.5 text-center shadow-lg sm:w-72" data-testid="panel-combat-target">
+      <div className="pointer-events-none absolute left-1/2 top-[3.8rem] z-[4] w-56 -translate-x-1/2 text-center" data-testid="panel-combat-target">
         {hud.target ? (
           <>
             <div className="flex items-center justify-between gap-2 font-hud text-[9px] tracking-[0.18em]">
               <span className="truncate text-[#ff7a5c]">{hud.target.affiliation} · {hud.target.name}</span>
               <span className="shrink-0 text-bone">{Math.round(hud.target.distance)}M</span>
             </div>
-            <div className="mt-1 h-1 bg-bone/15" role="progressbar" aria-label={`${hud.target.name} hull`} aria-valuemin={0} aria-valuemax={hud.target.maxHull} aria-valuenow={hud.target.hull}>
+            <div className="mt-1 h-0.5 bg-bone/15" role="progressbar" aria-label={`${hud.target.name} hull`} aria-valuemin={0} aria-valuemax={hud.target.maxHull} aria-valuenow={hud.target.hull}>
               <div className="h-full bg-[#ff7a5c]" style={{ width: `${Math.max(0, Math.min(100, hud.target.hull / Math.max(1, hud.target.maxHull) * 100))}%` }} />
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 text-[9px] tracking-[0.12em]">
+            <div className="mt-0.5 flex items-center justify-between gap-2 text-[8px] tracking-[0.12em]">
               <span className="text-bone/80">{combatLockCue({ targetActive: true, canAcquire: hud.target.lockable, lockHeld: hud.target.lockHeld, lock: hud.lock })}</span>
-              <span className="shrink-0 text-solar">HITS {hud.hits}</span>
+              {hud.hits > 0 ? <span className="shrink-0 text-solar">HITS {hud.hits}</span> : null}
             </div>
           </>
         ) : (
@@ -1104,15 +1134,15 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
           </p>
         )}
       </div>
-      <div className="absolute left-3 top-2 space-y-1.5">
+      <div className="absolute left-3 top-2 space-y-1">
         <Bar label="HULL" value={hud.hull} color={hud.hull < 30 ? "#ff7a5c" : "#e6e1d6"} testId="status-hull" />
         <Bar label="ENERGY" value={hud.energy} color={pal.accent} testId="status-energy" />
       </div>
-      <div className="absolute right-3 top-14 text-right text-[11px] tracking-[0.2em]">
+      <div className="absolute right-3 top-2 text-right text-[9px] tracking-[0.16em]">
         <p data-testid="text-speed"><span className="text-2xl tracking-normal">{Math.round(hud.speed)}</span> M/S</p>
-        <p className="text-muted">THR {Math.round(hud.throttle * 100)}% · MSL {hud.missiles} · FLR {hud.flare > 0 ? Math.ceil(hud.flare) + "S" : "RDY"}</p>
+        <p className="text-muted">THR {Math.round(hud.throttle * 100)}% · MSL {hud.missiles}</p>
         {hud.drifting ? <p className="text-solar" data-testid="status-vector-drift">VECTOR DRIFT ACTIVE</p> : null}
-        <p className="text-muted">{hud.camera === "chase" ? "CHASE CAM" : "COCKPIT"}</p>
+        {hud.flare > 0 ? <p className="text-[#ff7a5c]">FLARE {Math.ceil(hud.flare)}S</p> : null}
       </div>
       <div className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2">
         <div className="absolute left-1/2 top-0 h-2 w-px bg-bone/70" /><div className="absolute bottom-0 left-1/2 h-2 w-px bg-bone/70" />
@@ -1122,6 +1152,63 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
       {hud.lock >= 1 ? <p className="absolute left-1/2 top-[58%] -translate-x-1/2 text-xs tracking-[0.3em] text-[#ff7a5c]">LOCKED · TAP MISSILE</p> : null}
     </div>
   );
+}
+
+function drawFlightMap(canvas: HTMLCanvasElement, state: FlightState, sector: FlightSector) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const size = Math.min(canvas.width, canvas.height);
+  const center = size / 2;
+  const radius = center - 14;
+  const scale = radius / Math.max(1, sector.radius);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#080b12";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(center, center);
+  ctx.strokeStyle = "rgba(230,225,214,.16)";
+  ctx.lineWidth = 1;
+  for (const ring of [0.33, 0.66, 1]) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * ring, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const point = (x: number, z: number) => [x * scale, z * scale] as const;
+  ctx.fillStyle = "rgba(141,135,124,.65)";
+  for (const rock of sector.rocks) {
+    const [x, y] = point(rock.position.x, rock.position.z);
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(2, rock.radius * scale), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const marker = (position: { x: number; z: number }, color: string, shape: "square" | "circle") => {
+    const [x, y] = point(position.x - state.position.x, position.z - state.position.z);
+    ctx.fillStyle = color;
+    if (shape === "square") ctx.fillRect(x - 5, y - 5, 10, 10);
+    else {
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  marker(sector.relay, "#55d7ef", "square");
+  marker(sector.extraction, "#e0a15a", "square");
+  if (state.stage === "drone" && state.drone.hull > 0) marker(state.drone.position, "#ff7a5c", "circle");
+  ctx.save();
+  ctx.rotate(Math.atan2(
+    2 * (state.orientation.w * state.orientation.y + state.orientation.x * state.orientation.z),
+    1 - 2 * (state.orientation.y * state.orientation.y + state.orientation.z * state.orientation.z),
+  ));
+  ctx.fillStyle = "#f3eee5";
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(6, 7);
+  ctx.lineTo(0, 4);
+  ctx.lineTo(-6, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.restore();
 }
 
 function describeSectorCommand(command: SectorTacticalCommand): string {
@@ -1315,158 +1402,140 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
 }
 
 // ---------- Touch controls ----------
-function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, onCamera, throttle, vectorDriftAvailable }: {
+function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, incoming, onPause, onCamera, onMap, throttle, vectorDriftAvailable }: {
   inputRef: MutableRefObject<FlightControlFrame>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
-  disabled: boolean; missileReady: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
+  disabled: boolean; missileReady: boolean; missiles: number; incoming: number; onPause: () => void; onCamera: () => void; onMap: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
-  const knob = useRef<HTMLDivElement>(null);
-  const thrKnob = useRef<HTMLDivElement>(null);
+  const aimKnob = useRef<HTMLDivElement>(null);
   const stickOrigin = useRef<{ x: number; y: number } | null>(null);
-  const vectorKnob = useRef<HTMLDivElement>(null);
+  const flightKnob = useRef<HTMLDivElement>(null);
   const vectorOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [maneuversOpen, setManeuversOpen] = useState(false);
   useEffect(() => {
     const reset = () => {
       stickOrigin.current = null; vectorOrigin.current = null;
       inputRef.current.strafe = 0; inputRef.current.vertical = 0;
-      if (knob.current) knob.current.style.transform = "translate(0px,0px)";
-      if (vectorKnob.current) vectorKnob.current.style.transform = "translate(0px,0px)";
+      inputRef.current.yaw = 0; inputRef.current.pitch = 0; inputRef.current.roll = 0;
+      inputRef.current.fire = false; inputRef.current.lock = false;
+      inputRef.current.boost = false; inputRef.current.brake = false; inputRef.current.drift = false;
+      if (aimKnob.current) aimKnob.current.style.transform = "translate(0px,0px)";
+      if (flightKnob.current) flightKnob.current.style.transform = "translate(0px,0px)";
     };
     window.addEventListener("wfm-flight-reset", reset);
     return () => window.removeEventListener("wfm-flight-reset", reset);
   }, []);
-  useEffect(() => { if (thrKnob.current) thrKnob.current.style.bottom = `${throttle * 100}%`; }, [throttle]);
+  useEffect(() => {
+    if (disabled) setManeuversOpen(false);
+  }, [disabled]);
 
-  const stick = (e: ReactPointerEvent<HTMLDivElement>) => {
+  const aimStick = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!stickOrigin.current) return;
     const r = e.currentTarget.getBoundingClientRect();
     const { x, y } = stickAxesFromDelta(e.clientX - stickOrigin.current.x, e.clientY - stickOrigin.current.y, r.width / 2);
     inputRef.current.yaw = x; inputRef.current.pitch = -y;
-    if (knob.current) knob.current.style.transform = `translate(${x * r.width * 0.35}px,${y * r.height * 0.35}px)`;
+    if (aimKnob.current) aimKnob.current.style.transform = `translate(${x * r.width * 0.35}px,${y * r.height * 0.35}px)`;
   };
-  const stickEnd = () => { stickOrigin.current = null; inputRef.current.pitch = 0; inputRef.current.yaw = 0; if (knob.current) knob.current.style.transform = "translate(0px,0px)"; };
+  const aimEnd = () => { stickOrigin.current = null; inputRef.current.pitch = 0; inputRef.current.yaw = 0; if (aimKnob.current) aimKnob.current.style.transform = "translate(0px,0px)"; };
   const vectorStick = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!vectorOrigin.current) return;
     const r = e.currentTarget.getBoundingClientRect();
     const { x, y } = stickAxesFromDelta(e.clientX - vectorOrigin.current.x, e.clientY - vectorOrigin.current.y, r.width / 2);
     inputRef.current.strafe = x; inputRef.current.vertical = -y;
-    if (vectorKnob.current) vectorKnob.current.style.transform = `translate(${x * r.width * 0.28}px,${y * r.height * 0.28}px)`;
+    if (flightKnob.current) flightKnob.current.style.transform = `translate(${x * r.width * 0.32}px,${y * r.height * 0.32}px)`;
   };
   const vectorEnd = () => {
     vectorOrigin.current = null; inputRef.current.strafe = 0; inputRef.current.vertical = 0;
-    if (vectorKnob.current) vectorKnob.current.style.transform = "translate(0px,0px)";
-  };
-  const thr = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const v = Math.min(1, Math.max(0, 1 - (e.clientY - r.top) / r.height));
-    inputRef.current.throttle = v;
-    if (thrKnob.current) thrKnob.current.style.bottom = `${v * 100}%`;
+    if (flightKnob.current) flightKnob.current.style.transform = "translate(0px,0px)";
   };
   const capture = (e: ReactPointerEvent<HTMLElement>) => { if (disabled) return false; e.currentTarget.setPointerCapture(e.pointerId); return true; };
-
-  const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", label: string, cls = "") => (
-    <HoldButton label={label} cls={cls} testId={`button-${key}`} disabled={disabled}
-      on={() => { inputRef.current[key] = true; }} off={() => { inputRef.current[key] = false; }} />
+  const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", icon: "fire" | "boost" | "brake" | "aim" | "drift", label: string, testId: string, accent = false) => (
+    <PilotActionButton icon={icon} label={label} testId={testId} disabled={disabled} accent={accent}
+      onPress={() => { inputRef.current[key] = true; }}
+      onRelease={() => { inputRef.current[key] = false; }}
+      onActivate={() => {
+        inputRef.current[key] = true;
+        requestAnimationFrame(() => { inputRef.current[key] = false; });
+      }} />
   );
-  const rollHold = (dir: -1 | 1, label: string) => (
-    <HoldButton label={label} testId={`button-roll-${dir < 0 ? "left" : "right"}`} disabled={disabled}
-      on={() => { inputRef.current.roll = dir; }} off={() => { inputRef.current.roll = 0; }} />
+  const roll = (direction: -1 | 1, icon: "roll-left" | "roll-right", label: string) => (
+    <PilotActionButton icon={icon} label={label} testId={`button-roll-${direction < 0 ? "left" : "right"}`} disabled={disabled}
+      onPress={() => { inputRef.current.roll = direction; }}
+      onRelease={() => { inputRef.current.roll = 0; }}
+      onActivate={() => { inputRef.current.roll = direction; requestAnimationFrame(() => { inputRef.current.roll = 0; }); }} />
   );
+  const thrust = () => {
+    inputRef.current.throttle = 1;
+    requestAnimationFrame(() => { inputRef.current.throttle = throttle; });
+  };
 
   return (
     <div className="pointer-events-none absolute inset-0 font-hud">
       <div className="pointer-events-auto absolute right-3 top-2 flex gap-1.5">
-        <button onClick={onCamera} className="min-h-11 min-w-11 border border-bone/30 bg-void/50 px-2 text-[10px] tracking-widest" data-testid="button-camera-toggle">CAM</button>
-        <button onClick={onPause} className="min-h-11 min-w-11 border border-bone/30 bg-void/50 px-3 text-[10px] tracking-widest" data-testid="button-pause">II</button>
+        <PilotActionButton icon="camera" label="Toggle chase or cockpit camera" testId="button-camera-toggle" disabled={disabled} onActivate={onCamera} />
+        <PilotActionButton icon="map" label="Open sector map" testId="button-tactical-map" disabled={disabled} onActivate={onMap} />
+        <PilotActionButton icon="pause" label="Pause flight controls" testId="button-pause" onActivate={onPause} />
       </div>
-      {/* Left: throttle + stick */}
-      <div className="pointer-events-auto absolute bottom-4 left-3 flex items-end gap-2 sm:gap-3">
-        <div className="relative h-36 w-11 border border-bone/30 bg-void/40" data-testid="slider-throttle"
-          onPointerDown={e => { if (capture(e)) thr(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) thr(e); }}>
-          <span className="absolute -top-4 left-0 text-[9px] tracking-widest text-muted">THR</span>
-          <div ref={thrKnob} className="absolute left-0 right-0 h-2 translate-y-1/2 bg-bone" style={{ bottom: "35%" }} />
+      <div className="pointer-events-auto absolute bottom-4 left-3 flex items-end gap-2 sm:gap-3" data-testid="flight-controls-left">
+        <div className="relative">
+          <div className="relative h-24 w-24 touch-none rounded-full border border-bone/30 bg-void/25 sm:h-32 sm:w-32" role="group" aria-label="Flight vector controls" data-testid="stick-flight"
+            onPointerDown={e => { if (!vectorOrigin.current && capture(e)) vectorOrigin.current = { x: e.clientX, y: e.clientY }; }}
+            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) vectorStick(e); }}
+            onPointerUp={vectorEnd} onPointerCancel={vectorEnd} onLostPointerCapture={vectorEnd}>
+            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
+            <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
+            <div ref={flightKnob} className="absolute left-[calc(50%-1rem)] top-[calc(50%-1rem)] h-8 w-8 rounded-full border border-bone/70 bg-bone/15 sm:left-[calc(50%-1.5rem)] sm:top-[calc(50%-1.5rem)] sm:h-12 sm:w-12" />
+          </div>
+          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.2em] text-bone/65">FLIGHT</span>
         </div>
-        <div className="relative h-24 w-24 rounded-full border border-bone/30 bg-void/30 sm:h-36 sm:w-36" data-testid="stick-flight"
-          onPointerDown={e => {
-            if (!stickOrigin.current && capture(e)) {
-              stickOrigin.current = { x: e.clientX, y: e.clientY };
-              inputRef.current.pitch = 0; inputRef.current.yaw = 0;
-            }
-          }}
-          onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) stick(e); }}
-          onPointerUp={stickEnd} onPointerCancel={stickEnd} onLostPointerCapture={stickEnd}>
-          <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/15" />
-          <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/15" />
-          <div ref={knob} className="absolute left-[calc(50%-1.5rem)] top-[calc(50%-1.5rem)] h-12 w-12 rounded-full border-2 border-bone/70 bg-bone/15" />
-        </div>
-      </div>
-      <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2" data-testid="control-vector-thrust">
-        <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] tracking-widest text-muted">VECTOR</span>
-        <div className="relative h-16 w-16 rounded-full border border-bone/30 bg-void/35"
-          onPointerDown={e => {
-            if (!vectorOrigin.current && capture(e)) vectorOrigin.current = { x: e.clientX, y: e.clientY };
-          }}
-          onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) vectorStick(e); }}
-          onPointerUp={vectorEnd} onPointerCancel={vectorEnd} onLostPointerCapture={vectorEnd}>
-          <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/15" />
-          <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/15" />
-          <div ref={vectorKnob} className="absolute left-[calc(50%-0.75rem)] top-[calc(50%-0.75rem)] h-6 w-6 rounded-full border border-bone/70 bg-bone/15" />
+        <div className="flex flex-col items-center gap-2">
+          <PilotActionButton icon="thrust" label={`Hold thrust; current setting ${Math.round(throttle * 100)} percent`} testId="button-thrust"
+            disabled={disabled} accent badge={`${Math.round(throttle * 100)}%`}
+            onPress={() => { inputRef.current.throttle = 1; }}
+            onRelease={() => { inputRef.current.throttle = throttle; }}
+            onActivate={thrust} />
+          <PilotActionButton icon="maneuver" label={maneuversOpen ? "Hide maneuver controls" : "Open maneuver controls"} testId="button-maneuvers"
+            active={maneuversOpen} disabled={disabled} onActivate={() => setManeuversOpen(value => !value)} />
         </div>
       </div>
-      {/* Right: weapons */}
-      <div className="pointer-events-auto absolute bottom-4 right-3 grid grid-cols-3 gap-1.5">
-        {rollHold(-1, "ROLL L")}
-        {hold("brake", "BRAKE")}
-        {rollHold(1, "ROLL R")}
-        {hold("lock", "LOCK")}
-        <PulseButton label="MSL" testId="button-missile" disabled={disabled || !missileReady} title={missileReady ? "Launch one guided missile" : "Acquire a target lock before launching a missile"} fire={() => { pulseRef.current.missile = true; }} />
-        <PulseButton label="FLARE" testId="button-countermeasure" disabled={disabled} title="Clear incoming hostile guided missiles" fire={() => { pulseRef.current.countermeasure = true; }} />
-        {vectorDriftAvailable ? hold("drift", "DRIFT", "border-solar/50") : null}
-        {hold("boost", "BOOST")}
-        {hold("fire", "GUNS", "border-solar/70 text-solar")}
+      <div className="pointer-events-auto absolute bottom-4 right-3 flex items-end gap-2 sm:gap-3" data-testid="flight-controls-right">
+        <div className="flex flex-col items-center gap-2">
+          {maneuversOpen ? (
+            <div className="pilot-rust-maneuvers flex max-w-[48vw] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+              {roll(-1, "roll-left", "Roll left")}
+              {roll(1, "roll-right", "Roll right")}
+              {hold("brake", "brake", "Hold brake", "button-brake")}
+              {hold("boost", "boost", "Hold boost", "button-boost")}
+              {vectorDriftAvailable ? hold("drift", "drift", "Hold vector drift", "button-drift") : null}
+              {incoming > 0 ? <PilotActionButton icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={disabled}
+                onActivate={() => { pulseRef.current.countermeasure = true; }} /> : null}
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            {hold("lock", "aim", "Hold target lock", "button-lock")}
+            <PilotActionButton icon="missile" label={missileReady ? `Launch missile, ${missiles} remaining` : "Missile requires a valid target lock"}
+              testId="button-missile" disabled={disabled || !missileReady} accent badge={missiles}
+              onActivate={() => { pulseRef.current.missile = true; }} />
+            {hold("fire", "fire", "Hold primary guns", "button-fire", true)}
+          </div>
+        </div>
+        <div className="relative">
+          <div className="relative h-24 w-24 touch-none rounded-full border border-bone/30 bg-void/25 sm:h-32 sm:w-32" role="group" aria-label="Aim and orientation controls" data-testid="stick-aim"
+            onPointerDown={e => {
+              if (!stickOrigin.current && capture(e)) {
+                stickOrigin.current = { x: e.clientX, y: e.clientY };
+                inputRef.current.pitch = 0; inputRef.current.yaw = 0;
+              }
+            }}
+            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) aimStick(e); }}
+            onPointerUp={aimEnd} onPointerCancel={aimEnd} onLostPointerCapture={aimEnd}>
+            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
+            <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
+            <div ref={aimKnob} className="absolute left-[calc(50%-1rem)] top-[calc(50%-1rem)] h-8 w-8 rounded-full border border-bone/70 bg-bone/15 sm:left-[calc(50%-1.5rem)] sm:top-[calc(50%-1.5rem)] sm:h-12 sm:w-12" />
+          </div>
+          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.2em] text-bone/65">AIM</span>
+        </div>
       </div>
     </div>
-  );
-}
-
-function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: string; on: () => void; off: () => void; testId: string; disabled: boolean; cls?: string }) {
-  const [active, setActive] = useState(false);
-  useEffect(() => {
-    const reset = () => setActive(false);
-    window.addEventListener("wfm-flight-reset", reset);
-    return () => window.removeEventListener("wfm-flight-reset", reset);
-  }, []);
-  const end = () => { off(); setActive(false); };
-  return (
-    <button data-testid={testId} disabled={disabled}
-      aria-pressed={active}
-      aria-label={keyLabel(label)}
-      title={keyLabel(label)}
-      className={`min-h-14 min-w-14 border border-bone/30 px-2 text-[10px] tracking-widest ${active ? "bg-bone/30" : "bg-void/45"} ${cls}`}
-      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); on(); setActive(true); }}
-      onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}
-      onContextMenu={e => e.preventDefault()}>
-      {label}
-    </button>
-  );
-}
-
-function keyLabel(label: string): string {
-  const help: Record<string, string> = {
-    DRIFT: "Hold to preserve your travel direction while turning.",
-    LOCK: "Hold while the hostile contact is centered, close, and unobstructed.",
-    GUNS: "Hold to fire primary guns at the center reticle.",
-    BOOST: "Hold to spend energy for extra thrust.",
-    BRAKE: "Hold to reduce speed quickly.",
-    "ROLL L": "Hold to roll left.",
-    "ROLL R": "Hold to roll right.",
-  };
-  return help[label] ?? label;
-}
-
-function PulseButton({ label, fire, testId, disabled, title }: { label: string; fire: () => void; testId: string; disabled: boolean; title: string }) {
-  return (
-    <button aria-label={title} title={title} data-testid={testId} disabled={disabled} onPointerDown={fire} onContextMenu={e => e.preventDefault()}
-      className="min-h-14 min-w-14 border border-bone/30 bg-void/45 px-2 text-[10px] tracking-widest active:bg-bone/30 disabled:opacity-30">{label}</button>
   );
 }
 

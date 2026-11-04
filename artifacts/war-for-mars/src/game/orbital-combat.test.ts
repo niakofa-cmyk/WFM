@@ -127,8 +127,8 @@ test("mobile vector-thrust axes produce lateral and vertical Orbital movement", 
   const match = lab();
   const bus = createBus("arc");
   bus.orbital = true;
-  bus.vectorX = 0.7;
-  bus.vectorY = -0.4;
+  bus.leftX = 0.7;
+  bus.leftY = -0.4;
   const input = readInput(bus);
   for (let i = 0; i < 30; i++) integrateFlight(match.player, input, 1 / 60, 1, match);
   assert.ok(match.player.x > 0.1);

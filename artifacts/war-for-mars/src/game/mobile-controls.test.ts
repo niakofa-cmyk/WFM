@@ -89,27 +89,28 @@ test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate dr
   assert.equal(readInput(bus).yaw, -1);
 });
 
-test("orbital vector stick adds lateral and vertical thrust and resets to neutral", () => {
+test("the left flight stick provides orbital lateral and vertical thrust; throttle stays independent", () => {
   const bus = createBus("arc");
   bus.orbital = true;
-  bus.vectorX = 0.65;
-  bus.vectorY = -0.4;
+  bus.leftX = 0.65;
+  bus.leftY = -0.4;
 
   const input = readInput(bus);
   assert.equal(input.strafe, -0.65);
   assert.equal(input.vertical, 0.4);
+  assert.equal(input.throttle, 0);
 
   clearInput(bus);
-  assert.equal(bus.vectorX, 0);
-  assert.equal(bus.vectorY, 0);
+  assert.equal(bus.leftX, 0);
+  assert.equal(bus.leftY, 0);
   assert.equal(readInput(bus).strafe, 0);
   assert.equal(readInput(bus).vertical, 0);
 });
 
-test("vector stick does not add movement to legacy surface modes", () => {
+test("orbital vector axes do not add vertical thrust to legacy surface modes", () => {
   const bus = createBus("arc");
-  bus.vectorX = 1;
-  bus.vectorY = -1;
+  bus.leftX = 1;
+  bus.leftY = -1;
   const input = readInput(bus);
   assert.equal(input.strafe, 0);
   assert.equal("vertical" in input, false);
@@ -124,8 +125,6 @@ test("lost focus clears held keys, all sticks, and latched buttons", () => {
   bus.leftY = 1;
   bus.rightX = 1;
   bus.rightY = -1;
-  bus.vectorX = -0.75;
-  bus.vectorY = 0.8;
   bus.fireCanvas = true;
   bus.fireButton = true;
   bus.ultPulse = true;
@@ -146,8 +145,8 @@ test("lost focus clears held keys, all sticks, and latched buttons", () => {
     preset: null,
   });
   assert.equal(bus.override, null);
-  assert.equal(bus.vectorX, 0);
-  assert.equal(bus.vectorY, 0);
+  assert.equal(bus.leftX, 0);
+  assert.equal(bus.leftY, 0);
 });
 
 test("missing sensor APIs and insecure pages retain touch-only controls", async () => {

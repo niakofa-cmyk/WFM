@@ -23,6 +23,7 @@ import { prepareOrbital } from "./orbital-sim";
 import { rotate } from "./orbital-flight";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
+import { PilotActionButton } from "./PilotActionButton";
 import { ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
 
 export type StrikeResult = {
@@ -576,6 +577,7 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const speedRef = useRef<HTMLSpanElement>(null);
   const lockNameRef = useRef<HTMLParagraphElement>(null);
   const lockHpRef = useRef<HTMLDivElement>(null);
   const callRef = useRef<HTMLParagraphElement>(null);
@@ -643,6 +645,8 @@ export function Arena({
   const [muted, setMutedUi] = useState(false);
   const [paused, setPaused] = useState(false);
   const [shakeUi, setShakeUi] = useState(true);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [maneuversOpen, setManeuversOpen] = useState(false);
   const pausedRef = useRef(false);
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -1769,6 +1773,7 @@ export function Arena({
       if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
       if (orbital && player.space) {
         const s = player.space;
+        if (speedRef.current) speedRef.current.textContent = `${Math.round(Math.hypot(s.vx, s.vy, s.vz))} M/S`;
         const solution = locked ? targetSolution(player, locked, match.rocks) : null;
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
@@ -1779,8 +1784,19 @@ export function Arena({
           telemetryRef.current.dataset.lock = String(s.lockProgress);
         }
         if (missileRef.current) {
-          missileRef.current.textContent = s.missileCd > 0 ? `MISSILE ${s.missileCd.toFixed(1)}s` : `MISSILE ${s.ammo} · ${Math.floor(s.lockProgress * 100)}%`;
           missileRef.current.disabled = !player.alive || s.lockProgress < 1 || s.missileCd > 0 || s.ammo <= 0;
+          missileRef.current.dataset.ammo = String(s.ammo);
+          missileRef.current.dataset.cooldown = s.missileCd > 0 ? s.missileCd.toFixed(1) : "0";
+          const badge = missileRef.current.querySelector(".pilot-action-badge");
+          if (badge) badge.textContent = s.missileCd > 0 ? `${s.missileCd.toFixed(0)}s` : String(s.ammo);
+          missileRef.current.setAttribute(
+            "aria-label",
+            s.missileCd > 0
+              ? `Missile cooling down ${s.missileCd.toFixed(1)} seconds`
+              : s.lockProgress < 1
+                ? `Missile unavailable; target lock ${Math.floor(s.lockProgress * 100)} percent`
+                : `Launch guided missile, ${s.ammo} remaining`,
+          );
         }
       }
       if (pipRef.current) {
@@ -1799,11 +1815,14 @@ export function Arena({
           : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
       }
       if (ultRef.current) {
-        ultRef.current.textContent =
-          player.ultCd > 0.05 ? `${ship.ultShort} ${player.ultCd.toFixed(1)}` : ship.ultShort;
+        const cooldown = player.ultCd > 0.05 ? `${player.ultCd.toFixed(1)}s` : ship.ultShort;
+        const badge = ultRef.current.querySelector(".pilot-action-badge");
+        if (badge) badge.textContent = cooldown;
+        ultRef.current.setAttribute("aria-label", player.ultCd > 0.05 ? `${ship.ultShort} cooling down ${cooldown}` : ship.ultShort);
       }
       if (lockRef.current) {
-        lockRef.current.textContent = locked ? SHIPS[locked.ship].name.toUpperCase() : "LOCK";
+        lockRef.current.dataset.target = locked ? SHIPS[locked.ship].name : "";
+        lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
@@ -1924,43 +1943,31 @@ export function Arena({
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
       ) : null}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
-          <div className="w-40">
-            <p className="font-hud text-sm tracking-widest text-solar">{ship.name.toUpperCase()}</p>
+        <div className="pilot-top-bar absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-3 pt-3">
+          <div className="w-[min(30vw,11rem)]">
+            <p className="font-hud text-[10px] tracking-widest text-solar">{ship.name.toUpperCase()}</p>
+            {orbital ? <p className="mt-0.5 font-hud text-[11px] tracking-widest text-bone"><span ref={speedRef}>0 M/S</span></p> : null}
             <div className="mt-1 flex items-center gap-1">
-              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">SHIELD</span>
-              <div className="h-2 flex-1 overflow-hidden bg-panel">
-                <div ref={shieldRef} className="h-full w-full bg-solar" />
-              </div>
+              <span className="w-10 font-hud text-[8px] tracking-widest text-muted">SHD</span>
+              <div className="h-1.5 flex-1 overflow-hidden bg-panel/70"><div ref={shieldRef} className="h-full w-full bg-solar" /></div>
             </div>
             <div className="mt-1 flex items-center gap-1">
-              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">HULL</span>
-              <div className="h-2 flex-1 overflow-hidden bg-panel">
-                <div ref={hullRef} className="h-full w-full bg-alert" />
-              </div>
+              <span className="w-10 font-hud text-[8px] tracking-widest text-muted">HULL</span>
+              <div className="h-1.5 flex-1 overflow-hidden bg-panel/70"><div ref={hullRef} className="h-full w-full bg-alert" /></div>
             </div>
-            <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-xs tracking-wide text-muted">
-              ENG 2.0  WEP 2.0  DEF 2.0
-            </p>
+            <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-[9px] tracking-wide text-muted">ENG 2.0 · WEP 2.0 · DEF 2.0</p>
           </div>
-          <div className="lab-status-center text-center">
-            <span
-              ref={clockRef}
-              className="font-hud text-3xl leading-none text-bone"
-              role="timer"
-              aria-live="off"
-              aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}
-            >
+
+          <div className="lab-status-center min-w-0 text-center">
+            <span ref={clockRef} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
-            <p className="font-hud text-xs tracking-widest text-muted">
-              <span ref={wingRef}>WING</span>
-            </p>
+            <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p>
             {online ? (
               <button
                 type="button"
                 aria-label={`Copy room code ${online.roomId.toUpperCase()}`}
-                className="pointer-events-auto font-hud text-[10px] tracking-widest text-solar"
+                className="pointer-events-auto font-hud text-[9px] tracking-widest text-solar"
                 onClick={async (event) => {
                   const button = event.currentTarget;
                   try {
@@ -1973,265 +1980,206 @@ export function Arena({
                     button.textContent = `ROOM ${online.roomId.toUpperCase()}`;
                   }
                 }}
-              >
-                ROOM {online.roomId.toUpperCase()} · COPY
-              </button>
+              >ROOM {online.roomId.toUpperCase()} · COPY</button>
             ) : null}
-            <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
-            <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[10px] tracking-widest text-bone/80">
-              0/3 HELD · HOLD 2 TO DRAIN
-            </p>
-            <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />
-            {tech ? (
-              <p className="font-hud text-[10px] tracking-widest text-muted">
-                {tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}
-              </p>
-            ) : null}
-            <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center gap-2`}>
-              <span className="font-hud text-xs text-solar">YOU</span>
-              <div className="h-2 w-16 overflow-hidden bg-panel">
-                <div ref={youRef} className="h-full w-full bg-solar" />
-              </div>
-              <div className="h-2 w-16 overflow-hidden bg-panel">
-                <div ref={foeRef} className="h-full w-full bg-alert" />
-              </div>
-              <span className="font-hud text-xs text-muted">THEM</span>
+            <p className="font-hud text-[9px] tracking-widest text-solar">{objective}</p>
+            <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[9px] tracking-widest text-bone/80">0/3 HELD · HOLD 2 TO DRAIN</p>
+            <p ref={cageRef} className="font-hud text-[9px] tracking-widest text-bone" />
+            {tech ? <p className="font-hud text-[9px] tracking-widest text-muted">{tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}</p> : null}
+            <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center justify-center gap-2`}>
+              <span className="font-hud text-[9px] text-solar">YOU</span>
+              <div className="h-1.5 w-12 overflow-hidden bg-panel/70"><div ref={youRef} className="h-full w-full bg-solar" /></div>
+              <div className="h-1.5 w-12 overflow-hidden bg-panel/70"><div ref={foeRef} className="h-full w-full bg-alert" /></div>
+              <span className="font-hud text-[9px] text-muted">THEM</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <canvas ref={radarRef} width={160} height={160} className="size-24 border border-bone/20 bg-void/70" />
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !pausedRef.current;
-                pausedRef.current = next;
-                setPaused(next);
-              }}
-            >
-              {paused ? "RESUME" : "HOLD"}
-            </button>
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !shakeRef.current;
-                shakeRef.current = next;
-                setShakeUi(next);
-              }}
-            >
-              {shakeUi ? "SHAKE" : "SHAKE OFF"}
-            </button>
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !isMuted();
-                setMuted(next);
-                setMutedUi(next);
-              }}
-            >
-              {muted ? "SOUND OFF" : "SOUND"}
-            </button>
+
+          <div className="pointer-events-auto flex shrink-0 gap-2">
+            <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />
+            <PilotActionButton icon="pause" label={paused ? "Resume sortie" : "Open flight menu"} testId="button-pause" active={paused} onActivate={() => {
+              const next = !pausedRef.current;
+              pausedRef.current = next;
+              setPaused(next);
+              if (next) setManeuversOpen(false);
+            }} />
           </div>
         </div>
 
-        <p className={`${orbital ? "lab-key-help " : ""}absolute top-16 right-3 left-3 hidden text-center font-hud text-xs tracking-widest text-muted sm:block`}>
-          {orbital ? "W/S THRUST · A/D YAW · I/K PITCH · Q/E ROLL · Z/X SLIDE · C/V LIFT · SHIFT BOOST · B BRAKE · R TARGET · M MISSILE" : scheme === "arc"
-            ? "A NOSE LEFT  ·  D NOSE RIGHT  ·  W BURN  ·  SPACE FIRE  ·  F ULT"
-            : "A SLIDE LEFT  ·  D SLIDE RIGHT  ·  AIM STICK TURNS  ·  W BURN"}
-        </p>
-        <div className="absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
-        <div
-          ref={markRef}
-          className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0"
-        />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
+        <div ref={markRef} className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0" />
         <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
           <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
-          <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80">
-            <div ref={lockHpRef} className="h-full w-0 bg-alert" />
-          </div>
+          <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80"><div ref={lockHpRef} className="h-full w-0 bg-alert" /></div>
           <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
         </div>
-        {orbital ? <p ref={telemetryRef} data-testid="lab-telemetry" className="absolute left-3 top-28 max-w-[65vw] whitespace-pre-line border-l-2 border-solar bg-void/85 p-2 font-mono text-[10px] leading-5 sm:text-xs" /> : null}
-        {coach ? (
-          <p className="pointer-events-none absolute bottom-36 left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/80 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">
-            {coach}
-          </p>
-        ) : null}
+        {coach ? <p className="pilot-coach pointer-events-none absolute left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/75 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">{coach}</p> : null}
 
         <div
           data-testid="flight-controls-left"
-          className="absolute bottom-4 left-3 flex flex-col items-start gap-2"
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-            left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)",
-          }}
+          className="pilot-control-left absolute flex flex-col items-start gap-2"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)", left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)" }}
         >
-          {orbital ? <div className="pointer-events-auto grid grid-cols-3 gap-1">
-            {[["UP", "KeyC"], ["DOWN", "KeyV"], ["BOOST", "ShiftLeft"], ["ROLL L", "KeyQ"], ["ROLL R", "KeyE"], ["BRAKE", "KeyB"], ["SLIDE L", "KeyZ"], ["SLIDE R", "KeyX"], ["DRIFT", "KeyT"], ["ASSIST", "KeyG"]].map(([label, code]) => <button key={code} type="button" className="h-11 min-w-11 border border-bone/30 bg-panel px-1 font-hud text-[10px]" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); bus?.keys.add(code); }} onPointerUp={() => bus?.keys.delete(code)} onPointerCancel={() => bus?.keys.delete(code)} onLostPointerCapture={() => bus?.keys.delete(code)}>{label}</button>)}
-          </div> : null}
-          <div className="pointer-events-auto flex flex-col gap-2">
-            {(orbital ? [] : PRESET_NAME).map((name, index) => (
-              <button
-                key={name}
-                type="button"
-                ref={(node) => {
-                  presetRefs.current[index] = node;
-                }}
-                data-on={index === 0 ? "1" : "0"}
-                data-testid={`flight-preset-${index}`}
-                aria-pressed={index === 0}
-                className="h-11 w-16 border border-bone/25 bg-panel font-hud text-base tracking-widest text-bone"
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3;
-                }}
-                onClick={(event) => {
-                  if (event.detail !== 0 || !bus) return;
-                  bus.presetPulse = index as 0 | 1 | 2 | 3;
-                }}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          <div className="pointer-events-auto">
-            <Stick
-              label="Move"
-              onAxis={(x, y) => {
-                if (!bus) return;
-                bus.leftX = x;
-                bus.leftY = y;
-              }}
-            />
+          {orbital && maneuversOpen ? (
+            <div className="pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap gap-2" data-testid="pilot-maneuver-actions">
+              <PilotActionButton icon="thrust" label="Hold forward thrust" testId="button-thrust" onPress={() => bus?.keys.add("KeyW")} onRelease={() => bus?.keys.delete("KeyW")} onActivate={() => { if (bus) bus.keys.add("KeyW"); requestAnimationFrame(() => bus?.keys.delete("KeyW")); }} />
+              <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
+              <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+              <PilotActionButton icon="roll-left" label="Roll left" testId="button-roll-left" onPress={() => bus?.keys.add("KeyQ")} onRelease={() => bus?.keys.delete("KeyQ")} onActivate={() => { if (bus) bus.keys.add("KeyQ"); requestAnimationFrame(() => bus?.keys.delete("KeyQ")); }} />
+              <PilotActionButton icon="roll-right" label="Roll right" testId="button-roll-right" onPress={() => bus?.keys.add("KeyE")} onRelease={() => bus?.keys.delete("KeyE")} onActivate={() => { if (bus) bus.keys.add("KeyE"); requestAnimationFrame(() => bus?.keys.delete("KeyE")); }} />
+              <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+              <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
+              <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
+            </div>
+          ) : null}
+          <div className="pointer-events-auto flex items-end gap-2">
+            <Stick label={orbital ? "Flight" : "Move"} onAxis={(x, y) => {
+              if (!bus) return;
+              bus.leftX = x;
+              bus.leftY = y;
+            }} />
+            {orbital ? (
+              <PilotActionButton
+                icon="maneuver"
+                label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
+                testId="button-maneuvers"
+                active={maneuversOpen}
+                onActivate={() => setManeuversOpen((value) => !value)}
+              />
+            ) : null}
           </div>
         </div>
-
-        {orbital ? (
-          <div
-            data-testid="flight-controls-vector"
-            className="absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1"
-            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
-          >
-            <span className="font-hud text-[9px] tracking-[0.2em] text-bone/70">VECTOR THRUST</span>
-            <div className="pointer-events-auto">
-              <Stick
-                label="Vector"
-                size="compact"
-                onAxis={(x, y) => {
-                  if (!bus) return;
-                  bus.vectorX = x;
-                  bus.vectorY = y;
-                }}
-              />
-            </div>
-          </div>
-        ) : null}
 
         <div
           data-testid="flight-controls-right"
-          className="absolute right-3 bottom-4 flex flex-col items-end gap-2"
-          style={{
-            right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-          }}
+          className="pilot-control-right absolute flex flex-col items-end gap-2"
+          style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
-          <div className={`${orbital ? "lab-weapons " : ""}pointer-events-auto flex gap-2`}>
-            <button
-              ref={lockRef}
-              type="button"
-              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (bus) bus.lockPulse = true;
-              }}
-              onClick={(event) => {
-                if (event.detail === 0 && bus) bus.lockPulse = true;
-              }}
-            >
-              LOCK
-            </button>
-            {!orbital ? <button
-              type="button"
-              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (!bus) return;
-                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0 || !bus) return;
-                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
-              }}
-            >
-              DODGE
-            </button> : null}
-            {orbital ? <button ref={missileRef} type="button" aria-label="Launch guided missile" className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-xs text-solar disabled:opacity-40" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); unlockAudio(); bus?.keys.add("KeyM"); }} onPointerUp={() => bus?.keys.delete("KeyM")} onLostPointerCapture={() => bus?.keys.delete("KeyM")}>MISSILE</button> : <button
-              ref={ultRef}
-              type="button"
-              className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-sm tracking-widest text-solar"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                unlockAudio();
-                if (bus) bus.ultPulse = true;
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0) return;
-                unlockAudio();
-                if (bus) bus.ultPulse = true;
-              }}
-            >
-              {ship.ultShort}
-            </button>}
-            <button
-              type="button"
-              data-flight-fire=""
-              className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                event.currentTarget.setPointerCapture(event.pointerId);
+          <div className="pointer-events-auto flex items-center gap-2">
+            <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+            {orbital ? (
+              <PilotActionButton
+                ref={missileRef}
+                icon="missile"
+                label="Launch guided missile"
+                testId="button-missile"
+                disabled
+                accent
+                badge="MSL"
+                onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+              />
+            ) : (
+              <>
+                <PilotActionButton
+                  icon="maneuver"
+                  label="Evade incoming fire"
+                  testId="button-dodge"
+                  onActivate={() => { if (bus) bus.evadePulse = bus.leftX > 0.2 ? -1 : 1; }}
+                />
+                <PilotActionButton
+                  ref={ultRef}
+                  icon="boost"
+                  label={ship.ultShort}
+                  testId="button-special"
+                  accent
+                  badge={ship.ultShort}
+                  onActivate={() => { unlockAudio(); if (bus) bus.ultPulse = true; }}
+                />
+              </>
+            )}
+            <PilotActionButton
+              icon="fire"
+              label="Hold primary guns"
+              testId="button-fire"
+              accent
+              fireAction
+              onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+              onRelease={() => { if (bus) bus.fireButton = false; }}
+              onActivate={() => {
                 unlockAudio();
                 if (bus) bus.fireButton = true;
+                requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
               }}
-              onPointerUp={(event) => {
-                event.stopPropagation();
-                if (bus) bus.fireButton = false;
-              }}
-              onPointerCancel={() => {
-                if (bus) bus.fireButton = false;
-              }}
-            >
-              FIRE
-            </button>
+              className="pilot-action-fire"
+            />
           </div>
           <div className="pointer-events-auto">
-            <Stick
-              label="Aim"
-              onAxis={(x, y) => {
-                if (!bus) return;
-                bus.rightX = x;
-                bus.rightY = y;
-              }}
-            />
+            <Stick label="Aim" onAxis={(x, y) => {
+              if (!bus) return;
+              bus.rightX = x;
+              bus.rightY = y;
+            }} />
           </div>
         </div>
       </div>
+      {mapOpen && !end ? (
+        <div className="pilot-map-backdrop absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Tactical map">
+          <div className="pilot-map-panel">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-hud text-xs tracking-[0.24em] text-solar">TACTICAL MAP</p>
+                <p className="mt-1 font-hud text-sm tracking-wider text-bone">{objective}</p>
+              </div>
+              <PilotActionButton icon="pause" label="Close tactical map" testId="button-close-tactical-map" onActivate={() => setMapOpen(false)} />
+            </div>
+            <canvas ref={radarRef} width={320} height={320} className="pilot-map-canvas" aria-label="Battlefield map showing current combat contacts" />
+            <div className="pilot-map-legend font-hud text-[10px] tracking-widest">
+              <span><i className="pilot-map-key pilot-map-friendly" /> FRIENDLY</span>
+              <span><i className="pilot-map-key pilot-map-hostile" /> HOSTILE</span>
+              <span><i className="pilot-map-key pilot-map-objective" /> OBJECTIVE</span>
+            </div>
+            <p className="mt-2 text-center font-hud text-[9px] tracking-widest text-muted">LIVE SORTIE CONTINUES WHILE MAP IS OPEN</p>
+          </div>
+        </div>
+      ) : null}
       {paused && !end ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/75">
-          <div className="text-center">
-            <p className="font-hud text-4xl tracking-widest text-bone">HOLD</p>
-            <p className="mt-2 font-hud text-xs tracking-widest text-muted">P or HOLD resumes the strike</p>
-            <button
-              type="button"
-              className="pointer-events-auto mt-4 h-11 border border-solar/50 px-4 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                pausedRef.current = false;
-                setPaused(false);
-              }}
-            >
-              RESUME
-            </button>
+        <div className="pilot-pause-backdrop absolute inset-0 z-30 flex items-center justify-center overflow-y-auto p-4">
+          <div className="pilot-pause-panel">
+            <p className="font-hud text-3xl tracking-widest text-bone">FLIGHT MENU</p>
+            <p className="mt-2 max-w-lg font-hud text-xs leading-relaxed tracking-wider text-muted">
+              {online ? "This is a live room: the match continues while this menu is open." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
+            </p>
+            <button type="button" data-testid="button-resume-sortie" className="pilot-menu-primary mt-4" onClick={() => {
+              pausedRef.current = false;
+              setPaused(false);
+            }}>RESUME FLIGHT</button>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" data-testid="button-shake-toggle" aria-pressed={shakeUi} className="pilot-menu-setting" onClick={() => {
+                const next = !shakeRef.current;
+                shakeRef.current = next;
+                setShakeUi(next);
+              }}>{shakeUi ? "CAMERA SHAKE · ON" : "CAMERA SHAKE · OFF"}</button>
+              <button type="button" data-testid="button-sound-toggle" aria-pressed={!muted} className="pilot-menu-setting" onClick={() => {
+                const next = !isMuted();
+                setMuted(next);
+                setMutedUi(next);
+              }}>{muted ? "SOUND · OFF" : "SOUND · ON"}</button>
+            </div>
+            {!orbital ? (
+              <div className="mt-4">
+                <p className="font-hud text-[10px] tracking-[0.22em] text-solar">FLIGHT PRESET</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {PRESET_NAME.map((name, index) => (
+                    <button key={name} type="button" ref={(node) => { presetRefs.current[index] = node; }}
+                      data-on={index === 0 ? "1" : "0"} data-testid={`flight-preset-${index}`}
+                      aria-pressed={index === 0} className="pilot-menu-setting pilot-preset"
+                      onClick={() => { if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3; }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <details className="mt-4 border-t border-bone/15 pt-3">
+                <summary className="cursor-pointer font-hud text-[10px] tracking-[0.22em] text-solar">FLIGHT DIAGNOSTICS</summary>
+                <p ref={telemetryRef} data-testid="lab-telemetry" className="mt-2 whitespace-pre-line border-l border-solar/60 pl-3 font-mono text-[10px] leading-5 text-bone/80" />
+              </details>
+            )}
+            <details className="mt-3 border-t border-bone/15 pt-3">
+              <summary className="cursor-pointer font-hud text-[10px] tracking-[0.22em] text-muted">KEYBOARD CONTROLS</summary>
+              <p className="mt-2 font-mono text-[10px] leading-5 text-muted">
+                {orbital ? "W/S THRUST · A/D YAW · I/K PITCH · Q/E ROLL · Z/X SLIDE · C/V LIFT · SHIFT BOOST · B BRAKE · R TARGET · M MISSILE" : scheme === "arc" ? "A/D TURN · W/S THRUST · SPACE FIRE · F SPECIAL" : "A/D SLIDE · AIM STICK TURNS · W/S THRUST · SPACE FIRE"}
+              </p>
+            </details>
           </div>
         </div>
       ) : null}

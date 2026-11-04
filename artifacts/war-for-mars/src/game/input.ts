@@ -10,12 +10,13 @@ export type Bus = {
   leftY: number;
   rightX: number;
   rightY: number;
-  vectorX: number;
-  vectorY: number;
   fireCanvas: boolean;
   fireButton: boolean;
   ultPulse: boolean;
   lockPulse: boolean;
+  missilePulse: boolean;
+  inertialPulse: boolean;
+  aimAssistPulse: boolean;
   evadePulse: number;
   presetPulse: PresetId | null;
   gyroYaw: number;
@@ -38,12 +39,13 @@ export function createBus(scheme: Scheme): Bus {
     leftY: 0,
     rightX: 0,
     rightY: 0,
-    vectorX: 0,
-    vectorY: 0,
     fireCanvas: false,
     fireButton: false,
     ultPulse: false,
     lockPulse: false,
+    missilePulse: false,
+    inertialPulse: false,
+    aimAssistPulse: false,
     evadePulse: 0,
     presetPulse: null,
     gyroYaw: 0,
@@ -64,12 +66,13 @@ export function clearInput(bus: Bus) {
   bus.leftY = 0;
   bus.rightX = 0;
   bus.rightY = 0;
-  bus.vectorX = 0;
-  bus.vectorY = 0;
   bus.fireCanvas = false;
   bus.fireButton = false;
   bus.ultPulse = false;
   bus.lockPulse = false;
+  bus.missilePulse = false;
+  bus.inertialPulse = false;
+  bus.aimAssistPulse = false;
   bus.evadePulse = 0;
   bus.presetPulse = null;
   bus.gyroYaw = 0;
@@ -130,7 +133,7 @@ export function readInput(bus: Bus): StepInput {
     strafe = clamp(keyYaw + stickYaw);
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
-  const throttle = clamp(keyThr + stickThr);
+  const throttle = clamp(bus.orbital ? keyThr : keyThr + stickThr);
   const pitch = clamp(-bus.rightY + bus.gyroPitch);
   const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
   const fDown = keys.has("KeyF");
@@ -157,13 +160,19 @@ export function readInput(bus: Bus): StepInput {
   if (bus.orbital) {
     const axis = (positive: string, negative: string) => Number(keys.has(positive)) - Number(keys.has(negative));
     const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
+    const inertial = bus.inertialPulse || pulse("KeyG");
+    const missile = bus.missilePulse || pulse("KeyM");
+    const aimAssist = bus.aimAssistPulse || pulse("KeyH");
+    bus.inertialPulse = false;
+    bus.missilePulse = false;
+    bus.aimAssistPulse = false;
     const result = toOrbitalStepInput({
-      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") + (bus.scheme === "strafe" ? strafe : 0) - bus.vectorX),
+      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") - bus.leftX),
       pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"),
-      vertical: clamp(axis("KeyC", "KeyV") - bus.vectorY),
+      vertical: clamp(axis("KeyC", "KeyV") - bus.leftY),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
-      drift: keys.has("KeyT"), inertial: pulse("KeyG"), missile: pulse("KeyM"), aimAssist: pulse("KeyH"),
+      drift: keys.has("KeyT"), inertial, missile, aimAssist,
     });
     bus.lastKeys = new Set(keys);
     return result;
