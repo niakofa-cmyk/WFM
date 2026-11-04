@@ -36,6 +36,22 @@ export const CINDER_CIRCUIT = {
   rewardPolicy: "none" as const,
 };
 
+export const CINDER_RING_WING_ARENA = {
+  id: "cinder-ring-wing-relay-5v5",
+  title: "Cinder Ring · 5v5 Wing Relay Arena",
+  description: "Server-authoritative USSF versus Accord Relay combat. Only active matches created by the ten-human competitive queue are listed; private and AI-fill rooms never appear.",
+  locationId: LOCATION.id,
+  experience: "competitive" as const,
+  runtimeId: "wing-relay-v1",
+  rulesetId: "wing-competitive-5v5-v1",
+  teamSize: 5,
+  capacity: 10,
+  visibility: "public" as const,
+  lifecycle: "queued" as const,
+  access: "matchmaking" as const,
+  rewardPolicy: "existing-authority" as const,
+};
+
 export const CINDER_COOPERATIVE_EXPEDITION = {
   id: "cinder-ring-rust-disc-coop",
   title: "Cinder Ring · Rust Disc Expedition",
@@ -52,8 +68,14 @@ export const CINDER_COOPERATIVE_EXPEDITION = {
   rewardPolicy: "none" as const,
 };
 
-const OPERATION_DEFINITIONS: OperationDirectoryResponse["operations"] = [CINDER_CIRCUIT, CINDER_COOPERATIVE_EXPEDITION];
+const OPERATION_DEFINITIONS: OperationDirectoryResponse["operations"] = [
+  CINDER_RING_WING_ARENA,
+  CINDER_CIRCUIT,
+  CINDER_COOPERATIVE_EXPEDITION,
+];
 const ACTIVE_TTL_MS = 45 * 60 * 1000;
+const COMPETITIVE_MATCH_TTL_MS = 45_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class OperationError extends Error {
   constructor(message: string, readonly status: number) {
@@ -82,6 +104,13 @@ export interface OperationStore {
     phase: OperationInstancePhase;
     currentPlayers: number;
     visibility: "public" | "unlisted";
+    registeredAt: Date;
+    expiresAt: Date;
+  }): Promise<OperationInstanceRecord>;
+  syncCompetitiveMatch?(input: {
+    matchId: string;
+    phase: "active" | "closed";
+    currentPlayers: number;
     registeredAt: Date;
     expiresAt: Date;
   }): Promise<OperationInstanceRecord>;
@@ -174,6 +203,37 @@ const databaseStore: OperationStore = {
       },
     }).returning();
     if (!record) throw new Error("Cooperative operation sync returned no record.");
+    return record;
+  },
+  async syncCompetitiveMatch(input) {
+    const ownerUserId = `system:wing:${input.matchId}`;
+    const [record] = await db.insert(operationInstancesTable).values({
+      id: input.matchId,
+      ownerUserId,
+      operationId: CINDER_RING_WING_ARENA.id,
+      locationId: LOCATION.id,
+      idempotencyKey: input.matchId,
+      runtimeId: CINDER_RING_WING_ARENA.runtimeId,
+      rulesetId: CINDER_RING_WING_ARENA.rulesetId,
+      status: input.phase === "closed" ? "closed" : "active",
+      visibility: "public",
+      phase: input.phase,
+      currentPlayers: input.currentPlayers,
+      capacity: CINDER_RING_WING_ARENA.capacity,
+      registeredAt: input.registeredAt,
+      updatedAt: input.registeredAt,
+      expiresAt: input.expiresAt,
+    }).onConflictDoUpdate({
+      target: [operationInstancesTable.ownerUserId, operationInstancesTable.idempotencyKey],
+      set: {
+        status: input.phase === "closed" ? "closed" : "active",
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        updatedAt: input.registeredAt,
+        expiresAt: input.expiresAt,
+      },
+    }).returning();
+    if (!record) throw new Error("Competitive operation sync returned no record.");
     return record;
   },
   async closeOwned(ownerUserId, instanceId, now) {
@@ -304,6 +364,25 @@ export function createOperationCoordinator(
         visibility: input.visibility,
         registeredAt: currentTime,
         expiresAt: new Date(currentTime.getTime() + ACTIVE_TTL_MS),
+      });
+    },
+    async syncCompetitiveMatch(input: {
+      matchId: string;
+      phase: "active" | "closed";
+      currentPlayers: number;
+    }): Promise<void> {
+      if (!store.syncCompetitiveMatch) throw new Error("Competitive operation storage is unavailable.");
+      if (!UUID.test(input.matchId)) throw new Error("Competitive match identity is invalid.");
+      if (!Number.isInteger(input.currentPlayers) || input.currentPlayers < 0 || input.currentPlayers > CINDER_RING_WING_ARENA.capacity) {
+        throw new Error("Competitive match occupancy is out of bounds.");
+      }
+      const registeredAt = now();
+      await store.syncCompetitiveMatch({
+        matchId: input.matchId,
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        registeredAt,
+        expiresAt: new Date(registeredAt.getTime() + COMPETITIVE_MATCH_TTL_MS),
       });
     },
   };

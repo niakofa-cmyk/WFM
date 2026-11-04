@@ -5,6 +5,7 @@ import {
   RegisterWorldOperationInstanceResponse,
 } from "@workspace/api-zod";
 import {
+  CINDER_RING_WING_ARENA,
   CINDER_COOPERATIVE_EXPEDITION,
   createOperationCoordinator,
   OperationError,
@@ -79,6 +80,39 @@ function memoryStore(): OperationStore {
       rows.push(created);
       return created;
     },
+    async syncCompetitiveMatch(input) {
+      const ownerUserId = `system:wing:${input.matchId}`;
+      const row = rows.find((candidate) => candidate.ownerUserId === ownerUserId && candidate.idempotencyKey === input.matchId);
+      if (row) {
+        Object.assign(row, {
+          phase: input.phase,
+          currentPlayers: input.currentPlayers,
+          status: input.phase === "closed" ? "closed" : "active",
+          updatedAt: input.registeredAt,
+          expiresAt: input.expiresAt,
+        });
+        return row;
+      }
+      const created: OperationInstanceRecord = {
+        id: input.matchId,
+        ownerUserId,
+        operationId: CINDER_RING_WING_ARENA.id,
+        locationId: CINDER_RING_WING_ARENA.locationId,
+        idempotencyKey: input.matchId,
+        runtimeId: CINDER_RING_WING_ARENA.runtimeId,
+        rulesetId: CINDER_RING_WING_ARENA.rulesetId,
+        status: input.phase === "closed" ? "closed" : "active",
+        visibility: "public",
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        capacity: CINDER_RING_WING_ARENA.capacity,
+        registeredAt: input.registeredAt,
+        updatedAt: input.registeredAt,
+        expiresAt: input.expiresAt,
+      };
+      rows.push(created);
+      return created;
+    },
     async closeOwned(ownerUserId, instanceId, now) {
       const row = rows.find((candidate) => candidate.id === instanceId && candidate.ownerUserId === ownerUserId && candidate.status === "active");
       if (!row) return false;
@@ -116,6 +150,44 @@ test("cooperative operation directory exposes safe occupancy and removes termina
     visibility: "public",
   });
   assert.deepEqual((await coordinator.getDirectory()).instances, []);
+});
+
+test("only server-registered 5v5 Relay matches appear as anonymous live arena instances", async () => {
+  const store = memoryStore();
+  const coordinator = createOperationCoordinator(store);
+  const matchId = crypto.randomUUID();
+  await coordinator.syncCompetitiveMatch({
+    matchId,
+    phase: "active",
+    currentPlayers: 10,
+  });
+
+  const directory = await coordinator.getDirectory();
+  const arena = directory.operations.find((operation) => operation.id === CINDER_RING_WING_ARENA.id);
+  assert.equal(arena?.experience, "competitive");
+  assert.equal(arena?.runtimeId, "wing-relay-v1");
+  assert.deepEqual(
+    directory.instances.map(({ id, operationId, phase, currentPlayers, capacity }) => ({
+      id, operationId, phase, currentPlayers, capacity,
+    })),
+    [{ id: matchId, operationId: CINDER_RING_WING_ARENA.id, phase: "active", currentPlayers: 10, capacity: 10 }],
+  );
+  assert.equal(JSON.stringify(directory).includes("system:wing"), false);
+
+  await coordinator.syncCompetitiveMatch({
+    matchId,
+    phase: "closed",
+    currentPlayers: 0,
+  });
+  assert.deepEqual((await coordinator.getDirectory()).instances, []);
+  await assert.rejects(
+    coordinator.syncCompetitiveMatch({ matchId: "not-a-uuid", phase: "active", currentPlayers: 1 }),
+    /identity is invalid/,
+  );
+  await assert.rejects(
+    coordinator.syncCompetitiveMatch({ matchId: crypto.randomUUID(), phase: "active", currentPlayers: 11 }),
+    /occupancy is out of bounds/,
+  );
 });
 
 test("operation entry requires arrival at the server-owned asteroid location", async () => {

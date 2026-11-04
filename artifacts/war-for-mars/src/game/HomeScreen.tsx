@@ -372,13 +372,13 @@ function OnlineWing({
               className="wfm-cmd wfm-cmd-secondary mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
             >
               <span className="font-hud text-base leading-none tracking-widest text-solar">
-                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
+                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "OPEN CINDER RING ARENA"}
               </span>
               <span className="text-xs text-muted">
                 {competitiveQueueing
                   ? onlineStatus || "Waiting for ten authenticated human pilots."
                   : signedIn
-                    ? "10 human pilots · auto-start · server-verified rewards when enabled."
+                    ? "Travel to the asteroid hub to queue, watch, and enter live Relay competitions."
                     : "Sign in to queue · ten human pilots required."}
               </span>
             </button>

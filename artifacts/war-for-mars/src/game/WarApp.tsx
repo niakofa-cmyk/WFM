@@ -231,6 +231,11 @@ export function WarApp() {
       already_queued: "This account is already waiting in the competitive queue.",
       already_in_match: "This account is already assigned to an active match.",
       queue_capacity: "The competitive queue is full. Try again shortly.",
+      cinder_ring_required: "Travel to Cinder Ring before joining the 5v5 Relay queue.",
+      arena_status_unavailable: "The arena location service is unavailable. No competitive queue entry was made.",
+      spectator_match_unavailable: "That live competition has ended or is no longer available.",
+      spectator_capacity: "This match has reached its spectator limit.",
+      spectator_read_only: "Spectator connections cannot send combat commands.",
       queue_wait_expired: "Queue wait expired. Rejoin when you are ready.",
       competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
       queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
@@ -1265,6 +1270,9 @@ export function WarApp() {
           onBack={() => setGalaxyOpen(false)}
           credits={save.credits}
           onCredits={syncCredits}
+          onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+          competitiveQueueAvailable={competitiveQueueAvailable}
+          competitiveQueueing={competitiveQueueing}
         />
       </Suspense>
     );
@@ -1297,7 +1305,7 @@ export function WarApp() {
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
         onOnline={joinOnline}
-        onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+        onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}
         competitiveQueueing={competitiveQueueing}

@@ -8,10 +8,18 @@ import { Link, useLocation } from "wouter";
 import { sectorMission } from "./sector-missions";
 import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled } from "./sector-client";
+import { AsteroidArenaHub } from "./AsteroidArenaHub";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
-type Props = { onBack: () => void; credits: number; onCredits: (credits: number) => void };
+type Props = {
+  onBack: () => void;
+  credits: number;
+  onCredits: (credits: number) => void;
+  onJoinCompetitiveQueue: () => void;
+  competitiveQueueAvailable: boolean;
+  competitiveQueueing: boolean;
+};
 
 const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
 const statusLabel: Record<string, string> = {
@@ -25,7 +33,14 @@ const showSectorExpedition = expeditionFeatureEnabled({
   VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
 });
 
-export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
+export function GalaxyScreen({
+  onBack,
+  credits,
+  onCredits,
+  onJoinCompetitiveQueue,
+  competitiveQueueAvailable,
+  competitiveQueueing,
+}: Props) {
   const [, setLocation] = useLocation();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
   const operationsQuery = useGetWorldOperations({ query: { refetchInterval: 15000, queryKey: getGetWorldOperationsQueryKey() } });
@@ -232,6 +247,17 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                 <p className="p-4 text-sm text-muted">No matching location is currently reported by the theater signal.</p>
               )}
             </section>
+
+            {operationDirectory ? (
+              <AsteroidArenaHub
+                operations={operationDirectory}
+                atAsteroid={world.currentLocation === "cinder-asteroid"}
+                queueAvailable={competitiveQueueAvailable}
+                queueing={competitiveQueueing}
+                onJoinQueue={onJoinCompetitiveQueue}
+                onTravel={() => travelTo("cinder-asteroid")}
+              />
+            ) : null}
 
             <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
               <div className="border-b border-bone/10 px-4 py-4">

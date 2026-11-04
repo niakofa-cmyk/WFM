@@ -43,14 +43,24 @@ process.stdout.write(
 const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;
-// A new cooperative mode is not enabled by existing competitive/reward flags.
-// Production must explicitly opt in after isolated verification.
 const enableSectorFlight = sectorFlightEnabled(process.env);
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
-const operationNetwork = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+const operationNetwork = (enableSectorFlight || competitiveQueueEnabled) && Boolean(process.env.DATABASE_URL)
   ? await import("../game/operation-network")
+  : undefined;
+const publishCompetitiveMatch = operationNetwork
+  ? async (state: Parameters<typeof operationNetwork.operationCoordinator.syncCompetitiveMatch>[0]) => {
+      try {
+        await operationNetwork.operationCoordinator.syncCompetitiveMatch(state);
+      } catch (error) {
+        process.stderr.write(`${JSON.stringify({
+          event: "competitive_operation_sync_failed",
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        })}\n`);
+      }
+    }
   : undefined;
 const publishSectorOperation = operationNetwork
   ? async (state: Parameters<typeof operationNetwork.operationCoordinator.syncCooperativeRoom>[0]) => {
@@ -77,6 +87,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
   publishSectorOperation,
+  publishCompetitiveMatch,
 });
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 
