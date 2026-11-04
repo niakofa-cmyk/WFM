@@ -10,6 +10,8 @@ export type Bus = {
   leftY: number;
   rightX: number;
   rightY: number;
+  vectorX: number;
+  vectorY: number;
   fireCanvas: boolean;
   fireButton: boolean;
   ultPulse: boolean;
@@ -36,6 +38,8 @@ export function createBus(scheme: Scheme): Bus {
     leftY: 0,
     rightX: 0,
     rightY: 0,
+    vectorX: 0,
+    vectorY: 0,
     fireCanvas: false,
     fireButton: false,
     ultPulse: false,
@@ -60,6 +64,8 @@ export function clearInput(bus: Bus) {
   bus.leftY = 0;
   bus.rightX = 0;
   bus.rightY = 0;
+  bus.vectorX = 0;
+  bus.vectorY = 0;
   bus.fireCanvas = false;
   bus.fireButton = false;
   bus.ultPulse = false;
@@ -152,8 +158,9 @@ export function readInput(bus: Bus): StepInput {
     const axis = (positive: string, negative: string) => Number(keys.has(positive)) - Number(keys.has(negative));
     const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
     const result = toOrbitalStepInput({
-      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") + (bus.scheme === "strafe" ? strafe : 0)),
-      pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"), vertical: axis("KeyC", "KeyV"),
+      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") + (bus.scheme === "strafe" ? strafe : 0) - bus.vectorX),
+      pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"),
+      vertical: clamp(axis("KeyC", "KeyV") - bus.vectorY),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial: pulse("KeyG"), missile: pulse("KeyM"), aimAssist: pulse("KeyH"),

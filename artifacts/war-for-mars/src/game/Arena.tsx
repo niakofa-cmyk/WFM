@@ -459,7 +459,7 @@ function drawContacts(canvas: HTMLCanvasElement, match: Match, local: Craft = ma
   }
 }
 
-function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
+function Stick({ label, size = "standard", onAxis }: { label: string; size?: "standard" | "compact"; onAxis: (x: number, y: number) => void }) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const pointerOrigin = useRef<{ pointerId: number; x: number; y: number } | null>(null);
@@ -497,7 +497,7 @@ function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number
       data-testid={`stick-${label.toLowerCase()}`}
       data-axis-x="0.000"
       data-axis-y="0.000"
-      className="relative size-28 touch-none rounded-full border border-bone/30 bg-panel/80"
+      className={`relative touch-none rounded-full border border-bone/30 bg-panel/80 ${size === "compact" ? "size-24" : "size-28"}`}
       onPointerDown={(event) => {
         event.stopPropagation();
         if (pointerOrigin.current) return;
@@ -525,7 +525,7 @@ function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number
     >
       <div
         ref={knob}
-        className="absolute top-1/2 left-1/2 size-11 rounded-full bg-solar"
+        className={`absolute top-1/2 left-1/2 rounded-full bg-solar ${size === "compact" ? "size-9" : "size-11"}`}
         style={{ transform: "translate(-50%, -50%)" }}
       />
     </div>
@@ -625,6 +625,7 @@ export function Arena({
   gyroOn.current = gyro;
   drillCb.current = onDrill;
   if (!busRef.current) busRef.current = createBus(scheme);
+  busRef.current.orbital = orbital;
   if (!matchRef.current) {
     const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
     seedRef.current = seed;
@@ -634,7 +635,6 @@ export function Arena({
       : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
     if (orbital) {
       prepareOrbital(matchRef.current);
-      busRef.current.orbital = true;
     }
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
@@ -2107,6 +2107,27 @@ export function Arena({
             />
           </div>
         </div>
+
+        {orbital ? (
+          <div
+            data-testid="flight-controls-vector"
+            className="absolute bottom-4 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1"
+            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
+          >
+            <span className="font-hud text-[9px] tracking-[0.2em] text-bone/70">VECTOR THRUST</span>
+            <div className="pointer-events-auto">
+              <Stick
+                label="Vector"
+                size="compact"
+                onAxis={(x, y) => {
+                  if (!bus) return;
+                  bus.vectorX = x;
+                  bus.vectorY = y;
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div
           data-testid="flight-controls-right"

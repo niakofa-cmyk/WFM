@@ -89,7 +89,33 @@ test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate dr
   assert.equal(readInput(bus).yaw, -1);
 });
 
-test("lost focus clears held keys, both sticks, and latched buttons", () => {
+test("orbital vector stick adds lateral and vertical thrust and resets to neutral", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.vectorX = 0.65;
+  bus.vectorY = -0.4;
+
+  const input = readInput(bus);
+  assert.equal(input.strafe, -0.65);
+  assert.equal(input.vertical, 0.4);
+
+  clearInput(bus);
+  assert.equal(bus.vectorX, 0);
+  assert.equal(bus.vectorY, 0);
+  assert.equal(readInput(bus).strafe, 0);
+  assert.equal(readInput(bus).vertical, 0);
+});
+
+test("vector stick does not add movement to legacy surface modes", () => {
+  const bus = createBus("arc");
+  bus.vectorX = 1;
+  bus.vectorY = -1;
+  const input = readInput(bus);
+  assert.equal(input.strafe, 0);
+  assert.equal("vertical" in input, false);
+});
+
+test("lost focus clears held keys, all sticks, and latched buttons", () => {
   const bus = createBus("strafe");
   bus.keys.add("Space");
   bus.override = new Set(["KeyW"]);
@@ -98,6 +124,8 @@ test("lost focus clears held keys, both sticks, and latched buttons", () => {
   bus.leftY = 1;
   bus.rightX = 1;
   bus.rightY = -1;
+  bus.vectorX = -0.75;
+  bus.vectorY = 0.8;
   bus.fireCanvas = true;
   bus.fireButton = true;
   bus.ultPulse = true;
@@ -118,6 +146,8 @@ test("lost focus clears held keys, both sticks, and latched buttons", () => {
     preset: null,
   });
   assert.equal(bus.override, null);
+  assert.equal(bus.vectorX, 0);
+  assert.equal(bus.vectorY, 0);
 });
 
 test("missing sensor APIs and insecure pages retain touch-only controls", async () => {

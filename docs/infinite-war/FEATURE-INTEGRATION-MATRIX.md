@@ -17,6 +17,27 @@
 | Persistent faction territory | **Future extension** | Server-authoritative strategic universe layer | Result authenticity, faction rules, transaction/idempotency, and rollback are designed | Replayed/invalid operations cannot change territory; valid result applies once |
 | Space anomalies | **Future extension** | Versioned sector hazards affecting flight/navigation | Bounded deterministic force and synchronized server snapshot exist | Client/server replay agrees and reconnecting pilots see the same hazard state |
 
+## Mobile flight-control migration slice
+
+Orbital Lab and the already-authorized Orbital Contact sortie share the same
+Arena input path. That path now exposes a compact third touch stick for lateral
+and vertical vector thrust, alongside steering and aiming. It maps to the
+existing Orbital `strafe` and `vertical` controls, starts neutral, and clears
+when focus is lost. Legacy surface modes do not receive those axes.
+
+This migrates control access, not the underlying Rust Disc, Iron Eclipse, or
+campaign simulation contracts. The next mode-runtime sequence remains:
+
+1. Migrate Rust Disc flight and mission behavior behind a versioned adapter;
+   preserve the current operation as a rollback path.
+2. Migrate remaining Arcade and campaign sorties one objective/replay contract
+   at a time; retain old issued runs and server settlement rules.
+3. Migrate Iron Eclipse co-op and competitive Wing only after their server-owned
+   movement, matchmaking, reconnect, and reward boundaries pass parity tests.
+
+Do not count a shared touch control or an Orbital Lab demonstration as proof that
+those complete mode migrations have shipped.
+
 ## Connected-universe implementation note — 2026-11-04
 
 The first Orbital Operations Network slice adds a public operation directory,

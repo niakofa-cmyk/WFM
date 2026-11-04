@@ -123,6 +123,18 @@ test("orbital input pulses are edge triggered and clear on focus loss", () => {
   clearInput(bus); assert.equal(readInput(bus).vertical, 0);
 });
 
+test("mobile vector-thrust axes produce lateral and vertical Orbital movement", () => {
+  const match = lab();
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.vectorX = 0.7;
+  bus.vectorY = -0.4;
+  const input = readInput(bus);
+  for (let i = 0; i < 30; i++) integrateFlight(match.player, input, 1 / 60, 1, match);
+  assert.ok(match.player.x > 0.1);
+  assert.ok(match.player.space!.y > 0.1);
+});
+
 test("aim assistance cannot track cloaked or sensor-blocked targets", () => {
   const match = lab(); const p = match.player; const e = match.enemies[0];
   p.lockTargetId = e.id; e.x = 2;
