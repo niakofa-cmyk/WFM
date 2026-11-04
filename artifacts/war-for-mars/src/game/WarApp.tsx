@@ -833,6 +833,7 @@ export function WarApp() {
         pace: save.pace,
         mission: save.mission,
         tech: save.tech,
+        supportsOrbitalReplay: true,
       };
       const run = await startServerStrike(selection);
       setActiveRun(run);
@@ -1115,6 +1116,8 @@ export function WarApp() {
 
   if (phase === "fight") {
     const runConfig = activeRun?.config;
+    const orbitalCampaign =
+      runConfig?.mission === "contact" && runConfig.flightModel === "orbital-v1";
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
     return (
@@ -1140,6 +1143,8 @@ export function WarApp() {
         }
         tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
+        orbital={orbitalCampaign}
+        orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}

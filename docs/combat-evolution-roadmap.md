@@ -139,6 +139,32 @@ damage rules. Those remain follow-on work. The 5v5 Wing arena is still separate
 from open-universe/co-op sectors; this HUD is not evidence that the two modes
 have been connected.
 
+## First campaign migration — Contact
+
+Newly issued campaign Contact runs now use the shared orbital flight/combat
+simulation inside the existing campaign Arena. The client advertises support
+for orbital replay; the API then selects and stores the `flightModel` for the
+issued run. Capable Contact clients receive `orbital-v1`; older clients that do
+not advertise the capability and all other campaign sorties continue to use
+`surface-v1`. The client selects its runtime from the server response and cannot
+choose or change the model in the claim.
+
+The authenticated Strike claim replays the same deterministic orbital
+simulation on the server, validates the complete bounded spatial-control frame,
+and then uses the existing transactional, idempotent progression settlement.
+Runs issued before this version field existed default to the original surface
+model, so an open claim is not silently reinterpreted after deployment. The
+capability negotiation also lets an older deployed client finish Contact on its
+original surface rules while a newer client uses the orbital version. The first
+orbital Contact objective is the authored “break the defending wing” branch;
+relay capture is not currently part of this orbital variant.
+
+This migrates one campaign operation only. The standalone Combat Lab remains
+offline and no-reward; the remaining campaign sorties, competitive Wing, live
+socket rooms, co-op sectors, and Iron Eclipse retain their existing contracts.
+Client/server Contact replay parity and strict input validation are automated
+checks, not evidence of staging or physical-device acceptance.
+
 ## Staged implementation and acceptance gates
 
 1. **Flight foundation:** vector drift, accessible control assistance, boost,

@@ -116,3 +116,19 @@ The first unified campaign-to-validated-progression loop, shared 10-human
 orbital 5v5, persistent faction consequences, and mobile-device acceptance
 remain incomplete until their specific gates pass. PR #11 being open or passing
 workspace checks does not establish those capabilities.
+
+### Incremental campaign-combat migration
+
+The first campaign operation now uses the canonical orbital combat runtime:
+clients advertise orbital-replay support, and the server selects `orbital-v1`
+for capable Contact runs. Older clients that omit the capability and all other
+campaign runs use `surface-v1`; runs issued before model versioning also default
+to that legacy behavior.
+Contact resolves through its “break the defending wing” branch. Standalone
+Combat Lab remains local/no-reward, and competitive Wing, cooperative sectors,
+Iron Eclipse, and the socket protocol are unchanged.
+
+This advances one bounded campaign slice, not the complete Stage C–D journey.
+Automated client/server replay and reward-claim checks are not staging, phone, or
+Production verification. Do not promote the change until its exact staging
+revision passes the appropriate authenticated campaign and reward checks.

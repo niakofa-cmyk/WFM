@@ -10,7 +10,7 @@ type Services = {
   tickTimers: (craft: Craft, dt: number) => void;
 };
 
-// Called only by the experimental entry, never by the current network/reward path.
+// Shared campaign/training setup. Networked competitive rooms still use their own authority.
 export function prepareOrbital(match: Match) {
   for (const craft of [match.player, ...match.allies, ...match.enemies]) craft.space = newFlight(craft.yaw);
   match.player.x = 0; match.player.z = 28;

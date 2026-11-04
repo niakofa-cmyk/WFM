@@ -2,6 +2,11 @@
 
 Latest continuation: `socket-identity.md` secures the existing planar socket identity/recovery boundary and records current tests, Preview and deployment gates. This document remains the historical shared-rule/harness report; the orbital harness is still not a live endpoint.
 
+The campaign Contact operation separately uses the shared orbital simulation
+through the existing authenticated Strike replay/claim endpoint. That migration
+does not expose this synthetic-seat harness as a socket service or make it a
+ten-human competitive mode.
+
 ## Review boundary
 Continue the working Combat Lab on `seele/combat-foundation`. Introduce a dependency-free, versioned shared rule package and an isolated server authority harness. This is a testable integration foundation, not a new live multiplayer endpoint. Existing planar simulation, socket rooms, Clerk, database, reward/replay settlement and Railway configuration remain unchanged. No remote Git writes or production release.
 

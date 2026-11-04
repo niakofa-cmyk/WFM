@@ -7,6 +7,7 @@
  */
 import type { StrikeRunConfigDisc } from './strikeRunConfigDisc';
 import type { StrikeRunConfigFaction } from './strikeRunConfigFaction';
+import type { StrikeRunConfigFlightModel } from './strikeRunConfigFlightModel';
 import type { StrikeRunConfigGoal } from './strikeRunConfigGoal';
 import type { StrikeRunConfigMission } from './strikeRunConfigMission';
 import type { StrikeRunConfigPace } from './strikeRunConfigPace';
@@ -38,4 +39,5 @@ export type StrikeRunConfig = {
   /** @nullable */
   tech: StrikeRunConfigTech;
   mission: StrikeRunConfigMission;
+  flightModel?: StrikeRunConfigFlightModel;
 };

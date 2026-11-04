@@ -5,8 +5,13 @@ import { IDLE_ORBITAL, ORBITAL_DT } from "@workspace/orbital-sim";
 import * as sharedDetmath from "@workspace/orbital-sim/detmath";
 import { createOrbitalAuthority } from "../../../api-server/src/game/orbital-authority";
 import { SHIPS as serverShips } from "../../../api-server/src/game/ships";
+import {
+  createMatch as createServerMatch,
+  step as stepServerMatch,
+} from "../../../api-server/src/game/sim";
+import { prepareOrbital as prepareServerOrbital } from "../../../api-server/src/game/orbital-sim";
 import { SHIPS } from "./ships";
-import { createMatch, type StepInput } from "./sim";
+import { createMatch, step as stepClientMatch, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight } from "./orbital-flight";
 import { launchMissile, primaryBullet, updateAcquisition } from "./orbital-weapons";
@@ -51,6 +56,48 @@ test("client and server share roster flight axes, boost, inertia and braking", (
     const actual = server.step().pilots[0];
     assert.deepEqual(actual.space, client.player.space);
     assert.equal(actual.x, client.player.x); assert.equal(actual.z, client.player.z);
+  }
+});
+
+test("versioned Contact orbital replay advances identically on client and reward server", () => {
+  const setup = {
+    seed: 8851,
+    goal: "disc" as const,
+    disc: "rust" as const,
+    allyCount: 4,
+    foeCount: 4,
+  };
+  const client = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", setup));
+  const server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", setup));
+  const controls: StepInput = {
+    ...idle,
+    throttle: 0.35,
+    yaw: 0.08,
+    pitch: -0.05,
+    fire: true,
+    lock: true,
+    vertical: 0.1,
+    roll: -0.04,
+    boost: true,
+    brake: false,
+    inertial: false,
+    missile: false,
+    aimAssist: false,
+  };
+  const releasedControls: StepInput = { ...controls, lock: false, boost: false };
+  for (let tick = 0; tick < 240 && !client.over; tick += 1) {
+    const input = tick === 0 ? controls : tick === 60
+      ? { ...releasedControls, missile: true }
+      : tick === 61
+        ? { ...releasedControls, missile: false }
+        : tick === 90
+          ? { ...releasedControls, inertial: true }
+          : tick === 91
+            ? { ...releasedControls, inertial: false }
+            : releasedControls;
+    stepClientMatch(client, input, 1 / 60);
+    stepServerMatch(server, input, 1 / 60);
+    assert.deepEqual(server, client, `orbital replay diverged at frame ${tick + 1}`);
   }
 });
 

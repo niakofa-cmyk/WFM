@@ -1,5 +1,32 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-03 — First campaign-to-orbital combat slice
+
+Migrated capable **Contact** campaign sorties into the existing canonical
+orbital simulation. The client advertises `supportsOrbitalReplay`; the server
+selects and stores `flightModel: orbital-v1` for Contact, and the client uses
+that response to configure the shared Arena. The authenticated Strike-claim
+path replays the same orbital simulation before applying the existing
+transactional, idempotent progression. The server validates all spatial input
+fields and one-shot control release frames. The API contract was extended and
+regenerated from OpenAPI.
+
+Compatibility is per-run: older clients that omit the capability, older stored
+runs without a flight-model version, and other campaign sorties keep the
+original surface replay. Contact now presents the orbital-compatible “break the
+defending wing” objective. Its relay-capture alternative is not part of this
+initial orbital slice. Standalone Combat Lab remains offline and no-reward;
+competitive Wing, co-op sectors, Iron Eclipse, and the socket protocol were not
+changed.
+
+Verification: workspace typechecks passed; all 346 workspace tests passed
+(scripts 53, API 146, WFM 147); production builds passed, including both
+standalone Combat Lab static-publication checks. The database-backed campaign
+test exercised Contact issue, deterministic orbital replay, reward settlement,
+and duplicate-claim behavior using a temporary test account and removed its
+records afterward. Client/server orbital replay parity passed. No staging or
+Production deployment, phone test, or release claim was made.
+
 ## 2026-11-03 — Stage B saved-hull hangar foundation
 
 Read the attached Stage B repository review in full and preserved its original

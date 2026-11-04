@@ -97,6 +97,7 @@ type ArenaProps = {
   localEndurance?: boolean;
   online?: OnlineRoom;
   orbital?: boolean;
+  orbitalCampaign?: boolean;
 };
 
 const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
@@ -554,8 +555,10 @@ export function Arena({
   localEndurance = false,
   online,
   orbital = false,
+  orbitalCampaign = false,
 }: ArenaProps) {
   if (orbital && online) throw new Error("Combat Lab cannot connect to live matches.");
+  if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -626,11 +629,11 @@ export function Arena({
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
       : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
-    checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
     if (orbital) {
       prepareOrbital(matchRef.current);
       busRef.current.orbital = true;
     }
+    checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
@@ -1486,7 +1489,19 @@ export function Arena({
           outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
           kills: match.kills,
           deaths: match.deaths,
-          reason: orbital ? (match.over === "win" ? "All defenders destroyed. Combat Lab complete — no credits or campaign rewards." : !match.player.alive ? "Your ship was destroyed. Retry the no-reward training operation." : "Operation time expired. Retry and eliminate all defenders.") : outcomeReason(match, slotIdRef.current >= 5 ? 1 : 0),
+          reason: orbital
+            ? orbitalCampaign
+              ? match.over === "win"
+                ? "The defending wing is broken. The Contact signal is ready for server verification."
+                : !match.player.alive
+                  ? "Your fighter was lost before the Contact signal could be decoded."
+                  : "The Contact signal faded before the defending wing was broken."
+              : match.over === "win"
+                ? "All defenders destroyed. Combat Lab complete — no credits or campaign rewards."
+                : !match.player.alive
+                  ? "Your ship was destroyed. Retry the no-reward training operation."
+                  : "Operation time expired. Retry and eliminate all defenders."
+            : outcomeReason(match, slotIdRef.current >= 5 ? 1 : 0),
           relays: slotIdRef.current >= 5
             ? match.relays.filter((relay) => relay.own === -1).length
             : relaysHeld(match),
@@ -1750,7 +1765,7 @@ export function Arena({
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
         if (telemetryRef.current) {
-          telemetryRef.current.textContent = `LAB · NO REWARDS · ${match.kills}/${match.enemies.length} DESTROYED\nSPD ${Math.hypot(s.vx, s.vy, s.vz).toFixed(1)} · ALT ${s.y.toFixed(1)} · ENERGY ${Math.ceil(s.energy)} · ARMOR ${Math.ceil(s.armor)}\n${s.assist ? "FLIGHT ASSIST" : "INERTIAL"} · ${s.aimAssist ? "AIM ASSIST" : "MANUAL AIM"}\n${locked ? `${locked.faction.toUpperCase()} · ${solution!.distance.toFixed(0)} m · SHD ${shield}% · HULL ${hull}% · LOCK ${Math.floor(s.lockProgress * 100)}%` : "R / TARGET: SELECT AN ENEMY"}`;
+          telemetryRef.current.textContent = `${orbitalCampaign ? "CONTACT · CAMPAIGN" : "LAB · NO REWARDS"} · ${match.kills}/${match.enemies.length} DESTROYED\nSPD ${Math.hypot(s.vx, s.vy, s.vz).toFixed(1)} · ALT ${s.y.toFixed(1)} · ENERGY ${Math.ceil(s.energy)} · ARMOR ${Math.ceil(s.armor)}\n${s.assist ? "FLIGHT ASSIST" : "INERTIAL"} · ${s.aimAssist ? "AIM ASSIST" : "MANUAL AIM"}\n${locked ? `${locked.faction.toUpperCase()} · ${solution!.distance.toFixed(0)} m · SHD ${shield}% · HULL ${hull}% · LOCK ${Math.floor(s.lockProgress * 100)}%` : "R / TARGET: SELECT AN ENEMY"}`;
           telemetryRef.current.dataset.kills = String(match.kills);
           telemetryRef.current.dataset.ammo = String(s.ammo);
           telemetryRef.current.dataset.lock = String(s.lockProgress);
@@ -1766,10 +1781,14 @@ export function Arena({
       if (wingRef.current) {
         const roster = invertedTeam ? match.enemies : match.allies;
         const up = roster.filter((ally) => ally.alive).length;
-        wingRef.current.textContent = orbital ? "TRAINING OPERATION" : `WING ${up}/${roster.length}`;
+        wingRef.current.textContent = orbital
+          ? orbitalCampaign ? `CONTACT WING ${up}/${roster.length}` : "TRAINING OPERATION"
+          : `WING ${up}/${roster.length}`;
       }
       if (relayRef.current) {
-        relayRef.current.textContent = orbital ? "DESTROY ALL DEFENDERS · TRAINING ONLY" : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
+        relayRef.current.textContent = orbital
+          ? orbitalCampaign ? objective : "DESTROY ALL DEFENDERS · TRAINING ONLY"
+          : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
       }
       if (ultRef.current) {
         ultRef.current.textContent =
@@ -2190,9 +2209,15 @@ export function Arena({
       {end ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/80 p-6">
           <div className="w-full max-w-sm border border-solar/50 bg-panel p-5">
-            <p className="font-hud text-sm tracking-widest text-solar">{orbital ? "COMBAT LAB · TRAINING ONLY" : "STRIKE CLOSED"}</p>
+            <p className="font-hud text-sm tracking-widest text-solar">
+              {orbital ? orbitalCampaign ? "CAMPAIGN OPERATION · CONTACT" : "COMBAT LAB · TRAINING ONLY" : "STRIKE CLOSED"}
+            </p>
             <h2 className="font-hud text-4xl leading-none text-bone">
-              {orbital ? (end.outcome === "win" ? "Sector cleared" : "Operation ended") : end.outcome === "win"
+              {orbital
+                ? orbitalCampaign
+                  ? end.outcome === "win" ? "Defending wing broken" : "Contact unresolved"
+                  : end.outcome === "win" ? "Sector cleared" : "Operation ended"
+                : end.outcome === "win"
                 ? goal === "extract"
                   ? faction === "ussf"
                     ? "Cage away"
@@ -2211,7 +2236,9 @@ export function Arena({
                   : "Split disc"}
             </h2>
             <p className="mt-3 text-sm text-muted">
-              {end.kills} kills · {end.deaths} losses{orbital ? " · No rewards issued" : ` · ${end.relays} relays still yours`}
+              {end.kills} kills · {end.deaths} losses{orbital
+                ? orbitalCampaign ? " · Awaiting server verification" : " · No rewards issued"
+                : ` · ${end.relays} relays still yours`}
             </p>
             <p data-testid="text-result-reason" className="mt-2 text-sm leading-relaxed text-bone/80">
               {end.reason}

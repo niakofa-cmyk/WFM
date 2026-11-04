@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adjudicateStrike } from "./rewards";
+import { adjudicateStrike, validateStrikeReplayInputs } from "./rewards";
 import type { ReplayClaim } from "./rewards";
 
 const claim: ReplayClaim = {
@@ -24,6 +24,71 @@ const claim: ReplayClaim = {
 
 test("an incomplete replay cannot claim the minimum loss reward", () => {
   assert.throws(() => adjudicateStrike(claim), /replay ended before the match was resolved/i);
+});
+
+test("versioned orbital replays require the complete spatial input contract", () => {
+  const surfaceInput = {
+    throttle: 0,
+    yaw: 0,
+    strafe: 0,
+    pitch: 0,
+    fire: false,
+    ult: false,
+    lock: false,
+    evade: 0,
+    preset: null,
+  };
+  const orbitalInput = {
+    ...surfaceInput,
+    vertical: 0,
+    roll: 0,
+    boost: false,
+    brake: false,
+    inertial: false,
+    missile: false,
+    aimAssist: false,
+  };
+
+  assert.doesNotThrow(() => validateStrikeReplayInputs([surfaceInput], "practice", "surface-v1"));
+  assert.doesNotThrow(() => validateStrikeReplayInputs([orbitalInput], "practice", "orbital-v1"));
+  assert.doesNotThrow(() => validateStrikeReplayInputs([orbitalInput], "practice", "any"));
+  assert.throws(() => validateStrikeReplayInputs([orbitalInput], "practice", "surface-v1"), /invalid control input/i);
+  assert.throws(() => validateStrikeReplayInputs([surfaceInput], "practice", "orbital-v1"), /invalid control input/i);
+  assert.throws(
+    () => validateStrikeReplayInputs([surfaceInput, orbitalInput], "practice", "any"),
+    /invalid control input/i,
+  );
+  assert.throws(
+    () => validateStrikeReplayInputs(
+      [{ ...orbitalInput, missile: true }, { ...orbitalInput, missile: true }],
+      "practice",
+      "orbital-v1",
+    ),
+    /release frame/i,
+  );
+});
+
+test("orbital flight rules are restricted to Contact while unversioned runs keep legacy rules", () => {
+  assert.throws(
+    () => adjudicateStrike({ ...claim, mission: "contact", flightModel: "orbital-v1" }),
+    /replay ended before the match was resolved/i,
+  );
+  assert.throws(
+    () => adjudicateStrike({ ...claim, mission: "beacon", flightModel: "orbital-v1" }),
+    /not authorized for this campaign sortie/i,
+  );
+  assert.throws(
+    () => adjudicateStrike({
+      ...claim,
+      mission: "contact",
+      inputs: [{
+        throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false,
+        lock: false, evade: 0, preset: null, vertical: 0, roll: 0, boost: false,
+        brake: false, inertial: false, missile: false, aimAssist: false,
+      }],
+    }),
+    /invalid control input/i,
+  );
 });
 
 test("a full six-minute strike stays active through combat and ends at the timer boundary", async () => {
