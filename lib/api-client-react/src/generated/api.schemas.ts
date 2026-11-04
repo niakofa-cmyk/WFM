@@ -699,6 +699,420 @@ export interface MarketTradeResult {
   replayed: boolean;
 }
 
+export interface UniverseVector3 {
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  x: number;
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  y: number;
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  z: number;
+}
+
+export type UniverseLocationKind = typeof UniverseLocationKind[keyof typeof UniverseLocationKind];
+
+
+export const UniverseLocationKind = {
+  asteroid: 'asteroid',
+  station: 'station',
+  'orbital-sector': 'orbital-sector',
+} as const;
+
+export interface UniverseLocation {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  worldLocationId: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  kind: UniverseLocationKind;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  sectorId: string;
+  position: UniverseVector3;
+}
+
+export type UniverseEventKind = typeof UniverseEventKind[keyof typeof UniverseEventKind];
+
+
+export const UniverseEventKind = {
+  'operation-opened': 'operation-opened',
+  'match-started': 'match-started',
+  'match-completed': 'match-completed',
+  'faction-event': 'faction-event',
+} as const;
+
+export type UniverseEventStatus = typeof UniverseEventStatus[keyof typeof UniverseEventStatus];
+
+
+export const UniverseEventStatus = {
+  active: 'active',
+  completed: 'completed',
+} as const;
+
+export interface UniverseEvent {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  kind: UniverseEventKind;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  operationInstanceId?: string | null;
+  status: UniverseEventStatus;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+}
+
+export type OperationDefinitionExperience = typeof OperationDefinitionExperience[keyof typeof OperationDefinitionExperience];
+
+
+export const OperationDefinitionExperience = {
+  'flight-simulation': 'flight-simulation',
+  'orbital-combat': 'orbital-combat',
+  cooperative: 'cooperative',
+  competitive: 'competitive',
+  campaign: 'campaign',
+  arcade: 'arcade',
+} as const;
+
+export type OperationDefinitionVisibility = typeof OperationDefinitionVisibility[keyof typeof OperationDefinitionVisibility];
+
+
+export const OperationDefinitionVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+  private: 'private',
+} as const;
+
+export type OperationDefinitionLifecycle = typeof OperationDefinitionLifecycle[keyof typeof OperationDefinitionLifecycle];
+
+
+export const OperationDefinitionLifecycle = {
+  'on-demand': 'on-demand',
+  queued: 'queued',
+  scheduled: 'scheduled',
+  persistent: 'persistent',
+} as const;
+
+export type OperationDefinitionAccess = typeof OperationDefinitionAccess[keyof typeof OperationDefinitionAccess];
+
+
+export const OperationDefinitionAccess = {
+  'local-training': 'local-training',
+  matchmaking: 'matchmaking',
+  invitation: 'invitation',
+  direct: 'direct',
+} as const;
+
+export type OperationDefinitionRewardPolicy = typeof OperationDefinitionRewardPolicy[keyof typeof OperationDefinitionRewardPolicy];
+
+
+export const OperationDefinitionRewardPolicy = {
+  none: 'none',
+  'existing-authority': 'existing-authority',
+} as const;
+
+export interface OperationDefinition {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /** @maxLength 1000 */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  experience: OperationDefinitionExperience;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  teamSize: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  capacity: number;
+  visibility: OperationDefinitionVisibility;
+  lifecycle: OperationDefinitionLifecycle;
+  access: OperationDefinitionAccess;
+  rewardPolicy: OperationDefinitionRewardPolicy;
+}
+
+export type OperationInstancePhase = typeof OperationInstancePhase[keyof typeof OperationInstancePhase];
+
+
+export const OperationInstancePhase = {
+  assembling: 'assembling',
+  ready: 'ready',
+  active: 'active',
+  complete: 'complete',
+  closed: 'closed',
+} as const;
+
+export type OperationInstanceVisibility = typeof OperationInstanceVisibility[keyof typeof OperationInstanceVisibility];
+
+
+export const OperationInstanceVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+} as const;
+
+export interface OperationInstance {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  phase: OperationInstancePhase;
+  /**
+     * @minimum 0
+     * @maximum 200
+     */
+  currentPlayers: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  capacity: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  visibility: OperationInstanceVisibility;
+  registeredAt: string;
+  expiresAt: string;
+}
+
+export type OperationRegistrationBodyVisibility = typeof OperationRegistrationBodyVisibility[keyof typeof OperationRegistrationBodyVisibility];
+
+
+export const OperationRegistrationBodyVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+} as const;
+
+export interface OperationRegistrationBody {
+  idempotencyKey: string;
+  visibility: OperationRegistrationBodyVisibility;
+}
+
+export type JoinAuthorizationReason = typeof JoinAuthorizationReason[keyof typeof JoinAuthorizationReason];
+
+
+export const JoinAuthorizationReason = {
+  authorized: 'authorized',
+  'authentication-required': 'authentication-required',
+  'operation-closed': 'operation-closed',
+  full: 'full',
+  ineligible: 'ineligible',
+  'version-mismatch': 'version-mismatch',
+  'not-at-location': 'not-at-location',
+  'unsupported-operation': 'unsupported-operation',
+} as const;
+
+export interface MatchAssignment {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  assignmentId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  /**
+     * @minimum 0
+     * @maximum 199
+     */
+  seat: number;
+  expiresAt: string;
+}
+
+export interface JoinAuthorization {
+  allowed: boolean;
+  reason: JoinAuthorizationReason;
+  assignment: MatchAssignment | null;
+}
+
+export interface OperationRegistrationResponse {
+  instance: OperationInstance;
+  authorization: JoinAuthorization;
+}
+
+/**
+ * @nullable
+ */
+export type PlayerPresenceTeam = typeof PlayerPresenceTeam[keyof typeof PlayerPresenceTeam] | null;
+
+
+export const PlayerPresenceTeam = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface PlayerPresence {
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  publicCallsign: string | null;
+  /** @nullable */
+  team: PlayerPresenceTeam;
+  position: UniverseVector3 | null;
+  connected: boolean;
+}
+
+export type SpectatorSessionCameraModesItem = typeof SpectatorSessionCameraModesItem[keyof typeof SpectatorSessionCameraModesItem];
+
+
+export const SpectatorSessionCameraModesItem = {
+  overview: 'overview',
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface SpectatorSession {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  sessionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  readOnly: true;
+  cameraModes: SpectatorSessionCameraModesItem[];
+  expiresAt: string;
+}
+
+export type OperationResultOutcome = typeof OperationResultOutcome[keyof typeof OperationResultOutcome];
+
+
+export const OperationResultOutcome = {
+  victory: 'victory',
+  defeat: 'defeat',
+  draw: 'draw',
+  abandoned: 'abandoned',
+} as const;
+
+export type OperationResultObjectivesItem = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  completed: boolean;
+};
+
+export interface OperationResult {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  outcome: OperationResultOutcome;
+  objectives: OperationResultObjectivesItem[];
+  completedAt: string;
+  serverVerified: boolean;
+}
+
+export interface OperationDirectoryResponse {
+  generatedAt: string;
+  locations: UniverseLocation[];
+  operations: OperationDefinition[];
+  instances: OperationInstance[];
+  events: UniverseEvent[];
+}
+
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];
 
 
@@ -707,6 +1121,7 @@ export const WorldLocationKind = {
   relay: 'relay',
   moon: 'moon',
   ruins: 'ruins',
+  asteroid: 'asteroid',
 } as const;
 
 export interface WorldLocation {

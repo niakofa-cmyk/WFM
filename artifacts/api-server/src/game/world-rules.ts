@@ -3,6 +3,7 @@ export const clampStanding = (value: number) => Math.max(-100, Math.min(100, val
 export function requirements(locationId: string) {
   if (locationId === "outer-fringe") return { sector: "Outer Fringe", requiredTechTier: 2, requiredRep: 10 };
   if (locationId === "deep-nebula") return { sector: "Deep Nebula", requiredTechTier: 3, requiredRep: 50 };
+  if (locationId === "cinder-asteroid") return { sector: "Rust Disc Belt", requiredTechTier: 1, requiredRep: 0 };
   return { sector: "Alpha Core", requiredTechTier: 1, requiredRep: 0 };
 }
 export function gateReason(location: { id: string; unlockAfter: number }, cleared: number, tier: number, standing: number) {

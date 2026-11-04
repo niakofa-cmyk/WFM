@@ -35,6 +35,23 @@ export const RUST_DISC_SECTOR: FlightSector = {
     id: `rock-${i}`, position: { x: x!, y: y!, z: z! }, radius: radius!,
   })) as SectorRock[],
 };
+/** Specialist legacy-flight circuit located at Cinder Ring in the shared universe. */
+export const CINDER_ASTEROID_SECTOR: FlightSector = {
+  id: "cinder-asteroid-flight-v1",
+  version: 1,
+  radius: 900,
+  relay: { x: 210, y: 55, z: -350 },
+  extraction: { x: -210, y: 65, z: -390 },
+  drone: { x: 0, y: 45, z: -540 },
+  droneHull: 72,
+  rocks: [
+    ...RUST_DISC_SECTOR.rocks,
+    { id: "cinder-core", position: { x: 0, y: 0, z: -720 }, radius: 112 },
+    { id: "cinder-fragment-a", position: { x: 175, y: 130, z: -640 }, radius: 42 },
+    { id: "cinder-fragment-b", position: { x: -190, y: -90, z: -760 }, radius: 54 },
+    { id: "cinder-fragment-c", position: { x: 75, y: -180, z: -520 }, radius: 35 },
+  ],
+};
 export type FlightProjectile = {
   id: number; position: Vector3; velocity: Vector3; ttl: number;
   hostile: boolean; guided: boolean;

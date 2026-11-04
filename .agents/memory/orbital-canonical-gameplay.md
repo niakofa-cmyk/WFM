@@ -1,30 +1,41 @@
 ---
-name: Canonical orbital gameplay
-description: Owner's full-game directive to migrate every WFM mode onto one versioned orbital simulation.
+name: Connected universe and specialist runtimes
+description: Owner's current direction connects multiple versioned game experiences through one trusted universe operation network.
 ---
 
-The controlling owner source is
-`attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`;
-the maintained implementation plan is
-`docs/infinite-war/ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`.
+The current controlling owner source is
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793803481556.txt`;
+the maintained architecture and implementation record is
+`docs/infinite-war/ORBITAL-OPERATIONS-NETWORK-FOUNDATION.md`.
 
-**Rule:** WFM is one game on one canonical orbital flight/combat simulation.
-Combat Lab is the offline, no-reward test harness for that engine, not an
-isolated end state. Rust Disc, Arcade, every campaign sortie, sector co-op, Iron
-Eclipse, private/AI-fill rooms, competitive Wing, and future fleet operations
-must migrate to the same rules. Keep existing Clerk, matchmaking, mission,
-Galaxy, economy, Armory, progression, reward and idempotency authority in their
-current server-owned systems.
+**Rule:** WFM is one connected universe with multiple independently operating
+experiences. Orbital Combat is the canonical orbital combat runtime; Rust Disc
+may retain its specialist flight-simulation runtime behind a versioned
+operation adapter. Share universe identity/lifecycle and existing server
+authority, not forced-identical physics or duplicate player/economy/reward
+systems.
 
-**Why:** the owner explicitly clarified that the entire game—not only Contact or
-the Combat Lab—must use the new orbital gameplay foundation.
+**Why:** the owner clarified that the legacy asteroid-flight experience should
+remain a distinct multiplayer side experience inside the overall Infinite War
+universe, rather than being erased or forced into Orbital Combat.
 
-**How to apply:** migrate actual mode behavior in coordinated, versioned
-client/API/socket slices. Never toggle the renderer alone or silently change an
-issued run. Preserve no-reward local training, legacy replay compatibility,
-reward and room safeguards, and rollback until each mode passes its acceptance
-gate. Do not claim full-game consolidation until every mode's real gameplay and
-authority path is verified.
+**How to apply:** connect modes through explicit location and operation
+contracts; preserve runtime/rules versions and migrate client/API/socket
+authority together. Never claim a live instance without server evidence.
+Preserve no-reward training, replay compatibility, auth, room/reward safeguards,
+and rollback.
+
+**Current slice:** Cinder Ring is a server-defined, travelable asteroid, and the
+public OON directory advertises its local `flight-sector-v1` training circuit.
+The directory currently reports no live instances or events; do not represent
+the local trainer as multiplayer.
+
+**Why:** the first integration is intentionally catalog + destination + local
+specialist runtime; the current backend has no OON session coordinator.
+
+**How to apply:** implement authenticated matchmaking, occupancy, event
+streaming, spectator permissions, and server-owned results only through the
+existing authority boundaries, with tests and staging proof for each.
 
 **Verification guard:** Keep standalone Solo Flight on its current compatibility
 runtime until an orbital migration passes repeatable browser checks for renderer

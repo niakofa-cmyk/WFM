@@ -14,6 +14,8 @@ import {
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
+import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
+import { useLeaveWorldOperationInstance } from "@workspace/api-client-react";
 
 /**
  * RUST DISC — local flight trainer. Pure client-side vertical slice.
@@ -161,6 +163,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const net = !!expedition;
   const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
   const trainingSearch = typeof window !== "undefined" ? window.location.search : "";
+  const localSector = localTrainingSector(trainingSearch);
+  const specialistOperation = new URLSearchParams(trainingSearch).get("operation") === CINDER_ASTEROID_OPERATION_ID;
+  const instanceCandidate = new URLSearchParams(trainingSearch).get("instanceId") ?? "";
+  const operationInstanceId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(instanceCandidate)
+    ? instanceCandidate
+    : null;
+  const leaveOperation = useLeaveWorldOperationInstance();
   const [hangarPresetShip] = useState<ShipId | null>(() => parseTrainingShipPreset(trainingSearch));
   const expeditionRef = useRef(expedition);
   expeditionRef.current = expedition;
@@ -215,8 +224,11 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
     expeditionRef.current?.sendInput(holdInput());
+    if (operationInstanceId && specialistOperation) {
+      void leaveOperation.mutateAsync({ instanceId: operationInstanceId }).catch(() => undefined);
+    }
     if (expeditionRef.current) expeditionRef.current.onExit(); else if (onExit) onExit(); else setLocation("/");
-  }, [onExit, resetControls, setLocation]);
+  }, [leaveOperation, onExit, operationInstanceId, resetControls, setLocation, specialistOperation]);
 
   const launch = useCallback(() => {
     if (!webglAvailable()) {
@@ -303,7 +315,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     renderer.domElement.addEventListener("webglcontextlost", onLost);
 
     const netMode = !!expeditionRef.current;
-    const sector = expeditionRef.current?.mission.sector ?? RUST_DISC_SECTOR;
+    const sector = expeditionRef.current?.mission.sector ?? localSector;
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x1a0f10, quality === "high" ? 0.0011 : 0.0014);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 6000);
@@ -837,7 +849,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   return (
     <div className="fixed inset-0 z-40 select-none overflow-hidden bg-[#0a0710] text-bone" style={{ touchAction: phase === "flight" ? "none" : "pan-y" }} data-testid="screen-flight">
       {phase === "briefing" ? (
-        <Briefing shipId={shipId} hangarPresetShip={hangarPresetShip} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} />
+        <Briefing shipId={shipId} hangarPresetShip={hangarPresetShip} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} specialistOperation={specialistOperation} />
       ) : null}
 
       {phase === "flight" ? (
@@ -937,7 +949,7 @@ export default RustDiscFlight;
 // ---------- Briefing ----------
 function Briefing(props: {
   shipId: ShipId; hangarPresetShip: ShipId | null; setShipId: (s: ShipId) => void; quality: Quality; setQuality: (q: Quality) => void;
-  onLaunch: () => void; onExit: () => void; expeditionHref?: string;
+  onLaunch: () => void; onExit: () => void; expeditionHref?: string; specialistOperation: boolean;
 }) {
   const def = SHIPS[props.shipId];
   const pal = FACTION_PALETTE[def.faction];
@@ -946,11 +958,12 @@ function Briefing(props: {
       <div className="mx-auto grid min-h-[100dvh] max-w-6xl gap-5 p-4 md:grid-cols-[1.1fr_1fr] md:p-8">
         <section className="flex flex-col">
           <div className="flex items-center justify-between">
-            <p className="font-hud text-[11px] tracking-[0.3em] text-muted">LOCAL TRAINER · NO REWARDS · OFFLINE</p>
+            <p className="font-hud text-[11px] tracking-[0.3em] text-muted">{props.specialistOperation ? "CINDER RING · LEGACY FLIGHT ADAPTER" : "LOCAL TRAINER · NO REWARDS · OFFLINE"}</p>
             <button onClick={props.onExit} className="min-h-11 border border-bone/25 px-3 font-hud text-xs tracking-widest" data-testid="button-briefing-exit">EXIT</button>
           </div>
-          <h1 className="mt-4 font-hud text-5xl leading-[0.9] tracking-tight md:text-7xl">RUST<br />DISC</h1>
-          <p className="mt-2 font-hud text-sm tracking-[0.25em] text-solar">MARS HIGH ORBIT · TRAINING SORTIE</p>
+          <h1 className="mt-4 font-hud text-5xl leading-[0.9] tracking-tight md:text-7xl">{props.specialistOperation ? <>CINDER<br />RING</> : <>RUST<br />DISC</>}</h1>
+          <p className="mt-2 font-hud text-sm tracking-[0.25em] text-solar">{props.specialistOperation ? "ASTEROID BELT · FLIGHT CIRCUIT" : "MARS HIGH ORBIT · TRAINING SORTIE"}</p>
+          {props.specialistOperation ? <p className="mt-3 max-w-xl border-l-2 border-solar/60 pl-3 text-sm leading-relaxed text-muted">A distinct legacy flight-simulation operation hosted at a navigable universe destination. This is local practice only; no live match, spectator feed, account write, or reward is active.</p> : null}
           <ol className="mt-6 space-y-3 border-l-2 border-bone/20 pl-4 text-sm">
             <li><span className="font-hud tracking-widest text-bone">01 SURVEY</span><span className="block text-muted">A relay went quiet inside the debris disc. Fly within 24m to pull its log.</span></li>
             <li><span className="font-hud tracking-widest text-bone">02 ENGAGE</span><span className="block text-muted">After the relay, center the hostile contact in your reticle. Hold GUNS for primary fire; hold LOCK until confirmed, then tap MSL. Flares clear incoming rounds.</span></li>

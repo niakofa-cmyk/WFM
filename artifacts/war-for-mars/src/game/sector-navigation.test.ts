@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextStorySectorMission, parseExpeditionMission } from "./sector-navigation";
+import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector, nextStorySectorMission, parseExpeditionMission } from "./sector-navigation";
+import { CINDER_ASTEROID_SECTOR, RUST_DISC_SECTOR } from "./flight-sector";
+
+test("the Cinder Ring operation selects its isolated legacy flight sector by exact allowlisted ID", () => {
+  assert.equal(localTrainingSector(`?operation=${CINDER_ASTEROID_OPERATION_ID}`), CINDER_ASTEROID_SECTOR);
+  assert.equal(localTrainingSector("?operation=constructor"), RUST_DISC_SECTOR);
+  assert.equal(localTrainingSector(""), RUST_DISC_SECTOR);
+  assert.ok(CINDER_ASTEROID_SECTOR.rocks.some((rock) => rock.id === "cinder-core"));
+  assert.equal(CINDER_ASTEROID_SECTOR.id, "cinder-asteroid-flight-v1");
+});
 
 test("universe navigation offers Rust Disc first, then advances through the story route", () => {
   assert.equal(nextStorySectorMission([])?.id, "rust-disc");

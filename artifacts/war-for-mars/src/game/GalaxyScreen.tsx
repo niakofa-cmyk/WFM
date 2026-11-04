@@ -1,19 +1,19 @@
 import { lazy, Suspense, useState } from "react";
-import { getGetWorldQueryKey, useGetWorld } from "@workspace/api-client-react";
-import type { WorldLocation, WorldQuest } from "@workspace/api-client-react";
+import { getGetWorldOperationsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useRegisterWorldOperationInstance } from "@workspace/api-client-react";
+import type { OperationDirectoryResponse, WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
 import { CommandBackdrop, FactionMark } from "./CommandArt";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { sectorMission } from "./sector-missions";
-import { nextStorySectorMission } from "./sector-navigation";
+import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled } from "./sector-client";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
 type Props = { onBack: () => void; credits: number; onCredits: (credits: number) => void };
 
-const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS" };
+const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
 const statusLabel: Record<string, string> = {
   locked: "LOCKED", available: "AVAILABLE", accepted: "IN PROGRESS", ready: "READY TO CLAIM", claimed: "CLAIMED",
 };
@@ -26,10 +26,15 @@ const showSectorExpedition = expeditionFeatureEnabled({
 });
 
 export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
+  const [, setLocation] = useLocation();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
+  const operationsQuery = useGetWorldOperations({ query: { refetchInterval: 15000, queryKey: getGetWorldOperationsQueryKey() } });
+  const registerOperation = useRegisterWorldOperationInstance();
   const snapshot = useOfflineSnapshot("world", worldQuery.data, worldQuery.isError || worldQuery.fetchStatus === "paused");
   const durable = useDurableAction();
   const [actionError, setActionError] = useState("");
+  const [publishOperationStatus, setPublishOperationStatus] = useState(false);
+  const [operationError, setOperationError] = useState("");
   const world = snapshot.data;
   const nextStoryMission = world ? nextStorySectorMission(world.discoveries) : null;
   const cached = snapshot.cached;
@@ -37,6 +42,25 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   const go = async (request: Parameters<typeof durable.run>[0], label: string) => {
     setActionError("");
     try { await durable.run(request, label); } catch (error) { setActionError(errorText(error)); }
+  };
+  const enterOperation = async (operationId: string) => {
+    setOperationError("");
+    try {
+      const response = await registerOperation.mutateAsync({
+        operationId,
+        data: {
+          idempotencyKey: crypto.randomUUID(),
+          visibility: publishOperationStatus ? "public" : "unlisted",
+        },
+      });
+      const assignment = response.authorization.assignment;
+      if (!response.authorization.allowed || !assignment) {
+        throw new Error("The server did not authorize this operation seat.");
+      }
+      setLocation(`/flight?operation=${encodeURIComponent(operationId)}&instanceId=${encodeURIComponent(assignment.operationInstanceId)}`);
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "Operation registration failed. No flight was started.");
+    }
   };
   const travelTo = (destinationId: string) => go({ kind: "travel", data: { destinationId, maxCost: world?.routes.find((route) => route.destinationId === destinationId)?.costCredits } }, `Travel to ${destinationId}.`);
   const exploreLocation = (location: WorldLocation) => go({ kind: "explore", data: { locationId: location.id } }, `Explore ${location.name}.`);
@@ -99,6 +123,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   );
   const routes = world.routes;
   const discovered = new Set(world.discoveries);
+  const operationDirectory = operationsQuery.data as OperationDirectoryResponse | undefined;
 
   return (
     <main className="relative min-h-dvh overflow-x-hidden bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
@@ -205,6 +230,72 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                 </div>
               ) : (
                 <p className="p-4 text-sm text-muted">No matching location is currently reported by the theater signal.</p>
+              )}
+            </section>
+
+            <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
+              <div className="border-b border-bone/10 px-4 py-4">
+                <p className="font-hud text-xs tracking-[0.2em] text-spectral">ORBITAL OPERATIONS NETWORK</p>
+                <h2 className="mt-1 font-hud text-2xl">Asteroid operations</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted">One universe can host distinct operations and runtimes. The directory reports real server instances only; it never creates placeholder pilots or battles.</p>
+              </div>
+              {operationsQuery.isLoading && !operationDirectory ? (
+                <p role="status" className="p-4 text-sm text-muted">Querying the public operation directory…</p>
+              ) : operationsQuery.isError || !operationDirectory ? (
+                <div className="p-4">
+                  <p role="alert" className="text-sm text-alert">Operation directory unavailable. No live operation status can be confirmed.</p>
+                  <button type="button" onClick={() => void operationsQuery.refetch()} className="mt-3 min-h-11 border border-bone/25 px-4 font-hud text-xs tracking-widest">RETRY DIRECTORY</button>
+                </div>
+              ) : operationDirectory.operations.length === 0 ? (
+                <p className="p-4 text-sm text-muted">No operations are currently listed.</p>
+              ) : (
+                <div className="divide-y divide-bone/10">
+                  {operationDirectory.operations.map((operation) => {
+                    const site = operationDirectory.locations.find((location) => location.id === operation.locationId);
+                    const siteState = site ? locations.find((location) => location.id === site.worldLocationId) : undefined;
+                    const route = siteState ? routes.find((item) => item.destinationId === siteState.id) : undefined;
+                    const atSite = siteState?.id === world.currentLocation;
+                    const instances = operationDirectory.instances.filter((item) => item.operationId === operation.id);
+                    return (
+                      <article key={operation.id} data-testid={`card-operation-${operation.id}`} className="p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-hud text-lg">{operation.title}</h3>
+                            <p className="mt-1 text-xs text-spectral">{site?.name ?? "LOCATION SIGNAL UNAVAILABLE"} · {operation.runtimeId.toUpperCase()}</p>
+                          </div>
+                          <span className="border border-solar/35 px-2 py-1 font-hud text-[9px] tracking-widest text-solar">
+                            {operation.access === "local-training" ? "LOCAL SPECIALIST MODE" : operation.access.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-muted">{operation.description}</p>
+                        {instances.length === 0 ? (
+                          <p data-testid={`status-no-live-${operation.id}`} className="mt-3 border-l border-bone/25 pl-2 text-xs text-muted">NO PUBLIC INSTANCE · No live multiplayer match or spectator feed is available.</p>
+                        ) : (
+                          <div className="mt-3 space-y-1 text-xs text-solar">
+                            <p>{instances.length} server-registered solo session{instances.length === 1 ? "" : "s"} listed</p>
+                            <p className="text-muted">These are not multiplayer matches; occupied seats cannot be joined.</p>
+                          </div>
+                        )}
+                        {operation.access === "local-training" && atSite ? (
+                          <div className="mt-3">
+                            <label className="flex min-h-11 items-center gap-3 text-xs text-muted">
+                              <input type="checkbox" checked={publishOperationStatus} onChange={(event) => setPublishOperationStatus(event.currentTarget.checked)} className="h-5 w-5 accent-[#79bfff]" />
+                              Publish this anonymous solo-session status in the public operation directory
+                            </label>
+                            {operationError ? <p role="alert" className="mt-2 text-sm text-alert">{operationError}</p> : null}
+                            <button type="button" data-testid={`button-enter-${operation.id}`} disabled={registerOperation.isPending} onClick={() => void enterOperation(operation.id)} className="mt-2 flex min-h-11 w-full items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void disabled:opacity-50">
+                              {registerOperation.isPending ? "REGISTERING OPERATION…" : "ENTER ASTEROID FLIGHT CIRCUIT · NO REWARDS"}
+                            </button>
+                          </div>
+                        ) : operation.access === "local-training" && route ? (
+                          <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
+                            {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
+                          </button>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
               )}
             </section>
 

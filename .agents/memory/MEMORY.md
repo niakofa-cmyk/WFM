@@ -38,4 +38,4 @@
 - [Three.js mobile loading](threejs-mobile-loading.md) — defer the renderer behind a narrow named-export adapter; never pass the full Three.js namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
-- [Canonical orbital gameplay](orbital-canonical-gameplay.md) — the owner's controlling direction is one orbital simulation for all modes; migrate each mode with versioned authority, parity, and rollback.
+- [Connected universe and runtimes](orbital-canonical-gameplay.md) — connect distinct versioned experiences through one trusted operations network; preserve specialist Rust Disc flight and server safeguards.
