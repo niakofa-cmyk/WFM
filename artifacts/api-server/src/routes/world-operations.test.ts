@@ -116,3 +116,23 @@ test("public directory and SSE publish read-only snapshots; registration require
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
+
+test("database failure returns a generic unavailable response without query details", async () => {
+  const coordinator: Parameters<typeof createWorldOperationsRouter>[0] = {
+    getDirectory: async () => { throw new Error("relation operation_instances does not exist"); },
+    register: async () => { throw new Error("database query detail"); },
+    leave: async () => { throw new Error("database query detail"); },
+  };
+  const app = express().use(createWorldOperationsRouter(coordinator));
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address() as AddressInfo;
+    const response = await fetch(`http://127.0.0.1:${address.port}/world/operations`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "operation_service_unavailable" });
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});

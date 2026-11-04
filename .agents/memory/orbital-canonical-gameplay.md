@@ -27,15 +27,19 @@ and rollback.
 
 **Current slice:** Cinder Ring is a server-defined, travelable asteroid, and the
 public OON directory advertises its local `flight-sector-v1` training circuit.
-The directory currently reports no live instances or events; do not represent
-the local trainer as multiplayer.
+Authenticated, single-seat operation registration and an anonymous opt-in status
+stream are in workspace code. Do not claim staging availability until the
+additive PostgreSQL schema has been applied to the confirmed staging database.
 
-**Why:** the first integration is intentionally catalog + destination + local
-specialist runtime; the current backend has no OON session coordinator.
+**Why:** code and local tests do not create the table in the externally hosted
+database; the default API persistence cannot serve registrations until the
+target schema is synchronized.
 
 **How to apply:** implement authenticated matchmaking, occupancy, event
 streaming, spectator permissions, and server-owned results only through the
-existing authority boundaries, with tests and staging proof for each.
+existing authority boundaries, with tests and staging proof for each. Before a
+schema push, confirm the database is staging-only; never apply this change to
+Production as a side effect of ordinary build or deployment work.
 
 **Verification guard:** Keep standalone Solo Flight on its current compatibility
 runtime until an orbital migration passes repeatable browser checks for renderer

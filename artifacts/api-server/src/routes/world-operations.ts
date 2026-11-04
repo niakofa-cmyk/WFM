@@ -8,6 +8,16 @@ import {
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
 import { OperationError, operationCoordinator } from "../game/operation-network";
+import { logger } from "../lib/logger";
+
+function storeUnavailable(res: import("express").Response, error: unknown, action: string): void {
+  logger.error(
+    { errorType: error instanceof Error ? error.name : "unknown" },
+    `World operation ${action} unavailable`,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.status(503).json({ error: "operation_service_unavailable" });
+}
 
 let activeSubscriptions = 0;
 const MAX_OPERATION_EVENT_SUBSCRIPTIONS = 100;
@@ -22,7 +32,7 @@ export function createWorldOperationsRouter(
       res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=10");
       res.json(GetWorldOperationsResponse.parse(await coordinator.getDirectory()));
     } catch (error) {
-      next(error);
+      storeUnavailable(res, error, "directory");
     }
   });
   router.get("/world/operations/events", async (req, res, next) => {
@@ -60,7 +70,7 @@ export function createWorldOperationsRouter(
         }
       });
     } catch (error) {
-      next(error);
+      storeUnavailable(res, error, "event stream");
     }
   });
   router.post("/world/operations/:operationId/instances", requirePlayerAuth, async (req, res, next) => {
@@ -82,7 +92,7 @@ export function createWorldOperationsRouter(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      next(error);
+      storeUnavailable(res, error, "registration");
     }
   });
   router.post("/world/operations/instances/:instanceId/leave", requirePlayerAuth, async (req, res, next) => {
@@ -99,7 +109,7 @@ export function createWorldOperationsRouter(
         res.status(error.status).json({ error: error.message });
         return;
       }
-      next(error);
+      storeUnavailable(res, error, "leave");
     }
   });
   return router;

@@ -19,11 +19,13 @@
 
 ## Connected-universe implementation note — 2026-11-04
 
-The first Orbital Operations Network slice adds the public operation directory
-contract and the Cinder Ring world destination. The only catalog entry is local
-Rust Disc flight training on `flight-sector-v1`; the API returns no operation
-instances or live events. This intentionally makes discovery real without
-presenting a local trainer as multiplayer.
+The first Orbital Operations Network slice adds a public operation directory,
+read-only SSE snapshots, and the Cinder Ring world destination. The only catalog
+entry is local Rust Disc flight training on `flight-sector-v1`. Authenticated
+players can register an expiring single seat at the server-verified location;
+public status is opt-in and anonymous. This is still solo local training, not a
+multiplayer match. The additive PostgreSQL schema must be applied to staging
+before the DB-backed lifecycle is available there.
 
 ## Migration rule
 

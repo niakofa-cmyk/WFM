@@ -143,7 +143,27 @@ Implemented in this repository:
 - No instance or event is synthesized; no new rewards, profile writes,
   authentication, matchmaking, live combat, or spectator feature is claimed.
 
-## Verification record
+## Verification record — 2026-11-04
 
-Fill in only after the current change's checks run. Local code/test/build
-evidence is not staging or Production evidence.
+- Full workspace `pnpm test` passed, including API lifecycle/access tests and
+  existing Rust Disc/Wing tests; `pnpm build` and `git diff --check` passed.
+- Tests cover server-verified location admission, idempotent registration,
+  single-seat ownership, opt-in public visibility, anonymous status redaction,
+  owner-only close, expiry filtering, and the read-only SSE snapshot.
+- The browser preview screenshot shows the unauthenticated home/sign-in entry;
+  the signed-in Galaxy page and flight entry were not visually exercised.
+- The API route is ordered before authentication-wide routers. Its local
+  unauthenticated smoke request now returns a sanitized HTTP 503
+  (`operation_service_unavailable`) because the current database lacks
+  `operation_instances`; the SQL error is not sent to clients.
+- The additive `operation_instances` schema has not been applied to any
+  database. Until applied to the intended staging database, the default
+  DB-backed directory and registration routes are not staging-ready.
+- The repository's schema-push command is
+  `pnpm --filter @workspace/db run push`; it has not been run because the
+  configured database target must be confirmed as staging-only first.
+- No Railway resource, staging database, deployment, reward configuration, or
+  Production system was changed.
+
+Local tests prove code contracts only. They do not certify staging migration,
+deployed SSE behavior, Android controls, multi-pilot operation, or Production.
