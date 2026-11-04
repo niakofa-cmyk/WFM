@@ -1,4 +1,5 @@
 - [Master development directive](master-development-directive.md) — WFM consolidation starts with a code-backed inventory; preserve proven auth, Wing rewards, progression, and rollback during migration.
+- [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
 - [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.
 - [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; competitive needs ten humans; AI-fill resets its 30-second countdown per pilot.

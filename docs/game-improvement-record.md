@@ -69,6 +69,25 @@ The authenticated Hangar itself was not visually captured. The existing large
 Three.js chunk advisory remains; no device-performance claim or phone test was
 made. Railway and Production were untouched.
 
+## 2026-11-04 — Structural rebuild roadmap and Galaxy operation routing
+
+Read all 883 lines of the owner-supplied structural rebuild strategy. The exact
+source is preserved at `docs/infinite-war/STRUCTURAL-REBUILD-STRATEGY.txt`; its
+maintained implementation summary and staged acceptance criteria are in
+`docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md` and the project memory index.
+
+The roadmap confirms the current architecture decision: evolve the custom
+Three.js runtime into the canonical combat foundation while retaining the
+existing campaign, account, co-op, Wing, economy, and progression safeguards.
+The player journey is not considered complete until mission results return
+through the existing server-authoritative progression path.
+
+This change fixes a concrete Galaxy-to-operation mismatch: recorded discoveries
+now determine the next incomplete story-sector mission, and the Galaxy link
+carries that mission ID into the Expedition selector. The client accepts only
+known IDs for navigation; account progression, prerequisites, and mission
+authorization remain server-validated. No progression or reward logic changed.
+
 ## 2026-11-03 — Master Infinite War directive and Stage A audit
 
 Read the full owner-supplied 653-line master development directive and retained
