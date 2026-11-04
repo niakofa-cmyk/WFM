@@ -36,9 +36,10 @@ The owner supplied two sets of four visual references: cinematic hangar/ship
 selection images, then aircraft selection, stat, debrief, and multiplayer-home
 screens. Use them for scene atmosphere and information hierarchy: a dominant
 inspectable craft, legible real hull metrics, a clear save/select action, and
-readable operation entry points. Keep the images subordinate to WFM's live
-procedural Three.js hull and canonical faction colors. Do not copy unrelated
-aircraft, branding, currency, reward values, or game-specific labels into WFM.
+readable operation entry points. Build original WFM art rather than shipping
+reference screenshots as runtime assets. Keep the live procedural Three.js hull
+and canonical faction colors. Do not copy unrelated aircraft, branding, currency,
+reward values, or game-specific labels into WFM.
 
 **Why:** the owner designated this review as a current build reference. It
 prioritizes a coherent first-player journey while explicitly protecting working

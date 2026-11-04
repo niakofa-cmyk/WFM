@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { SHIPS, ROSTER, type ShipId } from "./ships";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
+import { parseTrainingShipPreset, resolveInitialTrainingShip } from "./flight-preset";
 import { stickAxesFromDelta } from "./input";
 import { combatLockCue } from "./combat-readout";
 import {
@@ -158,12 +159,15 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const [, setLocation] = useLocation();
   const net = !!expedition;
   const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
+  const trainingSearch = typeof window !== "undefined" ? window.location.search : "";
+  const [hangarPresetShip] = useState<ShipId | null>(() => parseTrainingShipPreset(trainingSearch));
   const expeditionRef = useRef(expedition);
   expeditionRef.current = expedition;
   const [phase, setPhase] = useState<Phase>(net ? "flight" : "briefing");
   const [shipId, setShipId] = useState<ShipId>(() => {
     const snap = expedition?.snapshotRef.current;
-    return snap?.pilots.find(p => p.slot === snap.ownSlot)?.shipId ?? "glide";
+    const serverShip = snap?.pilots.find(p => p.slot === snap.ownSlot)?.shipId;
+    return resolveInitialTrainingShip(trainingSearch, serverShip);
   });
   const [quality, setQuality] = useState<Quality>(() =>
     typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches ?? false) ? "low" : "high");
@@ -803,7 +807,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   return (
     <div className="fixed inset-0 z-40 select-none overflow-hidden bg-[#0a0710] text-bone" style={{ touchAction: phase === "flight" ? "none" : "pan-y" }} data-testid="screen-flight">
       {phase === "briefing" ? (
-        <Briefing shipId={shipId} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} />
+        <Briefing shipId={shipId} hangarPresetShip={hangarPresetShip} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} />
       ) : null}
 
       {phase === "flight" ? (
@@ -893,7 +897,7 @@ export default RustDiscFlight;
 
 // ---------- Briefing ----------
 function Briefing(props: {
-  shipId: ShipId; setShipId: (s: ShipId) => void; quality: Quality; setQuality: (q: Quality) => void;
+  shipId: ShipId; hangarPresetShip: ShipId | null; setShipId: (s: ShipId) => void; quality: Quality; setQuality: (q: Quality) => void;
   onLaunch: () => void; onExit: () => void; expeditionHref?: string;
 }) {
   const def = SHIPS[props.shipId];
@@ -936,6 +940,30 @@ function Briefing(props: {
           </div>
           <p className="font-hud text-3xl leading-none" style={{ color: pal.accent }}>{def.name.toUpperCase()}</p>
           <p className="font-hud text-xs tracking-[0.25em] text-muted">{def.faction === "ussf" ? "USSF" : "THE ACCORD"} · {def.role.toUpperCase()} · TOP {Math.round(def.maxSpeed * 2.5)} M/S</p>
+          <dl className="mt-3 grid grid-cols-3 gap-px border border-bone/15 bg-bone/10 font-hud">
+            {([
+              ["SHIELD", def.shield],
+              ["HULL", def.hull],
+              ["THRUST", def.accel],
+              ["PULSE DMG", def.shotDmg],
+              ["SHOT RATE", `${(1 / def.fireInterval).toFixed(1)}/s`],
+              ["ULT CD", `${def.ultCd}s`],
+            ] as const).map(([label, value]) => (
+              <div key={label} className="bg-[#0a0710]/90 px-2 py-2">
+                <dt className="text-[9px] tracking-[0.16em] text-muted">{label}</dt>
+                <dd className="text-base leading-tight">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 font-hud text-[10px] tracking-[0.16em] text-muted">
+            SPECIAL SYSTEM · {def.ultName.toUpperCase()}
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted" data-testid="text-training-loadout-scope">
+            {props.hangarPresetShip === props.shipId
+              ? "Preselected from the Hangar launch link. "
+              : "Local training configuration. "}
+            Changing hulls here affects this sortie only; it never overwrites the saved Hangar loadout.
+          </p>
           {(["ussf", "accord"] as const).map(f => (
             <div key={f} className="mt-3">
               <p className="mb-1 font-hud text-[10px] tracking-[0.3em]" style={{ color: FACTION_PALETTE[f].accent }}>{f === "ussf" ? "USSF" : "THE ACCORD"}</p>
@@ -1382,6 +1410,7 @@ function Summary({ s, onRestart, onBriefing, onExit }: { s: FlightState; onResta
   const won = s.stage === "complete";
   const t = Math.floor(s.elapsed);
   const rows: [string, string][] = [
+    ["PRIMARY OBJECTIVE", won ? "EXTRACTION COMPLETE" : "INCOMPLETE"],
     ["HULL", SHIPS[s.shipId].name.toUpperCase()],
     ["TIME", `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`],
     ["HULL REMAINING", `${Math.round(s.hull)}%`],
@@ -1402,7 +1431,7 @@ function Summary({ s, onRestart, onBriefing, onExit }: { s: FlightState; onResta
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           <OverlayButton primary onClick={onRestart} testId="button-summary-restart">FLY AGAIN</OverlayButton>
           <OverlayButton onClick={onBriefing} testId="button-summary-briefing">BRIEFING</OverlayButton>
-          <OverlayButton onClick={onExit} testId="button-summary-exit">EXIT</OverlayButton>
+          <OverlayButton onClick={onExit} testId="button-summary-exit">RETURN TO WFM</OverlayButton>
         </div>
       </div>
     </div>

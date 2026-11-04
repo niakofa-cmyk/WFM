@@ -10,8 +10,6 @@ import { ShipIllustration } from "./ShipIllustration";
 import { HangarShip } from "./HangarShip";
 import { campaignBriefing } from "./command-briefing";
 import { expeditionFeatureEnabled } from "./sector-client";
-import hangarWideBay from "@assets/QH9dW4bLMB5R9dWQZLXTansYgPJ16x-6zMx2Jo91tIAFfPA9sKnKWgltw_ghK_1793754027083.jpeg";
-import hangarLaunchDeck from "@assets/aIoKH5Y4DJVupKHZmnbTz3vTtMUV70_PIVHIVyY3D_kHFJnYjV7u0iZyqt35x_1793754027120.jpeg";
 
 const EXPEDITION_ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -160,10 +158,7 @@ function MainMenu(props: HomeProps) {
     <main className="wfm-hangar-content flex-1 py-4 sm:py-6">
       <section className="wfm-hangar-hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
         <div className="wfm-hangar-scene">
-          <div className="wfm-hangar-art" aria-hidden="true">
-            <img src={hangarWideBay} alt="" fetchPriority="high" />
-            <img src={hangarLaunchDeck} alt="" loading="lazy" />
-          </div>
+          <div className="wfm-hangar-art" aria-hidden="true" />
           <div className="absolute left-4 top-4 z-10">
             <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS YARD / BAY 04</PanelLabel>
             <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">HANGAR DECK · READY STATUS</p>
@@ -223,9 +218,9 @@ function MainMenu(props: HomeProps) {
             </button>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
+            <Link href={`/flight?ship=${encodeURIComponent(ship)}`} data-testid="link-home-rust-disc" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
               <span className="font-hud text-lg tracking-widest">RUST DISC · 3D FLIGHT</span>
-              <span className="text-xs text-muted">Local sector exploration · no rewards or account changes</span>
+              <span className="text-xs text-muted">Preselect {def.name} · local training · no rewards</span>
             </Link>
             <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
               <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>

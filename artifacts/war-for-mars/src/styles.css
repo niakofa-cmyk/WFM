@@ -124,24 +124,37 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  background:
+    radial-gradient(ellipse at 52% 73%, rgb(226 148 76 / .24), transparent 22%),
+    radial-gradient(ellipse at 50% 56%, rgb(129 81 45 / .28), transparent 40%),
+    linear-gradient(180deg, rgb(14 22 29 / .08) 0%, rgb(5 9 13 / .36) 72%, rgb(5 9 13 / .72) 100%),
+    repeating-linear-gradient(90deg, transparent 0 13.5%, rgb(154 172 181 / .055) 13.7% 13.9%, transparent 14.2% 27%);
 }
-.wfm-hangar-art img {
+.wfm-hangar-art::before, .wfm-hangar-art::after {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  content: "";
+  pointer-events: none;
 }
-.wfm-hangar-art img:first-child {
-  opacity: .34;
-  object-position: center 54%;
-  filter: saturate(.72) contrast(1.04);
+.wfm-hangar-art::before {
+  inset: 8% 7% 20%;
+  clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+  border-inline: 1px solid rgb(190 204 211 / .12);
+  background:
+    linear-gradient(90deg, rgb(8 12 16 / .55), transparent 13% 87%, rgb(8 12 16 / .55)),
+    repeating-linear-gradient(90deg, transparent 0 24%, rgb(190 204 211 / .07) 24.2% 24.5%, transparent 24.8% 49%);
 }
-.wfm-hangar-art img:last-child {
-  opacity: .16;
-  object-position: center 58%;
-  mix-blend-mode: screen;
-  filter: saturate(.5) contrast(1.12);
+.wfm-hangar-art::after {
+  left: 7%;
+  right: 7%;
+  bottom: 8%;
+  height: 30%;
+  transform: perspective(420px) rotateX(58deg);
+  transform-origin: bottom;
+  background:
+    linear-gradient(180deg, transparent, rgb(5 9 13 / .72)),
+    repeating-linear-gradient(90deg, transparent 0 19%, rgb(224 161 90 / .22) 19.2% 19.5%, transparent 19.8% 39%),
+    repeating-linear-gradient(180deg, transparent 0 24%, rgb(190 204 211 / .12) 24.2% 24.6%, transparent 24.8% 49%);
+  border-top: 1px solid rgb(224 161 90 / .28);
 }
 .wfm-hangar-scene::before, .wfm-hangar-scene::after {
   position: absolute;

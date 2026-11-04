@@ -6,18 +6,18 @@ Read the attached Stage B repository review in full and preserved its original
 text unchanged at `docs/references/wfm-stage-b-hangar-review.txt`. The owner
 provided two sets of four screenshots: cinematic hangar/ship-selection
 references, followed by aircraft selection, stats, debrief, and multiplayer-home
-references. The wide bay and grounded launch-deck images now provide subdued
-environmental atmosphere behind WFM's live hull model. The aircraft-detail
-references informed a more legible, data-backed stat panel and clearer saved
-hull / unsaved preview states. The screenshots remain references, not
-substitutes for the actual saved hull, WFM faction colors, or game UI.
+references. They inform original WFM art and information hierarchy; the
+screenshots are not shipped as runtime assets. The aircraft-detail references
+informed a more legible, data-backed stat panel and clearer saved hull / unsaved
+preview states.
 
 The proposed ChatGPT reference links were attempted but both returned HTTP 402.
 Their contents were not reviewed or treated as requirements; the attached
 repository review and the current source were the available references.
 
-The command screen now opens as a hangar-first experience with the current
-account-saved hull rendered from the existing Three.js orbital ship builder.
+The command screen now opens as a hangar-first experience with an original
+CSS-authored bay scene and the current account-saved hull rendered from the
+existing Three.js orbital ship builder.
 The hangar model supports pointer/touch drag and keyboard rotation, and it
 retains a responsive fallback when WebGL is unavailable. The Armory's selected
 hull now uses that same 3D model; unsaved draft selections are explicitly
@@ -25,7 +25,11 @@ labeled as previews, while the home hangar reflects only the saved profile.
 The saved-hull and Armory panels expose shield, hull, speed, thrust, pulse
 damage, and shot rate from WFM's canonical ship definitions, plus the selected
 ship's actual special system and cycle time. Hull editing and persistence
-continue through the existing Armory save flow.
+continue through the existing Armory save flow. Launching Rust Disc from the
+Hangar preselects the account's saved hull in the local flight briefing; that
+offline selection is a local preset and cannot overwrite the server-saved
+loadout. The briefing shows actual ship telemetry, while the local debrief states
+the objective outcome and returns to WFM.
 The campaign briefing, Rust Disc flight, Combat Lab, optional co-op expedition,
 galaxy, Online Wing, Armory, settings, and opt-in leaderboard remain reachable.
 
@@ -42,6 +46,28 @@ browser cannot sign in, so the authenticated Hangar and Armory were not visually
 captured; no physical-phone test was performed. Vite still reports the existing
 greater-than-500-kB Three.js chunk advisory; this presentation change does not
 claim that the game's overall mobile frame pacing has been optimized.
+
+## 2026-11-04 — Hangar-to-Rust Disc local sortie continuity
+
+Completed three connected improvements:
+
+1. Replaced references to untracked screenshot attachments with an original
+   CSS-authored hangar backdrop, keeping the production build self-contained.
+2. The Hangar's saved hull now preselects the hull in Rust Disc through a
+   validated URL preset. An authoritative expedition snapshot still takes
+   precedence; the offline preset cannot update the account loadout.
+3. The Rust Disc briefing displays canonical shield, hull, thrust, pulse damage,
+   shot rate, ultimate cooldown, and special-system values. It explains that
+   briefing selections are local-only. The debrief reports whether extraction
+   completed and returns to WFM.
+
+Verification: the `workspace-quality` workflow finished successfully with
+typechecks, 339 tests (scripts 53, API 143, WFM 143), production builds, and both
+Combat Lab static-publication checks passing. The Rust Disc briefing rendered at
+390 × 844 CSS pixels with `?ship=shakuna`; browser logs showed no app errors.
+The authenticated Hangar itself was not visually captured. The existing large
+Three.js chunk advisory remains; no device-performance claim or phone test was
+made. Railway and Production were untouched.
 
 ## 2026-11-03 — Master Infinite War directive and Stage A audit
 
