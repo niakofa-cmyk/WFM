@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveArenaTech } from "./arena-config";
+import { resolveArenaRuntime, resolveArenaTech } from "./arena-config";
+import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 test("server-owned null technology is not replaced by a saved client preference", () => {
   assert.equal(resolveArenaTech({ tech: null }, "barrels"), null);
@@ -13,4 +14,20 @@ test("server-owned technology is used for an authorized strike", () => {
 test("offline practice keeps the saved technology preference", () => {
   assert.equal(resolveArenaTech(undefined, "mark"), "mark");
   assert.equal(resolveArenaTech(null, null), null);
+});
+
+test("offline Arena practice selects the canonical orbital runtime", () => {
+  assert.equal(resolveArenaRuntime(undefined, false), ORBITAL_RUNTIME_ID);
+  assert.equal(resolveArenaRuntime(null, false), ORBITAL_RUNTIME_ID);
+});
+
+test("live rooms and unversioned server runs stay on compatibility runtime", () => {
+  assert.equal(resolveArenaRuntime(undefined, true), LEGACY_SURFACE_RUNTIME_ID);
+  assert.equal(resolveArenaRuntime({ tech: null }, false), LEGACY_SURFACE_RUNTIME_ID);
+  assert.equal(resolveArenaRuntime({ tech: null, flightModel: "future-v2" }, false), LEGACY_SURFACE_RUNTIME_ID);
+});
+
+test("server-issued run runtime is followed exactly", () => {
+  assert.equal(resolveArenaRuntime({ tech: null, flightModel: ORBITAL_RUNTIME_ID }, false), ORBITAL_RUNTIME_ID);
+  assert.equal(resolveArenaRuntime({ tech: null, flightModel: LEGACY_SURFACE_RUNTIME_ID }, false), LEGACY_SURFACE_RUNTIME_ID);
 });

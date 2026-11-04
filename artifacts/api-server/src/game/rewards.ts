@@ -1,13 +1,14 @@
 import { relaysHeld, createMatch, step, type Disc, type Goal, type Pace, type StepInput } from "./sim";
 import { SHIPS, type Faction, type ShipId } from "./ships";
 import { prepareOrbital } from "./orbital-sim";
+import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
 
 export const STRIKE_STEP_LIMIT = 360 * 60;
 export const PRACTICE_STEP_LIMIT = 120 * 60;
 export const GOOD_IDS = ["salt", "iron", "dust", "resin"] as const;
 export type GoodId = (typeof GOOD_IDS)[number];
 export type MissionId = "skirmish" | "contact" | "beacon" | "warden" | "cage";
-export type FlightModel = "surface-v1" | "orbital-v1";
+export type FlightModel = CombatRuntimeId;
 export class InvalidStrikeReplay extends Error {
   constructor(message = "The replay contains invalid control input.") {
     super(message);
@@ -83,7 +84,7 @@ type ReplayInputMode = FlightModel | "any";
 export function validateStrikeReplayInputs(
   inputs: unknown,
   pace: Pace,
-  mode: ReplayInputMode = "surface-v1",
+  mode: ReplayInputMode = LEGACY_SURFACE_RUNTIME_ID,
 ): asserts inputs is StepInput[] {
   const maxFrames = pace === "strike" ? STRIKE_STEP_LIMIT : PRACTICE_STEP_LIMIT;
   if (!Array.isArray(inputs) || inputs.length > maxFrames) {
@@ -99,7 +100,7 @@ export function validateStrikeReplayInputs(
     const record = frame as Record<string, unknown>;
     const keys = Object.keys(record);
     const orbital = keys.some((key) => ORBITAL_CONTROL_KEYS.has(key));
-    const frameMode: FlightModel = orbital ? "orbital-v1" : "surface-v1";
+    const frameMode: FlightModel = orbital ? ORBITAL_RUNTIME_ID : LEGACY_SURFACE_RUNTIME_ID;
     const expectedKeys = orbital ? ORBITAL_STEP_INPUT_KEYS : STEP_INPUT_KEYS;
     if (
       (mode !== "any" && mode !== frameMode) ||
@@ -185,11 +186,11 @@ function missionUnlocked(mission: MissionId, cleared: number) {
 }
 
 export function adjudicateStrike(claim: ReplayClaim) {
-  const flightModel = claim.flightModel ?? "surface-v1";
-  if (flightModel !== "surface-v1" && flightModel !== "orbital-v1") {
+  const flightModel = claim.flightModel ?? LEGACY_SURFACE_RUNTIME_ID;
+  if (flightModel !== LEGACY_SURFACE_RUNTIME_ID && flightModel !== ORBITAL_RUNTIME_ID) {
     throw new InvalidStrikeReplay("The issued flight model is not supported.");
   }
-  if (flightModel === "orbital-v1" && claim.mission !== "contact") {
+  if (flightModel === ORBITAL_RUNTIME_ID && claim.mission !== "contact") {
     throw new InvalidStrikeReplay("Orbital flight is not authorized for this campaign sortie.");
   }
   validateStrikeReplayInputs(claim.inputs, claim.pace, flightModel);
@@ -205,7 +206,7 @@ export function adjudicateStrike(claim: ReplayClaim) {
     tech: claim.tech,
     shieldMk2: claim.shieldMk2,
   });
-  if (flightModel === "orbital-v1") prepareOrbital(match);
+  if (flightModel === ORBITAL_RUNTIME_ID) prepareOrbital(match);
   for (const input of claim.inputs) {
     if (match.over) {
       throw new InvalidStrikeReplay("The replay contains control frames after the match ended.");

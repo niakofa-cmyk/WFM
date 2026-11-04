@@ -24,13 +24,35 @@ The player should enter one universe, belong to one faction, command one ship,
 progress through one connected journey, and participate in validated
 operations whose consequences are visible in that universe.
 
+## Controlling full-game runtime direction
+
+The owner's complete **Master Orbital Engine Consolidation Directive** is
+preserved at
+[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt).
+Its implementation companion is
+[`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
+
+This direction resolves the end state: **all playable modes must ultimately use
+one canonical, versioned Orbital Combat Engine.** Combat Lab remains offline and
+no-reward as its training interface, not a separate production engine. Rust
+Disc, Arcade, every campaign sortie, co-op, Iron Eclipse, all room types, Wing
+and later fleet operations are configurations of the same gameplay runtime.
+Their existing authentication, matchmaking, mission authority, account data,
+progression, reward and idempotency services remain authoritative.
+
+This supersedes any interpretation that the legacy planar Wing or other
+mode-specific combat runtime is a permanent destination. It does **not** justify
+a client-only toggle: migrate each mode through coordinated runtime-versioned
+client/API/socket changes, preserve already-issued runs, and keep rollback until
+parity and acceptance pass.
+
 ## Required integration policy
 
 1. Treat the existing custom Three.js/Vite game as the production runtime.
    Needle remains an authoring/research candidate; do not add a second runtime
    without an evaluated, measured migration decision.
-2. Evolve the orbital simulation toward the canonical combat foundation, but
-   do not assume the existing modes already share one combat protocol.
+2. Migrate every mode toward the canonical orbital combat foundation; do not
+   assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session
    contracts, reward policy, idempotent ledger, and account-isolation behavior.
    Migrate its combat behavior only through a versioned, coordinated client/API/

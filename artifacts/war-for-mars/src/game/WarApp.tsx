@@ -46,8 +46,9 @@ import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
-import { resolveArenaTech } from "./arena-config";
+import { resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
+import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -1117,13 +1118,15 @@ export function WarApp() {
   if (phase === "fight") {
     const runConfig = activeRun?.config;
     const orbitalCampaign =
-      runConfig?.mission === "contact" && runConfig.flightModel === "orbital-v1";
+      runConfig?.mission === "contact" && runConfig.flightModel === ORBITAL_RUNTIME_ID;
+    const arenaRuntime = resolveArenaRuntime(runConfig, Boolean(onlineSession));
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
     return (
       <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
+        runtime={arenaRuntime}
         shipId={runConfig?.shipId ?? save.ship}
         faction={runFaction}
         scheme={save.scheme}
@@ -1143,7 +1146,6 @@ export function WarApp() {
         }
         tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
-        orbital={orbitalCampaign}
         orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
         drilled={save.drilled}

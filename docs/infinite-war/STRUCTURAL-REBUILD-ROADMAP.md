@@ -2,6 +2,10 @@
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
+The controlling full-game orbital migration source is preserved unchanged in
+[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt);
+its maintained migration plan is
+[`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
 The later repository-specific diagnosis is preserved unchanged in
 [`REPO-UNIFICATION-REQUEST.txt`](./REPO-UNIFICATION-REQUEST.txt).
 This maintained guide summarizes its decisions and applies them to the current
@@ -24,7 +28,8 @@ unbounded count of live ships or a literally infinite galaxy.
 
 - Keep the custom Three.js/Vite runtime as the initial foundation. Needle remains
   a research/authoring candidate, not a second production runtime.
-- Evolve Orbital Combat Lab into the canonical combat foundation; consolidate
+- Evolve Orbital Combat Lab into the canonical combat foundation for the
+  entire game. All modes ultimately use its versioned simulation; consolidate
   overlapping flight rules only after parity and rollback are proven.
 - Retain Rust Disc, Mars Approach, Pale Beacons, and Iron Eclipse as flight,
   exploration, and cooperative operation content.

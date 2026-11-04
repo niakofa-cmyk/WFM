@@ -23,6 +23,7 @@ import { prepareOrbital } from "./orbital-sim";
 import { rotate } from "./orbital-flight";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
+import { ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -96,7 +97,8 @@ type ArenaProps = {
   onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
   localEndurance?: boolean;
   online?: OnlineRoom;
-  orbital?: boolean;
+  /** Required so every Arena caller states its runtime instead of silently falling back. */
+  runtime: CombatRuntimeId;
   orbitalCampaign?: boolean;
 };
 
@@ -554,10 +556,11 @@ export function Arena({
   onPerformanceVisibilityChange,
   localEndurance = false,
   online,
-  orbital = false,
+  runtime,
   orbitalCampaign = false,
 }: ArenaProps) {
-  if (orbital && online) throw new Error("Combat Lab cannot connect to live matches.");
+  const orbital = runtime === ORBITAL_RUNTIME_ID;
+  if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
@@ -1266,7 +1269,12 @@ export function Arena({
 
     window.__controlsTest = {
       getYaw: () => pilotCraft(match, slotIdRef.current).yaw,
-      getSpeed: () => pilotCraft(match, slotIdRef.current).speed,
+      getSpeed: () => {
+        const craft = pilotCraft(match, slotIdRef.current);
+        return craft.space
+          ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
+          : craft.speed;
+      },
       getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);

@@ -3,6 +3,7 @@ import { lazy, Suspense, useState } from "react";
 import { ErrorBoundary } from "./components/error-boundary";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./game/ships";
 import { unlockAudio } from "./game/audio";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import "./index.css";
 import "./game/combat-lab.css";
 const Arena = lazy(() => import("./game/Arena").then((m) => ({ default: m.Arena })));
@@ -14,7 +15,7 @@ function CombatLab() {
   const [run, setRun] = useState(0);
   const [summary, setSummary] = useState("");
   return <div className="combat-lab">
-    {active ? <Suspense fallback={<main className="lab-loading">Loading flight systems…</main>}><Arena key={run} orbital shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="MARS ORBIT · COMBAT LAB" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} onNetworkExit={() => { throw new Error("The offline Combat Lab must not open a network session."); }} onDone={(result) => { setSummary(`${result.kills} defenders destroyed. ${result.reason}`); setActive(false); }} /></Suspense> : <main className="lab-brief">
+    {active ? <Suspense fallback={<main className="lab-loading">Loading flight systems…</main>}><Arena key={run} runtime={ORBITAL_RUNTIME_ID} shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="MARS ORBIT · COMBAT LAB" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} onNetworkExit={() => { throw new Error("The offline Combat Lab must not open a network session."); }} onDone={(result) => { setSummary(`${result.kills} defenders destroyed. ${result.reason}`); setActive(false); }} /></Suspense> : <main className="lab-brief">
       <div className="lab-art" aria-hidden="true"><div className="lab-orbit"/><div className="lab-planet"/><p>THE MARS THEATER<br/><strong>SECTOR 04 / PHOBOS APPROACH</strong></p></div>
       <section className="lab-actions"><p className="lab-eyebrow">WFM / EXPERIMENTAL FLIGHT PROGRAM</p><h1>WAR<br/>FOR MARS<span>THE INFINITE WAR</span></h1><p className="lab-tag">COMBAT LAB — OFFLINE</p><p className="lab-copy">Intercept three hostile defenders in Mars orbit. Select a target, hold it inside your nose cone, and launch when lock reaches 100%.</p>
         <div className="lab-factions">{(["ussf", "accord"] as const).map((f) => <button key={f} aria-pressed={faction === f} onClick={() => { setFaction(f); setShip(ROSTER[f][0]); }}>{f.toUpperCase()}</button>)}</div>

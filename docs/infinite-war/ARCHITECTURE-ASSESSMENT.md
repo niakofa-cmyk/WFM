@@ -40,6 +40,16 @@ orbital combat protocol. The Wing socket room runtime also remains distinct;
 the shared orbital package must not be described as an already integrated
 ten-human 3D Wing simulation.
 
+## Owner-directed full-game target
+
+The controlling end state is now the full-game Orbital Engine Consolidation
+Directive in
+[`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md),
+with the complete owner source preserved in `attached_assets/`. Every mode
+ultimately becomes a mission configuration of one canonical orbital simulation.
+The diagram above records current code boundaries only; it is not approval to
+keep separate mode-specific combat runtimes as the final architecture.
+
 ## Target architecture
 
 Keep the current React/Vite and Three.js presentation, but make gameplay
@@ -66,27 +76,27 @@ contracts explicit and mode-versioned:
 
 ## Integration sequence and gates
 
-1. **Inventory and contracts:** preserve the code-backed inventory and matrix
-   linked from this document. For each mode, name the authoritative input,
-   snapshot/result, persistence call, feature flag, and rollback path.
-2. **One mission adapter:** adapt an existing co-op operation first. Prove its
-   briefing → loadout → shared 3D runtime → objective → debrief → existing
-   idempotent discovery settlement, with no new player or reward schema.
-3. **Combat kernel parity:** replace duplicate spatial math only when browser,
-   server, replay, and existing sector behavior match under pinned deterministic
-   traces. Keep reward-eligible planar Wing behavior unchanged until its own
-   migration is ready.
-4. **Competitive protocol:** introduce a new explicit version/capability. Run
-   client, API, and socket together on staging. Require ten distinct
-   authenticated humans, balanced teams, consistent authoritative state,
-   reconnect/interruption handling, and existing reward eligibility/ledger
-   tests before enabling it.
-5. **Unified navigation:** expose campaign, co-op, competitive, exploration,
-   and training as operations in one hangar/world journey. Preserve existing
-   direct paths and account state until replacement acceptance is met.
-6. **Persistent consequences and anomalies:** add only as server-owned,
-   deterministic, bounded mechanics after the relevant multiplayer,
-   persistence, and performance gates pass.
+1. **Inventory and contracts:** preserve the code-backed inventory and matrix.
+   For every mode, record its runtime, authoritative inputs/snapshots/results,
+   persistence calls, feature flags and rollback path.
+2. **Canonical simulation identity and parity:** share a versioned engine
+   identity across browser, API, socket and replay. Pin deterministic traces
+   before moving mode behavior.
+3. **Offline migration:** move local Rust Disc, Arcade and training to the
+   canonical runtime while keeping them no-reward.
+4. **Campaign migration:** migrate every sortie through server-issued runtime
+   versions and mission-specific objective adapters; preserve legacy replay for
+   already-issued runs.
+5. **Co-op migration:** adapt sector operations and Iron Eclipse while retaining
+   authenticated room ownership, reconnection, server AI/objectives and
+   idempotent discovery settlement.
+6. **Competitive migration:** coordinate a new client/API/socket capability on
+   staging. Require ten distinct authenticated humans, balanced teams,
+   consistent authority, reconnect/interruption handling and existing reward
+   ledger tests before reward-eligible orbital Wing is enabled.
+7. **Unified navigation and bounded expansion:** connect all migrated
+   operations to the Hangar/Universe journey. Add persistent consequences and
+   anomalies only as server-owned, deterministic, bounded mechanics.
 
 ## Non-negotiable boundary
 
