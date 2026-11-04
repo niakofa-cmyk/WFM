@@ -3,7 +3,7 @@ import test from "node:test";
 import { WebSocket } from "ws";
 import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
 import { sectorFlightEnabled } from "./sector-feature";
-import { NEUTRAL_FLIGHT_INPUT, type FlightState } from "../game/flight-sector";
+import { NEUTRAL_FLIGHT_INPUT, stepFlight, type FlightInput, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import { validSectorCompletion } from "../game/sector-completion";
 import type { SectorProgress, SectorSnapshot } from "../game/sector-missions";
@@ -205,6 +205,65 @@ test("two pilots ready/launch into identical authoritative XYZ room state; host 
   const expired = socket();
   await runtime.handle(expired.ws, "synthetic-a", "rust-disc", "flight-room", { type: "sector_join", version: 1, shipId: "glide" }, 7000);
   assert.equal(expired.packets.at(-1).reason, "sector_reconnect_expired");
+  await runtime.close();
+});
+test("co-op sector vector-thrust pulses move both pilots authoritatively and clear on neutral input", async () => {
+  const sampled: Array<Pick<FlightInput, "strafe" | "vertical">> = [];
+  let settlements = 0;
+  const runtime = createSectorRuntime({
+    physics: (state, input, seconds, sector) => {
+      sampled.push({ strafe: input.strafe ?? 0, vertical: input.vertical ?? 0 });
+      stepFlight(state, input, seconds, sector);
+    },
+    settle: async () => {
+      settlements++;
+      return { progress: { completed: [], persistenceAvailable: true }, replayed: false };
+    },
+  });
+  const host = socket(), wing = socket(), room = "vector-thrust-coop";
+  for (const [client, user] of [[host, "vector-host"], [wing, "vector-wing"]] as const) {
+    await runtime.handle(client.ws, user, "rust-disc", room,
+      { type: "sector_join", version: 1, shipId: "glide" }, 0);
+    await runtime.handle(client.ws, user, "rust-disc", room, { type: "sector_ready", ready: true }, 1);
+  }
+  await runtime.handle(host.ws, "vector-host", "rust-disc", room, { type: "sector_launch" }, 2);
+
+  const start = new Map(host.latest().pilots.map(pilot => [pilot.slot, { ...pilot.flight.position }]));
+  await runtime.handle(host.ws, "vector-host", "rust-disc", room, {
+    type: "sector_input", seq: 0,
+    input: { ...NEUTRAL_FLIGHT_INPUT, strafe: 0.8, vertical: 0.7 },
+  }, 3);
+  await runtime.handle(wing.ws, "vector-wing", "rust-disc", room, {
+    type: "sector_input", seq: 0,
+    input: { ...NEUTRAL_FLIGHT_INPUT, strafe: -0.7, vertical: -0.6 },
+  }, 3);
+
+  runtime.advance(0);
+  for (let time = 17; time <= 170; time += 17) runtime.advance(time);
+  await runtime.handle(host.ws, "vector-host", "rust-disc", room, {
+    type: "sector_input", seq: 1, input: NEUTRAL_FLIGHT_INPUT,
+  }, 180);
+  await runtime.handle(wing.ws, "vector-wing", "rust-disc", room, {
+    type: "sector_input", seq: 1, input: NEUTRAL_FLIGHT_INPUT,
+  }, 180);
+  runtime.advance(180);
+  for (let time = 197; time <= 323; time += 17) runtime.advance(time);
+
+  const hostState = host.latest().pilots.find(pilot => pilot.slot === 0)!;
+  const wingState = host.latest().pilots.find(pilot => pilot.slot === 1)!;
+  const hostStart = start.get(0)!, wingStart = start.get(1)!;
+  assert.ok(hostState.flight.position.x > hostStart.x + 0.001, "positive lateral thrust moves the host right");
+  assert.ok(hostState.flight.position.y > hostStart.y + 0.001, "positive vertical thrust climbs");
+  assert.ok(wingState.flight.position.x < wingStart.x - 0.001, "negative lateral thrust moves the wing pilot left");
+  assert.ok(wingState.flight.position.y < wingStart.y - 0.001, "negative vertical thrust descends");
+  assert.deepEqual(host.latest().pilots, wing.latest().pilots, "both pilots receive the same authoritative room state");
+  assert.ok(sampled.some(input => input.strafe! > 0 && input.vertical! > 0));
+  assert.ok(sampled.some(input => input.strafe! < 0 && input.vertical! < 0));
+  const lastPulse = sampled.reduce((last, input, index) =>
+    input.strafe !== 0 || input.vertical !== 0 ? index : last, -1);
+  assert.ok(lastPulse >= 0 && lastPulse < sampled.length - 1, "the server observed pulse frames followed by release frames");
+  assert.ok(sampled.slice(lastPulse + 1).every(input => (input.strafe ?? 0) === 0 && (input.vertical ?? 0) === 0));
+  assert.equal(settlements, 0, "movement alone cannot complete or settle a mission");
   await runtime.close();
 });
 test("Iron Eclipse snapshots share server state and only the host can issue an available target/order", async () => {
