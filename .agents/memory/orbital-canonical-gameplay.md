@@ -1,45 +1,51 @@
 ---
-name: Connected universe and specialist runtimes
-description: Owner's current direction connects multiple versioned game experiences through one trusted universe operation network.
+name: Unified Orbital engine and connected universe
+description: Owner's latest direction makes Orbital Combat the shared gameplay engine while preserving versioned migration and service authority.
 ---
 
 The current controlling owner source is
-`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793803481556.txt`;
-the maintained architecture and implementation record is
-`docs/infinite-war/ORBITAL-OPERATIONS-NETWORK-FOUNDATION.md`.
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt`;
+the code-backed feature extraction record is
+`docs/infinite-war/MASTER-ENGINE-FEATURE-EXTRACTION.md`.
 
-**Rule:** WFM is one connected universe with multiple independently operating
-experiences. Orbital Combat is the canonical orbital combat runtime; Rust Disc
-may retain its specialist flight-simulation runtime behind a versioned
-operation adapter. Share universe identity/lifecycle and existing server
-authority, not forced-identical physics or duplicate player/economy/reward
-systems.
+**Rule:** WFM is one connected universe with Orbital Combat as the eventual
+shared gameplay engine for Rust Disc, Iron Eclipse, Route to Mars, Arcade,
+Campaign, co-op, and competitive operations. Preserve current versioned
+runtimes only as compatibility and rollback paths while each mode's flight,
+controls, objectives, and authority are migrated and verified. Cinder Ring
+remains the physical competitive destination; the universe renderer is not a
+second combat engine. Keep distinct vehicle tuning and environment-specific
+physics where appropriate, and retain existing identity, matchmaking, economy,
+progression, and reward services.
 
-**Why:** the owner clarified that the legacy asteroid-flight experience should
-remain a distinct multiplayer side experience inside the overall Infinite War
-universe, rather than being erased or forced into Orbital Combat.
+**Why:** the latest owner directive explicitly makes Orbital Combat the main
+engine and requires actual capability extraction, while also requiring staged
+migration, rollback, server authority, and preservation of verified systems.
 
-**How to apply:** connect modes through explicit location and operation
-contracts; preserve runtime/rules versions and migrate client/API/socket
-authority together. Never claim a live instance without server evidence.
-Preserve no-reward training, replay compatibility, auth, room/reward safeguards,
-and rollback.
+**How to apply:** move one mode at a time through shared control and simulation
+adapters; version any changed network or replay contract. Migrate client, API,
+and socket together when authority changes. Keep Orbital training no-reward,
+preserve Wing's server-owned competitive and reward gates, and retire a legacy
+path only after parity, acceptance, and rollback pass.
 
-**Current slice:** Cinder Ring is a server-defined, travelable asteroid. Its
-directory contains both the local `flight-sector-v1` training circuit and the
-Rust Disc cooperative operation. Cooperative presence is published only after
-explicit room-creator opt-in and server confirmation that each pilot is at Cinder
-Ring. The public directory exposes phase and occupancy only, never room codes,
-user IDs, or callsigns. Wing rewards and Rust Disc no-credit settlement remain
-separate. The additive operation schema is applied to the user-confirmed staging
-database; the directory has no active instances until a player registers a session.
+**Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
+arena, the local `flight-sector-v1` training circuit, and the Rust Disc
+cooperative operation. Competitive queue entry requires the existing server
+location check. Only a live ten-human queue match is published; its operation
+record uses a service-owned identity and exposes aggregate occupancy, phase, and
+a match UUID, never pilot IDs or callsigns. Authenticated spectators receive a
+read-only, identity-scrubbed snapshot stream; they do not consume player seats.
+Private rooms and AI-fill matches are not published. Rust Disc discovery and
+settlement remain separate. This implementation is code-level until a staging
+deployment and real-client checks prove it works end to end.
 
-**Why:** a public operation board must report genuine, location-backed activity
-without turning private invitation rooms or pilot identities into public data.
+**Why:** the asteroid is meant to be a genuine competitive destination, while
+private invitations and pilot identities must remain private.
 
-**How to apply:** keep room visibility opt-in and default-private, validate
-location on the server, and publish aggregate status only. Never infer a live
-match from a catalog entry or change Wing reward rules through this directory.
+**How to apply:** keep private rooms private, validate competitive location on
+the server, and publish only match status and anonymized spectator state. Never
+infer a live match from a catalog entry or change Wing reward rules through
+this directory.
 
 **Why:** application code and catalog definitions do not create live operations;
 the server must register each session and publish only its actual lifecycle.

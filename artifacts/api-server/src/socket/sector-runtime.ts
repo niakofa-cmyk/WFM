@@ -44,8 +44,9 @@ type Options = {
   physics?: typeof stepFlight;
 };
 const numericAxes = ["throttle", "pitch", "yaw", "roll"] as const;
+const optionalNumericAxes = ["strafe", "vertical"] as const;
 const buttons = ["boost", "brake", "fire", "lock", "missile", "countermeasure"] as const;
-const inputKeys = new Set<string>([...numericAxes, ...buttons, "drift"]);
+const inputKeys = new Set<string>([...numericAxes, ...optionalNumericAxes, ...buttons, "drift"]);
 const idleInput: FlightInput = { ...NEUTRAL_FLIGHT_INPUT, brake: true };
 const copyPosition = (target: FlightState["drone"]["position"], source: FlightState["drone"]["position"]) => {
   target.x = source.x; target.y = source.y; target.z = source.z;
@@ -55,16 +56,26 @@ export function parseSectorInput(value: unknown): FlightInput | null {
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input);
   if (keys.length < numericAxes.length + buttons.length ||
-      keys.length > numericAxes.length + buttons.length + 1 ||
+      keys.length > numericAxes.length + optionalNumericAxes.length + buttons.length + 1 ||
       keys.some(key => !inputKeys.has(key)) ||
       [...numericAxes, ...buttons].some(key => !Object.hasOwn(input, key))) return null;
   for (const key of numericAxes) {
     const n = input[key];
     if (typeof n !== "number" || !Number.isFinite(n) || n > 1 || n < (key === "throttle" ? 0 : -1)) return null;
   }
+  for (const key of optionalNumericAxes) {
+    if (!Object.hasOwn(input, key)) continue;
+    const n = input[key];
+    if (typeof n !== "number" || !Number.isFinite(n) || n > 1 || n < -1) return null;
+  }
   if (buttons.some(key => typeof input[key] !== "boolean")) return null;
   if (Object.hasOwn(input, "drift") && typeof input.drift !== "boolean") return null;
-  return { ...input, drift: input.drift === true } as FlightInput;
+  return {
+    ...input,
+    strafe: typeof input.strafe === "number" ? input.strafe : 0,
+    vertical: typeof input.vertical === "number" ? input.vertical : 0,
+    drift: input.drift === true,
+  } as FlightInput;
 }
 export function parseSectorCommand(value: unknown): SectorCommandRequest | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;

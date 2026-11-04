@@ -3,7 +3,7 @@
 | Existing feature | Decision | Destination in the unified game | Preserve unchanged until | First integration proof |
 |---|---|---|---|---|
 | Orbital Combat Lab | **Evolve** | Canonical runtime for every operation; offline/no-reward training harness | Deterministic parity, mission ownership, offline/no-reward boundary | Repeatable end-to-end combat objective and result |
-| Rust Disc | **Retain and connect** | Specialist flight-simulation operation in the connected universe; Cinder Ring is its first asteroid destination | Existing flight feel and sector protocol; no local reward or persistence | Player can navigate to the asteroid, discover the operation from the server directory, and launch its explicit legacy runtime; multiplayer remains unclaimed until authoritative instances exist |
+| Rust Disc | **Extract and migrate** | Canonical orbital runtime with a Rust Disc flight/mission configuration; keep the current experience available as a rollback path during migration | Existing flight feel, server-owned sector protocol, no local reward or persistence | Shared movement/control adapter passes parity; a versioned Rust Disc operation launches in Orbital, validates its objective, and retains the existing entry until rollback is no longer needed |
 | Iron Eclipse | **Retain and integrate** | Major cooperative campaign/universe operation | Server AI wing, subsystem damage, extraction, and zero-credit discovery remain intact | Full order → subsystem → extraction → idempotent debrief |
 | 5v5 Online Wing | **Migrate incrementally** | Competitive warfront in a connected universe sector using canonical orbital combat | Ten-human auth, balanced teams, reconnect, server-owned results, reward ledger, feature flags | Ten distinct humans share canonical 3D state on a coordinated staging build |
 | Campaign / Strike | **Migrate every sortie** | Narrative operation chain through the shared mission framework and canonical engine | Existing server-issued runs, replay checks, claim transaction, and story progress | Every sortie launches its configured canonical runtime and settles one validated clear |
@@ -26,6 +26,11 @@ players can register an expiring single seat at the server-verified location;
 public status is opt-in and anonymous. This is still solo local training, not a
 multiplayer match. The additive PostgreSQL schema must be applied to staging
 before the DB-backed lifecycle is available there.
+
+The owner's latest engine directive makes this an integration bridge, not a
+permanent separate gameplay engine. See
+[`MASTER-ENGINE-FEATURE-EXTRACTION.md`](./MASTER-ENGINE-FEATURE-EXTRACTION.md)
+for the current source-backed inventory and staged Orbital migration gates.
 
 ## Migration rule
 

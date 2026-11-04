@@ -3,6 +3,7 @@ import type { OperationDirectoryResponse } from "@workspace/api-client-react";
 import { useEffect, useRef, useState } from "react";
 import type { OnlineSnapshot } from "./Arena";
 import { currentWingSocketUrl } from "./socket-endpoint";
+import { CinderRingArtwork } from "./CinderRingArtwork";
 
 type Props = {
   operations: OperationDirectoryResponse;
@@ -189,6 +190,9 @@ export function AsteroidArenaHub({
     <section data-testid="screen-asteroid-arena-hub" className="relative overflow-hidden border border-solar/30 bg-void px-4 py-6 text-bone sm:px-8 sm:py-10">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_70%_0%,rgba(224,161,90,0.12),transparent_65%)]" />
       <div className="relative mx-auto max-w-6xl">
+        <div className="mb-5 overflow-hidden">
+          <CinderRingArtwork />
+        </div>
         <header className="border-b border-solar/35 pb-5">
           <p className="font-hud text-[10px] tracking-[0.24em] text-solar">CINDER RING / PERSISTENT UNIVERSE / WING RELAY</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">

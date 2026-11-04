@@ -53,6 +53,7 @@ type Room = {
   lastActivityAt: number;
   matchId: string | null;
   lastOperationSyncAt: number;
+  operationSyncChain: Promise<void>;
   lastSpectatorSnapshotAt: number;
   operationClosed: boolean;
   matchParticipants: Map<number, MatchParticipant>;
@@ -303,6 +304,7 @@ export async function startWingSocketServer(
       lastActivityAt: Date.now(),
       matchId: null,
       lastOperationSyncAt: 0,
+      operationSyncChain: Promise.resolve(),
       lastSpectatorSnapshotAt: 0,
       operationClosed: false,
       matchParticipants: new Map(),
@@ -380,13 +382,15 @@ export async function startWingSocketServer(
     ) return;
     const currentPlayers = room.wing.snapshot().players.filter((player) => player.connected).length;
     room.lastOperationSyncAt = Date.now();
-    void options.publishCompetitiveMatch({
-      matchId: room.matchId,
-      phase,
-      currentPlayers,
-    }).catch(() => {
-      // The operation directory is observational; it must never halt combat.
-    });
+    room.operationSyncChain = room.operationSyncChain
+      .then(() => options.publishCompetitiveMatch!({
+        matchId: room.matchId!,
+        phase,
+        currentPlayers,
+      }))
+      .catch(() => {
+        // The operation directory is observational; it must never halt combat.
+      });
   }
 
   function attachSpectator(client: Client, socket: WebSocket) {

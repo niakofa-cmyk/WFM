@@ -29,12 +29,20 @@ test("new sector feature fails closed in Production and rejects ambiguous declar
 test("3D inputs exclude forged coordinates, results, identities, unknown buttons and non-finite axes", () => {
   assert.ok(parseSectorInput(NEUTRAL_FLIGHT_INPUT));
   assert.ok(parseSectorInput({ ...NEUTRAL_FLIGHT_INPUT, drift: true }));
+  assert.ok(parseSectorInput({ ...NEUTRAL_FLIGHT_INPUT, strafe: 0.5, vertical: -0.25 }));
+  const legacyClient = { ...NEUTRAL_FLIGHT_INPUT };
+  delete (legacyClient as Partial<typeof legacyClient>).strafe;
+  delete (legacyClient as Partial<typeof legacyClient>).vertical;
+  assert.equal(parseSectorInput(legacyClient)?.strafe, 0);
+  assert.equal(parseSectorInput(legacyClient)?.vertical, 0);
   for (const value of [
     {}, { ...NEUTRAL_FLIGHT_INPUT, position: { x: 1000 } }, { ...NEUTRAL_FLIGHT_INPUT, credits: 10000 },
     { ...NEUTRAL_FLIGHT_INPUT, throttle: 2 }, { ...NEUTRAL_FLIGHT_INPUT, yaw: NaN },
     { ...NEUTRAL_FLIGHT_INPUT, pitch: Infinity }, { ...NEUTRAL_FLIGHT_INPUT, fire: "true" },
     { ...NEUTRAL_FLIGHT_INPUT, userId: "other" },
     { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
+    { ...NEUTRAL_FLIGHT_INPUT, strafe: 2 },
+    { ...NEUTRAL_FLIGHT_INPUT, vertical: Number.NaN },
   ]) assert.equal(parseSectorInput(value), null);
 });
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {

@@ -2069,7 +2069,7 @@ export function Arena({
           }}
         >
           {orbital ? <div className="pointer-events-auto grid grid-cols-3 gap-1">
-            {[["UP", "KeyC"], ["DOWN", "KeyV"], ["BOOST", "ShiftLeft"], ["ROLL L", "KeyQ"], ["ROLL R", "KeyE"], ["BRAKE", "KeyB"], ["SLIDE L", "KeyZ"], ["SLIDE R", "KeyX"], ["DRIFT G", "KeyG"]].map(([label, code]) => <button key={code} type="button" className="h-11 min-w-11 border border-bone/30 bg-panel px-1 font-hud text-[10px]" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); bus?.keys.add(code); }} onPointerUp={() => bus?.keys.delete(code)} onPointerCancel={() => bus?.keys.delete(code)} onLostPointerCapture={() => bus?.keys.delete(code)}>{label}</button>)}
+            {[["UP", "KeyC"], ["DOWN", "KeyV"], ["BOOST", "ShiftLeft"], ["ROLL L", "KeyQ"], ["ROLL R", "KeyE"], ["BRAKE", "KeyB"], ["SLIDE L", "KeyZ"], ["SLIDE R", "KeyX"], ["DRIFT", "KeyT"], ["ASSIST", "KeyG"]].map(([label, code]) => <button key={code} type="button" className="h-11 min-w-11 border border-bone/30 bg-panel px-1 font-hud text-[10px]" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); bus?.keys.add(code); }} onPointerUp={() => bus?.keys.delete(code)} onPointerCancel={() => bus?.keys.delete(code)} onLostPointerCapture={() => bus?.keys.delete(code)}>{label}</button>)}
           </div> : null}
           <div className="pointer-events-auto flex flex-col gap-2">
             {(orbital ? [] : PRESET_NAME).map((name, index) => (

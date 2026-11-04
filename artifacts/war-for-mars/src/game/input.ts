@@ -1,5 +1,6 @@
 import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
+import { toOrbitalStepInput } from "./flight-control";
 
 export type Bus = {
   keys: Set<string>;
@@ -150,13 +151,13 @@ export function readInput(bus: Bus): StepInput {
   if (bus.orbital) {
     const axis = (positive: string, negative: string) => Number(keys.has(positive)) - Number(keys.has(negative));
     const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
-    const result: StepInput = {
+    const result = toOrbitalStepInput({
       throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") + (bus.scheme === "strafe" ? strafe : 0)),
       pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"), vertical: axis("KeyC", "KeyV"),
-      fire, ult: false, lock, evade: 0, preset: null,
+      fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
-      inertial: pulse("KeyG"), missile: pulse("KeyM"), aimAssist: pulse("KeyH"),
-    };
+      drift: keys.has("KeyT"), inertial: pulse("KeyG"), missile: pulse("KeyM"), aimAssist: pulse("KeyH"),
+    });
     bus.lastKeys = new Set(keys);
     return result;
   }

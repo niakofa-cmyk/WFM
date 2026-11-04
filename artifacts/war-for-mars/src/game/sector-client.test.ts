@@ -91,6 +91,8 @@ test("Iron Eclipse snapshots require complete bounded server state and matching 
 test("hold input is neutral with zero throttle and brake; sanitize clamps", () => {
   assert.deepEqual(holdInput(), { ...NEUTRAL_FLIGHT_INPUT, throttle: 0, brake: true });
   assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, throttle: 3, yaw: Number.NaN }).throttle, 1);
+  assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, strafe: 2, vertical: -2 }).strafe, 1);
+  assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, strafe: 2, vertical: -2 }).vertical, -1);
   assert.equal("drift" in sanitizeInput(NEUTRAL_FLIGHT_INPUT), false);
   assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, drift: true }).drift, true);
 });

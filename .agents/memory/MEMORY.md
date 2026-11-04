@@ -39,3 +39,4 @@
 - [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
 - [Connected universe and runtimes](orbital-canonical-gameplay.md) — connect distinct versioned experiences through one trusted operations network; preserve specialist Rust Disc flight and server safeguards.
+- [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.

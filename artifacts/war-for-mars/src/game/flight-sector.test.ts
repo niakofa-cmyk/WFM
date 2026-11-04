@@ -59,6 +59,14 @@ test("vector drift preserves the travel vector through a turn and brake override
   assert.ok(vectorLength(emergencyBrake.velocity) < vectorLength(drift.velocity) / 5);
 });
 
+test("lateral and vertical thrusters add controlled six-axis translation", () => {
+  const state = createFlight();
+  run(state, 30, { throttle: 0.2, strafe: 0.6, vertical: 0.4 });
+  assert.ok(state.position.x > 0, "right strafe moves along local right");
+  assert.ok(state.position.y > 0, "vertical thrust moves along local up");
+  assert.ok(state.position.z < 70, "the independent thrust axes do not invert forward");
+});
+
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
   const heavy = createFlight("mandjet"), fast = createFlight("shakuna");
   run(heavy, 40, { throttle: 1, boost: true }); run(fast, 40, { throttle: 1, boost: true });

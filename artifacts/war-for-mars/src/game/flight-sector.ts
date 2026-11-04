@@ -8,10 +8,12 @@ export type FlightInput = {
   throttle: number; pitch: number; yaw: number; roll: number;
   boost: boolean; brake: boolean; fire: boolean; lock: boolean;
   missile: boolean; countermeasure: boolean;
+  /** Additive axes: omitted by older clients and interpreted as neutral. */
+  strafe?: number; vertical?: number;
   drift?: boolean;
 };
 export const NEUTRAL_FLIGHT_INPUT: FlightInput = {
-  throttle: 0, pitch: 0, yaw: 0, roll: 0,
+  throttle: 0, pitch: 0, yaw: 0, roll: 0, strafe: 0, vertical: 0,
   boost: false, brake: false, fire: false, lock: false, missile: false, countermeasure: false,
 };
 export type SectorRock = { id: string; position: Vector3; radius: number };
@@ -93,6 +95,16 @@ function product(a: Rotation, b: Rotation): Rotation {
 export function flightForward(q: Rotation): Vector3 {
   return v(-2 * (q.x * q.z + q.w * q.y), -2 * (q.y * q.z - q.w * q.x), -(1 - 2 * (q.x * q.x + q.y * q.y)));
 }
+function rotateVector(q: Rotation, x: number, y: number, z: number): Vector3 {
+  const tx = 2 * (q.y * z - q.z * y);
+  const ty = 2 * (q.z * x - q.x * z);
+  const tz = 2 * (q.x * y - q.y * x);
+  return v(
+    x + q.w * tx + q.y * tz - q.z * ty,
+    y + q.w * ty + q.z * tx - q.x * tz,
+    z + q.w * tz + q.x * ty - q.y * tx,
+  );
+}
 /** First normalized segment intersection, including start-inside; null means no hit. */
 export function sphereHit(a: Vector3, b: Vector3, center: Vector3, radius: number): number | null {
   // Keep the hot collision path allocation-free: this runs for each live
@@ -163,8 +175,14 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   }
   const boosting = input.boost && state.energy > 2 && !input.brake;
   state.energy = clamp(state.energy + (boosting ? -28 : 13) * dt, 0, 100);
-  const acceleration = def.accel * (boosting ? 2.6 : 1.4) * clamp(input.throttle, 0, 1);
-  state.velocity = add(state.velocity, mul(flightForward(state.orientation), acceleration * dt));
+  const forward = flightForward(state.orientation);
+  const right = rotateVector(state.orientation, 1, 0, 0);
+  const up = rotateVector(state.orientation, 0, 1, 0);
+  const thrust = add(add(mul(forward, clamp(input.throttle, 0, 1)), mul(right, clamp(input.strafe ?? 0, -1, 1))), mul(up, clamp(input.vertical ?? 0, -1, 1)));
+  const thrustLength = vectorLength(thrust);
+  const thrustScale = thrustLength > 1 ? 1 / thrustLength : 1;
+  const acceleration = def.accel * (boosting ? 2.6 : 1.4) * dt * thrustScale;
+  state.velocity = add(state.velocity, mul(thrust, acceleration));
   const drag = input.brake ? 5 : input.drift ? 0.04 : 0.32;
   state.velocity = mul(state.velocity, detExp(-drag * dt));
   const speed = vectorLength(state.velocity), max = def.maxSpeed * (boosting ? 4 : 2.5);

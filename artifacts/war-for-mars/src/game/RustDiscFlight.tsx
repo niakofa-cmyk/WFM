@@ -9,8 +9,9 @@ import { stickAxesFromDelta } from "./input";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
-  NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
+  RUST_DISC_SECTOR, type FlightInput, type FlightState,
 } from "./flight-sector";
+import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
@@ -197,7 +198,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const pilotMarkerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const markerRef = useRef<HTMLDivElement>(null);
   const droneMarkerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<FlightInput>({ ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 });
+  const inputRef = useRef<FlightControlFrame>(neutralFlightControls(0.35));
   const pulseRef = useRef({ missile: false, countermeasure: false });
   const pausedRef = useRef(false);
   const performanceOpenRef = useRef(false);
@@ -208,7 +209,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
   const resetControls = useCallback(() => {
     const t = inputRef.current.throttle;
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: t };
+    inputRef.current = neutralFlightControls(t);
     pulseRef.current = { missile: false, countermeasure: false };
     keysRef.current.clear();
     window.dispatchEvent(new Event("wfm-flight-reset"));
@@ -241,7 +242,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> })?.lock?.("landscape"))
         .catch(() => undefined);
     }
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
+    inputRef.current = neutralFlightControls(0.35);
     cameraModeRef.current = "chase";
     setSummary(null); setHud(null); setPortraitDismissed(false);
     setRendererReady(false);
@@ -281,7 +282,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     if (phase !== "flight" || !threeModule) return;
     const THREE = threeModule;
     const mount = mountRef.current; if (!mount) return;
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
+    inputRef.current = neutralFlightControls(0.35);
     let summaryTimer: number | undefined;
     const disposables: { dispose(): void }[] = [];
     const track = (d: { dispose(): void }) => { disposables.push(d); };
@@ -486,7 +487,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         if (pausedRef.current || document.hidden || t.connection !== "connected") { t.sendInput(holdInput()); return; }
         keyInput();
         const inp = inputRef.current;
-        t.sendInput(sanitizeInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure }));
+        t.sendInput(sanitizeInput(toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure })));
         pulseRef.current = { missile: false, countermeasure: false };
       }, SECTOR_INPUT_INTERVAL_MS);
     }
@@ -644,7 +645,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       while (!netMode && acc >= STEP && steps < MAX_CATCHUP) {
         keyInput();
         const inp = inputRef.current;
-        const tickInput: FlightInput = { ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure };
+        const tickInput: FlightInput = toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure });
         stepFlight(state, tickInput, STEP);
         pulseRef.current = { missile: false, countermeasure: false };
         acc -= STEP; steps++;
@@ -826,7 +827,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
-      inputRef.current = { ...NEUTRAL_FLIGHT_INPUT };
+      inputRef.current = neutralFlightControls();
       keysRef.current.clear();
     };
   }, [phase, runId, shipId, quality, setPausedBoth, threeModule]);
@@ -1315,14 +1316,21 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
 
 // ---------- Touch controls ----------
 function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, onCamera, throttle, vectorDriftAvailable }: {
-  inputRef: MutableRefObject<FlightInput>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
+  inputRef: MutableRefObject<FlightControlFrame>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
   disabled: boolean; missileReady: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
   const knob = useRef<HTMLDivElement>(null);
   const thrKnob = useRef<HTMLDivElement>(null);
   const stickOrigin = useRef<{ x: number; y: number } | null>(null);
+  const vectorKnob = useRef<HTMLDivElement>(null);
+  const vectorOrigin = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
-    const reset = () => { stickOrigin.current = null; if (knob.current) knob.current.style.transform = "translate(0px,0px)"; };
+    const reset = () => {
+      stickOrigin.current = null; vectorOrigin.current = null;
+      inputRef.current.strafe = 0; inputRef.current.vertical = 0;
+      if (knob.current) knob.current.style.transform = "translate(0px,0px)";
+      if (vectorKnob.current) vectorKnob.current.style.transform = "translate(0px,0px)";
+    };
     window.addEventListener("wfm-flight-reset", reset);
     return () => window.removeEventListener("wfm-flight-reset", reset);
   }, []);
@@ -1336,6 +1344,17 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, on
     if (knob.current) knob.current.style.transform = `translate(${x * r.width * 0.35}px,${y * r.height * 0.35}px)`;
   };
   const stickEnd = () => { stickOrigin.current = null; inputRef.current.pitch = 0; inputRef.current.yaw = 0; if (knob.current) knob.current.style.transform = "translate(0px,0px)"; };
+  const vectorStick = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!vectorOrigin.current) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const { x, y } = stickAxesFromDelta(e.clientX - vectorOrigin.current.x, e.clientY - vectorOrigin.current.y, r.width / 2);
+    inputRef.current.strafe = x; inputRef.current.vertical = -y;
+    if (vectorKnob.current) vectorKnob.current.style.transform = `translate(${x * r.width * 0.28}px,${y * r.height * 0.28}px)`;
+  };
+  const vectorEnd = () => {
+    vectorOrigin.current = null; inputRef.current.strafe = 0; inputRef.current.vertical = 0;
+    if (vectorKnob.current) vectorKnob.current.style.transform = "translate(0px,0px)";
+  };
   const thr = (e: ReactPointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const v = Math.min(1, Math.max(0, 1 - (e.clientY - r.top) / r.height));
@@ -1378,6 +1397,19 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, on
           <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/15" />
           <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/15" />
           <div ref={knob} className="absolute left-[calc(50%-1.5rem)] top-[calc(50%-1.5rem)] h-12 w-12 rounded-full border-2 border-bone/70 bg-bone/15" />
+        </div>
+      </div>
+      <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2" data-testid="control-vector-thrust">
+        <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] tracking-widest text-muted">VECTOR</span>
+        <div className="relative h-16 w-16 rounded-full border border-bone/30 bg-void/35"
+          onPointerDown={e => {
+            if (!vectorOrigin.current && capture(e)) vectorOrigin.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) vectorStick(e); }}
+          onPointerUp={vectorEnd} onPointerCancel={vectorEnd} onLostPointerCapture={vectorEnd}>
+          <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/15" />
+          <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/15" />
+          <div ref={vectorKnob} className="absolute left-[calc(50%-0.75rem)] top-[calc(50%-0.75rem)] h-6 w-6 rounded-full border border-bone/70 bg-bone/15" />
         </div>
       </div>
       {/* Right: weapons */}

@@ -12,7 +12,7 @@ export type OrbitalFlight = {
   energy: number; assist: boolean; armor: number; armorMax: number;
   lockProgress: number; lockTargetId: number | null; missileCd: number; ammo: number; aimAssist: boolean;
 };
-export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; inertial?: boolean; missile?: boolean; aimAssist?: boolean };
+export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; aimAssist?: boolean };
 export type FlightControls = FlightInput & { throttle: number; yaw: number; strafe: number; pitch: number };
 export type Rock = { x: number; z: number; r: number; y?: number };
 export type FlightTuning = { turnRate: number; handling: number; accel: number; maxSpeed: number };
@@ -61,7 +61,7 @@ export function integrateSpatialFlight(craft: SpatialCraft, input: FlightControl
   const acceleration = disrupted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
   const length = Math.max(1, detHypot(detHypot(thrust.x, thrust.y), thrust.z));
   s.vx += thrust.x / length * acceleration * dt; s.vy += thrust.y / length * acceleration * dt; s.vz += thrust.z / length * acceleration * dt;
-  const damping = input.brake ? 7 : s.assist ? 1.65 : 0;
+  const damping = input.brake ? 7 : input.drift ? 0.04 : s.assist ? 1.65 : 0;
   const drag = detExp(-damping * dt);
   s.vx *= drag; s.vy *= drag; s.vz *= drag;
   const speed = detHypot(detHypot(s.vx, s.vy), s.vz);

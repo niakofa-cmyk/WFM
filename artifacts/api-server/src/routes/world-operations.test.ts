@@ -58,6 +58,7 @@ test("public directory and SSE publish read-only snapshots; registration require
     },
     leave: async () => undefined,
     syncCooperativeRoom: async () => undefined,
+    syncCompetitiveMatch: async () => undefined,
     isAtCinderRing: async () => true,
   };
   const app = express();
@@ -125,6 +126,7 @@ test("database failure returns a generic unavailable response without query deta
     register: async () => { throw new Error("database query detail"); },
     leave: async () => { throw new Error("database query detail"); },
     syncCooperativeRoom: async () => undefined,
+    syncCompetitiveMatch: async () => undefined,
     isAtCinderRing: async () => false,
   };
   const app = express().use(createWorldOperationsRouter(coordinator));

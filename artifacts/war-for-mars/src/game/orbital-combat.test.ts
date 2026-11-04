@@ -48,6 +48,20 @@ test("inertia preserves vector while brake dissipates it and boost spends energy
   assert.ok(a.player.space!.vz < 0);
 });
 
+test("vector drift from Rust Disc keeps orbital momentum while the pilot turns", () => {
+  const drift = lab(); const normal = lab();
+  for (const match of [drift, normal]) {
+    match.player.space!.assist = true;
+    match.player.space!.vx = 8;
+    match.player.space!.vz = -14;
+  }
+  integrateFlight(drift.player, { ...idle, yaw: 1, drift: true }, 0.1, 1, drift);
+  integrateFlight(normal.player, { ...idle, yaw: 1 }, 0.1, 1, normal);
+  assert.ok(Math.hypot(drift.player.space!.vx, drift.player.space!.vz) >
+    Math.hypot(normal.player.space!.vx, normal.player.space!.vz));
+  assert.ok(Math.abs(drift.player.space!.vx - 8) < 0.1);
+});
+
 test("missiles require acquired, in-range, visible targets and consume ammo once", () => {
   const match = lab(); const p = match.player; const e = match.enemies[0];
   p.lockTargetId = e.id;

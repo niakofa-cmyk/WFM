@@ -29,6 +29,11 @@ operations whose consequences are visible in that universe.
 The owner's complete **Master Orbital Engine Consolidation Directive** is
 preserved at
 [`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt).
+The later **Master Engine Feature Extraction & Evolution Directive** is preserved
+at
+[`../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt`](../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt)
+and controls the current extraction order. Its code-backed companion is
+[`MASTER-ENGINE-FEATURE-EXTRACTION.md`](./MASTER-ENGINE-FEATURE-EXTRACTION.md).
 Its implementation companion is
 [`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
 

@@ -157,6 +157,7 @@ export function sanitizeInput(i: FlightInput): FlightInput {
   const c = (v: number, lo: number) => (Number.isFinite(v) ? Math.max(lo, Math.min(1, v)) : 0);
   const clean: FlightInput = {
     throttle: c(i.throttle, 0), pitch: c(i.pitch, -1), yaw: c(i.yaw, -1), roll: c(i.roll, -1),
+    strafe: c(i.strafe ?? 0, -1), vertical: c(i.vertical ?? 0, -1),
     boost: !!i.boost, brake: !!i.brake, fire: !!i.fire, lock: !!i.lock, missile: !!i.missile, countermeasure: !!i.countermeasure,
   };
   if (i.drift === true) clean.drift = true;

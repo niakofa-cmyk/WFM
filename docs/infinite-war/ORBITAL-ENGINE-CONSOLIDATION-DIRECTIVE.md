@@ -2,36 +2,34 @@
 
 ## Owner reference
 
-The complete owner-provided directive is preserved unchanged at
-[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt).
-It is the controlling product direction for the full-game runtime migration.
+The complete owner-provided directives are preserved unchanged at
+[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt)
+and the later
+[`../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt`](../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt).
+The later directive controls the engine end state; this companion records the
+code-backed stages and safeguards.
 
 ## Direction update — one universe, compatible specialist runtimes
 
-The latest owner clarification and its full implementation direction are
-preserved in
-[`ORBITAL-OPERATIONS-NETWORK-FOUNDATION.md`](./ORBITAL-OPERATIONS-NETWORK-FOUNDATION.md)
-and take precedence where they refine the earlier single-runtime wording below.
-WFM is one connected universe with multiple independently operating
-experiences. Orbital Combat remains the canonical runtime for orbital combat.
-Rust Disc's established flight-sector experience remains a specialist runtime
-behind an explicit operation adapter; do not force its controls or physics into
-Orbital Combat solely to claim one engine.
+The latest owner directive makes Orbital Combat the eventual shared gameplay
+engine for Rust Disc, Iron Eclipse, Route to Mars, Arcade, campaign, co-op, and
+competitive operations. Rust Disc remains a distinct operation and must keep its
+current entry available until its canonical-engine migration is proven; its
+validated controls, handling, environment, and mission capabilities are to be
+extracted through reusable systems and versioned adapters. Do not force
+incompatible physics settings into one profile.
 
-**One connected universe. Multiple game experiences. One trusted operation
-network.**
+**One main engine. One connected universe. Multiple operation configurations.**
 
-Experiences share account identity, universe locations, operation lifecycle,
-and existing authoritative services—not necessarily identical flight physics.
-Clerk identity, room ownership, matchmaking, mission adjudication, world state,
-loadouts, progression, rewards and idempotency remain owned by their existing
-services. Orbital Combat Lab and local specialist training remain no-reward.
+Existing identity, room ownership, matchmaking, mission adjudication, world
+state, loadouts, progression, rewards, and idempotency remain owned by their
+current authoritative services. Orbital Combat Lab training remains no-reward.
 
 ## Migration contract
 
 1. The `lib/orbital-sim` package owns the canonical deterministic orbital
-   combat rules. Specialist runtimes retain their own versioned rules behind
-   operation adapters.
+   combat rules and is the migration target. Existing versioned runtimes remain
+   only as compatibility and rollback paths until their operation adapters pass.
 2. Every issued multiplayer or campaign run declares its simulation/runtime
    version. A running or previously issued run is never silently reinterpreted.
 3. A mode is connected only when its actual runtime, objectives, outcomes and
@@ -77,9 +75,10 @@ gate, not a claim that those modes are already orbital.
    migration matrix executable in tests.
 2. Lock the shared simulation identity, deterministic traces and
    client/server/replay parity gates.
-3. Connect local Rust Disc to the universe lifecycle and retain its specialist
-   runtime; migrate Arcade and orbital local training to the canonical engine,
-   keeping them no-reward.
+   3. Extract Rust Disc flight/control/environment capabilities into Orbital
+      operation configurations. Keep the current sector runtime as a rollback
+      path; migrate Arcade and local training to the canonical engine, keeping
+      them no-reward.
 4. Migrate every campaign sortie with mission-specific objective adapters and
    validated replay settlement; retain compatibility for already-issued runs.
 5. Migrate sector co-op and Iron Eclipse while preserving authentication,
