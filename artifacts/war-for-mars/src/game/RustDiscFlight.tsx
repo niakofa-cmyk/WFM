@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import type * as THREE_TYPES from "three";
 import { SHIPS, ROSTER, type ShipId } from "./ships";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
 import { parseTrainingShipPreset, resolveInitialTrainingShip } from "./flight-preset";
-import { stickAxesFromDelta } from "./input";
+import { sfxDive, unlockAudio } from "./audio";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
@@ -13,6 +13,8 @@ import {
 } from "./flight-sector";
 import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
 import { PilotActionButton } from "./PilotActionButton";
+import { PilotFlightStick } from "./PilotFlightStick";
+import { COORDINATED_BANK, mapFlightStickAxes, MANEUVER_PULSE_DURATION_MS, type ManeuverPulse } from "./pilot-stick-gestures";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
@@ -535,7 +537,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
       const p = axis("KeyS", "KeyW") || axis("ArrowDown", "ArrowUp");
       const y = axis("KeyD", "KeyA") || axis("ArrowRight", "ArrowLeft");
       const r = axis("KeyE", "KeyQ");
-      if (p) inp.pitch = -p; if (y) inp.yaw = y; if (r) inp.roll = r;
+      if (p) inp.pitch = -p; if (y) inp.yaw = y; if (r) inp.roll = r; else if (y) inp.roll = y * COORDINATED_BANK;
       if (k.has("KeyR")) inp.throttle = Math.min(1, inp.throttle + STEP * 0.8);
       if (k.has("KeyF")) inp.throttle = Math.max(0, inp.throttle - STEP * 0.8);
     };
@@ -1406,48 +1408,52 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, i
   inputRef: MutableRefObject<FlightControlFrame>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
   disabled: boolean; missileReady: boolean; missiles: number; incoming: number; onPause: () => void; onCamera: () => void; onMap: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
-  const aimKnob = useRef<HTMLDivElement>(null);
-  const stickOrigin = useRef<{ x: number; y: number } | null>(null);
-  const flightKnob = useRef<HTMLDivElement>(null);
-  const vectorOrigin = useRef<{ x: number; y: number } | null>(null);
+  const flightAxes = useRef({ x: 0, y: 0 });
+  const aimAxes = useRef({ x: 0, y: 0 });
+  const pulseTimers = useRef<{ vertical: ReturnType<typeof setTimeout> | null; strafe: ReturnType<typeof setTimeout> | null }>({ vertical: null, strafe: null });
   const [maneuversOpen, setManeuversOpen] = useState(false);
+  const applyOrientation = () => {
+    const flight = mapFlightStickAxes(flightAxes.current.x, flightAxes.current.y);
+    const aim = mapFlightStickAxes(aimAxes.current.x, aimAxes.current.y);
+    inputRef.current.yaw = Math.max(-1, Math.min(1, flight.yaw + aim.yaw));
+    inputRef.current.pitch = Math.max(-1, Math.min(1, flight.pitch + aim.pitch));
+    inputRef.current.roll = flight.roll;
+  };
+  const pulseManeuver = (pulse: ManeuverPulse) => {
+    if (disabled) return;
+    const prior = pulseTimers.current[pulse.axis];
+    if (prior) clearTimeout(prior);
+    inputRef.current[pulse.axis] = pulse.direction;
+    unlockAudio();
+    sfxDive();
+    pulseTimers.current[pulse.axis] = setTimeout(() => {
+      if (inputRef.current[pulse.axis] === pulse.direction) inputRef.current[pulse.axis] = 0;
+      pulseTimers.current[pulse.axis] = null;
+    }, MANEUVER_PULSE_DURATION_MS);
+  };
   useEffect(() => {
     const reset = () => {
-      stickOrigin.current = null; vectorOrigin.current = null;
+      flightAxes.current = { x: 0, y: 0 }; aimAxes.current = { x: 0, y: 0 };
+      for (const axis of ["vertical", "strafe"] as const) {
+        const timer = pulseTimers.current[axis];
+        if (timer) clearTimeout(timer);
+        pulseTimers.current[axis] = null;
+      }
       inputRef.current.strafe = 0; inputRef.current.vertical = 0;
       inputRef.current.yaw = 0; inputRef.current.pitch = 0; inputRef.current.roll = 0;
       inputRef.current.fire = false; inputRef.current.lock = false;
       inputRef.current.boost = false; inputRef.current.brake = false; inputRef.current.drift = false;
-      if (aimKnob.current) aimKnob.current.style.transform = "translate(0px,0px)";
-      if (flightKnob.current) flightKnob.current.style.transform = "translate(0px,0px)";
     };
     window.addEventListener("wfm-flight-reset", reset);
-    return () => window.removeEventListener("wfm-flight-reset", reset);
-  }, []);
+    return () => {
+      window.removeEventListener("wfm-flight-reset", reset);
+      for (const timer of Object.values(pulseTimers.current)) if (timer) clearTimeout(timer);
+    };
+  }, [inputRef]);
   useEffect(() => {
     if (disabled) setManeuversOpen(false);
   }, [disabled]);
 
-  const aimStick = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!stickOrigin.current) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const { x, y } = stickAxesFromDelta(e.clientX - stickOrigin.current.x, e.clientY - stickOrigin.current.y, r.width / 2);
-    inputRef.current.yaw = x; inputRef.current.pitch = -y;
-    if (aimKnob.current) aimKnob.current.style.transform = `translate(${x * r.width * 0.35}px,${y * r.height * 0.35}px)`;
-  };
-  const aimEnd = () => { stickOrigin.current = null; inputRef.current.pitch = 0; inputRef.current.yaw = 0; if (aimKnob.current) aimKnob.current.style.transform = "translate(0px,0px)"; };
-  const vectorStick = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!vectorOrigin.current) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const { x, y } = stickAxesFromDelta(e.clientX - vectorOrigin.current.x, e.clientY - vectorOrigin.current.y, r.width / 2);
-    inputRef.current.strafe = x; inputRef.current.vertical = -y;
-    if (flightKnob.current) flightKnob.current.style.transform = `translate(${x * r.width * 0.32}px,${y * r.height * 0.32}px)`;
-  };
-  const vectorEnd = () => {
-    vectorOrigin.current = null; inputRef.current.strafe = 0; inputRef.current.vertical = 0;
-    if (flightKnob.current) flightKnob.current.style.transform = "translate(0px,0px)";
-  };
-  const capture = (e: ReactPointerEvent<HTMLElement>) => { if (disabled) return false; e.currentTarget.setPointerCapture(e.pointerId); return true; };
   const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", icon: "fire" | "boost" | "brake" | "aim" | "drift", label: string, testId: string, accent = false) => (
     <PilotActionButton icon={icon} label={label} testId={testId} disabled={disabled} accent={accent}
       onPress={() => { inputRef.current[key] = true; }}
@@ -1456,12 +1462,6 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, i
         inputRef.current[key] = true;
         requestAnimationFrame(() => { inputRef.current[key] = false; });
       }} />
-  );
-  const roll = (direction: -1 | 1, icon: "roll-left" | "roll-right", label: string) => (
-    <PilotActionButton icon={icon} label={label} testId={`button-roll-${direction < 0 ? "left" : "right"}`} disabled={disabled}
-      onPress={() => { inputRef.current.roll = direction; }}
-      onRelease={() => { inputRef.current.roll = 0; }}
-      onActivate={() => { inputRef.current.roll = direction; requestAnimationFrame(() => { inputRef.current.roll = 0; }); }} />
   );
   const thrust = () => {
     inputRef.current.throttle = 1;
@@ -1477,15 +1477,10 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, i
       </div>
       <div className="pointer-events-auto absolute bottom-4 left-3 flex items-end gap-2 sm:gap-3" data-testid="flight-controls-left">
         <div className="relative">
-          <div className="relative h-24 w-24 touch-none rounded-full border border-bone/30 bg-void/25 sm:h-32 sm:w-32" role="group" aria-label="Flight vector controls" data-testid="stick-flight"
-            onPointerDown={e => { if (!vectorOrigin.current && capture(e)) vectorOrigin.current = { x: e.clientX, y: e.clientY }; }}
-            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) vectorStick(e); }}
-            onPointerUp={vectorEnd} onPointerCancel={vectorEnd} onLostPointerCapture={vectorEnd}>
-            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
-            <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
-            <div ref={flightKnob} className="absolute left-[calc(50%-1rem)] top-[calc(50%-1rem)] h-8 w-8 rounded-full border border-bone/70 bg-bone/15 sm:left-[calc(50%-1.5rem)] sm:top-[calc(50%-1.5rem)] sm:h-12 sm:w-12" />
-          </div>
-          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.2em] text-bone/65">FLIGHT</span>
+          <PilotFlightStick label="Left thumb flight" testId="stick-flight" size="rust-disc" disabled={disabled}
+            onAxis={(x, y) => { flightAxes.current = { x, y }; applyOrientation(); }}
+            onPulse={pulseManeuver} />
+          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[7px] tracking-[0.16em] text-bone/65">FLIGHT · DOUBLE-TAP EDGE</span>
         </div>
         <div className="flex flex-col items-center gap-2">
           <PilotActionButton icon="thrust" label={`Hold thrust; current setting ${Math.round(throttle * 100)} percent`} testId="button-thrust"
@@ -1501,8 +1496,6 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, i
         <div className="flex flex-col items-center gap-2">
           {maneuversOpen ? (
             <div className="pilot-rust-maneuvers flex max-w-[48vw] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
-              {roll(-1, "roll-left", "Roll left")}
-              {roll(1, "roll-right", "Roll right")}
               {hold("brake", "brake", "Hold brake", "button-brake")}
               {hold("boost", "boost", "Hold boost", "button-boost")}
               {vectorDriftAvailable ? hold("drift", "drift", "Hold vector drift", "button-drift") : null}
@@ -1519,19 +1512,8 @@ function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, i
           </div>
         </div>
         <div className="relative">
-          <div className="relative h-24 w-24 touch-none rounded-full border border-bone/30 bg-void/25 sm:h-32 sm:w-32" role="group" aria-label="Aim and orientation controls" data-testid="stick-aim"
-            onPointerDown={e => {
-              if (!stickOrigin.current && capture(e)) {
-                stickOrigin.current = { x: e.clientX, y: e.clientY };
-                inputRef.current.pitch = 0; inputRef.current.yaw = 0;
-              }
-            }}
-            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) aimStick(e); }}
-            onPointerUp={aimEnd} onPointerCancel={aimEnd} onLostPointerCapture={aimEnd}>
-            <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
-            <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
-            <div ref={aimKnob} className="absolute left-[calc(50%-1rem)] top-[calc(50%-1rem)] h-8 w-8 rounded-full border border-bone/70 bg-bone/15 sm:left-[calc(50%-1.5rem)] sm:top-[calc(50%-1.5rem)] sm:h-12 sm:w-12" />
-          </div>
+          <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" disabled={disabled}
+            onAxis={(x, y) => { aimAxes.current = { x, y }; applyOrientation(); }} />
           <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.2em] text-bone/65">AIM</span>
         </div>
       </div>

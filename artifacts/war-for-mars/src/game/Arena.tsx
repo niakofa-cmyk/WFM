@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, readInput, stickAxesFromDelta, type Bus } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -24,6 +24,7 @@ import { rotate } from "./orbital-flight";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
 import { PilotActionButton } from "./PilotActionButton";
+import { PilotFlightStick } from "./PilotFlightStick";
 import { ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
 
 export type StrikeResult = {
@@ -460,79 +461,6 @@ function drawContacts(canvas: HTMLCanvasElement, match: Match, local: Craft = ma
   }
 }
 
-function Stick({ label, size = "standard", onAxis }: { label: string; size?: "standard" | "compact"; onAxis: (x: number, y: number) => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  const knob = useRef<HTMLDivElement>(null);
-  const pointerOrigin = useRef<{ pointerId: number; x: number; y: number } | null>(null);
-  const setAxis = (x: number, y: number) => {
-    if (root.current) {
-      root.current.dataset.axisX = x.toFixed(3);
-      root.current.dataset.axisY = y.toFixed(3);
-    }
-    onAxis(x, y);
-  };
-  const place = (clientX: number, clientY: number) => {
-    const el = root.current;
-    const dot = knob.current;
-    const origin = pointerOrigin.current;
-    if (!el || !dot || !origin) return;
-    const rect = el.getBoundingClientRect();
-    const max = Math.max(1, rect.width * 0.36);
-    const axis = stickAxesFromDelta(clientX - origin.x, clientY - origin.y, max);
-    const dx = axis.x * max;
-    const dy = axis.y * max;
-    dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    setAxis(axis.x, axis.y);
-  };
-  const reset = (pointerId?: number) => {
-    if (pointerId !== undefined && pointerOrigin.current?.pointerId !== pointerId) return;
-    pointerOrigin.current = null;
-    if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    setAxis(0, 0);
-  };
-  return (
-    <div
-      ref={root}
-      role="group"
-      aria-label={`${label} stick`}
-      data-testid={`stick-${label.toLowerCase()}`}
-      data-axis-x="0.000"
-      data-axis-y="0.000"
-      className={`relative touch-none rounded-full border border-bone/30 bg-panel/80 ${size === "compact" ? "size-24" : "size-28"}`}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-        if (pointerOrigin.current) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        pointerOrigin.current = {
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-        };
-        place(event.clientX, event.clientY);
-      }}
-      onPointerMove={(event) => {
-        if (
-          pointerOrigin.current?.pointerId !== event.pointerId ||
-          !event.currentTarget.hasPointerCapture(event.pointerId)
-        ) return;
-        place(event.clientX, event.clientY);
-      }}
-      onPointerUp={(event) => {
-        event.stopPropagation();
-        reset(event.pointerId);
-      }}
-      onPointerCancel={(event) => reset(event.pointerId)}
-      onLostPointerCapture={(event) => reset(event.pointerId)}
-    >
-      <div
-        ref={knob}
-        className={`absolute top-1/2 left-1/2 rounded-full bg-solar ${size === "compact" ? "size-9" : "size-11"}`}
-        style={{ transform: "translate(-50%, -50%)" }}
-      />
-    </div>
-  );
-}
-
 export function Arena({
   shipId,
   faction,
@@ -628,6 +556,7 @@ export function Arena({
   drillCb.current = onDrill;
   if (!busRef.current) busRef.current = createBus(scheme);
   busRef.current.orbital = orbital;
+  busRef.current.leftStickFlight = orbital && !online;
   if (!matchRef.current) {
     const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
     seedRef.current = seed;
@@ -2024,19 +1953,21 @@ export function Arena({
               <PilotActionButton icon="thrust" label="Hold forward thrust" testId="button-thrust" onPress={() => bus?.keys.add("KeyW")} onRelease={() => bus?.keys.delete("KeyW")} onActivate={() => { if (bus) bus.keys.add("KeyW"); requestAnimationFrame(() => bus?.keys.delete("KeyW")); }} />
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
               <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
-              <PilotActionButton icon="roll-left" label="Roll left" testId="button-roll-left" onPress={() => bus?.keys.add("KeyQ")} onRelease={() => bus?.keys.delete("KeyQ")} onActivate={() => { if (bus) bus.keys.add("KeyQ"); requestAnimationFrame(() => bus?.keys.delete("KeyQ")); }} />
-              <PilotActionButton icon="roll-right" label="Roll right" testId="button-roll-right" onPress={() => bus?.keys.add("KeyE")} onRelease={() => bus?.keys.delete("KeyE")} onActivate={() => { if (bus) bus.keys.add("KeyE"); requestAnimationFrame(() => bus?.keys.delete("KeyE")); }} />
               <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
               <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
             </div>
           ) : null}
           <div className="pointer-events-auto flex items-end gap-2">
-            <Stick label={orbital ? "Flight" : "Move"} onAxis={(x, y) => {
+            <PilotFlightStick label={orbital ? "Flight" : "Move"} testId={`stick-${orbital ? "flight" : "move"}`} size="arena" onAxis={(x, y) => {
               if (!bus) return;
               bus.leftX = x;
               bus.leftY = y;
-            }} />
+            }} onPulse={orbital && !online && bus ? (pulse) => {
+              pulseVectorManeuver(bus, pulse);
+              unlockAudio();
+              sfxDive();
+            } : undefined} />
             {orbital ? (
               <PilotActionButton
                 icon="maneuver"
@@ -2103,7 +2034,7 @@ export function Arena({
             />
           </div>
           <div className="pointer-events-auto">
-            <Stick label="Aim" onAxis={(x, y) => {
+            <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {
               if (!bus) return;
               bus.rightX = x;
               bus.rightY = y;

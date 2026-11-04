@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { armGyro, disarmGyro, gyroAim } from "./gyro";
-import { clearInput, createBus, readInput, stickAxesFromDelta } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, stickAxesFromDelta } from "./input";
+import { COORDINATED_BANK } from "./pilot-stick-gestures";
 
 function installOrientationWindow(permission: "granted" | "denied") {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -89,7 +90,7 @@ test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate dr
   assert.equal(readInput(bus).yaw, -1);
 });
 
-test("the left flight stick provides orbital lateral and vertical thrust; throttle stays independent", () => {
+test("legacy orbital vector axes remain available when unified flight-stick mode is off", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftX = 0.65;
@@ -104,6 +105,47 @@ test("the left flight stick provides orbital lateral and vertical thrust; thrott
   assert.equal(bus.leftX, 0);
   assert.equal(bus.leftY, 0);
   assert.equal(readInput(bus).strafe, 0);
+  assert.equal(readInput(bus).vertical, 0);
+});
+
+test("unified orbital left stick controls pitch, yaw and coordinated bank while the right stick can aim", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.leftX = -0.65;
+  bus.leftY = -0.4;
+  bus.rightX = 0.1;
+  bus.rightY = 0.2;
+
+  const input = readInput(bus);
+  assert.ok(Math.abs(input.yaw - 0.55) < 1e-9);
+  assert.ok(Math.abs(input.pitch - 0.2) < 1e-9);
+  assert.ok(Math.abs(input.roll - 0.65 * COORDINATED_BANK) < 1e-9);
+  assert.equal(input.strafe, 0);
+  assert.equal(input.vertical, 0);
+});
+
+test("short vector-thrust gestures reach the flight input and interruption clears them", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  pulseVectorManeuver(bus, { axis: "vertical", direction: 1 }, 1000);
+  pulseVectorManeuver(bus, { axis: "strafe", direction: -1 }, 1000);
+  assert.equal(readInput(bus).vertical, 1);
+  assert.equal(readInput(bus).strafe, 1);
+
+  clearInput(bus);
+  assert.equal(readInput(bus).vertical, 0);
+  assert.equal(readInput(bus).strafe, 0);
+});
+
+test("vector-thrust input returns to neutral when its short pulse expires", async () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  pulseVectorManeuver(bus, { axis: "vertical", direction: -1 }, 15);
+  assert.equal(readInput(bus).vertical, -1);
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(readInput(bus).vertical, 0);
 });
 

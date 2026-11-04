@@ -32,7 +32,7 @@
 - [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.
 - [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
-- [Pilot experience](pilot-experience.md) — Keep flight combat-first: two thumb sticks, minimal actionable icons, map on demand, and unchanged simulation/server authority.
+- [Pilot experience](pilot-experience.md) — Two-thumb combat HUD; left-stick pitch/yaw with coordinated bank and timed edge gestures; preserve live Wing's server-compatible mapping.
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.

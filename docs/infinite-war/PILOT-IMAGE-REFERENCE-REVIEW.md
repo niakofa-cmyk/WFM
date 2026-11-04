@@ -19,6 +19,16 @@ These user-provided images are visual direction only. They are not production ar
 - `attached_assets/jelp_B0GFa_wO0-kE73pL9t1u2-wOTqVxOfmUEPscXPiLMTBF58mG-2TudwG5_1793823532519.jpeg` — readable hostile direction cues and a clear, uncluttered ship silhouette.
 - `attached_assets/xIx5v6opN7jPNWgz6clcGrwXgQdNhdvGCYq5b2hBENSUyXJQE_bMvMVXNQGgp_1793823373377.jpeg` — cockpit perspective as a secondary camera option.
 
+## Left-thumb flight-control references
+
+These later user-provided images inform the control placement and flight-readability work:
+
+- `attached_assets/QsM38vySvrESE4ZlGwGlFRGqtj9-EhhPwlRrxHo8IY0L4VnZ6jIC1Szu1kIel_1793827223597.jpeg` — compact left control zone, centered chase view, and concise target/distance cues. Its surrounding arrow buttons are not copied.
+- `attached_assets/5vk77qwTuigawAmbDkNEqGtu9rn9Z8R8DWlKZu4AWedDPnt4s9RTzK1wkh38C_1793827223623.jpeg` — a clear lock cue, forward sightline, and distinct right-side weapon actions.
+- `attached_assets/azxFESIXfw-cj87zp7tw_0Idnx1s1O64p5mx5IJSpSrrJfMrsoknSgFXw4aNl_1793827223637.jpeg` — strong rear ship silhouette, open sky framing, and separation between left flight input and right combat actions.
+
+Adopt the useful composition patterns only: one dynamic left flight surface, a distinct right aim/combat area, clear target lock feedback, and a visible ship silhouette. Do not reproduce another game's artwork, icons, exact layout, or permanent directional-button cluster.
+
 ## Patterns deliberately not adopted
 
 Some supplied examples include permanent UP/DOWN stacks, several large action rings, duplicate radar panels, and dense score/status overlays. Those are recorded as contrast, not as requirements. The target WFM layout keeps combat visibility first and reveals secondary controls or maps only on request.

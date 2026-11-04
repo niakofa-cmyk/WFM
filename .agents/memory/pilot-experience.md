@@ -3,11 +3,11 @@ name: Pilot experience
 description: The WFM flight HUD and touch-control direction.
 ---
 
-Treat [the pilot-experience reconstruction](../../docs/infinite-war/PILOT-EXPERIENCE-RECONSTRUCTION.md) as the leading reference for active flight screens.
+Treat [the pilot-experience reconstruction](../../docs/infinite-war/PILOT-EXPERIENCE-RECONSTRUCTION.md) and [left-thumb control directive](../../docs/infinite-war/LEFT-THUMB-FLIGHT-CONTROL-DIRECTIVE.md) as leading references for active flight screens and touch behavior.
 Use [the image-reference review](../../docs/infinite-war/PILOT-IMAGE-REFERENCE-REVIEW.md) for visual composition; treat supplied images as inspiration, not artwork or interface to copy.
 
-**Rule:** Keep the ship, flight space, and combat readable. Use no more than two primary thumb-controlled maneuver surfaces; remove boxy directional pads and keep secondary controls contextual. Expand the tactical map on demand and move settings off the active flight view.
+**Rule:** Keep the ship, flight space, and combat readable. Use no more than two primary thumb-controlled maneuver surfaces; remove boxy directional pads and keep secondary controls contextual. In offline Orbital Combat and the Rust Disc control adapter, left-stick drag controls yaw/pitch with coordinated bank, while same-sector double-taps on an outer edge trigger a brief vector-thrust pulse (up/down vertical, left/right lateral). Right-stick aim remains usable at the same time. Keep the validated live Wing mapping unchanged.
 
-**Why:** The user explicitly identified the current flight HUD as cluttered and asked that this document guide future pilot-experience work.
+**Why:** The user asked the left thumb to consolidate ordinary flight maneuvers and trigger special vector thrust without separate direction/roll buttons, while preserving the proven competitive path.
 
-**How to apply:** Refactor the existing game input/render path rather than creating a parallel control engine. Preserve 6-DOF physics and all functional combat actions, with multiplayer actions still validated by existing server authority. Keep keyboard/gamepad paths for development and accessibility. Verify mobile layouts at landscape sizes; distinguish browser emulation from physical-device certification.
+**How to apply:** Refactor the existing input/render path rather than creating a parallel control engine. Maintain a short gesture window, movement threshold, pulse cooldown, release/cancel reset, and existing six-axis physics. Do not port the offline mapping into live Wing unless client/server parity and replay validation are updated together. Keep keyboard/gamepad paths and distinguish browser emulation from physical-device certification.

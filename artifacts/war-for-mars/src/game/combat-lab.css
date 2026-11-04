@@ -11,6 +11,11 @@
 .pilot-action-fire{width:52px;height:52px;background:rgba(224,161,90,.8);color:#080b11;border-color:#f4c480}
 .pilot-action-fire svg{width:24px;height:24px}
 .pilot-action-badge{position:absolute;right:-3px;bottom:-3px;display:grid;min-width:16px;height:16px;place-items:center;padding:0 3px;border:1px solid rgba(7,8,13,.8);border-radius:99px;background:#131922;color:#e6e1d6;font:8px/1 Arial,sans-serif}
+.pilot-flight-stick{touch-action:none;user-select:none;-webkit-user-select:none}
+.pilot-flight-stick-knob{pointer-events:none;transition:box-shadow .12s,border-color .12s}
+.pilot-flight-stick[data-recenter="true"] .pilot-flight-stick-knob{transition:transform .12s cubic-bezier(.2,.8,.25,1)}
+.pilot-flight-stick[data-pulse]{border-color:#e0a15a;box-shadow:0 0 18px rgba(224,161,90,.38),inset 0 0 14px rgba(224,161,90,.12)}
+.pilot-stick-feedback{padding:3px 6px;border:1px solid rgba(224,161,90,.58);border-radius:999px;background:rgba(8,11,17,.86);color:#f1bd78;font:8px/1.2 monospace;letter-spacing:.13em}
 .pilot-map-backdrop{background:rgba(5,7,12,.78);backdrop-filter:blur(7px)}
 .pilot-map-panel{width:min(100%,440px);padding:1rem;border:1px solid rgba(224,161,90,.55);background:rgba(13,17,24,.94);box-shadow:0 12px 50px #0009}
 .pilot-map-canvas{display:block;width:min(66vw,340px);height:min(66vw,340px);max-height:48vh;margin:1rem auto;border:1px solid rgba(230,225,214,.2);border-radius:50%;background:rgba(5,8,12,.72)}

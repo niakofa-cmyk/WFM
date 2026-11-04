@@ -1,6 +1,7 @@
 import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
 import { toOrbitalStepInput } from "./flight-control";
+import { COORDINATED_BANK, type ManeuverPulse } from "./pilot-stick-gestures";
 
 export type Bus = {
   keys: Set<string>;
@@ -27,6 +28,11 @@ export type Bus = {
   fWas: boolean;
   rWas: boolean;
   orbital?: boolean;
+  /** The offline Orbital Combat Lab touch mapping; live Wing retains its proven input contract. */
+  leftStickFlight?: boolean;
+  verticalPulse: number;
+  strafePulse: number;
+  pulseTimers: { vertical: ReturnType<typeof setTimeout> | null; strafe: ReturnType<typeof setTimeout> | null };
   lastKeys?: Set<string>;
 };
 
@@ -55,10 +61,19 @@ export function createBus(scheme: Scheme): Bus {
     eWas: false,
     fWas: false,
     rWas: false,
+    verticalPulse: 0,
+    strafePulse: 0,
+    pulseTimers: { vertical: null, strafe: null },
   };
 }
 
 export function clearInput(bus: Bus) {
+  if (bus.pulseTimers.vertical) clearTimeout(bus.pulseTimers.vertical);
+  if (bus.pulseTimers.strafe) clearTimeout(bus.pulseTimers.strafe);
+  bus.pulseTimers.vertical = null;
+  bus.pulseTimers.strafe = null;
+  bus.verticalPulse = 0;
+  bus.strafePulse = 0;
   bus.keys.clear();
   bus.override = null;
   bus.steerOverride = null;
@@ -82,6 +97,18 @@ export function clearInput(bus: Bus) {
   bus.fWas = false;
   bus.rWas = false;
   bus.lastKeys?.clear();
+}
+
+export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs = 180) {
+  const timer = bus.pulseTimers[pulse.axis];
+  if (timer) clearTimeout(timer);
+  if (pulse.axis === "vertical") bus.verticalPulse = pulse.direction;
+  else bus.strafePulse = pulse.direction;
+  bus.pulseTimers[pulse.axis] = setTimeout(() => {
+    if (pulse.axis === "vertical") bus.verticalPulse = 0;
+    else bus.strafePulse = 0;
+    bus.pulseTimers[pulse.axis] = null;
+  }, Math.max(1, durationMs));
 }
 
 function clamp(n: number): number {
@@ -123,9 +150,12 @@ export function readInput(bus: Bus): StepInput {
   const stickYaw = -bus.leftX;
   const stickThr = -bus.leftY;
   const aimYaw = -bus.rightX;
+  const flightYaw = bus.leftStickFlight ? clamp(keyYaw + stickYaw) : 0;
   let yaw = 0;
   let strafe = 0;
-  if (bus.scheme === "arc") {
+  if (bus.orbital && bus.leftStickFlight) {
+    yaw = clamp(aimYaw + bus.gyroYaw + flightYaw);
+  } else if (bus.scheme === "arc") {
     yaw = clamp(keyYaw + stickYaw + aimYaw * 0.75 + bus.gyroYaw);
     strafe = 0;
   } else {
@@ -134,7 +164,8 @@ export function readInput(bus: Bus): StepInput {
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
   const throttle = clamp(bus.orbital ? keyThr : keyThr + stickThr);
-  const pitch = clamp(-bus.rightY + bus.gyroPitch);
+  const flightPitch = bus.orbital && bus.leftStickFlight ? -bus.leftY : 0;
+  const pitch = clamp(-bus.rightY + bus.gyroPitch + flightPitch);
   const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
   const fDown = keys.has("KeyF");
   const ult = bus.ultPulse || (fDown && !bus.fWas);
@@ -167,9 +198,11 @@ export function readInput(bus: Bus): StepInput {
     bus.missilePulse = false;
     bus.aimAssistPulse = false;
     const result = toOrbitalStepInput({
-      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") - bus.leftX),
-      pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"),
-      vertical: clamp(axis("KeyC", "KeyV") - bus.leftY),
+      throttle, yaw,
+      strafe: clamp(axis("KeyZ", "KeyX") - (bus.leftStickFlight ? bus.strafePulse : bus.leftX)),
+      pitch: clamp(pitch + axis("KeyI", "KeyK")),
+      roll: clamp(axis("KeyQ", "KeyE") + flightYaw * COORDINATED_BANK),
+      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, aimAssist,

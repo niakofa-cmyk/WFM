@@ -187,6 +187,26 @@ test("Rust Disc defers 3D startup until launch and reuses it on warm relaunch", 
     const coldFirstFrameMs = await page.evaluate((start) => performance.now() - start, coldStart);
     expect(runtimeRequests).toBe(1);
 
+    const flightStick = page.getByTestId("stick-flight");
+    const stickBox = await flightStick.boundingBox();
+    expect(stickBox).not.toBeNull();
+    if (!stickBox) throw new Error("Rust Disc flight stick is missing its touch target.");
+    const stickCenterX = stickBox.x + stickBox.width / 2;
+    const stickCenterY = stickBox.y + stickBox.height / 2;
+    await page.mouse.move(stickCenterX, stickCenterY);
+    await page.mouse.down();
+    await page.mouse.move(stickCenterX, stickCenterY - stickBox.height * 0.32);
+    await expect.poll(async () => Number(await flightStick.getAttribute("data-axis-y"))).toBeLessThan(-0.2);
+    await page.mouse.up();
+    await expect(flightStick).toHaveAttribute("data-axis-y", "0.000");
+    await expect(flightStick).toHaveAttribute("data-recenter", "true");
+
+    const upperSectorY = stickBox.y + stickBox.height * 0.06;
+    await page.mouse.click(stickCenterX, upperSectorY);
+    await page.waitForTimeout(110);
+    await page.mouse.click(stickCenterX, upperSectorY);
+    await expect(flightStick.getByRole("status")).toHaveText("UP THRUST");
+
     await page.getByTestId("button-pause").click();
     await page.getByTestId("button-briefing").click();
     await expect(page.getByTestId("button-launch")).toBeVisible();
@@ -269,19 +289,13 @@ test("mobile flight controls reserve device safe areas", async ({ page }) => {
   expect(rightStyle).toContain("safe-area-inset-right");
   expect(rightStyle).toContain("safe-area-inset-bottom");
 
-  const presetOne = page.getByTestId("flight-preset-1");
-  await presetOne.focus();
-  await page.keyboard.down("Space");
+  await page.getByTestId("button-pause").click();
+  await expect(page.getByTestId("button-resume-sortie")).toBeVisible();
+  const resume = page.getByTestId("button-resume-sortie");
+  await resume.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("button-pause")).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__controlsTest?.getFiring?.())).toBe(false);
-  await page.keyboard.up("Space");
-  await expect(presetOne).toHaveAttribute("aria-pressed", "true");
-
-  const presetTwo = page.getByTestId("flight-preset-2");
-  await expect(presetTwo).toHaveCSS("opacity", "1", { timeout: 6000 });
-  await presetTwo.focus();
-  await expect(presetTwo).toBeFocused();
-  await presetTwo.press("Enter");
-  await expect(presetTwo).toHaveAttribute("aria-pressed", "true");
 
   for (const viewportSize of [{ width: 844, height: 390 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewportSize);
