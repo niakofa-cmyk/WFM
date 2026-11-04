@@ -270,12 +270,29 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                         <p className="mt-2 text-sm leading-relaxed text-muted">{operation.description}</p>
                         {instances.length === 0 ? (
                           <p data-testid={`status-no-live-${operation.id}`} className="mt-3 border-l border-bone/25 pl-2 text-xs text-muted">NO PUBLIC INSTANCE · No live multiplayer match or spectator feed is available.</p>
+                        ) : operation.experience === "cooperative" ? (
+                          <div className="mt-3 space-y-1 text-xs text-solar" data-testid={`status-live-${operation.id}`}>
+                            {instances.map((instance) => (
+                              <p key={instance.id}>{instance.phase.toUpperCase()} · {instance.currentPlayers}/{instance.capacity} PILOTS</p>
+                            ))}
+                            <p className="text-muted">Anonymous status only. Room codes and pilot identities are never listed here.</p>
+                          </div>
                         ) : (
                           <div className="mt-3 space-y-1 text-xs text-solar">
                             <p>{instances.length} server-registered solo session{instances.length === 1 ? "" : "s"} listed</p>
                             <p className="text-muted">These are not multiplayer matches; occupied seats cannot be joined.</p>
                           </div>
                         )}
+                        {operation.experience === "cooperative" && showSectorExpedition && atSite ? (
+                          <Link href="/expedition?mission=rust-disc" data-testid={`link-coop-${operation.id}`}
+                            className="mt-3 flex min-h-11 items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
+                            OPEN RUST DISC CO-OP AT CINDER RING
+                          </Link>
+                        ) : operation.experience === "cooperative" && route ? (
+                          <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
+                            {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
+                          </button>
+                        ) : null}
                         {operation.access === "local-training" && atSite ? (
                           <div className="mt-3">
                             <label className="flex min-h-11 items-center gap-3 text-xs text-muted">

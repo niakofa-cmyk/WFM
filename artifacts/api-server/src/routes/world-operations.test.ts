@@ -57,6 +57,8 @@ test("public directory and SSE publish read-only snapshots; registration require
       };
     },
     leave: async () => undefined,
+    syncCooperativeRoom: async () => undefined,
+    isAtCinderRing: async () => true,
   };
   const app = express();
   app.use(clerkMiddleware({
@@ -122,6 +124,8 @@ test("database failure returns a generic unavailable response without query deta
     getDirectory: async () => { throw new Error("relation operation_instances does not exist"); },
     register: async () => { throw new Error("database query detail"); },
     leave: async () => { throw new Error("database query detail"); },
+    syncCooperativeRoom: async () => undefined,
+    isAtCinderRing: async () => false,
   };
   const app = express().use(createWorldOperationsRouter(coordinator));
   const server = app.listen(0, "127.0.0.1");

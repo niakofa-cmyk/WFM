@@ -22,14 +22,24 @@ type Pilot = {
 };
 type Room = {
   code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
+  ownerUserId: string; publicListing: boolean; operationSync: Promise<void>;
   phase: SectorSnapshot["phase"]; tick: number; droneHull: number; touched: number;
   command: SectorTacticalCommand | null; commandAt: number | null;
   operation: IronEclipseState | null;
   flightSector: FlightSector;
 };
+export type SectorOperationPresence = {
+  instanceId: string;
+  ownerUserId: string;
+  phase: "assembling" | "ready" | "active" | "complete" | "closed";
+  currentPlayers: number;
+  visibility: "public" | "unlisted";
+};
 type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
   settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+  isAtCinderRing?: (userId: string) => Promise<boolean>;
+  publishOperation?: (state: SectorOperationPresence) => Promise<void>;
   /** Trusted dependency seam for tests; runtime always uses stepFlight. */
   physics?: typeof stepFlight;
 };
@@ -101,6 +111,29 @@ export function createSectorRuntime(options: Options) {
   const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
   const latencyProbeBudget = new WeakMap<WebSocket, number>();
   const physics = options.physics ?? stepFlight;
+  function publishOperationState(room: Room): void {
+    if (!options.publishOperation || room.mission.id !== "rust-disc") return;
+    const currentPlayers = room.pilots.filter((pilot) => pilot.socket?.readyState === WebSocket.OPEN).length;
+    const phase: SectorOperationPresence["phase"] = currentPlayers === 0 || room.phase === "interrupted" || room.phase === "failed"
+      ? "closed"
+      : room.phase === "complete"
+        ? "complete"
+        : room.phase === "active"
+          ? "active"
+          : room.pilots.length > 0 && room.pilots.every((pilot) => pilot.socket?.readyState === WebSocket.OPEN && pilot.ready)
+            ? "ready"
+            : "assembling";
+    const state = {
+      instanceId: room.matchId,
+      ownerUserId: room.ownerUserId,
+      phase,
+      currentPlayers,
+      visibility: room.publicListing ? "public" as const : "unlisted" as const,
+    };
+    room.operationSync = room.operationSync
+      .then(() => options.publishOperation!(state))
+      .catch(() => undefined);
+  }
   function publish(room: Room) {
     for (const own of room.pilots) {
       const snapshot: SectorSnapshot = {
@@ -158,7 +191,8 @@ export function createSectorRuntime(options: Options) {
     if (packet.type === "sector_join") {
       if (seats.has(socket) || loading.has(socket)) { error("already_joined"); return; }
       if (packet.version !== 1) { error("sector_version_mismatch"); return; }
-      if (Object.keys(packet).some(key => !["type", "version", "shipId"].includes(key))) { error("invalid_sector_join"); return; }
+      if (Object.keys(packet).some(key => !["type", "version", "shipId", "publicListing"].includes(key)) ||
+          (packet.publicListing !== undefined && typeof packet.publicListing !== "boolean")) { error("invalid_sector_join"); return; }
       const mission = sectorMission(missionId);
       if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||
           typeof packet.shipId !== "string" || !Object.hasOwn(SHIPS, packet.shipId)) { error("invalid_sector_join"); return; }
@@ -178,6 +212,16 @@ export function createSectorRuntime(options: Options) {
       if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
       let room = rooms.get(code);
       if (room && room.mission.id !== mission.id) { error("sector_mission_mismatch"); return; }
+      const publicOperationRequested = mission.id === "rust-disc" &&
+        (room ? room.publicListing : packet.publicListing === true);
+      if (publicOperationRequested) {
+        if (!options.isAtCinderRing) { error("operation_location_unavailable"); return; }
+        try {
+          if (!await options.isAtCinderRing(userId)) { error("operation_not_at_location"); return; }
+        } catch {
+          error("operation_location_unavailable"); return;
+        }
+      }
       const previousSeat = [...seats.entries()].find(([, seat]) => seat.pilot.userId === userId);
       if (previousSeat && previousSeat[1].room !== room) {
         error("sector_session_exists");
@@ -187,6 +231,7 @@ export function createSectorRuntime(options: Options) {
         if (rooms.size >= 32) { error("sector_capacity"); return; }
         room = {
           code, matchId: randomUUID(), mission, pilots: [], hostSlot: 0, phase: "lobby",
+          ownerUserId: userId, publicListing: packet.publicListing === true, operationSync: Promise.resolve(),
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
           command: null, commandAt: null,
           operation: mission.id === "iron-eclipse" ? createIronEclipseState(mission.sector) : null,
@@ -223,7 +268,7 @@ export function createSectorRuntime(options: Options) {
       }
       pilot.socket = socket; pilot.disconnectedAt = null; pilot.seq = -1;
       pilot.input = neutral(); pilot.lastInput = now; pilot.progress = progress;
-      seats.set(socket, { room, pilot }); room.touched = now; publish(room); return;
+      seats.set(socket, { room, pilot }); room.touched = now; publish(room); publishOperationState(room); return;
     }
     const seat = seats.get(socket);
     if (!seat || seat.pilot.userId !== userId) { error("sector_join_required"); return; }
@@ -242,12 +287,12 @@ export function createSectorRuntime(options: Options) {
     room.touched = now;
     if (packet.type === "sector_ready") {
       if (Object.keys(packet).length !== 2 || typeof packet.ready !== "boolean" || room.phase !== "lobby") { error("invalid_sector_ready"); return; }
-      pilot.ready = packet.ready; publish(room); return;
+      pilot.ready = packet.ready; publish(room); publishOperationState(room); return;
     }
     if (packet.type === "sector_launch") {
       if (Object.keys(packet).length !== 1 || room.phase !== "lobby" || pilot.slot !== room.hostSlot) { error("sector_host_required"); return; }
       if (!room.pilots.every(p => p.socket?.readyState === WebSocket.OPEN && p.ready)) { error("sector_all_pilots_ready_required"); return; }
-      room.phase = "active"; publish(room); return;
+      room.phase = "active"; publish(room); publishOperationState(room); return;
     }
     if (packet.type === "sector_input") {
       const input = parseSectorInput(packet.input);
@@ -347,7 +392,7 @@ export function createSectorRuntime(options: Options) {
       room.pilots = room.pilots.filter(p => p !== pilot);
       room.hostSlot = room.pilots[0]?.slot ?? 0;
     }
-    room.touched = now; publish(room);
+    room.touched = now; publish(room); publishOperationState(room);
   }
   function advance(now = Date.now()) {
     if (closed) return;
@@ -430,6 +475,7 @@ export function createSectorRuntime(options: Options) {
             completeIronEclipse(room.operation, succeeded);
             room.phase = succeeded ? "complete" : "failed";
           } else room.phase = "complete";
+          publishOperationState(room);
         }
       }
     }
@@ -440,7 +486,7 @@ export function createSectorRuntime(options: Options) {
       }
       if (!room.pilots.some(p => p.socket?.readyState === WebSocket.OPEN) && now - room.touched > 10000) rooms.delete(code);
       else if (room.phase === "lobby" && now - room.touched > 900000) {
-        room.phase = "interrupted"; publish(room);
+        room.phase = "interrupted"; publish(room); publishOperationState(room);
         for (const pilot of room.pilots) pilot.socket?.close(4002, "Lobby expired");
       }
       if (now - lastSnapshot >= 100) publish(room);
@@ -449,13 +495,16 @@ export function createSectorRuntime(options: Options) {
   }
   return {
     handle, detach, advance,
+    async flushOperationUpdates() {
+      await Promise.all([...rooms.values()].map((room) => room.operationSync));
+    },
     get roomCount() { return rooms.size; },
     async close() {
       closed = true;
       const pending: Promise<void>[] = [];
       for (const room of rooms.values()) {
         if (room.phase === "active" || room.phase === "lobby") room.phase = "interrupted";
-        publish(room);
+        publish(room); publishOperationState(room);
         for (const pilot of room.pilots) {
           if (pilot.settling) pending.push(pilot.settling);
           send(pilot.socket, { type: "interrupted", reason: "server_restart" });
@@ -463,6 +512,7 @@ export function createSectorRuntime(options: Options) {
         }
       }
       await Promise.all(pending);
+      await Promise.all([...rooms.values()].map((room) => room.operationSync));
       seats.clear(); rooms.clear(); loading.clear(); joiningUsers.clear();
     },
   };

@@ -33,7 +33,7 @@ const ENABLED = expeditionFeatureEnabled({
 const HANDSHAKE_TIMEOUT_MS = 8000;
 
 type View = "select" | "connecting" | "lobby" | "flight" | "debrief" | "error";
-type Session = { missionId: SectorMissionId; room: string; shipId: ShipId };
+type Session = { missionId: SectorMissionId; room: string; shipId: ShipId; publicListing: boolean };
 type Connection = ExpeditionTransport["connection"];
 
 export function SectorExpedition() {
@@ -79,6 +79,7 @@ function ExpeditionClient() {
   const [missionId, setMissionId] = useState<SectorMissionId>(() => parseExpeditionMission(expeditionSearch) ?? "rust-disc");
   const [shipId, setShipId] = useState<ShipId>("glide");
   const [codeInput, setCodeInput] = useState("");
+  const [publicListing, setPublicListing] = useState(false);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
   const [progress, setProgress] = useState<SectorProgress | null>(null);
   const [connection, setConnection] = useState<Connection>("connected");
@@ -205,7 +206,7 @@ function ExpeditionClient() {
       if (packet.type === "authenticated") {
         if (authedRef.current) return;
         authedRef.current = true;
-        send({ type: "sector_join", version: 1, shipId: session.shipId });
+        send({ type: "sector_join", version: 1, shipId: session.shipId, publicListing: session.publicListing });
         return;
       }
       if (packet.type === "sector_snapshot") {
@@ -240,14 +241,14 @@ function ExpeditionClient() {
 
   useEffect(() => () => closeSocket(), [closeSocket]);
 
-  const start = (room: string) => {
+  const start = (room: string, create: boolean) => {
     const code = normalizeRoomCode(room);
     if (!isValidRoomCode(code)) { setNotice("Invitation codes are 6-24 letters, numbers or hyphens."); return; }
     const mission = sectorMission(missionId);
     if (!mission) return;
     if (missionLockState(mission, progress) === "locked") { setNotice("Complete the prerequisite mission first."); return; }
     closeSocket();
-    const session = { missionId, room: code, shipId };
+    const session = { missionId, room: code, shipId, publicListing: create && missionId === "rust-disc" && publicListing };
     sessionRef.current = session;
     snapshotRef.current = null; joinedRef.current = false; deadlineRef.current = null;
     setSnapshot(null); setError(""); setNotice(""); setConnection("connected"); setView("connecting");
@@ -306,7 +307,8 @@ function ExpeditionClient() {
 
         {view === "select" ? (
           <Select missionId={missionId} setMissionId={setMissionId} progress={progress} shipId={shipId} setShipId={setShipId}
-            code={codeInput} setCode={setCodeInput} onCreate={() => start(codeInput && isValidRoomCode(normalizeRoomCode(codeInput)) ? codeInput : generateRoomCode())} onJoin={() => start(codeInput)} />
+            code={codeInput} setCode={setCodeInput} publicListing={publicListing} setPublicListing={setPublicListing}
+            onCreate={() => start(codeInput && isValidRoomCode(normalizeRoomCode(codeInput)) ? codeInput : generateRoomCode(), true)} onJoin={() => start(codeInput, false)} />
         ) : null}
         {view === "connecting" ? <Connecting room={sessionRef.current?.room ?? ""} reconnecting={connection === "reconnecting"} onCancel={leave} /> : null}
         {view === "lobby" && snapshot ? (
@@ -349,7 +351,8 @@ const LOCK_LABEL: Record<MissionLock, string> = { open: "OPEN", locked: "LOCKED"
 
 function Select(props: {
   missionId: SectorMissionId; setMissionId: (m: SectorMissionId) => void; progress: SectorProgress | null;
-  shipId: ShipId; setShipId: (s: ShipId) => void; code: string; setCode: (c: string) => void; onCreate: () => void; onJoin: () => void;
+  shipId: ShipId; setShipId: (s: ShipId) => void; code: string; setCode: (c: string) => void;
+  publicListing: boolean; setPublicListing: (value: boolean) => void; onCreate: () => void; onJoin: () => void;
 }) {
   const selected = sectorMission(props.missionId)!;
   const lock = missionLockState(selected, props.progress);
@@ -422,6 +425,12 @@ function Select(props: {
             <button type="button" disabled={lock === "locked" || !isValidRoomCode(code)} onClick={props.onJoin} data-testid="button-expedition-join"
               className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest disabled:opacity-50">JOIN CODE</button>
           </div>
+          {props.missionId === "rust-disc" ? (
+            <label className="mt-3 flex min-h-11 items-start gap-3 border-l border-spectral/50 pl-3 text-xs text-muted">
+              <input type="checkbox" checked={props.publicListing} onChange={(event) => props.setPublicListing(event.currentTarget.checked)} className="mt-0.5 h-5 w-5 accent-[#79bfff]" />
+              <span>For rooms you create at Cinder Ring, list anonymous operation status publicly. Room codes and pilot identities stay private.</span>
+            </label>
+          ) : null}
           <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Expeditions award 0 credits; they record discoveries and unlocks only.</p>
         </div>
       </CommandPanel>

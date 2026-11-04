@@ -49,6 +49,21 @@ const enableSectorFlight = sectorFlightEnabled(process.env);
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
+const operationNetwork = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+  ? await import("../game/operation-network")
+  : undefined;
+const publishSectorOperation = operationNetwork
+  ? async (state: Parameters<typeof operationNetwork.operationCoordinator.syncCooperativeRoom>[0]) => {
+      try {
+        await operationNetwork.operationCoordinator.syncCooperativeRoom(state);
+      } catch (error) {
+        process.stderr.write(`${JSON.stringify({
+          event: "operation_presence_sync_failed",
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        })}\n`);
+      }
+    }
+  : undefined;
 
 const runtime = await startWingSocketServer(port, "0.0.0.0", {
   allowedOrigins,
@@ -60,6 +75,8 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableSectorFlight,
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
+  isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
+  publishSectorOperation,
 });
 process.stdout.write(`Wing socket server listening on ${runtime.port}\n`);
 

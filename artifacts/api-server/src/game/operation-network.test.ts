@@ -5,6 +5,7 @@ import {
   RegisterWorldOperationInstanceResponse,
 } from "@workspace/api-zod";
 import {
+  CINDER_COOPERATIVE_EXPEDITION,
   createOperationCoordinator,
   OperationError,
   type OperationStore,
@@ -36,10 +37,47 @@ function memoryStore(): OperationStore {
         id: crypto.randomUUID(),
         ...input,
         status: "active",
+        phase: "active",
+        currentPlayers: 1,
+        capacity: 1,
         updatedAt: input.registeredAt,
       };
       rows.push(row);
       return row;
+    },
+    async syncCooperativeRoom(input) {
+      const row = rows.find((candidate) => candidate.ownerUserId === input.ownerUserId && candidate.idempotencyKey === input.idempotencyKey);
+      if (row) {
+        Object.assign(row, {
+          phase: input.phase,
+          currentPlayers: input.currentPlayers,
+          capacity: CINDER_COOPERATIVE_EXPEDITION.capacity,
+          visibility: input.visibility,
+          status: input.phase === "closed" || input.phase === "complete" ? "closed" : "active",
+          updatedAt: input.registeredAt,
+          expiresAt: input.expiresAt,
+        });
+        return row;
+      }
+      const created: OperationInstanceRecord = {
+        id: crypto.randomUUID(),
+        ownerUserId: input.ownerUserId,
+        operationId: CINDER_COOPERATIVE_EXPEDITION.id,
+        locationId: CINDER_COOPERATIVE_EXPEDITION.locationId,
+        idempotencyKey: input.idempotencyKey,
+        runtimeId: CINDER_COOPERATIVE_EXPEDITION.runtimeId,
+        rulesetId: CINDER_COOPERATIVE_EXPEDITION.rulesetId,
+        status: input.phase === "closed" || input.phase === "complete" ? "closed" : "active",
+        visibility: input.visibility,
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        capacity: CINDER_COOPERATIVE_EXPEDITION.capacity,
+        registeredAt: input.registeredAt,
+        updatedAt: input.registeredAt,
+        expiresAt: input.expiresAt,
+      };
+      rows.push(created);
+      return created;
     },
     async closeOwned(ownerUserId, instanceId, now) {
       const row = rows.find((candidate) => candidate.id === instanceId && candidate.ownerUserId === ownerUserId && candidate.status === "active");
@@ -50,6 +88,35 @@ function memoryStore(): OperationStore {
     },
   };
 }
+
+test("cooperative operation directory exposes safe occupancy and removes terminal rooms", async () => {
+  const coordinator = createOperationCoordinator(memoryStore());
+  const roomId = crypto.randomUUID();
+  await coordinator.syncCooperativeRoom({
+    instanceId: roomId,
+    ownerUserId: "private-owner-id",
+    phase: "assembling",
+    currentPlayers: 3,
+    visibility: "public",
+  });
+  const active = await coordinator.getDirectory();
+  const operation = active.operations.find((entry) => entry.id === CINDER_COOPERATIVE_EXPEDITION.id);
+  assert.equal(operation?.experience, "cooperative");
+  assert.deepEqual(
+    active.instances.map(({ operationId, phase, currentPlayers, capacity }) => ({ operationId, phase, currentPlayers, capacity })),
+    [{ operationId: CINDER_COOPERATIVE_EXPEDITION.id, phase: "assembling", currentPlayers: 3, capacity: 8 }],
+  );
+  assert.equal(JSON.stringify(active).includes("private-owner-id"), false);
+
+  await coordinator.syncCooperativeRoom({
+    instanceId: roomId,
+    ownerUserId: "private-owner-id",
+    phase: "closed",
+    currentPlayers: 0,
+    visibility: "public",
+  });
+  assert.deepEqual((await coordinator.getDirectory()).instances, []);
+});
 
 test("operation entry requires arrival at the server-owned asteroid location", async () => {
   const coordinator = createOperationCoordinator(memoryStore(), async () => "rust-disc");

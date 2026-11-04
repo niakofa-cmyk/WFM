@@ -111,7 +111,7 @@ export type SectorSnapshot = {
   operation?: IronEclipseSnapshot;
 };
 export type SectorClientPacket =
-  | { type: "sector_join"; version: 1; shipId: ShipId }
+  | { type: "sector_join"; version: 1; shipId: ShipId; publicListing?: boolean }
   | { type: "sector_ready"; ready: boolean }
   | { type: "sector_launch" }
   | { type: "sector_input"; seq: number; input: FlightInput }

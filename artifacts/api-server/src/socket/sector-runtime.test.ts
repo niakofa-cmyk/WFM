@@ -59,6 +59,47 @@ test("latency probes require a joined seat, echo only valid nonces, and are thro
     { type: "sector_ping", nonce: 2 }, 2000);
   assert.deepEqual(pilot.packets.at(-1), { type: "sector_pong", nonce: 2 });
 });
+test("public Rust Disc operation presence is opt-in, location-gated, anonymous, and follows room lifecycle", async () => {
+  const presence: Array<Record<string, unknown>> = [];
+  const atCinder = new Set(["pilot-a", "pilot-b"]);
+  const runtime = createSectorRuntime({
+    isAtCinderRing: async userId => atCinder.has(userId),
+    publishOperation: async state => { presence.push(state); },
+  });
+  const outside = socket();
+  await runtime.handle(outside.ws, "pilot-outside", "rust-disc", "cinder-room",
+    { type: "sector_join", version: 1, shipId: "glide", publicListing: true }, 0);
+  assert.equal(outside.packets.at(-1).reason, "operation_not_at_location");
+  assert.equal(presence.length, 0);
+
+  const a = socket(), b = socket();
+  await runtime.handle(a.ws, "pilot-a", "rust-disc", "cinder-room",
+    { type: "sector_join", version: 1, shipId: "glide", publicListing: true }, 1);
+  await runtime.handle(b.ws, "pilot-b", "rust-disc", "cinder-room",
+    { type: "sector_join", version: 1, shipId: "mandjet" }, 2);
+  await runtime.flushOperationUpdates();
+  assert.equal(presence.at(-1)?.visibility, "public");
+  assert.equal(presence.at(-1)?.phase, "assembling");
+  assert.equal(presence.at(-1)?.currentPlayers, 2);
+  assert.equal(presence.at(-1)?.ownerUserId, "pilot-a");
+  assert.equal("roomCode" in presence.at(-1)!, false);
+
+  await runtime.handle(a.ws, "pilot-a", "rust-disc", "cinder-room", { type: "sector_ready", ready: true }, 3);
+  await runtime.handle(b.ws, "pilot-b", "rust-disc", "cinder-room", { type: "sector_ready", ready: true }, 4);
+  await runtime.handle(a.ws, "pilot-a", "rust-disc", "cinder-room", { type: "sector_launch" }, 5);
+  await runtime.flushOperationUpdates();
+  assert.equal(presence.at(-1)?.phase, "active");
+  assert.equal(presence.at(-1)?.currentPlayers, 2);
+
+  runtime.detach(b.ws, 6);
+  await runtime.flushOperationUpdates();
+  assert.equal(presence.at(-1)?.currentPlayers, 1);
+  runtime.detach(a.ws, 7);
+  await runtime.flushOperationUpdates();
+  assert.equal(presence.at(-1)?.phase, "closed");
+  assert.equal(presence.at(-1)?.currentPlayers, 0);
+  await runtime.close();
+});
 test("tactical command packets accept only the four exact, bounded order shapes", () => {
   assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "attack" }), { type: "sector_command", order: "attack" });
   assert.deepEqual(parseSectorCommand({ type: "sector_command", order: "regroup" }), { type: "sector_command", order: "regroup" });

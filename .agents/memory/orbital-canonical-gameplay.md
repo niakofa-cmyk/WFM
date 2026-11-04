@@ -25,12 +25,21 @@ authority together. Never claim a live instance without server evidence.
 Preserve no-reward training, replay compatibility, auth, room/reward safeguards,
 and rollback.
 
-**Current slice:** Cinder Ring is a server-defined, travelable asteroid, and the
-public OON directory advertises its local `flight-sector-v1` training circuit.
-Authenticated, single-seat operation registration and an anonymous opt-in status
-stream are in workspace code. The additive operation schema is applied to the
-user-confirmed staging database; the public directory currently has no active
-instances/events until a player registers a session.
+**Current slice:** Cinder Ring is a server-defined, travelable asteroid. Its
+directory contains both the local `flight-sector-v1` training circuit and the
+Rust Disc cooperative operation. Cooperative presence is published only after
+explicit room-creator opt-in and server confirmation that each pilot is at Cinder
+Ring. The public directory exposes phase and occupancy only, never room codes,
+user IDs, or callsigns. Wing rewards and Rust Disc no-credit settlement remain
+separate. The additive operation schema is applied to the user-confirmed staging
+database; the directory has no active instances until a player registers a session.
+
+**Why:** a public operation board must report genuine, location-backed activity
+without turning private invitation rooms or pilot identities into public data.
+
+**How to apply:** keep room visibility opt-in and default-private, validate
+location on the server, and publish aggregate status only. Never infer a live
+match from a catalog entry or change Wing reward rules through this directory.
 
 **Why:** application code and catalog definitions do not create live operations;
 the server must register each session and publish only its actual lifecycle.

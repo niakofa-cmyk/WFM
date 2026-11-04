@@ -2,6 +2,7 @@ import { and, eq, gt, lte } from "drizzle-orm";
 import {
   db,
   operationInstancesTable,
+  type OperationInstancePhase,
   type OperationInstanceRecord,
 } from "@workspace/db";
 import type {
@@ -35,7 +36,23 @@ export const CINDER_CIRCUIT = {
   rewardPolicy: "none" as const,
 };
 
-const OPERATION_DEFINITIONS: OperationDirectoryResponse["operations"] = [CINDER_CIRCUIT];
+export const CINDER_COOPERATIVE_EXPEDITION = {
+  id: "cinder-ring-rust-disc-coop",
+  title: "Cinder Ring · Rust Disc Expedition",
+  description: "A server-run cooperative Rust Disc operation at Cinder Ring. Public room status is shared only when its creator opts in; invitation codes and pilot identities stay private.",
+  locationId: LOCATION.id,
+  experience: "cooperative" as const,
+  runtimeId: "rust-disc-expedition-v1",
+  rulesetId: "rust-disc-coop-v1",
+  teamSize: 8,
+  capacity: 8,
+  visibility: "public" as const,
+  lifecycle: "on-demand" as const,
+  access: "invitation" as const,
+  rewardPolicy: "none" as const,
+};
+
+const OPERATION_DEFINITIONS: OperationDirectoryResponse["operations"] = [CINDER_CIRCUIT, CINDER_COOPERATIVE_EXPEDITION];
 const ACTIVE_TTL_MS = 45 * 60 * 1000;
 
 export class OperationError extends Error {
@@ -55,6 +72,15 @@ export interface OperationStore {
     idempotencyKey: string;
     runtimeId: string;
     rulesetId: string;
+    visibility: "public" | "unlisted";
+    registeredAt: Date;
+    expiresAt: Date;
+  }): Promise<OperationInstanceRecord>;
+  syncCooperativeRoom?(input: {
+    ownerUserId: string;
+    idempotencyKey: string;
+    phase: OperationInstancePhase;
+    currentPlayers: number;
     visibility: "public" | "unlisted";
     registeredAt: Date;
     expiresAt: Date;
@@ -104,6 +130,9 @@ const databaseStore: OperationStore = {
         const [record] = await tx.insert(operationInstancesTable).values({
           ...input,
           status: "active",
+          phase: "active",
+          currentPlayers: 1,
+          capacity: 1,
         }).returning();
         if (!record) throw new Error("Operation registration returned no record.");
         return record;
@@ -116,6 +145,36 @@ const databaseStore: OperationStore = {
       if (isUniqueViolation(error)) throw new OperationError("You already have an active operation seat.", 409);
       throw error;
     }
+  },
+  async syncCooperativeRoom(input) {
+    const [record] = await db.insert(operationInstancesTable).values({
+      ownerUserId: input.ownerUserId,
+      operationId: CINDER_COOPERATIVE_EXPEDITION.id,
+      locationId: LOCATION.id,
+      idempotencyKey: input.idempotencyKey,
+      runtimeId: CINDER_COOPERATIVE_EXPEDITION.runtimeId,
+      rulesetId: CINDER_COOPERATIVE_EXPEDITION.rulesetId,
+      status: input.phase === "closed" || input.phase === "complete" ? "closed" : "active",
+      visibility: input.visibility,
+      phase: input.phase,
+      currentPlayers: input.currentPlayers,
+      capacity: CINDER_COOPERATIVE_EXPEDITION.capacity,
+      registeredAt: input.registeredAt,
+      updatedAt: input.registeredAt,
+      expiresAt: input.expiresAt,
+    }).onConflictDoUpdate({
+      target: [operationInstancesTable.ownerUserId, operationInstancesTable.idempotencyKey],
+      set: {
+        status: input.phase === "closed" || input.phase === "complete" ? "closed" : "active",
+        visibility: input.visibility,
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        updatedAt: input.registeredAt,
+        expiresAt: input.expiresAt,
+      },
+    }).returning();
+    if (!record) throw new Error("Cooperative operation sync returned no record.");
+    return record;
   },
   async closeOwned(ownerUserId, instanceId, now) {
     const [record] = await db.update(operationInstancesTable).set({
@@ -141,9 +200,9 @@ function toInstance(record: OperationInstanceRecord, now: Date): OperationDirect
     id: record.id,
     operationId: record.operationId,
     locationId: CINDER_CIRCUIT.locationId,
-    phase: isActive ? "active" : "closed",
-    currentPlayers: isActive ? 1 : 0,
-    capacity: 1,
+    phase: isActive ? record.phase : "closed",
+    currentPlayers: isActive ? record.currentPlayers : 0,
+    capacity: record.capacity,
     runtimeId: record.runtimeId,
     rulesetId: record.rulesetId,
     visibility: record.visibility,
@@ -168,7 +227,7 @@ export function buildOperationDirectory(
       locationId: CINDER_CIRCUIT.locationId,
       operationInstanceId: record.id,
       status: "active" as const,
-      title: "Cinder Asteroid Circuit is active",
+      title: `${OPERATION_DEFINITIONS.find((operation) => operation.id === record.operationId)?.title ?? "Cinder operation"} is active`,
     })),
   };
 }
@@ -220,6 +279,32 @@ export function createOperationCoordinator(
       if (!await store.closeOwned(ownerUserId, instanceId, now())) {
         throw new OperationError("Operation seat not found.", 404);
       }
+    },
+    async isAtCinderRing(userId: string): Promise<boolean> {
+      const world = await getWorldSnapshot(userId);
+      return world.currentLocation === LOCATION.worldLocationId;
+    },
+    async syncCooperativeRoom(input: {
+      instanceId: string;
+      ownerUserId: string;
+      phase: OperationInstancePhase;
+      currentPlayers: number;
+      visibility: "public" | "unlisted";
+    }): Promise<void> {
+      if (!store.syncCooperativeRoom) throw new Error("Cooperative operation storage is unavailable.");
+      const currentTime = now();
+      if (!Number.isInteger(input.currentPlayers) || input.currentPlayers < 0 || input.currentPlayers > CINDER_COOPERATIVE_EXPEDITION.capacity) {
+        throw new Error("Cooperative operation occupancy is out of bounds.");
+      }
+      await store.syncCooperativeRoom({
+        ownerUserId: input.ownerUserId,
+        idempotencyKey: input.instanceId,
+        phase: input.phase,
+        currentPlayers: input.currentPlayers,
+        visibility: input.visibility,
+        registeredAt: currentTime,
+        expiresAt: new Date(currentTime.getTime() + ACTIVE_TTL_MS),
+      });
     },
   };
 }

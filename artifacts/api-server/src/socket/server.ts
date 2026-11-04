@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
-import { createSectorRuntime } from "./sector-runtime";
+import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
 import { sectorMission, type SectorProgress } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
@@ -110,6 +110,8 @@ export async function startWingSocketServer(
     enableSectorFlight?: boolean;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+    isAtCinderRing?: (userId: string) => Promise<boolean>;
+    publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     casualAiFillWaitMs?: number;
     /**
      * Trusted server-only resolver. It must return "competitive" only for
@@ -129,6 +131,8 @@ export async function startWingSocketServer(
   const sectorRuntime = createSectorRuntime({
     loadProgress: options.loadSectorProgress,
     settle: options.settleSectorDiscovery,
+    isAtCinderRing: options.isAtCinderRing,
+    publishOperation: options.publishSectorOperation,
   });
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
