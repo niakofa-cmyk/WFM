@@ -178,6 +178,7 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
       <Suspense fallback={<div className="sf" role="status">Loading combat systems...<style>{css}</style></div>}>
         <Arena
           key={run}
+          modeId="solo-flight"
           runtime={LEGACY_SURFACE_RUNTIME_ID}
           shipId={ship}
           faction={def.faction}

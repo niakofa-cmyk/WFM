@@ -25,7 +25,13 @@ import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
-import { ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
+import {
+  createOrbitalRuntime,
+  getGameModeDefinition,
+  ORBITAL_RUNTIME_ID,
+  type CombatRuntimeId,
+  type GameModeId,
+} from "@workspace/orbital-sim";
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -101,6 +107,8 @@ type ArenaProps = {
   online?: OnlineRoom;
   /** Required so every Arena caller states its runtime instead of silently falling back. */
   runtime: CombatRuntimeId;
+  /** The operation contract is checked against the selected simulation at launch. */
+  modeId: GameModeId;
   orbitalCampaign?: boolean;
 };
 
@@ -486,9 +494,16 @@ export function Arena({
   localEndurance = false,
   online,
   runtime,
+  modeId,
   orbitalCampaign = false,
 }: ArenaProps) {
+  const modeDefinition = getGameModeDefinition(modeId);
+  if (modeDefinition.simulation.runtimeId !== runtime) {
+    throw new Error(`Mode ${modeId} is configured for ${modeDefinition.simulation.runtimeId}, not ${runtime}.`);
+  }
   const orbital = runtime === ORBITAL_RUNTIME_ID;
+  const orbitalRuntime = orbital ? createOrbitalRuntime(modeDefinition) : null;
+  if (orbital && !orbitalRuntime) throw new Error("Orbital runtime initialization failed.");
   if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
   const telemetryRef = useRef<HTMLParagraphElement>(null);

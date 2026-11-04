@@ -1,4 +1,4 @@
-- [Master development directive](master-development-directive.md) — WFM consolidation starts with a code-backed inventory; preserve proven auth, Wing rewards, progression, and rollback during migration.
+- [Master development directive](master-development-directive.md) — use the latest open-universe directive, Rust Disc controls, and code-backed mode inventory; preserve authority and rollback during migration.
 - [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
 - [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.

@@ -32,7 +32,9 @@ test("mode adapters preserve compatible controls and make unsupported legacy beh
     boost: true, brake: true, drift: true, inertial: true, missile: true, aimAssist: true,
   });
   assert.equal(orbital.throttle, -0.5);
-  assert.equal(orbital.strafe, 0.6);
+  assert.equal(orbital.yaw, -0.2);
+  assert.equal(orbital.roll, 0.3);
+  assert.equal(orbital.strafe, -0.6);
   assert.equal(orbital.vertical, 0.4);
   assert.equal(orbital.drift, true);
   assert.equal(orbital.inertial, true);

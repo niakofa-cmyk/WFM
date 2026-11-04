@@ -1,7 +1,7 @@
 import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
 import { toOrbitalStepInput } from "./flight-control";
-import { COORDINATED_BANK, type ManeuverPulse } from "./pilot-stick-gestures";
+import { COORDINATED_BANK, mapFlightStickAxes, type ManeuverPulse } from "./pilot-stick-gestures";
 
 export type Bus = {
   keys: Set<string>;
@@ -144,13 +144,20 @@ export function readInput(bus: Bus): StepInput {
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
   const keyYaw = keyLeft - keyRight;
+  const keyFlightYaw = keyRight - keyLeft;
   const keyThr =
     (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
     (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
-  const stickYaw = -bus.leftX;
+  const orbitalFlightStick = bus.orbital && bus.leftStickFlight
+    ? mapFlightStickAxes(bus.leftX, bus.leftY)
+    : null;
+  const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
   const stickThr = -bus.leftY;
-  const aimYaw = -bus.rightX;
-  const flightYaw = bus.leftStickFlight ? clamp(keyYaw + stickYaw) : 0;
+  const orbitalAim = bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null;
+  const aimYaw = orbitalAim?.yaw ?? -bus.rightX;
+  const flightYaw = bus.leftStickFlight
+    ? clamp((bus.orbital ? keyFlightYaw : keyYaw) + (orbitalFlightStick?.yaw ?? stickYaw))
+    : 0;
   let yaw = 0;
   let strafe = 0;
   if (bus.orbital && bus.leftStickFlight) {
@@ -164,8 +171,9 @@ export function readInput(bus: Bus): StepInput {
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
   const throttle = clamp(bus.orbital ? keyThr : keyThr + stickThr);
-  const flightPitch = bus.orbital && bus.leftStickFlight ? -bus.leftY : 0;
-  const pitch = clamp(-bus.rightY + bus.gyroPitch + flightPitch);
+  const flightPitch = orbitalFlightStick?.pitch ?? 0;
+  const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
+  const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
   const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
   const fDown = keys.has("KeyF");
   const ult = bus.ultPulse || (fDown && !bus.fWas);
@@ -199,9 +207,9 @@ export function readInput(bus: Bus): StepInput {
     bus.aimAssistPulse = false;
     const result = toOrbitalStepInput({
       throttle, yaw,
-      strafe: clamp(axis("KeyZ", "KeyX") - (bus.leftStickFlight ? bus.strafePulse : bus.leftX)),
+      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX)),
       pitch: clamp(pitch + axis("KeyI", "KeyK")),
-      roll: clamp(axis("KeyQ", "KeyE") + flightYaw * COORDINATED_BANK),
+      roll: clamp((bus.orbital ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
       vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),

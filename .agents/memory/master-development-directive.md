@@ -4,10 +4,10 @@ description: Owner-designated execution order and consolidation rules for Infini
 ---
 
 The latest complete owner directive is retained at
-`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt`.
-Its code-grounded companion is
-`docs/infinite-war/MASTER-ENGINE-FEATURE-EXTRACTION.md`; the broader product
-direction remains in `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md`.
+`attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-DEVELOPMENT-DIRECT_1793833233901.txt`.
+Its code-grounded mode inventory and implementation sequence are in
+`docs/infinite-war/INFINITE-UNIVERSE-ORBITAL-RUNTIME-DIRECTION.md`. Earlier
+consolidation evidence remains in `docs/infinite-war/MASTER-ENGINE-FEATURE-EXTRACTION.md`.
 
 The directive is the leading execution reference for WFM consolidation. Its
 engine rule is one canonical Orbital Combat foundation, with Rust Disc, Iron
@@ -26,3 +26,10 @@ matchmaking/rewards, co-op progression, campaign claims, and account data.
 Integrate one versioned slice at a time; keep training no-reward; do not claim
 mobile performance, live ten-human orbital combat, or full mode migration without
 their acceptance evidence.
+
+The new directive also makes Rust Disc's pilot-facing control mapping a required
+behavioral reference and defines the desired continuous Mars-to-deep-space
+universe. Keep the distinction between that target and the current bounded
+sector/navigation implementation explicit. A shared `GameModeDefinition` and
+Orbital launch bootstrap must prevent a mode from claiming canonical status
+before its simulation and authority path actually migrate.

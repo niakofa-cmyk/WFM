@@ -1131,6 +1131,15 @@ export function WarApp() {
       <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
+        modeId={
+          onlineSession
+            ? "wing-online"
+            : arenaRuntime === ORBITAL_RUNTIME_ID
+              ? runConfig
+                ? "campaign-contact"
+                : "local-arena-practice"
+              : "campaign-sortie"
+        }
         runtime={arenaRuntime}
         shipId={runConfig?.shipId ?? save.ship}
         faction={runFaction}
