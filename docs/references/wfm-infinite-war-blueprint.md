@@ -6,6 +6,14 @@ The owner's complete 772-line master plan is retained unchanged at:
 
 `attached_assets/Pasted-WAR-FOR-MARS-The-Infinite-War-Open-Universe-Multiplayer_1793690415379.txt`
 
+The newer, code-consolidation directive is retained unchanged at:
+
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-THE-INFINITE_1793752668891.txt`
+
+Use `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md` as the execution
+companion for that directive and its current repository audit. It governs
+integration order; this guide remains the primary product-vision reference.
+
 This guide records its central product decision and how to apply it to the
 current WFM codebase. It is not a claim that the full vision is already
 implemented.

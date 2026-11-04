@@ -7,6 +7,9 @@ The owner's complete 772-line blueprint is preserved at
 `attached_assets/Pasted-WAR-FOR-MARS-The-Infinite-War-Open-Universe-Multiplayer_1793690415379.txt`.
 The project-facing summary and implementation interpretation are in
 `docs/references/wfm-infinite-war-blueprint.md`.
+The owner-designated master execution directive is preserved at
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-THE-INFINITE_1793752668891.txt`;
+its current code-grounded audit is in `docs/infinite-war/`.
 
 The defining principle is: **“The universe is the battlefield. Every
 competitive engagement is an operation within the larger war. Every operation

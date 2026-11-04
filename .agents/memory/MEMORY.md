@@ -1,3 +1,4 @@
+- [Master development directive](master-development-directive.md) — WFM consolidation starts with a code-backed inventory; preserve proven auth, Wing rewards, progression, and rollback during migration.
 - [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
 - [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; competitive needs ten humans; AI-fill resets its 30-second countdown per pilot.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.

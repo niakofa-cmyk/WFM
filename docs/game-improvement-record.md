@@ -1,5 +1,34 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-03 — Master Infinite War directive and Stage A audit
+
+Read the full owner-supplied 653-line master development directive and retained
+the original file unchanged under `attached_assets/`. Made it the leading
+execution reference through `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md`
+and a durable project-memory pointer.
+
+Completed the directive's first required delivery stage as a repository-grounded
+source/test audit: `FORENSIC-INVENTORY.md` classifies current systems;
+`ARCHITECTURE-ASSESSMENT.md` records current authority boundaries and a target
+integration sequence; `FEATURE-INTEGRATION-MATRIX.md` maps each retained system
+to its destination and first acceptance proof. The audit confirms that account,
+progression, world, cooperative sectors, Iron Eclipse, and Wing services exist,
+but the 5v5 Wing simulation is not yet integrated into the 3D sector combat
+protocol. The Combat Lab remains offline/no-reward. No duplicate auth, profile,
+inventory, or reward system was introduced; no existing feature was deleted.
+
+The audit used the current local refs, not live GitHub PR status or Railway
+deployment metadata. At the time checked, the working tree was on
+`integration/infinite-war-orbital-combat`; local `staging` was `f1c8b62`,
+`origin/staging` was `6671d36`, local `main` was `4b31352`, and `origin/main`
+was `3ecff67`. These are repository refs only and must not be represented as
+deployed revisions.
+
+This is Stage A documentation and planning evidence, not a completed unified
+player journey, ten-human 3D warfront, Production release, or physical-device
+verification. The next implementation slice must use these audited contracts
+and keep any client/API/socket migration coordinated and reversible.
+
 ## 2026-11-02 — Staging rollout for cooperative squad orders
 
 Fast-forwarded the Railway `staging` branch from `50f9ab1` to
