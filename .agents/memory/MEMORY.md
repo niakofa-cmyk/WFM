@@ -35,5 +35,6 @@
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
+- [Three.js mobile loading](threejs-mobile-loading.md) — defer the renderer behind a narrow named-export adapter; never pass the full Three.js namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.

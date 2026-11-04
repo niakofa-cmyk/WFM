@@ -38,44 +38,7 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
-type ThreeModule = Pick<
-  typeof import("three"),
-  | "ACESFilmicToneMapping"
-  | "AdditiveBlending"
-  | "BackSide"
-  | "BoxGeometry"
-  | "BufferAttribute"
-  | "BufferGeometry"
-  | "CanvasTexture"
-  | "Color"
-  | "ConeGeometry"
-  | "CylinderGeometry"
-  | "DirectionalLight"
-  | "Euler"
-  | "ExtrudeGeometry"
-  | "FogExp2"
-  | "Group"
-  | "HemisphereLight"
-  | "IcosahedronGeometry"
-  | "InstancedMesh"
-  | "Matrix4"
-  | "Mesh"
-  | "MeshBasicMaterial"
-  | "MeshStandardMaterial"
-  | "OctahedronGeometry"
-  | "Path"
-  | "PerspectiveCamera"
-  | "Points"
-  | "PointsMaterial"
-  | "Quaternion"
-  | "Scene"
-  | "Shape"
-  | "SphereGeometry"
-  | "SRGBColorSpace"
-  | "TorusGeometry"
-  | "Vector3"
-  | "WebGLRenderer"
->;
+type ThreeModule = typeof import("./three-flight-runtime");
 type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
 type CombatTargetReadout = {
   name: string; affiliation: string; distance: number; hull: number; maxHull: number;
@@ -291,45 +254,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   useEffect(() => {
     if (phase !== "flight" || threeModule) return;
     let active = true;
-    void import("three").then((module) => {
-      if (!active) return;
-      setThreeModule({
-        ACESFilmicToneMapping: module.ACESFilmicToneMapping,
-        AdditiveBlending: module.AdditiveBlending,
-        BackSide: module.BackSide,
-        BoxGeometry: module.BoxGeometry,
-        BufferAttribute: module.BufferAttribute,
-        BufferGeometry: module.BufferGeometry,
-        CanvasTexture: module.CanvasTexture,
-        Color: module.Color,
-        ConeGeometry: module.ConeGeometry,
-        CylinderGeometry: module.CylinderGeometry,
-        DirectionalLight: module.DirectionalLight,
-        Euler: module.Euler,
-        ExtrudeGeometry: module.ExtrudeGeometry,
-        FogExp2: module.FogExp2,
-        Group: module.Group,
-        HemisphereLight: module.HemisphereLight,
-        IcosahedronGeometry: module.IcosahedronGeometry,
-        InstancedMesh: module.InstancedMesh,
-        Matrix4: module.Matrix4,
-        Mesh: module.Mesh,
-        MeshBasicMaterial: module.MeshBasicMaterial,
-        MeshStandardMaterial: module.MeshStandardMaterial,
-        OctahedronGeometry: module.OctahedronGeometry,
-        Path: module.Path,
-        PerspectiveCamera: module.PerspectiveCamera,
-        Points: module.Points,
-        PointsMaterial: module.PointsMaterial,
-        Quaternion: module.Quaternion,
-        Scene: module.Scene,
-        Shape: module.Shape,
-        SphereGeometry: module.SphereGeometry,
-        SRGBColorSpace: module.SRGBColorSpace,
-        TorusGeometry: module.TorusGeometry,
-        Vector3: module.Vector3,
-        WebGLRenderer: module.WebGLRenderer,
-      });
+    void import("./three-flight-runtime").then((module) => {
+      if (active) setThreeModule(module);
     }).catch(() => {
       if (!active) return;
       setFailure("The 3D flight systems could not load. Check your connection and try again.");
