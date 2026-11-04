@@ -51,16 +51,16 @@ current authoritative services. Orbital Combat Lab training remains no-reward.
 | Orbital Combat Lab | Offline `Arena` using `lib/orbital-sim`; no reward settlement | Keep as the canonical engine test harness and no-reward trainer |
 | Offline Solo Flight | Still uses `surface-v1`; its attempted orbital switch did not pass the playable 3D browser gate and was reverted | Resolve and pass the graphics/controls gate before migrating this entry point |
 | Offline `WarApp` Arena practice | `orbital-v1`; server-issued legacy runs remain pinned to their original runtime | Extend this first offline migration to all local mission content |
-| Rust Disc local flight | `flight-sector.ts` specialist simulation with a separate renderer | Retain behind a versioned operation adapter; consolidate shared infrastructure without erasing its flight identity |
+| Rust Disc local flight | Local `App` entry opts into `orbital-motion-v1` for kinematics through a cached adapter; sector objectives, projectiles, collision damage, and renderer remain in `flight-sector.ts` | Finish weapons/objective migration with parity; retain networked `sector-motion-v1` as rollback and compatibility path |
 | Sector Expedition / Iron Eclipse | Authenticated sector socket and a separate sector flight contract | Adapt the server-owned sector runtime and objectives to canonical orbital state |
 | Arcade Skirmish and most campaign sorties | `Arena` legacy surface runtime | Migrate every mission configuration and preserve its objective/result semantics |
 | Campaign Contact | Versioned `orbital-v1` server replay for capable clients; older/issued runs remain surface | Preserve compatibility while expanding validated orbital mission coverage |
 | Online Wing / private / AI-fill | Existing authenticated socket and matchmaking; orbital `Arena` currently rejects live rooms | Coordinate client, API and socket protocol migration; retain all room/reward safeguards |
 | Hangar, Galaxy, Market, account progression | Existing account- and server-backed services | Feed their saved configuration and validated outcomes into the shared operation lifecycle |
 
-The code above is a partial foundation, not a completed consolidation. In
-particular, a runtime identifier or an orbital renderer is not proof that a mode
-has migrated.
+The code above is a partial foundation, not a completed consolidation. The local
+Rust Disc movement slice does not migrate its weapons or mission rules; a runtime
+identifier or an orbital renderer is not proof that a mode has fully migrated.
 
 The first consolidation safeguard is now implemented: browser and server code
 share the `orbital-v1` / `surface-v1` runtime identities from `lib/orbital-sim`,
@@ -75,10 +75,10 @@ gate, not a claim that those modes are already orbital.
    migration matrix executable in tests.
 2. Lock the shared simulation identity, deterministic traces and
    client/server/replay parity gates.
-   3. Extract Rust Disc flight/control/environment capabilities into Orbital
-      operation configurations. Keep the current sector runtime as a rollback
-      path; migrate Arcade and local training to the canonical engine, keeping
-      them no-reward.
+3. Extract Rust Disc flight/control/environment capabilities into Orbital
+   operation configurations. Keep the current sector runtime as a rollback
+   path; migrate Arcade and local training to the canonical engine, keeping
+   them no-reward.
 4. Migrate every campaign sortie with mission-specific objective adapters and
    validated replay settlement; retain compatibility for already-issued runs.
 5. Migrate sector co-op and Iron Eclipse while preserving authentication,

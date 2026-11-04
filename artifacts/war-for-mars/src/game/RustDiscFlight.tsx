@@ -9,7 +9,7 @@ import { stickAxesFromDelta } from "./input";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
-  RUST_DISC_SECTOR, type FlightInput, type FlightState,
+  RUST_DISC_SECTOR, type FlightInput, type FlightMotionRuntime, type FlightState,
 } from "./flight-sector";
 import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
@@ -159,7 +159,7 @@ function webglAvailable(): boolean {
 
 // ---------------------------------------------------------------------------
 
-export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?: () => void; expedition?: ExpeditionTransport; expeditionHref?: string }) {
+export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRuntime = "sector-motion-v1" }: { onExit?: () => void; expedition?: ExpeditionTransport; expeditionHref?: string; motionRuntime?: FlightMotionRuntime }) {
   const [, setLocation] = useLocation();
   const net = !!expedition;
   const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
@@ -646,7 +646,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         keyInput();
         const inp = inputRef.current;
         const tickInput: FlightInput = toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure });
-        stepFlight(state, tickInput, STEP);
+        stepFlight(state, tickInput, STEP, sector, motionRuntime);
         pulseRef.current = { missile: false, countermeasure: false };
         acc -= STEP; steps++;
       }

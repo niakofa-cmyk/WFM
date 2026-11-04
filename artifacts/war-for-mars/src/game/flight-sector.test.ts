@@ -67,6 +67,41 @@ test("lateral and vertical thrusters add controlled six-axis translation", () =>
   assert.ok(state.position.z < 70, "the independent thrust axes do not invert forward");
 });
 
+test("orbital-motion-v1 migrates local Rust Disc movement while preserving sector objective and boundary", () => {
+  const sector = { ...RUST_DISC_SECTOR, rocks: [], radius: 3000 };
+  const migrated = createFlight("glide", sector);
+  for (let i = 0; i < 90; i++) {
+    stepFlight(migrated, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, "orbital-motion-v1");
+  }
+  assert.ok(migrated.position.x > 0, "positive right strafe remains right after the adapter");
+  assert.ok(migrated.position.y > 0, "vertical thrust is integrated by the shared spatial model");
+  assert.ok(migrated.position.z < 70, "forward thrust follows the migrated orientation");
+  assert.equal(migrated.stage, "relay", "the Rust Disc objective remains owned by its operation adapter");
+  assert.ok(vectorLength(migrated.position) < sector.radius);
+
+  const replay = createFlight("glide", sector);
+  for (let i = 0; i < 90; i++) {
+    stepFlight(replay, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, "orbital-motion-v1");
+  }
+  assert.deepEqual(replay, migrated, "the local versioned movement adapter is deterministic");
+
+  const edge = createFlight("glide", sector);
+  edge.position = { x: 70, y: 0, z: 0 };
+  edge.velocity = { x: 300, y: 0, z: 0 };
+  stepFlight(edge, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...sector, radius: 72 }, "orbital-motion-v1");
+  assert.ok(vectorLength(edge.position) <= 72.000001, "sector boundary enforcement remains active after shared movement");
+});
+
+test("existing server and expedition callers remain on the legacy motion runtime by default", () => {
+  const implicit = createFlight();
+  const explicit = createFlight();
+  for (let i = 0; i < 60; i++) {
+    stepFlight(implicit, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2 }, 1 / 60);
+    stepFlight(explicit, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2 }, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
+  }
+  assert.deepEqual(implicit, explicit);
+});
+
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
   const heavy = createFlight("mandjet"), fast = createFlight("shakuna");
   run(heavy, 40, { throttle: 1, boost: true }); run(fast, 40, { throttle: 1, boost: true });
@@ -241,5 +276,6 @@ test("local flight sector has no progression, storage, auth or network capabilit
   assert.deepEqual(imports, [
     'import { SHIPS, type ShipId } from "./ships";',
     'import { detSin, detCos, detExp } from "./detmath";',
+    'import { integrateSpatialFlight, type FlightControls, type SpatialCraft } from "@workspace/orbital-sim";',
   ]);
 });

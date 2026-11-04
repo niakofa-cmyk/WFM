@@ -25,11 +25,17 @@ and vertical vector thrust, alongside steering and aiming. It maps to the
 existing Orbital `strafe` and `vertical` controls, starts neutral, and clears
 when focus is lost. Legacy surface modes do not receive those axes.
 
-This migrates control access, not the underlying Rust Disc, Iron Eclipse, or
-campaign simulation contracts. The next mode-runtime sequence remains:
+The local Rust Disc entry now also opts into `orbital-motion-v1` for six-axis
+movement through a cached adapter around `integrateSpatialFlight`. The existing
+operation wrapper still owns relay/drone/extraction objectives, collision
+damage, and projectiles. Networked expeditions remain on `sector-motion-v1`;
+their socket contract, rewards, and progression were not changed. This is a
+movement slice, not a completed Orbital Rust Disc operation.
 
-1. Migrate Rust Disc flight and mission behavior behind a versioned adapter;
-   preserve the current operation as a rollback path.
+The next mode-runtime sequence remains:
+
+1. Finish Rust Disc weapons and mission/objective behavior on the canonical
+   runtime; preserve the current network operation as a rollback path.
 2. Migrate remaining Arcade and campaign sorties one objective/replay contract
    at a time; retain old issued runs and server settlement rules.
 3. Migrate Iron Eclipse co-op and competitive Wing only after their server-owned

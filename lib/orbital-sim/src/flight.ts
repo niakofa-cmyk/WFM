@@ -16,6 +16,7 @@ export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; b
 export type FlightControls = FlightInput & { throttle: number; yaw: number; strafe: number; pitch: number };
 export type Rock = { x: number; z: number; r: number; y?: number };
 export type FlightTuning = { turnRate: number; handling: number; accel: number; maxSpeed: number };
+export type FlightWorld = { boundaryRadius?: number | null };
 export type SpatialCraft = {
   id: number; x: number; z: number; yaw: number; pitch: number; speed: number; steer: number;
   hull: number; hullMax: number; alive: boolean; root: number; jam: number; boost: number;
@@ -41,7 +42,15 @@ function turn(q: Quaternion, x: number, y: number, z: number, angle: number): Qu
   return result.map((n) => n / length) as Quaternion;
 }
 const clamp = (n: number) => Math.max(-1, Math.min(1, n));
-export function integrateSpatialFlight(craft: SpatialCraft, input: FlightControls, dt: number, speedMul: number, rocks: readonly Rock[], def: FlightTuning) {
+export function integrateSpatialFlight(
+  craft: SpatialCraft,
+  input: FlightControls,
+  dt: number,
+  speedMul: number,
+  rocks: readonly Rock[],
+  def: FlightTuning,
+  world: FlightWorld = {},
+) {
   if (!Number.isFinite(dt) || dt <= 0 || dt > .1) throw new Error("Orbital step must be finite and at most 100 ms.");
   const s = craft.space;
   if (!s) throw new Error("Orbital flight requires initialized spatial state.");
@@ -72,9 +81,10 @@ export function integrateSpatialFlight(craft: SpatialCraft, input: FlightControl
   }
   craft.x += s.vx * dt; s.y += s.vy * dt; craft.z += s.vz * dt;
   const boundary = detHypot(detHypot(craft.x, s.y), craft.z);
-  if (boundary > 78) {
+  const boundaryRadius = world.boundaryRadius === undefined ? 78 : world.boundaryRadius;
+  if (boundaryRadius !== null && boundary > boundaryRadius) {
     const normal = { x: craft.x / boundary, y: s.y / boundary, z: craft.z / boundary };
-    craft.x = normal.x * 78; s.y = normal.y * 78; craft.z = normal.z * 78;
+    craft.x = normal.x * boundaryRadius; s.y = normal.y * boundaryRadius; craft.z = normal.z * boundaryRadius;
     const outward = Math.max(0, s.vx * normal.x + s.vy * normal.y + s.vz * normal.z);
     s.vx -= outward * normal.x; s.vy -= outward * normal.y; s.vz -= outward * normal.z;
   }

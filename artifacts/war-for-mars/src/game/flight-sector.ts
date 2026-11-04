@@ -1,5 +1,6 @@
 import { SHIPS, type ShipId } from "./ships";
 import { detSin, detCos, detExp } from "./detmath";
+import { integrateSpatialFlight, type FlightControls, type SpatialCraft } from "@workspace/orbital-sim";
 
 // Deliberately separate from reward-eligible sim.ts. No network, storage or rewards.
 export type Vector3 = { x: number; y: number; z: number };
@@ -68,6 +69,51 @@ export type FlightState = {
   stage: "relay" | "drone" | "extract" | "complete" | "destroyed";
   discoveries: number; hits: number; collisions: number;
 };
+export type FlightMotionRuntime = "sector-motion-v1" | "orbital-motion-v1";
+const orbitalMotionAdapters = new WeakMap<FlightState, SpatialCraft>();
+
+function stepOrbitalMotion(state: FlightState, input: FlightInput, dt: number): number {
+  let craft = orbitalMotionAdapters.get(state);
+  if (!craft) {
+    craft = {
+      id: 0, x: 0, z: 0, yaw: 0, pitch: 0, speed: 0, steer: 0,
+      hull: 100, hullMax: 100, alive: true, root: 0, jam: 0, boost: 0,
+      cloak: 0, untargetable: 0, radius: 2, lockTargetId: null,
+      space: {
+        y: 0, vx: 0, vy: 0, vz: 0, q: [0, 0, 0, 1], energy: 100,
+        assist: true, armor: 0, armorMax: 0, lockProgress: 0,
+        lockTargetId: null, missileCd: 0, ammo: 0, aimAssist: false,
+      },
+    };
+    orbitalMotionAdapters.set(state, craft);
+  }
+  const space = craft.space!;
+  craft.x = state.position.x; craft.z = state.position.z;
+  craft.hull = state.hull; craft.alive = state.hull > 0;
+  space.y = state.position.y;
+  space.vx = state.velocity.x; space.vy = state.velocity.y; space.vz = state.velocity.z;
+  space.q[0] = state.orientation.x; space.q[1] = state.orientation.y;
+  space.q[2] = state.orientation.z; space.q[3] = state.orientation.w;
+  space.energy = state.energy;
+  const controls: FlightControls = {
+    throttle: clamp(input.throttle, 0, 1),
+    yaw: -clamp(input.yaw, -1, 1),
+    pitch: clamp(input.pitch, -1, 1),
+    roll: -clamp(input.roll, -1, 1),
+    strafe: -clamp(input.strafe ?? 0, -1, 1),
+    vertical: clamp(input.vertical ?? 0, -1, 1),
+    boost: input.boost,
+    brake: input.brake,
+    drift: input.drift,
+  };
+  integrateSpatialFlight(craft, controls, dt, 2, [], SHIPS[state.shipId], { boundaryRadius: null });
+  state.position.x = craft.x; state.position.y = space.y; state.position.z = craft.z;
+  state.velocity.x = space.vx; state.velocity.y = space.vy; state.velocity.z = space.vz;
+  state.orientation.x = space.q[0]; state.orientation.y = space.q[1];
+  state.orientation.z = space.q[2]; state.orientation.w = space.q[3];
+  state.energy = space.energy;
+  return vectorLength(state.velocity);
+}
 export function removeHostileProjectilesInPlace(projectiles: FlightProjectile[]): void {
   let write = 0;
   for (let read = 0; read < projectiles.length; read++) {
@@ -156,7 +202,13 @@ function collisionBodies(sector: FlightSector): readonly SectorRock[] {
   return bodies;
 }
 /** Fixed-tick, mutable local trainer. Caller owns pause/accumulator; no catch-up on restore. */
-export function stepFlight(state: FlightState, input: FlightInput, seconds: number, sector: FlightSector = RUST_DISC_SECTOR): void {
+export function stepFlight(
+  state: FlightState,
+  input: FlightInput,
+  seconds: number,
+  sector: FlightSector = RUST_DISC_SECTOR,
+  runtime: FlightMotionRuntime = "sector-motion-v1",
+): void {
   if (state.stage === "complete" || state.stage === "destroyed" || !Number.isFinite(seconds) || seconds <= 0) return;
   const dt = Math.min(seconds, 1 / 30);
   const def = SHIPS[state.shipId];
@@ -164,31 +216,39 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   for (const key of ["fireCooldown", "missileCooldown", "flareCooldown", "collisionCooldown", "droneCooldown"] as const) {
     state[key] = Math.max(0, state[key] - dt);
   }
-  const turn = def.turnRate * (0.45 + def.handling * 0.25);
-  const angular = v(clamp(input.pitch, -1, 1), -clamp(input.yaw, -1, 1), -clamp(input.roll, -1, 1));
-  const angle = vectorLength(angular) * turn * dt;
-  if (angle > 0) {
-    const axis = unit(angular), half = angle * 0.5;
-    const q = product(state.orientation, { ...mul(axis, detSin(half)), w: detCos(half) });
-    const norm = Math.sqrt(dot(q, q) + q.w * q.w);
-    state.orientation = { ...mul(q, 1 / norm), w: q.w / norm };
+  const previous = v(state.position.x, state.position.y, state.position.z);
+  let speed: number;
+  let next: Vector3;
+  if (runtime === "orbital-motion-v1") {
+    speed = stepOrbitalMotion(state, input, dt);
+    next = state.position;
+  } else {
+    const turn = def.turnRate * (0.45 + def.handling * 0.25);
+    const angular = v(clamp(input.pitch, -1, 1), -clamp(input.yaw, -1, 1), -clamp(input.roll, -1, 1));
+    const angle = vectorLength(angular) * turn * dt;
+    if (angle > 0) {
+      const axis = unit(angular), half = angle * 0.5;
+      const q = product(state.orientation, { ...mul(axis, detSin(half)), w: detCos(half) });
+      const norm = Math.sqrt(dot(q, q) + q.w * q.w);
+      state.orientation = { ...mul(q, 1 / norm), w: q.w / norm };
+    }
+    const boosting = input.boost && state.energy > 2 && !input.brake;
+    state.energy = clamp(state.energy + (boosting ? -28 : 13) * dt, 0, 100);
+    const forward = flightForward(state.orientation);
+    const right = rotateVector(state.orientation, 1, 0, 0);
+    const up = rotateVector(state.orientation, 0, 1, 0);
+    const thrust = add(add(mul(forward, clamp(input.throttle, 0, 1)), mul(right, clamp(input.strafe ?? 0, -1, 1))), mul(up, clamp(input.vertical ?? 0, -1, 1)));
+    const thrustLength = vectorLength(thrust);
+    const thrustScale = thrustLength > 1 ? 1 / thrustLength : 1;
+    const acceleration = def.accel * (boosting ? 2.6 : 1.4) * dt * thrustScale;
+    state.velocity = add(state.velocity, mul(thrust, acceleration));
+    const drag = input.brake ? 5 : input.drift ? 0.04 : 0.32;
+    state.velocity = mul(state.velocity, detExp(-drag * dt));
+    speed = vectorLength(state.velocity);
+    const max = def.maxSpeed * (boosting ? 4 : 2.5);
+    if (speed > max) state.velocity = mul(state.velocity, max / speed);
+    next = add(previous, mul(state.velocity, dt));
   }
-  const boosting = input.boost && state.energy > 2 && !input.brake;
-  state.energy = clamp(state.energy + (boosting ? -28 : 13) * dt, 0, 100);
-  const forward = flightForward(state.orientation);
-  const right = rotateVector(state.orientation, 1, 0, 0);
-  const up = rotateVector(state.orientation, 0, 1, 0);
-  const thrust = add(add(mul(forward, clamp(input.throttle, 0, 1)), mul(right, clamp(input.strafe ?? 0, -1, 1))), mul(up, clamp(input.vertical ?? 0, -1, 1)));
-  const thrustLength = vectorLength(thrust);
-  const thrustScale = thrustLength > 1 ? 1 / thrustLength : 1;
-  const acceleration = def.accel * (boosting ? 2.6 : 1.4) * dt * thrustScale;
-  state.velocity = add(state.velocity, mul(thrust, acceleration));
-  const drag = input.brake ? 5 : input.drift ? 0.04 : 0.32;
-  state.velocity = mul(state.velocity, detExp(-drag * dt));
-  const speed = vectorLength(state.velocity), max = def.maxSpeed * (boosting ? 4 : 2.5);
-  if (speed > max) state.velocity = mul(state.velocity, max / speed);
-  const previous = state.position;
-  let next = add(previous, mul(state.velocity, dt));
   let nearest: { rock: SectorRock; t: number } | null = null;
   const bodies = collisionBodies(sector);
   for (const rock of bodies) {
@@ -208,7 +268,11 @@ export function stepFlight(state: FlightState, input: FlightInput, seconds: numb
   if (vectorLength(next) > sector.radius) {
     next = mul(unit(next), sector.radius); state.velocity = mul(state.velocity, -0.2);
   }
-  state.position = next;
+  if (runtime === "orbital-motion-v1") {
+    state.position.x = next.x; state.position.y = next.y; state.position.z = next.z;
+  } else {
+    state.position = next;
+  }
   if (state.stage === "relay" && vectorLength(sub(next, sector.relay)) < 24) {
     state.stage = "drone"; state.discoveries = 1;
   }
