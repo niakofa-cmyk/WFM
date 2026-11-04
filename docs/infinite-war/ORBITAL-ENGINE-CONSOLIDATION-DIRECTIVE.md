@@ -49,7 +49,8 @@ remain no-reward.
 | Mode/system | Current runtime/authority | Required migration |
 |---|---|---|
 | Orbital Combat Lab | Offline `Arena` using `lib/orbital-sim`; no reward settlement | Keep as the canonical engine test harness and no-reward trainer |
-| Offline Solo Flight / local Arena practice | `orbital-v1`; server-issued legacy runs remain pinned to their original runtime | Extend this first offline migration to all local mission content |
+| Offline Solo Flight | Still uses `surface-v1`; its attempted orbital switch did not pass the playable 3D browser gate and was reverted | Resolve and pass the graphics/controls gate before migrating this entry point |
+| Offline `WarApp` Arena practice | `orbital-v1`; server-issued legacy runs remain pinned to their original runtime | Extend this first offline migration to all local mission content |
 | Rust Disc local flight | `flight-sector.ts` local simulation with a separate renderer | Replace duplicate flight/combat calculations with canonical simulation |
 | Sector Expedition / Iron Eclipse | Authenticated sector socket and a separate sector flight contract | Adapt the server-owned sector runtime and objectives to canonical orbital state |
 | Arcade Skirmish and most campaign sorties | `Arena` legacy surface runtime | Migrate every mission configuration and preserve its objective/result semantics |

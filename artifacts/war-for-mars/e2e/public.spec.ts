@@ -131,6 +131,10 @@ test("small-phone landing and solo setup respond to vertical touch scrolling", a
 });
 
 test("solo flight launches and exits the playable 3D scene", async ({ page }) => {
+  page.on("pageerror", (error) => console.error(`[solo-flight page error] ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error(`[solo-flight console error] ${message.text()}`);
+  });
   await page.goto("/play");
 
   await expect(page.getByTestId("solo-flight")).toBeVisible();

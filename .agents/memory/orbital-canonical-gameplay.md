@@ -25,3 +25,16 @@ issued run. Preserve no-reward local training, legacy replay compatibility,
 reward and room safeguards, and rollback until each mode passes its acceptance
 gate. Do not claim full-game consolidation until every mode's real gameplay and
 authority path is verified.
+
+**Verification guard:** Keep standalone Solo Flight on its current compatibility
+runtime until an orbital migration passes repeatable browser checks for renderer
+startup and responsive flight controls. A visible HUD or canvas alone is not
+proof that the orbital flight loop initialized.
+
+**Why:** An attempted Solo Flight runtime switch produced inconsistent results
+in the headless WebGL flight test, so it was reverted rather than shipping an
+unverified control path.
+
+**How to apply:** Before retrying this route, make the orbital renderer and
+movement test deterministic in the browser, then repeat it across the supported
+mobile-sized viewport.
