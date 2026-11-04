@@ -201,12 +201,12 @@ function MainMenu(props: HomeProps) {
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.72fr)]">
         <section aria-label="Operations" className="wfm-rise flex flex-col gap-3">
           <div className="flex items-end justify-between border-b border-bone/15 pb-2">
-            <div><PanelLabel>OPERATIONS · PHOBOS THEATER</PanelLabel><p className="mt-1 font-hud text-2xl tracking-wider">NEXT SORTIE</p></div>
+            <div><PanelLabel>PRIMARY OPERATION · PHOBOS THEATER</PanelLabel><p className="mt-1 font-hud text-2xl tracking-wider">STORY CAMPAIGN</p></div>
             <span className="font-hud text-xs tracking-widest text-muted">{brief.completed}/{brief.total} CLEARED</span>
           </div>
           <div className="wfm-operation-brief">
             <div className="min-w-0">
-              <p data-testid="text-campaign-briefing" className="font-hud text-[11px] tracking-[0.2em] text-solar">{brief.label} · OBJECTIVE {brief.sortie.objective}</p>
+              <p data-testid="text-campaign-briefing" className="font-hud text-[11px] tracking-[0.2em] text-solar">NEXT SORTIE · {brief.label} · OBJECTIVE {brief.sortie.objective}</p>
               <h2 className="mt-1 font-hud text-2xl leading-none sm:text-3xl">{brief.sortie.name.toUpperCase()}</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bone/75">{brief.sortie.brief}</p>
               <div className="mt-4 flex gap-1" aria-label={`${brief.completed} of ${brief.total} sorties cleared`}>
@@ -214,31 +214,39 @@ function MainMenu(props: HomeProps) {
               </div>
             </div>
             <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
-              CAMPAIGN · DEPLOY
+              DEPLOY NEXT SORTIE
             </button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Link href={`/flight?ship=${encodeURIComponent(ship)}`} data-testid="link-home-rust-disc" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
-              <span className="font-hud text-lg tracking-widest">RUST DISC · 3D FLIGHT</span>
-              <span className="text-xs text-muted">Preselect {def.name} · local training · no rewards</span>
+          {EXPEDITION_ENABLED ? (
+            <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
+              <span className="font-hud tracking-widest text-spectral">SECTOR OPERATIONS · CO-OP</span>
+              <span className="text-xs text-muted">1–8 pilots · server-run missions across the Mars route</span>
             </Link>
-            <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
-              <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
-              <span className="text-xs text-muted">Open-disc practice or strike</span>
-            </button>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-14 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
-              <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
-              <span className="text-xs text-muted">Training only · no rewards</span>
-            </a>
-            {EXPEDITION_ENABLED ? (
-              <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-quiet min-h-14 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
-                <span className="font-hud tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
-                <span className="text-xs text-muted">1–8 pilots · server-run missions to Mars</span>
+          ) : null}
+          <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
+              <span className="min-w-0">
+                <span className="block">FLIGHT & COMBAT SYSTEMS</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Rust Disc trainer · offline prototype · alternate skirmish</span>
+              </span>
+              <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
+              <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
+            </summary>
+            <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
+              <Link href={`/flight?ship=${encodeURIComponent(ship)}`} data-testid="link-home-rust-disc" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
+                <span className="font-hud text-lg tracking-widest">RUST DISC · LOCAL FLIGHT</span>
+                <span className="text-xs text-muted">Preselect {def.name} · trainer only · no rewards or account changes</span>
               </Link>
-            ) : null}
-          </div>
+              <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
+                <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
+                <span className="text-xs text-muted">Targeting and weapons prototype · no rewards</span>
+              </a>
+              <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4 sm:col-span-2">
+                <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
+                <span className="text-xs text-muted">Open-disc practice or strike sortie</span>
+              </button>
+            </div>
+          </details>
         </section>
 
         <div className="flex flex-col gap-4">

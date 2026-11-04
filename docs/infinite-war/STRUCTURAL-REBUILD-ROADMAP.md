@@ -2,6 +2,8 @@
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
+The later repository-specific diagnosis is preserved unchanged in
+[`REPO-UNIFICATION-REQUEST.txt`](./REPO-UNIFICATION-REQUEST.txt).
 This maintained guide summarizes its decisions and applies them to the current
 codebase. The source document remains authoritative if this summary and the
 original differ.
@@ -33,6 +35,14 @@ unbounded count of live ships or a literally infinite galaxy.
   creating duplicate player tables, auth systems, ledgers, or matchmakers.
 - Never retire a working path until its replacement, data compatibility, tests,
   and rollback are proven.
+
+The repository-specific request correctly identifies that the phone command
+screen presents separate systems with too much equal visual weight. Its
+suggestion to scrap the older flows is not a safe first step: campaign, Wing,
+and cooperative paths have different verified account, server, and reward
+contracts. Consolidate the player-facing hierarchy first, then migrate one
+runtime/operation contract at a time without presenting unintegrated systems as
+already unified.
 
 ## Delivery sequence
 
@@ -92,6 +102,15 @@ The Galaxy now identifies the next incomplete story-sector operation from
 recorded flight discoveries and carries its mission ID into Expedition. The
 Expedition selector accepts that navigation hint, but existing account-progress
 and server prerequisite checks remain authoritative.
+
+The public landing now emphasizes account entry or local solo flight and groups
+the alternate Rust Disc, Combat Lab, and co-op routes in an expandable
+operations panel. The signed-in mobile command screen presents the campaign as
+the primary operation, keeps server-run co-op visible as another operation
+path, and groups local Rust Disc, offline Combat Lab, and alternate Arcade
+entry points in an expandable Flight & Combat Systems section. All previous
+routes remain available; this is a navigation consolidation, not evidence that
+their simulation runtimes have already been merged.
 
 The first unified campaign-to-validated-progression loop, shared 10-human
 orbital 5v5, persistent faction consequences, and mobile-device acceptance

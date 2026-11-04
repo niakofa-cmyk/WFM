@@ -6,6 +6,8 @@ description: Owner-designated staged plan for consolidating WFM into one connect
 The full owner source is preserved unchanged at
 `docs/infinite-war/STRUCTURAL-REBUILD-STRATEGY.txt`. The maintained summary and
 current checkpoint are in `docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md`.
+The repo-specific menu/consolidation diagnosis is preserved at
+`docs/infinite-war/REPO-UNIFICATION-REQUEST.txt`.
 
 The central direction is one connected WAR FOR MARS experience: one identity,
 one saved ship/loadout, operations in a shared universe, and validated outcomes
@@ -22,4 +24,5 @@ Wing, co-op, campaign, economy, and progression contracts. Treat the menu-to-
 mission-to-debrief-to-progression loop as incomplete until it is verified
 end-to-end. Keep local trainers no-reward; keep multiplayer outcomes and
 progression server-authoritative; distinguish code, tests, staging, and physical
-device evidence.
+device evidence. Consolidate the command screen without deleting older routes;
+migrate their runtime and progression contracts one tested operation at a time.

@@ -88,6 +88,34 @@ carries that mission ID into the Expedition selector. The client accepts only
 known IDs for navigation; account progression, prerequisites, and mission
 authorization remain server-validated. No progression or reward logic changed.
 
+## 2026-11-04 — Unified mobile command hierarchy
+
+Read the complete repository-specific implementation request and reviewed its
+Android screenshots. The original text is preserved at
+`docs/infinite-war/REPO-UNIFICATION-REQUEST.txt`; its findings are added to the
+structural rebuild roadmap and existing project-memory entry.
+
+The public landing emphasizes account entry or local solo flight and places
+Rust Disc, offline Orbital Combat Lab, and co-op in an expandable operations
+group. The signed-in command screen makes the next campaign sortie primary,
+keeps server-run co-op as a distinct operation path, and groups local Rust Disc,
+offline Combat Lab, and Arcade Skirmish inside expandable Flight & Combat
+Systems. This reduces the mobile command-card wall without removing legacy
+access or misrepresenting their runtimes as already unified.
+
+This is the navigation stage of the rebuild. It does not yet run every mode on
+the Orbital Combat Lab simulation or connect all outcomes to one progression
+system. Existing campaign, Wing, and co-op authorization and reward contracts
+remain intact until an end-to-end replacement is tested.
+
+Verification: workspace typecheck, all 342 package tests, and production builds
+passed; all 10 public Playwright tests passed, including the new expandable-menu
+check and small-phone scrolling. The preview rendered at 390 × 844 CSS pixels
+on the logged-out landing page. The browser reported the existing development
+Clerk-key warning and a WebGPU context-creation warning; the authenticated
+command screen was not visually captured. No physical-device, staging, or
+Production verification was performed.
+
 ## 2026-11-03 — Master Infinite War directive and Stage A audit
 
 Read the full owner-supplied 653-line master development directive and retained
