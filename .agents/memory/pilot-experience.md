@@ -4,6 +4,7 @@ description: The WFM flight HUD and touch-control direction.
 ---
 
 Treat [the pilot-experience reconstruction](../../docs/infinite-war/PILOT-EXPERIENCE-RECONSTRUCTION.md) as the leading reference for active flight screens.
+Use [the image-reference review](../../docs/infinite-war/PILOT-IMAGE-REFERENCE-REVIEW.md) for visual composition; treat supplied images as inspiration, not artwork or interface to copy.
 
 **Rule:** Keep the ship, flight space, and combat readable. Use no more than two primary thumb-controlled maneuver surfaces; remove boxy directional pads and keep secondary controls contextual. Expand the tactical map on demand and move settings off the active flight view.
 
