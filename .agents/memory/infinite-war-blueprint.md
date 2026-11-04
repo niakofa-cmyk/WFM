@@ -10,6 +10,10 @@ The project-facing summary and implementation interpretation are in
 The owner-designated master execution directive is preserved at
 `attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-THE-INFINITE_1793752668891.txt`;
 its current code-grounded audit is in `docs/infinite-war/`.
+The current Stage B hangar/player-journey review is preserved in
+`attached_assets/` and `docs/references/wfm-stage-b-hangar-review.txt`; its
+implementation boundary and sequence are recorded in
+`wfm-stage-b-hangar.md`.
 
 The defining principle is: **“The universe is the battlefield. Every
 competitive engagement is an operation within the larger war. Every operation

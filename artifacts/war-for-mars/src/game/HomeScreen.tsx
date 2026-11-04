@@ -7,8 +7,11 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
 import { ShipIllustration } from "./ShipIllustration";
+import { HangarShip } from "./HangarShip";
 import { campaignBriefing } from "./command-briefing";
 import { expeditionFeatureEnabled } from "./sector-client";
+import hangarWideBay from "@assets/QH9dW4bLMB5R9dWQZLXTansYgPJ16x-6zMx2Jo91tIAFfPA9sKnKWgltw_ghK_1793754027083.jpeg";
+import hangarLaunchDeck from "@assets/aIoKH5Y4DJVupKHZmnbTz3vTtMUV70_PIVHIVyY3D_kHFJnYjV7u0iZyqt35x_1793754027120.jpeg";
 
 const EXPEDITION_ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -154,97 +157,118 @@ function MainMenu(props: HomeProps) {
   const def = SHIPS[ship];
   const brief = campaignBriefing(cleared);
   return (
-    <div className="grid flex-1 content-center gap-4 py-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
-      {/* Briefing: selected ship + campaign */}
-      <CommandPanel className="wfm-rise-2 order-1 p-4 lg:order-2" data-testid="panel-command-briefing">
-        <div className="flex items-start gap-4">
-          <ShipIllustration ship={ship} className="h-28 w-28 shrink-0 sm:h-36 sm:w-36" />
-          <div className="min-w-0">
-            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
-            <p data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-wide">{def.name.toUpperCase()}</p>
-            <p className="mt-1 font-hud text-sm tracking-[0.2em] text-muted">{def.role.toUpperCase()} · ULT {def.ultShort}</p>
-            <p className="mt-2 text-sm leading-relaxed text-bone/85">{def.blurb}</p>
+    <main className="wfm-hangar-content flex-1 py-4 sm:py-6">
+      <section className="wfm-hangar-hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
+        <div className="wfm-hangar-scene">
+          <div className="wfm-hangar-art" aria-hidden="true">
+            <img src={hangarWideBay} alt="" fetchPriority="high" />
+            <img src={hangarLaunchDeck} alt="" loading="lazy" />
           </div>
+          <div className="absolute left-4 top-4 z-10">
+            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS YARD / BAY 04</PanelLabel>
+            <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">HANGAR DECK · READY STATUS</p>
+          </div>
+          <div className="absolute right-4 top-4 z-10 hidden text-right font-hud text-[10px] tracking-[0.2em] text-muted sm:block">
+            <p>ORBITAL DOCKING CLAMP</p><p className="mt-1 text-solar">● SECURE</p>
+          </div>
+          <HangarShip ship={ship} faction={faction} />
+          <div className="absolute bottom-4 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
         </div>
-        <dl className="mt-4 grid grid-cols-3 gap-px border border-bone/10 bg-bone/10 font-hud">
-          {[["SHIELD", def.shield], ["HULL", def.hull], ["TOP SPEED", def.maxSpeed]].map(([k, v]) => (
-            <div key={k} className="bg-panel px-3 py-2">
-              <dt className="text-[10px] tracking-[0.22em] text-muted">{k}</dt>
-              <dd className="text-xl leading-none">{v}</dd>
+        <div className="wfm-hangar-identity">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SAVED HULL · {FACTION_NAME[faction]}</PanelLabel>
+              <h1 id="hangar-title" data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-[0.06em] sm:text-5xl">{def.name.toUpperCase()}</h1>
+              <p className={`mt-2 font-hud text-xs tracking-[0.2em] ${faction === "accord" ? "text-solar" : "text-spectral"}`}>{def.role.toUpperCase()} · ULT {def.ultShort}</p>
             </div>
-          ))}
-        </dl>
-        <button
-          type="button"
-          onClick={() => onAction("ARMORY")}
-          data-testid="button-change-ship-faction"
-          className="wfm-cmd wfm-cmd-secondary mt-3 min-h-12 w-full justify-center px-3 font-hud text-base tracking-widest"
-        >
-          CHANGE SHIP / FACTION
-        </button>
-        <div className="mt-4 border-t border-bone/10 pt-3" data-testid="text-campaign-briefing">
-          <PanelLabel>{brief.label} · {brief.completed}/{brief.total} CLEARED</PanelLabel>
-          <p className="mt-1 font-hud text-2xl leading-none">{brief.sortie.name.toUpperCase()} <span className="text-base tracking-widest text-solar">· {brief.sortie.objective}</span></p>
-          <p className="mt-1 text-sm leading-relaxed text-muted">{brief.sortie.brief}</p>
-          <div className="mt-3 flex gap-1" aria-hidden="true">
-            {Array.from({ length: brief.total }, (_, i) => (
-              <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />
-            ))}
+            <FactionMark faction={faction} className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" />
           </div>
-        </div>
-      </CommandPanel>
-
-      {/* Primary commands */}
-      <nav aria-label="Primary commands" className="wfm-rise order-2 flex flex-col gap-2 lg:order-1">
-        <PanelLabel>COMMAND</PanelLabel>
-        <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 px-4">
-          <span className="font-hud text-xl leading-none tracking-widest">RUST DISC · 3D FLIGHT</span>
-          <span className="text-xs text-muted">Explore a local flight sector. No rewards or account changes.</span>
-        </Link>
-        <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
-          <span className="font-hud text-xl leading-none tracking-widest text-solar">ORBITAL COMBAT LAB</span>
-          <span className="text-xs text-muted">Vector flight, target lock, and guided missiles · offline training, no rewards.</span>
-        </a>
-        {EXPEDITION_ENABLED ? (
-          <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-16 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
-            <span className="font-hud text-xl leading-none tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
-            <span className="text-xs text-muted">1-8 pilots · server-run · three missions to Mars</span>
-          </Link>
-        ) : null}
-        <button type="button" onClick={() => onAction("DEPLOY")} className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-16 flex-col items-start justify-center gap-0 px-4">
-          <span className="font-hud text-2xl leading-none tracking-widest">CAMPAIGN: DEPLOY</span>
-          <span className="text-xs text-void/80">{brief.label}: {brief.sortie.name}</span>
-        </button>
-        <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
-          <span className="font-hud text-lg leading-none tracking-widest">ARCADE SKIRMISH</span>
-          <span className="text-xs text-muted">Open disc. Practice or strike.</span>
-        </button>
-        <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-0 px-4">
-          <span className="font-hud text-lg leading-none tracking-widest text-solar">PERSISTENT GALAXY</span>
-          <span className="text-xs text-muted">World event · locations · side operations</span>
-        </button>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
-            <span className="font-hud text-sm leading-none tracking-widest">ARMORY & UPGRADES</span>
-            <span className="truncate text-[11px] text-muted">{def.name}</span>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-bone/80">{def.blurb}</p>
+          <dl className="mt-4 grid grid-cols-3 gap-px border border-bone/10 bg-bone/10 font-hud">
+            {[
+              ["SHIELD", def.shield],
+              ["HULL", def.hull],
+              ["TOP SPEED", def.maxSpeed],
+              ["THRUST", def.accel],
+              ["PULSE DMG", def.shotDmg],
+              ["SHOT RATE", `${(1 / def.fireInterval).toFixed(1)}/s`],
+            ].map(([k, v]) => (
+              <div key={k} className="bg-panel px-3 py-2"><dt className="text-[10px] tracking-[0.22em] text-muted">{k}</dt><dd className="text-xl leading-none">{v}</dd></div>
+            ))}
+          </dl>
+          <button type="button" onClick={() => onAction("ARMORY")} data-testid="button-change-ship-faction" className="wfm-cmd wfm-cmd-secondary mt-4 min-h-11 w-full justify-center px-3 font-hud tracking-widest">
+            ARMORY · CHANGE SAVED HULL
           </button>
-          <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
-            <span className="font-hud text-sm leading-none tracking-widest">SETTINGS</span>
-            <span className="text-[11px] text-muted">Stick, tilt, the glass</span>
-          </button>
-          <Link
-            href="/leaderboard"
-            data-testid="link-public-wing-leaderboard"
-            className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3"
-          >
-            <span className="font-hud text-sm leading-none tracking-widest text-solar">WING LEADERBOARD</span>
-            <span className="text-[11px] text-muted">Opt-in callsigns · verified Wing credits</span>
-          </Link>
+          <p className="mt-2 text-[11px] tracking-wide text-muted">Hangar display reflects your saved account loadout. Configure and save in Armory.</p>
         </div>
-      </nav>
+      </section>
 
-      <OnlineWing {...props} />
-    </div>
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.72fr)]">
+        <section aria-label="Operations" className="wfm-rise flex flex-col gap-3">
+          <div className="flex items-end justify-between border-b border-bone/15 pb-2">
+            <div><PanelLabel>OPERATIONS · PHOBOS THEATER</PanelLabel><p className="mt-1 font-hud text-2xl tracking-wider">NEXT SORTIE</p></div>
+            <span className="font-hud text-xs tracking-widest text-muted">{brief.completed}/{brief.total} CLEARED</span>
+          </div>
+          <div className="wfm-operation-brief">
+            <div className="min-w-0">
+              <p data-testid="text-campaign-briefing" className="font-hud text-[11px] tracking-[0.2em] text-solar">{brief.label} · OBJECTIVE {brief.sortie.objective}</p>
+              <h2 className="mt-1 font-hud text-2xl leading-none sm:text-3xl">{brief.sortie.name.toUpperCase()}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-bone/75">{brief.sortie.brief}</p>
+              <div className="mt-4 flex gap-1" aria-label={`${brief.completed} of ${brief.total} sorties cleared`}>
+                {Array.from({ length: brief.total }, (_, i) => <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />)}
+              </div>
+            </div>
+            <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
+              CAMPAIGN · DEPLOY
+            </button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
+              <span className="font-hud text-lg tracking-widest">RUST DISC · 3D FLIGHT</span>
+              <span className="text-xs text-muted">Local sector exploration · no rewards or account changes</span>
+            </Link>
+            <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
+              <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
+              <span className="text-xs text-muted">Open-disc practice or strike</span>
+            </button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-14 flex-col items-start justify-center gap-0 border-l-2 border-solar px-4">
+              <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
+              <span className="text-xs text-muted">Training only · no rewards</span>
+            </a>
+            {EXPEDITION_ENABLED ? (
+              <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-quiet min-h-14 flex-col items-start justify-center gap-0 border-l-2 border-spectral px-4">
+                <span className="font-hud tracking-widest text-spectral">SECTOR EXPEDITION · CO-OP</span>
+                <span className="text-xs text-muted">1–8 pilots · server-run missions to Mars</span>
+              </Link>
+            ) : null}
+          </div>
+        </section>
+
+        <div className="flex flex-col gap-4">
+          <CommandPanel className="wfm-rise-3 p-4" data-testid="panel-universe-navigation">
+            <PanelLabel>UNIVERSE · STRATEGIC ACCESS</PanelLabel>
+            <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary mt-3 min-h-14 w-full flex-col items-start justify-center gap-0 px-3">
+              <span className="font-hud text-lg tracking-widest text-solar">PERSISTENT GALAXY</span>
+              <span className="text-xs text-muted">World event · locations · side operations</span>
+            </button>
+          </CommandPanel>
+          <OnlineWing {...props} />
+          <nav aria-label="Hangar services" className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+              <span className="font-hud text-sm tracking-widest">ARMORY & UPGRADES</span><span className="truncate text-[11px] text-muted">{def.name} · saved loadout</span>
+            </button>
+            <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+              <span className="font-hud text-sm tracking-widest">SETTINGS</span><span className="text-[11px] text-muted">Controls · display</span>
+            </button>
+            <Link href="/leaderboard" data-testid="link-public-wing-leaderboard" className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3">
+              <span className="font-hud text-sm tracking-widest text-solar">WING LEADERBOARD</span><span className="text-[11px] text-muted">Opt-in callsigns · verified Wing credits</span>
+            </Link>
+          </nav>
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -405,7 +429,7 @@ function Armory(props: HomeProps) {
         <Pick on={draft.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => pickFaction("accord")} mark="accord" />
         <Pick on={draft.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => pickFaction("ussf")} mark="ussf" />
       </div>
-      <HullBay {...props} {...draft} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
+      <HullBay {...props} {...draft} isSaved={!dirty} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
       </fieldset>
       <div className="max-w-3xl">
         <button
@@ -570,7 +594,7 @@ function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; 
   );
 }
 
-function HullBay({ faction, ship, onShip }: HomeProps) {
+function HullBay({ faction, ship, onShip, isSaved }: Pick<HomeProps, "faction" | "ship" | "onShip"> & { isSaved: boolean }) {
   const sel = SHIPS[ship];
   const accord = faction === "accord";
   const tone = accord ? "text-solar" : "text-spectral";
@@ -579,18 +603,28 @@ function HullBay({ faction, ship, onShip }: HomeProps) {
     <div className="grid max-w-3xl gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <CommandPanel className="p-3" data-testid="panel-selected-hull" data-ship-id={ship}>
         <PanelLabel tone={accord ? "solar" : "spectral"}>SELECTED HULL · {FACTION_NAME[faction]}</PanelLabel>
-        <ShipIllustration ship={ship} className="mx-auto mt-2 h-44 w-44 sm:h-52 sm:w-52" />
+        <HangarShip ship={ship} faction={faction} isSaved={isSaved} />
         <p data-testid="text-armory-selected-ship" className="font-hud text-3xl leading-none tracking-wide">{sel.name.toUpperCase()}</p>
         <p className={`mt-1 font-hud text-xs tracking-[0.2em] ${tone}`}>{sel.role.toUpperCase()} · ULT {sel.ultName.toUpperCase()}</p>
         <p className="mt-2 text-sm leading-relaxed text-bone/85">{sel.blurb}</p>
-        <dl className="mt-3 grid grid-cols-4 gap-px border border-bone/10 bg-bone/10 font-hud">
-          {([["SHIELD", sel.shield], ["HULL", sel.hull], ["SPEED", sel.maxSpeed], ["ULT CD", `${sel.ultCd}s`]] as const).map(([k, v]) => (
+        <dl className="mt-3 grid grid-cols-2 gap-px border border-bone/10 bg-bone/10 font-hud sm:grid-cols-3">
+          {([
+            ["SHIELD", sel.shield],
+            ["HULL", sel.hull],
+            ["SPEED", sel.maxSpeed],
+            ["THRUST", sel.accel],
+            ["PULSE DMG", sel.shotDmg],
+            ["SHOT RATE", `${(1 / sel.fireInterval).toFixed(1)}/s`],
+          ] as const).map(([k, v]) => (
             <div key={k} className="bg-panel px-2 py-1.5">
               <dt className="text-[9px] tracking-[0.2em] text-muted">{k}</dt>
               <dd className="text-lg leading-none">{v}</dd>
             </div>
           ))}
         </dl>
+        <p className="mt-2 font-hud text-[10px] tracking-[0.16em] text-muted">
+          SPECIAL SYSTEM · {sel.ultName.toUpperCase()} · {sel.ultCd}s CYCLE
+        </p>
       </CommandPanel>
       <div className="grid grid-cols-2 content-start gap-2" role="group" aria-label={`${FACTION_NAME[faction]} hulls`}>
         {ROSTER[faction].map((id) => {

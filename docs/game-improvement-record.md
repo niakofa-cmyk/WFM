@@ -1,5 +1,48 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-03 — Stage B saved-hull hangar foundation
+
+Read the attached Stage B repository review in full and preserved its original
+text unchanged at `docs/references/wfm-stage-b-hangar-review.txt`. The owner
+provided two sets of four screenshots: cinematic hangar/ship-selection
+references, followed by aircraft selection, stats, debrief, and multiplayer-home
+references. The wide bay and grounded launch-deck images now provide subdued
+environmental atmosphere behind WFM's live hull model. The aircraft-detail
+references informed a more legible, data-backed stat panel and clearer saved
+hull / unsaved preview states. The screenshots remain references, not
+substitutes for the actual saved hull, WFM faction colors, or game UI.
+
+The proposed ChatGPT reference links were attempted but both returned HTTP 402.
+Their contents were not reviewed or treated as requirements; the attached
+repository review and the current source were the available references.
+
+The command screen now opens as a hangar-first experience with the current
+account-saved hull rendered from the existing Three.js orbital ship builder.
+The hangar model supports pointer/touch drag and keyboard rotation, and it
+retains a responsive fallback when WebGL is unavailable. The Armory's selected
+hull now uses that same 3D model; unsaved draft selections are explicitly
+labeled as previews, while the home hangar reflects only the saved profile.
+The saved-hull and Armory panels expose shield, hull, speed, thrust, pulse
+damage, and shot rate from WFM's canonical ship definitions, plus the selected
+ship's actual special system and cycle time. Hull editing and persistence
+continue through the existing Armory save flow.
+The campaign briefing, Rust Disc flight, Combat Lab, optional co-op expedition,
+galaxy, Online Wing, Armory, settings, and opt-in leaderboard remain reachable.
+
+This is a front-end journey and presentation slice. It does not connect
+competitive Wing to 3D sector simulation, change auth/progression/reward
+authority, or certify mobile GPU performance or physical-device behavior.
+Production and Railway were untouched.
+
+Verification: the `workspace-quality` workflow finished successfully with
+typechecks, 335 tests (scripts 53, API 143, WFM 139), production builds, and the
+two Combat Lab static-publication checks passing. `git diff --check` passed. The
+preview screenshot confirmed the public WFM entry page loads, but the capture
+browser cannot sign in, so the authenticated Hangar and Armory were not visually
+captured; no physical-phone test was performed. Vite still reports the existing
+greater-than-500-kB Three.js chunk advisory; this presentation change does not
+claim that the game's overall mobile frame pacing has been optimized.
+
 ## 2026-11-03 — Master Infinite War directive and Stage A audit
 
 Read the full owner-supplied 653-line master development directive and retained

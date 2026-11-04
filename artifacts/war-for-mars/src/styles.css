@@ -97,6 +97,99 @@
 
 .wfm-safe { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 
+/* Stage B: the saved hull is the home screen, operations remain one step away. */
+.wfm-hangar-content { width: min(100%, 1480px); margin-inline: auto; }
+.wfm-hangar-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17rem, .8fr);
+  min-height: 350px;
+  overflow: hidden;
+  border: 1px solid rgb(230 225 214 / .16);
+  background: linear-gradient(115deg, rgb(20 24 32 / .98), rgb(13 18 23 / .94));
+  box-shadow: 0 24px 60px rgb(0 0 0 / .24);
+}
+.wfm-hangar-scene {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid rgb(230 225 214 / .13);
+  background:
+    radial-gradient(ellipse at 52% 58%, rgb(129 81 45 / .28), transparent 40%),
+    linear-gradient(180deg, rgb(14 22 29 / .16), rgb(5 9 13 / .48)),
+    repeating-linear-gradient(90deg, transparent 0 14%, rgb(154 172 181 / .045) 14.1% 14.3%, transparent 14.5% 28%);
+}
+.wfm-hangar-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wfm-hangar-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wfm-hangar-art img:first-child {
+  opacity: .34;
+  object-position: center 54%;
+  filter: saturate(.72) contrast(1.04);
+}
+.wfm-hangar-art img:last-child {
+  opacity: .16;
+  object-position: center 58%;
+  mix-blend-mode: screen;
+  filter: saturate(.5) contrast(1.12);
+}
+.wfm-hangar-scene::before, .wfm-hangar-scene::after {
+  position: absolute;
+  z-index: 1;
+  content: "";
+  pointer-events: none;
+}
+.wfm-hangar-scene::before {
+  inset: 0 8% 23%;
+  border-inline: 1px solid rgb(184 196 201 / .16);
+  background: linear-gradient(90deg, rgb(10 14 18 / .5), transparent 12% 88%, rgb(10 14 18 / .5));
+  clip-path: polygon(13% 0, 87% 0, 100% 100%, 0 100%);
+}
+.wfm-hangar-scene::after {
+  left: 8%; right: 8%; bottom: 17%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(190 204 211 / .38), transparent);
+}
+.hangar-ship-stage { z-index: 2; cursor: grab; }
+.hangar-ship-stage:active { cursor: grabbing; }
+.hangar-stage-grid {
+  pointer-events: none;
+  background: radial-gradient(ellipse at center 72%, transparent 0 25%, rgb(224 161 90 / .09) 25.2% 25.5%, transparent 25.8% 35%, rgb(230 225 214 / .055) 35.2% 35.4%, transparent 35.7%);
+}
+.wfm-hangar-identity { display: flex; flex-direction: column; justify-content: center; padding: clamp(1rem, 3vw, 2rem); }
+.wfm-operation-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgb(224 161 90 / .32);
+  border-left: 2px solid var(--color-solar);
+  background: linear-gradient(105deg, rgb(36 30 26 / .88), rgb(20 24 32 / .84) 55%);
+}
+@media (max-width: 760px) {
+  .wfm-hangar-hero { grid-template-columns: minmax(0, 1fr); }
+  .wfm-hangar-scene { min-height: 255px; border-right: 0; border-bottom: 1px solid rgb(230 225 214 / .13); }
+  .wfm-hangar-identity { padding: 1rem; }
+  .wfm-operation-brief { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .wfm-operation-brief > button { width: 100%; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .wfm-hangar-hero { grid-template-columns: minmax(0, 1.3fr) minmax(16rem, .8fr); min-height: 250px; }
+  .wfm-hangar-scene { min-height: 250px; }
+  .wfm-hangar-identity { padding: 1rem; }
+}
+
 /* Motion */
 .wfm-rise { animation: wfm-rise 240ms cubic-bezier(.33,1,.68,1) both; }
 .wfm-rise-2 { animation: wfm-rise 320ms 90ms cubic-bezier(.33,1,.68,1) both; }
