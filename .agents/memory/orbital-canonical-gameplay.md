@@ -28,18 +28,30 @@ and rollback.
 **Current slice:** Cinder Ring is a server-defined, travelable asteroid, and the
 public OON directory advertises its local `flight-sector-v1` training circuit.
 Authenticated, single-seat operation registration and an anonymous opt-in status
-stream are in workspace code. Do not claim staging availability until the
-additive PostgreSQL schema has been applied to the confirmed staging database.
+stream are in workspace code. The additive operation schema is applied to the
+user-confirmed staging database; the public directory currently has no active
+instances/events until a player registers a session.
 
-**Why:** code and local tests do not create the table in the externally hosted
-database; the default API persistence cannot serve registrations until the
-target schema is synchronized.
+**Why:** application code and catalog definitions do not create live operations;
+the server must register each session and publish only its actual lifecycle.
 
 **How to apply:** implement authenticated matchmaking, occupancy, event
 streaming, spectator permissions, and server-owned results only through the
 existing authority boundaries, with tests and staging proof for each. Before a
 schema push, confirm the database is staging-only; never apply this change to
 Production as a side effect of ordinary build or deployment work.
+
+**Migration guard:** The general Drizzle push can propose unrelated progression
+enum/default changes. For the asteroid operation foundation, use the reviewed
+additive migration only; do not accept broad push prompts or force mode.
+
+**Why:** the inspected full schema plan contained unrelated enum replacement
+and economy-default changes, while the operations-only plan could not be
+resolved non-interactively.
+
+**How to apply:** apply only the versioned operation migration to the
+user-confirmed staging database, then verify the new table/types and API path.
+Keep unrelated schema drift for a separately reviewed migration.
 
 **Verification guard:** Keep standalone Solo Flight on its current compatibility
 runtime until an orbital migration passes repeatable browser checks for renderer

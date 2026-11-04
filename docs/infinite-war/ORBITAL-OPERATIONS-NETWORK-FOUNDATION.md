@@ -152,18 +152,24 @@ Implemented in this repository:
   owner-only close, expiry filtering, and the read-only SSE snapshot.
 - The browser preview screenshot shows the unauthenticated home/sign-in entry;
   the signed-in Galaxy page and flight entry were not visually exercised.
-- The API route is ordered before authentication-wide routers. Its local
-  unauthenticated smoke request now returns a sanitized HTTP 503
-  (`operation_service_unavailable`) because the current database lacks
-  `operation_instances`; the SQL error is not sent to clients.
-- The additive `operation_instances` schema has not been applied to any
-  database. Until applied to the intended staging database, the default
-  DB-backed directory and registration routes are not staging-ready.
-- The repository's schema-push command is
-  `pnpm --filter @workspace/db run push`; it has not been run because the
-  configured database target must be confirmed as staging-only first.
-- No Railway resource, staging database, deployment, reward configuration, or
-  Production system was changed.
+- The API route is ordered before authentication-wide routers. After the
+  migration, its unauthenticated local smoke request returns HTTP 200 with the
+  Cinder location and operation definition; `instances` and `events` are empty
+  until a real session is registered.
+- The broad Drizzle schema plan was not applied: it also proposed unrelated
+  changes to `progression_events.kind`, the `progression_event_kind` enum, and a
+  `player_progress.prices` default.
+- The operations-only SQL was reviewed and saved as
+  [`lib/db/migrations/0001_operation_instances.sql`](../../lib/db/migrations/0001_operation_instances.sql).
+  A read-only catalog check confirmed the two enum names and table were absent
+  before applying the additive migration to the user-confirmed staging
+  database. A post-migration catalog check verified both enums, the table, the
+  constraints, and all three added indexes (plus the primary-key index).
+- No unrelated progression/economy schema was changed. The migration adds only
+  the operation status/visibility enums, `operation_instances`, its checks, and
+  its indexes.
+- No Production database, Railway resource/settings, or deployment was changed.
 
-Local tests prove code contracts only. They do not certify staging migration,
-deployed SSE behavior, Android controls, multi-pilot operation, or Production.
+Automated tests prove code contracts, and the database catalog confirms the
+additive staging schema. They do not certify the deployed staging API, Android
+controls, multi-pilot operation, or Production.
