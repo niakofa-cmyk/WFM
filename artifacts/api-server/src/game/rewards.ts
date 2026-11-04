@@ -247,7 +247,9 @@ export function adjudicateStrike(claim: ReplayClaim) {
     advance =
       cleared >= 4
         ? "The cage run is over. The yard stays open."
-        : `Next sortie: ${(["Beacon", "Warden", "Cage", "Cage"] as const)[cleared - 1]}.`;
+        : claim.mission === "contact" && cleared === 1
+          ? "Contact front secured. Pale Beacons are now charted; reach them through Rust Disc. Next sortie: Beacon."
+          : `Next sortie: ${(["Beacon", "Warden", "Cage", "Cage"] as const)[cleared - 1]}.`;
   }
 
   return {

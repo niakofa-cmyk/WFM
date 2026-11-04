@@ -91,6 +91,61 @@ test("orbital flight rules are restricted to Contact while unversioned runs keep
   );
 });
 
+test("a validated Contact victory charts Pale Beacons in the campaign galaxy", async () => {
+  const { createMatch, step } = await import("./sim");
+  const { prepareOrbital } = await import("./orbital-sim");
+  const seed = 123;
+  const match = createMatch("mandjet", "accord", 0, "practice", {
+    seed,
+    goal: "disc",
+    disc: "rust",
+    allyCount: 4,
+    foeCount: 4,
+    tech: null,
+  });
+  prepareOrbital(match);
+  const input = {
+    throttle: 0,
+    yaw: 0,
+    strafe: 0,
+    pitch: 0,
+    fire: false,
+    ult: false,
+    lock: false,
+    evade: 0,
+    preset: null,
+    vertical: 0,
+    roll: 0,
+    boost: false,
+    brake: false,
+    inertial: false,
+    missile: false,
+    aimAssist: false,
+  } as const;
+  const inputs = [];
+  for (let frame = 0; frame < 120 * 60 && !match.over; frame += 1) {
+    step(match, input, 1 / 60);
+    inputs.push(input);
+  }
+  assert.equal(match.over, "win");
+
+  const result = adjudicateStrike({
+    ...claim,
+    seed,
+    pace: "practice",
+    goal: "disc",
+    disc: "rust",
+    allyCount: 4,
+    foeCount: 4,
+    mission: "contact",
+    flightModel: "orbital-v1",
+    cleared: 0,
+    inputs,
+  });
+  assert.equal(result.cleared, 1);
+  assert.match(result.advance, /Pale Beacons.*Rust Disc/);
+});
+
 test("a full six-minute strike stays active through combat and ends at the timer boundary", async () => {
   const { createMatch, step } = await import("./sim");
   const match = createMatch("mandjet", "accord", 0, "strike", {

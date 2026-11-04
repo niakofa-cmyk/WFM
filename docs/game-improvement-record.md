@@ -19,8 +19,13 @@ initial orbital slice. Standalone Combat Lab remains offline and no-reward;
 competitive Wing, co-op sectors, Iron Eclipse, and the socket protocol were not
 changed.
 
-Verification: workspace typechecks passed; all 346 workspace tests passed
-(scripts 53, API 146, WFM 147); production builds passed, including both
+On the first verified Contact win, the existing campaign-clear counter unlocks
+Pale Beacons in the player's persistent galaxy. The debrief names the route via
+Rust Disc, and the server integration test checks a fresh world snapshot after
+the claim. No duplicate world-state table or schema migration was added.
+
+Verification: workspace typechecks passed; all 347 workspace tests passed
+(scripts 53, API 147, WFM 147); production builds passed, including both
 standalone Combat Lab static-publication checks. The database-backed campaign
 test exercised Contact issue, deterministic orbital replay, reward settlement,
 and duplicate-claim behavior using a temporary test account and removed its

@@ -159,6 +159,12 @@ original surface rules while a newer client uses the orbital version. The first
 orbital Contact objective is the authored “break the defending wing” branch;
 relay capture is not currently part of this orbital variant.
 
+A verified first Contact win advances the existing campaign-clear count. The
+persistent galaxy derives the Pale Beacons unlock from that server-owned
+progression, and the Contact debrief explains that the route is charted through
+Rust Disc. This reuses the existing progression contract rather than creating a
+parallel world-event store.
+
 This migrates one campaign operation only. The standalone Combat Lab remains
 offline and no-reward; the remaining campaign sorties, competitive Wing, live
 socket rooms, co-op sectors, and Iron Eclipse retain their existing contracts.

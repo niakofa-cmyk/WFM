@@ -6,6 +6,7 @@ import { WebSocket } from "ws";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   pool,
   strikeRunsTable,
@@ -27,6 +28,7 @@ import {
   updatePlayerControlScheme,
   updatePlayerLoadout,
 } from "./progression";
+import { getWorldSnapshot } from "./world";
 import {
   adjudicateStrike,
   PRACTICE_STEP_LIMIT,
@@ -474,6 +476,8 @@ test(
       const initial = await getPlayerProfile(userId);
       assert.equal(initial.credits, 90);
       assert.equal(initial.cleared, 0);
+      const initialWorld = await getWorldSnapshot(userId);
+      assert.equal(initialWorld.locations.find((location) => location.id === "pale-beacons")?.unlocked, false);
 
       await assert.rejects(
         startPlayerStrike(userId, { ...selection, mission: "cage" }),
@@ -567,6 +571,14 @@ test(
       const firstClaim = claimA.replayed ? claimB : claimA;
       assert.equal(firstClaim.profile.credits, 280 + firstClaim.gain);
       assert.equal(firstClaim.replayed, false);
+      const beaconsUnlocked = firstClaim.profile.cleared >= 1;
+      assert.equal(firstClaim.outcome === "win", beaconsUnlocked);
+      assert.equal(firstClaim.advance.includes("Pale Beacons"), beaconsUnlocked);
+      const worldAfterContactClaim = await getWorldSnapshot(userId);
+      assert.equal(
+        worldAfterContactClaim.locations.find((location) => location.id === "pale-beacons")?.unlocked,
+        beaconsUnlocked,
+      );
 
       // Prove the reward survives a fresh profile read, not only the claim response.
       const persistedAfterFirstClaim = await getPlayerProfile(userId);
@@ -623,6 +635,7 @@ test(
     } finally {
       await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
       await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
+      await db.delete(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
       await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
       await pool.end();
     }

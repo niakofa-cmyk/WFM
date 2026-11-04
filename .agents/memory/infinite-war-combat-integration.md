@@ -11,6 +11,17 @@ first versioned orbital campaign replay; capable clients receive server-selected
 Do not silently reinterpret an issued run. Keep squad orders and capital-ship
 objectives in validated co-op operations.
 
+A verified first Contact win advances the existing campaign-clear counter,
+which unlocks Pale Beacons in the saved galaxy. Reuse this server-owned
+progression-to-map bridge instead of adding a parallel world-event store.
+
+**Why:** campaign progression and galaxy unlocks are already durable; duplicate
+state would create competing sources of truth.
+
+**How to apply:** attach future Contact consequences atomically to the validated
+claim and derive map unlocks from saved progression, never client-submitted
+outcomes.
+
 **Why:** The combat-foundation pull request starts from older `main` and replaces
 socket/auth behavior that is already integrated with newer staging queues,
 rewards, and sector missions. Combining the protocols or deploying only one
