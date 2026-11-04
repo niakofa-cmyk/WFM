@@ -1,6 +1,6 @@
 import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
-import { toOrbitalStepInput } from "./flight-control";
+import { toOrbitalPilotStepInput, toOrbitalStepInput } from "./flight-control";
 import { COORDINATED_BANK, mapFlightStickAxes, type ManeuverPulse } from "./pilot-stick-gestures";
 
 export type Bus = {
@@ -205,16 +205,19 @@ export function readInput(bus: Bus): StepInput {
     bus.inertialPulse = false;
     bus.missilePulse = false;
     bus.aimAssistPulse = false;
-    const result = toOrbitalStepInput({
+    const controls = {
       throttle, yaw,
       strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX)),
       pitch: clamp(pitch + axis("KeyI", "KeyK")),
-      roll: clamp((bus.orbital ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
+      roll: clamp((bus.orbital && bus.leftStickFlight ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
       vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, aimAssist,
-    });
+    };
+    const result = bus.leftStickFlight
+      ? toOrbitalPilotStepInput(controls)
+      : toOrbitalStepInput(controls);
     bus.lastKeys = new Set(keys);
     return result;
   }

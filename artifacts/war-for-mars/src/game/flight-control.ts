@@ -81,13 +81,10 @@ export function toOrbitalStepInput(value: Partial<FlightControlFrame>): StepInpu
   const input = normalizeFlightControls(value);
   return {
     throttle: input.throttle,
-    // `FlightControlFrame` follows the pilot-facing Rust Disc convention.
-    // The orbital integrator's positive yaw/strafe axes are opposite that
-    // convention, matching the sector-motion adapter used by Rust Disc.
-    yaw: -input.yaw,
-    strafe: -input.strafe,
+    yaw: input.yaw,
+    strafe: input.strafe,
     pitch: input.pitch,
-    roll: -input.roll,
+    roll: input.roll,
     vertical: input.vertical,
     fire: input.fire,
     ult: false,
@@ -101,4 +98,19 @@ export function toOrbitalStepInput(value: Partial<FlightControlFrame>): StepInpu
     missile: input.missile,
     aimAssist: input.aimAssist,
   };
+}
+
+/**
+ * Converts the Rust Disc pilot-facing axis convention into the Orbital
+ * integrator's established simulation signs. Use only for the unified flight
+ * stick; legacy orbital-control callers retain `toOrbitalStepInput`.
+ */
+export function toOrbitalPilotStepInput(value: Partial<FlightControlFrame>): StepInput {
+  const input = normalizeFlightControls(value);
+  return toOrbitalStepInput({
+    ...input,
+    yaw: -input.yaw,
+    strafe: -input.strafe,
+    roll: -input.roll,
+  });
 }

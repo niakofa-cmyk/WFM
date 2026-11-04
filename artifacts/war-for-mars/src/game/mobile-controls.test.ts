@@ -121,8 +121,8 @@ test("unified orbital left stick controls pitch, yaw and coordinated bank while 
   assert.ok(Math.abs(input.yaw - 0.55) < 1e-9);
   assert.ok(Math.abs(input.pitch - 0.2) < 1e-9);
   assert.ok(Math.abs(input.roll - 0.65 * COORDINATED_BANK) < 1e-9);
-  assert.equal(input.strafe, 0);
-  assert.equal(input.vertical, 0);
+  assert.ok(Math.abs(input.strafe) < Number.EPSILON);
+  assert.ok(Math.abs(input.vertical) < Number.EPSILON);
 });
 
 test("short vector-thrust gestures reach the flight input and interruption clears them", () => {
@@ -135,8 +135,8 @@ test("short vector-thrust gestures reach the flight input and interruption clear
   assert.equal(readInput(bus).strafe, 1);
 
   clearInput(bus);
-  assert.equal(readInput(bus).vertical, 0);
-  assert.equal(readInput(bus).strafe, 0);
+  assert.ok(Math.abs(readInput(bus).vertical) < Number.EPSILON);
+  assert.ok(Math.abs(readInput(bus).strafe) < Number.EPSILON);
 });
 
 test("vector-thrust input returns to neutral when its short pulse expires", async () => {

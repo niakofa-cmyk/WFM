@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeFlightControls, neutralFlightControls, toOrbitalStepInput, toSectorFlightInput } from "./flight-control";
+import { normalizeFlightControls, neutralFlightControls, toOrbitalPilotStepInput, toOrbitalStepInput, toSectorFlightInput } from "./flight-control";
 
 test("shared flight controls clamp axes and reject non-finite input", () => {
   const controls = normalizeFlightControls({
@@ -32,12 +32,23 @@ test("mode adapters preserve compatible controls and make unsupported legacy beh
     boost: true, brake: true, drift: true, inertial: true, missile: true, aimAssist: true,
   });
   assert.equal(orbital.throttle, -0.5);
-  assert.equal(orbital.yaw, -0.2);
-  assert.equal(orbital.roll, 0.3);
-  assert.equal(orbital.strafe, -0.6);
+  assert.equal(orbital.yaw, 0.2);
+  assert.equal(orbital.roll, -0.3);
+  assert.equal(orbital.strafe, 0.6);
   assert.equal(orbital.vertical, 0.4);
   assert.equal(orbital.drift, true);
   assert.equal(orbital.inertial, true);
   assert.equal(orbital.missile, true);
   assert.equal(orbital.aimAssist, true);
+});
+
+test("Rust Disc pilot convention is adapted only at the canonical Orbital control boundary", () => {
+  const orbital = toOrbitalPilotStepInput({
+    throttle: 0.5, yaw: 0.2, pitch: -0.4, roll: 0.3, strafe: 0.6, vertical: 0.7,
+  });
+  assert.equal(orbital.yaw, -0.2);
+  assert.equal(orbital.pitch, -0.4);
+  assert.equal(orbital.roll, -0.3);
+  assert.equal(orbital.strafe, -0.6);
+  assert.equal(orbital.vertical, 0.7);
 });

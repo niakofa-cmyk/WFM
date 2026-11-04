@@ -501,9 +501,13 @@ export function Arena({
   if (modeDefinition.simulation.runtimeId !== runtime) {
     throw new Error(`Mode ${modeId} is configured for ${modeDefinition.simulation.runtimeId}, not ${runtime}.`);
   }
-  const orbital = runtime === ORBITAL_RUNTIME_ID;
-  const orbitalRuntime = orbital ? createOrbitalRuntime(modeDefinition) : null;
-  if (orbital && !orbitalRuntime) throw new Error("Orbital runtime initialization failed.");
+  const orbitalRuntime = runtime === ORBITAL_RUNTIME_ID
+    ? createOrbitalRuntime(modeDefinition)
+    : null;
+  const orbital = orbitalRuntime?.runtimeId === ORBITAL_RUNTIME_ID;
+  if (runtime === ORBITAL_RUNTIME_ID && !orbital) {
+    throw new Error("Orbital runtime initialization failed.");
+  }
   if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
   const telemetryRef = useRef<HTMLParagraphElement>(null);
