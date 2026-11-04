@@ -151,6 +151,58 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
   await expect(page.getByTestId("solo-flight")).toBeVisible();
 });
 
+test("Rust Disc defers 3D startup until launch and reuses it on warm relaunch", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 844, height: 390 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  const page = await context.newPage();
+  let runtimeRequests = 0;
+
+  try {
+    await page.route("**/three-flight-runtime*", async (route) => {
+      runtimeRequests++;
+      if (runtimeRequests === 1) await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.continue();
+    });
+    await page.goto("/flight");
+    await expect(page.getByTestId("button-launch")).toBeVisible();
+
+    const beforeLaunch = await page.evaluate(() =>
+      performance.getEntriesByType("resource").map((entry) => entry.name),
+    );
+    expect(beforeLaunch.some((url) => url.includes("three-flight-runtime"))).toBe(false);
+
+    const coldStart = await page.evaluate(() => performance.now());
+    await page.getByTestId("button-launch").click();
+    await expect(page.getByTestId("status-flight-engine-loading")).toBeVisible();
+    await expect(page.getByTestId("status-flight-engine-loading")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="canvas-flight"] canvas')).toBeVisible();
+    const coldFirstFrameMs = await page.evaluate((start) => performance.now() - start, coldStart);
+    expect(runtimeRequests).toBe(1);
+
+    await page.getByTestId("button-pause").click();
+    await page.getByTestId("button-briefing").click();
+    await expect(page.getByTestId("button-launch")).toBeVisible();
+
+    const warmStart = await page.evaluate(() => performance.now());
+    await page.getByTestId("button-launch").click();
+    await expect(page.getByTestId("status-flight-engine-loading")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator('[data-testid="canvas-flight"] canvas')).toBeVisible();
+    const warmFirstFrameMs = await page.evaluate((start) => performance.now() - start, warmStart);
+
+    expect(runtimeRequests).toBe(1);
+    expect(warmFirstFrameMs).toBeLessThan(coldFirstFrameMs);
+    console.info(
+      `Rust Disc browser simulation: cold ${coldFirstFrameMs.toFixed(0)} ms, warm ${warmFirstFrameMs.toFixed(0)} ms; software-WebGL/mobile emulation, not physical Android timing.`,
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test("local performance sampling is opt-in and does not submit reward requests", async ({ page }) => {
   const rewardRequests: string[] = [];
   page.on("request", (request) => {

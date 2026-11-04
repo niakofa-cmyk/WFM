@@ -817,7 +817,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       inputRef.current = { ...NEUTRAL_FLIGHT_INPUT };
       keysRef.current.clear();
     };
-  }, [phase, runId, shipId, quality, setPausedBoth]);
+  }, [phase, runId, shipId, quality, setPausedBoth, threeModule]);
 
   const restart = () => { resetControls(); launch(); };
   const toBriefing = () => {
