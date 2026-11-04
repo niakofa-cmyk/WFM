@@ -38,4 +38,19 @@ export interface StrikeStepInput {
   evade: number;
   /** @nullable */
   preset: StrikeStepInputPreset;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  vertical?: number;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  roll?: number;
+  boost?: boolean;
+  brake?: boolean;
+  inertial?: boolean;
+  missile?: boolean;
+  aimAssist?: boolean;
 }

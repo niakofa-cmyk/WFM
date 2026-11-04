@@ -15,6 +15,7 @@ export type Save = {
   faction: Faction;
   scheme: Scheme;
   refit: number;
+  shieldMk2?: boolean;
   prices: Record<GoodId, number>;
   hold: GoodId | null;
   paid: number;
@@ -73,6 +74,7 @@ export function saveFromProfile(profile: GameProfile, device = loadDevicePrefere
     faction: profile.faction,
     scheme: profile.scheme,
     refit: profile.refit,
+    shieldMk2: profile.shieldMk2,
     prices: profile.prices,
     hold: profile.hold,
     paid: profile.paid,

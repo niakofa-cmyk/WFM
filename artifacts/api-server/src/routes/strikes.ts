@@ -11,6 +11,7 @@ import { z } from "zod";
 
 const router: IRouter = Router();
 router.use(requirePlayerAuth);
+export const StrikeRunIdParams = z.object({ runId: z.string().uuid() });
 
 router.post("/strikes/start", async (req, res, next) => {
   const parsed = StartStrikeBody.strict().safeParse(req.body);
@@ -39,11 +40,11 @@ router.post("/strikes/start", async (req, res, next) => {
 });
 
 router.post("/strikes/:runId/claim", async (req, res, next) => {
-  const params = z.object({ runId: z.string().uuid() }).safeParse(req.params);
+  const params = StrikeRunIdParams.safeParse(req.params);
   const parsed = ClaimStrikeBody.strict().safeParse(req.body);
   let replayInputsValid = false;
   try {
-    validateStrikeReplayInputs(req.body?.inputs, "strike");
+    validateStrikeReplayInputs(req.body?.inputs, "strike", "any");
     replayInputsValid = true;
   } catch (error) {
     if (!(error instanceof InvalidStrikeReplay)) throw error;

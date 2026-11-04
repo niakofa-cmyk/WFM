@@ -1,9 +1,11 @@
 @theme {
   --color-void: #07080d;
   --color-panel: #141820;
+  --color-graphite: #1b2029;
   --color-bone: #e6e1d6;
-  --color-muted: #8d877c;
+  --color-muted: #a6a094;
   --color-solar: #e0a15a;
+  --color-spectral: #78bfff;
   --color-alert: #c45c48;
   --font-sans: "Figtree", sans-serif;
   --font-hud: "Barlow Condensed", sans-serif;
@@ -12,14 +14,18 @@
 @layer base {
   html {
     color-scheme: dark;
-    height: 100%;
+    min-height: 100%;
     background: var(--color-void);
   }
   body {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--color-void);
     color: var(--color-bone);
+  }
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -32,4 +38,187 @@
     background: var(--color-solar);
     color: var(--color-void);
   }
+  :where(a, button, input, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-bone);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgb(224 161 90 / 0.55);
+  }
+}
+
+/* Lovart command presentation */
+.wfm-backdrop { background: radial-gradient(ellipse at 70% 45%, #3a1c14 0%, #12131a 55%, var(--color-void) 100%); }
+.wfm-backdrop-img { object-position: 62% 50%; }
+.wfm-scrim {
+  background:
+    linear-gradient(90deg, rgb(7 8 13 / 0.94) 0%, rgb(7 8 13 / 0.72) 38%, rgb(7 8 13 / 0.2) 72%, rgb(7 8 13 / 0.55) 100%),
+    linear-gradient(0deg, rgb(7 8 13 / 0.92) 0%, transparent 42%);
+}
+.wfm-scrim-dense { background: linear-gradient(180deg, rgb(7 8 13 / 0.55) 0%, rgb(7 8 13 / 0.92) 55%, var(--color-void) 100%); }
+@media (orientation: portrait) {
+  .wfm-scrim { background: linear-gradient(180deg, rgb(7 8 13 / 0.3) 0%, rgb(7 8 13 / 0.8) 42%, rgb(7 8 13 / 0.96) 100%); }
+}
+.wfm-faction-wash { opacity: 0; transition: opacity 400ms ease; }
+[data-faction="ussf"] .wfm-faction-wash { opacity: 1; background: radial-gradient(ellipse at 80% 20%, rgb(120 191 255 / 0.13), transparent 55%); }
+[data-faction="accord"] .wfm-faction-wash { opacity: 1; background: radial-gradient(ellipse at 80% 20%, rgb(224 161 90 / 0.12), transparent 55%); }
+.wfm-grain {
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wfm-chamfer { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.wfm-glass { background: rgb(20 24 32 / 0.94); }
+.wfm-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgb(27 32 41 / 0.95), rgb(20 24 32 / 0.95));
+  border: 1px solid rgb(230 225 214 / 0.12);
+}
+.wfm-panel-accent { border-color: rgb(224 161 90 / 0.45); }
+.wfm-tick { position: absolute; width: 10px; height: 10px; pointer-events: none; }
+.wfm-tick-tl { top: -1px; left: -1px; border-top: 2px solid var(--color-solar); border-left: 2px solid var(--color-solar); }
+.wfm-tick-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--color-solar); border-right: 2px solid var(--color-solar); }
+
+/* Command buttons: primary, secondary, quiet */
+.wfm-cmd {
+  position: relative;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.wfm-cmd:not(:disabled):active { transform: translateY(1px) scale(0.995); }
+.wfm-cmd-primary { background: var(--color-solar); color: var(--color-void); }
+.wfm-cmd-primary:not(:disabled):hover { background: #ebb173; }
+.wfm-cmd-secondary { background: rgb(20 24 32 / 0.92); border: 1px solid rgb(224 161 90 / 0.55); color: var(--color-bone); }
+.wfm-cmd-secondary:not(:disabled):hover { border-color: var(--color-solar); background: rgb(36 30 26 / 0.95); }
+.wfm-cmd-quiet { background: rgb(20 24 32 / 0.85); border: 1px solid rgb(230 225 214 / 0.16); color: var(--color-bone); }
+.wfm-cmd-quiet:not(:disabled):hover { border-color: rgb(230 225 214 / 0.4); }
+.wfm-cmd:disabled { opacity: 0.45; }
+
+.wfm-safe { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+
+/* Stage B: the saved hull is the home screen, operations remain one step away. */
+.wfm-hangar-content { width: min(100%, 1480px); margin-inline: auto; }
+.wfm-hangar-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17rem, .8fr);
+  min-height: 350px;
+  overflow: hidden;
+  border: 1px solid rgb(230 225 214 / .16);
+  background: linear-gradient(115deg, rgb(20 24 32 / .98), rgb(13 18 23 / .94));
+  box-shadow: 0 24px 60px rgb(0 0 0 / .24);
+}
+.wfm-hangar-scene {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid rgb(230 225 214 / .13);
+  background:
+    radial-gradient(ellipse at 52% 58%, rgb(129 81 45 / .28), transparent 40%),
+    linear-gradient(180deg, rgb(14 22 29 / .16), rgb(5 9 13 / .48)),
+    repeating-linear-gradient(90deg, transparent 0 14%, rgb(154 172 181 / .045) 14.1% 14.3%, transparent 14.5% 28%);
+}
+.wfm-hangar-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 52% 73%, rgb(226 148 76 / .24), transparent 22%),
+    radial-gradient(ellipse at 50% 56%, rgb(129 81 45 / .28), transparent 40%),
+    linear-gradient(180deg, rgb(14 22 29 / .08) 0%, rgb(5 9 13 / .36) 72%, rgb(5 9 13 / .72) 100%),
+    repeating-linear-gradient(90deg, transparent 0 13.5%, rgb(154 172 181 / .055) 13.7% 13.9%, transparent 14.2% 27%);
+}
+.wfm-hangar-art::before, .wfm-hangar-art::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+.wfm-hangar-art::before {
+  inset: 8% 7% 20%;
+  clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+  border-inline: 1px solid rgb(190 204 211 / .12);
+  background:
+    linear-gradient(90deg, rgb(8 12 16 / .55), transparent 13% 87%, rgb(8 12 16 / .55)),
+    repeating-linear-gradient(90deg, transparent 0 24%, rgb(190 204 211 / .07) 24.2% 24.5%, transparent 24.8% 49%);
+}
+.wfm-hangar-art::after {
+  left: 7%;
+  right: 7%;
+  bottom: 8%;
+  height: 30%;
+  transform: perspective(420px) rotateX(58deg);
+  transform-origin: bottom;
+  background:
+    linear-gradient(180deg, transparent, rgb(5 9 13 / .72)),
+    repeating-linear-gradient(90deg, transparent 0 19%, rgb(224 161 90 / .22) 19.2% 19.5%, transparent 19.8% 39%),
+    repeating-linear-gradient(180deg, transparent 0 24%, rgb(190 204 211 / .12) 24.2% 24.6%, transparent 24.8% 49%);
+  border-top: 1px solid rgb(224 161 90 / .28);
+}
+.wfm-hangar-scene::before, .wfm-hangar-scene::after {
+  position: absolute;
+  z-index: 1;
+  content: "";
+  pointer-events: none;
+}
+.wfm-hangar-scene::before {
+  inset: 0 8% 23%;
+  border-inline: 1px solid rgb(184 196 201 / .16);
+  background: linear-gradient(90deg, rgb(10 14 18 / .5), transparent 12% 88%, rgb(10 14 18 / .5));
+  clip-path: polygon(13% 0, 87% 0, 100% 100%, 0 100%);
+}
+.wfm-hangar-scene::after {
+  left: 8%; right: 8%; bottom: 17%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(190 204 211 / .38), transparent);
+}
+.hangar-ship-stage { z-index: 2; cursor: grab; }
+.hangar-ship-stage:active { cursor: grabbing; }
+.hangar-stage-grid {
+  pointer-events: none;
+  background: radial-gradient(ellipse at center 72%, transparent 0 25%, rgb(224 161 90 / .09) 25.2% 25.5%, transparent 25.8% 35%, rgb(230 225 214 / .055) 35.2% 35.4%, transparent 35.7%);
+}
+.wfm-hangar-identity { display: flex; flex-direction: column; justify-content: center; padding: clamp(1rem, 3vw, 2rem); }
+.wfm-operation-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgb(224 161 90 / .32);
+  border-left: 2px solid var(--color-solar);
+  background: linear-gradient(105deg, rgb(36 30 26 / .88), rgb(20 24 32 / .84) 55%);
+}
+@media (max-width: 760px) {
+  .wfm-hangar-hero { grid-template-columns: minmax(0, 1fr); }
+  .wfm-hangar-scene { min-height: 255px; border-right: 0; border-bottom: 1px solid rgb(230 225 214 / .13); }
+  .wfm-hangar-identity { padding: 1rem; }
+  .wfm-operation-brief { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .wfm-operation-brief > button { width: 100%; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .wfm-hangar-hero { grid-template-columns: minmax(0, 1.3fr) minmax(16rem, .8fr); min-height: 250px; }
+  .wfm-hangar-scene { min-height: 250px; }
+  .wfm-hangar-identity { padding: 1rem; }
+}
+
+/* Motion */
+.wfm-rise { animation: wfm-rise 240ms cubic-bezier(.33,1,.68,1) both; }
+.wfm-rise-2 { animation: wfm-rise 320ms 90ms cubic-bezier(.33,1,.68,1) both; }
+.wfm-rise-3 { animation: wfm-rise 360ms 180ms cubic-bezier(.33,1,.68,1) both; }
+@keyframes wfm-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wfm-arrive { animation: wfm-arrive 900ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes wfm-arrive { from { opacity: 0; transform: translateX(-24px) scale(1.02); } to { opacity: 1; transform: none; } }
+.wfm-sweep { animation: wfm-sweep 1100ms 250ms cubic-bezier(.16,1,.3,1) both; transform-origin: left; }
+@keyframes wfm-sweep { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+.wfm-drift { animation: wfm-drift 40s ease-in-out infinite alternate; }
+@keyframes wfm-drift { from { transform: scale(1.04) translateX(0); } to { transform: scale(1.04) translateX(-1.5%); } }
+.wfm-blink { animation: wfm-blink 1.6s steps(2, end) infinite; }
+@keyframes wfm-blink { 50% { opacity: 0.35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wfm-rise, .wfm-rise-2, .wfm-rise-3, .wfm-arrive, .wfm-sweep, .wfm-drift, .wfm-blink { animation: none !important; }
+  .wfm-pulse { animation: none !important; }
+  .wfm-cmd, .wfm-faction-wash { transition: none; }
 }

@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "E1fSMm10KSeFC87fOCyL5"
+uri = "file://.local/wfm-flight-battle.jpg"
+type = "image"
+title = "WFM staging Strike — WebGL2 gameplay"
+description = "Captured during the authenticated staging flight. Gameplay rendered, but the first reward claim was rejected; this is not production or physical-phone certification."
+logical_id = "60aa3b08-6ac4-48e3-af8e-107705a97a66"
+content_hash = "sha256:1f3fff4a0e9158918f5121e631beb6d7aa1d96e8102cc17edd8d02bbb90de620"
+size = 40470
+mtime_ms = 1793013845379
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/60aa3b08-6ac4-48e3-af8e-107705a97a66/ea0ac126-8dbc-4f00-aea4-88b40fa56fc5"
+storage_version_token = "1793014496315983"
+content_type = "image/jpeg"

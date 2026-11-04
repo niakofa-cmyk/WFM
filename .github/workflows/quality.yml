@@ -2,9 +2,9 @@ name: Workspace quality
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   workflow_dispatch:
 
 permissions:
@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Test promotion-gate routing
+        run: node --test scripts/verify-build-only-promotion.test.mjs
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -60,13 +62,18 @@ jobs:
         run: pnpm run typecheck
       - name: Run tests
         run: pnpm test
+      - name: Install Chromium for the determinism gate
+        run: pnpm --filter @workspace/war-for-mars exec playwright install --with-deps chromium
+      - name: Cross-runtime simulation determinism gate
+        # Fails if Node (reward server) and Chromium (player) disagree on any frame of the pinned replays.
+        run: pnpm --filter @workspace/war-for-mars run test:determinism
       - name: Build all artifacts
         run: pnpm run build
 
   verify-staging-evidence:
     name: Verify staging evidence
     needs: verify
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

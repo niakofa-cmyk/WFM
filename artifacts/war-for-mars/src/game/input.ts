@@ -22,6 +22,8 @@ export type Bus = {
   eWas: boolean;
   fWas: boolean;
   rWas: boolean;
+  orbital?: boolean;
+  lastKeys?: Set<string>;
 };
 
 export function createBus(scheme: Scheme): Bus {
@@ -69,10 +71,35 @@ export function clearInput(bus: Bus) {
   bus.eWas = false;
   bus.fWas = false;
   bus.rWas = false;
+  bus.lastKeys?.clear();
 }
 
 function clamp(n: number): number {
   return Math.max(-1, Math.min(1, n));
+}
+
+const STICK_DEAD_ZONE = 0.08;
+
+export function stickAxesFromDelta(dx: number, dy: number, maxDistance: number) {
+  if (
+    !Number.isFinite(dx) ||
+    !Number.isFinite(dy) ||
+    !Number.isFinite(maxDistance) ||
+    maxDistance <= 0
+  ) {
+    return { x: 0, y: 0 };
+  }
+
+  const distance = Math.hypot(dx, dy);
+  if (distance <= maxDistance * STICK_DEAD_ZONE) return { x: 0, y: 0 };
+
+  const magnitude =
+    (Math.min(distance, maxDistance) / maxDistance - STICK_DEAD_ZONE) /
+    (1 - STICK_DEAD_ZONE);
+  return {
+    x: clamp((dx / distance) * magnitude),
+    y: clamp((dy / distance) * magnitude),
+  };
 }
 
 export function readInput(bus: Bus): StepInput {
@@ -120,5 +147,18 @@ export function readInput(bus: Bus): StepInput {
   bus.eWas = e;
   const preset = bus.presetPulse;
   bus.presetPulse = null;
+  if (bus.orbital) {
+    const axis = (positive: string, negative: string) => Number(keys.has(positive)) - Number(keys.has(negative));
+    const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
+    const result: StepInput = {
+      throttle, yaw, strafe: clamp(axis("KeyZ", "KeyX") + (bus.scheme === "strafe" ? strafe : 0)),
+      pitch: clamp(pitch + axis("KeyI", "KeyK")), roll: axis("KeyQ", "KeyE"), vertical: axis("KeyC", "KeyV"),
+      fire, ult: false, lock, evade: 0, preset: null,
+      boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
+      inertial: pulse("KeyG"), missile: pulse("KeyM"), aimAssist: pulse("KeyH"),
+    };
+    bus.lastKeys = new Set(keys);
+    return result;
+  }
   return { throttle, yaw, strafe, pitch, fire, ult, lock, evade, preset };
 }

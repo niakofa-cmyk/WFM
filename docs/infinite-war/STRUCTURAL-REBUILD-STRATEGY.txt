@@ -1,0 +1,884 @@
+# WAR FOR MARS: THE INFINITE WAR — structural rebuild strategy
+
+I agree with your diagnosis. The screenshot exposes a fundamental game-design and architecture problem: WFM is presenting the player with a collection of separate experiences instead of guiding the player through one unified game.
+
+The issue is not that the individual commands are necessarily bad. Many represent useful systems we have developed: campaign, cooperative missions, orbital combat, persistent galaxy, armory, upgrades, 5v5 multiplayer and leaderboards.
+
+The issue is that they currently appear as separate destinations, with different levels of integration and different gameplay rules. The player is being asked to choose between pieces of the game instead of entering a world in which those pieces work together.
+
+I recommend a fundamental change:
+
+The Orbital Combat Lab should become the foundation of the new WFM runtime—not another game mode alongside the old game modes.
+
+We should consolidate the useful systems into one authoritative game structure, one universe, one campaign timeline, one player identity and one progression system. We should not blindly delete the older implementations, though. Some contain valuable server, account, multiplayer and persistence infrastructure that the new combat prototype does not yet replace.
+
+## 1. What the repository actually contains
+
+I checked the current `staging` source, the integration branch, PR #11, and the project's own architecture and improvement records. That provides a more useful picture than judging the screenshot alone.
+
+There is an important development since the previous review: PR #11 now exists and has selectively integrated the orbital combat foundation onto current staging.
+
+[PR #11 — WFM: integrate Infinite War orbital combat foundation](https://github.com/niakofa-cmyk/WFM/pull/11?utm_source=chatgpt.com)
+
+
+
+Workspace quality passed
+
+Draft — not merged
+
+
+
+Its recorded verification is:
+
+- 53 script tests passed.
+- 143 API tests passed.
+- 136 WFM tests passed.
+- Workspace typecheck and build passed.
+- Two Combat Lab static-build checks passed.
+- Six pinned Node/Chromium deterministic replays matched frame-for-frame.
+
+That is meaningful progress. It also corrects an important earlier concern: the new integration selectively preserves the current staging socket and authentication protocol rather than replacing it with PR #10's incompatible socket changes.
+
+But PR #11 does not yet solve the structural problem in your screenshot.
+
+### The old systems are not all disposable
+
+The repository contains several distinct systems that need to become parts of one player journey:
+
+| Existing system                  | What it contributes                                           | How it should fit into Infinite War        |
+| -------------------------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| Original campaign and Strike     | Missions, combat progression, results                         | Main narrative campaign                    |
+| Rust Disc flight                 | True 3D flight, momentum, targeting, missiles                 | Core flight and combat foundation          |
+| Mars Approach and Pale Beacons   | Cooperative exploration and discoveries                       | Story-linked universe operations           |
+| Operation Iron Eclipse           | AI wing, capital-ship subsystems, tactical orders, extraction | Cooperative campaign missions              |
+| 5v5 Wing                         | Authenticated competitive combat                              | Competitive operations inside the universe |
+| Competitive battlefield rotation | Server-selected tactical maps                                 | Different warfront locations               |
+| Casual AI-fill and private rooms | Flexible multiplayer entry                                    | Training and unranked squad play           |
+| Armory and upgrades              | Ship configuration and progression                            | Persistent player hangar                   |
+| Market and economy               | Trade, inventory, services                                    | Universe stations and economic progression |
+| Persistent Galaxy                | Locations, world events and exploration                       | Universe navigation and strategic map      |
+| Leaderboard and Wing rewards     | Competitive recognition and settlement                        | Competitive results and faction standing   |
+
+This inventory is grounded in the current project documents. It does not mean every system is complete, deployed or connected to every other system.
+
+For example, the repository documents the cooperative mission chain and Iron Eclipse separately from the 5v5 Wing system. That separation is exactly the kind of fragmentation we need to address.
+
+### The most important architectural finding
+
+The repository already has several valuable pieces of the intended foundation:
+
+- A custom Three.js renderer.
+- A deterministic 3D flight simulation.
+- A shared orbital simulation package.
+- Server-owned cooperative mission state.
+- Authenticated player identity and account-scoped progression.
+- Competitive matchmaking and reward protections.
+- A campaign, economy and world-services foundation.
+
+The correct direction is one game architecture with multiple connected subsystems, not several independent game engines.
+
+One clarification: PR #11 continues the custom Three.js/Vite runtime. It adds a Needle Engine research skill, but it does not migrate the game to Needle. We should not accidentally turn this consolidation project into another engine migration.
+
+## 2. What the finished player experience should look like
+
+The screenshot should eventually be replaced by a much more intentional experience.
+
+# WAR FOR MARS
+
+# THE INFINITE WAR
+
+[何となく作ったヤマト二次創作年表(2)｜creatrail](https://images.openai.com/static-rsc-4/yrQQcLbbkpx4a_JfFzphtMcJqpkPXKwAurF1jNtyPUVksDKB58kqHNgUSsQbOac7c7DUf9hg6tcAO_lL5h4qzu28TSnaaE8xd-9TExYqpqe5jF6lzy7DqkOUIJW72DNK26a4xqC6nnAAR_NQ1QYtKOh6y_41L0qIv4OjeuIBGV8?purpose=inline)
+
+[note.com](https://note.com/creatrail_arts/n/n5a6a783caa4d?utm_source=chatgpt.com)
+
+Conceptual experience direction — not a screenshot of an implemented build.
+
+THE WAR FOR MARS HAS BEGUN
+
+A missing expedition. A contested planet. Two civilizations fighting for the future of the solar system.
+
+Your journey
+
+1. Enter the war — cinematic briefing and story introduction.
+2. Choose your allegiance — USSF or Accord of Dharma and Ma'at.
+3. Build your fighter — select a ship, weapons, systems and loadout.
+4. Enter the universe — navigate connected sectors, stations and conflict zones.
+5. Take an operation — campaign, cooperative, competitive or exploration objectives.
+6. Fight and make an impact — 3D combat, objectives, squad orders and tactical decisions.
+7. Return to the hangar — debrief, validated progression, upgrades and new opportunities.
+
+CONTINUE CAMPAIGN
+
+Primary destination
+
+The player enters the next available story operation. Other systems are accessible through the universe, hangar and operations interfaces rather than a wall of unrelated commands.
+
+The important design change is that the player should not have to understand our internal development history to play the game. They should experience one continuous world.
+
+## 3. The master implementation prompt for SEELE AI / Replit Agent
+
+I recommend using the following as the primary assignment. It directs the AI to perform a repository-wide forensic audit first, then consolidate and implement the game in controlled stages.
+
+It is deliberately written to prevent the AI from simply creating another attractive menu, another isolated prototype, or another parallel framework.
+
+# MASTER DEVELOPMENT DIRECTIVE
+
+# WAR FOR MARS: THE INFINITE WAR
+
+## Unified Runtime, Game Architecture, Narrative, Gameplay and Universe Consolidation
+
+**Repository:** `https://github.com/niakofa-cmyk/WFM`
+
+**Primary integration branch:** `integration/infinite-war-orbital-combat`
+
+**Current staging baseline:** `6671d369d263e0a7f99846c4d02a19fecf879ba3`
+
+**Current orbital-combat integration:** PR #11
+
+**Primary product vision:** The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.
+
+---
+
+## 1. YOUR ASSIGNMENT
+
+You are the lead game director, principal game architect, gameplay engineer, technical director, multiplayer engineer and integration engineer responsible for transforming WAR FOR MARS into its unified next-generation experience:
+
+**WAR FOR MARS: THE INFINITE WAR — USSF VS. THE ACCORD.**
+
+We have developed multiple generations of gameplay systems, environments, missions, multiplayer structures, campaign mechanics, economic systems and combat prototypes.
+
+The latest orbital combat foundation is the new direction for the game's combat experience.
+
+Your assignment is NOT to create another independent game mode, another prototype, another framework or another menu containing unrelated commands.
+
+Your assignment is to consolidate the best verified work from the existing project into ONE coherent game, with ONE connected gameplay architecture, ONE player journey, ONE persistent player identity and ONE expanding universe.
+
+The new orbital combat foundation must become the core combat experience around which the game evolves.
+
+All retained systems must be integrated into this coherent structure.
+
+Do not mistake a collection of functioning modules for a functioning game.
+
+---
+
+## 2. NON-NEGOTIABLE PRODUCT VISION
+
+Create an expansive, cinematic, real-time 3D space-combat universe.
+
+The USSF and the Accord of Dharma and Ma'at are competing civilizations in an escalating struggle over Mars, its resources, its technology and the future of humanity.
+
+The game must combine:
+
+- Cinematic single-player campaign.
+- True 3D spacecraft flight.
+- High-intensity real-time space combat.
+- Tactical targeting, weapons and missile systems.
+- Ship classes, upgrades and specialized abilities.
+- Cooperative multiplayer operations.
+- Competitive 5v5 warfare.
+- Connected star systems and navigable sectors.
+- Persistent faction conflict.
+- Exploration, discoveries and world events.
+- Capital-ship battles and fleet warfare.
+- Strategic objectives and meaningful mission outcomes.
+- A persistent economy, hangar and player progression.
+- Future tournaments, larger battles and synchronized cosmic anomalies.
+
+The universe must feel expansive and continuously discoverable without attempting to simulate an unlimited number of ships or an actually infinite galaxy.
+
+Build a connected, expandable universe of authored and procedurally supported sectors, with bounded authoritative simulations.
+
+The universe is the game. Combat, campaign, multiplayer, exploration and progression are different activities within it.
+
+---
+
+## 3. PHASE ONE: COMPLETE FORENSIC REPOSITORY AUDIT
+
+Before changing or deleting code, inspect the complete current repository and its history.
+
+Inspect:
+
+- Current staging and main branches.
+- PR #10 and PR #11.
+- All existing game application entry points.
+- All React, Three.js, Vite and rendering modules.
+- Existing flight and combat simulations.
+- Shared simulation packages.
+- Campaign and mission systems.
+- Rust Disc, Mars Approach and Pale Beacons.
+- Operation Iron Eclipse.
+- 5v5 Wing matchmaking and combat.
+- Private rooms and AI-fill queues.
+- Ship rosters, weapons and upgrades.
+- Armory, market, inventory and economy.
+- Persistent Galaxy, locations and world events.
+- Player progression, discoveries and reward systems.
+- Database schemas, migrations and transactions.
+- Authentication and WebSocket contracts.
+- Reconnect, matchmaking and session ownership.
+- Mobile controls, HUD, audio, effects and rendering.
+- Existing tests, build scripts and deployment configuration.
+- Project documents, improvement records and original design references.
+- Previous implementations, migration backups and historical feature branches.
+
+Read the original owner-provided design documents preserved in `attached_assets/`. Treat the Infinite War blueprint and player-journey direction as primary product guidance.
+
+Do not rely solely on documentation. Verify each feature against actual implementation, tests and runtime integration.
+
+Create a forensic inventory classifying every major system as:
+
+1. IMPLEMENTED AND CONNECTED.
+2. IMPLEMENTED BUT ISOLATED.
+3. PARTIALLY IMPLEMENTED.
+4. DOCUMENTED OR PROTOTYPED ONLY.
+5. BROKEN OR SUPERSEDED.
+6. NOT IMPLEMENTED.
+
+For every system, record:
+
+- Source paths and dependencies.
+- Current engine/runtime.
+- Existing API and database contracts.
+- Authentication and authorization boundaries.
+- Whether it is genuinely playable.
+- Whether it persists data.
+- Whether it is server-authoritative.
+- Existing tests and their results.
+- Dependencies on other systems.
+- Recommended integration destination.
+- Whether it should be retained, refactored, replaced or retired.
+
+Produce:
+
+`docs/infinite-war/FORENSIC-INVENTORY.md`
+
+`docs/infinite-war/ARCHITECTURE-ASSESSMENT.md`
+
+`docs/infinite-war/FEATURE-INTEGRATION-MATRIX.md`
+
+Do not delete old implementations during this audit.
+
+---
+
+## 4. PHASE TWO: ESTABLISH ONE GAME RUNTIME
+
+Use the current custom Three.js/Vite game runtime as the initial foundation.
+
+The Orbital Combat Lab is the beginning of the new combat runtime. Evolve it into the primary combat experience.
+
+Required architectural boundaries:
+
+**Rendering and presentation**
+
+- Three.js scene management.
+- Space environments, planets, ships, lighting and effects.
+- HUD, cockpit, menus and mobile interfaces.
+- Camera systems and target visualization.
+- Asset loading, level-of-detail and rendering optimization.
+
+**Simulation**
+
+- Shared deterministic flight rules.
+- Vector movement and 6DoF flight.
+- Target acquisition and weapon guidance.
+- Projectile and missile simulation.
+- Shield, armor, hull and subsystem damage.
+- Collision and destruction.
+- AI flight and combat behavior.
+
+**Authoritative game services**
+
+- Authentication and player identity.
+- Multiplayer rooms and matchmaking.
+- Authoritative flight and combat.
+- Mission objectives and results.
+- Player progression and persistence.
+- Economy and inventory.
+- Faction and universe state.
+- Reward settlement and transaction integrity.
+
+Do not allow client-side rendering code to become the authority for competitive damage, match results, mission completion or rewards.
+
+Keep one canonical simulation contract shared by client and server where appropriate.
+
+Do not create duplicate player tables, duplicate progression ledgers, competing authentication systems or parallel reward services.
+
+Do not introduce Needle, Unity, Babylon, Rogue Engine, Rapier or another framework simply because it appears useful. Evaluate any new technology against the existing architecture with a working benchmark first.
+
+The new game must remain maintainable, testable and expandable.
+
+---
+
+## 5. PHASE THREE: REPLACE THE COMMAND-CENTER EXPERIENCE
+
+The current home screen presents Rust Disc, Orbital Combat Lab, Sector Expedition, Campaign, Arcade Skirmish, Persistent Galaxy, Armory, Settings and other features as separate destinations.
+
+Redesign this into a unified game experience.
+
+The player should encounter:
+
+**A. Cinematic opening**
+
+- WAR FOR MARS: THE INFINITE WAR title.
+- Cinematic Mars and surrounding orbital environment.
+- USSF versus Accord identity.
+- Narrative introduction.
+- Continue Campaign and New Campaign.
+
+**B. Player identity and faction**
+
+- Player callsign.
+- Faction allegiance.
+- Squadron identity.
+- Current ship.
+- Player level and progression.
+- Campaign status.
+- Current universe location.
+
+**C. Unified hangar**
+
+- Three-dimensional ship presentation.
+- Ship selection and customization.
+- Weapon and subsystem loadouts.
+- Upgrade and research interfaces.
+- Mission preparation.
+- Squadron access.
+
+**D. Universe navigation**
+
+- A navigable 3D galaxy/star-system map.
+- Connected planets, stations and sectors.
+- Mission markers.
+- Hostile activity.
+- Friendly and contested territory.
+- World events.
+- Travel and discovery.
+
+**E. Operations interface**
+
+- Continue Campaign.
+- Story Operations.
+- Cooperative Operations.
+- Competitive Warfronts.
+- Exploration and Reconnaissance.
+- Training and Flight Certification.
+
+These must be integrated destinations inside one application, not separate applications or duplicate game engines.
+
+The player must always understand where they are, why they are there, what they can do next and how their actions affect their journey.
+
+Training remains available, but must not dominate the main game experience.
+
+---
+
+## 6. PHASE FOUR: BUILD THE NARRATIVE AND CAMPAIGN FLOW
+
+Establish a coherent story timeline.
+
+Use the existing conflict and narrative material rather than inventing an unrelated replacement.
+
+The opening story must establish:
+
+- The escalating conflict over Mars.
+- The missing expedition and its significance.
+- The USSF military response.
+- The Accord's competing interests.
+- Eon Dusk and the Loyalist Remnants.
+- The mystery behind the events unfolding around Mars.
+
+Create a mission-based campaign with connected narrative chapters.
+
+Every mission must have:
+
+- Narrative briefing.
+- Location and strategic context.
+- Player-selected ship and loadout.
+- Mission objectives.
+- Enemy forces.
+- Tactical encounters.
+- Optional objectives.
+- Mission completion or failure.
+- Debrief and consequences.
+- Next available story destination.
+
+Preserve the existing mission chain and incorporate Iron Eclipse into the wider campaign where appropriate.
+
+Do not invent completed story content or pretend a mission is playable when it is only a narrative document.
+
+Build a campaign timeline that can expand through new chapters, systems, characters, factions and operations.
+
+Campaign progress must use the existing authenticated and validated progression architecture.
+
+---
+
+## 7. PHASE FIVE: UNIFY THE COMBAT SYSTEM
+
+The Orbital Combat Lab should become the foundation for the standard combat simulation.
+
+Implement and connect:
+
+**Flight**
+
+- True XYZ spatial movement.
+- Pitch, yaw and roll.
+- Six-degree-of-freedom flight.
+- Momentum and vector drift.
+- Boost and energy management.
+- Braking and evasive maneuvers.
+- Mobile joystick, touch, tilt and optional gyro controls.
+
+**Targeting**
+
+- Target selection.
+- Enemy identification.
+- Target tracking.
+- Distance and relative movement.
+- Lock progress.
+- Weapon range.
+- Incoming threat indicators.
+- Assisted and manual aiming.
+
+**Weapons**
+
+- Primary cannons.
+- Plasma and energy weapons.
+- Railguns and beam weapons.
+- Guided missiles.
+- Torpedoes.
+- Countermeasures.
+- Defensive systems.
+- Faction-specific weapons.
+
+**Damage**
+
+- Shields.
+- Armor.
+- Hull integrity.
+- Engine damage.
+- Weapon-system damage.
+- Sensor and targeting damage.
+- Capital-ship subsystem destruction.
+- Explosions and ship destruction.
+
+**Combat feedback**
+
+- Impact effects.
+- Shield failure.
+- Warning systems.
+- Target damage indicators.
+- Kill confirmation.
+- Objective updates.
+- Tactical debrief.
+
+Keep combat readable, responsive, fair and mobile-friendly.
+
+Do not let cosmetic effects change authoritative damage calculations.
+
+---
+
+## 8. PHASE SIX: SHIPS, FACTIONS AND IDENTITY
+
+Preserve and evaluate the existing ship roster and faction concepts.
+
+Build meaningful ship classes:
+
+- Interceptors.
+- Heavy fighters.
+- Bombers.
+- Gunships.
+- Reconnaissance craft.
+- Electronic-warfare craft.
+- Assault fighters.
+- Support vessels.
+
+Each ship must have meaningful handling, role, strengths, weaknesses, weapon compatibility and upgrade paths.
+
+USSF identity should use the established blue faction identity.
+
+Accord identity should use the established warm amber/solar faction identity.
+
+Do not make factions different only by color. Establish distinct technologies, visual design, weapon behavior, doctrines and tactical strengths.
+
+Create fair balancing and certification tests.
+
+No paid upgrade should create an unfair competitive combat advantage.
+
+---
+
+## 9. PHASE SEVEN: INTEGRATE THE EXISTING MULTIPLAYER SYSTEMS
+
+Preserve the current authenticated multiplayer architecture.
+
+Integrate the orbital combat simulation into the existing multiplayer system through a carefully versioned, compatible protocol.
+
+The goal is one multiplayer architecture supporting:
+
+- Private squadron rooms.
+- Cooperative story operations.
+- AI-fill casual matches.
+- Competitive 5v5 warfronts.
+- Later larger fleet engagements.
+
+Do not create a second competing matchmaking or authentication service.
+
+Preserve the existing rules:
+
+- Ten distinct authenticated humans for competitive 5v5.
+- Balanced teams.
+- Server-owned match state.
+- Private and AI-fill matches remain separate from reward-eligible competitive play.
+- Reconnection and interrupted-match protections remain intact.
+- Rewards are settled only by validated server outcomes.
+
+The first networked orbital-combat milestone must support ten human players in a shared 3D combat sector.
+
+All pilots must receive consistent authoritative state.
+
+Use client prediction and interpolation where appropriate, without surrendering server authority.
+
+---
+
+## 10. PHASE EIGHT: CONNECT THE UNIVERSE AND OPERATIONS
+
+The existing Rust Disc → Mars Approach → Pale Beacons chain and Operation Iron Eclipse should become part of the connected universe.
+
+Create a unified sector model.
+
+Each sector should have:
+
+- Location identity.
+- Faction presence.
+- Environmental conditions.
+- Travel connections.
+- Stations and services.
+- Exploration discoveries.
+- Hostile encounters.
+- Mission opportunities.
+- Strategic objectives.
+- Persistent state where appropriate.
+
+Cooperative missions must connect naturally to campaign and universe activities.
+
+Competitive warfronts must occur at locations within the universe.
+
+Players should travel to an operation, participate, receive a validated outcome and return to the larger world.
+
+Do not create a disconnected arena game.
+
+The persistent galaxy must be meaningful and interactive, not merely a collection of map markers.
+
+---
+
+## 11. PHASE NINE: CAPITAL SHIPS, TACTICAL AI AND FLEET WARFARE
+
+Build upon Iron Eclipse.
+
+Preserve its server-owned AI wing, squad orders, capital-ship subsystem objectives and extraction mechanics.
+
+Expand these systems into:
+
+- Friendly AI wingmates.
+- Enemy fighter formations.
+- Tactical squad orders.
+- Escort and interception.
+- Capital-ship assault.
+- Capital-ship defense.
+- Fleet objectives.
+- Reinforcements.
+- Extraction and survival.
+- Multi-stage operations.
+
+AI must be capable of navigation, targeting, attacking, defending, escorting, regrouping and responding to mission state.
+
+AI and damage calculations must be authoritative for networked gameplay.
+
+Start with bounded encounters and expand only after measured server performance supports larger battles.
+
+---
+
+## 12. PHASE TEN: PROGRESSION, ECONOMY AND PERSISTENT WAR
+
+Preserve and connect the existing:
+
+- Account profiles.
+- Ship ownership.
+- Armory.
+- Credits.
+- Inventory.
+- Technology upgrades.
+- Market and trade systems.
+- Discoveries.
+- Campaign progression.
+- Faction reputation.
+- World events.
+- Competitive history.
+- Reward ledger.
+
+Make these systems support the actual gameplay loop.
+
+Players should have meaningful reasons to collect, trade, upgrade, explore and participate in faction operations.
+
+Mission and match results must be validated and settled exactly once.
+
+Never accept client-supplied reward amounts, damage totals or match winners.
+
+Keep existing transaction and account-isolation guarantees.
+
+The long-term goal is persistent faction warfare in which validated operations can affect territory, strategic resources and opportunities.
+
+Do not simulate persistent consequences before the necessary authoritative services exist.
+
+---
+
+## 13. PHASE ELEVEN: ADVANCED COSMIC UNIVERSE
+
+After the core connected universe and combat systems work reliably, expand with:
+
+- Asteroid fields.
+- Nebulae.
+- Gravitational anomalies.
+- Black holes.
+- Wormholes.
+- Pulsars.
+- Neutron stars.
+- Solar storms.
+- Spatial distortions.
+- Unknown cosmic entities.
+
+These must change gameplay and navigation, not just scenery.
+
+Examples include gravity affecting flight, storms disrupting sensors, wormholes changing travel routes and anomalies creating strategic objectives.
+
+All gameplay-affecting forces must be bounded, deterministic and synchronized across connected players.
+
+---
+
+## 14. PHASE TWELVE: REMOVE FRAGMENTATION
+
+Once the unified replacements are implemented and verified, retire redundant interfaces and obsolete implementations.
+
+Do not delete code merely because it is old.
+
+Before removal, establish:
+
+- What functionality it provides.
+- Whether another implementation replaces it.
+- Whether its data is still needed.
+- Whether another module imports it.
+- Whether migrations or saved accounts depend on it.
+- Whether its tests have been replaced.
+- Whether rollback remains possible.
+
+Maintain compatibility during transition.
+
+The objective is to remove duplicate gameplay flows, duplicate simulations, duplicate entry points and abandoned frameworks—not to discard valuable working systems.
+
+Keep one canonical implementation for each gameplay responsibility.
+
+---
+
+## 15. REQUIRED DELIVERY PROCESS
+
+Work in incremental, reviewable stages.
+
+Do not attempt a massive rewrite in one unverified operation.
+
+**Stage A — Forensic inventory and architecture**\
+Deliver the complete system inventory and proposed unified architecture.
+
+**Stage B — Unified player journey**\
+Rebuild the landing, hangar, operations and universe navigation so the player experiences one coherent game.
+
+**Stage C — Core orbital combat**\
+Make the new combat foundation the canonical combat simulation and connect it to the game flow.
+
+**Stage D — Campaign integration**\
+Connect missions, story progression, briefings, objectives and debriefs.
+
+**Stage E — Cooperative integration**\
+Connect existing co-op sectors and Iron Eclipse to the unified game flow.
+
+**Stage F — Competitive integration**\
+Connect 5v5 warfronts to the shared universe through the existing authenticated multiplayer architecture.
+
+**Stage G — Persistence and consequences**\
+Connect validated results to progression, economy, discoveries and faction state.
+
+**Stage H — Expansion**\
+Add fleet battles, advanced AI, anomalies, tournaments and new sectors.
+
+Each stage must have a working build, automated tests, documented limitations and explicit acceptance criteria.
+
+---
+
+## 16. TESTING AND ACCEPTANCE CRITERIA
+
+The project must prove that the new game is more than a collection of screens.
+
+Required acceptance tests:
+
+1. A player can enter the game and understand the conflict.
+2. A player can select a faction and configure a ship.
+3. A player can enter a mission from the unified operations interface.
+4. The mission loads into the canonical 3D runtime.
+5. The player can fly, target, fire, lock missiles and destroy an enemy.
+6. The player can complete an objective and receive a valid debrief.
+7. The player can return to the hangar without losing account state.
+8. A validated campaign or cooperative result persists exactly once.
+9. A player can travel between connected universe destinations.
+10. A cooperative squad can complete an authoritative mission.
+11. Ten authenticated humans can eventually participate in a shared 5v5 orbital warfront.
+12. Competitive results remain server-authoritative.
+13. A mission outcome can affect persistent faction state only through validated logic.
+14. Mobile controls and performance are verified on the supported Android device scope.
+15. All existing account, reward, authentication and staging safety gates continue to pass.
+
+Report automated tests, simulated tests, staging tests and physical-device tests separately.
+
+A passing build is not proof of a working multiplayer game.
+
+---
+
+## 17. NON-NEGOTIABLE SAFETY AND DEVELOPMENT RULES
+
+- Preserve the existing GitHub repository and its history.
+- Work from the current integration branch and current staging baseline.
+- Do not overwrite staging or main.
+- Do not merge into main.
+- Do not deploy to Production.
+- Do not change Production environment variables or secrets.
+- Do not create a parallel authentication system.
+- Do not create a duplicate player database or reward ledger.
+- Do not bypass existing staging promotion gates.
+- Do not introduce unverified game claims.
+- Do not delete functioning features before replacement and migration are proven.
+- Do not expose secrets or player personal information.
+- Do not copy protected third-party game assets or code.
+- Preserve rollback capability.
+- Keep all experimental features behind appropriate feature flags.
+- Record all substantial changes in `docs/game-improvement-record.md`.
+
+If a requirement cannot be implemented safely in the current stage, document the blocker and continue with independent safe work.
+
+---
+
+## 18. FINAL DELIVERABLES
+
+Produce:
+
+1. Complete forensic inventory.
+2. Unified game architecture diagram.
+3. Canonical gameplay and player-journey design.
+4. Campaign timeline and mission progression.
+5. Engine/runtime integration assessment.
+6. Feature migration and retirement matrix.
+7. Updated unified game navigation and hangar.
+8. Integrated orbital combat foundation.
+9. Connected mission and progression flow.
+10. Automated regression and acceptance tests.
+11. Performance and mobile verification report.
+12. Updated project improvement record.
+13. Pull request describing every change, test and remaining blocker.
+
+The final result must be a single cohesive game—not a menu of disconnected prototypes.
+
+**The central design rule is simple:**
+
+The player enters one universe, belongs to one faction, commands one ship, progresses through one connected journey, participates in operations across that universe, and experiences the consequences of the war.
+
+Build WAR FOR MARS: THE INFINITE WAR around that principle.
+
+Do not merely reorganize the commands. Build the game that those commands were supposed to become.
+
+## 4. What I would actually implement first
+
+I would not ask the AI to implement all twelve phases simultaneously. That risks generating a large quantity of disconnected code again.
+
+The first release should be a coherent, playable vertical slice.
+
+## Infinite War — first unified playable slice
+
+Recommended first milestone
+
+[Ready for battle – Community Hub](https://images.openai.com/static-rsc-4/7nSej1TChfMB64vPqrxPtJyCLEUWoCHZJ_ff0fDpCP-1KNgfnpRoc2VjRujtkv2_-eM8LUe1U2r7WUFef2phWEd51YlFCuLGtqcTxXtSqLXAvI-0mi09u7XktYAHlSLfCY8pOVMdqlORMDzJPJCAOTXCCgTx1fnmdRM7FcoIZTc?purpose=inline)
+
+[Everspace Stellar Edition PS4 - Cadê Meu Jogo](https://images.openai.com/static-rsc-4/qKL7bg11fbsqLnIKl8Z3Vwxeaw8iIzqqAhao--2vHuZbbynhX7MqfpKcaK3ghXcOKiB7GZknQuWfRbxl9p6V5L7hsZBenKggy8qWRpa4LF_sN7Gk1zi2updxQ-5MvFFzMuJNRX1bkDzIUi1Orom4nHwcLZrG3tpRAlzc2x0c808?purpose=inline)
+
+["Finding the fun was always our guiding star": How 'Starfield' developers balanced realism with arcade fun when approaching space combat (exclusive) | Space](https://images.openai.com/static-rsc-4/MjbUIn_cWojbFH37WSkj388prI6N444G5PuqkEkHKd-rZpi_beGN6CjWFFlzpQejZPLp6wYJ869s2Bmeoxh6eCmX51IakSmYoA7-26iWNt9o_yu0crmzIj9sxZXm5MPzdB2_YZwDw0X0iZT8T4UI7bn0buYG9pgo_frXN1ZR9es?purpose=inline)
+
+[Best Nintendo Switch Flight Sim And Space Combat Games | Nintendo Life](https://images.openai.com/static-rsc-4/EMFB3Xlz9z4gukVlk1JAnkY-D7A5NWJpvDvLZCO9SoB8kp284uBBEjVVJQZJEUgz07Sr5XK3VSCI-vC88FgaXl44U4Z7HZWEfYRPXLTHsw406gVVp3Ole-sN-d8eZ8n3o76cSXGy7gkJSoshTRgBw2pnmtuS4RTrQISLRhBq5xA?purpose=inline)
+
+[The best Elite Dangerous guides and creators, all chosen by real players | Just Elite Dangerous](https://images.openai.com/static-rsc-4/94eWBPabFdoOukrlscaH8R4tW5_ItZkCPk5Vy98sIm-aWNHqGshyNnM-DhhGICGYo7O2tuE0bb-5aOUtMvuIZjqJYbdllkqmXuQ9zR6gpRPBySsS74IijJJ4NoQPaUFGDOGtPfAgvI8Xpf58iHUVTbyAm2WwwsCk1ncHzTL3ppw?purpose=inline)
+
+[Mars Defense Perimeter — Sol System Security | Star Trek](https://images.openai.com/static-rsc-4/TBn7ou_MnOqFg9W0FwXwZzBxN7r7zTNypH3gI17nES_15dY--UIm2fP7OK37JYXcb7micy-F4rRHuux_b75J7nXkvkNmnbmeuJ8pNyHhzvcVX8Nn74b_2-xxpwTulU7WgCdxs_lsXzml3_VHmaydWl73A1dw5lgdkODyHqKLUMw?purpose=inline)
+
+[Sabre Firebird - Aegis Dynamics | Star Citizen Store](https://images.openai.com/static-rsc-4/D3pKs0AzgpqkwtPJQlLzVi8xN5__p6QoKa9yp61ojaHY1IsJjorUDS3ZzC-nj_dLNGjX64VOELntRBApbhTKXZl4MLnOVlBXOISgDX18Y8MJStsyPZC8rojeIdbVs04Jj7Qb68se-p-FlUVviarJxzhyP1hFGa5Gh6xMDdSTDY8?purpose=inline)
+
+[ニュース詳細](https://images.openai.com/static-rsc-4/3wZKrIyAd4yA7GVSp5pu0N9qnEzzCMtbb53YXhfTCJirkZ34jz3HVERMrzCSrrv-OWIsDlp7MS02mgKqfB0ercI7pm4SPEtGOCJqUQwojLIrmSX4ilBL96CvQurH5VBjCa8m8v5L1eDsycWM0yCcaE5m2Al555uWX-4Ooa1fwH0?purpose=inline)
+
+[Buy EVE: Valkyrie – Warzone - PC (Steam)](https://images.openai.com/static-rsc-4/PCcbtolYJXaxrhA7I9NT7JnSCyFbYEPfbK0R7Uvke3c46JtGtU_pUBhb5AVEIsO6pUG-SnguEgJiAAyONZ_d36cJ3PdgvWdOQV71maNPZ1x7Z9SwRig15sC5VYchXH2c5rx3l63lPVmq__woJQVXyaqM7Ws6BdwpaULAp_nm8vU?purpose=inline)
+
+[Infinity: Battlescape on Steam](https://images.openai.com/static-rsc-4/PuKPdt99xVrWLASdsE9kiO8GzeV8NRsjO4VUqRabCetTb0T0taNHI8TDNfedT1LbNw8ciDKz8o-fCACdYiiiCiY0HZdI4goZMJdxijcMWURTlDJ9kZpPgsflpSSSMTIYh0pjcsKVWsZL61FXHYc41tV-AA4dkt6KE1MZrYTiVSE?purpose=inline)
+
+Player journey
+
+1. Open Infinite War and see the cinematic introduction.
+2. Choose USSF or Accord.
+3. Enter the 3D hangar and select a fighter.
+4. Open the universe map and select Rust Disc.
+5. Launch into the new orbital combat runtime.
+6. Fight a hostile force using flight, targeting, missiles and damage.
+7. Complete a mission objective and extract.
+8. Return to the hangar and see validated account progression.
+9. Unlock the next story operation: Mars Approach.
+
+First milestone acceptance
+
+- One unified application and navigation.
+- One canonical flight/combat simulation.
+- At least one playable story operation.
+- One complete mission-to-debrief-to-progression loop.
+- No duplicate or misleading command destinations.
+- Existing multiplayer and account systems preserved.
+
+After this works, we connect Iron Eclipse, squad orders and the existing 5v5 system. Then we make the warfronts part of the universe.
+
+## 5. My recommendation on what to do with the current code
+
+I would use the following policy:
+
+| Decision                            | Treatment                                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orbital Combat Lab                  | Evolve into the canonical combat foundation                                                                                                    |
+| Rust Disc                           | Retain its 3D flight, training and sector capabilities; consolidate overlapping simulation code                                                |
+| Iron Eclipse                        | Retain and integrate as a major cooperative operation                                                                                          |
+| 5v5 Wing                            | Retain its server-authoritative matchmaking, rewards and multiplayer contracts; integrate its gameplay into the new combat model incrementally |
+| Campaign                            | Retain story and progression; connect it to the new mission framework                                                                          |
+| Armory / Market                     | Retain, consolidate and connect to the unified hangar                                                                                          |
+| Persistent Galaxy                   | Evolve into the actual universe-navigation system                                                                                              |
+| Old menu commands                   | Replace with contextual navigation and connected destinations                                                                                  |
+| Duplicate frameworks or simulations | Retire only after proven replacements                                                                                                          |
+| Needle Engine                       | Keep as a research/authoring candidate, not a second production runtime                                                                        |
+
+One particularly important decision: don't discard the existing planar Wing system or its reward logic just because the orbital combat prototype is newer. The existing 5v5 system contains valuable authentication, matchmaking, account and reward safeguards. We need to migrate its combat behavior into the new simulation without losing those guarantees.
+
+## 6. What to tell the AI after submitting the prompt
+
+The AI must first deliver the forensic inventory and architecture plan. Then it should implement the first vertical slice, not simply produce another plan.
+
+I would require it to return:
+
+1. What it found in the repository.
+2. What it is retaining and why.
+3. What it is replacing and why.
+4. What it has actually connected.
+5. Which gameplay flows now work end to end.
+6. Which tests passed and which failed.
+7. What remains isolated or incomplete.
+8. The exact commit and pull request containing the work.
+
+My final recommendation: use PR #11 as the starting point, not PR #10 as a replacement for the repository. Keep the new integration on the staging-based branch and use this master prompt to direct the next development pass.
+
+The new runtime should become the foundation of Infinite War, but the actual objective is bigger than changing the engine: it is making every valuable system we have developed contribute to one continuous, playable war.
+
+One final safeguard: PR #11's workspace checks have passed, but the PR remains a draft and the combat lab remains offline. The next milestone must demonstrate the unified player journey in a running build before we call it the new foundational game.&#x20;
