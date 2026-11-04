@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import * as THREE from "three";
+import type * as THREE_TYPES from "three";
 import { SHIPS, ROSTER, type ShipId } from "./ships";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
@@ -38,6 +38,44 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
+type ThreeModule = Pick<
+  typeof import("three"),
+  | "ACESFilmicToneMapping"
+  | "AdditiveBlending"
+  | "BackSide"
+  | "BoxGeometry"
+  | "BufferAttribute"
+  | "BufferGeometry"
+  | "CanvasTexture"
+  | "Color"
+  | "ConeGeometry"
+  | "CylinderGeometry"
+  | "DirectionalLight"
+  | "Euler"
+  | "ExtrudeGeometry"
+  | "FogExp2"
+  | "Group"
+  | "HemisphereLight"
+  | "IcosahedronGeometry"
+  | "InstancedMesh"
+  | "Matrix4"
+  | "Mesh"
+  | "MeshBasicMaterial"
+  | "MeshStandardMaterial"
+  | "OctahedronGeometry"
+  | "Path"
+  | "PerspectiveCamera"
+  | "Points"
+  | "PointsMaterial"
+  | "Quaternion"
+  | "Scene"
+  | "Shape"
+  | "SphereGeometry"
+  | "SRGBColorSpace"
+  | "TorusGeometry"
+  | "Vector3"
+  | "WebGLRenderer"
+>;
 type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
 type CombatTargetReadout = {
   name: string; affiliation: string; distance: number; hull: number; maxHull: number;
@@ -72,11 +110,11 @@ const POLY: Partial<Record<ShipId, number[]>> = {
 };
 const S = 40;
 
-function hullShape(id: ShipId): THREE.Shape {
-  const shape = new THREE.Shape();
+function hullShape(three: ThreeModule, id: ShipId): THREE_TYPES.Shape {
+  const shape = new three.Shape();
   if (id === "splitter") {
     shape.absarc(0, 0, 48 / S, 0, Math.PI * 2, false);
-    const hole = new THREE.Path();
+    const hole = new three.Path();
     hole.absarc(0, 0, 30 / S, 0, Math.PI * 2, true);
     shape.holes.push(hole);
     return shape;
@@ -90,34 +128,34 @@ function hullShape(id: ShipId): THREE.Shape {
   return shape;
 }
 
-function buildHull(id: ShipId, track: (d: { dispose(): void }) => void): THREE.Group {
+function buildHull(three: ThreeModule, id: ShipId, track: (d: { dispose(): void }) => void): THREE_TYPES.Group {
   const pal = FACTION_PALETTE[SHIPS[id].faction];
-  const g = new THREE.Group();
-  const geo = new THREE.ExtrudeGeometry(hullShape(id), { depth: 0.26, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.06, bevelSegments: 1 });
+  const g = new three.Group();
+  const geo = new three.ExtrudeGeometry(hullShape(three, id), { depth: 0.26, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.06, bevelSegments: 1 });
   geo.rotateX(Math.PI / 2); geo.translate(0, 0.13, 0);
-  const hullMat = new THREE.MeshStandardMaterial({ color: pal.hull, metalness: 0.55, roughness: 0.5, flatShading: true });
-  const trim = new THREE.MeshStandardMaterial({ color: pal.glow, emissive: pal.glow, emissiveIntensity: 0.9, roughness: 0.4 });
-  const canopyMat = new THREE.MeshStandardMaterial({ color: 0x1a2028, metalness: 0.9, roughness: 0.15 });
+  const hullMat = new three.MeshStandardMaterial({ color: pal.hull, metalness: 0.55, roughness: 0.5, flatShading: true });
+  const trim = new three.MeshStandardMaterial({ color: pal.glow, emissive: pal.glow, emissiveIntensity: 0.9, roughness: 0.4 });
+  const canopyMat = new three.MeshStandardMaterial({ color: 0x1a2028, metalness: 0.9, roughness: 0.15 });
   [geo, hullMat, trim, canopyMat].forEach(track);
-  g.add(new THREE.Mesh(geo, hullMat));
-  const spine = new THREE.BoxGeometry(0.16, 0.12, 2.0); track(spine);
-  const sp = new THREE.Mesh(spine, trim); sp.position.set(0, 0.24, 0.1); sp.scale.set(1, 1, id === "splitter" ? 0.4 : 1); g.add(sp);
-  const canopy = new THREE.SphereGeometry(0.22, 12, 8); track(canopy);
-  const c = new THREE.Mesh(canopy, canopyMat); c.scale.set(1, 0.6, 1.8); c.position.set(0, 0.3, -0.45); g.add(c);
-  const engineGeo = new THREE.SphereGeometry(0.16, 10, 8); track(engineGeo);
-  const engMat = new THREE.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.9 }); track(engMat);
-  const plumeGeo = new THREE.ConeGeometry(0.16, 1.6, 10, 1, true); plumeGeo.rotateX(-Math.PI / 2); plumeGeo.translate(0, 0, 0.8); track(plumeGeo);
-  const plumeMat = new THREE.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }); track(plumeMat);
-  const engines = new THREE.Group(); engines.name = "engines";
+  g.add(new three.Mesh(geo, hullMat));
+  const spine = new three.BoxGeometry(0.16, 0.12, 2.0); track(spine);
+  const sp = new three.Mesh(spine, trim); sp.position.set(0, 0.24, 0.1); sp.scale.set(1, 1, id === "splitter" ? 0.4 : 1); g.add(sp);
+  const canopy = new three.SphereGeometry(0.22, 12, 8); track(canopy);
+  const c = new three.Mesh(canopy, canopyMat); c.scale.set(1, 0.6, 1.8); c.position.set(0, 0.3, -0.45); g.add(c);
+  const engineGeo = new three.SphereGeometry(0.16, 10, 8); track(engineGeo);
+  const engMat = new three.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.9 }); track(engMat);
+  const plumeGeo = new three.ConeGeometry(0.16, 1.6, 10, 1, true); plumeGeo.rotateX(-Math.PI / 2); plumeGeo.translate(0, 0, 0.8); track(plumeGeo);
+  const plumeMat = new three.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.45, blending: three.AdditiveBlending, depthWrite: false }); track(plumeMat);
+  const engines = new three.Group(); engines.name = "engines";
   for (const x of id === "sundara" ? [0] : [-0.28, 0.28]) {
-    const e = new THREE.Mesh(engineGeo, engMat); e.position.set(x, 0.15, 1.3); engines.add(e);
-    const pl = new THREE.Mesh(plumeGeo, plumeMat); pl.position.set(x, 0.15, 1.35); pl.name = "plume"; engines.add(pl);
+    const e = new three.Mesh(engineGeo, engMat); e.position.set(x, 0.15, 1.3); engines.add(e);
+    const pl = new three.Mesh(plumeGeo, plumeMat); pl.position.set(x, 0.15, 1.35); pl.name = "plume"; engines.add(pl);
   }
   g.add(engines);
   return g;
 }
 
-function marsTexture(): THREE.CanvasTexture {
+function marsTexture(three: ThreeModule): THREE_TYPES.CanvasTexture {
   const c = document.createElement("canvas"); c.width = 512; c.height = 256;
   const x = c.getContext("2d")!;
   const grd = x.createLinearGradient(0, 0, 0, 256);
@@ -130,13 +168,13 @@ function marsTexture(): THREE.CanvasTexture {
     x.beginPath(); x.ellipse(rnd() * 512, rnd() * 256, 6 + rnd() * 50, 3 + rnd() * 14, rnd() * 3, 0, Math.PI * 2); x.fill();
   }
   x.fillStyle = "rgba(235,225,210,0.55)"; x.fillRect(0, 0, 512, 10); x.fillRect(0, 248, 512, 8);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = new three.CanvasTexture(c); t.colorSpace = three.SRGBColorSpace; return t;
 }
 
-function rockGeometry(): THREE.BufferGeometry {
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const pos = g.attributes.position as THREE.BufferAttribute;
-  const v = new THREE.Vector3();
+function rockGeometry(three: ThreeModule): THREE_TYPES.BufferGeometry {
+  const g = new three.IcosahedronGeometry(1, 2);
+  const pos = g.attributes.position as THREE_TYPES.BufferAttribute;
+  const v = new three.Vector3();
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
     const n = 1 + 0.16 * Math.sin(v.x * 4.1 + v.y * 2.3) * Math.cos(v.z * 3.7) + 0.07 * Math.sin(v.y * 9 + v.x * 7);
@@ -164,6 +202,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const expeditionRef = useRef(expedition);
   expeditionRef.current = expedition;
   const [phase, setPhase] = useState<Phase>(net ? "flight" : "briefing");
+  const [threeModule, setThreeModule] = useState<ThreeModule | null>(null);
+  const [rendererReady, setRendererReady] = useState(false);
   const [shipId, setShipId] = useState<ShipId>(() => {
     const snap = expedition?.snapshotRef.current;
     const serverShip = snap?.pilots.find(p => p.slot === snap.ownSlot)?.shipId;
@@ -229,6 +269,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
     cameraModeRef.current = "chase";
     setSummary(null); setHud(null); setPortraitDismissed(false);
+    setRendererReady(false);
     pausedRef.current = false; setPaused(false);
     setRunId(r => r + 1); setPhase("flight");
   }, []);
@@ -247,15 +288,66 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
   }, []);
 
+  useEffect(() => {
+    if (phase !== "flight" || threeModule) return;
+    let active = true;
+    void import("three").then((module) => {
+      if (!active) return;
+      setThreeModule({
+        ACESFilmicToneMapping: module.ACESFilmicToneMapping,
+        AdditiveBlending: module.AdditiveBlending,
+        BackSide: module.BackSide,
+        BoxGeometry: module.BoxGeometry,
+        BufferAttribute: module.BufferAttribute,
+        BufferGeometry: module.BufferGeometry,
+        CanvasTexture: module.CanvasTexture,
+        Color: module.Color,
+        ConeGeometry: module.ConeGeometry,
+        CylinderGeometry: module.CylinderGeometry,
+        DirectionalLight: module.DirectionalLight,
+        Euler: module.Euler,
+        ExtrudeGeometry: module.ExtrudeGeometry,
+        FogExp2: module.FogExp2,
+        Group: module.Group,
+        HemisphereLight: module.HemisphereLight,
+        IcosahedronGeometry: module.IcosahedronGeometry,
+        InstancedMesh: module.InstancedMesh,
+        Matrix4: module.Matrix4,
+        Mesh: module.Mesh,
+        MeshBasicMaterial: module.MeshBasicMaterial,
+        MeshStandardMaterial: module.MeshStandardMaterial,
+        OctahedronGeometry: module.OctahedronGeometry,
+        Path: module.Path,
+        PerspectiveCamera: module.PerspectiveCamera,
+        Points: module.Points,
+        PointsMaterial: module.PointsMaterial,
+        Quaternion: module.Quaternion,
+        Scene: module.Scene,
+        Shape: module.Shape,
+        SphereGeometry: module.SphereGeometry,
+        SRGBColorSpace: module.SRGBColorSpace,
+        TorusGeometry: module.TorusGeometry,
+        Vector3: module.Vector3,
+        WebGLRenderer: module.WebGLRenderer,
+      });
+    }).catch(() => {
+      if (!active) return;
+      setFailure("The 3D flight systems could not load. Check your connection and try again.");
+      setPhase("unsupported");
+    });
+    return () => { active = false; };
+  }, [phase, threeModule]);
+
   // ---------- Renderer + loop ----------
   useEffect(() => {
-    if (phase !== "flight") return;
+    if (phase !== "flight" || !threeModule) return;
+    const THREE = threeModule;
     const mount = mountRef.current; if (!mount) return;
     inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
     let summaryTimer: number | undefined;
     const disposables: { dispose(): void }[] = [];
     const track = (d: { dispose(): void }) => { disposables.push(d); };
-    let renderer: THREE.WebGLRenderer;
+    let renderer: THREE_TYPES.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: quality === "high", powerPreference: "high-performance" });
     } catch {
@@ -274,6 +366,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     renderer.setClearColor(0x0a0710);
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
+    let rendererReadySent = false;
+    const markRendererReady = () => {
+      if (rendererReadySent) return;
+      rendererReadySent = true;
+      setRendererReady(true);
+    };
     let lost = false;
     const onLost = (e: Event) => { e.preventDefault(); lost = true; setFailure("The GPU dropped the 3D context (common when memory is tight). Return to briefing and relaunch on LOW quality."); setPhase("unsupported"); };
     renderer.domElement.addEventListener("webglcontextlost", onLost);
@@ -295,7 +393,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const capitalTrimMat = new THREE.MeshStandardMaterial({ color: 0xe0a15a, metalness: 0.52, roughness: 0.34, emissive: 0x9b4f25, emissiveIntensity: 0.48 });
     const capitalDarkMat = new THREE.MeshStandardMaterial({ color: 0x232a31, metalness: 0.82, roughness: 0.44 });
     [capitalHullMat, capitalTrimMat, capitalDarkMat].forEach(track);
-    const capitalParts: [THREE.BufferGeometry, THREE.Material, [number, number, number], [number, number, number]?][] = [
+    const capitalParts: [THREE_TYPES.BufferGeometry, THREE_TYPES.Material, [number, number, number], [number, number, number]?][] = [
       [new THREE.BoxGeometry(34, 13, 92), capitalHullMat, [0, 0, 0]],
       [new THREE.BoxGeometry(57, 3.5, 25), capitalHullMat, [0, -1, 20]],
       [new THREE.BoxGeometry(48, 5, 23), capitalDarkMat, [0, 7, -5]],
@@ -315,8 +413,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     }
     capital.visible = false;
     scene.add(capital);
-    const operationSubsystems = new Map<string, THREE.Group>();
-    const operationWing = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const operationSubsystems = new Map<string, THREE_TYPES.Group>();
+    const operationWing = new Map<string, { group: THREE_TYPES.Group; shipId: ShipId }>();
     const subsystemGeo = new THREE.OctahedronGeometry(4, 0); track(subsystemGeo);
     const subsystemActiveMat = new THREE.MeshStandardMaterial({ color: 0xff7a5c, emissive: 0xb63420, emissiveIntensity: 0.55, metalness: 0.3, roughness: 0.45 });
     const subsystemDisabledMat = new THREE.MeshStandardMaterial({ color: 0x69736f, emissive: 0x29332f, emissiveIntensity: 0.15, metalness: 0.3, roughness: 0.8 });
@@ -333,7 +431,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     }
 
     // Mars + thin haze
-    const marsTex = marsTexture(); track(marsTex);
+    const marsTex = marsTexture(THREE); track(marsTex);
     const marsGeo = new THREE.SphereGeometry(1200, 48, 32); track(marsGeo);
     const marsMat = new THREE.MeshStandardMaterial({ map: marsTex, roughness: 1, metalness: 0, fog: false }); track(marsMat);
     const mars = new THREE.Mesh(marsGeo, marsMat); mars.position.set(-1550, 450, -3200); mars.rotation.z = 0.35; scene.add(mars);
@@ -366,7 +464,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const dust = new THREE.Points(dustGeo, dustMat); scene.add(dust);
 
     // Instanced asteroid field — exact RUST_DISC_SECTOR positions/radii
-    const rockGeo = rockGeometry(); track(rockGeo);
+    const rockGeo = rockGeometry(THREE); track(rockGeo);
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a4a36, roughness: 0.95, metalness: 0.08, flatShading: true }); track(rockMat);
     const rocks = new THREE.InstancedMesh(rockGeo, rockMat, sector.rocks.length);
     const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e4 = new THREE.Euler();
@@ -423,7 +521,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     scene.add(beacon);
 
     // Player ship
-    const ship = buildHull(shipId, track);
+    const ship = buildHull(THREE, shipId, track);
     scene.add(ship);
     const engines = ship.getObjectByName("engines")!;
 
@@ -432,13 +530,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const missileGeo = new THREE.ConeGeometry(0.35, 1.8, 8); missileGeo.rotateX(-Math.PI / 2); track(missileGeo);
     const friendlyMat = new THREE.MeshBasicMaterial({ color: pal.glow }); track(friendlyMat);
     const hostileMat = new THREE.MeshBasicMaterial({ color: 0xff7a5c }); track(hostileMat);
-    const pool: THREE.Mesh[] = [];
+    const pool: THREE_TYPES.Mesh[] = [];
     for (let i = 0; i < 64; i++) { const m = new THREE.Mesh(boltGeo, friendlyMat); m.visible = false; scene.add(m); pool.push(m); }
 
     // Sim (local) or authoritative snapshot (network)
     const ownPilot = () => { const sn = expeditionRef.current?.snapshotRef.current; return sn?.pilots.find(p => p.slot === sn.ownSlot); };
     let state: FlightState = netMode ? (ownPilot()?.flight ?? createFlight(shipId, sector)) : createFlight(shipId);
-    const others = new Map<number, { group: THREE.Group; shipId: ShipId; engines: THREE.Object3D }>();
+    const others = new Map<number, { group: THREE_TYPES.Group; shipId: ShipId; engines: THREE_TYPES.Object3D }>();
     const remoteProjectiles: FlightState["projectiles"] = [];
     const seenPilots = new Set<number>();
     const seenWing = new Set<string>();
@@ -532,7 +630,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           let o = others.get(p.slot);
           if (!o || o.shipId !== p.shipId) {
             if (o) scene.remove(o.group);
-            const group = buildHull(p.shipId, track); scene.add(group);
+            const group = buildHull(THREE, p.shipId, track); scene.add(group);
             o = { group, shipId: p.shipId, engines: group.getObjectByName("engines")! };
             group.position.set(p.flight.position.x, p.flight.position.y, p.flight.position.z);
             others.set(p.slot, o);
@@ -546,7 +644,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         }
         for (const [slot, o] of others) if (!seenPilots.has(slot)) { scene.remove(o.group); others.delete(slot); }
         projectiles = remoteProjectiles;
-      } else if (pausedRef.current || ended) { acc = 0; renderer.render(scene, camera); return; }
+      } else if (pausedRef.current || ended) {
+        acc = 0;
+        renderer.render(scene, camera);
+        markRendererReady();
+        return;
+      }
       const authoritativeOperation = ironEclipse
         ? expeditionRef.current?.snapshotRef.current?.operation ?? null
         : null;
@@ -566,7 +669,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           group.position.set(subsystem.position.x, subsystem.position.y, subsystem.position.z);
           const mat = subsystem.disabled ? subsystemDisabledMat : subsystemActiveMat;
           if (group.userData.disabled !== subsystem.disabled) {
-            group.children.forEach(child => { (child as THREE.Mesh).material = mat; });
+            group.children.forEach(child => { (child as THREE_TYPES.Mesh).material = mat; });
             group.userData.disabled = subsystem.disabled;
           }
           group.scale.setScalar(subsystem.id === op.target ? 1.45 : 1);
@@ -580,7 +683,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           let wingUnit = operationWing.get(unit.id);
           if (!wingUnit || wingUnit.shipId !== unit.shipId) {
             if (wingUnit) scene.remove(wingUnit.group);
-            const group = buildHull(unit.shipId, track);
+            const group = buildHull(THREE, unit.shipId, track);
             group.scale.setScalar(2.2);
             scene.add(group);
             wingUnit = { group, shipId: unit.shipId };
@@ -673,6 +776,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       stars.position.copy(camera.position); mars.rotation.y += reducedMotion.current ? 0 : 0.00004;
 
       renderer.render(scene, camera);
+      markRendererReady();
 
       const snapNow = netMode ? expeditionRef.current?.snapshotRef.current : null;
       const obj = flightObjective(state, sector);
@@ -813,6 +917,15 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       {phase === "flight" ? (
         <>
           <div ref={mountRef} className="absolute inset-0" data-testid="canvas-flight" />
+          {!rendererReady ? (
+            <div role="status" aria-live="polite" data-testid="status-flight-engine-loading"
+              className="pointer-events-auto absolute inset-0 z-[60] grid place-items-center bg-[#0a0710]/95 px-6 text-center">
+              <div className="border border-[#e0a15a]/50 bg-[#13161c]/95 px-6 py-5">
+                <div className="font-hud text-xs tracking-[0.26em] text-[#e0a15a]">INITIALIZING FLIGHT SYSTEMS</div>
+                <div className="mt-2 text-sm text-[#c8c1b4]">Loading the 3D flight engine…</div>
+              </div>
+            </div>
+          ) : null}
           <div ref={markerRef} className="pointer-events-none absolute left-0 top-0 h-0 w-0 opacity-0">
             <ObjectiveMarker label={hud?.objective ?? ""} distance={hud?.distance ?? 0} />
           </div>
