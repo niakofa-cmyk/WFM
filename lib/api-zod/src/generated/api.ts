@@ -353,7 +353,8 @@ export const StartStrikeBody = zod.object({
   "scheme": zod.enum(['arc', 'strafe']),
   "pace": zod.enum(['practice', 'strike']),
   "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
-  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable()
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "supportsOrbitalReplay": zod.boolean().optional()
 })
 
 
@@ -425,7 +426,8 @@ export const StartStrikeResponse = zod.object({
   "allyCount": zod.number().int().min(1).max(startStrikeResponseConfigAllyCountMax),
   "foeCount": zod.number().int().min(1).max(startStrikeResponseConfigFoeCountMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
-  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage'])
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "flightModel": zod.enum(['surface-v1', 'orbital-v1']).optional()
 })
 })
 
@@ -452,6 +454,12 @@ export const claimStrikeBodyInputsItemPitchMax = 1;
 export const claimStrikeBodyInputsItemEvadeMin = -1;
 export const claimStrikeBodyInputsItemEvadeMax = 1;
 
+export const claimStrikeBodyInputsItemVerticalMin = -1;
+export const claimStrikeBodyInputsItemVerticalMax = 1;
+
+export const claimStrikeBodyInputsItemRollMin = -1;
+export const claimStrikeBodyInputsItemRollMax = 1;
+
 export const claimStrikeBodyInputsMax = 21600;
 
 
@@ -466,7 +474,14 @@ export const ClaimStrikeBody = zod.object({
   "ult": zod.boolean(),
   "lock": zod.boolean(),
   "evade": zod.number().min(claimStrikeBodyInputsItemEvadeMin).max(claimStrikeBodyInputsItemEvadeMax),
-  "preset": zod.union([zod.literal(0),zod.literal(1),zod.literal(2),zod.literal(3),zod.literal(null)]).nullable()
+  "preset": zod.union([zod.literal(0),zod.literal(1),zod.literal(2),zod.literal(3),zod.literal(null)]).nullable(),
+  "vertical": zod.number().min(claimStrikeBodyInputsItemVerticalMin).max(claimStrikeBodyInputsItemVerticalMax).optional(),
+  "roll": zod.number().min(claimStrikeBodyInputsItemRollMin).max(claimStrikeBodyInputsItemRollMax).optional(),
+  "boost": zod.boolean().optional(),
+  "brake": zod.boolean().optional(),
+  "inertial": zod.boolean().optional(),
+  "missile": zod.boolean().optional(),
+  "aimAssist": zod.boolean().optional()
 })).max(claimStrikeBodyInputsMax)
 })
 

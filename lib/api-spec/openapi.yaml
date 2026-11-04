@@ -505,6 +505,7 @@ components:
         pace: { type: string, enum: [practice, strike] }
         mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
         tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
+        supportsOrbitalReplay: { type: boolean }
     StrikeRun:
       type: object
       required: [runId, seed, config, profile]
@@ -527,6 +528,7 @@ components:
             foeCount: { type: integer, minimum: 1, maximum: 5 }
             tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
             mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
+            flightModel: { type: string, enum: [surface-v1, orbital-v1] }
     StrikeStepInput:
       type: object
       additionalProperties: false
@@ -541,6 +543,13 @@ components:
         lock: { type: boolean }
         evade: { type: number, minimum: -1, maximum: 1 }
         preset: { type: [integer, "null"], enum: [0, 1, 2, 3, null] }
+        vertical: { type: number, minimum: -1, maximum: 1 }
+        roll: { type: number, minimum: -1, maximum: 1 }
+        boost: { type: boolean }
+        brake: { type: boolean }
+        inertial: { type: boolean }
+        missile: { type: boolean }
+        aimAssist: { type: boolean }
     StrikeClaimInput:
       type: object
       additionalProperties: false

@@ -1,11 +1,13 @@
 import { relaysHeld, createMatch, step, type Disc, type Goal, type Pace, type StepInput } from "./sim";
 import { SHIPS, type Faction, type ShipId } from "./ships";
+import { prepareOrbital } from "./orbital-sim";
 
 export const STRIKE_STEP_LIMIT = 360 * 60;
 export const PRACTICE_STEP_LIMIT = 120 * 60;
 export const GOOD_IDS = ["salt", "iron", "dust", "resin"] as const;
 export type GoodId = (typeof GOOD_IDS)[number];
 export type MissionId = "skirmish" | "contact" | "beacon" | "warden" | "cage";
+export type FlightModel = "surface-v1" | "orbital-v1";
 export class InvalidStrikeReplay extends Error {
   constructor(message = "The replay contains invalid control input.") {
     super(message);
@@ -32,6 +34,8 @@ export type ReplayClaim = {
   tech: "stick" | "barrels" | "mark" | null;
   inputs: StepInput[];
   mission: MissionId;
+  /** Missing on already-issued runs; those retain the original surface replay. */
+  flightModel?: FlightModel;
   cleared: number;
   hold: GoodId | null;
   paid: number;
@@ -63,23 +67,49 @@ const STEP_INPUT_KEYS = new Set([
   "evade",
   "preset",
 ]);
+const ORBITAL_CONTROL_KEYS = new Set([
+  "vertical",
+  "roll",
+  "boost",
+  "brake",
+  "inertial",
+  "missile",
+  "aimAssist",
+]);
+const ORBITAL_STEP_INPUT_KEYS = new Set([...STEP_INPUT_KEYS, ...ORBITAL_CONTROL_KEYS]);
 
-export function validateStrikeReplayInputs(inputs: unknown, pace: Pace): asserts inputs is StepInput[] {
+type ReplayInputMode = FlightModel | "any";
+
+export function validateStrikeReplayInputs(
+  inputs: unknown,
+  pace: Pace,
+  mode: ReplayInputMode = "surface-v1",
+): asserts inputs is StepInput[] {
   const maxFrames = pace === "strike" ? STRIKE_STEP_LIMIT : PRACTICE_STEP_LIMIT;
   if (!Array.isArray(inputs) || inputs.length > maxFrames) {
     throw new InvalidStrikeReplay("The replay exceeds the maximum frame count for this match.");
   }
 
   let previous: StepInput | undefined;
+  let detectedMode: FlightModel | null = null;
   for (const frame of inputs) {
     if (frame === null || typeof frame !== "object" || Array.isArray(frame)) {
       throw new InvalidStrikeReplay();
     }
     const record = frame as Record<string, unknown>;
     const keys = Object.keys(record);
-    if (keys.length !== STEP_INPUT_KEYS.size || keys.some((key) => !STEP_INPUT_KEYS.has(key))) {
+    const orbital = keys.some((key) => ORBITAL_CONTROL_KEYS.has(key));
+    const frameMode: FlightModel = orbital ? "orbital-v1" : "surface-v1";
+    const expectedKeys = orbital ? ORBITAL_STEP_INPUT_KEYS : STEP_INPUT_KEYS;
+    if (
+      (mode !== "any" && mode !== frameMode) ||
+      (detectedMode !== null && detectedMode !== frameMode) ||
+      keys.length !== expectedKeys.size ||
+      keys.some((key) => !expectedKeys.has(key))
+    ) {
       throw new InvalidStrikeReplay();
     }
+    detectedMode = frameMode;
     for (const axis of ["throttle", "yaw", "strafe", "pitch", "evade"] as const) {
       if (typeof record[axis] !== "number" || !Number.isFinite(record[axis]) || record[axis] < -1 || record[axis] > 1) {
         throw new InvalidStrikeReplay();
@@ -93,13 +123,26 @@ export function validateStrikeReplayInputs(inputs: unknown, pace: Pace): asserts
     ) {
       throw new InvalidStrikeReplay();
     }
+    if (orbital) {
+      for (const axis of ["vertical", "roll"] as const) {
+        if (typeof record[axis] !== "number" || !Number.isFinite(record[axis]) || record[axis] < -1 || record[axis] > 1) {
+          throw new InvalidStrikeReplay();
+        }
+      }
+      for (const control of ["boost", "brake", "inertial", "missile", "aimAssist"] as const) {
+        if (typeof record[control] !== "boolean") throw new InvalidStrikeReplay();
+      }
+    }
     const input = frame as StepInput;
     if (
       previous &&
       ((previous.ult && input.ult) ||
         (previous.lock && input.lock) ||
         (previous.evade !== 0 && input.evade !== 0) ||
-        (previous.preset !== null && input.preset !== null))
+        (previous.preset !== null && input.preset !== null) ||
+        (previous.inertial === true && input.inertial === true) ||
+        (previous.missile === true && input.missile === true) ||
+        (previous.aimAssist === true && input.aimAssist === true))
     ) {
       throw new InvalidStrikeReplay("One-shot controls must include a release frame between activations.");
     }
@@ -142,7 +185,14 @@ function missionUnlocked(mission: MissionId, cleared: number) {
 }
 
 export function adjudicateStrike(claim: ReplayClaim) {
-  validateStrikeReplayInputs(claim.inputs, claim.pace);
+  const flightModel = claim.flightModel ?? "surface-v1";
+  if (flightModel !== "surface-v1" && flightModel !== "orbital-v1") {
+    throw new InvalidStrikeReplay("The issued flight model is not supported.");
+  }
+  if (flightModel === "orbital-v1" && claim.mission !== "contact") {
+    throw new InvalidStrikeReplay("Orbital flight is not authorized for this campaign sortie.");
+  }
+  validateStrikeReplayInputs(claim.inputs, claim.pace, flightModel);
   const shipId = Object.hasOwn(SHIPS, claim.shipId) ? claim.shipId : "mandjet";
   const prices = pricesFrom(claim);
   const hold = claim.hold;
@@ -155,6 +205,7 @@ export function adjudicateStrike(claim: ReplayClaim) {
     tech: claim.tech,
     shieldMk2: claim.shieldMk2,
   });
+  if (flightModel === "orbital-v1") prepareOrbital(match);
   for (const input of claim.inputs) {
     if (match.over) {
       throw new InvalidStrikeReplay("The replay contains control frames after the match ended.");
@@ -196,7 +247,9 @@ export function adjudicateStrike(claim: ReplayClaim) {
     advance =
       cleared >= 4
         ? "The cage run is over. The yard stays open."
-        : `Next sortie: ${(["Beacon", "Warden", "Cage", "Cage"] as const)[cleared - 1]}.`;
+        : claim.mission === "contact" && cleared === 1
+          ? "Contact front secured. Pale Beacons are now charted; reach them through Rust Disc. Next sortie: Beacon."
+          : `Next sortie: ${(["Beacon", "Warden", "Cage", "Cage"] as const)[cleared - 1]}.`;
   }
 
   return {

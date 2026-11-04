@@ -1,3 +1,7 @@
+- [Master development directive](master-development-directive.md) — WFM consolidation starts with a code-backed inventory; preserve proven auth, Wing rewards, progression, and rollback during migration.
+- [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
+- [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
+- [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.
 - [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; competitive needs ten humans; AI-fill resets its 30-second countdown per pilot.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
@@ -29,5 +33,7 @@
 - [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
 - [Open-universe direction](open-universe-direction.md) — real 3D flight and connected sectors; retain the full vision and distinguish local training from authoritative multiplayer.
-- [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons use server flight and account-scoped zero-credit discoveries, separate from Wing rewards and original campaign clears.
+- [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
+- [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
+- [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.

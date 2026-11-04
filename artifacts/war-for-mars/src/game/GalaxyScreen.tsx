@@ -5,7 +5,8 @@ import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
 import { CommandBackdrop, FactionMark } from "./CommandArt";
 import { Link } from "wouter";
-import { SECTOR_MISSIONS, sectorMission } from "./sector-missions";
+import { sectorMission } from "./sector-missions";
+import { nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled } from "./sector-client";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -30,6 +31,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   const durable = useDurableAction();
   const [actionError, setActionError] = useState("");
   const world = snapshot.data;
+  const nextStoryMission = world ? nextStorySectorMission(world.discoveries) : null;
   const cached = snapshot.cached;
   const busy = durable.blocked;
   const go = async (request: Parameters<typeof durable.run>[0], label: string) => {
@@ -382,15 +384,17 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                       </li>
                     );
                   })}
-                  {showSectorExpedition && world.discoveries.some(discovery => discovery.startsWith("flight:")) ? (
-                    <li className="pt-3">
-                      <Link href="/expedition" data-testid="link-discovery-expedition" className="wfm-cmd wfm-cmd-secondary min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest">
-                        CONTINUE {SECTOR_MISSIONS[world.discoveries.some(d => d === "flight:rust-disc") ? 1 : 2]!.title.toUpperCase()}
-                      </Link>
-                    </li>
-                  ) : null}
                 </ul>
               )}
+              {showSectorExpedition && nextStoryMission ? (
+                <Link
+                  href={`/expedition?mission=${encodeURIComponent(nextStoryMission.id)}`}
+                  data-testid="link-discovery-expedition"
+                  className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest"
+                >
+                  {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
+                </Link>
+              ) : null}
             </section>
           </aside>
         </div>

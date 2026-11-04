@@ -49,6 +49,7 @@ export * from './strikeRun';
 export * from './strikeRunConfig';
 export * from './strikeRunConfigDisc';
 export * from './strikeRunConfigFaction';
+export * from './strikeRunConfigFlightModel';
 export * from './strikeRunConfigGoal';
 export * from './strikeRunConfigMission';
 export * from './strikeRunConfigPace';

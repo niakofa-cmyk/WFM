@@ -313,6 +313,7 @@ export interface StrikeStartInput {
   mission: StrikeStartInputMission;
   /** @nullable */
   tech: StrikeStartInputTech;
+  supportsOrbitalReplay?: boolean;
 }
 
 export type StrikeRunConfigShipId = typeof StrikeRunConfigShipId[keyof typeof StrikeRunConfigShipId];
@@ -388,6 +389,14 @@ export const StrikeRunConfigMission = {
   cage: 'cage',
 } as const;
 
+export type StrikeRunConfigFlightModel = typeof StrikeRunConfigFlightModel[keyof typeof StrikeRunConfigFlightModel];
+
+
+export const StrikeRunConfigFlightModel = {
+  'surface-v1': 'surface-v1',
+  'orbital-v1': 'orbital-v1',
+} as const;
+
 export type StrikeRunConfig = {
   shipId: StrikeRunConfigShipId;
   faction: StrikeRunConfigFaction;
@@ -413,6 +422,7 @@ export type StrikeRunConfig = {
   /** @nullable */
   tech: StrikeRunConfigTech;
   mission: StrikeRunConfigMission;
+  flightModel?: StrikeRunConfigFlightModel;
 };
 
 export interface StrikeRun {
@@ -467,6 +477,21 @@ export interface StrikeStepInput {
   evade: number;
   /** @nullable */
   preset: StrikeStepInputPreset;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  vertical?: number;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  roll?: number;
+  boost?: boolean;
+  brake?: boolean;
+  inertial?: boolean;
+  missile?: boolean;
+  aimAssist?: boolean;
 }
 
 export interface StrikeClaimInput {

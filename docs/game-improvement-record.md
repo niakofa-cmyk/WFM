@@ -1,5 +1,182 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-03 — First campaign-to-orbital combat slice
+
+Migrated capable **Contact** campaign sorties into the existing canonical
+orbital simulation. The client advertises `supportsOrbitalReplay`; the server
+selects and stores `flightModel: orbital-v1` for Contact, and the client uses
+that response to configure the shared Arena. The authenticated Strike-claim
+path replays the same orbital simulation before applying the existing
+transactional, idempotent progression. The server validates all spatial input
+fields and one-shot control release frames. The API contract was extended and
+regenerated from OpenAPI.
+
+Compatibility is per-run: older clients that omit the capability, older stored
+runs without a flight-model version, and other campaign sorties keep the
+original surface replay. Contact now presents the orbital-compatible “break the
+defending wing” objective. Its relay-capture alternative is not part of this
+initial orbital slice. Standalone Combat Lab remains offline and no-reward;
+competitive Wing, co-op sectors, Iron Eclipse, and the socket protocol were not
+changed.
+
+On the first verified Contact win, the existing campaign-clear counter unlocks
+Pale Beacons in the player's persistent galaxy. The debrief names the route via
+Rust Disc, and the server integration test checks a fresh world snapshot after
+the claim. No duplicate world-state table or schema migration was added.
+
+Verification: workspace typechecks passed; all 347 workspace tests passed
+(scripts 53, API 147, WFM 147); production builds passed, including both
+standalone Combat Lab static-publication checks. The database-backed campaign
+test exercised Contact issue, deterministic orbital replay, reward settlement,
+and duplicate-claim behavior using a temporary test account and removed its
+records afterward. Client/server orbital replay parity passed. No staging or
+Production deployment, phone test, or release claim was made.
+
+## 2026-11-03 — Stage B saved-hull hangar foundation
+
+Read the attached Stage B repository review in full and preserved its original
+text unchanged at `docs/references/wfm-stage-b-hangar-review.txt`. The owner
+provided two sets of four screenshots: cinematic hangar/ship-selection
+references, followed by aircraft selection, stats, debrief, and multiplayer-home
+references. They inform original WFM art and information hierarchy; the
+screenshots are not shipped as runtime assets. The aircraft-detail references
+informed a more legible, data-backed stat panel and clearer saved hull / unsaved
+preview states.
+
+The proposed ChatGPT reference links were attempted but both returned HTTP 402.
+Their contents were not reviewed or treated as requirements; the attached
+repository review and the current source were the available references.
+
+The command screen now opens as a hangar-first experience with an original
+CSS-authored bay scene and the current account-saved hull rendered from the
+existing Three.js orbital ship builder.
+The hangar model supports pointer/touch drag and keyboard rotation, and it
+retains a responsive fallback when WebGL is unavailable. The Armory's selected
+hull now uses that same 3D model; unsaved draft selections are explicitly
+labeled as previews, while the home hangar reflects only the saved profile.
+The saved-hull and Armory panels expose shield, hull, speed, thrust, pulse
+damage, and shot rate from WFM's canonical ship definitions, plus the selected
+ship's actual special system and cycle time. Hull editing and persistence
+continue through the existing Armory save flow. Launching Rust Disc from the
+Hangar preselects the account's saved hull in the local flight briefing; that
+offline selection is a local preset and cannot overwrite the server-saved
+loadout. The briefing shows actual ship telemetry, while the local debrief states
+the objective outcome and returns to WFM.
+The campaign briefing, Rust Disc flight, Combat Lab, optional co-op expedition,
+galaxy, Online Wing, Armory, settings, and opt-in leaderboard remain reachable.
+
+This is a front-end journey and presentation slice. It does not connect
+competitive Wing to 3D sector simulation, change auth/progression/reward
+authority, or certify mobile GPU performance or physical-device behavior.
+Production and Railway were untouched.
+
+Verification: the `workspace-quality` workflow finished successfully with
+typechecks, 335 tests (scripts 53, API 143, WFM 139), production builds, and the
+two Combat Lab static-publication checks passing. `git diff --check` passed. The
+preview screenshot confirmed the public WFM entry page loads, but the capture
+browser cannot sign in, so the authenticated Hangar and Armory were not visually
+captured; no physical-phone test was performed. Vite still reports the existing
+greater-than-500-kB Three.js chunk advisory; this presentation change does not
+claim that the game's overall mobile frame pacing has been optimized.
+
+## 2026-11-04 — Hangar-to-Rust Disc local sortie continuity
+
+Completed three connected improvements:
+
+1. Replaced references to untracked screenshot attachments with an original
+   CSS-authored hangar backdrop, keeping the production build self-contained.
+2. The Hangar's saved hull now preselects the hull in Rust Disc through a
+   validated URL preset. An authoritative expedition snapshot still takes
+   precedence; the offline preset cannot update the account loadout.
+3. The Rust Disc briefing displays canonical shield, hull, thrust, pulse damage,
+   shot rate, ultimate cooldown, and special-system values. It explains that
+   briefing selections are local-only. The debrief reports whether extraction
+   completed and returns to WFM.
+
+Verification: the `workspace-quality` workflow finished successfully with
+typechecks, 339 tests (scripts 53, API 143, WFM 143), production builds, and both
+Combat Lab static-publication checks passing. The Rust Disc briefing rendered at
+390 × 844 CSS pixels with `?ship=shakuna`; browser logs showed no app errors.
+The authenticated Hangar itself was not visually captured. The existing large
+Three.js chunk advisory remains; no device-performance claim or phone test was
+made. Railway and Production were untouched.
+
+## 2026-11-04 — Structural rebuild roadmap and Galaxy operation routing
+
+Read all 883 lines of the owner-supplied structural rebuild strategy. The exact
+source is preserved at `docs/infinite-war/STRUCTURAL-REBUILD-STRATEGY.txt`; its
+maintained implementation summary and staged acceptance criteria are in
+`docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md` and the project memory index.
+
+The roadmap confirms the current architecture decision: evolve the custom
+Three.js runtime into the canonical combat foundation while retaining the
+existing campaign, account, co-op, Wing, economy, and progression safeguards.
+The player journey is not considered complete until mission results return
+through the existing server-authoritative progression path.
+
+This change fixes a concrete Galaxy-to-operation mismatch: recorded discoveries
+now determine the next incomplete story-sector mission, and the Galaxy link
+carries that mission ID into the Expedition selector. The client accepts only
+known IDs for navigation; account progression, prerequisites, and mission
+authorization remain server-validated. No progression or reward logic changed.
+
+## 2026-11-04 — Unified mobile command hierarchy
+
+Read the complete repository-specific implementation request and reviewed its
+Android screenshots. The original text is preserved at
+`docs/infinite-war/REPO-UNIFICATION-REQUEST.txt`; its findings are added to the
+structural rebuild roadmap and existing project-memory entry.
+
+The public landing emphasizes account entry or local solo flight and places
+Rust Disc, offline Orbital Combat Lab, and co-op in an expandable operations
+group. The signed-in command screen makes the next campaign sortie primary,
+keeps server-run co-op as a distinct operation path, and groups local Rust Disc,
+offline Combat Lab, and Arcade Skirmish inside expandable Flight & Combat
+Systems. This reduces the mobile command-card wall without removing legacy
+access or misrepresenting their runtimes as already unified.
+
+This is the navigation stage of the rebuild. It does not yet run every mode on
+the Orbital Combat Lab simulation or connect all outcomes to one progression
+system. Existing campaign, Wing, and co-op authorization and reward contracts
+remain intact until an end-to-end replacement is tested.
+
+Verification: workspace typecheck, all 342 package tests, and production builds
+passed; all 10 public Playwright tests passed, including the new expandable-menu
+check and small-phone scrolling. The preview rendered at 390 × 844 CSS pixels
+on the logged-out landing page. The browser reported the existing development
+Clerk-key warning and a WebGPU context-creation warning; the authenticated
+command screen was not visually captured. No physical-device, staging, or
+Production verification was performed.
+
+## 2026-11-03 — Master Infinite War directive and Stage A audit
+
+Read the full owner-supplied 653-line master development directive and retained
+the original file unchanged under `attached_assets/`. Made it the leading
+execution reference through `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md`
+and a durable project-memory pointer.
+
+Completed the directive's first required delivery stage as a repository-grounded
+source/test audit: `FORENSIC-INVENTORY.md` classifies current systems;
+`ARCHITECTURE-ASSESSMENT.md` records current authority boundaries and a target
+integration sequence; `FEATURE-INTEGRATION-MATRIX.md` maps each retained system
+to its destination and first acceptance proof. The audit confirms that account,
+progression, world, cooperative sectors, Iron Eclipse, and Wing services exist,
+but the 5v5 Wing simulation is not yet integrated into the 3D sector combat
+protocol. The Combat Lab remains offline/no-reward. No duplicate auth, profile,
+inventory, or reward system was introduced; no existing feature was deleted.
+
+The audit used the current local refs, not live GitHub PR status or Railway
+deployment metadata. At the time checked, the working tree was on
+`integration/infinite-war-orbital-combat`; local `staging` was `f1c8b62`,
+`origin/staging` was `6671d36`, local `main` was `4b31352`, and `origin/main`
+was `3ecff67`. These are repository refs only and must not be represented as
+deployed revisions.
+
+This is Stage A documentation and planning evidence, not a completed unified
+player journey, ten-human 3D warfront, Production release, or physical-device
+verification. The next implementation slice must use these audited contracts
+and keep any client/API/socket migration coordinated and reversible.
+
 ## 2026-11-02 — Staging rollout for cooperative squad orders
 
 Fast-forwarded the Railway `staging` branch from `50f9ab1` to

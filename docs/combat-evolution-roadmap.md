@@ -2,6 +2,15 @@
 
 ## Source references
 
+WFM's primary long-term product direction is the Infinite War blueprint:
+`docs/references/wfm-infinite-war-blueprint.md`. Its complete owner-supplied
+source remains unchanged at
+`attached_assets/Pasted-WAR-FOR-MARS-The-Infinite-War-Open-Universe-Multiplayer_1793690415379.txt`.
+The central goal is to make competitive engagements operations inside a
+connected universe whose validated outcomes can affect the larger war. The
+blueprint is a staged north-star, not a statement that all proposed systems
+already exist.
+
 The complete owner-supplied references remain unchanged in `attached_assets/`:
 
 - `Pasted-Build-the-WFM-Combat-Evolution-If-I-were-directing-WFM-_1793630574307.txt`
@@ -112,6 +121,55 @@ for the standalone mission. This verifies local implementation contracts only:
 the phone experience, network interruptions, staging behavior, balance, and
 Production release still require their own verification. The existing
 Production-default feature gate remains in force.
+
+## Combat visibility increment
+
+The first Infinite War combat-foundation increment makes the existing Rust Disc
+and cooperative-sector combat loop easier to read without changing simulation
+or server authority. The flight HUD identifies the active hostile drone or
+selected Iron Eclipse subsystem, shows its distance and hull, counts confirmed
+hits, and explains whether lock is unavailable, acquiring, or complete. The
+mobile missile control is enabled only when a target is active, a full lock is
+reported, and ammunition remains; primary guns stay independently available.
+Briefing copy now explains the reticle → guns/lock → missile sequence.
+
+This does not add free target cycling, assisted aim, new weapon types,
+ship-specific loadouts, broader player-vs-player target selection, or new
+damage rules. Those remain follow-on work. The 5v5 Wing arena is still separate
+from open-universe/co-op sectors; this HUD is not evidence that the two modes
+have been connected.
+
+## First campaign migration — Contact
+
+Newly issued campaign Contact runs now use the shared orbital flight/combat
+simulation inside the existing campaign Arena. The client advertises support
+for orbital replay; the API then selects and stores the `flightModel` for the
+issued run. Capable Contact clients receive `orbital-v1`; older clients that do
+not advertise the capability and all other campaign sorties continue to use
+`surface-v1`. The client selects its runtime from the server response and cannot
+choose or change the model in the claim.
+
+The authenticated Strike claim replays the same deterministic orbital
+simulation on the server, validates the complete bounded spatial-control frame,
+and then uses the existing transactional, idempotent progression settlement.
+Runs issued before this version field existed default to the original surface
+model, so an open claim is not silently reinterpreted after deployment. The
+capability negotiation also lets an older deployed client finish Contact on its
+original surface rules while a newer client uses the orbital version. The first
+orbital Contact objective is the authored “break the defending wing” branch;
+relay capture is not currently part of this orbital variant.
+
+A verified first Contact win advances the existing campaign-clear count. The
+persistent galaxy derives the Pale Beacons unlock from that server-owned
+progression, and the Contact debrief explains that the route is charted through
+Rust Disc. This reuses the existing progression contract rather than creating a
+parallel world-event store.
+
+This migrates one campaign operation only. The standalone Combat Lab remains
+offline and no-reward; the remaining campaign sorties, competitive Wing, live
+socket rooms, co-op sectors, and Iron Eclipse retain their existing contracts.
+Client/server Contact replay parity and strict input validation are automated
+checks, not evidence of staging or physical-device acceptance.
 
 ## Staged implementation and acceptance gates
 

@@ -108,7 +108,7 @@ function PublicLanding() {
             <FactionMark faction="ussf" className="h-10 w-10" />
             <span aria-hidden="true" className="h-8 w-px bg-bone/25" />
             <FactionMark faction="accord" className="h-10 w-10" />
-            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
+            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">THE INFINITE WAR · USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
           </div>
           <h1 className="mt-6">
             <span className="sr-only">WAR FOR MARS</span>
@@ -119,19 +119,43 @@ function PublicLanding() {
             Fly the campaign, refit your ship, or bring a wing into a private ten-pilot match.
             Your account keeps campaign progress and credits safe on the server.
           </p>
-          <div className="wfm-rise-3 mt-8 flex flex-wrap gap-3">
-            <Link href="/play" className={`${cta} wfm-cmd-primary`}>TRY SOLO FLIGHT</Link>
-            <Link href="/flight" className={`${cta} wfm-cmd-secondary`}>EXPLORE RUST DISC · 3D FLIGHT</Link>
-            {expeditionEnabled ? <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary`}>CO-OP EXPEDITION · 1-8 PILOTS</Link> : null}
+          <div className="wfm-rise-3 mt-8 flex max-w-2xl flex-wrap gap-3">
             {isSignedIn ? (
-              <Link href="/" className={`${cta} wfm-cmd-secondary`}>OPEN HANGAR</Link>
+              <Link href="/" className={`${cta} wfm-cmd-primary`}>OPEN HANGAR</Link>
             ) : (
               <>
-                <Link href="/sign-up" className={`${cta} wfm-cmd-secondary`}>CREATE PILOT ACCOUNT</Link>
-                <Link href="/sign-in" className={`${cta} wfm-cmd-quiet`}>SIGN IN</Link>
+                <Link href="/sign-up" className={`${cta} wfm-cmd-primary`}>CREATE PILOT ACCOUNT</Link>
+                <Link href="/sign-in" className={`${cta} wfm-cmd-secondary`}>SIGN IN</Link>
               </>
             )}
+            <Link href="/play" className={`${cta} wfm-cmd-quiet`}>TRY SOLO FLIGHT · LOCAL</Link>
           </div>
+          <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
+              <span className="min-w-0">
+                <span className="block">OTHER FLIGHT OPERATIONS</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Rust Disc · Combat Lab · Co-op sectors</span>
+              </span>
+              <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
+              <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
+            </summary>
+            <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
+              <Link href="/flight" data-testid="link-landing-rust-disc" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left`}>
+                <span>RUST DISC · LOCAL FLIGHT</span>
+                <span className="font-sans text-xs tracking-normal text-muted">3D trainer · no rewards or account changes</span>
+              </Link>
+              <a href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left`}>
+                <span>ORBITAL COMBAT LAB · OFFLINE</span>
+                <span className="font-sans text-xs tracking-normal text-muted">Combat prototype · no rewards</span>
+              </a>
+              {expeditionEnabled ? (
+                <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>
+                  <span>CO-OP SECTOR OPERATIONS</span>
+                  <span className="font-sans text-xs tracking-normal text-muted">1–8 pilots · server-run missions to Mars</span>
+                </Link>
+              ) : null}
+            </div>
+          </details>
         </div>
       </section>
 

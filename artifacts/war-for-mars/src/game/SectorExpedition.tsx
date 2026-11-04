@@ -18,6 +18,7 @@ import {
   isTerminalClose, isTerminalError, isValidRoomCode, missionLockState, missionNumber, normalizeRoomCode,
   parseSectorSnapshot, sectorSocketUrl, slotLabel, type MissionLock,
 } from "./sector-client";
+import { parseExpeditionMission } from "./sector-navigation";
 
 /**
  * Cooperative sector expedition client. The server owns every pilot, the
@@ -74,7 +75,8 @@ function ExpeditionClient() {
   getTokenRef.current = getToken;
 
   const [view, setView] = useState<View>("select");
-  const [missionId, setMissionId] = useState<SectorMissionId>("rust-disc");
+  const expeditionSearch = typeof window !== "undefined" ? window.location.search : "";
+  const [missionId, setMissionId] = useState<SectorMissionId>(() => parseExpeditionMission(expeditionSearch) ?? "rust-disc");
   const [shipId, setShipId] = useState<ShipId>("glide");
   const [codeInput, setCodeInput] = useState("");
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);

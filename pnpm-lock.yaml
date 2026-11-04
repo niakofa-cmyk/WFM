@@ -186,6 +186,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/orbital-sim':
+        specifier: workspace:*
+        version: link:../../lib/orbital-sim
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -436,6 +439,9 @@ importers:
       '@clerk/themes':
         specifier: ^2.4.57
         version: 2.4.57(react-dom@19.1.4(react@19.1.4))(react@19.1.4)
+      '@workspace/orbital-sim':
+        specifier: workspace:*
+        version: link:../../lib/orbital-sim
     devDependencies:
       '@clerk/testing':
         specifier: 2.2.50
@@ -744,6 +750,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/orbital-sim: {}
 
   scripts:
     devDependencies:

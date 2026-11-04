@@ -22,3 +22,7 @@ Math (both rejected). Staging diagnostics record per-frame live Arena checksums
 for `--replay` triage; the old live-Arena vs standalone gap stayed unexplained
 because that capture was not retained. Keep strict adjudication; never
 truncate/pad replays or trust client outcomes.
+
+The shared orbital flight and weapon simulation must use the same deterministic
+math primitives for trigonometry, distance, and exponential damping. Do not
+reintroduce runtime-native transcendental calls in reusable simulation modules.

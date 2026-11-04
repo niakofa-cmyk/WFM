@@ -25,9 +25,9 @@ export const SORTIES: Sortie[] = [
     disc: "rust",
     allyCount: 4,
     foeCount: 4,
-    objective: "HOLD TWO RELAYS",
+    objective: "BREAK THE DEFENDING WING",
     brief:
-      "The Accord found a voice buried under the rust disc's relay lattice. Hold two relays long enough to decode it, or break the defending wing before the signal is lost.",
+      "The Accord found a voice buried under the rust disc's relay lattice. Break the defending wing before the signal is lost; the surviving relay will decode the route key.",
   },
   {
     id: "beacon",

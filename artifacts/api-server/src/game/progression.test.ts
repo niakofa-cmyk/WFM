@@ -6,6 +6,7 @@ import { WebSocket } from "ws";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   pool,
   strikeRunsTable,
@@ -20,12 +21,14 @@ import {
 import {
   applyPlayerAction,
   claimPlayerStrike,
+  flightModelForStart,
   getPlayerProfile,
   ProgressionError,
   startPlayerStrike,
   updatePlayerControlScheme,
   updatePlayerLoadout,
 } from "./progression";
+import { getWorldSnapshot } from "./world";
 import {
   adjudicateStrike,
   PRACTICE_STEP_LIMIT,
@@ -36,6 +39,13 @@ import {
 import { startWingSocketServer } from "../socket/server";
 import { authenticateTestSocket, createSocketTestAuth } from "../socket/test-session-auth";
 import { StrikeRunIdParams } from "../routes/strikes";
+
+test("the server negotiates orbital replay only for capable Contact clients", () => {
+  assert.equal(flightModelForStart("contact", true), "orbital-v1");
+  assert.equal(flightModelForStart("contact", false), "surface-v1");
+  assert.equal(flightModelForStart("contact", undefined), "surface-v1");
+  assert.equal(flightModelForStart("beacon", true), "surface-v1");
+});
 
 type SocketTestPacket = { type?: string; [key: string]: unknown };
 const socketTestAuth = createSocketTestAuth();
@@ -171,6 +181,7 @@ test("progression request schemas reject client-authored balances and campaign c
       pace: "strike",
       mission: "contact",
       tech: null,
+      supportsOrbitalReplay: true,
       credits: 9_999_999,
       cleared: 4,
       seed: 123,
@@ -459,11 +470,14 @@ test(
       pace: "practice",
       mission: "contact",
       tech: null,
+      supportsOrbitalReplay: true,
     } as const;
     try {
       const initial = await getPlayerProfile(userId);
       assert.equal(initial.credits, 90);
       assert.equal(initial.cleared, 0);
+      const initialWorld = await getWorldSnapshot(userId);
+      assert.equal(initialWorld.locations.find((location) => location.id === "pale-beacons")?.unlocked, false);
 
       await assert.rejects(
         startPlayerStrike(userId, { ...selection, mission: "cage" }),
@@ -478,6 +492,12 @@ test(
       assert.ok(firstRun.seed > 0);
       assert.equal(firstRun.config.seed, firstRun.seed);
       assert.equal(firstRun.config.refit, 0);
+      assert.equal(firstRun.config.flightModel, "orbital-v1");
+      const legacyClientRun = await startPlayerStrike(userId, {
+        ...selection,
+        supportsOrbitalReplay: false,
+      });
+      assert.equal(legacyClientRun.config.flightModel, "surface-v1");
 
       const refit = {
         idempotencyKey: randomUUID(),
@@ -495,7 +515,9 @@ test(
 
       const currentRun = await startPlayerStrike(userId, selection);
       const { createMatch, step } = await import("./sim");
+      const { prepareOrbital } = await import("./orbital-sim");
       const config = currentRun.config;
+      assert.equal(config.flightModel, "orbital-v1");
       const match = createMatch(config.shipId, config.faction, config.refit, config.pace, {
         seed: config.seed,
         goal: config.goal,
@@ -504,6 +526,7 @@ test(
         foeCount: config.foeCount,
         tech: config.tech,
       });
+      prepareOrbital(match);
       const input = {
         throttle: 0,
         yaw: 0,
@@ -514,6 +537,13 @@ test(
         lock: false,
         evade: 0,
         preset: null,
+        vertical: 0,
+        roll: 0,
+        boost: false,
+        brake: false,
+        inertial: false,
+        missile: false,
+        aimAssist: false,
       } as const;
       const replay = [];
       const frameLimit = (config.pace === "strike" ? 360 : 120) * 60;
@@ -541,6 +571,14 @@ test(
       const firstClaim = claimA.replayed ? claimB : claimA;
       assert.equal(firstClaim.profile.credits, 280 + firstClaim.gain);
       assert.equal(firstClaim.replayed, false);
+      const beaconsUnlocked = firstClaim.profile.cleared >= 1;
+      assert.equal(firstClaim.outcome === "win", beaconsUnlocked);
+      assert.equal(firstClaim.advance.includes("Pale Beacons"), beaconsUnlocked);
+      const worldAfterContactClaim = await getWorldSnapshot(userId);
+      assert.equal(
+        worldAfterContactClaim.locations.find((location) => location.id === "pale-beacons")?.unlocked,
+        beaconsUnlocked,
+      );
 
       // Prove the reward survives a fresh profile read, not only the claim response.
       const persistedAfterFirstClaim = await getPlayerProfile(userId);
@@ -597,6 +635,7 @@ test(
     } finally {
       await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
       await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
+      await db.delete(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
       await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));
       await pool.end();
     }

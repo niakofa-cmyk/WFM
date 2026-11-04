@@ -15,6 +15,7 @@ import {
   IncompleteStrikeReplay,
   InvalidStrikeReplay,
   validateStrikeReplayInputs,
+  type FlightModel,
   type GoodId,
   type MissionId,
   type ReplayClaim,
@@ -29,6 +30,7 @@ type StrikeStartInput = {
   pace: Pace;
   mission: MissionId;
   tech: "stick" | "barrels" | "mark" | null;
+  supportsOrbitalReplay?: boolean;
 };
 type StrikeClaimInputs = StepInput[];
 
@@ -55,6 +57,7 @@ export type GameProfile = {
 type StrikeConfig = Omit<ReplayClaim, "inputs"> & { profileRevision: number };
 
 type MissionConfig = {
+  flightModel: FlightModel;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -71,11 +74,11 @@ const MISSION_ORDER: Record<MissionId, number> = {
   cage: 3,
 };
 const MISSION_CONFIG: Record<MissionId, MissionConfig> = {
-  skirmish: { pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
-  contact: { pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
-  beacon: { pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
-  warden: { pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
-  cage: { pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
+  skirmish: { flightModel: "surface-v1", pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
+  contact: { flightModel: "orbital-v1", pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
+  beacon: { flightModel: "surface-v1", pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
+  warden: { flightModel: "surface-v1", pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
+  cage: { flightModel: "surface-v1", pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
 };
 const TECH_UNLOCK: Record<NonNullable<GameProfile["tech"]>, number> = {
   stick: 1,
@@ -210,6 +213,14 @@ function missionAvailable(mission: MissionId, cleared: number): boolean {
   return mission === "skirmish" || MISSION_ORDER[mission] <= cleared;
 }
 
+export function flightModelForStart(
+  mission: MissionId,
+  supportsOrbitalReplay: boolean | undefined,
+): FlightModel {
+  const serverModel = MISSION_CONFIG[mission].flightModel;
+  return serverModel === "orbital-v1" && supportsOrbitalReplay ? serverModel : "surface-v1";
+}
+
 export async function startPlayerStrike(userId: string, input: StrikeStartInput) {
   return db.transaction(async (tx) => {
     const current = await lockOrCreateProfile(tx, userId);
@@ -250,6 +261,7 @@ export async function startPlayerStrike(userId: string, input: StrikeStartInput)
       refit: current.refit,
       shieldMk2: current.shieldMk2,
       ...missionConfig,
+      flightModel: flightModelForStart(mission, input.supportsOrbitalReplay),
       pace,
       tech: input.tech,
       mission,
@@ -353,7 +365,7 @@ export async function claimPlayerStrike(
   inputs: StrikeClaimInputs,
 ) {
   try {
-    validateStrikeReplayInputs(inputs, "strike");
+    validateStrikeReplayInputs(inputs, "strike", "any");
   } catch (error) {
     if (error instanceof InvalidStrikeReplay) throw new ProgressionError(error.message, 400);
     throw error;
