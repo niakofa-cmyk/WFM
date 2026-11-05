@@ -35,6 +35,92 @@ test("landing page presents the Orbital training entry without a separate Rust D
   await expect(page.getByTestId("link-landing-combat-lab")).toHaveAttribute("href", "/combat-lab.html");
 });
 
+test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot controls", async ({ page }) => {
+  test.setTimeout(120_000);
+  page.on("pageerror", (error) => console.error(`[orbital-lab page error] ${error.stack ?? error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error(`[orbital-lab console error] ${message.text()}`);
+  });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/combat-lab.html");
+  await page.getByTestId("button-launch-combat-lab").click();
+  await expect(page.getByTestId("arena-stage")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => typeof window.__controlsTest?.getOrientation === "function")).toBe(true);
+
+  await expect(page.getByTestId("text-relay-status")).toHaveCount(0);
+  await expect(page.getByText("TRAINING OPERATION")).toHaveCount(0);
+  await expect(page.getByText("DESTROY ALL DEFENDERS · TRAINING ONLY")).toHaveCount(0);
+  await expect(page.getByTestId("orbital-target-status")).toBeHidden();
+
+  const speedBefore = await page.evaluate(() => window.__controlsTest!.getSpeed());
+  const flightStick = page.getByTestId("stick-flight");
+  const flightBox = await flightStick.boundingBox();
+  expect(flightBox).not.toBeNull();
+  if (!flightBox) throw new Error("Orbital flight stick is missing.");
+  const flightX = flightBox.x + flightBox.width / 2;
+  const flightY = flightBox.y + flightBox.height / 2;
+  await page.mouse.move(flightX, flightY);
+  await page.mouse.down();
+  await page.mouse.move(flightX, flightY - Math.min(30, flightBox.height * 0.3), { steps: 4 });
+  await page.waitForTimeout(350);
+  const speedAfterThrust = await page.evaluate(() => window.__controlsTest!.getSpeed());
+  expect(speedAfterThrust).toBeGreaterThan(speedBefore);
+  await page.mouse.up();
+  await expect(flightStick).toHaveAttribute("data-axis-y", "0.000");
+
+  await page.getByTestId("button-target-lock").click();
+  const targetStatus = page.getByTestId("orbital-target-status");
+  await expect(targetStatus).toBeVisible();
+  await expect(targetStatus).toHaveAttribute("data-faction", /^(ussf|accord)$/);
+  await expect(page.getByTestId("target-shield-bar")).toBeVisible();
+  await expect(page.getByTestId("target-hull-bar")).toBeVisible();
+  const statusBox = await targetStatus.boundingBox();
+  const reticleBox = await page.getByTestId("reticle-center").boundingBox();
+  expect(statusBox).not.toBeNull();
+  expect(reticleBox).not.toBeNull();
+  if (statusBox && reticleBox) expect(statusBox.x + statusBox.width).toBeLessThan(reticleBox.x);
+
+  await page.getByTestId("button-maneuvers").click();
+  await expect(page.getByTestId("pilot-maneuver-actions")).toBeVisible();
+  await expect(page.getByTestId("button-boost")).toBeVisible();
+  await expect(page.getByTestId("button-brake")).toBeVisible();
+  await expect(page.getByTestId("button-drift")).toBeVisible();
+  await page.getByTestId("button-maneuvers").click();
+
+  const aimStick = page.getByTestId("stick-aim");
+  const aimBox = await aimStick.boundingBox();
+  expect(aimBox).not.toBeNull();
+  if (!aimBox) throw new Error("Orbital aim stick is missing.");
+  const aimX = aimBox.x + aimBox.width / 2;
+  const aimY = aimBox.y + aimBox.height / 2;
+  const radius = Math.min(aimBox.width, aimBox.height) * 0.34;
+  const initialOrientation = await page.evaluate(() => window.__controlsTest!.getOrientation!());
+  const sampledOrientations: Array<[number, number, number, number]> = [];
+  await page.screenshot({ path: "/tmp/wfm-orbital-live-hud.png" });
+  await page.mouse.move(aimX + radius, aimY);
+  await page.mouse.down();
+  for (let step = 1; step <= 36; step++) {
+    const angle = (step / 36) * Math.PI * 2;
+    await page.mouse.move(aimX + Math.cos(angle) * radius, aimY + Math.sin(angle) * radius, { steps: 2 });
+    await page.waitForTimeout(10);
+    if (step % 6 === 0) {
+      await page.waitForTimeout(40);
+      const orientation = await page.evaluate(() => window.__controlsTest!.getOrientation!());
+      if (orientation) sampledOrientations.push(orientation);
+    }
+  }
+  await expect(aimStick).toHaveAttribute("data-roll-gesture", /^live-/);
+  await page.mouse.up();
+  await expect(aimStick).toHaveAttribute("data-roll-gesture", "released");
+  const orientationMoved = sampledOrientations.some((orientation) => {
+    if (!initialOrientation) return false;
+    const dot = Math.abs(orientation.reduce((sum, value, index) => sum + value * initialOrientation[index], 0));
+    return 2 * Math.acos(Math.min(1, dot)) > 0.08;
+  });
+  expect(orientationMoved).toBe(true);
+  await page.screenshot({ path: "/tmp/wfm-orbital-live-hud.png" });
+});
+
 test("empty Wing leaderboard explains its reward eligibility requirement", async ({ page }) => {
   await page.route("**/api/game/leaderboard", (route) =>
     route.fulfill({

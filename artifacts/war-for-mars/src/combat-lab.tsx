@@ -21,7 +21,7 @@ function CombatLab() {
         <div className="lab-factions">{(["ussf", "accord"] as const).map((f) => <button key={f} aria-pressed={faction === f} onClick={() => { setFaction(f); setShip(ROSTER[f][0]); }}>{f.toUpperCase()}</button>)}</div>
         <label className="lab-ship-label">AIRFRAME<select value={ship} onChange={(event) => setShip(event.target.value as ShipId)}>{ROSTER[faction].map((id) => <option key={id} value={id}>{SHIPS[id].name} · {SHIPS[id].role}</option>)}</select></label>
         <p className="lab-readiness">✓ LOCAL SYSTEMS READY · NO BACKEND REQUIRED</p>
-        <button className="lab-launch" onClick={() => { unlockAudio(); setRun((r) => r + 1); setActive(true); }}>LAUNCH OPERATION ↗</button>
+        <button data-testid="button-launch-combat-lab" className="lab-launch" onClick={() => { unlockAudio(); setRun((r) => r + 1); setActive(true); }}>LAUNCH OPERATION ↗</button>
         <p className="lab-disclaimer">AI opponents. No matchmaking, account session, rewards, or campaign writes. Existing live services remain separate.</p>{summary ? <p role="status" className="lab-summary">{summary}</p> : null}
       </section>
       <footer className="lab-rules"><b>FLIGHT</b><span>W/S thrust · A/D yaw · I/K pitch · Q/E roll · Z/X slide · C/V lift</span><b>COMBAT</b><span>Space fire · R cycle targets · M guided missile</span><b>ASSISTS</b><span>Shift boost · B brake · G inertia · H aim assist · P pause</span></footer>

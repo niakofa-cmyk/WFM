@@ -25,6 +25,7 @@ import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
+import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pilot-hud";
 import {
   createOrbitalRuntime,
   getGameModeDefinition,
@@ -529,6 +530,16 @@ export function Arena({
   const speedRef = useRef<HTMLSpanElement>(null);
   const lockNameRef = useRef<HTMLParagraphElement>(null);
   const lockHpRef = useRef<HTMLDivElement>(null);
+  const targetStatusRef = useRef<HTMLDivElement>(null);
+  const targetFactionRef = useRef<HTMLSpanElement>(null);
+  const targetNameRef = useRef<HTMLSpanElement>(null);
+  const targetDistanceRef = useRef<HTMLSpanElement>(null);
+  const targetShieldRef = useRef<HTMLDivElement>(null);
+  const targetShieldValueRef = useRef<HTMLSpanElement>(null);
+  const targetHullRef = useRef<HTMLDivElement>(null);
+  const targetHullValueRef = useRef<HTMLSpanElement>(null);
+  const targetLockRef = useRef<HTMLDivElement>(null);
+  const targetLockValueRef = useRef<HTMLSpanElement>(null);
   const callRef = useRef<HTMLParagraphElement>(null);
   const relayRef = useRef<HTMLParagraphElement>(null);
   const markRef = useRef<HTMLDivElement>(null);
@@ -1235,6 +1246,10 @@ export function Arena({
           ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
           : craft.speed;
       },
+      getOrientation: () => {
+        const craft = pilotCraft(match, slotIdRef.current);
+        return craft.space ? [...craft.space.q] as [number, number, number, number] : null;
+      },
       getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
@@ -1745,6 +1760,32 @@ export function Arena({
         const solution = locked ? targetSolution(player, locked, match.rocks) : null;
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
+        if (targetStatusRef.current) {
+          targetStatusRef.current.hidden = !locked;
+          if (locked && solution) {
+            const factionAccent = targetFactionAccent(locked.faction);
+            const critical = isTargetHullCritical(hull);
+            targetStatusRef.current.dataset.faction = locked.faction;
+            targetStatusRef.current.dataset.critical = critical ? "true" : "false";
+            targetStatusRef.current.style.setProperty("--target-accent", factionAccent);
+            targetStatusRef.current.style.setProperty("--target-hull", targetHullColor(locked.faction, hull));
+            if (targetFactionRef.current) targetFactionRef.current.textContent = locked.faction.toUpperCase();
+            if (targetNameRef.current) targetNameRef.current.textContent = SHIPS[locked.ship].name.toUpperCase();
+            if (targetDistanceRef.current) targetDistanceRef.current.textContent = `${Math.round(solution.distance)} M`;
+            if (targetShieldRef.current) {
+              targetShieldRef.current.style.width = `${Math.max(0, Math.min(100, shield))}%`;
+              targetShieldRef.current.style.backgroundColor = factionAccent;
+            }
+            if (targetShieldValueRef.current) targetShieldValueRef.current.textContent = `${Math.max(0, shield)}%`;
+            if (targetHullRef.current) {
+              targetHullRef.current.style.width = `${Math.max(0, Math.min(100, hull))}%`;
+              targetHullRef.current.style.backgroundColor = targetHullColor(locked.faction, hull);
+            }
+            if (targetHullValueRef.current) targetHullValueRef.current.textContent = `${Math.max(0, hull)}%`;
+            if (targetLockRef.current) targetLockRef.current.style.width = `${Math.max(0, Math.min(100, s.lockProgress * 100))}%`;
+            if (targetLockValueRef.current) targetLockValueRef.current.textContent = `${Math.floor(s.lockProgress * 100)}% LOCK`;
+          }
+        }
         if (telemetryRef.current) {
           telemetryRef.current.textContent = `${orbitalCampaign ? "CONTACT · CAMPAIGN" : "LAB · NO REWARDS"} · ${match.kills}/${match.enemies.length} DESTROYED\nSPD ${Math.hypot(s.vx, s.vy, s.vz).toFixed(1)} · ALT ${s.y.toFixed(1)} · ENERGY ${Math.ceil(s.energy)} · ARMOR ${Math.ceil(s.armor)}\n${s.assist ? "FLIGHT ASSIST" : "INERTIAL"} · ${s.aimAssist ? "AIM ASSIST" : "MANUAL AIM"}\n${locked ? `${locked.faction.toUpperCase()} · ${solution!.distance.toFixed(0)} m · SHD ${shield}% · HULL ${hull}% · LOCK ${Math.floor(s.lockProgress * 100)}%` : "R / TARGET: SELECT AN ENEMY"}`;
           telemetryRef.current.dataset.kills = String(match.kills);
@@ -1831,7 +1872,10 @@ export function Arena({
       markT = Math.max(0, markT - delta);
       callT = Math.max(0, callT - delta);
       if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
-      if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
+      if (callRef.current) {
+        callRef.current.hidden = callT <= 0;
+        callRef.current.textContent = callT > 0 ? callName : "";
+      }
       performanceFrameRef.current?.({
         timestampMs: now,
         frameIntervalMs,
@@ -1929,13 +1973,44 @@ export function Arena({
               <div className="h-1.5 flex-1 overflow-hidden bg-panel/70"><div ref={hullRef} className="h-full w-full bg-alert" /></div>
             </div>
             <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-[9px] tracking-wide text-muted">ENG 2.0 · WEP 2.0 · DEF 2.0</p>
+            {orbital ? (
+              <>
+                <div
+                  ref={targetStatusRef}
+                  hidden
+                  data-testid="orbital-target-status"
+                  aria-label="Locked target status"
+                  className="pilot-target-status mt-2 rounded-sm border px-2 py-1.5"
+                >
+                  <div className="flex items-baseline justify-between gap-2 font-hud text-[8px] tracking-[0.14em]">
+                    <span className="pilot-target-faction truncate"><span ref={targetFactionRef}>CONTACT</span> · <span ref={targetNameRef}>TARGET</span></span>
+                    <span ref={targetDistanceRef} className="shrink-0 text-bone/75">— M</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 font-hud text-[7px] tracking-widest text-muted">
+                    <span className="w-7">SHD</span>
+                    <div className="h-1 flex-1 overflow-hidden bg-panel/90"><div ref={targetShieldRef} data-testid="target-shield-bar" className="h-full w-full" /></div>
+                    <span ref={targetShieldValueRef} className="w-7 text-right text-bone">100%</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 font-hud text-[7px] tracking-widest text-muted">
+                    <span className="w-7">HULL</span>
+                    <div className="h-1 flex-1 overflow-hidden bg-panel/90"><div ref={targetHullRef} data-testid="target-hull-bar" className="h-full w-full" /></div>
+                    <span ref={targetHullValueRef} data-testid="target-hull-value" className="w-7 text-right text-bone">100%</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="h-px flex-1 overflow-hidden bg-panel/90"><div ref={targetLockRef} className="h-full w-0 bg-bone/75" /></div>
+                    <span ref={targetLockValueRef} className="w-10 text-right font-mono text-[7px] tracking-wider text-bone/70">0% LOCK</span>
+                  </div>
+                </div>
+                <p ref={callRef} data-testid="text-combat-callout" aria-live="off" className="mt-1 min-h-3 font-hud text-[8px] tracking-widest text-bone" />
+              </>
+            ) : null}
           </div>
 
           <div className="lab-status-center min-w-0 text-center">
             <span ref={clockRef} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
-            <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p>
+            {!orbital ? <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p> : null}
             {online ? (
               <button
                 type="button"
@@ -1955,10 +2030,14 @@ export function Arena({
                 }}
               >ROOM {online.roomId.toUpperCase()} · COPY</button>
             ) : null}
-            <p className="font-hud text-[9px] tracking-widest text-solar">{objective}</p>
-            <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[9px] tracking-widest text-bone/80">0/3 HELD · HOLD 2 TO DRAIN</p>
-            <p ref={cageRef} className="font-hud text-[9px] tracking-widest text-bone" />
-            {tech ? <p className="font-hud text-[9px] tracking-widest text-muted">{tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}</p> : null}
+            {!orbital ? (
+              <>
+                <p className="font-hud text-[9px] tracking-widest text-solar">{objective}</p>
+                <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[9px] tracking-widest text-bone/80">0/3 HELD · HOLD 2 TO DRAIN</p>
+                <p ref={cageRef} className="font-hud text-[9px] tracking-widest text-bone" />
+                {tech ? <p className="font-hud text-[9px] tracking-widest text-muted">{tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}</p> : null}
+              </>
+            ) : null}
             <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center justify-center gap-2`}>
               <span className="font-hud text-[9px] text-solar">YOU</span>
               <div className="h-1.5 w-12 overflow-hidden bg-panel/70"><div ref={youRef} className="h-full w-full bg-solar" /></div>
@@ -1987,13 +2066,15 @@ export function Arena({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
+        <div data-testid="reticle-center" className="pointer-events-none absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
         <div ref={markRef} className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0" />
-        <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
-          <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
-          <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80"><div ref={lockHpRef} className="h-full w-0 bg-alert" /></div>
-          <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
-        </div>
+        {!orbital ? (
+          <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
+            <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
+            <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80"><div ref={lockHpRef} className="h-full w-0 bg-alert" /></div>
+            <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
+          </div>
+        ) : null}
         {coach ? <p className="pilot-coach pointer-events-none absolute left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/75 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">{coach}</p> : null}
 
         <div
@@ -2030,11 +2111,6 @@ export function Arena({
               sfxDive();
                 } : undefined}
               />
-              {unifiedOrbitalControls ? (
-                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.16em] text-bone/65">
-                  THRUST · TURN · DOUBLE-TAP EDGE
-                </span>
-              ) : null}
             </div>
             {orbital ? (
               <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
@@ -2152,7 +2228,6 @@ export function Arena({
                     bus.rightX = x;
                     bus.rightY = y;
                   }} />
-                  <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.1em] text-bone/65">AIM · DRAW LOOP TO ROLL</span>
                 </div>
               </div>
             </>
