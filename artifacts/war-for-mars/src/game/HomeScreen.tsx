@@ -226,20 +226,16 @@ function MainMenu(props: HomeProps) {
           <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
-                <span className="block">FLIGHT & COMBAT SYSTEMS</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Rust Disc trainer · offline prototype · alternate skirmish</span>
+                <span className="block">COMBAT TRAINING</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Lab · local arcade compatibility</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
             </summary>
             <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              <Link href={`/flight?ship=${encodeURIComponent(ship)}`} data-testid="link-home-rust-disc" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
-                <span className="font-hud text-lg tracking-widest">RUST DISC · LOCAL FLIGHT</span>
-                <span className="text-xs text-muted">Preselect {def.name} · trainer only · no rewards or account changes</span>
-              </Link>
               <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
                 <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="text-xs text-muted">Targeting and weapons prototype · no rewards</span>
+                <span className="text-xs text-muted">Canonical local combat training · no rewards</span>
               </a>
               <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4 sm:col-span-2">
                 <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>

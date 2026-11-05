@@ -24,16 +24,14 @@ test("landing page explains the game and offers a solo flight", async ({ page })
   );
 });
 
-test("landing page groups alternate systems under an expandable operations panel", async ({ page }) => {
+test("landing page presents the Orbital training entry without a separate Rust Disc command", async ({ page }) => {
   await page.goto("/");
 
   const operations = page.getByTestId("details-public-operations");
-  await expect(operations.locator("summary")).toContainText("OTHER FLIGHT OPERATIONS");
-  await expect(page.getByTestId("link-landing-rust-disc")).not.toBeVisible();
+  await expect(operations.locator("summary")).toContainText("TRAINING & CO-OP OPERATIONS");
+  await expect(page.getByTestId("link-landing-rust-disc")).toHaveCount(0);
 
   await operations.locator("summary").click();
-  await expect(page.getByTestId("link-landing-rust-disc")).toHaveAttribute("href", "/flight");
-  await expect(page.getByTestId("link-landing-rust-disc")).toContainText("no rewards or account changes");
   await expect(page.getByTestId("link-landing-combat-lab")).toHaveAttribute("href", "/combat-lab.html");
 });
 

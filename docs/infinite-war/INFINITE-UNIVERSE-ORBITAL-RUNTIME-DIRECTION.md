@@ -1,12 +1,20 @@
 # Infinite Universe and Orbital Runtime Direction
 
-## Owner's leading source
+## Owner's leading sources
 
 The complete 958-line owner directive is preserved unchanged at
 [`attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-DEVELOPMENT-DIRECT_1793833233901.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-DEVELOPMENT-DIRECT_1793833233901.txt).
 This document is its source-checked implementation companion. The governing
 principle is **one game, one canonical 3D combat simulation, multiple operation
 definitions, and a persistent connected universe**.
+The latest repository forensic evaluation and master development prompt are
+preserved unchanged at
+[`attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`](../../attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt)
+and
+[`attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt).
+Treat them as the newest owner-designated reconstruction direction. This report
+records what the current checkout proves; it does not claim the full redesign
+or every mode migration is complete.
 
 The Rust Disc flight behavior is the pilot-control reference; the Three.js
 universe and sector co-op define the desired spatial scale and connected
@@ -26,11 +34,11 @@ already been extracted.
 
 | Mode/system | Actual path in this checkout | Status and next migration proof |
 |---|---|---|
-| Orbital Combat Lab | `Arena` + `@workspace/orbital-sim`, local fixed-step combat; no reward settlement | Canonical training foundation. Continue as the executable harness. |
+| Orbital Combat Lab | `Arena` + `@workspace/orbital-sim`, local fixed-step combat; no reward settlement. `Arena` currently constructs the Three.js renderer and owns its scene loop. | Canonical training foundation, but renderer lifecycle is still owned by the Arena UI component rather than an extracted engine presentation module. |
 | Local Arena practice | `WarApp` → `Arena` → `orbital-v1` when no legacy server run is pinned | Canonical local entry. Must preserve no-reward behavior. |
-| Rust Disc local flight | `RustDiscFlight`/Three.js rendering with `@workspace/orbital-sim` fixed-step flight, targeting, projectiles, missile guidance, collision/damage, and relay → drone → extraction operation stages. The sector file supplies authored world data and a typed adapter. | Canonical local Orbital launch; offline/no-reward and bounded. Automated movement, lock, weapon, damage, objective, collision, and terminal-state tests pass. Physical phone and visual gameplay verification remain open. |
-| Rust Disc co-op / Mars Approach / Pale Beacons | Authenticated sector socket and `sector-motion-v1`; server validates movement, snapshots and objective lifecycle | Compatibility runtime. Migrate client, API, socket and mission state together; retain authority and reconnect behavior. |
-| Iron Eclipse | Sector runtime plus server-owned squadron commands and capital-ship operation state | Compatibility runtime. Preserve command permissions, AI, subsystem gating, extraction and result idempotency. |
+| Rust Disc local flight | `/flight` → `RustDiscFlight` → dynamically loaded `three-flight-runtime`; that component creates a separate Three.js renderer, scene, camera, and animation loop. It calls `@workspace/orbital-sim` for canonical fixed-step flight/combat rules, while the Rust Disc component owns presentation and operation UI. | Simulation is Orbital; presentation remains a separate compatibility scene. The user-directed destination is an Orbital-owned renderer/lifecycle, not reuse of this scene. Do not remove the route until the replacement proves control, camera, objective, and no-reward parity. |
+| Rust Disc co-op / Mars Approach / Pale Beacons | Authenticated sector socket and `sector-motion-v1`; server validates movement, snapshots and objective lifecycle. `RustDiscFlight` renders the snapshots. | Compatibility runtime and presentation. Migrate client, API, socket and mission state together; retain authority, reconnect behavior, and operation results. |
+| Iron Eclipse | Sector runtime plus server-owned squadron commands and capital-ship operation state; currently rendered through `RustDiscFlight`. | Compatibility runtime and presentation. Preserve command permissions, AI, subsystem gating, extraction and result idempotency. |
 | Arcade Skirmish | `Arena` with `surface-v1` combat path | Compatibility runtime. Migrate objective-by-objective with no-reward local behavior. |
 | Campaign Contact | `Arena` with `orbital-v1` for capable, pinned runs; server replay validates settlement | Canonical combat slice; keep existing issued-run compatibility. |
 | Other campaign sorties | `Arena` with pinned `surface-v1` or configured runtime | Compatibility runtime. Preserve run IDs, objective replay, story state and idempotent claims. |
@@ -52,6 +60,12 @@ visual planet backdrop, large number, or sector transition as that proof.
 player and human minima, AI policy, objective IDs, rules, authority,
 reward-eligibility policy, actual simulation ID, source packages and migration
 status. `GAME_MODE_DEFINITIONS` is the source-backed mode inventory.
+The catalog now separately records each mode's `presentation.renderer`,
+`presentation.lifecycleOwner`, and presentation migration status. This is
+intentional: simulation migration is not rendering migration. For example,
+Rust Disc local uses Orbital simulation rules today but still launches its own
+Three.js scene and lifecycle; neither that route nor the Combat Lab should be
+called a fully engine-owned presentation until that boundary is actually moved.
 
 `createOrbitalRuntime` is the canonical bootstrap used by `Arena` and by the
 offline Rust Disc launch. `Arena` requires an explicit `modeId` and checks that
@@ -59,6 +73,29 @@ its declared simulation matches the selected runtime. The bootstrap refuses
 compatibility, navigation-only and planned modes, so they cannot be labeled as
 already migrated by selecting `orbital-v1`. Server-run Rust Disc co-op and other
 sector operations still use their existing authority and compatibility wrappers.
+
+## Renderer and legacy-scene boundary
+
+The latest owner direction forbids retaining the old Rust Disc flight scene as
+the new game's rendering runtime. This means migrate reusable flight controls,
+camera behavior, scene/environment techniques, spatial precision and
+performance practices—not embed or relabel the old scene. It does **not** by
+itself require deleting Three.js: the supplied forensic evaluation explicitly
+allows Three.js as a low-level graphics dependency if Orbital owns the renderer
+integration, scene lifecycle, camera and gameplay. Replacing the graphics library
+is a separate benchmarked decision.
+
+Current source evidence:
+
+- `RustDiscFlight.tsx` loads `three-flight-runtime` dynamically and owns a distinct
+  WebGL renderer and flight animation loop.
+- `Arena.tsx` has a different renderer and simulation path; the current Orbital
+  Lab runs through this Arena presentation.
+- `@workspace/orbital-sim` is renderer-independent and owns deterministic rules,
+  not WebGL, assets, scene lifetime, or camera lifecycle.
+- The new game therefore has one intended gameplay/simulation destination but
+  does not yet have one engine-owned rendering lifecycle. The game-mode catalog
+  now reports these boundaries separately to prevent false migration claims.
 
 Keep three authority patterns distinct:
 

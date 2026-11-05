@@ -33,6 +33,12 @@ export type GameModeDefinition = {
     packages: readonly string[];
     migration: "canonical" | "partial" | "compatibility" | "navigation-only" | "planned";
   };
+  /** Rendering is tracked separately so a shared simulation cannot hide a legacy scene. */
+  presentation: {
+    renderer: "arena-three-v1" | "rust-disc-three-v1" | "universe-ui-v1" | "not-implemented";
+    lifecycleOwner: "Arena" | "RustDiscFlight" | "GalaxyScreen" | "none";
+    migration: "current" | "compatibility" | "navigation-only" | "planned";
+  };
 };
 
 /**
@@ -55,6 +61,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "local-arena-practice",
@@ -71,6 +78,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "rust-disc-local",
@@ -87,6 +95,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "RustDiscFlight operation adapter"],
       migration: "canonical",
     },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "rust-disc-sector-coop",
@@ -103,6 +112,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sector-runtime", "flight-sector"],
       migration: "compatibility",
     },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "iron-eclipse",
@@ -119,6 +129,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sector-runtime", "iron-eclipse"],
       migration: "compatibility",
     },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "arcade-skirmish",
@@ -135,6 +146,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sim", "Arena"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "campaign-sortie",
@@ -151,6 +163,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sim", "progression"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "campaign-contact",
@@ -167,6 +180,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "Arena", "progression"],
       migration: "canonical",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "solo-flight",
@@ -183,6 +197,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sim", "Arena"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-competitive",
@@ -199,6 +214,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim", "rewards"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-online",
@@ -215,6 +231,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim", "rewards"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-private",
@@ -231,6 +248,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-casual-ai",
@@ -247,6 +265,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim"],
       migration: "compatibility",
     },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "universe-navigation",
@@ -263,6 +282,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["GalaxyScreen", "world-operation-directory"],
       migration: "navigation-only",
     },
+    presentation: { renderer: "universe-ui-v1", lifecycleOwner: "GalaxyScreen", migration: "navigation-only" },
   },
   {
     id: "fleet-warfare",
@@ -279,6 +299,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim"],
       migration: "planned",
     },
+    presentation: { renderer: "not-implemented", lifecycleOwner: "none", migration: "planned" },
   },
 ] as const satisfies readonly GameModeDefinition[];
 
