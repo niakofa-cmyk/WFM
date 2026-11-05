@@ -9,6 +9,14 @@ The complete owner-provided directive is retained unchanged at:
 This file is its maintained implementation companion, not a replacement for
 the complete source. The product blueprint remains
 [`../references/wfm-infinite-war-blueprint.md`](../references/wfm-infinite-war-blueprint.md).
+The owner's latest **Infinite Open Universe** and **Master AI Game Development
+Plan** source documents are preserved unchanged at
+[`../../attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt`](../../attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt)
+and
+[`../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt).
+These are the current owner-designated direction for the extended universe;
+this document remains the source-checked implementation policy and migration
+status, not a claim that the planned game is already complete.
 The current code audit is split into:
 
 - [`FORENSIC-INVENTORY.md`](FORENSIC-INVENTORY.md)

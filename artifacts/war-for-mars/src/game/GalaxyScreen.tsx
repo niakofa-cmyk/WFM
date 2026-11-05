@@ -9,6 +9,7 @@ import { sectorMission } from "./sector-missions";
 import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled } from "./sector-client";
 import { AsteroidArenaHub } from "./AsteroidArenaHub";
+import { useWorldOperationEvents } from "./world-operation-events";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 
@@ -42,8 +43,14 @@ export function GalaxyScreen({
   competitiveQueueing,
 }: Props) {
   const [, setLocation] = useLocation();
+  const operationStreamState = useWorldOperationEvents();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
-  const operationsQuery = useGetWorldOperations({ query: { refetchInterval: 15000, queryKey: getGetWorldOperationsQueryKey() } });
+  const operationsQuery = useGetWorldOperations({
+    query: {
+      refetchInterval: operationStreamState === "live" ? false : 30000,
+      queryKey: getGetWorldOperationsQueryKey(),
+    },
+  });
   const registerOperation = useRegisterWorldOperationInstance();
   const snapshot = useOfflineSnapshot("world", worldQuery.data, worldQuery.isError || worldQuery.fetchStatus === "paused");
   const durable = useDurableAction();
@@ -261,7 +268,22 @@ export function GalaxyScreen({
 
             <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
               <div className="border-b border-bone/10 px-4 py-4">
-                <p className="font-hud text-xs tracking-[0.2em] text-spectral">ORBITAL OPERATIONS NETWORK</p>
+                <p className="flex flex-wrap items-center justify-between gap-2 font-hud text-xs tracking-[0.2em] text-spectral">
+                  <span>ORBITAL OPERATIONS NETWORK</span>
+                  <span
+                    data-testid="status-operation-stream"
+                    className={operationStreamState === "live" ? "text-green-300" : "text-muted"}
+                    aria-live="polite"
+                  >
+                    {operationStreamState === "live"
+                      ? "LIVE STATUS LINK"
+                      : operationStreamState === "reconnecting"
+                        ? "RECONNECTING"
+                        : operationStreamState === "unavailable"
+                          ? "STATUS LINK UNAVAILABLE"
+                          : "CONNECTING"}
+                  </span>
+                </p>
                 <h2 className="mt-1 font-hud text-2xl">Asteroid operations</h2>
                 <p className="mt-1 text-xs leading-relaxed text-muted">One universe can host distinct operations and runtimes. The directory reports real server instances only; it never creates placeholder pilots or battles.</p>
               </div>

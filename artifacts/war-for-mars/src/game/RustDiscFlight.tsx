@@ -16,7 +16,15 @@ import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
 import { COORDINATED_BANK, mapFlightStickAxes, MANEUVER_PULSE_DURATION_MS, type ManeuverPulse } from "./pilot-stick-gestures";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
-import { readBrowserHeap, type BrowserHeapReading } from "./local-performance";
+import {
+  createLocalPerformanceRecorder,
+  readBrowserHeap,
+  readLocalPerformanceDeviceInfo,
+  type BrowserHeapReading,
+  type LocalPerformanceDeviceInfo,
+  type LocalPerformanceSummary,
+} from "./local-performance";
+import { LocalPerformanceReport } from "./LocalPerformanceReport";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
@@ -48,6 +56,11 @@ type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
 type ThreeModule = typeof import("./three-flight-runtime");
 type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null; heap: BrowserHeapReading | null };
+type LocalPerformanceCaptureReport = {
+  device: LocalPerformanceDeviceInfo;
+  summary: LocalPerformanceSummary;
+  capturedAt: string;
+};
 type CombatTargetReadout = {
   name: string; affiliation: string; distance: number; hull: number; maxHull: number;
   lockable: boolean; lockHeld: boolean;
@@ -64,6 +77,7 @@ type Hud = {
 
 const STEP = 1 / 60;
 const MAX_CATCHUP = 5;
+const LOCAL_PERFORMANCE_SAMPLE_SECONDS = 60;
 const RUST_DISC_LOCAL_RUNTIME = createOrbitalRuntime(getGameModeDefinition("rust-disc-local"));
 const STAGE_LABEL: Record<FlightState["stage"], string> = {
   relay: "PHASE 1 / SURVEY", drone: "PHASE 2 / ENGAGE", extract: "PHASE 3 / EXTRACT",
@@ -198,6 +212,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const [hud, setHud] = useState<Hud | null>(null);
   const [performanceOpen, setPerformanceOpen] = useState(false);
   const [performanceReadout, setPerformanceReadout] = useState<PerformanceReadout | null>(null);
+  const [localPerformanceCapturing, setLocalPerformanceCapturing] = useState(false);
+  const [localPerformanceProgress, setLocalPerformanceProgress] = useState(0);
+  const [localPerformanceReport, setLocalPerformanceReport] = useState<LocalPerformanceCaptureReport | null>(null);
   const [summary, setSummary] = useState<FlightState | null>(null);
   const [failure, setFailure] = useState("");
 
@@ -212,6 +229,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const pausedRef = useRef(false);
   const performanceOpenRef = useRef(false);
   const performanceReadoutRef = useRef<PerformanceReadout | null>(null);
+  const localPerformanceRecorderRef = useRef<ReturnType<typeof createLocalPerformanceRecorder> | null>(null);
+  const localPerformanceDeviceRef = useRef<LocalPerformanceDeviceInfo | null>(null);
+  const localPerformanceStartElapsedRef = useRef(0);
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   const keysRef = useRef(new Set<string>());
   const reducedMotion = useRef(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
@@ -229,6 +249,35 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     pausedRef.current = p; setPaused(p);
     if (p) { resetControls(); expeditionRef.current?.sendInput(holdInput()); }
   }, [resetControls]);
+
+  const finishLocalPerformanceCapture = useCallback(() => {
+    const recorder = localPerformanceRecorderRef.current;
+    if (!recorder) return;
+    setLocalPerformanceReport({
+      device: localPerformanceDeviceRef.current ?? readLocalPerformanceDeviceInfo(),
+      summary: recorder.finish(),
+      capturedAt: new Date().toISOString(),
+    });
+    localPerformanceRecorderRef.current = null;
+    localPerformanceDeviceRef.current = null;
+    setLocalPerformanceCapturing(false);
+    setPerformanceOpen(false);
+    performanceOpenRef.current = false;
+    setPausedBoth(true);
+  }, [setPausedBoth]);
+
+  const startLocalPerformanceCapture = () => {
+    if (net || phase !== "flight") return;
+    localPerformanceRecorderRef.current = createLocalPerformanceRecorder(LOCAL_PERFORMANCE_SAMPLE_SECONDS);
+    localPerformanceDeviceRef.current = readLocalPerformanceDeviceInfo();
+    localPerformanceStartElapsedRef.current = hud?.elapsed ?? 0;
+    setLocalPerformanceProgress(0);
+    setLocalPerformanceReport(null);
+    setLocalPerformanceCapturing(true);
+    performanceOpenRef.current = true;
+    setPerformanceOpen(true);
+    setPausedBoth(false);
+  };
 
   const exit = useCallback(() => {
     pausedRef.current = true; resetControls();
@@ -548,7 +597,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       if (lost) return;
-      let dt = (now - last) / 1000; last = now;
+      const frameIntervalMs = Math.max(0, now - last);
+      let dt = frameIntervalMs / 1000; last = now;
       dt = Math.min(dt, 0.25);
       const frameWindow = framePacing.record(now);
       if (frameWindow) {
@@ -667,6 +717,23 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
       // Visual sync
       if (!netMode) projectiles = state.projectiles;
+      if (!netMode && localPerformanceRecorderRef.current) {
+        const recorder = localPerformanceRecorderRef.current;
+        const sampleSeconds = Math.max(0, state.elapsed - localPerformanceStartElapsedRef.current);
+        const nonActive = pausedRef.current || state.stage === "complete" || state.stage === "destroyed";
+        recorder.recordFrame({
+          timestampMs: now,
+          frameIntervalMs,
+          gameSeconds: sampleSeconds,
+          pageVisible: !document.hidden,
+          phase: nonActive ? "post-match" : "active-play",
+        });
+        if (frameWindow) {
+          recorder.recordMemorySample(sampleSeconds, readBrowserHeap());
+          setLocalPerformanceProgress(sampleSeconds);
+        }
+        if (recorder.isTargetReached()) finishLocalPerformanceCapture();
+      }
       tmpV.set(state.position.x, state.position.y, state.position.z); ship.position.lerp(tmpV, blend);
       tmpQ.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w); ship.quaternion.slerp(tmpQ, blend);
       const inp = inputRef.current;
@@ -783,6 +850,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         });
       }
       if (!netMode && (state.stage === "complete" || state.stage === "destroyed")) {
+        if (localPerformanceRecorderRef.current) finishLocalPerformanceCapture();
         ended = true;
         summaryTimer = window.setTimeout(() => { setSummary({ ...state, projectiles: [] }); setPhase("summary"); }, 900);
       }
@@ -843,10 +911,17 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       inputRef.current = neutralFlightControls();
       keysRef.current.clear();
     };
-  }, [phase, runId, shipId, quality, setPausedBoth, threeModule]);
+  }, [phase, runId, shipId, quality, setPausedBoth, threeModule, finishLocalPerformanceCapture]);
 
-  const restart = () => { resetControls(); launch(); };
+  const restart = () => {
+    const wasCapturing = Boolean(localPerformanceRecorderRef.current);
+    if (wasCapturing) finishLocalPerformanceCapture();
+    resetControls();
+    launch();
+    if (wasCapturing) setPausedBoth(true);
+  };
   const toBriefing = () => {
+    if (localPerformanceRecorderRef.current) finishLocalPerformanceCapture();
     resetControls(); pausedRef.current = true; setPhase("briefing");
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
@@ -912,6 +987,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               {performanceReadout ? (
                 <>
                   <p>{performanceReadout.window.fps.toFixed(0)} FPS · P95 ≈ {performanceReadout.window.p95FrameMs.toFixed(1)} ms</p>
+                  {localPerformanceCapturing ? (
+                    <p>SAMPLE {Math.min(LOCAL_PERFORMANCE_SAMPLE_SECONDS, Math.floor(localPerformanceProgress))}/{LOCAL_PERFORMANCE_SAMPLE_SECONDS} ACTIVE SEC</p>
+                  ) : null}
                   <p>LONG FRAMES {performanceReadout.window.longFrameCount}/s · RES {Math.round(performanceReadout.scale * 100)}%</p>
                   <p>NETWORK RTT {net ? performanceReadout.rttMs === null ? "MEASURING" : `${performanceReadout.rttMs} ms` : "LOCAL ONLY"}</p>
                   <p>JS HEAP {performanceReadout.heap
@@ -955,6 +1033,16 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               <OverlayButton onClick={togglePerformance} testId="button-flight-performance">
                 {performanceOpen ? "HIDE PERFORMANCE HUD" : "SHOW PERFORMANCE HUD"}
               </OverlayButton>
+              {!net && !localPerformanceCapturing ? (
+                <OverlayButton onClick={startLocalPerformanceCapture} testId="button-start-rust-disc-performance-sample">
+                  START 60S LOCAL FLIGHT SAMPLE
+                </OverlayButton>
+              ) : null}
+              {!net && localPerformanceCapturing ? (
+                <OverlayButton onClick={finishLocalPerformanceCapture} testId="button-stop-rust-disc-performance-sample">
+                  STOP & VIEW PARTIAL REPORT
+                </OverlayButton>
+              ) : null}
               {net ? null : <OverlayButton onClick={toBriefing} testId="button-briefing">BACK TO BRIEFING</OverlayButton>}
               <OverlayButton onClick={exit} testId="button-exit">{net ? "LEAVE EXPEDITION" : "EXIT TO COMMAND"}</OverlayButton>
               <p className="mt-2 font-hud text-[10px] tracking-[0.2em] text-muted">KEYS: W/S PITCH · A/D YAW · Q/E ROLL · R/F THROTTLE · SHIFT BOOST · X BRAKE · G DRIFT · SPACE GUNS · L LOCK · M MISSILE · C FLARE · V CAMERA · P PAUSE</p>
@@ -972,6 +1060,34 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
       {phase === "summary" && summary ? (
         <Summary s={summary} onRestart={restart} onBriefing={toBriefing} onExit={exit} />
+      ) : null}
+
+      {localPerformanceReport && !net ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-[80] overflow-y-auto bg-[#07090c]/95 px-3 py-4 sm:px-6 sm:py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rust Disc local flight performance report"
+          data-testid="rust-disc-performance-report"
+        >
+          <div className="mx-auto max-w-3xl">
+            <button
+              type="button"
+              onClick={() => setLocalPerformanceReport(null)}
+              className="min-h-11 border border-bone/30 px-4 font-hud text-xs tracking-widest text-bone"
+              data-testid="button-close-rust-disc-performance-report"
+            >
+              CLOSE REPORT · RETURN TO PAUSE
+            </button>
+            <LocalPerformanceReport
+              device={localPerformanceReport.device}
+              summary={localPerformanceReport.summary}
+              capturedAt={localPerformanceReport.capturedAt}
+              title="Rust Disc local no-reward flight frame pacing sample"
+              buttonClassName="mt-3 min-h-11 bg-solar px-5 font-hud text-xs tracking-widest text-void"
+            />
+          </div>
+        </div>
       ) : null}
 
       {phase === "unsupported" ? (

@@ -4,6 +4,17 @@
 
 The complete 958-line owner directive is preserved unchanged at
 [`attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-DEVELOPMENT-DIRECT_1793833233901.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-DEVELOPMENT-DIRECT_1793833233901.txt).
+The November 5, 2026 owner-provided **Infinite Open Universe** reference and
+**Master AI Game Development Plan** are also preserved unchanged at
+[`attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt`](../../attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt)
+and
+[`attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt).
+Together they reinforce the same end state: an expandable, persistent universe
+whose operations all use versioned Orbital simulation rules; scalable universe
+navigation is not an infinitely loaded scene; existing identity, authority,
+matchmaking and reward systems remain server-owned. This companion records
+implementation evidence and limits rather than claiming that future scope is
+already delivered.
 This document is its source-checked implementation companion. The governing
 principle is **one game, one canonical 3D combat simulation, multiple operation
 definitions, and a persistent connected universe**.
@@ -127,6 +138,10 @@ shared by offline Orbital input:
 
 The online Wing mapping is unchanged. Landscape touch-target and simultaneous
 multi-touch acceptance on physical Android/iOS devices remain unverified.
+Rust Disc local also has an optional 60-active-second, client-only frame-cadence
+report for device checks. Its requestAnimationFrame intervals estimate browser
+cadence rather than GPU render timing; an actual Android report is still needed
+before drawing device-performance conclusions.
 
 ## Infinite-universe implementation architecture
 
@@ -178,6 +193,12 @@ scene. Implement it as:
 8. **Expand scale only after the slice:** stations, anomalies, fleets, extra
    systems and persistent faction conflict each receive bounded, deterministic,
    server-validated adapters.
+
+The existing public operation-directory SSE contract is now consumed by the
+Universe screen. It updates the directory cache from validated, read-only
+snapshots and falls back to polling while the stream reconnects. The stream
+does not authorize joins, publish room status, or replace authenticated
+registration and server-owned match state.
 
 No legacy path is deleted until all callers and issued data are accounted for,
 parity/regression checks pass, and rollback is exercised.
