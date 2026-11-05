@@ -24,6 +24,32 @@ function drawCircle(direction: 1 | -1, radius = 24, points = 24) {
   return update;
 }
 
+function drawJoystickLoop(direction: 1 | -1, durationMs = 1_800, points = 24) {
+  const centerX = 100;
+  const centerY = 100;
+  const radius = 30;
+  let tracker = createCircularGestureTracker(centerX, centerY, 0, 11, 34);
+  let update = updateCircularGesture(
+    tracker,
+    centerX + radius,
+    centerY,
+    0,
+  );
+  tracker = update.tracker;
+  for (let i = 1; i <= points; i++) {
+    const angle = direction * (Math.PI * 2 * i / points);
+    update = updateCircularGesture(
+      tracker,
+      centerX + Math.cos(angle) * radius,
+      centerY + Math.sin(angle) * radius,
+      Math.round(durationMs * i / points),
+    );
+    tracker = update.tracker;
+    if (update.completed) return update;
+  }
+  return update;
+}
+
 test("a full clockwise circle emits one right-roll command", () => {
   const completed = drawCircle(1);
   assert.equal(completed.completed, "clockwise");
@@ -34,6 +60,12 @@ test("a full clockwise circle emits one right-roll command", () => {
 
 test("a full counterclockwise circle emits one left-roll command", () => {
   assert.equal(drawCircle(-1).completed, "counterclockwise");
+});
+
+test("a slow loop around the visible stick center completes from its edge", () => {
+  const clockwise = drawJoystickLoop(1);
+  assert.equal(clockwise.completed, "clockwise");
+  assert.equal(drawJoystickLoop(-1).completed, "counterclockwise");
 });
 
 test("incomplete, undersized, and oversized circles are rejected", () => {
@@ -62,7 +94,7 @@ test("incomplete, undersized, and oversized circles are rejected", () => {
   assert.equal(tooLarge.rejected, true);
 });
 
-test("direction reversals, discontinuous jumps, and overlong gestures cannot complete", () => {
+test("direction reversals, discontinuous jumps, and gestures over three seconds cannot complete", () => {
   let tracker = createCircularGestureTracker(0, 0, 0, 11, 34);
   tracker = updateCircularGesture(tracker, 24, 0, 0).tracker;
   tracker = updateCircularGesture(tracker, 0, 24, 80).tracker;
@@ -83,7 +115,7 @@ test("direction reversals, discontinuous jumps, and overlong gestures cannot com
     createCircularGestureTracker(0, 0, 0, 11, 34),
     24,
     0,
-    1_351,
+    3_001,
   );
   assert.equal(expired.rejected, true);
 });

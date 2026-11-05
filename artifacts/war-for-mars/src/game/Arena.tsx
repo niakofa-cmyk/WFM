@@ -2103,7 +2103,7 @@ export function Arena({
                   bus.rightX = x;
                   bus.rightY = y;
                 }} />
-                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.1em] text-bone/65">AIM · CIRCLE TO ROLL</span>
+                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.1em] text-bone/65">AIM · DRAW LOOP TO ROLL</span>
               </div>
             </div>
           ) : (

@@ -18,8 +18,9 @@ The user's full source documents and supplied roll illustration are retained at:
 
 - Only the offline unified Orbital right aim stick enables this gesture.
 - Ordinary aiming begins immediately when the player starts dragging.
-- A smooth, continuous 300–360 degree circle issues one typed, versioned
-  barrel-roll intent; no stationary hold or mode switch is required.
+- A smooth, continuous 300–360 degree loop around the visible stick center
+  issues one typed, versioned barrel-roll intent within a three-second window;
+  no stationary hold or mode switch is required.
 - The aim stick continues updating aim while the circle is in progress; after
   the roll commits, a visible cue confirms its direction.
   clockwise requests a right roll and counterclockwise a left roll.
@@ -47,8 +48,13 @@ The user's full source documents and supplied roll illustration are retained at:
   intervals, 2 of 4,552 frames over 50 ms, and no gaps over 250 ms. This is
   requestAnimationFrame cadence, not GPU timing or Production evidence.
 - The user reported that the first hold-then-circle implementation did not
-  trigger. It has been replaced with direct circle recognition and a persistent
-  cue; retest the revised gesture on Android.
+  trigger. Browser testing found the direct-circle recognizer was centered on
+  the initial touch point, which did not match a thumb circling the stick. It is
+  now anchored to the visible stick center with a slower three-second gesture
+  window. A landscape browser interaction test then recognized a clockwise loop,
+  displayed “ROLL RIGHT,” and recentered aim on release. This is browser input
+  emulation, not physical Android certification; retest the revised gesture on
+  the phone.
 
 ## Next stages
 

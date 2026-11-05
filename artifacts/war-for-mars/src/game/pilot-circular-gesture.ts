@@ -26,7 +26,7 @@ export type CircularGestureUpdate = {
 
 export const CIRCULAR_ROLL_MIN_SWEEP_RADIANS = Math.PI * (5 / 3);
 export const CIRCULAR_ROLL_MIN_DURATION_MS = 240;
-export const CIRCULAR_ROLL_MAX_DURATION_MS = 1_350;
+export const CIRCULAR_ROLL_MAX_DURATION_MS = 3_000;
 export const CIRCULAR_ROLL_MIN_SAMPLES = 8;
 const MAX_SAMPLE_ANGLE_RADIANS = 2.15;
 const MIN_SAMPLE_ANGLE_RADIANS = 0.025;
