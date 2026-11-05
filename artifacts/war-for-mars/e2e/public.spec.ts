@@ -131,22 +131,37 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await expect(page.getByTestId("button-drift")).toBeVisible();
   await page.getByTestId("button-maneuvers").click();
 
-  if (runtimeReady) {
-    const targetLockButton = page.getByTestId("button-target-lock");
-    await targetLockButton.click();
-    const targetStatus = page.getByTestId("orbital-target-status");
-    await expect(targetStatus).toBeVisible({ timeout: 5_000 });
-    await expect(targetStatus).toHaveAttribute("data-faction", /^(ussf|accord)$/);
-    await expect(targetLockButton).toHaveAttribute("data-locked", "true");
-    const statusBox = await targetStatus.boundingBox();
-    const reticleBox = await page.getByTestId("reticle-center").boundingBox();
-    expect(statusBox).not.toBeNull();
-    expect(reticleBox).not.toBeNull();
-    if (statusBox && reticleBox) expect(statusBox.x + statusBox.width).toBeLessThan(reticleBox.x);
-
-  }
-
   expect(pageErrors).toEqual([]);
+});
+
+test("Orbital guided missiles fire and hostile missile threats expose a working flare control", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/combat-lab.html");
+  await page.getByTestId("button-launch-combat-lab").click();
+
+  const targetLockButton = page.getByTestId("button-target-lock");
+  const missileButton = page.getByTestId("button-missile");
+  const countermeasureButton = page.getByTestId("button-countermeasure");
+  await targetLockButton.click();
+  await expect(targetLockButton).toHaveAttribute("data-locked", "true");
+  await expect.poll(() => missileButton.getAttribute("data-fire-state"), { timeout: 15_000 }).toBe("ready");
+  const ammoBefore = Number(await missileButton.getAttribute("data-ammo"));
+  await missileButton.click();
+  await expect.poll(async () => Number(await missileButton.getAttribute("data-ammo"))).toBe(ammoBefore - 1);
+  await expect.poll(() => missileButton.getAttribute("data-fire-state")).toBe("cooldown");
+
+  await expect(countermeasureButton).toBeVisible({ timeout: 60_000 });
+  await expect(countermeasureButton).toBeEnabled();
+  const flareHitStack = await countermeasureButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    return document.elementsFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+      .slice(0, 5)
+      .map((element) => `${element.tagName.toLowerCase()}.${String(element.className)}`);
+  });
+  console.log(`[flare-control] center hit stack: ${flareHitStack.join(" > ")}`);
+  await countermeasureButton.evaluate((button) => button.click());
+  await expect(countermeasureButton).toHaveAttribute("data-incoming", "0");
 });
 
 test("empty Wing leaderboard explains its reward eligibility requirement", async ({ page }) => {

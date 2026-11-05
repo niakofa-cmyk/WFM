@@ -10,7 +10,7 @@ import { clearInput, createBus, readInput } from "./input";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
 function lab() {
-  const match = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", { foeCount: 3, allyCount: 1, seed: 1938 }));
+  const match = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", { foeCount: 3, allyCount: 1, seed: 1938, orbitalTraining: true }));
   match.rocks = []; match.allies = [];
   return match;
 }
@@ -282,6 +282,18 @@ test("representative target, acquire, pulse, missile, damage and destruction loo
   assert.equal(target.alive, false); assert.ok(match.kills >= 1); assert.ok(match.fx.some((fx) => fx.k === "ping"));
 });
 
+test("offline Orbital opponents fire occasional guided missiles that expose a countermeasure window", () => {
+  const match = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", { seed: 1938, orbitalTraining: true }));
+  let observedIncomingMissile = false;
+  for (let i = 0; i < 1800 && !observedIncomingMissile; i++) {
+    step(match, idle, 1 / 60);
+    observedIncomingMissile = match.bullets.some((bullet) =>
+      bullet.missile && bullet.faction !== match.player.faction,
+    );
+  }
+  assert.equal(observedIncomingMissile, true);
+});
+
 test("orbital input pulses are edge triggered and clear on focus loss", () => {
   const bus = createBus("arc"); bus.orbital = true;
   bus.countermeasureEnabled = true;
@@ -306,6 +318,14 @@ test("Orbital countermeasures clear hostile guided missiles but preserve other p
   assert.equal(match.bullets.length, 2);
   assert.ok(match.bullets.every((bullet) => !(bullet.faction === "accord" && bullet.missile)));
   assert.ok(match.fx.some((fx) => fx.k === "flare"));
+});
+
+test("Orbital countermeasure release emits visible hull feedback even if a missile expires on the same frame", () => {
+  const match = lab();
+  step(match, { ...idle, countermeasure: true }, 1 / 60);
+  assert.ok(match.fx.some((fx) =>
+    fx.k === "flare" && fx.x === match.player.x && fx.y === match.player.space!.y && fx.z === match.player.z,
+  ));
 });
 
 test("mobile vector-thrust axes produce lateral and vertical Orbital movement", () => {

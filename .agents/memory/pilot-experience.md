@@ -24,3 +24,9 @@ The full user-supplied tactical control documents and barrel-roll reference imag
 **Why:** On 2026-11-05 the user asked to clear the centered pilot view, move boost above fire, and make missile escape/defense actions reachable without cluttering the HUD.
 
 **How to apply:** Remove only the text overlay, not target-lock/painted state or its audio warning. Keep the right-stick live barrel roll and short vector-thrust maneuvers active for manual evasion. Keep flare handling within the existing offline training capability unless a server-authoritative mode explicitly supports it.
+
+**Missile and flare reliability:** Keep missile disabled state driven by live lock, cooldown, ammo, and pilot state; do not pair imperative per-frame enabling with permanent React `disabled` or `hidden` props. Give incoming-missile warnings a short actionable grace window, and render the flare at the pilot's actual spatial height. Offline Orbital AI should create intermittent guided threats through the same targeting and missile rules so countermeasures can be exercised.
+
+**Why:** On 2026-11-05 the browser reproduction showed that Orbital AI emitted no guided threats, making the hidden flare action unreachable, and React-owned static disabled/hidden props could conflict with per-frame state. A warning that disappears during a touch can also prevent the pilot from responding.
+
+**How to apply:** Keep deterministic simulation changes byte-identical between browser and server copies. Test target acquisition and ammo consumption through the mobile action, then verify an incoming guided missile makes the flare available and a flare removes hostile missiles while emitting a hull-positioned visual event. Keep countermeasures offline-only unless a server-authoritative mode explicitly supports them.

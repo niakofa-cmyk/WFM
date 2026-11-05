@@ -599,7 +599,7 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
+      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance, orbitalTraining: orbital && !orbitalCampaign });
     if (orbital) {
       prepareOrbital(matchRef.current);
     }
@@ -612,6 +612,9 @@ export function Arena({
   const [shakeUi, setShakeUi] = useState(true);
   const [mapOpen, setMapOpen] = useState(false);
   const [maneuversOpen, setManeuversOpen] = useState(false);
+  const [countermeasureVisible, setCountermeasureVisible] = useState(false);
+  const countermeasureVisibleRef = useRef(false);
+  const countermeasureUntilRef = useRef(0);
   const rollCameraStabilizationRef = useRef(0);
   const [cameraMode, setCameraMode] = useState<"chase" | "cockpit">("chase");
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
@@ -1067,6 +1070,15 @@ export function Arena({
     flare.geometry.rotateX(Math.PI / 2);
     flare.visible = false;
     scene.add(flare);
+    const flareCoreMat = new THREE.MeshBasicMaterial({
+      color: 0xffe1ad,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    });
+    const flareCore = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 10), flareCoreMat);
+    flareCore.visible = false;
+    scene.add(flareCore);
     const empMat = new THREE.MeshBasicMaterial({
       color: 0xe0a15a,
       transparent: true,
@@ -1285,6 +1297,7 @@ export function Arena({
     let paintClock = 0;
     let flareT = 0;
     let flareX = 0;
+    let flareY = 0;
     let flareZ = 0;
     let flareYaw = 0;
     let streakT = 0;
@@ -1431,8 +1444,9 @@ export function Arena({
           callT = 1.35;
           callName = `${ev.name.toUpperCase()} DOWN`;
         } else if (ev.k === "flare") {
-          flareT = 0.42;
+          flareT = 0.9;
           flareX = ev.x;
+          flareY = ev.y ?? 0;
           flareZ = ev.z;
           flareYaw = ev.yaw;
           burst(ev.x, ev.z, 0xffd9a0, 0.35, 10);
@@ -1579,12 +1593,19 @@ export function Arena({
 
       flareT = Math.max(0, flareT - delta);
       flare.visible = flareT > 0;
+      flareCore.visible = flare.visible;
       if (flare.visible) {
         const fax = -Math.sin(flareYaw);
         const faz = -Math.cos(flareYaw);
-        flare.position.set(flareX + fax * 8, 0.7, flareZ + faz * 8);
+        const flareHeight = 0.85 + flareY;
+        flare.position.set(flareX + fax * 4, flareHeight, flareZ + faz * 4);
         flare.rotation.set(0, flareYaw + Math.PI, 0);
-        flareMat.opacity = (flareT / 0.42) * 0.55;
+        const flareProgress = 1 - flareT / 0.9;
+        flare.scale.setScalar(0.7 + flareProgress * 0.45);
+        flareMat.opacity = (flareT / 0.9) * 0.78;
+        flareCore.position.set(flareX + fax * 2.5, flareHeight, flareZ + faz * 2.5);
+        flareCore.scale.setScalar(0.75 + flareProgress * 1.1);
+        flareCoreMat.opacity = Math.min(1, flareT * 1.4);
       }
       streakT = Math.max(0, streakT - delta);
       streak.visible = streakT > 0;
@@ -1832,21 +1853,54 @@ export function Arena({
           missileRef.current.disabled = !player.alive || s.lockProgress < 1 || s.missileCd > 0 || s.ammo <= 0;
           missileRef.current.dataset.ammo = String(s.ammo);
           missileRef.current.dataset.cooldown = s.missileCd > 0 ? s.missileCd.toFixed(1) : "0";
+          const fireState = s.ammo <= 0
+            ? "empty"
+            : s.missileCd > 0
+              ? "cooldown"
+              : s.lockProgress < 1
+                ? "acquiring-lock"
+                : "ready";
+          missileRef.current.dataset.fireState = fireState;
           const badge = missileRef.current.querySelector(".pilot-action-badge");
-          if (badge) badge.textContent = s.missileCd > 0 ? `${s.missileCd.toFixed(0)}s` : String(s.ammo);
+          if (badge) badge.textContent = s.missileCd > 0
+            ? `${s.missileCd.toFixed(0)}s`
+            : s.ammo <= 0
+              ? "0"
+              : s.lockProgress < 1
+                ? `L${Math.floor(s.lockProgress * 100)}`
+                : String(s.ammo);
           missileRef.current.setAttribute(
             "aria-label",
-            s.missileCd > 0
-              ? `Missile cooling down ${s.missileCd.toFixed(1)} seconds`
-              : s.lockProgress < 1
-                ? `Missile unavailable; target lock ${Math.floor(s.lockProgress * 100)} percent`
-                : `Launch guided missile, ${s.ammo} remaining`,
+            !player.alive
+              ? "Missile unavailable; pilot disabled"
+              : s.ammo <= 0
+                ? "Missiles depleted"
+                : s.missileCd > 0
+                  ? `Missile cooling down ${s.missileCd.toFixed(1)} seconds`
+                  : s.lockProgress < 1
+                    ? `Missile acquiring target lock, ${Math.floor(s.lockProgress * 100)} percent; select a target with the lock control`
+                    : `Launch guided missile, ${s.ammo} remaining`,
           );
         }
         if (countermeasureRef.current) {
-          const incomingMissile = match.bullets.some((bullet) => bullet.missile && bullet.faction !== player.faction);
+          const incomingCount = match.bullets.filter((bullet) => bullet.missile && bullet.faction !== player.faction).length;
+          if (incomingCount > 0) countermeasureUntilRef.current = Math.max(countermeasureUntilRef.current, match.time + 2);
+          const incomingMissile = incomingCount > 0 || match.time < countermeasureUntilRef.current;
           countermeasureRef.current.disabled = !player.alive || !incomingMissile;
           countermeasureRef.current.hidden = !incomingMissile;
+          if (countermeasureVisibleRef.current !== incomingMissile) {
+            countermeasureVisibleRef.current = incomingMissile;
+            setCountermeasureVisible(incomingMissile);
+          }
+          countermeasureRef.current.dataset.incoming = String(incomingCount);
+          countermeasureRef.current.setAttribute(
+            "aria-label",
+            incomingCount > 0
+              ? `Deploy flare to break ${incomingCount} incoming missile${incomingCount === 1 ? "" : "s"}`
+              : incomingMissile
+                ? "Deploy flare; incoming missile warning"
+              : "Countermeasure flare available when hostile missiles are incoming",
+          );
         }
       }
       if (pipRef.current) {
@@ -2127,7 +2181,19 @@ export function Arena({
               <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
               <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
-              {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled hidden onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
+              {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={!countermeasureVisible} hidden={!countermeasureVisible} onPress={() => {
+                if (!bus) return;
+                bus.countermeasurePulse = true;
+                countermeasureUntilRef.current = 0;
+                countermeasureVisibleRef.current = false;
+                setCountermeasureVisible(false);
+              }} onActivate={() => {
+                if (!bus) return;
+                bus.countermeasurePulse = true;
+                countermeasureUntilRef.current = 0;
+                countermeasureVisibleRef.current = false;
+                setCountermeasureVisible(false);
+              }} />}
             </div>
           ) : null}
           <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
@@ -2255,9 +2321,22 @@ export function Arena({
                         label="Deploy flare to break incoming missile guidance"
                         testId="button-countermeasure"
                         accent
-                        disabled
-                        hidden
-                        onActivate={() => { if (bus) bus.countermeasurePulse = true; }}
+                        disabled={!countermeasureVisible}
+                        hidden={!countermeasureVisible}
+                        onPress={() => {
+                          if (!bus) return;
+                          bus.countermeasurePulse = true;
+                          countermeasureUntilRef.current = 0;
+                          countermeasureVisibleRef.current = false;
+                          setCountermeasureVisible(false);
+                        }}
+                        onActivate={() => {
+                          if (!bus) return;
+                          bus.countermeasurePulse = true;
+                          countermeasureUntilRef.current = 0;
+                          countermeasureVisibleRef.current = false;
+                          setCountermeasureVisible(false);
+                        }}
                       />
                     )}
                     <PilotActionButton
@@ -2265,10 +2344,13 @@ export function Arena({
                       icon="missile"
                       label="Launch guided missile"
                       testId="button-missile"
-                      disabled
                       accent
                       badge="MSL"
-                      onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                      onPress={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                      onActivate={() => {
+                        unlockAudio();
+                        if (bus) bus.missilePulse = true;
+                      }}
                     />
                     <div className="pilot-boost-fire-stack flex flex-col items-center gap-1">
                       <PilotActionButton
@@ -2328,10 +2410,13 @@ export function Arena({
                     icon="missile"
                     label="Launch guided missile"
                     testId="button-missile"
-                    disabled
                     accent
                     badge="MSL"
-                    onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                    onPress={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                    onActivate={() => {
+                      unlockAudio();
+                      if (bus) bus.missilePulse = true;
+                    }}
                   />
                 ) : (
                   <>

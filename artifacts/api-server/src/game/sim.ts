@@ -62,6 +62,7 @@ export type Match = {
   over: null | "win" | "loss" | "draw"; refit: number; playerFaction: Faction; pace: Pace; limit: number;
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
   localEndurance?: boolean;
+  orbitalTraining?: boolean;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
 };
@@ -81,6 +82,7 @@ export type MatchSetup = {
   tech?: "stick" | "barrels" | "mark" | null;
   seed?: number;
   localEndurance?: boolean;
+  orbitalTraining?: boolean;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
 };
@@ -448,6 +450,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     pace,
     limit: matchLimit(pace),
     ...(setup.localEndurance === true ? { localEndurance: true } : {}),
+    ...(setup.orbitalTraining === true ? { orbitalTraining: true } : {}),
     goal,
     disc,
     tech: setup.tech === "stick" || setup.tech === "barrels" || setup.tech === "mark" ? setup.tech : null,

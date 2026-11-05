@@ -18,6 +18,13 @@ export function prepareOrbital(match: Match) {
     craft.x = i === 0 ? 0 : (i % 2 ? -1 : 1) * (16 + i * 4);
     craft.z = -4 - i * 9;
     craft.space!.y = i === 0 ? 0 : (i % 2 ? 5 : -4);
+    if (match.orbitalTraining) {
+      // Training relocates the legacy roster, so align its first contacts
+      // with their new spawn positions for the lock-and-missile tutorial.
+      craft.yaw = detAtan2(-(match.player.x - craft.x), -(match.player.z - craft.z));
+      craft.space = newFlight(craft.yaw);
+      craft.space.y = i === 0 ? 0 : (i % 2 ? 5 : -4);
+    }
     // Visible first target holds position while the pilot learns target acquisition.
     craft.guard = 0;
   });
@@ -61,23 +68,29 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
         played.throttle = distance > 35 ? .4 : distance < 15 ? -.3 : 0;
         craft.lockTargetId = target.id;
         played.fire = match.time > 5 && targetSolution(craft, target, match.rocks).available && targetSolution(craft, target, match.rocks).angle < .18 && distance < 60;
+        played.missile = match.orbitalTraining === true && match.time >= 2 + (craft.id % 3) && space.missileCd <= 0 && space.ammo > 0 &&
+          space.lockProgress >= 1 && targetSolution(craft, target, match.rocks).available;
         // First defender is a stationary gun platform; other defenders maneuver.
         if (craft.id === match.enemies[0]?.id) played.throttle = 0;
       }
     }
     integrateFlight(craft, played, dt, 1, match);
     updateAcquisition(match, craft, dt);
-    if (played.missile) launchMissile(match, craft);
+    if (played.missile && launchMissile(match, craft) && craft.ai) {
+      // AI ordnance is intentionally intermittent; it creates readable
+      // incoming threats without overwhelming the offline training sortie.
+      space.missileCd = Math.max(space.missileCd, 12 + (craft.id % 3) * 2);
+    }
     if (craft.id === player.id && played.countermeasure) {
-      let removed = false;
       for (let i = match.bullets.length - 1; i >= 0; i--) {
         const bullet = match.bullets[i]!;
         if (bullet.faction !== player.faction && bullet.missile) {
           match.bullets.splice(i, 1);
-          removed = true;
         }
       }
-      if (removed) match.fx.push({ k: "flare", x: player.x, z: player.z, yaw: player.yaw });
+      // Show an unmistakable release cue even if the incoming missile expired
+      // on the same simulation step as the pilot's countermeasure tap.
+      match.fx.push({ k: "flare", x: player.x, y: space.y, z: player.z, yaw: player.yaw });
     }
     if (played.fire && craft.fireCd <= 0 && craft.root <= 0 && match.bullets.length < 110) {
       const def = SHIPS[craft.ship];
