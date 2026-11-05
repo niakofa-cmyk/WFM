@@ -115,6 +115,8 @@ Do not use ordinary up/down drag as pitch in this Orbital control mode. Keep pit
 
 Rust Disc's existing implementation is a separate legacy mapping: its left stick controls yaw/pitch and its thrust action controls forward throttle. Do not claim that mapping is identical to the revised offline Orbital mapping or change it incidentally.
 
+Keep the target-lock action and collapsible flight-maneuver menu on the left control panel. Keep guided missiles and primary fire beside the right aim stick. Do not show a duplicate forward-thrust button by default; the left stick already provides continuous forward/reverse throttle, while the up-arrow is reserved for vertical thrust.
+
 The control should support:
 
 - Dynamic joystick origin.

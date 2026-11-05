@@ -34,7 +34,8 @@ For offline Orbital Combat Lab, the left stick is the propulsion and steering co
 - Drag left or right to turn with coordinated bank. Diagonal input must turn and propel at once.
 - Keep pitch/aim orientation on the right stick so it remains usable while the left thumb flies.
 - Keep double-tap edge gestures distinct from normal drag: upper/lower taps pulse vertical thrust, left/right taps pulse lateral thrust.
-- The up-arrow action is vertical thrust, not forward propulsion. Do not require a separate forward button.
+- The up-arrow action is vertical thrust, not forward propulsion. Do not add a permanent duplicate forward-thrust button; consider a user-configurable cruise action only if testing shows a real need.
+- Keep the target-lock action and flight-maneuver drawer on the left control panel. Keep missile launch and primary fire beside the right aim stick.
 - Preserve the existing Rust Disc and live Wing mappings; this Orbital-specific behavior is not a claim that their current controls are identical.
 
 ## 2. AUDIT THE EXISTING IMPLEMENTATION
@@ -187,11 +188,12 @@ Preserve:
 
 - Weapon aiming.
 - Target alignment.
-- Target lock.
 - Primary firing.
 - Missile launch.
 - Special combat abilities.
 - Other essential combat actions.
+
+Keep the target-lock action beside the left flight stick; keep missile launch and primary fire on the right beside the aim stick.
 
 Do not overload the right thumb with ordinary spacecraft movement.
 
