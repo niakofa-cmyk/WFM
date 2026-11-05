@@ -4,6 +4,7 @@ export type CircularGestureTracker = {
   centerX: number;
   centerY: number;
   startedAt: number;
+  gestureStartedAt: number | null;
   minRadiusPx: number;
   maxRadiusPx: number;
   lastAngle: number | null;
@@ -24,14 +25,26 @@ export type CircularGestureUpdate = {
   rejected: boolean;
 };
 
-export const CIRCULAR_ROLL_MIN_SWEEP_RADIANS = Math.PI * (5 / 3);
+export const CIRCULAR_ROLL_MIN_SWEEP_RADIANS = Math.PI * 1.85;
 export const CIRCULAR_ROLL_MIN_DURATION_MS = 240;
-export const CIRCULAR_ROLL_MAX_DURATION_MS = 3_000;
-export const CIRCULAR_ROLL_MIN_SAMPLES = 8;
-const MAX_SAMPLE_ANGLE_RADIANS = 2.15;
+export const CIRCULAR_ROLL_MAX_DURATION_MS = 10_000;
+export const CIRCULAR_ROLL_MIN_SAMPLES = 6;
+const MAX_SAMPLE_ANGLE_RADIANS = Math.PI * 0.94;
 const MIN_SAMPLE_ANGLE_RADIANS = 0.025;
-const DIRECTION_NOISE_RADIANS = 0.18;
-const MAX_RADIUS_RATIO = 2.4;
+const DIRECTION_NOISE_RADIANS = 0.28;
+const MAX_RADIUS_RATIO = 3.5;
+
+/** Allow a loop over the stick's outer edge without accepting off-screen drags. */
+export function circularGestureRadiusBounds(width: number, height: number) {
+  const size = Math.min(width, height);
+  if (![width, height, size].every(Number.isFinite) || size <= 0) {
+    return { minRadiusPx: 8, maxRadiusPx: 48 };
+  }
+  return {
+    minRadiusPx: Math.max(8, size * 0.08),
+    maxRadiusPx: Math.max(10, size * 0.68),
+  };
+}
 
 export function createCircularGestureTracker(
   centerX: number,
@@ -47,6 +60,7 @@ export function createCircularGestureTracker(
     centerX: valid ? centerX : 0,
     centerY: valid ? centerY : 0,
     startedAt: valid ? startedAt : 0,
+    gestureStartedAt: null,
     minRadiusPx: valid ? minRadiusPx : 1,
     maxRadiusPx: valid ? maxRadiusPx : 0,
     lastAngle: null,
@@ -85,7 +99,7 @@ function result(
   };
 }
 
-/** Tracks a deliberate, approximately 300–360° circle around the held control origin. */
+/** Tracks a deliberate, near-full circle around the visible stick center. */
 export function updateCircularGesture(
   previous: CircularGestureTracker,
   clientX: number,
@@ -96,8 +110,10 @@ export function updateCircularGesture(
   if (![clientX, clientY, at].every(Number.isFinite) || at < previous.startedAt) {
     return result({ ...previous, rejected: true });
   }
-  const duration = at - previous.startedAt;
-  if (duration > CIRCULAR_ROLL_MAX_DURATION_MS) {
+  if (
+    previous.gestureStartedAt !== null &&
+    at - previous.gestureStartedAt > CIRCULAR_ROLL_MAX_DURATION_MS
+  ) {
     return result({ ...previous, rejected: true });
   }
 
@@ -112,16 +128,26 @@ export function updateCircularGesture(
   const angle = Math.atan2(dy, dx);
   const minObservedRadiusPx = Math.min(previous.minObservedRadiusPx, radius);
   const maxObservedRadiusPx = Math.max(previous.maxObservedRadiusPx, radius);
-  if (maxObservedRadiusPx / minObservedRadiusPx > MAX_RADIUS_RATIO) {
-    return result({ ...previous, rejected: true });
+  let observedMin = minObservedRadiusPx;
+  let observedMax = maxObservedRadiusPx;
+  if (observedMax / observedMin > MAX_RADIUS_RATIO) {
+    // A pilot may begin near the center, then settle the thumb onto a wider
+    // circle. Rebase early radial movement instead of rejecting the loop.
+    if (Math.abs(previous.sweepRadians) < Math.PI / 2) {
+      observedMin = radius;
+      observedMax = radius;
+    } else {
+      return result({ ...previous, rejected: true });
+    }
   }
 
   if (previous.lastAngle === null) {
     return result({
       ...previous,
+      gestureStartedAt: previous.gestureStartedAt ?? at,
       lastAngle: angle,
-      minObservedRadiusPx,
-      maxObservedRadiusPx,
+      minObservedRadiusPx: observedMin,
+      maxObservedRadiusPx: observedMax,
       samples: previous.samples + 1,
     });
   }
@@ -148,13 +174,15 @@ export function updateCircularGesture(
     : delta;
   const tracker = {
     ...previous,
+    gestureStartedAt: previous.gestureStartedAt ?? at,
     lastAngle: angle,
     direction,
     sweepRadians: previous.sweepRadians + acceptedDelta,
-    minObservedRadiusPx,
-    maxObservedRadiusPx,
+    minObservedRadiusPx: observedMin,
+    maxObservedRadiusPx: observedMax,
     samples: previous.samples + 1,
   };
+  const duration = at - (tracker.gestureStartedAt ?? at);
   const complete = duration >= CIRCULAR_ROLL_MIN_DURATION_MS &&
     tracker.samples >= CIRCULAR_ROLL_MIN_SAMPLES &&
     Math.abs(tracker.sweepRadians) >= CIRCULAR_ROLL_MIN_SWEEP_RADIANS;

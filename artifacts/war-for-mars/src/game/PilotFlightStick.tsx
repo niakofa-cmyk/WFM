@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
 import {
+  circularGestureRadiusBounds,
   createCircularGestureTracker,
   updateCircularGesture,
   type CircularGestureTracker,
@@ -239,7 +240,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
         delete event.currentTarget.dataset.recenter;
         const rect = event.currentTarget.getBoundingClientRect();
         event.currentTarget.setPointerCapture(event.pointerId);
-        const maxRadiusPx = Math.min(rect.width, rect.height) * 0.34;
+        const radiusBounds = circularGestureRadiusBounds(rect.width, rect.height);
         active.current = {
           pointerId: event.pointerId,
           originX: event.clientX,
@@ -255,8 +256,8 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
               rect.left + rect.width / 2,
               rect.top + rect.height / 2,
               Date.now(),
-              Math.max(8, maxRadiusPx * 0.25),
-              maxRadiusPx,
+              radiusBounds.minRadiusPx,
+              radiusBounds.maxRadiusPx,
             )
             : null,
           circularCandidateStarted: false,
@@ -274,7 +275,15 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
           gesture.current = { ...gesture.current, pending: null };
         }
         if (touch.circularTracker) {
-          updateCircular(touch, event.clientX, event.clientY);
+          const nativeEvent = event.nativeEvent;
+          const coalesced = typeof nativeEvent.getCoalescedEvents === "function"
+            ? nativeEvent.getCoalescedEvents()
+            : [];
+          for (const sample of coalesced) {
+            updateCircular(touch, sample.clientX, sample.clientY);
+            if (!touch.circularTracker) break;
+          }
+          if (touch.circularTracker) updateCircular(touch, event.clientX, event.clientY);
         }
         if (touch.circularMode) return;
         updateAxis(event.clientX, event.clientY);
@@ -313,7 +322,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
         </>
       ) : null}
       {feedback?.kind === "roll-command" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" aria-hidden="true" data-testid="roll-gesture-status">
+        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
           {feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"}
         </span>
       ) : null}

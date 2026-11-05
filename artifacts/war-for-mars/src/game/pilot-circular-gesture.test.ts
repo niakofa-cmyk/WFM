@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CIRCULAR_ROLL_MIN_SWEEP_RADIANS,
+  circularGestureRadiusBounds,
   createCircularGestureTracker,
   updateCircularGesture,
 } from "./pilot-circular-gesture";
@@ -68,6 +69,77 @@ test("a slow loop around the visible stick center completes from its edge", () =
   assert.equal(drawJoystickLoop(-1).completed, "counterclockwise");
 });
 
+test("full loops complete at the real mobile stick edge in both compact and landscape sizes", () => {
+  for (const size of [74, 82, 128]) {
+    const { minRadiusPx, maxRadiusPx } = circularGestureRadiusBounds(size, size);
+    const center = 100;
+    const radius = size * 0.54;
+    assert.ok(radius > size / 2, "the gesture may trace just outside the visible stick rim");
+    assert.ok(radius <= maxRadiusPx);
+
+    let tracker = createCircularGestureTracker(center, center, 0, minRadiusPx, maxRadiusPx);
+    let update = updateCircularGesture(tracker, center + radius, center, 0);
+    tracker = update.tracker;
+    for (let i = 1; i <= 24; i++) {
+      const angle = Math.PI * 2 * i / 24;
+      update = updateCircularGesture(
+        tracker,
+        center + Math.cos(angle) * radius,
+        center + Math.sin(angle) * radius,
+        i * 25,
+      );
+      tracker = update.tracker;
+      if (update.completed) break;
+    }
+    assert.equal(update.completed, "clockwise", `${size}px stick loop should not stop at a quarter-turn`);
+  }
+});
+
+test("starting near the center and expanding the thumb loop does not cancel it", () => {
+  const { minRadiusPx, maxRadiusPx } = circularGestureRadiusBounds(84, 84);
+  const center = 100;
+  let tracker = createCircularGestureTracker(center, center, 0, minRadiusPx, maxRadiusPx);
+  const points = [
+    [10, 0], [18, 2], [28, 6], [38, 13],
+    [42, 24], [36, 37], [24, 42], [10, 39],
+    [-5, 41], [-22, 37], [-36, 23], [-42, 7],
+    [-39, -12], [-28, -32], [-10, -41], [12, -40],
+    [30, -31], [41, -14], [42, 6],
+  ] as const;
+  let update = updateCircularGesture(tracker, center + points[0]![0], center + points[0]![1], 0);
+  tracker = update.tracker;
+  for (let i = 1; i < points.length; i++) {
+    const [x, y] = points[i]!;
+    update = updateCircularGesture(tracker, center + x, center + y, i * 35);
+    tracker = update.tracker;
+    if (update.completed || update.rejected) break;
+  }
+  assert.equal(update.rejected, false);
+  assert.equal(update.completed, "clockwise");
+});
+
+test("holding before drawing does not consume the full-loop time window", () => {
+  const { minRadiusPx, maxRadiusPx } = circularGestureRadiusBounds(128, 128);
+  const center = 100;
+  const radius = 54;
+  let tracker = createCircularGestureTracker(center, center, 0, minRadiusPx, maxRadiusPx);
+  let update = updateCircularGesture(tracker, center + radius, center, 7_000);
+  tracker = update.tracker;
+  for (let i = 1; i <= 12; i++) {
+    const angle = Math.PI * 2 * i / 12;
+    update = updateCircularGesture(
+      tracker,
+      center + Math.cos(angle) * radius,
+      center + Math.sin(angle) * radius,
+      7_000 + i * 500,
+    );
+    tracker = update.tracker;
+    if (update.completed || update.rejected) break;
+  }
+  assert.equal(update.rejected, false);
+  assert.equal(update.completed, "clockwise");
+});
+
 test("incomplete, undersized, and oversized circles are rejected", () => {
   let incomplete = createCircularGestureTracker(0, 0, 0, 11, 34);
   for (let i = 0; i <= 5; i++) {
@@ -94,7 +166,7 @@ test("incomplete, undersized, and oversized circles are rejected", () => {
   assert.equal(tooLarge.rejected, true);
 });
 
-test("direction reversals, discontinuous jumps, and gestures over three seconds cannot complete", () => {
+test("direction reversals, discontinuous jumps, and loops over ten seconds are rejected", () => {
   let tracker = createCircularGestureTracker(0, 0, 0, 11, 34);
   tracker = updateCircularGesture(tracker, 24, 0, 0).tracker;
   tracker = updateCircularGesture(tracker, 0, 24, 80).tracker;
@@ -111,12 +183,9 @@ test("direction reversals, discontinuous jumps, and gestures over three seconds 
   );
   assert.equal(jump.rejected, true);
 
-  const expired = updateCircularGesture(
-    createCircularGestureTracker(0, 0, 0, 11, 34),
-    24,
-    0,
-    3_001,
-  );
+  let expiredTracker = createCircularGestureTracker(0, 0, 0, 11, 34);
+  expiredTracker = updateCircularGesture(expiredTracker, 24, 0, 0).tracker;
+  const expired = updateCircularGesture(expiredTracker, 0, 24, 10_001);
   assert.equal(expired.rejected, true);
 });
 

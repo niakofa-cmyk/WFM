@@ -203,7 +203,7 @@ test("Rust Disc defers 3D startup until launch and reuses it on warm relaunch", 
     await page.mouse.click(stickCenterX, upperSectorY);
     await page.waitForTimeout(110);
     await page.mouse.click(stickCenterX, upperSectorY);
-    await expect(flightStick.getByRole("status")).toHaveText("UP THRUST");
+    await expect(flightStick.getByText("UP THRUST", { exact: true })).toBeVisible();
 
     await page.getByTestId("button-pause").click();
     await page.getByTestId("button-briefing").click();
