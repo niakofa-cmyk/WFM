@@ -4,3 +4,4 @@ export * from "./protocol";
 export * from "./detmath";
 export * from "./runtime";
 export * from "./game-mode";
+export * from "./sector-flight";

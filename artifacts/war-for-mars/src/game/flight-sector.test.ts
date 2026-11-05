@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { FACTION_PALETTE } from "./faction-palette";
 import { SHIPS } from "./ships";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import {
   createFlight, flightForward, flightObjective, stepFlight, sphereHit, canLock, removeHostileProjectilesInPlace,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, vectorLength,
@@ -67,11 +68,11 @@ test("lateral and vertical thrusters add controlled six-axis translation", () =>
   assert.ok(state.position.z < 70, "the independent thrust axes do not invert forward");
 });
 
-test("orbital-motion-v1 migrates local Rust Disc movement while preserving sector objective and boundary", () => {
+test("the canonical Orbital runtime preserves Rust Disc flight, objectives, and sector boundary", () => {
   const sector = { ...RUST_DISC_SECTOR, rocks: [], radius: 3000 };
   const migrated = createFlight("glide", sector);
   for (let i = 0; i < 90; i++) {
-    stepFlight(migrated, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, "orbital-motion-v1");
+    stepFlight(migrated, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, ORBITAL_RUNTIME_ID);
   }
   assert.ok(migrated.position.x > 0, "positive right strafe remains right after the adapter");
   assert.ok(migrated.position.y > 0, "vertical thrust is integrated by the shared spatial model");
@@ -81,18 +82,18 @@ test("orbital-motion-v1 migrates local Rust Disc movement while preserving secto
 
   const replay = createFlight("glide", sector);
   for (let i = 0; i < 90; i++) {
-    stepFlight(replay, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, "orbital-motion-v1");
+    stepFlight(replay, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, ORBITAL_RUNTIME_ID);
   }
   assert.deepEqual(replay, migrated, "the local versioned movement adapter is deterministic");
 
   const edge = createFlight("glide", sector);
   edge.position = { x: 70, y: 0, z: 0 };
   edge.velocity = { x: 300, y: 0, z: 0 };
-  stepFlight(edge, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...sector, radius: 72 }, "orbital-motion-v1");
+  stepFlight(edge, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...sector, radius: 72 }, ORBITAL_RUNTIME_ID);
   assert.ok(vectorLength(edge.position) <= 72.000001, "sector boundary enforcement remains active after shared movement");
 });
 
-test("existing server and expedition callers remain on the legacy motion runtime by default", () => {
+test("server compatibility flight retains its legacy default while local Rust Disc explicitly selects Orbital", async () => {
   const implicit = createFlight();
   const explicit = createFlight();
   for (let i = 0; i < 60; i++) {
@@ -100,6 +101,10 @@ test("existing server and expedition callers remain on the legacy motion runtime
     stepFlight(explicit, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2 }, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
   }
   assert.deepEqual(implicit, explicit);
+
+  const ui = await readFile(new URL("./RustDiscFlight.tsx", import.meta.url), "utf8");
+  assert.match(ui, /createOrbitalRuntime\(getGameModeDefinition\("rust-disc-local"\)\)/);
+  assert.match(ui, /stepFlight\(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME\.runtimeId\)/);
 });
 
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
@@ -269,13 +274,16 @@ test("USSF hulls are blue and Accord hulls are warm, with no roster reassignment
   assert.equal(SHIPS.glide.faction, "ussf");
 });
 
-test("local flight sector has no progression, storage, auth or network capability", async () => {
-  const source = await readFile(new URL("./flight-sector.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
-  const imports = source.match(/^import .* from ["'](.+)["'];/gm);
-  assert.deepEqual(imports, [
-    'import { SHIPS, type ShipId } from "./ships";',
-    'import { detSin, detCos, detExp } from "./detmath";',
-    'import { integrateSpatialFlight, type FlightControls, type SpatialCraft } from "@workspace/orbital-sim";',
+test("local flight operation has no account progression writes, storage, auth or network capability", async () => {
+  const [adapter, runtime] = await Promise.all([
+    readFile(new URL("./flight-sector.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../../../lib/orbital-sim/src/sector-flight.ts", import.meta.url), "utf8"),
   ]);
+  assert.match(adapter, /stepSectorFlight/);
+  assert.doesNotMatch(adapter, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
+  assert.match(runtime, /integrateSpatialFlight/);
+  assert.match(runtime, /canAcquireSectorTarget/);
+  assert.match(runtime, /sphereSweepTime/);
+  assert.match(runtime, /stepFlight|stage === "relay"/);
+  assert.doesNotMatch(runtime, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
 });

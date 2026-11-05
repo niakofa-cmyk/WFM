@@ -83,9 +83,9 @@ export const GAME_MODE_DEFINITIONS = [
     rewardEligibility: "none",
     authority: "local",
     simulation: {
-      runtimeId: "orbital-motion-v1",
-      packages: ["@workspace/orbital-sim", "flight-sector"],
-      migration: "partial",
+      runtimeId: ORBITAL_RUNTIME_ID,
+      packages: ["@workspace/orbital-sim", "RustDiscFlight operation adapter"],
+      migration: "canonical",
     },
   },
   {

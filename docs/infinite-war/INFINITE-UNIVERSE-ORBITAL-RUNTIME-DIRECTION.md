@@ -28,7 +28,7 @@ already been extracted.
 |---|---|---|
 | Orbital Combat Lab | `Arena` + `@workspace/orbital-sim`, local fixed-step combat; no reward settlement | Canonical training foundation. Continue as the executable harness. |
 | Local Arena practice | `WarApp` → `Arena` → `orbital-v1` when no legacy server run is pinned | Canonical local entry. Must preserve no-reward behavior. |
-| Rust Disc local flight | `RustDiscFlight`/Three.js rendering; `flight-sector.ts` owns mission, collisions, projectiles and objectives. `orbital-motion-v1` currently adapts movement only. | Partial migration, not full Orbital combat. Port weapons/objectives and prove the playable loop; retain the old path for rollback until then. |
+| Rust Disc local flight | `RustDiscFlight`/Three.js rendering with `@workspace/orbital-sim` fixed-step flight, targeting, projectiles, missile guidance, collision/damage, and relay → drone → extraction operation stages. The sector file supplies authored world data and a typed adapter. | Canonical local Orbital launch; offline/no-reward and bounded. Automated movement, lock, weapon, damage, objective, collision, and terminal-state tests pass. Physical phone and visual gameplay verification remain open. |
 | Rust Disc co-op / Mars Approach / Pale Beacons | Authenticated sector socket and `sector-motion-v1`; server validates movement, snapshots and objective lifecycle | Compatibility runtime. Migrate client, API, socket and mission state together; retain authority and reconnect behavior. |
 | Iron Eclipse | Sector runtime plus server-owned squadron commands and capital-ship operation state | Compatibility runtime. Preserve command permissions, AI, subsystem gating, extraction and result idempotency. |
 | Arcade Skirmish | `Arena` with `surface-v1` combat path | Compatibility runtime. Migrate objective-by-objective with no-reward local behavior. |
@@ -53,12 +53,12 @@ player and human minima, AI policy, objective IDs, rules, authority,
 reward-eligibility policy, actual simulation ID, source packages and migration
 status. `GAME_MODE_DEFINITIONS` is the source-backed mode inventory.
 
-`createOrbitalRuntime` is the canonical bootstrap used by `Arena` for Orbital
-launches. `Arena` requires an explicit `modeId` and checks that its declared
-simulation matches the selected runtime. The bootstrap refuses partial,
+`createOrbitalRuntime` is the canonical bootstrap used by `Arena` and by the
+offline Rust Disc launch. `Arena` requires an explicit `modeId` and checks that
+its declared simulation matches the selected runtime. The bootstrap refuses
 compatibility, navigation-only and planned modes, so they cannot be labeled as
-already migrated by selecting `orbital-v1`. This first contract/boot step does
-not yet replace the separate Rust Disc or server sector operation wrappers.
+already migrated by selecting `orbital-v1`. Server-run Rust Disc co-op and other
+sector operations still use their existing authority and compatibility wrappers.
 
 Keep three authority patterns distinct:
 
@@ -119,9 +119,12 @@ scene. Implement it as:
 2. **Control and deterministic flight:** compare identical input traces for
    Rust Disc and Orbital, including signs, bank, drift, pulses, throttle,
    velocity, orientation and camera; then compare physics and fixed-step traces.
-3. **Finish local Rust Disc:** move combat, weapons and objective behavior into
-   canonical Orbital adapters; verify relay → combat → extraction, no rewards,
-   bounded collision safety and desktop/mobile layout before switching default.
+3. **Local Rust Disc migration:** complete. The local route now starts a catalogued
+   Orbital runtime; the shared package owns movement, target acquisition, shots,
+   missiles, swept collision/damage, and the operation objective sequence. Keep
+   proof current for relay → combat → extraction, no rewards, bounded collision
+   safety, and desktop/mobile behavior. Physical-device visual/control checks
+   have not been claimed.
 4. **Migrate local Arcade and campaign:** preserve each mission's objective
    adapter, issued runtime, deterministic replay and validated settlement.
 5. **Migrate co-op / Iron Eclipse:** coordinated client/API/socket versioning;

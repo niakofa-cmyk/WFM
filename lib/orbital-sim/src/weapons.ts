@@ -1,4 +1,4 @@
-import { detAcos, detHypot } from "./detmath";
+import { detAcos, detCos, detHypot } from "./detmath";
 import { LOCK_SECONDS, MISSILE_RANGE, PROJECTILE_LIMIT, rotate, type Rock, type SpatialBullet, type SpatialCraft } from "./flight";
 
 const hypot3 = (x: number, y: number, z: number) => detHypot(detHypot(x, y), z);
@@ -12,16 +12,79 @@ export function segmentHit(x: number, y: number, z: number, b: { x: number; y?: 
   const t = length > 0 ? Math.max(0, Math.min(1, ((x - px) * dx + (y - py) * dy + (z - pz) * dz) / length)) : 0;
   return hypot3(x - px - t * dx, y - py - t * dy, z - pz - t * dz) < radius;
 }
-export function targetSolution(pilot: SpatialCraft, target: SpatialCraft, rocks: readonly Rock[] = []) {
+export function sphereSweepTime(
+  a: { x: number; y: number; z: number },
+  b: { x: number; y: number; z: number },
+  center: { x: number; y: number; z: number },
+  radius: number,
+): number | null {
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  const mx = a.x - center.x, my = a.y - center.y, mz = a.z - center.z;
+  const c = mx * mx + my * my + mz * mz - radius * radius;
+  if (c <= 0) return 0;
+  const dd = dx * dx + dy * dy + dz * dz;
+  const md = mx * dx + my * dy + mz * dz;
+  const discriminant = md * md - dd * c;
+  if (dd < 1e-12 || discriminant < 0) return null;
+  const t = (-md - Math.sqrt(discriminant)) / dd;
+  return t >= 0 && t <= 1 ? t : null;
+}
+
+export type TargetSolutionRules = {
+  maxRange?: number;
+  /** Minimum forward-axis dot product; .94 matches the Rust Disc lock cone. */
+  minForwardDot?: number;
+};
+export type TargetingFrame = {
+  id?: number;
+  x: number; y: number; z: number;
+  fx: number; fy: number; fz: number;
+  alive: boolean;
+  jammed?: boolean;
+};
+export type TargetingContact = {
+  id: number;
+  x: number; y: number; z: number;
+  alive: boolean;
+  cloak?: number;
+  untargetable?: number;
+};
+export function targetSolution3d(
+  pilot: TargetingFrame,
+  target: TargetingContact,
+  rocks: readonly Rock[] = [],
+  rules: TargetSolutionRules = {},
+) {
+  const dx = target.x - pilot.x, dy = target.y - pilot.y, dz = target.z - pilot.z;
+  const distance = hypot3(dx, dy, dz);
+  const dot = (pilot.fx * dx + pilot.fy * dy + pilot.fz * dz) / Math.max(.001, distance);
+  const blocked = rocks.some((rock) => segmentHit(
+    rock.x, rock.y ?? 0, rock.z, target, pilot.x, pilot.y, pilot.z, rock.r,
+  ));
+  return {
+    distance,
+    angle: detAcos(Math.max(-1, Math.min(1, dot))),
+    available: pilot.alive && target.alive && target.id !== pilot.id &&
+      (target.cloak ?? 0) <= 0 && (target.untargetable ?? 0) <= 0 &&
+      !pilot.jammed && distance <= (rules.maxRange ?? MISSILE_RANGE) &&
+      dot >= (rules.minForwardDot ?? detCos(.3)) && !blocked,
+  };
+}
+export function targetSolution(
+  pilot: SpatialCraft,
+  target: SpatialCraft,
+  rocks: readonly Rock[] = [],
+  rules: TargetSolutionRules = {},
+) {
   const s = pilot.space;
   if (!s) return { distance: Infinity, angle: Math.PI, available: false };
-  const distance = distance3(pilot, target);
   const f = rotate(s.q, 0, 0, -1);
-  const dot = (f.x * (target.x - pilot.x) + f.y * ((target.space?.y ?? 0) - s.y) + f.z * (target.z - pilot.z)) / Math.max(.001, distance);
-  const angle = detAcos(Math.max(-1, Math.min(1, dot)));
-  const endpoint = { x: target.x, y: target.space?.y ?? 0, z: target.z };
-  const blocked = rocks.some((rock) => segmentHit(rock.x, rock.y ?? 0, rock.z, endpoint, pilot.x, s.y, pilot.z, rock.r));
-  return { distance, angle, available: pilot.alive && target.alive && target.id !== pilot.id && target.cloak <= 0 && target.untargetable <= 0 && pilot.jam <= 0 && distance <= MISSILE_RANGE && angle <= .3 && !blocked };
+  return targetSolution3d(
+    { id: pilot.id, x: pilot.x, y: s.y, z: pilot.z, fx: f.x, fy: f.y, fz: f.z, alive: pilot.alive, jammed: pilot.jam > 0 },
+    { id: target.id, x: target.x, y: target.space?.y ?? 0, z: target.z, alive: target.alive, cloak: target.cloak, untargetable: target.untargetable },
+    rocks,
+    { ...rules, minForwardDot: rules.minForwardDot ?? detCos(.3) },
+  );
 }
 export function acquireTarget(pilot: SpatialCraft, target: SpatialCraft | undefined, dt: number, rocks: readonly Rock[] = []) {
   const s = pilot.space;
@@ -59,19 +122,32 @@ export function spawnPrimary(pilot: SpatialCraft, target: SpatialCraft | undefin
     vx: direction.x * speed, vy: direction.y * speed, vz: direction.z * speed, life: 1.6, dmg: damage, r: .3, homeId: null };
 }
 export function guideMissile(b: SpatialBullet, target: SpatialCraft, dt: number) {
-  const dx = target.x - b.x; const dy = (target.space?.y ?? 0) - (b.y ?? 0); const dz = target.z - b.z;
+  steerProjectileToward(b, { x: target.x, y: target.space?.y ?? 0, z: target.z }, dt);
+}
+export function steerProjectileToward(
+  b: { x: number; y?: number; z: number; vx: number; vy?: number; vz: number },
+  target: { x: number; y: number; z: number },
+  dt: number,
+  turnRate = 2.5,
+) {
+  const dx = target.x - b.x; const dy = target.y - (b.y ?? 0); const dz = target.z - b.z;
   const distance = Math.max(.001, hypot3(dx, dy, dz));
   const speed = hypot3(b.vx, b.vy ?? 0, b.vz);
   if (speed <= 0) throw new Error("Guided projectile must have positive speed.");
   const dot = (b.vx * dx + (b.vy ?? 0) * dy + b.vz * dz) / Math.max(.001, speed * distance);
   const angle = detAcos(Math.max(-1, Math.min(1, dot)));
-  const mix = angle < 1e-5 ? 1 : Math.min(1, 2.5 * dt / angle);
+  const mix = angle < 1e-5 ? 1 : Math.min(1, turnRate * dt / angle);
   let vx = b.vx / speed * (1 - mix) + dx / distance * mix;
   let vy = (b.vy ?? 0) / speed * (1 - mix) + dy / distance * mix;
   let vz = b.vz / speed * (1 - mix) + dz / distance * mix;
   const length = Math.max(.001, hypot3(vx, vy, vz));
   vx /= length; vy /= length; vz /= length;
   b.vx = vx * speed; b.vy = vy * speed; b.vz = vz * speed;
+}
+export function applyHullDamage(target: { hull: number }, incoming: number) {
+  const applied = Math.min(Math.max(0, target.hull), Math.max(0, incoming));
+  target.hull -= applied;
+  return applied;
 }
 export function absorbArmor(state: { armor: number }, incoming: number) {
   const absorbed = Math.min(state.armor, Math.max(0, incoming) * .6);

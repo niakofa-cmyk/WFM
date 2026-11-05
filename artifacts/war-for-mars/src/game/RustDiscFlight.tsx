@@ -9,7 +9,7 @@ import { sfxDive, unlockAudio } from "./audio";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
-  RUST_DISC_SECTOR, type FlightInput, type FlightMotionRuntime, type FlightSector, type FlightState,
+  RUST_DISC_SECTOR, type FlightInput, type FlightSector, type FlightState,
 } from "./flight-sector";
 import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
 import { PilotActionButton } from "./PilotActionButton";
@@ -20,6 +20,7 @@ import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsyst
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
 import { useLeaveWorldOperationInstance } from "@workspace/api-client-react";
+import { createOrbitalRuntime, getGameModeDefinition } from "@workspace/orbital-sim";
 
 /**
  * RUST DISC — local flight trainer. Pure client-side vertical slice.
@@ -62,6 +63,7 @@ type Hud = {
 
 const STEP = 1 / 60;
 const MAX_CATCHUP = 5;
+const RUST_DISC_LOCAL_RUNTIME = createOrbitalRuntime(getGameModeDefinition("rust-disc-local"));
 const STAGE_LABEL: Record<FlightState["stage"], string> = {
   relay: "PHASE 1 / SURVEY", drone: "PHASE 2 / ENGAGE", extract: "PHASE 3 / EXTRACT",
   complete: "SORTIE COMPLETE", destroyed: "HULL LOST",
@@ -162,7 +164,7 @@ function webglAvailable(): boolean {
 
 // ---------------------------------------------------------------------------
 
-export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRuntime = "sector-motion-v1" }: { onExit?: () => void; expedition?: ExpeditionTransport; expeditionHref?: string; motionRuntime?: FlightMotionRuntime }) {
+export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?: () => void; expedition?: ExpeditionTransport; expeditionHref?: string }) {
   const [, setLocation] = useLocation();
   const net = !!expedition;
   const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
@@ -653,7 +655,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref, motionRunti
         keyInput();
         const inp = inputRef.current;
         const tickInput: FlightInput = toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure });
-        stepFlight(state, tickInput, STEP, sector, motionRuntime);
+        stepFlight(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME.runtimeId);
         pulseRef.current = { missile: false, countermeasure: false };
         acc -= STEP; steps++;
       }

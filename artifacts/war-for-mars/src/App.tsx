@@ -277,7 +277,7 @@ function App() {
       <Switch>
         <Route path="/flight">
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
-            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} motionRuntime="orbital-motion-v1" />
+            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
           </Suspense>
         </Route>
         <Route path="/play">

@@ -22,7 +22,7 @@ test("the mode registry is a complete, unique source-backed launch inventory", (
 });
 
 test("canonical Orbital modes initialize with the pinned simulation rules", () => {
-  for (const id of ["orbital-combat-lab", "local-arena-practice", "campaign-contact"] as const) {
+  for (const id of ["orbital-combat-lab", "local-arena-practice", "rust-disc-local", "campaign-contact"] as const) {
     const mode = getGameModeDefinition(id);
     const runtime = createOrbitalRuntime(mode);
     assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);
