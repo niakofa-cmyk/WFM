@@ -553,7 +553,6 @@ export function Arena({
   const rightRef = useRef<HTMLDivElement>(null);
   const behindRef = useRef<HTMLDivElement>(null);
   const downRef = useRef<HTMLParagraphElement>(null);
-  const paintRef = useRef<HTMLParagraphElement>(null);
   const contactRef = useRef<HTMLCanvasElement>(null);
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
@@ -1745,7 +1744,6 @@ export function Arena({
           !player.alive && !match.over ? `HULL DOWN ${Math.max(0, player.respawn).toFixed(1)}` : "";
       }
       const painting = player.alive && match.painted.length > 0;
-      if (paintRef.current) paintRef.current.textContent = painting ? "PAINTED" : "";
       paintClock -= delta;
       if (painting && (!paintOn || paintClock <= 0)) {
         sfxPaint();
@@ -1996,7 +1994,6 @@ export function Arena({
       <div ref={rightRef} className="pointer-events-none absolute top-1/2 right-3 h-16 w-1.5 -translate-y-1/2 bg-alert opacity-0" />
       <div ref={behindRef} className="pointer-events-none absolute bottom-32 left-1/2 h-1.5 w-16 -translate-x-1/2 bg-alert opacity-0" />
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
-      <p ref={paintRef} className="pointer-events-none absolute top-[46%] left-1/2 -translate-x-1/2 font-hud text-xs tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
       ) : null}
@@ -2223,7 +2220,6 @@ export function Arena({
                   <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
                   <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
                   <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
-                  {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled hidden onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
                 </div>
               ) : null}
               <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
@@ -2252,21 +2248,18 @@ export function Arena({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
-                    <PilotActionButton
-                      ref={boostRef}
-                      icon="boost"
-                      label="Hold forward boost; drains energy while held"
-                      testId="button-boost"
-                      accent
-                      badge="100%"
-                      onPress={() => bus?.keys.add("ShiftLeft")}
-                      onRelease={() => bus?.keys.delete("ShiftLeft")}
-                      onActivate={() => {
-                        if (!bus) return;
-                        bus.keys.add("ShiftLeft");
-                        requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
-                      }}
-                    />
+                    {orbitalCampaign ? null : (
+                      <PilotActionButton
+                        ref={countermeasureRef}
+                        icon="flare"
+                        label="Deploy flare to break incoming missile guidance"
+                        testId="button-countermeasure"
+                        accent
+                        disabled
+                        hidden
+                        onActivate={() => { if (bus) bus.countermeasurePulse = true; }}
+                      />
+                    )}
                     <PilotActionButton
                       ref={missileRef}
                       icon="missile"
@@ -2277,21 +2270,38 @@ export function Arena({
                       badge="MSL"
                       onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
                     />
-                    <PilotActionButton
-                      icon="fire"
-                      label="Hold primary guns"
-                      testId="button-fire"
-                      accent
-                      fireAction
-                      onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
-                      onRelease={() => { if (bus) bus.fireButton = false; }}
-                      onActivate={() => {
-                        unlockAudio();
-                        if (bus) bus.fireButton = true;
-                        requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
-                      }}
-                      className="pilot-action-fire"
-                    />
+                    <div className="pilot-boost-fire-stack flex flex-col items-center gap-1">
+                      <PilotActionButton
+                        ref={boostRef}
+                        icon="boost"
+                        label="Hold forward boost; drains energy while held"
+                        testId="button-boost"
+                        accent
+                        badge="100%"
+                        onPress={() => bus?.keys.add("ShiftLeft")}
+                        onRelease={() => bus?.keys.delete("ShiftLeft")}
+                        onActivate={() => {
+                          if (!bus) return;
+                          bus.keys.add("ShiftLeft");
+                          requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
+                        }}
+                      />
+                      <PilotActionButton
+                        icon="fire"
+                        label="Hold primary guns"
+                        testId="button-fire"
+                        accent
+                        fireAction
+                        onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                        onRelease={() => { if (bus) bus.fireButton = false; }}
+                        onActivate={() => {
+                          unlockAudio();
+                          if (bus) bus.fireButton = true;
+                          requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                        }}
+                        className="pilot-action-fire"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="relative">

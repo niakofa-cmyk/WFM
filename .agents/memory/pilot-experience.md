@@ -18,3 +18,9 @@ The full user-supplied tactical control documents and barrel-roll reference imag
 **Why:** On 2026-11-05 the user asked for the Orbital left-stick throttle and Rust Disc-style up/down feedback to remain visibly synchronized, plus a separate temporary energy-limited forward acceleration. The HUD should not imply throttle while the ship is still.
 
 **How to apply:** Reuse the canonical input-to-throttle mapping for both simulation and display; test signed stick input, coast, keyboard compatibility, boost drain, and recharge on release. Keep the meter read-only and offline-only, and leave server-authoritative controls unchanged.
+
+**Threat cues and actions:** Do not place a centered “PAINTED” text label over the sightline; preserve targeting and non-text warning cues. Keep forward boost stacked directly above primary fire. Surface the countermeasure flare in the right combat controls only while a hostile missile is incoming, rather than hiding it in the maneuver drawer.
+
+**Why:** On 2026-11-05 the user asked to clear the centered pilot view, move boost above fire, and make missile escape/defense actions reachable without cluttering the HUD.
+
+**How to apply:** Remove only the text overlay, not target-lock/painted state or its audio warning. Keep the right-stick live barrel roll and short vector-thrust maneuvers active for manual evasion. Keep flare handling within the existing offline training capability unless a server-authoritative mode explicitly supports it.

@@ -47,6 +47,7 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await expect(page.getByTestId("text-relay-status")).toHaveCount(0);
   await expect(page.getByText("TRAINING OPERATION")).toHaveCount(0);
   await expect(page.getByText("DESTROY ALL DEFENDERS · TRAINING ONLY")).toHaveCount(0);
+  await expect(page.getByText("PAINTED")).toHaveCount(0);
   await expect(page.getByTestId("orbital-target-status")).toBeAttached();
   await expect(page.getByTestId("orbital-target-status")).toBeHidden();
   await expect(page.getByTestId("reticle-center")).toBeVisible();
@@ -58,6 +59,8 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await expect(throttleMeter).toBeHidden();
   const boostButton = page.getByTestId("button-boost");
   await expect(boostButton).toBeVisible();
+  const countermeasureButton = page.getByTestId("button-countermeasure");
+  await expect(countermeasureButton).toBeHidden();
 
   const runtimeReady = await page.evaluate(() => typeof window.__controlsTest?.getSpeed === "function");
   console.log(`[orbital-lab] WebGL simulation ${runtimeReady ? "ready" : "unavailable"}; validating browser controls.`);
@@ -84,8 +87,13 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await expect.poll(async () => Number(await throttleMeter.getAttribute("aria-valuenow"))).toBe(0);
 
   const boostBox = await boostButton.boundingBox();
+  const fireBox = await page.getByTestId("button-fire").boundingBox();
   expect(boostBox).not.toBeNull();
+  expect(fireBox).not.toBeNull();
   if (!boostBox) throw new Error("Forward boost control is missing.");
+  if (!fireBox) throw new Error("Primary fire control is missing.");
+  expect(Math.abs(boostBox.x + boostBox.width / 2 - fireBox.x - fireBox.width / 2)).toBeLessThan(2);
+  expect(boostBox.y + boostBox.height).toBeLessThanOrEqual(fireBox.y);
   await expect.poll(async () => Number(await boostButton.getAttribute("data-energy-percent"))).toBeGreaterThan(0);
   await page.keyboard.down("w");
   const boostSpeedBefore = runtimeReady ? await page.evaluate(() => window.__controlsTest!.getSpeed()) : null;
