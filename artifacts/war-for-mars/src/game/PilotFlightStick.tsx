@@ -31,9 +31,10 @@ type Props = {
   size?: "arena" | "rust-disc";
   disabled?: boolean;
   className?: string;
+  description?: string;
 };
 
-export function PilotFlightStick({ label, testId, onAxis, onPulse, size = "rust-disc", disabled = false, className = "" }: Props) {
+export function PilotFlightStick({ label, testId, onAxis, onPulse, size = "rust-disc", disabled = false, className = "", description }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const active = useRef<ActiveTouch | null>(null);
@@ -121,7 +122,9 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, size = "rust-
     }, 520);
   };
 
-  const movementHint = onPulse
+  const movementHint = description
+    ? `${label} stick. ${description}`
+    : onPulse
     ? `${label} stick. Drag to turn and pitch. Double-tap an outer edge for a short vector-thrust pulse.`
     : `${label} stick. Drag to adjust orientation.`;
 

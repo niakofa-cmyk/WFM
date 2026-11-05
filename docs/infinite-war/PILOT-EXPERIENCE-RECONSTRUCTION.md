@@ -104,12 +104,16 @@ Do not implement three primary maneuver joysticks.
 
 Implement one dynamic virtual joystick.
 
-It must provide intuitive spacecraft maneuvering through:
+For offline Orbital Combat Lab, it is the primary propulsion and steering input:
 
-- Pitch.
-- Yaw.
-- Directional maneuvering.
-- Flight-vector input.
+- Drag up for forward throttle and down for reverse thrust.
+- Drag left or right to turn with coordinated bank.
+- Combine diagonal drag so the spacecraft turns while continuing forward or reverse.
+- Use same-sector edge double-taps for separate vertical and lateral vector-thrust pulses.
+
+Do not use ordinary up/down drag as pitch in this Orbital control mode. Keep pitch and aim orientation on the right stick so both thumbs can operate at once.
+
+Rust Disc's existing implementation is a separate legacy mapping: its left stick controls yaw/pitch and its thrust action controls forward throttle. Do not claim that mapping is identical to the revised offline Orbital mapping or change it incidentally.
 
 The control should support:
 
@@ -126,13 +130,11 @@ The control should support:
 
 Implement one second dynamic circular control.
 
-It should provide:
+For offline Orbital, it provides:
 
 - Weapon aiming.
 - Target alignment.
-- Camera-relative aiming where appropriate.
-- Configurable roll control.
-- Optional advanced rotational maneuvering.
+- Pitch/orientation adjustment while the left thumb maintains propulsion and turning.
 
 The control must be configurable so players can choose an appropriate balance between aiming and roll.
 

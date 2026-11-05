@@ -2005,6 +2005,7 @@ export function Arena({
                 testId={`stick-${orbital ? "flight" : "move"}`}
                 size={unifiedOrbitalControls ? "rust-disc" : "arena"}
                 className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
+                description={unifiedOrbitalControls ? "Drag up for forward thrust, down for reverse, and left or right to turn and bank. Double-tap an outer edge for a short vector-thrust pulse." : undefined}
                 onAxis={(x, y) => {
               if (!bus) return;
               bus.leftX = x;
@@ -2018,7 +2019,7 @@ export function Arena({
               />
               {unifiedOrbitalControls ? (
                 <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.16em] text-bone/65">
-                  FLIGHT · DOUBLE-TAP EDGE
+                  THRUST · TURN · DOUBLE-TAP EDGE
                 </span>
               ) : null}
             </div>
@@ -2026,15 +2027,21 @@ export function Arena({
               <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
                 <PilotActionButton
                   icon="thrust"
-                  label="Hold forward thrust"
+                  label={unifiedOrbitalControls ? "Hold or pulse vertical ascent" : "Hold forward thrust"}
                   testId="button-thrust"
                   accent
-                  onPress={() => bus?.keys.add("KeyW")}
-                  onRelease={() => bus?.keys.delete("KeyW")}
+                  onPress={() => bus?.keys.add(unifiedOrbitalControls ? "KeyC" : "KeyW")}
+                  onRelease={() => bus?.keys.delete(unifiedOrbitalControls ? "KeyC" : "KeyW")}
                   onActivate={() => {
                     if (!bus) return;
-                    bus.keys.add("KeyW");
-                    requestAnimationFrame(() => bus.keys.delete("KeyW"));
+                    if (unifiedOrbitalControls) {
+                      pulseVectorManeuver(bus, { axis: "vertical", direction: 1 });
+                      unlockAudio();
+                      sfxDive();
+                    } else {
+                      bus.keys.add("KeyW");
+                      requestAnimationFrame(() => bus.keys.delete("KeyW"));
+                    }
                   }}
                 />
                 <PilotActionButton

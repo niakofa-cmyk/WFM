@@ -26,6 +26,17 @@ The objective is:
 
 Preserve the current good elements of the flight build. Improve the input architecture rather than replacing working physics or combat systems unnecessarily.
 
+### Current Orbital mobile-control contract
+
+For offline Orbital Combat Lab, the left stick is the propulsion and steering controller:
+
+- Drag upward for forward throttle; drag downward for reverse thrust.
+- Drag left or right to turn with coordinated bank. Diagonal input must turn and propel at once.
+- Keep pitch/aim orientation on the right stick so it remains usable while the left thumb flies.
+- Keep double-tap edge gestures distinct from normal drag: upper/lower taps pulse vertical thrust, left/right taps pulse lateral thrust.
+- The up-arrow action is vertical thrust, not forward propulsion. Do not require a separate forward button.
+- Preserve the existing Rust Disc and live Wing mappings; this Orbital-specific behavior is not a claim that their current controls are identical.
+
 ## 2. AUDIT THE EXISTING IMPLEMENTATION
 
 Inspect:
@@ -94,20 +105,15 @@ A right turn should produce the corresponding rightward behavior.
 
 ### Vertical axis
 
-Implement intuitive upward and downward flight control.
+For offline Orbital Combat Lab, use the left stick's vertical axis for signed propulsion:
 
-For atmospheric flight:
+- Push upward: increase forward throttle.
+- Push downward: apply reverse thrust.
+- Combine vertical propulsion with horizontal steering without cancelling either input.
 
-- Push upward: pitch the nose upward.
-- Push downward: pitch the nose downward.
-- Under propulsion, the aircraft should climb or dive through the flight model.
+Keep pitch/aim orientation on the right stick. Use the left stick's upper/lower double-tap gestures and the up-arrow action for separate vertical translation. Do not silently map the normal up/down drag back to pitch or vertical translation in this Orbital control mode.
 
-For space flight:
-
-- Preserve pitch control.
-- Support independent vertical translation using the vertical-thrust gesture described below.
-
-The same user input architecture should support both modes, while the actual physics behavior remains appropriate to the environment.
+Do not change Rust Disc's existing local flight controls or live Wing's mapping as part of this Orbital-specific adjustment.
 
 ## 5. IMPLEMENT DOUBLE-TAP MANEUVER TRIGGERS
 
@@ -268,6 +274,9 @@ Create automated tests for:
 - Pitch response.
 - Yaw response.
 - Coordinated banking.
+- Forward and reverse throttle from left-stick vertical drag.
+- Simultaneous propulsion and steering on diagonal drag.
+- Vertical ascent action independent of forward/reverse throttle.
 - Double-tap ascent.
 - Double-tap descent.
 - Gesture timing.
@@ -295,7 +304,8 @@ Test:
 
 - Slow precision movement.
 - Rapid directional changes.
-- Continuous upward and downward flight.
+- Continuous forward and reverse throttle from the left stick.
+- Forward thrust while turning on a diagonal stick drag.
 - Double-tap ascent and descent.
 - Coordinated turns.
 - Evasive maneuvers.
@@ -337,7 +347,7 @@ Do not merge to main or deploy to Production without authorization.
 The work is complete when:
 
 1. The left joystick controls the majority of normal flight maneuvers.
-2. The pilot can turn, climb, dive, and maneuver without separate directional buttons.
+2. The pilot can propel forward or in reverse and turn simultaneously without separate forward/reverse buttons.
 3. Double-tap upward triggers a controlled ascent maneuver.
 4. Double-tap downward triggers a controlled descent maneuver.
 5. Coordinated banking feels natural.

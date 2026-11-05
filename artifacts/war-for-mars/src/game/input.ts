@@ -154,7 +154,7 @@ export function readInput(bus: Bus): StepInput {
     (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
     (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
   const orbitalFlightStick = bus.orbital && bus.leftStickFlight
-    ? mapFlightStickAxes(bus.leftX, bus.leftY)
+    ? mapFlightStickAxes(bus.leftX, 0)
     : null;
   const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
   const stickThr = -bus.leftY;
@@ -175,7 +175,9 @@ export function readInput(bus: Bus): StepInput {
     strafe = clamp(keyYaw + stickYaw);
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
-  const throttle = clamp(bus.orbital ? keyThr : keyThr + stickThr);
+  const throttle = clamp(bus.orbital
+    ? keyThr + (bus.leftStickFlight ? stickThr : 0)
+    : keyThr + stickThr);
   const flightPitch = orbitalFlightStick?.pitch ?? 0;
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);

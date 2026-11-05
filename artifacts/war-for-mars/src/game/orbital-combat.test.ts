@@ -34,6 +34,38 @@ test("orbital pitch yaw roll and vertical/lateral translation are real spatial c
   assert.ok(forward.y > 0);
 });
 
+test("unified mobile stick drives forward, reverse and a coordinated turn", () => {
+  const forward = lab();
+  const reverse = lab();
+  const turning = lab();
+  const readStick = (x: number, y: number) => {
+    const bus = createBus("arc");
+    bus.orbital = true;
+    bus.leftStickFlight = true;
+    bus.leftX = x;
+    bus.leftY = y;
+    return readInput(bus);
+  };
+  const forwardInput = readStick(0, -1);
+  const reverseInput = readStick(0, 1);
+  const turningInput = readStick(0.6, -0.8);
+
+  assert.equal(forwardInput.throttle, 1);
+  assert.equal(reverseInput.throttle, -1);
+  assert.ok(turningInput.throttle > 0);
+  assert.notEqual(turningInput.yaw, 0);
+  assert.notEqual(turningInput.roll, 0);
+
+  for (let i = 0; i < 30; i++) {
+    integrateFlight(forward.player, forwardInput, 1 / 60, 1, forward);
+    integrateFlight(reverse.player, reverseInput, 1 / 60, 1, reverse);
+    integrateFlight(turning.player, turningInput, 1 / 60, 1, turning);
+  }
+  assert.ok(forward.player.z < 28, "up-stick thrust advances along the ship's forward axis");
+  assert.ok(reverse.player.z > 28, "down-stick thrust reverses along the ship's forward axis");
+  assert.ok(turning.player.z < 28 && Math.abs(turning.player.x) > 0.01, "diagonal stick input turns while continuing forward");
+});
+
 test("inertia preserves vector while brake dissipates it and boost spends energy", () => {
   const a = lab(); const b = lab();
   a.player.space!.assist = false; b.player.space!.assist = false;

@@ -3,7 +3,7 @@ import test from "node:test";
 import { createBus, pulseVectorManeuver, readInput } from "./input";
 import { pulseForSector } from "./pilot-stick-gestures";
 
-test("offline Orbital left-stick axes match Rust Disc steering, pitch, and coordinated bank", () => {
+test("offline Orbital left stick drives signed forward/reverse throttle and coordinated steering", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftStickFlight = true;
@@ -12,13 +12,14 @@ test("offline Orbital left-stick axes match Rust Disc steering, pitch, and coord
 
   const input = readInput(bus);
   assert.equal(input.yaw, -0.6);
-  assert.equal(input.pitch, 0.4);
+  assert.equal(input.throttle, 0.4);
+  assert.equal(input.pitch, 0);
   assert.equal(input.roll, -0.6 * 0.42);
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
   assert.ok(Math.abs(input.vertical) < Number.EPSILON);
 });
 
-test("Orbital stick double-tap pulses thrust without changing the Rust Disc steering axes", () => {
+test("Orbital stick double-tap adds vertical thrust independently of stick throttle", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftStickFlight = true;
@@ -28,9 +29,32 @@ test("Orbital stick double-tap pulses thrust without changing the Rust Disc stee
   const input = readInput(bus);
 
   assert.equal(input.yaw, -0.25);
-  assert.equal(input.pitch, 0.5);
+  assert.equal(input.throttle, 0.5);
+  assert.equal(input.pitch, 0);
   assert.equal(input.vertical, 1);
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
+});
+
+test("dragging the Orbital stick downward commands reverse thrust", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.leftY = 0.7;
+
+  const input = readInput(bus);
+  assert.equal(input.throttle, -0.7);
+  assert.equal(input.pitch, 0);
+});
+
+test("up-arrow action remains a vertical maneuver, not forward throttle", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.keys.add("KeyC");
+
+  const input = readInput(bus);
+  assert.equal(input.vertical, 1);
+  assert.equal(input.throttle, 0);
 });
 
 test("all four Rust Disc edge double-taps reach the matching Orbital maneuver axis", () => {

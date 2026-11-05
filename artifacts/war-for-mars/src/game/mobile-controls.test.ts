@@ -108,7 +108,7 @@ test("legacy orbital vector axes remain available when unified flight-stick mode
   assert.equal(readInput(bus).vertical, 0);
 });
 
-test("unified orbital left stick controls pitch, yaw and coordinated bank while the right stick can aim", () => {
+test("unified Orbital stick turns and drives throttle while the right stick controls pitch and aim", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftStickFlight = true;
@@ -119,7 +119,8 @@ test("unified orbital left stick controls pitch, yaw and coordinated bank while 
 
   const input = readInput(bus);
   assert.ok(Math.abs(input.yaw - 0.55) < 1e-9);
-  assert.ok(Math.abs(input.pitch - 0.2) < 1e-9);
+  assert.ok(Math.abs(input.throttle - 0.4) < 1e-9);
+  assert.ok(Math.abs(input.pitch + 0.2) < 1e-9);
   assert.ok(Math.abs(input.roll - 0.65 * COORDINATED_BANK) < 1e-9);
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
   assert.ok(Math.abs(input.vertical) < Number.EPSILON);
