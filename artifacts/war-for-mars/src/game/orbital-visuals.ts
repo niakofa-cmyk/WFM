@@ -17,6 +17,16 @@ type HullBlueprint = {
   sensor: "dish" | "mast" | "array" | "radial";
   ring?: "saucer" | "triple" | "split";
 };
+export type HangarInspectionView = "hull" | "engines" | "weapons";
+export type HangarDamageState = "intact" | "field" | "critical";
+export type HangarInspectionEffects = {
+  setDamage: (state: HangarDamageState) => void;
+  update: (view: HangarInspectionView, elapsedMs: number, animate: boolean) => void;
+  dispose: () => void;
+};
+export function shouldAnimateHangarPreview(visible: boolean, documentVisible: boolean, reducedMotion: boolean) {
+  return visible && documentVisible && !reducedMotion;
+}
 
 /**
  * Shared geometry language, individual airframes. Profile entries are
@@ -243,6 +253,10 @@ export function buildOrbitalShip(id: ShipId) {
     group.add(mesh);
     return mesh;
   };
+  const tagDamageGroup = (mesh: THREE.Mesh, groupName: string) => {
+    mesh.userData.hangarDamageGroup = groupName;
+    return mesh;
+  };
 
   const fuse = add("fuselage", makeFuselage(blueprint.profile), body, [0, 0, 0]);
   fuse.userData.silhouette = blueprint.silhouette;
@@ -290,6 +304,7 @@ export function buildOrbitalShip(id: ShipId) {
       if (Math.sign(x || side) !== side) continue;
       const panel = add(side < 0 ? "port-armor-plate" : "starboard-armor-plate", new THREE.BoxGeometry(sx, sy, sz), armor, [x, y, z]);
       panel.rotation.y = side * .12;
+      tagDamageGroup(panel, side < 0 ? "armor-port" : "armor-starboard");
     }
 
     const stripe = add(
@@ -304,29 +319,32 @@ export function buildOrbitalShip(id: ShipId) {
   // Engine count and placement are role-specific: twin, central, distributed,
   // and four-pod escort layouts all remain within the original fighter envelope.
   for (const [index, [x, y, z, radius]] of blueprint.engines.entries()) {
-    const engine = add(`engine-housing-${index + 1}`, new THREE.CylinderGeometry(radius * .78, radius, .64, 10), armor, [x, y, z]);
+    const damageGroup = `engine-${index + 1}`;
+    const engine = tagDamageGroup(add(`engine-housing-${index + 1}`, new THREE.CylinderGeometry(radius * .78, radius, .64, 10), armor, [x, y, z]), damageGroup);
     engine.rotation.x = Math.PI / 2;
-    const collar = add(`engine-collar-${index + 1}`, new THREE.TorusGeometry(radius * .72, .028, 6, 12), trim, [x, y, z - .34]);
-    const exhaust = add(`engine-exhaust-${index + 1}`, new THREE.CircleGeometry(radius * .58, 10), hot, [x, y, z - .35]);
+    const collar = tagDamageGroup(add(`engine-collar-${index + 1}`, new THREE.TorusGeometry(radius * .72, .028, 6, 12), trim, [x, y, z - .34]), damageGroup);
+    const exhaust = tagDamageGroup(add(`engine-exhaust-${index + 1}`, new THREE.CircleGeometry(radius * .58, 10), hot, [x, y, z - .35]), damageGroup);
     exhaust.rotation.y = Math.PI;
     exhaust.name = index === 0 ? "exhaust" : `exhaust-${index + 1}`;
-    const nozzle = add(`engine-nozzle-${index + 1}`, new THREE.SphereGeometry(radius * .38, 8, 6), hot, [x, y, z - .47]);
+    const nozzle = tagDamageGroup(add(`engine-nozzle-${index + 1}`, new THREE.SphereGeometry(radius * .38, 8, 6), hot, [x, y, z - .47]), damageGroup);
     nozzle.scale.z = 1.8;
     collar.userData.engineIndex = index;
   }
 
   for (const [index, [x, y, z]] of blueprint.guns.entries()) {
-    const mount = add(`weapon-hardpoint-${index + 1}`, new THREE.BoxGeometry(.12, .09, .17), armor, [x, y, z - .16]);
+    const damageGroup = `weapon-${index + 1}`;
+    const mount = tagDamageGroup(add(`weapon-hardpoint-${index + 1}`, new THREE.BoxGeometry(.12, .09, .17), armor, [x, y, z - .16]), damageGroup);
     mount.rotation.y = x < 0 ? -.12 : .12;
-    const barrel = add(`primary-cannon-${index + 1}`, new THREE.CylinderGeometry(.034, .058, .48, 8), trim, [x, y, z]);
+    const barrel = tagDamageGroup(add(`primary-cannon-${index + 1}`, new THREE.CylinderGeometry(.034, .058, .48, 8), trim, [x, y, z]), damageGroup);
     barrel.rotation.x = Math.PI / 2;
   }
   for (const [index, [x, y, z]] of blueprint.missiles.entries()) {
-    const rail = add(`missile-rail-${index + 1}`, new THREE.BoxGeometry(.16, .065, .38), armor, [x, y - .08, z]);
+    const damageGroup = `missile-${index + 1}`;
+    const rail = tagDamageGroup(add(`missile-rail-${index + 1}`, new THREE.BoxGeometry(.16, .065, .38), armor, [x, y - .08, z]), damageGroup);
     rail.rotation.y = x < 0 ? -.08 : .08;
-    const missile = add(`missile-round-${index + 1}`, new THREE.CylinderGeometry(.045, .075, .42, 8), trim, [x, y - .16, z + .04]);
+    const missile = tagDamageGroup(add(`missile-round-${index + 1}`, new THREE.CylinderGeometry(.045, .075, .42, 8), trim, [x, y - .16, z + .04]), damageGroup);
     missile.rotation.x = Math.PI / 2;
-    add(`missile-nose-${index + 1}`, new THREE.ConeGeometry(.052, .15, 8), marking, [x, y - .16, z + .325]);
+    tagDamageGroup(add(`missile-nose-${index + 1}`, new THREE.ConeGeometry(.052, .15, 8), marking, [x, y - .16, z + .325]), damageGroup);
   }
 
   // Three unobtrusive docking points make the hull read as a spacecraft, not
@@ -353,6 +371,7 @@ export function buildOrbitalShip(id: ShipId) {
   }
 
   group.userData.asset = `wfm-orbital-${id}`;
+  group.userData.presentationOnly = true;
   group.userData.silhouette = blueprint.silhouette;
   group.userData.faction = ship.faction;
   group.userData.designLanguage = accord ? "accord-energy-forged" : "ussf-modular-military";
@@ -366,6 +385,143 @@ export function buildOrbitalShip(id: ShipId) {
   group.userData.missileDamage = ship.missileDamage;
   group.userData.specialAbility = ship.ultName;
   return group;
+}
+
+/**
+ * Adds hangar-only inspection effects to one presentation model. These meshes
+ * are never shared with the gameplay scene and do not change ship stats or hitboxes.
+ */
+export function createHangarInspectionEffects(model: THREE.Group, factionColor: number): HangarInspectionEffects {
+  const damageableNames = ["engine-housing-1", "primary-cannon-1", "port-armor-plate"];
+  const damageable = damageableNames
+    .map((name) => model.getObjectByName(name))
+    .filter((object): object is THREE.Mesh => object instanceof THREE.Mesh);
+  const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const damagedMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const makeDamagedMaterial = (material: THREE.Material) => {
+    const damaged = material.clone();
+    if (damaged instanceof THREE.MeshStandardMaterial) {
+      damaged.color.lerp(new THREE.Color(0x6e3026), .48);
+      damaged.emissive.set(0x9e2f1d);
+      damaged.emissiveIntensity = Math.max(damaged.emissiveIntensity, .42);
+      damaged.roughness = .78;
+    }
+    return damaged;
+  };
+  for (const mesh of damageable) {
+    const original = mesh.material;
+    originalMaterials.set(mesh, original);
+    damagedMaterials.set(
+      mesh,
+      Array.isArray(original) ? original.map(makeDamagedMaterial) : makeDamagedMaterial(original),
+    );
+  }
+
+  const originalVisibility = new Map<THREE.Object3D, boolean>();
+  const allParts: THREE.Object3D[] = [];
+  model.traverse((object) => {
+    if (!object.userData.hangarDamageGroup) return;
+    allParts.push(object);
+    originalVisibility.set(object, object.visible);
+  });
+
+  const engineSocket = model.getObjectByName("engine-housing-1");
+  const scorch = new THREE.Mesh(
+    new THREE.RingGeometry(.075, .17, 10),
+    new THREE.MeshBasicMaterial({ color: 0xff6848, transparent: true, opacity: .78, depthWrite: false }),
+  );
+  scorch.name = "hangar-inspection-scorch";
+  scorch.userData.presentationOnly = true;
+  if (engineSocket) {
+    scorch.position.copy(engineSocket.position);
+    scorch.position.y += .12;
+  } else {
+    scorch.position.set(-.45, .2, -.8);
+  }
+  scorch.rotation.x = -Math.PI / 2;
+  scorch.visible = false;
+  model.add(scorch);
+
+  model.updateMatrixWorld(true);
+  const cannons: THREE.Mesh[] = [];
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.name.startsWith("primary-cannon-")) cannons.push(object);
+  });
+  const muzzlePositions: number[] = [];
+  for (const cannon of cannons) {
+    const muzzle = cannon.localToWorld(new THREE.Vector3(0, .27, 0));
+    model.worldToLocal(muzzle);
+    muzzlePositions.push(muzzle.x, muzzle.y, muzzle.z);
+  }
+  const flashGeometry = new THREE.BufferGeometry();
+  flashGeometry.setAttribute("position", new THREE.Float32BufferAttribute(muzzlePositions, 3));
+  const flashMaterial = new THREE.PointsMaterial({
+    color: factionColor,
+    size: 8,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const muzzleFlashes = new THREE.Points(flashGeometry, flashMaterial);
+  muzzleFlashes.name = "hangar-weapon-preview-flashes";
+  muzzleFlashes.userData.presentationOnly = true;
+  muzzleFlashes.frustumCulled = false;
+  muzzleFlashes.visible = false;
+  model.add(muzzleFlashes);
+
+  const exhausts: Array<{ mesh: THREE.Mesh; scale: THREE.Vector3 }> = [];
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.name.startsWith("exhaust")) {
+      exhausts.push({ mesh: object, scale: object.scale.clone() });
+    }
+  });
+  const criticalMissingGroups = new Set(["engine-1", "weapon-1", "missile-1", "armor-port"]);
+
+  const setDamage = (state: HangarDamageState) => {
+    for (const [object, visible] of originalVisibility) object.visible = visible;
+    for (const mesh of damageable) {
+      mesh.material = state === "intact" ? originalMaterials.get(mesh)! : damagedMaterials.get(mesh)!;
+    }
+    if (state === "critical") {
+      for (const object of allParts) {
+        if (criticalMissingGroups.has(String(object.userData.hangarDamageGroup))) object.visible = false;
+      }
+      const firstMissile = model.getObjectByName("missile-round-1");
+      const firstNose = model.getObjectByName("missile-nose-1");
+      if (firstMissile) firstMissile.visible = false;
+      if (firstNose) firstNose.visible = false;
+    }
+    scorch.visible = state !== "intact";
+    model.userData.hangarDamageState = state;
+  };
+
+  const update = (view: HangarInspectionView, elapsedMs: number, animate: boolean) => {
+    const clock = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+    const animateEngines = animate && view === "engines";
+    exhausts.forEach(({ mesh, scale }, index) => {
+      const pulse = animateEngines ? .88 + .2 * (.5 + .5 * Math.sin(clock * .007 + index * .55)) : 1;
+      mesh.scale.copy(scale).multiplyScalar(pulse);
+    });
+
+    const phase = clock % 920;
+    const flash = animate && view === "weapons" && phase < 115 ? 1 - phase / 115 : 0;
+    muzzleFlashes.visible = flash > .015;
+    flashMaterial.opacity = flash * .9;
+  };
+  const dispose = () => {
+    setDamage("intact");
+    for (const materials of damagedMaterials.values()) {
+      (Array.isArray(materials) ? materials : [materials]).forEach((material) => material.dispose());
+    }
+  };
+
+  setDamage("intact");
+  update("hull", 0, false);
+  model.userData.hangarInspectionEffectCount = 2;
+  model.userData.hangarWeaponFlashCount = cannons.length;
+  return { setDamage, update, dispose };
 }
 
 function planetTexture() {
