@@ -16,6 +16,7 @@ import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
 import { COORDINATED_BANK, mapFlightStickAxes, MANEUVER_PULSE_DURATION_MS, type ManeuverPulse } from "./pilot-stick-gestures";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
+import { readBrowserHeap, type BrowserHeapReading } from "./local-performance";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
@@ -46,7 +47,7 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
 type ThreeModule = typeof import("./three-flight-runtime");
-type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
+type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null; heap: BrowserHeapReading | null };
 type CombatTargetReadout = {
   name: string; affiliation: string; distance: number; hull: number; maxHull: number;
   lockable: boolean; lockHeld: boolean;
@@ -557,6 +558,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           window: frameWindow,
           scale: adaptiveResolution.currentScale,
           rttMs: expeditionRef.current?.latencyRef.current ?? null,
+          heap: readBrowserHeap(),
         };
         performanceReadoutRef.current = readout;
         if (performanceOpenRef.current) setPerformanceReadout(readout);
@@ -912,6 +914,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
                   <p>{performanceReadout.window.fps.toFixed(0)} FPS · P95 ≈ {performanceReadout.window.p95FrameMs.toFixed(1)} ms</p>
                   <p>LONG FRAMES {performanceReadout.window.longFrameCount}/s · RES {Math.round(performanceReadout.scale * 100)}%</p>
                   <p>NETWORK RTT {net ? performanceReadout.rttMs === null ? "MEASURING" : `${performanceReadout.rttMs} ms` : "LOCAL ONLY"}</p>
+                  <p>JS HEAP {performanceReadout.heap
+                    ? `${(performanceReadout.heap.usedBytes / 1048576).toFixed(1)} / ${(performanceReadout.heap.totalBytes / 1048576).toFixed(1)} MiB`
+                    : "UNAVAILABLE"}</p>
                 </>
               ) : <p>CALIBRATING · 1 SECOND</p>}
             </div>
