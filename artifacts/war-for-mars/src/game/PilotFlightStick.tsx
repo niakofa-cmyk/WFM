@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
 import {
-  CIRCULAR_ROLL_ARM_HOLD_MS,
-  CIRCULAR_ROLL_ARM_MAX_MOVEMENT_PX,
   createCircularGestureTracker,
   updateCircularGesture,
   type CircularGestureTracker,
@@ -30,6 +28,7 @@ type ActiveTouch = {
   maxMovementPx: number;
   circularMode: boolean;
   circularTracker: CircularGestureTracker | null;
+  circularCandidateStarted: boolean;
   circularComplete: boolean;
 };
 
@@ -61,16 +60,11 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
   const disabledRef = useRef(disabled);
   const [feedback, setFeedback] = useState<StickFeedback | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const circularArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   axisCallback.current = onAxis;
   pulseCallback.current = onPulse;
   circularCallback.current = onCircularManeuver;
   disabledRef.current = disabled;
 
-  const clearCircularArmTimer = () => {
-    if (circularArmTimer.current) clearTimeout(circularArmTimer.current);
-    circularArmTimer.current = null;
-  };
   const clearFeedbackTimer = () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
     feedbackTimer.current = null;
@@ -94,7 +88,6 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
   };
 
   const resetVisual = () => {
-    clearCircularArmTimer();
     active.current = null;
     gesture.current = EMPTY_DOUBLE_TAP_STATE;
     sendAxis(0, 0);
@@ -148,7 +141,6 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
   const finish = (pointerId: number, cancelled: boolean) => {
     const touch = active.current;
     if (!touch || touch.pointerId !== pointerId) return;
-    clearCircularArmTimer();
     active.current = null;
     sendAxis(0, 0);
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
@@ -156,10 +148,12 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
     if (touch.circularMode) {
       gesture.current = { ...gesture.current, pending: null };
       if (root.current) delete root.current.dataset.rollGesture;
-      if (!touch.circularComplete) {
-        if (cancelled) setFeedback(null);
-        else showTemporaryFeedback({ kind: "roll-progress", progress: 0, direction: null, rejected: true }, 420);
-      }
+      return;
+    }
+    if (touch.circularCandidateStarted) {
+      gesture.current = { ...gesture.current, pending: null };
+      if (cancelled) setFeedback(null);
+      else showTemporaryFeedback({ kind: "roll-progress", progress: 0, direction: null, rejected: true }, 420);
       return;
     }
     if (cancelled || !isQuickStickTap(Date.now() - touch.startedAt, touch.maxMovementPx, touch.sector)) {
@@ -175,32 +169,10 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
   };
 
   const movementHint = description
-    ? `${label} stick. ${description}${onCircularManeuver ? " Hold still briefly, then draw a full circle for a barrel roll." : ""}`
+    ? `${label} stick. ${description}${onCircularManeuver ? " Draw a full circle for a barrel roll; ordinary dragging still aims." : ""}`
     : onPulse
     ? `${label} stick. Drag to turn and pitch. Double-tap an outer edge for a short vector-thrust pulse.`
-    : `${label} stick. Drag to adjust orientation.${onCircularManeuver ? " Hold still briefly, then draw a full circle for a barrel roll." : ""}`;
-
-  const armCircularGesture = (pointerId: number, rect: DOMRect) => {
-    if (!circularCallback.current) return;
-    clearCircularArmTimer();
-    circularArmTimer.current = setTimeout(() => {
-      circularArmTimer.current = null;
-      const touch = active.current;
-      if (!touch || touch.pointerId !== pointerId || touch.maxMovementPx > CIRCULAR_ROLL_ARM_MAX_MOVEMENT_PX) return;
-      const maxRadiusPx = Math.min(rect.width, rect.height) * 0.34;
-      touch.circularMode = true;
-      touch.circularTracker = createCircularGestureTracker(
-        touch.originX,
-        touch.originY,
-        Date.now(),
-        Math.max(10, maxRadiusPx * 0.35),
-        maxRadiusPx,
-      );
-      if (root.current) root.current.dataset.rollGesture = "tracking";
-      clearFeedbackTimer();
-      setFeedback({ kind: "roll-progress", progress: 0, direction: null, rejected: false });
-    }, CIRCULAR_ROLL_ARM_HOLD_MS);
-  };
+    : `${label} stick. Drag to adjust orientation.${onCircularManeuver ? " Draw a full circle for a barrel roll; ordinary dragging still aims." : ""}`;
 
   const updateCircular = (touch: ActiveTouch, clientX: number, clientY: number) => {
     if (!touch.circularTracker) return;
@@ -208,18 +180,35 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
     touch.circularTracker = update.tracker;
     if (update.completed) {
       touch.circularComplete = true;
+      touch.circularMode = true;
       touch.circularTracker = null;
       if (root.current) root.current.dataset.rollGesture = update.completed;
       circularCallback.current?.(update.completed === "clockwise" ? 1 : -1);
       showTemporaryFeedback({ kind: "roll-command", direction: update.completed }, 720);
       return;
     }
-    if (update.rejected && root.current) root.current.dataset.rollGesture = "rejected";
+    if (update.rejected) {
+      touch.circularTracker = null;
+      if (touch.circularCandidateStarted) {
+        if (root.current) root.current.dataset.rollGesture = "rejected";
+        showTemporaryFeedback({
+          kind: "roll-progress",
+          progress: update.progress,
+          direction: update.direction,
+          rejected: true,
+        }, 420);
+      }
+      return;
+    }
+    if (!update.direction || update.progress < 0.04) return;
+    touch.circularCandidateStarted = true;
+    if (root.current) root.current.dataset.rollGesture = "tracking";
+    clearFeedbackTimer();
     setFeedback({
       kind: "roll-progress",
       progress: update.progress,
       direction: update.direction,
-      rejected: update.rejected,
+      rejected: false,
     });
   };
 
@@ -238,6 +227,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
         delete event.currentTarget.dataset.recenter;
         const rect = event.currentTarget.getBoundingClientRect();
         event.currentTarget.setPointerCapture(event.pointerId);
+        const maxRadiusPx = Math.min(rect.width, rect.height) * 0.34;
         active.current = {
           pointerId: event.pointerId,
           originX: event.clientX,
@@ -248,11 +238,19 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
           sector: stickSectorAt(event.clientX - rect.left, event.clientY - rect.top, rect.width, rect.height),
           maxMovementPx: 0,
           circularMode: false,
-          circularTracker: null,
+          circularTracker: circularCallback.current
+            ? createCircularGestureTracker(
+              event.clientX,
+              event.clientY,
+              Date.now(),
+              Math.max(8, maxRadiusPx * 0.25),
+              maxRadiusPx,
+            )
+            : null,
+          circularCandidateStarted: false,
           circularComplete: false,
         };
         sendAxis(0, 0);
-        armCircularGesture(event.pointerId, rect);
       }}
       onPointerMove={(event) => {
         const touch = active.current;
@@ -264,11 +262,10 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
         if (touch.maxMovementPx > STICK_TAP_MAX_MOVEMENT_PX) {
           gesture.current = { ...gesture.current, pending: null };
         }
-        if (touch.circularMode) {
+        if (touch.circularTracker) {
           updateCircular(touch, event.clientX, event.clientY);
-          return;
         }
-        if (touch.maxMovementPx > CIRCULAR_ROLL_ARM_MAX_MOVEMENT_PX) clearCircularArmTimer();
+        if (touch.circularMode) return;
         updateAxis(event.clientX, event.clientY);
       }}
       onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false); }}

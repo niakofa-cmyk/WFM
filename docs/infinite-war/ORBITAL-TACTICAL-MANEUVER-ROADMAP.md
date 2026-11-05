@@ -18,8 +18,10 @@ The user's full source documents and supplied roll illustration are retained at:
 
 - Only the offline unified Orbital right aim stick enables this gesture.
 - Ordinary aiming begins immediately when the player starts dragging.
-- A stationary hold of about 180 ms arms a temporary circle-capture mode.
-- A smooth 300–360 degree circle issues one typed, versioned barrel-roll intent;
+- A smooth, continuous 300–360 degree circle issues one typed, versioned
+  barrel-roll intent; no stationary hold or mode switch is required.
+- The aim stick continues updating aim while the circle is in progress; after
+  the roll commits, a visible cue confirms its direction.
   clockwise requests a right roll and counterclockwise a left roll.
 - The simulation rotates the ship's quaternion over time and applies a brief
   lateral thrust phase. This is movement, not a camera/model-only animation.
@@ -40,12 +42,18 @@ The user's full source documents and supplied roll illustration are retained at:
   cost, cooldown, insufficient energy, and ignoring a second command while active.
 - Input boundary: unit-tested for one-shot offline consumption and omission from
   the server-authoritative sector adapter.
-- Physical Android gesture feel and frame pacing: not yet verified on-device.
+- On 2026-11-05, the user supplied a 60-second development-preview frame sample
+  at 803×360 CSS pixels and DPR 3: 76 average FPS, 17 ms p95 and 25 ms p99
+  intervals, 2 of 4,552 frames over 50 ms, and no gaps over 250 ms. This is
+  requestAnimationFrame cadence, not GPU timing or Production evidence.
+- The user reported that the first hold-then-circle implementation did not
+  trigger. It has been replaced with direct circle recognition and a persistent
+  cue; retest the revised gesture on Android.
 
 ## Next stages
 
-1. Verify the hold-circle gesture, simultaneous left-stick flight and fire, and
-   abort behavior on an Android phone in landscape.
+1. Verify the direct-circle gesture, simultaneous left-stick flight and fire, and
+   abort behavior on Android in landscape.
 2. Add a right-stick directional evasive gesture only after testing that it does
    not interfere with ordinary aiming.
 3. Add additional maneuvers and any online support only through a new,
