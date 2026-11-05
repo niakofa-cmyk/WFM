@@ -3,6 +3,7 @@ import {
   canAcquireSectorTarget,
   createSectorFlight,
   NEUTRAL_SECTOR_FLIGHT_INPUT,
+  ORBITAL_RUNTIME_ID,
   removeHostileSectorProjectilesInPlace,
   sectorFlightForward,
   sectorFlightObjective,
@@ -83,7 +84,7 @@ export function stepFlight(
   input: FlightInput,
   seconds: number,
   sector: FlightSector = RUST_DISC_SECTOR,
-  runtime: FlightMotionRuntime = "sector-motion-v1",
+  runtime: FlightMotionRuntime = ORBITAL_RUNTIME_ID,
 ): void {
   stepSectorFlight(state, input, seconds, sector, SHIPS[state.shipId], runtime);
 }

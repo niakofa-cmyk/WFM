@@ -32,6 +32,22 @@ test("Orbital stick double-tap pulses thrust without changing the Rust Disc stee
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
 });
 
+test("Orbital countermeasure button is consumed as one action pulse", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.countermeasureEnabled = true;
+  bus.countermeasurePulse = true;
+  assert.equal(readInput(bus).countermeasure, true);
+  assert.equal(readInput(bus).countermeasure, false);
+});
+
+test("campaign-compatible Orbital input omits the new training-only countermeasure field", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.countermeasurePulse = true;
+  assert.equal(readInput(bus).countermeasure, undefined);
+});
+
 test("live Wing keeps its existing non-Orbital movement mapping", () => {
   const bus = createBus("arc");
   bus.leftX = 0.5;

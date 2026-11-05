@@ -16,6 +16,7 @@ export type Bus = {
   ultPulse: boolean;
   lockPulse: boolean;
   missilePulse: boolean;
+  countermeasurePulse: boolean;
   inertialPulse: boolean;
   aimAssistPulse: boolean;
   evadePulse: number;
@@ -30,6 +31,8 @@ export type Bus = {
   orbital?: boolean;
   /** The offline Orbital Combat Lab touch mapping; live Wing retains its proven input contract. */
   leftStickFlight?: boolean;
+  /** Countermeasures are enabled only where the active runtime contract supports them. */
+  countermeasureEnabled?: boolean;
   verticalPulse: number;
   strafePulse: number;
   pulseTimers: { vertical: ReturnType<typeof setTimeout> | null; strafe: ReturnType<typeof setTimeout> | null };
@@ -50,6 +53,7 @@ export function createBus(scheme: Scheme): Bus {
     ultPulse: false,
     lockPulse: false,
     missilePulse: false,
+    countermeasurePulse: false,
     inertialPulse: false,
     aimAssistPulse: false,
     evadePulse: 0,
@@ -86,6 +90,7 @@ export function clearInput(bus: Bus) {
   bus.ultPulse = false;
   bus.lockPulse = false;
   bus.missilePulse = false;
+  bus.countermeasurePulse = false;
   bus.inertialPulse = false;
   bus.aimAssistPulse = false;
   bus.evadePulse = 0;
@@ -201,9 +206,11 @@ export function readInput(bus: Bus): StepInput {
     const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
     const inertial = bus.inertialPulse || pulse("KeyG");
     const missile = bus.missilePulse || pulse("KeyM");
+    const countermeasure = bus.countermeasurePulse;
     const aimAssist = bus.aimAssistPulse || pulse("KeyH");
     bus.inertialPulse = false;
     bus.missilePulse = false;
+    bus.countermeasurePulse = false;
     bus.aimAssistPulse = false;
     const controls = {
       throttle, yaw,
@@ -213,11 +220,12 @@ export function readInput(bus: Bus): StepInput {
       vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
-      drift: keys.has("KeyT"), inertial, missile, aimAssist,
+      drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
     };
     const result = bus.leftStickFlight
       ? toOrbitalPilotStepInput(controls)
       : toOrbitalStepInput(controls);
+    if (!bus.countermeasureEnabled) delete result.countermeasure;
     bus.lastKeys = new Set(keys);
     return result;
   }

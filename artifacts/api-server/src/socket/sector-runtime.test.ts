@@ -3,7 +3,8 @@ import test from "node:test";
 import { WebSocket } from "ws";
 import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
 import { sectorFlightEnabled } from "./sector-feature";
-import { NEUTRAL_FLIGHT_INPUT, stepFlight, type FlightInput, type FlightState } from "../game/flight-sector";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, createFlight, stepFlight, type FlightInput, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import { validSectorCompletion } from "../game/sector-completion";
 import type { SectorProgress, SectorSnapshot } from "../game/sector-missions";
@@ -44,6 +45,19 @@ test("3D inputs exclude forged coordinates, results, identities, unknown buttons
     { ...NEUTRAL_FLIGHT_INPUT, strafe: 2 },
     { ...NEUTRAL_FLIGHT_INPUT, vertical: Number.NaN },
   ]) assert.equal(parseSectorInput(value), null);
+});
+test("server sector wrapper defaults to the same deterministic Orbital flight used by local Rust Disc", () => {
+  const serverDefault = createFlight("glide");
+  const canonical = createFlight("glide");
+  const explicitLegacy = createFlight("glide");
+  const input = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, pitch: 0.15, strafe: 0.35, vertical: 0.25 };
+  for (let i = 0; i < 90; i++) {
+    stepFlight(serverDefault, input, 1 / 60);
+    stepFlight(canonical, input, 1 / 60, RUST_DISC_SECTOR, ORBITAL_RUNTIME_ID);
+    stepFlight(explicitLegacy, input, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
+  }
+  assert.deepEqual(serverDefault, canonical);
+  assert.notDeepEqual(serverDefault.position, explicitLegacy.position);
 });
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {
   const runtime = createSectorRuntime({});

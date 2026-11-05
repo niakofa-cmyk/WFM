@@ -96,6 +96,7 @@ export function toOrbitalStepInput(value: Partial<FlightControlFrame>): StepInpu
     drift: input.drift,
     inertial: input.inertial,
     missile: input.missile,
+    countermeasure: input.countermeasure,
     aimAssist: input.aimAssist,
   };
 }

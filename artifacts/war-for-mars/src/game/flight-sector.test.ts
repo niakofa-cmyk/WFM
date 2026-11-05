@@ -93,14 +93,18 @@ test("the canonical Orbital runtime preserves Rust Disc flight, objectives, and 
   assert.ok(vectorLength(edge.position) <= 72.000001, "sector boundary enforcement remains active after shared movement");
 });
 
-test("server compatibility flight retains its legacy default while local Rust Disc explicitly selects Orbital", async () => {
+test("sector flight defaults to Orbital; the old motion model remains opt-in compatibility", async () => {
   const implicit = createFlight();
-  const explicit = createFlight();
+  const canonical = createFlight();
+  const legacy = createFlight();
+  const input = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2, pitch: 0.1, strafe: 0.2, vertical: 0.1 };
   for (let i = 0; i < 60; i++) {
-    stepFlight(implicit, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2 }, 1 / 60);
-    stepFlight(explicit, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2 }, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
+    stepFlight(implicit, input, 1 / 60);
+    stepFlight(canonical, input, 1 / 60, RUST_DISC_SECTOR, ORBITAL_RUNTIME_ID);
+    stepFlight(legacy, input, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
   }
-  assert.deepEqual(implicit, explicit);
+  assert.deepEqual(implicit, canonical, "the default sector adapter must use the shared Orbital runtime");
+  assert.notDeepEqual(implicit.position, legacy.position, "legacy physics must require an explicit compatibility selection");
 
   const ui = await readFile(new URL("./RustDiscFlight.tsx", import.meta.url), "utf8");
   assert.match(ui, /createOrbitalRuntime\(getGameModeDefinition\("rust-disc-local"\)\)/);

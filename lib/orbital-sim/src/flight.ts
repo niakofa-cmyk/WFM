@@ -12,7 +12,7 @@ export type OrbitalFlight = {
   energy: number; assist: boolean; armor: number; armorMax: number;
   lockProgress: number; lockTargetId: number | null; missileCd: number; ammo: number; aimAssist: boolean;
 };
-export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; aimAssist?: boolean };
+export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; countermeasure?: boolean; aimAssist?: boolean };
 export type FlightControls = FlightInput & { throttle: number; yaw: number; strafe: number; pitch: number };
 export type Rock = { x: number; z: number; r: number; y?: number };
 export type FlightTuning = { turnRate: number; handling: number; accel: number; maxSpeed: number };

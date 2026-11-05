@@ -67,7 +67,7 @@ export type Match = {
 
 export type StepInput = FlightInput & {
   throttle: number; yaw: number; strafe: number; pitch: number; fire: boolean; ult: boolean;
-  lock: boolean; evade: number; preset: PresetId | null;
+  lock: boolean; evade: number; preset: PresetId | null; countermeasure?: boolean;
 };
 
 export type MatchSetup = {

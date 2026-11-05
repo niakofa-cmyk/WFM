@@ -4,7 +4,7 @@ import { integrateFlight, newFlight, rotate } from "./orbital-flight";
 import { distance3, guideMissile, launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
 import type { Craft, Match, StepInput } from "./sim";
 
-const IDLE: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
+const IDLE: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null, countermeasure: false };
 type Services = {
   hurt: (match: Match, craft: Craft, damage: number, fromX?: number, fromZ?: number) => boolean;
   tickTimers: (craft: Craft, dt: number) => void;
@@ -68,6 +68,17 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
     integrateFlight(craft, played, dt, 1, match);
     updateAcquisition(match, craft, dt);
     if (played.missile) launchMissile(match, craft);
+    if (craft.id === player.id && played.countermeasure) {
+      let removed = false;
+      for (let i = match.bullets.length - 1; i >= 0; i--) {
+        const bullet = match.bullets[i]!;
+        if (bullet.faction !== player.faction && bullet.missile) {
+          match.bullets.splice(i, 1);
+          removed = true;
+        }
+      }
+      if (removed) match.fx.push({ k: "flare", x: player.x, z: player.z, yaw: player.yaw });
+    }
     if (played.fire && craft.fireCd <= 0 && craft.root <= 0 && match.bullets.length < 110) {
       const def = SHIPS[craft.ship];
       craft.fireCd = def.fireInterval;

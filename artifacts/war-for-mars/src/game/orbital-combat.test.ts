@@ -115,12 +115,28 @@ test("representative target, acquire, pulse, missile, damage and destruction loo
 
 test("orbital input pulses are edge triggered and clear on focus loss", () => {
   const bus = createBus("arc"); bus.orbital = true;
+  bus.countermeasureEnabled = true;
   bus.keys = new Set(["KeyM", "KeyG", "KeyH", "KeyC", "KeyQ"]);
+  bus.countermeasurePulse = true;
   const first = readInput(bus); const second = readInput(bus);
   assert.equal(first.missile, true); assert.equal(second.missile, false);
+  assert.equal(first.countermeasure, true); assert.equal(second.countermeasure, false);
   assert.equal(first.inertial, true); assert.equal(second.inertial, false);
   assert.equal(first.vertical, 1); assert.equal(first.roll, 1);
   clearInput(bus); assert.equal(readInput(bus).vertical, 0);
+});
+
+test("Orbital countermeasures clear hostile guided missiles but preserve other projectiles", () => {
+  const match = lab();
+  match.bullets.push(
+    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true },
+    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: null, own: false, missile: false },
+    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "ussf", r: 0.4, homeId: match.player.id, own: true, missile: true },
+  );
+  step(match, { ...idle, countermeasure: true }, 1 / 60);
+  assert.equal(match.bullets.length, 2);
+  assert.ok(match.bullets.every((bullet) => !(bullet.faction === "accord" && bullet.missile)));
+  assert.ok(match.fx.some((fx) => fx.k === "flare"));
 });
 
 test("mobile vector-thrust axes produce lateral and vertical Orbital movement", () => {
