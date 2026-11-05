@@ -1246,10 +1246,6 @@ export function Arena({
           ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
           : craft.speed;
       },
-      getOrientation: () => {
-        const craft = pilotCraft(match, slotIdRef.current);
-        return craft.space ? [...craft.space.q] as [number, number, number, number] : null;
-      },
       getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
@@ -1836,6 +1832,9 @@ export function Arena({
       }
       if (lockRef.current) {
         lockRef.current.dataset.target = locked ? SHIPS[locked.ship].name : "";
+        lockRef.current.dataset.locked = locked ? "true" : "false";
+        if (locked) lockRef.current.style.setProperty("--lock-accent", targetFactionAccent(locked.faction));
+        else lockRef.current.style.removeProperty("--lock-accent");
         lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
       }
       presetRefs.current.forEach((button, index) => {

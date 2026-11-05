@@ -31,6 +31,7 @@
 .pilot-target-status[data-critical=true]{border-color:#ff3630;box-shadow:inset 2px 0 0 #ff3630,0 0 12px #ff363044}
 .pilot-target-status[data-critical=true] [data-testid=target-hull-bar]{filter:drop-shadow(0 0 3px #ff3630)}
 .pilot-target-status[data-critical=true] [data-testid=target-hull-value]{color:#ff655e}
+.pilot-action-button[data-locked=true]{border-color:var(--lock-accent,#69c2ff);color:var(--lock-accent,#69c2ff);background:color-mix(in srgb,var(--lock-accent,#69c2ff) 18%,rgba(10,13,19,.72))}
 .pilot-pause-backdrop{background:rgba(5,7,12,.8);backdrop-filter:blur(7px)}
 .pilot-pause-panel{width:min(100%,34rem);max-height:calc(100dvh - 2rem);overflow:auto;padding:1.25rem;border:1px solid rgba(224,161,90,.55);background:rgba(13,17,24,.96)}
 .pilot-menu-primary,.pilot-menu-setting{min-height:44px;padding:.65rem .8rem;border:1px solid rgba(230,225,214,.22);background:rgba(230,225,214,.04);color:#e6e1d6;font:10px/1.3 monospace;letter-spacing:.16em}
