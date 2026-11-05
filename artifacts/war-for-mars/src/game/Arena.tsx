@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, pulseVectorManeuver, readInput, type Bus } from "./input";
+import { clearInput, createBus, pulseBarrelRoll, pulseVectorManeuver, readInput, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -2096,7 +2096,9 @@ export function Arena({
                 </div>
               </div>
               <div className="relative">
-                <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onAxis={(x, y) => {
+                <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onCircularManeuver={(direction) => {
+                  if (bus) pulseBarrelRoll(bus, direction);
+                }} onAxis={(x, y) => {
                   if (!bus) return;
                   bus.rightX = x;
                   bus.rightY = y;

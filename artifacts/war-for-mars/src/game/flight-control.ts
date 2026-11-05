@@ -1,5 +1,6 @@
 import type { FlightInput as SectorFlightInput } from "./flight-sector";
 import type { StepInput } from "./sim";
+import type { TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
 
 /**
  * Mode-neutral pilot intent. Physics/runtime adapters are responsible for
@@ -21,6 +22,7 @@ export type FlightControlFrame = {
   drift: boolean;
   inertial: boolean;
   aimAssist: boolean;
+  maneuver?: TacticalManeuverIntentV1;
 };
 
 const NEUTRAL: FlightControlFrame = {
@@ -53,6 +55,11 @@ export function normalizeFlightControls(value: Partial<FlightControlFrame>): Fli
     drift: value.drift === true,
     inertial: value.inertial === true,
     aimAssist: value.aimAssist === true,
+    ...(value.maneuver?.version === 1 &&
+      value.maneuver.kind === "barrel-roll" &&
+      (value.maneuver.direction === "left" || value.maneuver.direction === "right")
+      ? { maneuver: value.maneuver }
+      : {}),
   };
 }
 
@@ -98,6 +105,7 @@ export function toOrbitalStepInput(value: Partial<FlightControlFrame>): StepInpu
     missile: input.missile,
     countermeasure: input.countermeasure,
     aimAssist: input.aimAssist,
+    ...(input.maneuver ? { maneuver: input.maneuver } : {}),
   };
 }
 

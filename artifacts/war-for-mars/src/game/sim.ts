@@ -1,6 +1,7 @@
 import { otherFaction, PRESET_PIPS, refitMul, ROSTER, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 import type { FlightInput, OrbitalFlight } from "./orbital-flight";
+import type { TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
 import { armorSpill } from "./orbital-damage";
 import { stepOrbital } from "./orbital-sim";
 
@@ -68,6 +69,7 @@ export type Match = {
 export type StepInput = FlightInput & {
   throttle: number; yaw: number; strafe: number; pitch: number; fire: boolean; ult: boolean;
   lock: boolean; evade: number; preset: PresetId | null; countermeasure?: boolean;
+  maneuver?: TacticalManeuverIntentV1;
 };
 
 export type MatchSetup = {

@@ -80,6 +80,55 @@ test("inertia preserves vector while brake dissipates it and boost spends energy
   assert.ok(a.player.space!.vz < 0);
 });
 
+test("tactical barrel roll changes quaternion and trajectory with bounded energy and cooldown", () => {
+  const match = lab();
+  const pilot = match.player;
+  const space = pilot.space!;
+  const startEnergy = space.energy;
+  step(match, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll", direction: "right" },
+  }, 1 / 30);
+
+  assert.ok(space.maneuverRollRemaining > 0 && space.maneuverRollRemaining < Math.PI * 2);
+  assert.ok(space.maneuverCooldown > 0);
+  assert.ok(space.energy < startEnergy);
+  assert.ok(space.vx > 0, "roll command applies a bounded lateral evasive thrust");
+  const inProgressQuaternion = [...space.q];
+  assert.ok(Math.abs(inProgressQuaternion[2]!) > 0.01);
+
+  for (let i = 0; i < 180 && space.maneuverRollRemaining !== 0; i++) {
+    step(match, idle, 1 / 30);
+  }
+  assert.equal(space.maneuverRollRemaining, 0);
+  assert.ok(Math.abs(Math.hypot(...space.q) - 1) < 1e-12);
+  assert.ok(Math.abs(space.vx) > 0.01, "the roll leaves a real changed flight trajectory");
+});
+
+test("barrel roll rejects insufficient energy and ignores a second intent while active", () => {
+  const match = lab();
+  const space = match.player.space!;
+  space.energy = 12;
+  step(match, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll", direction: "left" },
+  }, 1 / 30);
+  assert.equal(space.maneuverRollRemaining, 0);
+
+  space.energy = 100;
+  step(match, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll", direction: "right" },
+  }, 1 / 30);
+  const remaining = space.maneuverRollRemaining;
+  step(match, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll", direction: "left" },
+  }, 1 / 30);
+  assert.ok(space.maneuverRollRemaining > 0);
+  assert.ok(space.maneuverRollRemaining < remaining);
+});
+
 test("vector drift from Rust Disc keeps orbital momentum while the pilot turns", () => {
   const drift = lab(); const normal = lab();
   for (const match of [drift, normal]) {

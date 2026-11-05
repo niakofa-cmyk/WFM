@@ -17,6 +17,7 @@ export type Bus = {
   lockPulse: boolean;
   missilePulse: boolean;
   countermeasurePulse: boolean;
+  barrelRollPulse: "left" | "right" | null;
   inertialPulse: boolean;
   aimAssistPulse: boolean;
   evadePulse: number;
@@ -54,6 +55,7 @@ export function createBus(scheme: Scheme): Bus {
     lockPulse: false,
     missilePulse: false,
     countermeasurePulse: false,
+    barrelRollPulse: null,
     inertialPulse: false,
     aimAssistPulse: false,
     evadePulse: 0,
@@ -91,6 +93,7 @@ export function clearInput(bus: Bus) {
   bus.lockPulse = false;
   bus.missilePulse = false;
   bus.countermeasurePulse = false;
+  bus.barrelRollPulse = null;
   bus.inertialPulse = false;
   bus.aimAssistPulse = false;
   bus.evadePulse = 0;
@@ -114,6 +117,12 @@ export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs =
     else bus.strafePulse = 0;
     bus.pulseTimers[pulse.axis] = null;
   }, Math.max(1, durationMs));
+}
+
+/** Tactical circles are accepted only on the offline unified Orbital pilot adapter. */
+export function pulseBarrelRoll(bus: Bus, direction: -1 | 1) {
+  if (!bus.orbital || !bus.leftStickFlight) return;
+  bus.barrelRollPulse = direction > 0 ? "right" : "left";
 }
 
 function clamp(n: number): number {
@@ -223,7 +232,11 @@ export function readInput(bus: Bus): StepInput {
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
+      ...(bus.leftStickFlight && bus.barrelRollPulse
+        ? { maneuver: { version: 1 as const, kind: "barrel-roll" as const, direction: bus.barrelRollPulse } }
+        : {}),
     };
+    if (bus.leftStickFlight) bus.barrelRollPulse = null;
     const result = bus.leftStickFlight
       ? toOrbitalPilotStepInput(controls)
       : toOrbitalStepInput(controls);

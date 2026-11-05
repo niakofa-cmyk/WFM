@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createBus, pulseVectorManeuver, readInput } from "./input";
+import { clearInput, createBus, pulseBarrelRoll, pulseVectorManeuver, readInput } from "./input";
 import { pulseForSector } from "./pilot-stick-gestures";
 
 test("offline Orbital left stick drives signed forward/reverse throttle and coordinated steering", () => {
@@ -74,6 +74,24 @@ test("all four Rust Disc edge double-taps reach the matching Orbital maneuver ax
     assert.ok(Math.abs(input.vertical - expectedVertical) < Number.EPSILON, `${sector} vertical thrust`);
     assert.ok(Math.abs(input.strafe - expectedStrafe) < Number.EPSILON, `${sector} lateral thrust after adapter sign conversion`);
   }
+});
+
+test("barrel-roll gesture becomes one offline Orbital intent and is excluded from online input", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  pulseBarrelRoll(bus, 1);
+  assert.deepEqual(readInput(bus).maneuver, { version: 1, kind: "barrel-roll", direction: "right" });
+  assert.equal(readInput(bus).maneuver, undefined);
+
+  bus.barrelRollPulse = "left";
+  clearInput(bus);
+  assert.equal(readInput(bus).maneuver, undefined);
+
+  const online = createBus("arc");
+  online.orbital = true;
+  pulseBarrelRoll(online, -1);
+  assert.equal(readInput(online).maneuver, undefined);
 });
 
 test("Orbital countermeasure button is consumed as one action pulse", () => {

@@ -15,9 +15,10 @@ test("shared flight controls clamp axes and reject non-finite input", () => {
 });
 
 test("mode adapters preserve compatible controls and make unsupported legacy behavior explicit", () => {
+  const maneuver = { version: 1 as const, kind: "barrel-roll" as const, direction: "right" as const };
   const sector = toSectorFlightInput({
     throttle: -0.6, yaw: 0.2, strafe: -0.4, vertical: 0.7,
-    fire: true, missile: true, countermeasure: true,
+    fire: true, missile: true, countermeasure: true, maneuver,
   });
   assert.equal(sector.throttle, 0);
   assert.equal(sector.brake, true);
@@ -26,10 +27,11 @@ test("mode adapters preserve compatible controls and make unsupported legacy beh
   assert.equal(sector.fire, true);
   assert.equal(sector.missile, true);
   assert.equal(sector.countermeasure, true);
+  assert.equal("maneuver" in sector, false);
 
   const orbital = toOrbitalStepInput({
     throttle: -0.5, yaw: 0.2, roll: -0.3, strafe: 0.6, vertical: 0.4,
-    boost: true, brake: true, drift: true, inertial: true, missile: true, aimAssist: true,
+    boost: true, brake: true, drift: true, inertial: true, missile: true, aimAssist: true, maneuver,
   });
   assert.equal(orbital.throttle, -0.5);
   assert.equal(orbital.yaw, 0.2);
@@ -40,6 +42,7 @@ test("mode adapters preserve compatible controls and make unsupported legacy beh
   assert.equal(orbital.inertial, true);
   assert.equal(orbital.missile, true);
   assert.equal(orbital.aimAssist, true);
+  assert.deepEqual(orbital.maneuver, maneuver);
 });
 
 test("Rust Disc pilot convention is adapted only at the canonical Orbital control boundary", () => {

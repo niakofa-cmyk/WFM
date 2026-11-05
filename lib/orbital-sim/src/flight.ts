@@ -7,13 +7,23 @@ export const MISSILE_RANGE = 65;
 export const LOCK_SECONDS = 1.25;
 export const PROJECTILE_LIMIT = 110;
 export type Quaternion = [number, number, number, number];
+export type TacticalManeuverIntentV1 = {
+  version: 1;
+  kind: "barrel-roll";
+  direction: "left" | "right";
+};
 export type OrbitalFlight = {
   y: number; vx: number; vy: number; vz: number; q: Quaternion;
   energy: number; assist: boolean; armor: number; armorMax: number;
   lockProgress: number; lockTargetId: number | null; missileCd: number; ammo: number; aimAssist: boolean;
+  maneuverRollRemaining: number; maneuverCooldown: number;
 };
 export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; countermeasure?: boolean; aimAssist?: boolean };
-export type FlightControls = FlightInput & { throttle: number; yaw: number; strafe: number; pitch: number };
+export type FlightControls = FlightInput & {
+  throttle: number; yaw: number; strafe: number; pitch: number;
+  /** Local Orbital intent only; network adapters intentionally do not forward it. */
+  maneuver?: TacticalManeuverIntentV1;
+};
 export type Rock = { x: number; z: number; r: number; y?: number };
 export type FlightTuning = { turnRate: number; handling: number; accel: number; maxSpeed: number };
 export type FlightWorld = { boundaryRadius?: number | null };
@@ -28,7 +38,13 @@ export type SpatialBullet = {
   life: number; dmg: number; r: number; homeId: number | null; missile?: boolean;
 };
 export function newFlight(yaw = 0): OrbitalFlight {
-  return { y: 0, vx: 0, vy: 0, vz: 0, q: [0, detSin(yaw / 2), 0, detCos(yaw / 2)], energy: 100, assist: true, armor: 40, armorMax: 40, lockProgress: 0, lockTargetId: null, missileCd: 0, ammo: 8, aimAssist: true };
+  return {
+    y: 0, vx: 0, vy: 0, vz: 0,
+    q: [0, detSin(yaw / 2), 0, detCos(yaw / 2)],
+    energy: 100, assist: true, armor: 40, armorMax: 40,
+    lockProgress: 0, lockTargetId: null, missileCd: 0, ammo: 8, aimAssist: true,
+    maneuverRollRemaining: 0, maneuverCooldown: 0,
+  };
 }
 export function rotate(q: Quaternion, x: number, y: number, z: number) {
   const [qx, qy, qz, qw] = q;
@@ -58,14 +74,47 @@ export function integrateSpatialFlight(
   if (input.aimAssist) s.aimAssist = !s.aimAssist;
   const disrupted = craft.root > 0 || craft.jam > 0;
   const rate = def.turnRate * def.handling * (disrupted ? .35 : 1);
+  s.maneuverCooldown = Math.max(0, s.maneuverCooldown - dt);
+  const maneuver = input.maneuver;
+  const validRollIntent = maneuver?.version === 1 &&
+    maneuver.kind === "barrel-roll" &&
+    (maneuver.direction === "left" || maneuver.direction === "right");
+  if (
+    validRollIntent &&
+    s.maneuverRollRemaining === 0 &&
+    s.maneuverCooldown <= 0 &&
+    s.energy >= 18 &&
+    !disrupted
+  ) {
+    const direction = maneuver.direction === "right" ? 1 : -1;
+    s.maneuverRollRemaining = direction * 2 * Math.PI;
+    s.maneuverCooldown = 2.8;
+    s.energy = Math.max(0, s.energy - 18);
+  }
+  if (
+    s.maneuverRollRemaining !== 0 &&
+    Math.abs(input.roll ?? 0) > .85 &&
+    Math.sign(input.roll ?? 0) !== Math.sign(s.maneuverRollRemaining)
+  ) {
+    s.maneuverRollRemaining = 0;
+  }
+  const rollDirection = Math.sign(s.maneuverRollRemaining);
+  const rollRemaining = Math.abs(s.maneuverRollRemaining);
+  const rollProgress = 1 - rollRemaining / (2 * Math.PI);
+  const maneuverRollRate = Math.min(7.5, rate * 1.7);
+  const maneuverRollStep = Math.min(rollRemaining, maneuverRollRate * dt);
   s.q = turn(s.q, 0, 1, 0, clamp(input.yaw) * rate * dt);
   s.q = turn(s.q, 1, 0, 0, clamp(input.pitch) * rate * dt);
-  s.q = turn(s.q, 0, 0, 1, clamp(input.roll ?? 0) * rate * dt);
+  s.q = turn(s.q, 0, 0, 1, clamp(input.roll ?? 0) * rate * dt + rollDirection * maneuverRollStep);
+  if (rollDirection !== 0) {
+    s.maneuverRollRemaining = rollDirection * Math.max(0, rollRemaining - maneuverRollStep);
+  }
   const f = rotate(s.q, 0, 0, -1);
   craft.yaw = detAtan2(-f.x, -f.z); craft.pitch = detAtan2(f.y, detHypot(f.x, f.z)); craft.steer = input.yaw;
   const boosting = !disrupted && (input.boost || craft.boost > 0) && s.energy > .1;
   s.energy = Math.max(0, Math.min(100, s.energy + (boosting ? -28 : 15) * dt));
-  const thrust = rotate(s.q, -clamp(input.strafe), clamp(input.vertical ?? 0), -clamp(input.throttle));
+  const evasiveStrafe = rollDirection !== 0 && rollProgress < .34 ? -rollDirection * .68 : 0;
+  const thrust = rotate(s.q, -clamp(input.strafe + evasiveStrafe), clamp(input.vertical ?? 0), -clamp(input.throttle));
   const engineCondition = .55 + .45 * Math.max(0, craft.hull / craft.hullMax);
   const acceleration = disrupted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
   const length = Math.max(1, detHypot(detHypot(thrust.x, thrust.y), thrust.z));
