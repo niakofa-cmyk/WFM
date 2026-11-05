@@ -24,6 +24,20 @@ export const ORBITAL_ABILITY_COST: Record<ShipAbilityId, number> = {
 };
 
 type AbilityServices = { hurt: (match: Match, craft: Craft, damage: number, fromX?: number, fromZ?: number) => boolean };
+export type OrbitalAbilityBlockReason = "disabled" | "cooldown" | "energy";
+export function orbitalAbilityAvailability(craft: Craft) {
+  const energy = craft.space?.energy ?? 0;
+  const energyCost = ORBITAL_ABILITY_COST[SHIPS[craft.ship].ability];
+  const reason: OrbitalAbilityBlockReason | null = !craft.space || !craft.alive
+    ? "disabled"
+    : craft.ultCd > 0
+      ? "cooldown"
+      : energy < energyCost
+        ? "energy"
+        : null;
+  return { ready: reason === null, reason, energy, energyCost, cooldownSeconds: Math.max(0, craft.ultCd) };
+}
+
 const clamp = (value: number, low = -1, high = 1) => Math.max(low, Math.min(high, value));
 const opposing = (match: Match, craft: Craft) => craft.team === "foe" ? [match.player, ...match.allies] : match.enemies;
 const friendlies = (match: Match, craft: Craft) => craft.team === "foe" ? match.enemies : [match.player, ...match.allies];
@@ -48,7 +62,15 @@ function pushEffect(match: Match, effect: Match["fx"][number]) {
 export function activateOrbitalAbility(match: Match, craft: Craft, services: AbilityServices) {
   const space = craft.space;
   const definition = SHIPS[craft.ship];
-  if (!space || !craft.alive || craft.ultCd > 0 || space.energy < ORBITAL_ABILITY_COST[definition.ability]) return false;
+  if (!space || !orbitalAbilityAvailability(craft).ready) return false;
+
+  const quantumTarget = definition.ability === "quantum-lock"
+    ? craft.lockTargetId == null
+      ? nearestForwardTarget(match, craft, 58, 0.68)
+      : opposing(match, craft).find((target) =>
+        target.id === craft.lockTargetId && target.alive && inFront(match, craft, target, 58, 0.68))
+    : undefined;
+  if (definition.ability === "quantum-lock" && !quantumTarget) return false;
 
   const swarmTargets = definition.ability === "phantom-swarm"
     ? opposing(match, craft)
@@ -94,14 +116,10 @@ export function activateOrbitalAbility(match: Match, craft: Craft, services: Abi
       pushEffect(match, { k: "emp", x: craft.x, y: space.y, z: craft.z });
       break;
     case "quantum-lock": {
-      const target = (craft.lockTargetId == null
-        ? nearestForwardTarget(match, craft, 58, 0.68)
-        : opposing(match, craft).find((candidate) => candidate.id === craft.lockTargetId && candidate.alive));
-      if (target) {
-        craft.lockTargetId = target.id;
-        space.lockTargetId = target.id;
-        space.lockProgress = Math.max(space.lockProgress, 0.65);
-      }
+      const target = quantumTarget!;
+      craft.lockTargetId = target.id;
+      space.lockTargetId = target.id;
+      space.lockProgress = Math.max(space.lockProgress, 0.65);
       craft.dmgMul = 1.5;
       craft.dmgMulT = 3.2;
       pushEffect(match, { k: "mark", x: target?.x ?? craft.x, y: target?.space?.y ?? space.y, z: target?.z ?? craft.z });
@@ -117,6 +135,7 @@ export function activateOrbitalAbility(match: Match, craft: Craft, services: Abi
     case "ring-split":
       for (const target of opposing(match, craft)) {
         if (!target.alive || distance3(craft, target) > 42) continue;
+        target.jam = Math.max(target.jam, 2);
         target.lockTargetId = null;
         if (target.space) {
           target.space.lockTargetId = null;

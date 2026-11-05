@@ -20,6 +20,7 @@ import type { TechId } from "./campaign";
 import { battlefieldProfile } from "./battlefield";
 import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
+import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
@@ -1919,10 +1920,27 @@ export function Arena({
           : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
       }
       if (ultRef.current) {
-        const cooldown = player.ultCd > 0.05 ? `${player.ultCd.toFixed(1)}s` : ship.ultShort;
+        const availability = orbital ? orbitalAbilityAvailability(player) : null;
+        const coolingDown = player.ultCd > 0.05;
+        const energyBlocked = availability?.reason === "energy";
+        const cooldown = coolingDown ? `${player.ultCd.toFixed(1)}s` : ship.ultShort;
         const badge = ultRef.current.querySelector(".pilot-action-badge");
-        if (badge) badge.textContent = cooldown;
-        ultRef.current.setAttribute("aria-label", player.ultCd > 0.05 ? `${ship.ultShort} cooling down ${cooldown}` : ship.ultShort);
+        if (badge) badge.textContent = coolingDown ? cooldown : energyBlocked ? "LOW E" : ship.ultShort;
+        if (availability) {
+          ultRef.current.disabled = !availability.ready;
+          const label = availability.reason === "cooldown"
+            ? `${ship.ultShort} cooling down ${availability.cooldownSeconds.toFixed(1)} seconds`
+            : availability.reason === "energy"
+              ? `${ship.ultShort} unavailable: requires ${availability.energyCost} energy; ${Math.floor(availability.energy)} available`
+              : availability.reason === "disabled"
+                ? `${ship.ultShort} unavailable while pilot is disabled`
+                : ship.ultShort;
+          ultRef.current.setAttribute("aria-label", label);
+          ultRef.current.title = label;
+        } else {
+          ultRef.current.setAttribute("aria-label", coolingDown ? `${ship.ultShort} cooling down ${cooldown}` : ship.ultShort);
+          ultRef.current.title = ship.ultShort;
+        }
       }
       if (lockRef.current) {
         lockRef.current.dataset.target = locked ? SHIPS[locked.ship].name : "";

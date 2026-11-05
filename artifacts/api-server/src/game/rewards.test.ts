@@ -129,8 +129,9 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
   } as const;
   const inputs = [];
   for (let frame = 0; frame < 120 * 60 && !match.over; frame += 1) {
-    step(match, input, 1 / 60);
-    inputs.push(input);
+    const played = frame === 0 ? { ...input, ult: true } : input;
+    step(match, played, 1 / 60);
+    inputs.push(played);
   }
   assert.equal(match.over, "win");
 

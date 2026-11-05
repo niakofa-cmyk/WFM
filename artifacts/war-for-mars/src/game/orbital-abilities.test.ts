@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activateOrbitalAbility, advanceOrbitalAbility, ORBITAL_ABILITY_COST, processOrbitalAbility } from "./orbital-abilities";
+import {
+  activateOrbitalAbility,
+  advanceOrbitalAbility,
+  orbitalAbilityAvailability,
+  ORBITAL_ABILITY_COST,
+  processOrbitalAbility,
+} from "./orbital-abilities";
 import { launchMissile, updateAcquisition } from "./orbital-weapons";
-import { createMatch } from "./sim";
+import { createMatch, step, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
 
@@ -29,6 +35,20 @@ const hurt = (_match: ReturnType<typeof matchFor>, target: ReturnType<typeof mat
   target.shield -= absorbed;
   target.hull -= damage - absorbed;
   return true;
+};
+const idle: StepInput = {
+  throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false,
+  lock: false, evade: 0, preset: null,
+};
+const ORIGINAL_ABILITY_FX: Record<string, string> = {
+  mandjet: "flare",
+  shakuna: "dive",
+  sundara: "cloak",
+  tripura: "emp",
+  duskbreaker: "mark",
+  sentinel: "guard",
+  splitter: "jam",
+  glide: "ram",
 };
 
 test("every original and specialist ship activates its distinct, energy-bounded Orbital ability", () => {
@@ -86,6 +106,84 @@ test("original Orbital abilities change spatial combat state, including thrust-o
   const reentry = matchFor("glide");
   activateOrbitalAbility(reentry, reentry.player, { hurt });
   assert.ok(reentry.player.untargetable > 0 && reentry.player.boost > 0);
+});
+
+test("the eight original ability buttons execute through step() with deterministic costs, cooldowns, and feedback", () => {
+  for (const [id, expectedFx] of Object.entries(ORIGINAL_ABILITY_FX) as Array<[ShipId, string]>) {
+    const first = matchFor(id);
+    const second = matchFor(id);
+    for (const craft of [...first.allies, ...first.enemies, ...second.allies, ...second.enemies]) {
+      craft.ultCd = 60;
+    }
+    const energyBefore = first.player.space!.energy;
+    step(first, { ...idle, ult: true }, 1 / 60);
+    step(second, { ...idle, ult: true }, 1 / 60);
+    assert.equal(first.player.ultCd, SHIPS[id].ultCd, `${id} cooldown is started by the canonical runtime`);
+    assert.ok(
+      energyBefore - first.player.space!.energy >= ORBITAL_ABILITY_COST[SHIPS[id].ability] - 0.5,
+      `${id} spends its energy through step()`,
+    );
+    assert.ok(first.fx.some((effect) => effect.k === expectedFx), `${id} presents ${expectedFx} feedback`);
+    assert.deepEqual(
+      { player: first.player, allies: first.allies, enemies: first.enemies, bullets: first.bullets, fx: first.fx },
+      { player: second.player, allies: second.allies, enemies: second.enemies, bullets: second.bullets, fx: second.fx },
+      `${id} ability replay is deterministic`,
+    );
+  }
+});
+
+test("Orbital abilities preserve cooldown and energy when unavailable or target validation fails", () => {
+  const lowEnergy = matchFor("mandjet");
+  lowEnergy.player.space!.energy = ORBITAL_ABILITY_COST[SHIPS.mandjet.ability] - 5;
+  assert.deepEqual(orbitalAbilityAvailability(lowEnergy.player), {
+    ready: false,
+    reason: "energy",
+    energy: ORBITAL_ABILITY_COST[SHIPS.mandjet.ability] - 5,
+    energyCost: ORBITAL_ABILITY_COST[SHIPS.mandjet.ability],
+    cooldownSeconds: 0,
+  });
+  assert.equal(activateOrbitalAbility(lowEnergy, lowEnergy.player, { hurt }), false);
+  assert.equal(lowEnergy.player.ultCd, 0);
+  assert.equal(lowEnergy.player.space!.energy, ORBITAL_ABILITY_COST[SHIPS.mandjet.ability] - 5);
+  assert.equal(lowEnergy.fx.length, 0);
+
+  const cooling = matchFor("sentinel");
+  cooling.player.ultCd = 0.5;
+  assert.equal(orbitalAbilityAvailability(cooling.player).reason, "cooldown");
+  const energyBefore = cooling.player.space!.energy;
+  assert.equal(activateOrbitalAbility(cooling, cooling.player, { hurt }), false);
+  assert.equal(cooling.player.ultCd, 0.5);
+  assert.equal(cooling.player.space!.energy, energyBefore);
+  assert.equal(cooling.fx.length, 0);
+
+  const occludedLock = matchFor("duskbreaker");
+  const target = occludedLock.enemies[0]!;
+  occludedLock.player.lockTargetId = target.id;
+  occludedLock.player.space!.lockTargetId = target.id;
+  occludedLock.rocks = [{ x: 0, z: 22, r: 3 }];
+  const validEnergy = occludedLock.player.space!.energy;
+  assert.equal(activateOrbitalAbility(occludedLock, occludedLock.player, { hurt }), false);
+  assert.equal(occludedLock.player.ultCd, 0);
+  assert.equal(occludedLock.player.space!.energy, validEnergy);
+  assert.equal(occludedLock.player.dmgMulT, 0);
+
+  const planar = createMatch("mandjet", "accord", 0);
+  assert.equal(orbitalAbilityAvailability(planar.player).reason, "disabled");
+});
+
+test("Ring Split jams hostile acquisition so AI cannot immediately reacquire its cleared lock", () => {
+  const match = matchFor("splitter");
+  const target = match.enemies[0]!;
+  target.lockTargetId = match.player.id;
+  target.space!.lockTargetId = match.player.id;
+  target.space!.lockProgress = 1;
+  for (const enemy of match.enemies) enemy.ultCd = 60;
+
+  step(match, { ...idle, ult: true }, 1 / 60);
+
+  assert.ok(target.jam > 0);
+  assert.equal(target.space!.lockProgress, 0);
+  assert.equal(match.player.space!.lockProgress, 0);
 });
 
 test("specialist Orbital abilities affect flight, fire, missiles, support, and electronic warfare", () => {
