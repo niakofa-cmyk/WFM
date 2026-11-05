@@ -10,13 +10,13 @@ import { RustDiscFlight, type ExpeditionTransport } from "./RustDiscFlight";
 import { RoundTripProbe } from "./flight-performance";
 import type { FlightInput } from "./flight-sector";
 import {
-  SECTOR_MISSIONS, sectorMission,
+  ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION, sectorMission,
   type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
   isTerminalClose, isTerminalError, isValidRoomCode, missionLockState, missionNumber, normalizeRoomCode,
-  parseSectorSnapshot, sectorSocketUrl, slotLabel, type MissionLock,
+  parseSectorSnapshot, sectorClientProtocolVersion, sectorSocketUrl, slotLabel, type MissionLock,
 } from "./sector-client";
 import { parseExpeditionMission } from "./sector-navigation";
 
@@ -29,6 +29,9 @@ import { parseExpeditionMission } from "./sector-navigation";
 const ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
   VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
+const PROTOCOL_VERSION = sectorClientProtocolVersion({
+  VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
 });
 const HANDSHAKE_TIMEOUT_MS = 8000;
 
@@ -206,11 +209,20 @@ function ExpeditionClient() {
       if (packet.type === "authenticated") {
         if (authedRef.current) return;
         authedRef.current = true;
-        send({ type: "sector_join", version: 1, shipId: session.shipId, publicListing: session.publicListing });
+        const join: SectorClientPacket = {
+          type: "sector_join",
+          version: PROTOCOL_VERSION,
+          shipId: session.shipId,
+          publicListing: session.publicListing,
+          ...(PROTOCOL_VERSION === SECTOR_ORBITAL_PROTOCOL_VERSION
+            ? { simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT }
+            : {}),
+        };
+        send(join);
         return;
       }
       if (packet.type === "sector_snapshot") {
-        const snap = parseSectorSnapshot(packet);
+        const snap = parseSectorSnapshot(packet, PROTOCOL_VERSION);
         if (!snap) { fail("The expedition server sent an incompatible snapshot. Reload to update the client."); return; }
         gotSnapshot = true;
         handleSnapshot(snap);

@@ -1,7 +1,20 @@
+import {
+  ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  SECTOR_COMPAT_PROTOCOL_VERSION,
+  SECTOR_ORBITAL_PROTOCOL_VERSION,
+  type SectorProtocolVersion,
+  type SectorSimulationContract,
+} from "@workspace/orbital-sim";
 import { RUST_DISC_SECTOR, type FlightSector, type FlightState, type FlightInput, type Vector3 } from "./flight-sector";
 import type { ShipId } from "./ships";
 
-export const SECTOR_PROTOCOL_VERSION = 1;
+export {
+  ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  SECTOR_COMPAT_PROTOCOL_VERSION,
+  SECTOR_ORBITAL_PROTOCOL_VERSION,
+};
+export type { SectorProtocolVersion, SectorSimulationContract } from "@workspace/orbital-sim";
+export const SECTOR_PROTOCOL_VERSION = SECTOR_COMPAT_PROTOCOL_VERSION;
 export const SECTOR_STEP = 1 / 60;
 export const SECTOR_MARS = { position: { x: 0, y: -700, z: -1800 }, radius: 600 };
 export type SectorMissionId = "rust-disc" | "mars-approach" | "pale-beacons" | "iron-eclipse";
@@ -102,16 +115,20 @@ export type SectorTacticalCommand =
   | { order: "attack"; target: "drone"; targetSlot: null; issuedBySlot: number; issuedAtTick: number }
   | { order: "defend" | "escort" | "regroup"; target: "pilot"; targetSlot: number; issuedBySlot: number; issuedAtTick: number };
 export type SectorSnapshot = {
-  type: "sector_snapshot"; version: 1; roomCode: string; missionId: SectorMissionId;
+  type: "sector_snapshot"; version: SectorProtocolVersion; roomCode: string; missionId: SectorMissionId;
   phase: "lobby" | "active" | "complete" | "interrupted" | "failed"; tick: number;
   ownSlot: number; hostSlot: number; pilots: SectorPilotSnapshot[];
   progress: SectorProgress; settlement: SectorSettlement;
+  simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;
   operation?: IronEclipseSnapshot;
 };
 export type SectorClientPacket =
-  | { type: "sector_join"; version: 1; shipId: ShipId; publicListing?: boolean }
+  | {
+      type: "sector_join"; version: SectorProtocolVersion; shipId: ShipId; publicListing?: boolean;
+      simulation?: SectorSimulationContract;
+    }
   | { type: "sector_ready"; ready: boolean }
   | { type: "sector_launch" }
   | { type: "sector_input"; seq: number; input: FlightInput }

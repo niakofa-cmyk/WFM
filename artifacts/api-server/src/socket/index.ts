@@ -3,7 +3,7 @@ import { parseSocketOrigins } from "./origin-policy";
 import { createClerkSessionVerifier } from "./clerk-session-verifier";
 import { resolveClerkIssuer } from "./clerk-issuer-policy";
 import { getSocketFeatureReadiness } from "./reward-config";
-import { sectorFlightEnabled } from "./sector-feature";
+import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -34,10 +34,12 @@ const {
   casualAiQueueEnabled,
   wingRewardsEnabled,
 } = featureReadiness;
+const sectorWireProtocolVersion = sectorProtocolVersion(process.env);
 process.stdout.write(
   `${JSON.stringify({
     event: "socket_feature_readiness",
     ...featureReadiness,
+    sectorWireProtocolVersion,
   })}\n`,
 );
 const settleWingMatch = wingRewardsEnabled
@@ -83,6 +85,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableWingRewards: wingRewardsEnabled,
   settleWingMatch,
   enableSectorFlight,
+  sectorProtocolVersion: sectorWireProtocolVersion,
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,

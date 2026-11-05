@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
-import { sectorMission, type SectorProgress } from "../game/sector-missions";
+import { sectorMission, type SectorProgress, type SectorProtocolVersion } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
   createWing,
@@ -118,6 +118,7 @@ export async function startWingSocketServer(
     enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
     enableSectorFlight?: boolean;
+    sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
     isAtCinderRing?: (userId: string) => Promise<boolean>;
@@ -148,6 +149,7 @@ export async function startWingSocketServer(
     settle: options.settleSectorDiscovery,
     isAtCinderRing: options.isAtCinderRing,
     publishOperation: options.publishSectorOperation,
+    protocolVersion: options.sectorProtocolVersion,
   });
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();

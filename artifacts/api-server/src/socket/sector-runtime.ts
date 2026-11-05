@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
-import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import {
+  isOrbitalSectorSimulationContract,
+  ORBITAL_RUNTIME_ID,
+  ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  SECTOR_ORBITAL_PROTOCOL_VERSION,
+} from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "../game/ships";
 import { createFlight, stepFlight, removeHostileProjectilesInPlace, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
-  type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId,
+  type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId, type SectorProtocolVersion,
+  SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
 import {
@@ -41,6 +47,8 @@ type Options = {
   settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
   isAtCinderRing?: (userId: string) => Promise<boolean>;
   publishOperation?: (state: SectorOperationPresence) => Promise<void>;
+  /** Selected by deployment configuration, never by a client-supplied field. */
+  protocolVersion?: SectorProtocolVersion;
   /** Trusted dependency seam for tests; runtime always uses stepFlight. */
   physics?: typeof stepFlight;
 };
@@ -115,6 +123,7 @@ function send(socket: WebSocket | null, value: unknown) {
   socket.send(JSON.stringify(value));
 }
 export function createSectorRuntime(options: Options) {
+  const protocolVersion = options.protocolVersion ?? SECTOR_PROTOCOL_VERSION;
   const rooms = new Map<string, Room>();
   const seats = new Map<WebSocket, { room: Room; pilot: Pilot }>();
   const loading = new Set<WebSocket>();
@@ -151,7 +160,10 @@ export function createSectorRuntime(options: Options) {
   function publish(room: Room) {
     for (const own of room.pilots) {
       const snapshot: SectorSnapshot = {
-        type: "sector_snapshot", version: 1, roomCode: room.code, missionId: room.mission.id,
+        type: "sector_snapshot", version: protocolVersion, roomCode: room.code, missionId: room.mission.id,
+        ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+          ? { simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT }
+          : {}),
         phase: room.phase, tick: room.tick, ownSlot: own.slot, hostSlot: room.hostSlot,
         capabilities: {
           vectorDrift: true,
@@ -204,8 +216,15 @@ export function createSectorRuntime(options: Options) {
     if (closed) { error("server_restart"); return; }
     if (packet.type === "sector_join") {
       if (seats.has(socket) || loading.has(socket)) { error("already_joined"); return; }
-      if (packet.version !== 1) { error("sector_version_mismatch"); return; }
-      if (Object.keys(packet).some(key => !["type", "version", "shipId", "publicListing"].includes(key)) ||
+      if (packet.version !== protocolVersion) { error("sector_version_mismatch"); return; }
+      if (protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION &&
+          !isOrbitalSectorSimulationContract(packet.simulation)) {
+        error("sector_simulation_mismatch"); return;
+      }
+      if (Object.keys(packet).some(key => ![
+        "type", "version", "shipId", "publicListing",
+        ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION ? ["simulation"] : []),
+      ].includes(key)) ||
           (packet.publicListing !== undefined && typeof packet.publicListing !== "boolean")) { error("invalid_sector_join"); return; }
       const mission = sectorMission(missionId);
       if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||

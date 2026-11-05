@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
-import { sectorFlightEnabled } from "./sector-feature";
-import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
+import {
+  ORBITAL_RUNTIME_ID, ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_ORBITAL_PROTOCOL_VERSION,
+} from "@workspace/orbital-sim";
 import { NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, createFlight, stepFlight, type FlightInput, type FlightState } from "../game/flight-sector";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import { validSectorCompletion } from "../game/sector-completion";
@@ -26,6 +28,19 @@ test("new sector feature fails closed in Production and rejects ambiguous declar
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production", WFM_SECTOR_FLIGHT_ENABLED: "true" }), true);
   assert.equal(sectorFlightEnabled({ NODE_ENV: "development" }), true);
   assert.equal(sectorFlightEnabled({ NODE_ENV: "development", WFM_SECTOR_FLIGHT_ENABLED: "false" }), false);
+});
+test("Orbital sector protocol requires an explicit paired deployment opt-in", () => {
+  assert.equal(sectorProtocolVersion({ NODE_ENV: "development" }), 1);
+  assert.equal(sectorProtocolVersion({
+    NODE_ENV: "development", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true",
+  }), 2);
+  assert.equal(sectorProtocolVersion({
+    NODE_ENV: "production", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true",
+  }), 1, "the new protocol cannot bypass the production sector feature gate");
+  assert.equal(sectorProtocolVersion({
+    NODE_ENV: "production", WFM_SECTOR_FLIGHT_ENABLED: "true",
+    WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "TRUE",
+  }), 1, "ambiguous opt-in values remain on the compatibility contract");
 });
 test("3D inputs exclude forged coordinates, results, identities, unknown buttons and non-finite axes", () => {
   assert.ok(parseSectorInput(NEUTRAL_FLIGHT_INPUT));
@@ -58,6 +73,61 @@ test("server sector wrapper defaults to the same deterministic Orbital flight us
   }
   assert.deepEqual(serverDefault, canonical);
   assert.notDeepEqual(serverDefault.position, explicitLegacy.position);
+});
+test("Orbital protocol handshake pins the server session to the canonical simulation contract", async () => {
+  const runtime = createSectorRuntime({ protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION });
+  const client = socket(), wing = socket();
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room",
+    { type: "sector_join", version: 1, shipId: "glide" }, 0);
+  assert.equal(client.packets.at(-1).reason, "sector_version_mismatch");
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room",
+    { type: "sector_join", version: 2, shipId: "glide" }, 1);
+  assert.equal(client.packets.at(-1).reason, "sector_simulation_mismatch");
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room",
+    {
+      type: "sector_join", version: 2, shipId: "glide",
+      simulation: { ...ORBITAL_SECTOR_SIMULATION_CONTRACT, rulesVersion: 99 },
+    }, 2);
+  assert.equal(client.packets.at(-1).reason, "sector_simulation_mismatch");
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room",
+    {
+      type: "sector_join", version: 2, shipId: "glide",
+      simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+    }, 3);
+  assert.equal(client.latest().version, 2);
+  assert.deepEqual(client.latest().simulation, ORBITAL_SECTOR_SIMULATION_CONTRACT);
+  assert.equal(client.latest().pilots.length, 1);
+  await runtime.handle(wing.ws, "pilot-v2-wing", "rust-disc", "orbital-v2-room",
+    {
+      type: "sector_join", version: 2, shipId: "mandjet",
+      simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+    }, 4);
+  for (const [pilot, user, time] of [[client, "pilot-v2", 5], [wing, "pilot-v2-wing", 6]] as const) {
+    await runtime.handle(pilot.ws, user, "rust-disc", "orbital-v2-room",
+      { type: "sector_ready", ready: true }, time);
+  }
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room",
+    { type: "sector_launch" }, 7);
+  const startingPositions = new Map(client.latest().pilots.map(pilot => [pilot.slot, { ...pilot.flight.position }]));
+  await runtime.handle(client.ws, "pilot-v2", "rust-disc", "orbital-v2-room", {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, strafe: 0.8, vertical: 0.7 },
+  }, 8);
+  await runtime.handle(wing.ws, "pilot-v2-wing", "rust-disc", "orbital-v2-room", {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, strafe: -0.7, vertical: -0.6 },
+  }, 8);
+  runtime.advance(8);
+  for (let time = 25; time <= 178; time += 17) runtime.advance(time);
+  const final = client.latest();
+  const hostState = final.pilots.find(pilot => pilot.slot === 0)!;
+  const wingState = final.pilots.find(pilot => pilot.slot === 1)!;
+  assert.ok(hostState.flight.position.x > startingPositions.get(0)!.x);
+  assert.ok(hostState.flight.position.y > startingPositions.get(0)!.y);
+  assert.ok(wingState.flight.position.x < startingPositions.get(1)!.x);
+  assert.ok(wingState.flight.position.y < startingPositions.get(1)!.y);
+  assert.deepEqual(final.pilots, wing.latest().pilots, "the host and wing receive identical server-owned state");
+  assert.equal(final.version, SECTOR_ORBITAL_PROTOCOL_VERSION);
+  assert.deepEqual(final.simulation, ORBITAL_SECTOR_SIMULATION_CONTRACT);
+  await runtime.close();
 });
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {
   const runtime = createSectorRuntime({});
