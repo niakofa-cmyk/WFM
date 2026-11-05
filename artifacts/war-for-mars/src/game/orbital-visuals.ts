@@ -7,6 +7,7 @@ type EngineMount = readonly [number, number, number, number];
 type ArmorPanel = readonly [number, number, number, number, number, number];
 type HullBlueprint = {
   silhouette: string;
+  cockpit: readonly [number, number, number, number, number, number];
   profile: readonly (readonly [number, number, number])[];
   wing: readonly (readonly [number, number])[];
   engines: readonly EngineMount[];
@@ -14,7 +15,7 @@ type HullBlueprint = {
   missiles: readonly Vec3Tuple[];
   armor: readonly ArmorPanel[];
   sensor: "dish" | "mast" | "array" | "radial";
-  ring?: "triple" | "split";
+  ring?: "saucer" | "triple" | "split";
 };
 
 /**
@@ -25,17 +26,19 @@ type HullBlueprint = {
 const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   mandjet: {
     silhouette: "armored-vanguard",
+    cockpit: [0, .22, .24, 1.25, .82, 1.1],
     profile: [[-1.4, .26, .28], [-1.02, .52, .39], [-.48, .66, .43], [.18, .67, .4], [.82, .52, .31], [1.34, .3, .23], [1.68, .018, .025]],
-    wing: [[.28, .55], [.9, .78], [2.04, .48], [1.92, -.64], [1.38, -1.04], [.32, -.58]],
-    engines: [[-.46, -.06, -.98, .25], [.46, -.06, -.98, .25], [0, .08, -1.12, .18]],
+    wing: [[.28, .4], [.94, .54], [1.58, .34], [1.46, -.4], [.96, -.55], [.3, -.38]],
+    engines: [[-.58, -.06, -.82, .21], [.58, -.06, -.82, .21], [-.28, .04, -1.08, .16], [.28, .04, -1.08, .16]],
     guns: [[-.48, -.14, .45], [.48, -.14, .45]], missiles: [[-.98, -.18, -.36], [.98, -.18, -.36]],
     armor: [[-.38, .29, .18, .34, .08, .34], [.38, .29, .18, .34, .08, .34], [-.84, .09, -.14, .38, .06, .28], [.84, .09, -.14, .38, .06, .28]],
-    sensor: "array",
+    sensor: "radial", ring: "saucer",
   },
   shakuna: {
     silhouette: "needle-interceptor",
+    cockpit: [0, .16, .72, .58, .62, 1.9],
     profile: [[-1.42, .12, .13], [-1.04, .22, .18], [-.34, .31, .23], [.42, .25, .18], [1.04, .14, .11], [1.6, .012, .02]],
-    wing: [[.23, .74], [1.68, .48], [1.16, -.92], [.75, -.7], [.25, -.16]],
+    wing: [[.22, .82], [.72, .48], [1.92, .56], [1.32, -.92], [.82, -.58], [.26, -.12]],
     engines: [[-.3, -.02, -1.04, .155], [.3, -.02, -1.04, .155]],
     guns: [[-.34, -.08, .5], [.34, -.08, .5]], missiles: [[-.87, -.14, -.27], [.87, -.14, -.27]],
     armor: [[-.3, .18, .16, .2, .05, .33], [.3, .18, .16, .2, .05, .33]],
@@ -43,8 +46,9 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   sundara: {
     silhouette: "stealth-strike-wing",
+    cockpit: [0, .16, .88, .58, .48, 1.7],
     profile: [[-1.48, .2, .17], [-1.02, .45, .31], [-.4, .56, .35], [.28, .48, .29], [.94, .32, .2], [1.5, .024, .035]],
-    wing: [[.26, .48], [1.48, .68], [1.92, .08], [1.64, -.78], [1.03, -.94], [.27, -.43]],
+    wing: [[.24, .52], [.62, .39], [1.62, .54], [1.95, .1], [1.54, -.42], [.82, -.7], [.25, -.38]],
     engines: [[-.62, -.1, -.86, .22], [.62, -.1, -.86, .22]],
     guns: [[-.43, -.15, .44], [.43, -.15, .44], [0, .08, .82]], missiles: [[-.82, -.18, -.38], [-.35, -.2, -.58], [.35, -.2, -.58], [.82, -.18, -.38]],
     armor: [[-.32, .28, -.02, .28, .07, .42], [.32, .28, -.02, .28, .07, .42], [0, -.24, -.55, .72, .1, .34]],
@@ -52,6 +56,7 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   tripura: {
     silhouette: "trinity-ring-support",
+    cockpit: [0, .25, .5, 1.05, .76, 1.35],
     profile: [[-1.34, .2, .19], [-.96, .4, .29], [-.38, .54, .3], [.12, .45, .26], [.78, .32, .2], [1.46, .018, .025]],
     wing: [[.24, .48], [1.34, .82], [1.72, .28], [1.32, -.62], [.86, -.82], [.24, -.48]],
     engines: [[-.55, -.2, -.82, .13], [.55, -.2, -.82, .13], [-.55, .2, -.82, .13], [.55, .2, -.82, .13]],
@@ -61,6 +66,7 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   duskbreaker: {
     silhouette: "precision-dart",
+    cockpit: [0, .2, .74, .72, .65, 1.8],
     profile: [[-1.4, .17, .16], [-1.02, .31, .24], [-.42, .4, .29], [.22, .34, .24], [.92, .22, .16], [1.58, .014, .024]],
     wing: [[.22, .74], [.82, .36], [1.68, -.76], [.98, -.56], [.3, -.25]],
     engines: [[-.35, -.04, -1.02, .18], [.35, -.04, -1.02, .18]],
@@ -70,6 +76,7 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   sentinel: {
     silhouette: "armored-escort-wing",
+    cockpit: [0, .27, .56, 1.32, .82, 1.28],
     profile: [[-1.35, .28, .25], [-.98, .5, .37], [-.38, .58, .42], [.3, .57, .38], [.84, .42, .29], [1.42, .17, .15], [1.65, .014, .02]],
     wing: [[.3, .56], [1.18, 1.02], [1.92, .72], [1.82, -.65], [1.14, -1.04], [.3, -.58]],
     engines: [[-.72, -.08, -.88, .18], [.72, -.08, -.88, .18], [-.72, .17, -.67, .12], [.72, .17, -.67, .12]],
@@ -80,6 +87,7 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   splitter: {
     silhouette: "split-ring-hunter",
+    cockpit: [0, .22, .65, .8, .68, 1.45],
     profile: [[-1.34, .18, .17], [-.96, .32, .25], [-.34, .43, .29], [.24, .39, .26], [.92, .22, .16], [1.48, .018, .024]],
     wing: [[.24, .45], [1.38, .72], [1.88, .02], [1.42, -.72], [.88, -.82], [.24, -.44]],
     engines: [[0, -.04, -1.08, .23], [-.86, -.1, -.56, .11], [.86, -.1, -.56, .11]],
@@ -89,6 +97,7 @@ const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
   },
   glide: {
     silhouette: "swept-raider",
+    cockpit: [0, .17, .82, .6, .52, 1.82],
     profile: [[-1.5, .12, .13], [-1.04, .22, .18], [-.46, .29, .21], [.18, .28, .18], [.88, .17, .12], [1.56, .012, .02]],
     wing: [[.21, .82], [1.94, .3], [1.18, -1.18], [.68, -.82], [.22, -.31]],
     engines: [[-.3, -.02, -1.05, .145], [.3, -.02, -1.05, .145]],
@@ -156,8 +165,9 @@ export function buildOrbitalShip(id: ShipId) {
   fuse.userData.silhouette = blueprint.silhouette;
 
   // The cockpit, sensor fit and stern structure vary with each airframe.
-  const canopy = add("cockpit-canopy", new THREE.SphereGeometry(.23, 12, 8), glass, [0, .2, .69]);
-  canopy.scale.set(ship.role === "Support" || ship.role === "Vanguard" ? 1.18 : .78, .7, 1.75);
+  const [cockpitX, cockpitY, cockpitZ, canopyX, canopyY, canopyZ] = blueprint.cockpit;
+  const canopy = add("cockpit-canopy", new THREE.SphereGeometry(.23, 12, 8), glass, [cockpitX, cockpitY, cockpitZ]);
+  canopy.scale.set(canopyX, canopyY, canopyZ);
   if (blueprint.sensor === "dish") {
     const stem = add("sensor-stem", new THREE.CylinderGeometry(.025, .04, .24, 6), trim, [0, .34, -.16]);
     stem.rotation.x = .18;
@@ -243,7 +253,12 @@ export function buildOrbitalShip(id: ShipId) {
     add(`docking-pad-${index + 1}`, new THREE.BoxGeometry(.18, .035, .22), armor, [x, y - .11, z]);
   }
 
-  if (blueprint.ring === "triple") {
+  if (blueprint.ring === "saucer") {
+    const saucer = add("vanguard-saucer-armor", new THREE.CylinderGeometry(.98, .84, .16, 32), body, [0, -.02, .12]);
+    saucer.rotation.x = Math.PI / 2;
+    add("solar-rim", new THREE.TorusGeometry(.82, .065, 8, 40), marking, [0, .025, .22]);
+    add("inner-armor-ring", new THREE.TorusGeometry(.54, .028, 6, 32), trim, [0, .045, .22]);
+  } else if (blueprint.ring === "triple") {
     for (let index = 0; index < 3; index++) {
       add(`trinity-ring-${index + 1}`, new THREE.TorusGeometry(.62 + index * .22, .035, 6, 32), index === 1 ? marking : trim, [0, .02 + index * .055, -.18]);
     }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as THREE from "three";
 import { buildOrbitalShip } from "./orbital-visuals";
 import { SHIPS, type ShipId } from "./ships";
 
@@ -48,7 +49,7 @@ test("the eight Orbital hulls have individual construction, role fittings, facti
       triangles += Math.floor(vertexCount / 3);
     });
     for (const requiredPart of ["fuselage", "cockpit-canopy", "sensor-beacon", "exhaust", "primary-cannon-1", "missile-round-1", "docking-pad-1"]) {
-      if (requiredPart === "sensor-beacon" && model.userData.sensorFit === "dish") continue;
+      if (requiredPart === "sensor-beacon" && (model.userData.sensorFit === "dish" || model.userData.sensorFit === "radial")) continue;
       assert.ok(names.has(requiredPart), `${shipId} is missing ${requiredPart}`);
     }
     assert.ok(meshes <= 60, `${shipId} uses ${meshes} meshes; keep mobile draw-call cost bounded`);
