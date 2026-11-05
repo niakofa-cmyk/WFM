@@ -41,6 +41,7 @@ type PilotActionButtonProps = {
   label: string;
   testId: string;
   disabled?: boolean;
+  hidden?: boolean;
   active?: boolean;
   accent?: boolean;
   onPress?: () => void;
@@ -56,6 +57,7 @@ export const PilotActionButton = forwardRef<HTMLButtonElement, PilotActionButton
   label,
   testId,
   disabled = false,
+  hidden = false,
   active = false,
   accent = false,
   onPress,
@@ -93,6 +95,7 @@ export const PilotActionButton = forwardRef<HTMLButtonElement, PilotActionButton
       title={label}
       aria-pressed={isActive}
       disabled={disabled}
+      hidden={hidden}
       data-testid={testId}
       data-active={isActive ? "true" : "false"}
       data-flight-fire={fireAction ? "" : undefined}

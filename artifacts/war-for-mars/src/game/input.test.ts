@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createBus, pulseVectorManeuver, readInput } from "./input";
+import { pulseForSector } from "./pilot-stick-gestures";
 
 test("offline Orbital left-stick axes match Rust Disc steering, pitch, and coordinated bank", () => {
   const bus = createBus("arc");
@@ -30,6 +31,25 @@ test("Orbital stick double-tap pulses thrust without changing the Rust Disc stee
   assert.equal(input.pitch, 0.5);
   assert.equal(input.vertical, 1);
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
+});
+
+test("all four Rust Disc edge double-taps reach the matching Orbital maneuver axis", () => {
+  const cases = [
+    ["up", 1, 0],
+    ["down", -1, 0],
+    ["left", 0, 1],
+    ["right", 0, -1],
+  ] as const;
+
+  for (const [sector, expectedVertical, expectedStrafe] of cases) {
+    const bus = createBus("arc");
+    bus.orbital = true;
+    bus.leftStickFlight = true;
+    pulseVectorManeuver(bus, pulseForSector(sector));
+    const input = readInput(bus);
+    assert.ok(Math.abs(input.vertical - expectedVertical) < Number.EPSILON, `${sector} vertical thrust`);
+    assert.ok(Math.abs(input.strafe - expectedStrafe) < Number.EPSILON, `${sector} lateral thrust after adapter sign conversion`);
+  }
 });
 
 test("Orbital countermeasure button is consumed as one action pulse", () => {

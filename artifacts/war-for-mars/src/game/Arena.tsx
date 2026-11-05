@@ -603,6 +603,7 @@ export function Arena({
   const pausedRef = useRef(false);
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const unifiedOrbitalControls = orbital && !online;
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
   const ship = SHIPS[online ? pilotCraft(matchRef.current!, online.slotId).ship : shipId];
@@ -1755,6 +1756,7 @@ export function Arena({
         if (countermeasureRef.current) {
           const incomingMissile = match.bullets.some((bullet) => bullet.missile && bullet.faction !== player.faction);
           countermeasureRef.current.disabled = !player.alive || !incomingMissile;
+          countermeasureRef.current.hidden = !incomingMissile;
         }
       }
       if (pipRef.current) {
@@ -1986,41 +1988,41 @@ export function Arena({
           className="pilot-control-left absolute flex flex-col items-start gap-2"
           style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)", left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)" }}
         >
-          {orbital && maneuversOpen ? (
+          {orbital && !unifiedOrbitalControls && maneuversOpen ? (
             <div className="pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap gap-2" data-testid="pilot-maneuver-actions">
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
               <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
               <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
               <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
-              {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
+              {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled hidden onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
             </div>
           ) : null}
-          <div className="pointer-events-auto flex items-end gap-2">
-            <PilotFlightStick label={orbital ? "Flight" : "Move"} testId={`stick-${orbital ? "flight" : "move"}`} size="arena" onAxis={(x, y) => {
+          <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+            <div className="relative">
+              <PilotFlightStick
+                label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
+                testId={`stick-${orbital ? "flight" : "move"}`}
+                size={unifiedOrbitalControls ? "rust-disc" : "arena"}
+                className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
+                onAxis={(x, y) => {
               if (!bus) return;
               bus.leftX = x;
               bus.leftY = y;
-            }} onPulse={orbital && !online && bus ? (pulse) => {
+                }}
+                onPulse={unifiedOrbitalControls && bus ? (pulse) => {
               pulseVectorManeuver(bus, pulse);
               unlockAudio();
               sfxDive();
-            } : undefined} />
+                } : undefined}
+              />
+              {unifiedOrbitalControls ? (
+                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.16em] text-bone/65">
+                  FLIGHT · DOUBLE-TAP EDGE
+                </span>
+              ) : null}
+            </div>
             {orbital ? (
-              <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
-                <PilotActionButton
-                  icon="thrust"
-                  label="Hold forward thrust"
-                  testId="button-thrust"
-                  accent
-                  onPress={() => bus?.keys.add("KeyW")}
-                  onRelease={() => bus?.keys.delete("KeyW")}
-                  onActivate={() => {
-                    if (!bus) return;
-                    bus.keys.add("KeyW");
-                    requestAnimationFrame(() => bus.keys.delete("KeyW"));
-                  }}
-                />
               <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
                 <PilotActionButton
                   icon="thrust"
@@ -2043,7 +2045,6 @@ export function Arena({
                   onActivate={() => setManeuversOpen((value) => !value)}
                 />
               </div>
-              </div>
             ) : null}
           </div>
         </div>
@@ -2053,61 +2054,116 @@ export function Arena({
           className="pilot-control-right absolute flex flex-col items-end gap-2"
           style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
-          <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
-            <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
-            {orbital ? (
-              <PilotActionButton
-                ref={missileRef}
-                icon="missile"
-                label="Launch guided missile"
-                testId="button-missile"
-                disabled
-                accent
-                badge="MSL"
-                onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
-              />
-            ) : (
-              <>
+          {unifiedOrbitalControls ? (
+            <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+              <div className="flex flex-col items-center gap-2">
+                {maneuversOpen ? (
+                  <div className="pilot-rust-maneuvers flex max-w-[48vw] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+                    <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+                    <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
+                    <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+                    <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
+                    <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
+                    {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled hidden onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
+                  </div>
+                ) : null}
+                <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+                  <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                  <PilotActionButton
+                    ref={missileRef}
+                    icon="missile"
+                    label="Launch guided missile"
+                    testId="button-missile"
+                    disabled
+                    accent
+                    badge="MSL"
+                    onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                  />
+                  <PilotActionButton
+                    icon="fire"
+                    label="Hold primary guns"
+                    testId="button-fire"
+                    accent
+                    fireAction
+                    onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                    onRelease={() => { if (bus) bus.fireButton = false; }}
+                    onActivate={() => {
+                      unlockAudio();
+                      if (bus) bus.fireButton = true;
+                      requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                    }}
+                    className="pilot-action-fire"
+                  />
+                </div>
+              </div>
+              <div className="relative">
+                <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onAxis={(x, y) => {
+                  if (!bus) return;
+                  bus.rightX = x;
+                  bus.rightY = y;
+                }} />
+                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 font-mono text-[8px] tracking-[0.2em] text-bone/65">AIM</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
+                <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                {orbital ? (
+                  <PilotActionButton
+                    ref={missileRef}
+                    icon="missile"
+                    label="Launch guided missile"
+                    testId="button-missile"
+                    disabled
+                    accent
+                    badge="MSL"
+                    onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                  />
+                ) : (
+                  <>
+                    <PilotActionButton
+                      icon="maneuver"
+                      label="Evade incoming fire"
+                      testId="button-dodge"
+                      onActivate={() => { if (bus) bus.evadePulse = bus.leftX > 0.2 ? -1 : 1; }}
+                    />
+                    <PilotActionButton
+                      ref={ultRef}
+                      icon="boost"
+                      label={ship.ultShort}
+                      testId="button-special"
+                      accent
+                      badge={ship.ultShort}
+                      onActivate={() => { unlockAudio(); if (bus) bus.ultPulse = true; }}
+                    />
+                  </>
+                )}
                 <PilotActionButton
-                  icon="maneuver"
-                  label="Evade incoming fire"
-                  testId="button-dodge"
-                  onActivate={() => { if (bus) bus.evadePulse = bus.leftX > 0.2 ? -1 : 1; }}
-                />
-                <PilotActionButton
-                  ref={ultRef}
-                  icon="boost"
-                  label={ship.ultShort}
-                  testId="button-special"
+                  icon="fire"
+                  label="Hold primary guns"
+                  testId="button-fire"
                   accent
-                  badge={ship.ultShort}
-                  onActivate={() => { unlockAudio(); if (bus) bus.ultPulse = true; }}
+                  fireAction
+                  onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                  onRelease={() => { if (bus) bus.fireButton = false; }}
+                  onActivate={() => {
+                    unlockAudio();
+                    if (bus) bus.fireButton = true;
+                    requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                  }}
+                  className="pilot-action-fire"
                 />
-              </>
-            )}
-            <PilotActionButton
-              icon="fire"
-              label="Hold primary guns"
-              testId="button-fire"
-              accent
-              fireAction
-              onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
-              onRelease={() => { if (bus) bus.fireButton = false; }}
-              onActivate={() => {
-                unlockAudio();
-                if (bus) bus.fireButton = true;
-                requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
-              }}
-              className="pilot-action-fire"
-            />
-          </div>
-          <div className="pointer-events-auto">
-            <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {
-              if (!bus) return;
-              bus.rightX = x;
-              bus.rightY = y;
-            }} />
-          </div>
+              </div>
+              <div className="pointer-events-auto">
+                <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {
+                  if (!bus) return;
+                  bus.rightX = x;
+                  bus.rightY = y;
+                }} />
+              </div>
+            </>
+          )}
         </div>
       </div>
       {mapOpen && !end ? (
