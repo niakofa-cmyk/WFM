@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "../game/ships";
 import { createFlight, stepFlight, removeHostileProjectilesInPlace, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
 import {
@@ -121,7 +122,9 @@ export function createSectorRuntime(options: Options) {
   let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
   const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
   const latencyProbeBudget = new WeakMap<WebSocket, number>();
-  const physics = options.physics ?? stepFlight;
+  const orbitalSectorPhysics: typeof stepFlight = (state, input, seconds, sector) =>
+    stepFlight(state, input, seconds, sector, ORBITAL_RUNTIME_ID);
+  const physics = options.physics ?? orbitalSectorPhysics;
   function publishOperationState(room: Room): void {
     if (!options.publishOperation || room.mission.id !== "rust-disc") return;
     const currentPlayers = room.pilots.filter((pilot) => pilot.socket?.readyState === WebSocket.OPEN).length;

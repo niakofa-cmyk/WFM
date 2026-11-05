@@ -66,6 +66,11 @@ test("versioned orbital replays require the complete spatial input contract", ()
     ),
     /release frame/i,
   );
+  assert.throws(
+    () => validateStrikeReplayInputs([{ ...orbitalInput, countermeasure: false }], "practice", "orbital-v1"),
+    /invalid control input/i,
+    "the training-only control must not silently expand the versioned Contact replay contract",
+  );
 });
 
 test("orbital flight rules are restricted to Contact while unversioned runs keep legacy rules", () => {

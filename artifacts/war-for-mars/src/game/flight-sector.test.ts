@@ -10,8 +10,8 @@ import {
   type FlightInput, type FlightState,
 } from "./flight-sector";
 
-function run(state: FlightState, frames: number, input: Partial<FlightInput> = {}) {
-  for (let i = 0; i < frames; i++) stepFlight(state, { ...NEUTRAL_FLIGHT_INPUT, ...input }, 1 / 60);
+function run(state: FlightState, frames: number, input: Partial<FlightInput> = {}, runtime = ORBITAL_RUNTIME_ID) {
+  for (let i = 0; i < frames; i++) stepFlight(state, { ...NEUTRAL_FLIGHT_INPUT, ...input }, 1 / 60, RUST_DISC_SECTOR, runtime);
 }
 const near = (actual: number, expected: number, tolerance = 1e-8) =>
   assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
@@ -36,11 +36,11 @@ test("yaw and roll compose in ship-local quaternion space and remain normalized"
   near(vectorLength(flightForward(q)), 1);
 });
 
-test("momentum persists without thrust and braking stops it much faster", () => {
+test("legacy compatibility motion retains its original momentum and braking behavior", () => {
   const coast = createFlight(), brake = createFlight();
-  run(coast, 30, { throttle: 1 }); run(brake, 30, { throttle: 1 });
+  run(coast, 30, { throttle: 1 }, "sector-motion-v1"); run(brake, 30, { throttle: 1 }, "sector-motion-v1");
   const before = vectorLength(coast.velocity);
-  run(coast, 30); run(brake, 30, { brake: true });
+  run(coast, 30, {}, "sector-motion-v1"); run(brake, 30, { brake: true }, "sector-motion-v1");
   assert.ok(vectorLength(coast.velocity) > before / 2);
   assert.ok(vectorLength(brake.velocity) < vectorLength(coast.velocity) / 5);
 });
