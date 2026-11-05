@@ -69,8 +69,10 @@ test("direction reversals, discontinuous jumps, and overlong gestures cannot com
   const reversal = updateCircularGesture(tracker, 24, 0, 120);
   assert.equal(reversal.rejected, true);
 
+  let jumpTracker = createCircularGestureTracker(0, 0, 0, 11, 34);
+  jumpTracker = updateCircularGesture(jumpTracker, 24, 0, 0).tracker;
   const jump = updateCircularGesture(
-    createCircularGestureTracker(0, 0, 0, 11, 34),
+    jumpTracker,
     -24,
     0,
     30,

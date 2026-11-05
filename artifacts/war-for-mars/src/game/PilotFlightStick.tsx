@@ -12,7 +12,6 @@ import {
   EMPTY_DOUBLE_TAP_STATE,
   isQuickStickTap,
   registerStickTap,
-  STICK_TAP_MAX_DURATION_MS,
   STICK_TAP_MAX_MOVEMENT_PX,
   stickSectorAt,
   type DoubleTapState,
@@ -121,7 +120,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularMan
       window.removeEventListener("blur", reset);
       window.removeEventListener("orientationchange", reset);
       document.removeEventListener("visibilitychange", visibility);
-      reset();
+      resetVisual();
       clearFeedbackTimer();
     };
   }, []);

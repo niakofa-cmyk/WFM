@@ -6,7 +6,7 @@ import { createOrbitalAuthority } from "./orbital-authority";
 const packet = (seq: number, patch: Record<string, unknown> = {}) => ({ ...IDLE_ORBITAL, seq, ...patch });
 test("strict versioned packets reject client state, outcomes, malformed controls and unsafe sequences", () => {
   assert.equal(parseOrbitalInput(packet(1)).ok, true);
-  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 2 }]) {
+  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { maneuver: { version: 1, kind: "barrel-roll", direction: "right" } }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 2 }]) {
     assert.equal(parseOrbitalInput(packet(1, patch)).ok, false, JSON.stringify(patch));
   }
   for (const value of [null, [], "fire", {}, { ...packet(1), vertical: undefined }]) assert.equal(parseOrbitalInput(value).ok, false);
@@ -26,6 +26,8 @@ test("ten synthetic server seats use five ships per faction, detached snapshots 
   assert.equal(server.input(0, packet(1, { damage: 999 })).ok, false);
   const after = server.step();
   assert.equal(after.tick, 1); assert.equal(after.time, ORBITAL_DT); assert.equal(after.bullets.length, 0);
+  assert.equal("maneuverRollRemaining" in after.pilots[0].space, false);
+  assert.equal("maneuverCooldown" in after.pilots[0].space, false);
 });
 
 test("bounded input queue rejects stale, duplicate, jumping sequences and does not advance simulation on receive", () => {

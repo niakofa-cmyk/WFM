@@ -132,7 +132,7 @@ export function updateCircularGesture(
   if (Math.abs(delta) > MAX_SAMPLE_ANGLE_RADIANS) {
     return result({ ...previous, rejected: true });
   }
-  const direction = previous.direction || (
+  const direction: -1 | 0 | 1 = previous.direction || (
     Math.abs(delta) >= MIN_SAMPLE_ANGLE_RADIANS
       ? (delta > 0 ? 1 : -1)
       : 0

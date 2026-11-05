@@ -16,7 +16,7 @@ export type OrbitalFlight = {
   y: number; vx: number; vy: number; vz: number; q: Quaternion;
   energy: number; assist: boolean; armor: number; armorMax: number;
   lockProgress: number; lockTargetId: number | null; missileCd: number; ammo: number; aimAssist: boolean;
-  maneuverRollRemaining: number; maneuverCooldown: number;
+  maneuverRollRemaining?: number; maneuverCooldown?: number;
 };
 export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; countermeasure?: boolean; aimAssist?: boolean };
 export type FlightControls = FlightInput & {
@@ -43,7 +43,6 @@ export function newFlight(yaw = 0): OrbitalFlight {
     q: [0, detSin(yaw / 2), 0, detCos(yaw / 2)],
     energy: 100, assist: true, armor: 40, armorMax: 40,
     lockProgress: 0, lockTargetId: null, missileCd: 0, ammo: 8, aimAssist: true,
-    maneuverRollRemaining: 0, maneuverCooldown: 0,
   };
 }
 export function rotate(q: Quaternion, x: number, y: number, z: number) {
@@ -74,15 +73,16 @@ export function integrateSpatialFlight(
   if (input.aimAssist) s.aimAssist = !s.aimAssist;
   const disrupted = craft.root > 0 || craft.jam > 0;
   const rate = def.turnRate * def.handling * (disrupted ? .35 : 1);
-  s.maneuverCooldown = Math.max(0, s.maneuverCooldown - dt);
+  const maneuverCooldown = Math.max(0, (s.maneuverCooldown ?? 0) - dt);
+  if (s.maneuverCooldown !== undefined) s.maneuverCooldown = maneuverCooldown;
   const maneuver = input.maneuver;
   const validRollIntent = maneuver?.version === 1 &&
     maneuver.kind === "barrel-roll" &&
     (maneuver.direction === "left" || maneuver.direction === "right");
   if (
     validRollIntent &&
-    s.maneuverRollRemaining === 0 &&
-    s.maneuverCooldown <= 0 &&
+    (s.maneuverRollRemaining ?? 0) === 0 &&
+    maneuverCooldown <= 0 &&
     s.energy >= 18 &&
     !disrupted
   ) {
@@ -91,15 +91,17 @@ export function integrateSpatialFlight(
     s.maneuverCooldown = 2.8;
     s.energy = Math.max(0, s.energy - 18);
   }
+  let activeRoll = s.maneuverRollRemaining ?? 0;
   if (
-    s.maneuverRollRemaining !== 0 &&
+    activeRoll !== 0 &&
     Math.abs(input.roll ?? 0) > .85 &&
-    Math.sign(input.roll ?? 0) !== Math.sign(s.maneuverRollRemaining)
+    Math.sign(input.roll ?? 0) !== Math.sign(activeRoll)
   ) {
+    activeRoll = 0;
     s.maneuverRollRemaining = 0;
   }
-  const rollDirection = Math.sign(s.maneuverRollRemaining);
-  const rollRemaining = Math.abs(s.maneuverRollRemaining);
+  const rollDirection = Math.sign(activeRoll);
+  const rollRemaining = Math.abs(activeRoll);
   const rollProgress = 1 - rollRemaining / (2 * Math.PI);
   const maneuverRollRate = Math.min(7.5, rate * 1.7);
   const maneuverRollStep = Math.min(rollRemaining, maneuverRollRate * dt);

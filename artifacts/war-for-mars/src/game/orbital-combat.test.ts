@@ -90,17 +90,17 @@ test("tactical barrel roll changes quaternion and trajectory with bounded energy
     maneuver: { version: 1, kind: "barrel-roll", direction: "right" },
   }, 1 / 30);
 
-  assert.ok(space.maneuverRollRemaining > 0 && space.maneuverRollRemaining < Math.PI * 2);
-  assert.ok(space.maneuverCooldown > 0);
+  assert.ok((space.maneuverRollRemaining ?? 0) > 0 && (space.maneuverRollRemaining ?? 0) < Math.PI * 2);
+  assert.ok((space.maneuverCooldown ?? 0) > 0);
   assert.ok(space.energy < startEnergy);
   assert.ok(space.vx > 0, "roll command applies a bounded lateral evasive thrust");
   const inProgressQuaternion = [...space.q];
   assert.ok(Math.abs(inProgressQuaternion[2]!) > 0.01);
 
-  for (let i = 0; i < 180 && space.maneuverRollRemaining !== 0; i++) {
+  for (let i = 0; i < 180 && (space.maneuverRollRemaining ?? 0) !== 0; i++) {
     step(match, idle, 1 / 30);
   }
-  assert.equal(space.maneuverRollRemaining, 0);
+  assert.equal(space.maneuverRollRemaining ?? 0, 0);
   assert.ok(Math.abs(Math.hypot(...space.q) - 1) < 1e-12);
   assert.ok(Math.abs(space.vx) > 0.01, "the roll leaves a real changed flight trajectory");
 });
@@ -113,20 +113,20 @@ test("barrel roll rejects insufficient energy and ignores a second intent while 
     ...idle,
     maneuver: { version: 1, kind: "barrel-roll", direction: "left" },
   }, 1 / 30);
-  assert.equal(space.maneuverRollRemaining, 0);
+  assert.equal(space.maneuverRollRemaining ?? 0, 0);
 
   space.energy = 100;
   step(match, {
     ...idle,
     maneuver: { version: 1, kind: "barrel-roll", direction: "right" },
   }, 1 / 30);
-  const remaining = space.maneuverRollRemaining;
+  const remaining = space.maneuverRollRemaining ?? 0;
   step(match, {
     ...idle,
     maneuver: { version: 1, kind: "barrel-roll", direction: "left" },
   }, 1 / 30);
-  assert.ok(space.maneuverRollRemaining > 0);
-  assert.ok(space.maneuverRollRemaining < remaining);
+  assert.ok((space.maneuverRollRemaining ?? 0) > 0);
+  assert.ok((space.maneuverRollRemaining ?? 0) < remaining);
 });
 
 test("vector drift from Rust Disc keeps orbital momentum while the pilot turns", () => {
