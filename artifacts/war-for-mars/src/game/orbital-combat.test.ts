@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createBus, readInput, setCircularRollControl } from "./input";
 import { createMatch, step, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight, rotate } from "./orbital-flight";
@@ -130,6 +131,83 @@ test("barrel roll rejects insufficient energy and ignores a second intent while 
   }, 1 / 30);
   assert.ok((space.maneuverRollRemaining ?? 0) > 0);
   assert.ok((space.maneuverRollRemaining ?? 0) < remaining);
+});
+
+test("live barrel-roll control rotates during the thumb input and stops on release", () => {
+  const match = lab();
+  const space = match.player.space!;
+  const start = [...space.q];
+  const startEnergy = space.energy;
+  const rolling: StepInput = {
+    ...idle,
+    throttle: 0.45,
+    yaw: 0.12,
+    pitch: -0.08,
+    maneuver: { version: 1, kind: "barrel-roll-control", input: 1 },
+  };
+  let completedFullTurn = false;
+  let firstStepLateralVelocity = 0;
+  for (let i = 0; i < 60; i++) {
+    step(match, rolling, 1 / 60);
+    if (i === 0) firstStepLateralVelocity = space.vx;
+    const dot = space.q.reduce((sum, value, index) => sum + value * start[index]!, 0);
+    if (dot < -0.99) {
+      completedFullTurn = true;
+      break;
+    }
+  }
+  assert.equal(completedFullTurn, true, "direct roll input should complete a fast hull rotation within one second");
+  assert.ok(space.energy < startEnergy, "continuous roll uses the existing energy budget");
+  assert.ok(Math.abs(firstStepLateralVelocity) > 0.01, "roll adds a bounded evasive vector while throttle and steering remain active");
+
+  const atRelease = [...space.q];
+  step(match, idle, 1 / 60);
+  assert.deepEqual(space.q, atRelease, "release stops angular input instead of queuing a delayed roll");
+
+  const beforeReverse = [...space.q];
+  step(match, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll-control", input: -1 },
+  }, 1 / 60);
+  assert.notDeepEqual(space.q, beforeReverse, "the pilot can immediately reverse roll direction");
+
+  const depleted = lab();
+  depleted.player.space!.energy = 0;
+  const beforeDepletedRoll = [...depleted.player.space!.q];
+  step(depleted, {
+    ...idle,
+    maneuver: { version: 1, kind: "barrel-roll-control", input: 1 },
+  }, 1 / 60);
+  assert.deepEqual(depleted.player.space!.q, beforeDepletedRoll, "the maneuver cannot roll with depleted energy");
+});
+
+test("offline right-stick roll input reaches the Orbital hull while aim and thrust stay active", () => {
+  const match = lab();
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.leftY = -0.4;
+  bus.rightX = 0.22;
+  bus.rightY = -0.18;
+  setCircularRollControl(bus, 0.8, 5_000);
+  const active = readInput(bus, 5_050);
+  assert.equal(active.throttle, 0.4);
+  assert.notEqual(active.pitch, 0);
+  assert.deepEqual(active.maneuver, { version: 1, kind: "barrel-roll-control", input: 0.8 });
+
+  const before = [...match.player.space!.q];
+  step(match, active, 1 / 60);
+  assert.notDeepEqual(match.player.space!.q, before);
+  assert.ok(Math.abs(match.player.space!.q[2]!) > 0.001, "the hull roll is visible during the same simulation step");
+
+  bus.leftY = 0;
+  bus.rightX = 0;
+  bus.rightY = 0;
+  const released = readInput(bus, 5_121);
+  assert.equal(released.maneuver, undefined);
+  const afterRelease = [...match.player.space!.q];
+  step(match, released, 1 / 60);
+  assert.deepEqual(match.player.space!.q, afterRelease);
 });
 
 test("vector drift from Rust Disc keeps orbital momentum while the pilot turns", () => {

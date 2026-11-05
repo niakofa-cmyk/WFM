@@ -17,7 +17,8 @@ export type Bus = {
   lockPulse: boolean;
   missilePulse: boolean;
   countermeasurePulse: boolean;
-  barrelRollPulse: "left" | "right" | null;
+  circularRoll: number;
+  circularRollUntil: number;
   inertialPulse: boolean;
   aimAssistPulse: boolean;
   evadePulse: number;
@@ -55,7 +56,8 @@ export function createBus(scheme: Scheme): Bus {
     lockPulse: false,
     missilePulse: false,
     countermeasurePulse: false,
-    barrelRollPulse: null,
+    circularRoll: 0,
+    circularRollUntil: 0,
     inertialPulse: false,
     aimAssistPulse: false,
     evadePulse: 0,
@@ -93,7 +95,8 @@ export function clearInput(bus: Bus) {
   bus.lockPulse = false;
   bus.missilePulse = false;
   bus.countermeasurePulse = false;
-  bus.barrelRollPulse = null;
+  bus.circularRoll = 0;
+  bus.circularRollUntil = 0;
   bus.inertialPulse = false;
   bus.aimAssistPulse = false;
   bus.evadePulse = 0;
@@ -119,10 +122,16 @@ export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs =
   }, Math.max(1, durationMs));
 }
 
-/** Tactical circles are accepted only on the offline unified Orbital pilot adapter. */
-export function pulseBarrelRoll(bus: Bus, direction: -1 | 1) {
+/** Continuous roll is accepted only by the offline unified Orbital pilot adapter. */
+export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = 120) {
   if (!bus.orbital || !bus.leftStickFlight) return;
-  bus.barrelRollPulse = direction > 0 ? "right" : "left";
+  if (!Number.isFinite(input) || Math.abs(input) < 0.01) {
+    bus.circularRoll = 0;
+    bus.circularRollUntil = 0;
+    return;
+  }
+  bus.circularRoll = Math.max(-1, Math.min(1, input));
+  bus.circularRollUntil = at + Math.max(1, holdMs);
 }
 
 function clamp(n: number): number {
@@ -153,7 +162,7 @@ export function stickAxesFromDelta(dx: number, dy: number, maxDistance: number) 
   };
 }
 
-export function readInput(bus: Bus): StepInput {
+export function readInput(bus: Bus, at = Date.now()): StepInput {
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
@@ -191,6 +200,13 @@ export function readInput(bus: Bus): StepInput {
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
   const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
+  const circularRoll = bus.orbital && bus.leftStickFlight && at < bus.circularRollUntil
+    ? clamp(bus.circularRoll)
+    : 0;
+  if (circularRoll === 0) {
+    bus.circularRoll = 0;
+    bus.circularRollUntil = 0;
+  }
   const fDown = keys.has("KeyF");
   const ult = bus.ultPulse || (fDown && !bus.fWas);
   bus.ultPulse = false;
@@ -232,11 +248,10 @@ export function readInput(bus: Bus): StepInput {
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
-      ...(bus.leftStickFlight && bus.barrelRollPulse
-        ? { maneuver: { version: 1 as const, kind: "barrel-roll" as const, direction: bus.barrelRollPulse } }
+      ...(bus.leftStickFlight && circularRoll !== 0
+        ? { maneuver: { version: 1 as const, kind: "barrel-roll-control" as const, input: circularRoll } }
         : {}),
     };
-    if (bus.leftStickFlight) bus.barrelRollPulse = null;
     const result = bus.leftStickFlight
       ? toOrbitalPilotStepInput(controls)
       : toOrbitalStepInput(controls);

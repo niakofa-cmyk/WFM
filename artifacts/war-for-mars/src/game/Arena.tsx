@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, pulseBarrelRoll, pulseVectorManeuver, readInput, type Bus } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, setCircularRollControl, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -1613,7 +1613,10 @@ export function Arena({
       _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
       if (orbital && player.space) {
         const cockpit = cameraModeRef.current === "cockpit";
-        const rollActive = Math.abs(player.space.maneuverRollRemaining ?? 0) > 0;
+        const liveRollActive = bus.orbital && bus.leftStickFlight &&
+          Date.now() < bus.circularRollUntil &&
+          Math.abs(bus.circularRoll) > 0.01;
+        const rollActive = Math.abs(player.space.maneuverRollRemaining ?? 0) > 0 || liveRollActive;
         rollCameraStabilizationRef.current = rollActive
           ? 1
           : Math.max(0, rollCameraStabilizationRef.current - delta * 2.6);
@@ -2139,9 +2142,12 @@ export function Arena({
                   </div>
                 </div>
                 <div className="relative">
-                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onCircularManeuver={(direction) => {
-                    if (bus) pulseBarrelRoll(bus, direction);
-                  }} onAxis={(x, y) => {
+                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                    onCircularRollInput={bus?.orbital && bus.leftStickFlight ? (input) => {
+                      setCircularRollControl(bus, input);
+                      if (Math.abs(input) > 0.01) rollCameraStabilizationRef.current = 1;
+                    } : undefined}
+                    onAxis={(x, y) => {
                     if (!bus) return;
                     bus.rightX = x;
                     bus.rightY = y;

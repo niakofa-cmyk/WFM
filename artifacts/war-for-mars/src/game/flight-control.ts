@@ -59,6 +59,10 @@ export function normalizeFlightControls(value: Partial<FlightControlFrame>): Fli
       value.maneuver.kind === "barrel-roll" &&
       (value.maneuver.direction === "left" || value.maneuver.direction === "right")
       ? { maneuver: value.maneuver }
+      : value.maneuver?.version === 1 &&
+        value.maneuver.kind === "barrel-roll-control" &&
+        Number.isFinite(value.maneuver.input)
+        ? { maneuver: { ...value.maneuver, input: axis(value.maneuver.input) } }
       : {}),
   };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  CIRCULAR_ROLL_MIN_SWEEP_RADIANS,
+  CIRCULAR_ROLL_ARM_SWEEP_RADIANS,
   circularGestureRadiusBounds,
   createCircularGestureTracker,
   updateCircularGesture,
@@ -20,7 +20,6 @@ function drawCircle(direction: 1 | -1, radius = 24, points = 24) {
       i * 25,
     );
     tracker = update.tracker;
-    if (update.completed) return update;
   }
   return update;
 }
@@ -46,30 +45,49 @@ function drawJoystickLoop(direction: 1 | -1, durationMs = 1_800, points = 24) {
       Math.round(durationMs * i / points),
     );
     tracker = update.tracker;
-    if (update.completed) return update;
   }
   return update;
 }
 
-test("a full clockwise circle emits one right-roll command", () => {
-  const completed = drawCircle(1);
-  assert.equal(completed.completed, "clockwise");
-  assert.equal(completed.direction, "clockwise");
-  assert.ok(completed.progress >= 1);
-  assert.equal(updateCircularGesture(completed.tracker, 124, 100, 700).completed, null);
+test("a clockwise arc starts live roll before a full circle and tracks the thumb", () => {
+  let tracker = createCircularGestureTracker(100, 100, 0, 11, 34);
+  let update = updateCircularGesture(tracker, 124, 100, 0);
+  tracker = update.tracker;
+  for (let i = 1; i <= 4; i++) {
+    const angle = Math.PI * 2 * i / 24;
+    update = updateCircularGesture(tracker, 100 + Math.cos(angle) * 24, 100 + Math.sin(angle) * 24, i * 25);
+    tracker = update.tracker;
+  }
+  assert.equal(update.rolling, true, "a deliberate 60-degree arc should engage before a complete loop");
+  assert.equal(update.direction, "clockwise");
+  assert.ok(update.rollInput > 0, "the current thumb movement drives the hull immediately");
+
+  for (let i = 5; i <= 24; i++) {
+    const angle = Math.PI * 2 * i / 24;
+    update = updateCircularGesture(tracker, 100 + Math.cos(angle) * 24, 100 + Math.sin(angle) * 24, i * 25);
+    tracker = update.tracker;
+  }
+  assert.equal(update.rolling, true, "a completed circle does not queue a second roll or end live control");
+  assert.ok(update.progress > 0.99);
 });
 
-test("a full counterclockwise circle emits one left-roll command", () => {
-  assert.equal(drawCircle(-1).completed, "counterclockwise");
+test("a counterclockwise circle produces live left-roll input", () => {
+  const update = drawCircle(-1);
+  assert.equal(update.rolling, true);
+  assert.equal(update.direction, "counterclockwise");
+  assert.ok(update.rollInput < 0);
 });
 
-test("a slow loop around the visible stick center completes from its edge", () => {
+test("a slow loop around the visible stick center stays live in either direction", () => {
   const clockwise = drawJoystickLoop(1);
-  assert.equal(clockwise.completed, "clockwise");
-  assert.equal(drawJoystickLoop(-1).completed, "counterclockwise");
+  assert.equal(clockwise.rolling, true);
+  assert.equal(clockwise.direction, "clockwise");
+  const counterclockwise = drawJoystickLoop(-1);
+  assert.equal(counterclockwise.rolling, true);
+  assert.equal(counterclockwise.direction, "counterclockwise");
 });
 
-test("full loops complete at the real mobile stick edge in both compact and landscape sizes", () => {
+test("live loops work at the real mobile stick edge in compact and landscape sizes", () => {
   for (const size of [74, 82, 128]) {
     const { minRadiusPx, maxRadiusPx } = circularGestureRadiusBounds(size, size);
     const center = 100;
@@ -89,9 +107,9 @@ test("full loops complete at the real mobile stick edge in both compact and land
         i * 25,
       );
       tracker = update.tracker;
-      if (update.completed) break;
     }
-    assert.equal(update.completed, "clockwise", `${size}px stick loop should not stop at a quarter-turn`);
+    assert.equal(update.rolling, true, `${size}px stick loop should engage and stay live`);
+    assert.equal(update.rejected, false);
   }
 });
 
@@ -112,10 +130,10 @@ test("starting near the center and expanding the thumb loop does not cancel it",
     const [x, y] = points[i]!;
     update = updateCircularGesture(tracker, center + x, center + y, i * 35);
     tracker = update.tracker;
-    if (update.completed || update.rejected) break;
+    if (update.rejected) break;
   }
   assert.equal(update.rejected, false);
-  assert.equal(update.completed, "clockwise");
+  assert.equal(update.rolling, true);
 });
 
 test("holding before drawing does not consume the full-loop time window", () => {
@@ -134,27 +152,33 @@ test("holding before drawing does not consume the full-loop time window", () => 
       7_000 + i * 500,
     );
     tracker = update.tracker;
-    if (update.completed || update.rejected) break;
+    if (update.rejected) break;
   }
   assert.equal(update.rejected, false);
-  assert.equal(update.completed, "clockwise");
+  assert.equal(update.rolling, true);
 });
 
-test("incomplete, undersized, and oversized circles are rejected", () => {
-  let incomplete = createCircularGestureTracker(0, 0, 0, 11, 34);
-  for (let i = 0; i <= 5; i++) {
-    const angle = Math.PI * 2 * i / 16;
-    incomplete = updateCircularGesture(incomplete, Math.cos(angle) * 24, Math.sin(angle) * 24, i * 40).tracker;
+test("ordinary aim arcs do not arm roll before a deliberate circular sweep", () => {
+  let tracker = createCircularGestureTracker(0, 0, 0, 11, 34);
+  let update = updateCircularGesture(tracker, 24, 0, 0);
+  tracker = update.tracker;
+  for (let i = 1; i <= 1; i++) {
+    const angle = Math.PI / 6 * i;
+    update = updateCircularGesture(tracker, Math.cos(angle) * 24, Math.sin(angle) * 24, i * 30);
+    tracker = update.tracker;
   }
-  assert.ok(Math.abs(incomplete.sweepRadians) < CIRCULAR_ROLL_MIN_SWEEP_RADIANS);
-  assert.equal(incomplete.completed, false);
+  assert.ok(Math.abs(tracker.sweepRadians) < CIRCULAR_ROLL_ARM_SWEEP_RADIANS);
+  assert.equal(update.rolling, false);
+  assert.equal(update.rollInput, 0);
+});
 
+test("undersized circles are ignored and oversized circles are rejected", () => {
   let tooSmall = createCircularGestureTracker(0, 0, 0, 11, 34);
   for (let i = 0; i <= 16; i++) {
     const angle = Math.PI * 2 * i / 16;
     tooSmall = updateCircularGesture(tooSmall, Math.cos(angle) * 8, Math.sin(angle) * 8, i * 30).tracker;
   }
-  assert.equal(tooSmall.completed, false);
+  assert.equal(tooSmall.rolling, false);
   assert.equal(tooSmall.rejected, false);
 
   const tooLarge = updateCircularGesture(
@@ -166,12 +190,26 @@ test("incomplete, undersized, and oversized circles are rejected", () => {
   assert.equal(tooLarge.rejected, true);
 });
 
-test("direction reversals, discontinuous jumps, and loops over ten seconds are rejected", () => {
+test("direction reversals before roll engagement, discontinuous jumps, and expired loops are rejected", () => {
   let tracker = createCircularGestureTracker(0, 0, 0, 11, 34);
   tracker = updateCircularGesture(tracker, 24, 0, 0).tracker;
   tracker = updateCircularGesture(tracker, 0, 24, 80).tracker;
   const reversal = updateCircularGesture(tracker, 24, 0, 120);
   assert.equal(reversal.rejected, true);
+
+  let liveTracker = createCircularGestureTracker(0, 0, 0, 11, 34);
+  const points = [0, 30, 60, 90].map((degrees) => degrees * Math.PI / 180);
+  let liveUpdate = updateCircularGesture(liveTracker, 24, 0, 0);
+  liveTracker = liveUpdate.tracker;
+  for (let i = 1; i < points.length; i++) {
+    liveUpdate = updateCircularGesture(liveTracker, Math.cos(points[i]!) * 24, Math.sin(points[i]!) * 24, i * 100);
+    liveTracker = liveUpdate.tracker;
+  }
+  assert.equal(liveUpdate.rolling, true);
+  liveUpdate = updateCircularGesture(liveTracker, Math.cos(Math.PI / 3) * 24, Math.sin(Math.PI / 3) * 24, 400);
+  assert.equal(liveUpdate.rejected, false);
+  assert.equal(liveUpdate.direction, "counterclockwise");
+  assert.ok(liveUpdate.rollInput < 0, "the pilot can reverse roll direction during the gesture");
 
   let jumpTracker = createCircularGestureTracker(0, 0, 0, 11, 34);
   jumpTracker = updateCircularGesture(jumpTracker, 24, 0, 0).tracker;

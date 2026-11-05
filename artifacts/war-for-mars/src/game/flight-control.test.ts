@@ -55,3 +55,15 @@ test("Rust Disc pilot convention is adapted only at the canonical Orbital contro
   assert.equal(orbital.strafe, -0.6);
   assert.equal(orbital.vertical, 0.7);
 });
+
+test("live barrel-roll control is bounded for Orbital and stripped from sector authority", () => {
+  const maneuver = {
+    version: 1 as const,
+    kind: "barrel-roll-control" as const,
+    input: 2,
+  };
+  const orbital = toOrbitalStepInput({ throttle: 0.5, maneuver });
+  assert.deepEqual(orbital.maneuver, { ...maneuver, input: 1 });
+  const sector = toSectorFlightInput({ throttle: 0.5, maneuver });
+  assert.equal("maneuver" in sector, false);
+});

@@ -7,11 +7,18 @@ export const MISSILE_RANGE = 65;
 export const LOCK_SECONDS = 1.25;
 export const PROJECTILE_LIMIT = 110;
 export type Quaternion = [number, number, number, number];
-export type TacticalManeuverIntentV1 = {
-  version: 1;
-  kind: "barrel-roll";
-  direction: "left" | "right";
-};
+export type TacticalManeuverIntentV1 =
+  | {
+      version: 1;
+      kind: "barrel-roll";
+      direction: "left" | "right";
+    }
+  | {
+      version: 1;
+      kind: "barrel-roll-control";
+      /** Signed live roll input from the offline Orbital right-stick circle. */
+      input: number;
+    };
 export type OrbitalFlight = {
   y: number; vx: number; vy: number; vz: number; q: Quaternion;
   energy: number; assist: boolean; armor: number; armorMax: number;
@@ -79,6 +86,11 @@ export function integrateSpatialFlight(
   const validRollIntent = maneuver?.version === 1 &&
     maneuver.kind === "barrel-roll" &&
     (maneuver.direction === "left" || maneuver.direction === "right");
+  const continuousRollInput = maneuver?.version === 1 &&
+    maneuver.kind === "barrel-roll-control" &&
+    Number.isFinite(maneuver.input)
+    ? clamp(maneuver.input)
+    : 0;
   if (
     validRollIntent &&
     (s.maneuverRollRemaining ?? 0) === 0 &&
@@ -105,17 +117,25 @@ export function integrateSpatialFlight(
   const rollProgress = 1 - rollRemaining / (2 * Math.PI);
   const maneuverRollRate = Math.min(7.5, rate * 1.7);
   const maneuverRollStep = Math.min(rollRemaining, maneuverRollRate * dt);
+  const directRollRate = Math.min(18, rate * 4.2);
+  const directRollStep = continuousRollInput !== 0 && s.energy > 0 && !disrupted
+    ? continuousRollInput * directRollRate * dt
+    : 0;
+  const directRollStrength = directRollRate * dt > 0 ? directRollStep / (directRollRate * dt) : 0;
   s.q = turn(s.q, 0, 1, 0, clamp(input.yaw) * rate * dt);
   s.q = turn(s.q, 1, 0, 0, clamp(input.pitch) * rate * dt);
-  s.q = turn(s.q, 0, 0, 1, clamp(input.roll ?? 0) * rate * dt + rollDirection * maneuverRollStep);
+  s.q = turn(s.q, 0, 0, 1, clamp(input.roll ?? 0) * rate * dt + rollDirection * maneuverRollStep + directRollStep);
   if (rollDirection !== 0) {
     s.maneuverRollRemaining = rollDirection * Math.max(0, rollRemaining - maneuverRollStep);
   }
   const f = rotate(s.q, 0, 0, -1);
   craft.yaw = detAtan2(-f.x, -f.z); craft.pitch = detAtan2(f.y, detHypot(f.x, f.z)); craft.steer = input.yaw;
   const boosting = !disrupted && (input.boost || craft.boost > 0) && s.energy > .1;
-  s.energy = Math.max(0, Math.min(100, s.energy + (boosting ? -28 : 15) * dt));
-  const evasiveStrafe = rollDirection !== 0 && rollProgress < .34 ? -rollDirection * .68 : 0;
+  const rollEnergyCost = Math.abs(directRollStep) * 18 / (2 * Math.PI);
+  s.energy = Math.max(0, Math.min(100, s.energy + (boosting ? -28 : 15) * dt - rollEnergyCost));
+  const evasiveStrafe = rollDirection !== 0 && rollProgress < .34
+    ? -rollDirection * .68
+    : -directRollStrength * .38;
   const thrust = rotate(s.q, -clamp(input.strafe + evasiveStrafe), clamp(input.vertical ?? 0), -clamp(input.throttle));
   const engineCondition = .55 + .45 * Math.max(0, craft.hull / craft.hullMax);
   const acceleration = disrupted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
