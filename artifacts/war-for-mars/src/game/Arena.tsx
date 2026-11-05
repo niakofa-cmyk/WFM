@@ -20,7 +20,7 @@ import type { TechId } from "./campaign";
 import { battlefieldProfile } from "./battlefield";
 import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
-import { rotate } from "./orbital-flight";
+import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
 import { PilotActionButton } from "./PilotActionButton";
@@ -189,6 +189,7 @@ const _tmp = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
 const _cam = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const _cameraUp = new THREE.Vector3();
 
 function orient(obj: THREE.Object3D, yaw: number, pitch: number, steer: number) {
   const cp = Math.cos(pitch);
@@ -597,6 +598,7 @@ export function Arena({
   const [shakeUi, setShakeUi] = useState(true);
   const [mapOpen, setMapOpen] = useState(false);
   const [maneuversOpen, setManeuversOpen] = useState(false);
+  const rollCameraStabilizationRef = useRef(0);
   const [cameraMode, setCameraMode] = useState<"chase" | "cockpit">("chase");
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   cameraModeRef.current = cameraMode;
@@ -1611,12 +1613,20 @@ export function Arena({
       _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
       if (orbital && player.space) {
         const cockpit = cameraModeRef.current === "cockpit";
-        const offset = rotate(player.space.q, 0, cockpit ? 1.2 : 4, cockpit ? -0.65 : 15);
-        const ahead = rotate(player.space.q, 0, cockpit ? 1.2 : 1.1, cockpit ? -40 : -24);
-        _cam.set(player.x + offset.x, .9 + player.space.y + offset.y, player.z + offset.z);
-        _look.set(player.x + ahead.x, .9 + player.space.y + ahead.y, player.z + ahead.z);
-        const up = rotate(player.space.q, 0, 1, 0);
-        camera.up.set(up.x, up.y, up.z);
+        const rollActive = Math.abs(player.space.maneuverRollRemaining ?? 0) > 0;
+        rollCameraStabilizationRef.current = rollActive
+          ? 1
+          : Math.max(0, rollCameraStabilizationRef.current - delta * 2.6);
+        const stabilization = rollCameraStabilizationRef.current;
+        const pose = orbitalCameraPose(player.space.q, cockpit, stabilization);
+        _cam.set(player.x + pose.offset.x, .9 + player.space.y + pose.offset.y, player.z + pose.offset.z);
+        _look.set(player.x + pose.ahead.x, .9 + player.space.y + pose.ahead.y, player.z + pose.ahead.z);
+        if (stabilization > 0) {
+          _cameraUp.set(pose.up.x, pose.up.y, pose.up.z);
+          camera.up.lerp(_cameraUp, 1 - Math.exp(-12 * delta)).normalize();
+        } else {
+          camera.up.set(pose.up.x, pose.up.y, pose.up.z);
+        }
       }
       const blend = 1 - Math.exp(-5 * delta);
       camera.position.lerp(_cam, blend);
@@ -1988,7 +1998,7 @@ export function Arena({
           className={`pilot-control-left absolute flex flex-col items-start gap-2 ${unifiedOrbitalControls ? "pilot-unified-controls" : ""}`}
           style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)", left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)" }}
         >
-          {orbital && maneuversOpen ? (
+          {orbital && !unifiedOrbitalControls && maneuversOpen ? (
             <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-start gap-1.5" data-testid="pilot-maneuver-actions">
               <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
@@ -2028,32 +2038,31 @@ export function Arena({
                 {unifiedOrbitalControls ? (
                   <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
                 ) : null}
-                <PilotActionButton
-                  icon="thrust"
-                  label={unifiedOrbitalControls ? "Hold or pulse vertical ascent" : "Hold forward thrust"}
-                  testId="button-thrust"
-                  accent
-                  onPress={() => bus?.keys.add(unifiedOrbitalControls ? "KeyC" : "KeyW")}
-                  onRelease={() => bus?.keys.delete(unifiedOrbitalControls ? "KeyC" : "KeyW")}
-                  onActivate={() => {
-                    if (!bus) return;
-                    if (unifiedOrbitalControls) {
-                      pulseVectorManeuver(bus, { axis: "vertical", direction: 1 });
-                      unlockAudio();
-                      sfxDive();
-                    } else {
-                      bus.keys.add("KeyW");
-                      requestAnimationFrame(() => bus.keys.delete("KeyW"));
-                    }
-                  }}
-                />
-                <PilotActionButton
-                  icon="maneuver"
-                  label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
-                  testId="button-maneuvers"
-                  active={maneuversOpen}
-                  onActivate={() => setManeuversOpen((value) => !value)}
-                />
+                {!unifiedOrbitalControls ? (
+                  <>
+                    <PilotActionButton
+                      icon="thrust"
+                      label="Hold forward thrust"
+                      testId="button-thrust"
+                      accent
+                      onPress={() => bus?.keys.add("KeyW")}
+                      onRelease={() => bus?.keys.delete("KeyW")}
+                      onActivate={() => {
+                        if (bus) {
+                          bus.keys.add("KeyW");
+                          requestAnimationFrame(() => bus.keys.delete("KeyW"));
+                        }
+                      }}
+                    />
+                    <PilotActionButton
+                      icon="maneuver"
+                      label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
+                      testId="button-maneuvers"
+                      active={maneuversOpen}
+                      onActivate={() => setManeuversOpen((value) => !value)}
+                    />
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -2065,47 +2074,82 @@ export function Arena({
           style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
           {unifiedOrbitalControls ? (
-            <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
-              <div className="flex flex-col items-center gap-2">
-                <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+            <>
+              {orbital && maneuversOpen ? (
+                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+                  <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+                  <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
+                  <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+                  <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
+                  <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
+                  {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled hidden onActivate={() => { if (bus) bus.countermeasurePulse = true; }} />}
+                </div>
+              ) : null}
+              <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+                <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
                   <PilotActionButton
-                    ref={missileRef}
-                    icon="missile"
-                    label="Launch guided missile"
-                    testId="button-missile"
-                    disabled
+                    icon="thrust"
+                    label="Hold or pulse vertical ascent"
+                    testId="button-thrust"
                     accent
-                    badge="MSL"
-                    onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                    onPress={() => bus?.keys.add("KeyC")}
+                    onRelease={() => bus?.keys.delete("KeyC")}
+                    onActivate={() => {
+                      if (!bus) return;
+                      pulseVectorManeuver(bus, { axis: "vertical", direction: 1 });
+                      unlockAudio();
+                      sfxDive();
+                    }}
                   />
                   <PilotActionButton
-                    icon="fire"
-                    label="Hold primary guns"
-                    testId="button-fire"
-                    accent
-                    fireAction
-                    onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
-                    onRelease={() => { if (bus) bus.fireButton = false; }}
-                    onActivate={() => {
-                      unlockAudio();
-                      if (bus) bus.fireButton = true;
-                      requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
-                    }}
-                    className="pilot-action-fire"
+                    icon="maneuver"
+                    label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
+                    testId="button-maneuvers"
+                    active={maneuversOpen}
+                    onActivate={() => setManeuversOpen((value) => !value)}
                   />
                 </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+                    <PilotActionButton
+                      ref={missileRef}
+                      icon="missile"
+                      label="Launch guided missile"
+                      testId="button-missile"
+                      disabled
+                      accent
+                      badge="MSL"
+                      onActivate={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                    />
+                    <PilotActionButton
+                      icon="fire"
+                      label="Hold primary guns"
+                      testId="button-fire"
+                      accent
+                      fireAction
+                      onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                      onRelease={() => { if (bus) bus.fireButton = false; }}
+                      onActivate={() => {
+                        unlockAudio();
+                        if (bus) bus.fireButton = true;
+                        requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                      }}
+                      className="pilot-action-fire"
+                    />
+                  </div>
+                </div>
+                <div className="relative">
+                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onCircularManeuver={(direction) => {
+                    if (bus) pulseBarrelRoll(bus, direction);
+                  }} onAxis={(x, y) => {
+                    if (!bus) return;
+                    bus.rightX = x;
+                    bus.rightY = y;
+                  }} />
+                  <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.1em] text-bone/65">AIM · DRAW LOOP TO ROLL</span>
+                </div>
               </div>
-              <div className="relative">
-                <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick" onCircularManeuver={(direction) => {
-                  if (bus) pulseBarrelRoll(bus, direction);
-                }} onAxis={(x, y) => {
-                  if (!bus) return;
-                  bus.rightX = x;
-                  bus.rightY = y;
-                }} />
-                <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] tracking-[0.1em] text-bone/65">AIM · DRAW LOOP TO ROLL</span>
-              </div>
-            </div>
+            </>
           ) : (
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">

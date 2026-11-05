@@ -42,4 +42,4 @@
 .lab-flight .pilot-rust-disc-stick .pilot-flight-stick-knob{width:2rem;height:2rem}
 .lab-flight .pilot-rust-disc-combat-row{flex-direction:row;align-items:center}
 @media(min-width:640px){.lab-flight .pilot-rust-disc-stick{width:8rem;height:8rem}.lab-flight .pilot-rust-disc-stick .pilot-flight-stick-knob{width:3rem;height:3rem}}
-@media(max-height:560px) and (orientation:landscape){.lab-flight .pilot-control-left.pilot-unified-controls{flex-direction:column;align-items:flex-start}.lab-flight .pilot-control-left.pilot-unified-controls .pilot-maneuver-actions{max-width:min(48vw,22rem)}}
+@media(max-height:560px) and (orientation:landscape){.lab-flight .pilot-control-left.pilot-unified-controls{flex-direction:column;align-items:flex-start}.lab-flight .pilot-control-right .pilot-maneuver-actions{max-width:min(48vw,22rem)}}

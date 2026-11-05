@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { orbitalCameraPose } from "./orbital-camera";
+
+test("orbital camera stays horizon-stable through the middle of a barrel roll", () => {
+  const upright = orbitalCameraPose([0, 0, 0, 1], false, 0);
+  const inverted = orbitalCameraPose([0, 0, 1, 0], false, 0);
+  const stabilized = orbitalCameraPose([0, 0, 1, 0], false, 1);
+
+  assert.notDeepEqual(inverted.offset, upright.offset, "the ship-follow camera normally banks with the craft");
+  assert.deepEqual(stabilized.offset, upright.offset);
+  assert.deepEqual(stabilized.ahead, upright.ahead);
+  assert.deepEqual(stabilized.up, { x: 0, y: 1, z: 0 });
+});
+
+test("orbital camera keeps a valid up vector when the ship points vertically", () => {
+  const pose = orbitalCameraPose([Math.SQRT1_2, 0, 0, Math.SQRT1_2], false, 1);
+  const length = Math.hypot(pose.up.x, pose.up.y, pose.up.z);
+  assert.ok(Math.abs(length - 1) < 1e-12);
+  assert.ok(Number.isFinite(pose.offset.x + pose.offset.y + pose.offset.z));
+  assert.ok(Number.isFinite(pose.ahead.x + pose.ahead.y + pose.ahead.z));
+});

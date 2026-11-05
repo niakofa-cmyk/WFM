@@ -85,6 +85,7 @@ test("tactical barrel roll changes quaternion and trajectory with bounded energy
   const pilot = match.player;
   const space = pilot.space!;
   const startEnergy = space.energy;
+  const startQuaternion = [...space.q];
   step(match, {
     ...idle,
     maneuver: { version: 1, kind: "barrel-roll", direction: "right" },
@@ -102,6 +103,8 @@ test("tactical barrel roll changes quaternion and trajectory with bounded energy
   }
   assert.equal(space.maneuverRollRemaining ?? 0, 0);
   assert.ok(Math.abs(Math.hypot(...space.q) - 1) < 1e-12);
+  const quaternionDot = space.q.reduce((sum, value, index) => sum + value * startQuaternion[index]!, 0);
+  assert.ok(quaternionDot < -0.999, "the completed maneuver traverses a full 360-degree quaternion rotation");
   assert.ok(Math.abs(space.vx) > 0.01, "the roll leaves a real changed flight trajectory");
 });
 
