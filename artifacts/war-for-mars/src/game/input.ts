@@ -162,20 +162,27 @@ export function stickAxesFromDelta(dx: number, dy: number, maxDistance: number) 
   };
 }
 
+export function readThrottle(bus: Bus): number {
+  const keys = bus.override ?? bus.keys;
+  const keyThr =
+    (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
+    (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+  const stickThr = -bus.leftY;
+  return clamp(bus.orbital
+    ? keyThr + (bus.leftStickFlight ? stickThr : 0)
+    : keyThr + stickThr);
+}
+
 export function readInput(bus: Bus, at = Date.now()): StepInput {
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
   const keyYaw = keyLeft - keyRight;
   const keyFlightYaw = keyRight - keyLeft;
-  const keyThr =
-    (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
-    (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
   const orbitalFlightStick = bus.orbital && bus.leftStickFlight
     ? mapFlightStickAxes(bus.leftX, 0)
     : null;
   const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
-  const stickThr = -bus.leftY;
   const orbitalAim = bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null;
   const aimYaw = orbitalAim?.yaw ?? -bus.rightX;
   const flightYaw = bus.leftStickFlight
@@ -193,9 +200,7 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     strafe = clamp(keyYaw + stickYaw);
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
-  const throttle = clamp(bus.orbital
-    ? keyThr + (bus.leftStickFlight ? stickThr : 0)
-    : keyThr + stickThr);
+  const throttle = readThrottle(bus);
   const flightPitch = orbitalFlightStick?.pitch ?? 0;
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);

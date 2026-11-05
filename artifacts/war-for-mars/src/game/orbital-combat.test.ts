@@ -79,6 +79,13 @@ test("inertia preserves vector while brake dissipates it and boost spends energy
   integrateFlight(a.player, { ...idle, boost: true, throttle: 1 }, .1, 1, a);
   assert.ok(a.player.space!.energy < before);
   assert.ok(a.player.space!.vz < 0);
+  const boostedVelocity = Math.abs(a.player.space!.vz);
+  const normal = lab();
+  integrateFlight(normal.player, { ...idle, throttle: 1 }, .1, 1, normal);
+  assert.ok(boostedVelocity > Math.abs(normal.player.space!.vz), "forward boost adds acceleration beyond the analog throttle");
+  const energyAfterBoost = a.player.space!.energy;
+  integrateFlight(a.player, idle, .1, 1, a);
+  assert.ok(a.player.space!.energy > energyAfterBoost, "energy starts recharging when the temporary boost input is released");
 });
 
 test("tactical barrel roll changes quaternion and trajectory with bounded energy and cooldown", () => {

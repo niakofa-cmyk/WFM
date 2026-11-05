@@ -36,7 +36,7 @@ test("landing page presents the Orbital training entry without a separate Rust D
 });
 
 test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot controls", async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.setViewportSize({ width: 844, height: 390 });
@@ -53,6 +53,11 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await expect(page.getByTestId("button-target-lock")).toBeVisible();
   await expect(page.getByTestId("button-missile")).toBeVisible();
   await expect(page.getByTestId("button-fire")).toBeVisible();
+  const throttleMeter = page.getByTestId("pilot-throttle-meter");
+  await expect(throttleMeter).toBeAttached();
+  await expect(throttleMeter).toBeHidden();
+  const boostButton = page.getByTestId("button-boost");
+  await expect(boostButton).toBeVisible();
 
   const runtimeReady = await page.evaluate(() => typeof window.__controlsTest?.getSpeed === "function");
   console.log(`[orbital-lab] WebGL simulation ${runtimeReady ? "ready" : "unavailable"}; validating browser controls.`);
@@ -68,12 +73,35 @@ test("Orbital Combat Lab keeps the reticle clear and verifies the live pilot con
   await page.mouse.move(flightX, flightY - Math.min(30, flightBox.height * 0.3), { steps: 4 });
   await expect.poll(async () => Number(await flightStick.getAttribute("data-axis-y"))).toBeLessThan(-0.2);
   await page.waitForTimeout(350);
+  await expect(throttleMeter).toBeVisible();
+  await expect.poll(async () => Number(await throttleMeter.getAttribute("aria-valuenow"))).toBeGreaterThan(20);
   if (runtimeReady && speedBefore !== null) {
     const speedAfterThrust = await page.evaluate(() => window.__controlsTest!.getSpeed());
     expect(speedAfterThrust).toBeGreaterThan(speedBefore);
   }
   await page.mouse.up();
   await expect(flightStick).toHaveAttribute("data-axis-y", "0.000");
+  await expect.poll(async () => Number(await throttleMeter.getAttribute("aria-valuenow"))).toBe(0);
+
+  const boostBox = await boostButton.boundingBox();
+  expect(boostBox).not.toBeNull();
+  if (!boostBox) throw new Error("Forward boost control is missing.");
+  await expect.poll(async () => Number(await boostButton.getAttribute("data-energy-percent"))).toBeGreaterThan(0);
+  await page.keyboard.down("w");
+  const boostSpeedBefore = runtimeReady ? await page.evaluate(() => window.__controlsTest!.getSpeed()) : null;
+  await page.mouse.move(boostBox.x + boostBox.width / 2, boostBox.y + boostBox.height / 2);
+  await page.mouse.down();
+  await expect(boostButton).toHaveAttribute("data-active", "true");
+  const energyBefore = Number(await boostButton.getAttribute("data-energy-percent"));
+  await expect.poll(async () => Number(await boostButton.getAttribute("data-energy-percent"))).toBeLessThan(energyBefore);
+  if (runtimeReady && boostSpeedBefore !== null) {
+    await expect.poll(() => page.evaluate(() => window.__controlsTest!.getSpeed())).toBeGreaterThan(boostSpeedBefore);
+  }
+  await page.waitForTimeout(350);
+  const energyAfterBoost = Number(await boostButton.getAttribute("data-energy-percent"));
+  await page.mouse.up();
+  await page.keyboard.up("w");
+  await expect.poll(async () => Number(await boostButton.getAttribute("data-energy-percent"))).toBeGreaterThan(energyAfterBoost);
 
   const aimStick = page.getByTestId("stick-aim");
   const aimBox = await aimStick.boundingBox();

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, pulseVectorManeuver, readInput, setCircularRollControl, type Bus } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -528,6 +528,10 @@ export function Arena({
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
   const speedRef = useRef<HTMLSpanElement>(null);
+  const throttleMeterRef = useRef<HTMLDivElement>(null);
+  const throttleFillRef = useRef<HTMLDivElement>(null);
+  const throttleValueRef = useRef<HTMLSpanElement>(null);
+  const boostRef = useRef<HTMLButtonElement>(null);
   const lockNameRef = useRef<HTMLParagraphElement>(null);
   const lockHpRef = useRef<HTMLDivElement>(null);
   const targetStatusRef = useRef<HTMLDivElement>(null);
@@ -1752,7 +1756,45 @@ export function Arena({
       if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
       if (orbital && player.space) {
         const s = player.space;
-        if (speedRef.current) speedRef.current.textContent = `${Math.round(Math.hypot(s.vx, s.vy, s.vz))} M/S`;
+        const speed = Math.hypot(s.vx, s.vy, s.vz);
+        if (speedRef.current) speedRef.current.textContent = `${Math.round(speed)} M/S`;
+        if (throttleMeterRef.current) {
+          const controlBus = busRef.current;
+          const throttle = controlBus ? readThrottle(controlBus) : 0;
+          const moving = speed > 0.8;
+          throttleMeterRef.current.hidden = !moving;
+          if (moving) {
+            const magnitude = Math.abs(throttle);
+            const direction = throttle > 0.04 ? "forward" : throttle < -0.04 ? "reverse" : "coast";
+            const value = Math.round(throttle * 100);
+            throttleMeterRef.current.dataset.direction = direction;
+            throttleMeterRef.current.setAttribute("aria-valuenow", String(value));
+            throttleMeterRef.current.setAttribute(
+              "aria-valuetext",
+              `${direction === "forward" ? "Forward" : direction === "reverse" ? "Reverse" : "Coasting"} ${Math.round(magnitude * 100)} percent`,
+            );
+            if (throttleFillRef.current) {
+              throttleFillRef.current.style.top = `${throttle >= 0 ? 50 - magnitude * 50 : 50}%`;
+              throttleFillRef.current.style.height = `${magnitude * 50}%`;
+            }
+            if (throttleValueRef.current) {
+              throttleValueRef.current.textContent = `${direction === "forward" ? "FWD" : direction === "reverse" ? "REV" : "COAST"} ${Math.round(magnitude * 100)}%`;
+            }
+          }
+        }
+        if (boostRef.current) {
+          const energyPercent = Math.max(0, Math.min(100, Math.round(s.energy)));
+          if (boostRef.current.dataset.energyPercent !== String(energyPercent)) {
+            boostRef.current.dataset.energyPercent = String(energyPercent);
+            boostRef.current.dataset.energyLevel = energyPercent <= 15 ? "low" : "ready";
+            boostRef.current.setAttribute(
+              "aria-label",
+              `Hold forward boost; energy ${energyPercent} percent. Boost drains energy while held and recharges when released.`,
+            );
+            const badge = boostRef.current.querySelector(".pilot-action-badge");
+            if (badge) badge.textContent = `${energyPercent}%`;
+          }
+        }
         const solution = locked ? targetSolution(player, locked, match.rocks) : null;
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
@@ -2114,7 +2156,29 @@ export function Arena({
             {orbital ? (
               <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
                 {unifiedOrbitalControls ? (
-                  <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                  <>
+                    <div
+                      ref={throttleMeterRef}
+                      hidden
+                      role="meter"
+                      aria-label="Left-stick throttle"
+                      aria-valuemin={-100}
+                      aria-valuemax={100}
+                      aria-valuenow={0}
+                      aria-valuetext="Coasting 0 percent"
+                      data-testid="pilot-throttle-meter"
+                      data-direction="coast"
+                      className="pilot-throttle-meter"
+                    >
+                      <span ref={throttleValueRef} className="pilot-throttle-value">COAST 0%</span>
+                      <div className="pilot-throttle-track" aria-hidden="true">
+                        <div className="pilot-throttle-centerline" />
+                        <div ref={throttleFillRef} className="pilot-throttle-fill" />
+                      </div>
+                      <span className="pilot-throttle-caption">THR</span>
+                    </div>
+                    <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                  </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
                   <>
@@ -2156,7 +2220,6 @@ export function Arena({
               {orbital && maneuversOpen ? (
                 <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
                   <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
-                  <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
                   <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
                   <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
                   <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
@@ -2189,6 +2252,21 @@ export function Arena({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+                    <PilotActionButton
+                      ref={boostRef}
+                      icon="boost"
+                      label="Hold forward boost; drains energy while held"
+                      testId="button-boost"
+                      accent
+                      badge="100%"
+                      onPress={() => bus?.keys.add("ShiftLeft")}
+                      onRelease={() => bus?.keys.delete("ShiftLeft")}
+                      onActivate={() => {
+                        if (!bus) return;
+                        bus.keys.add("ShiftLeft");
+                        requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
+                      }}
+                    />
                     <PilotActionButton
                       ref={missileRef}
                       icon="missile"

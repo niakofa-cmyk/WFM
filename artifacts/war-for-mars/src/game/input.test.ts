@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearInput, createBus, pulseVectorManeuver, readInput, setCircularRollControl } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl } from "./input";
 import { pulseForSector } from "./pilot-stick-gestures";
 
 test("offline Orbital left stick drives signed forward/reverse throttle and coordinated steering", () => {
@@ -17,6 +17,24 @@ test("offline Orbital left stick drives signed forward/reverse throttle and coor
   assert.equal(input.roll, -0.6 * 0.42);
   assert.ok(Math.abs(input.strafe) < Number.EPSILON);
   assert.ok(Math.abs(input.vertical) < Number.EPSILON);
+});
+
+test("the throttle HUD readout and simulation share the same clamped stick and keyboard input", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.leftY = -0.45;
+  assert.equal(readThrottle(bus), readInput(bus).throttle);
+  assert.equal(readThrottle(bus), 0.45);
+
+  bus.leftY = 0.6;
+  assert.equal(readThrottle(bus), -0.6);
+  assert.equal(readThrottle(bus), readInput(bus).throttle);
+
+  bus.leftY = -0.4;
+  bus.keys.add("KeyW");
+  assert.equal(readThrottle(bus), 1);
+  assert.equal(readThrottle(bus), readInput(bus).throttle);
 });
 
 test("Orbital stick double-tap adds vertical thrust independently of stick throttle", () => {
