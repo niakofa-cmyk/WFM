@@ -18,4 +18,12 @@ export const StrikeRunConfigShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;

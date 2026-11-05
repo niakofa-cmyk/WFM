@@ -10,7 +10,9 @@ const render = (ship: ShipId, caption = true, grid = true) =>
 
 test("every selectable hull renders its own named, accessible illustration", () => {
   const roster = [...ROSTER.accord, ...ROSTER.ussf];
-  assert.equal(new Set(roster).size, 8);
+    assert.equal(new Set(roster).size, 16);
+    assert.equal(ROSTER.accord.length, 8);
+    assert.equal(ROSTER.ussf.length, 8);
   for (const ship of roster) {
     const markup = render(ship);
     assert.ok(markup.includes(`data-ship-id="${ship}"`));
@@ -20,13 +22,13 @@ test("every selectable hull renders its own named, accessible illustration", () 
   }
 });
 
-test("all eight hulls have different geometry, not merely different names", () => {
+test("all sixteen hulls have different geometry, not merely different names", () => {
   const shapes = Object.keys(SHIPS).map((id) =>
     render(id as ShipId, false, false)
       .match(/<(?:path|rect|circle|ellipse)\b[^>]*>/g)?.join(""),
   );
   assert.ok(shapes.every(Boolean));
-  assert.equal(new Set(shapes).size, 8);
+  assert.equal(new Set(shapes).size, 16);
 });
 
 test("illustrations take faction color from code-owned ship definitions", () => {

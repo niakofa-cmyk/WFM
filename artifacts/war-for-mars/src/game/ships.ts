@@ -10,7 +10,30 @@ export type ShipId =
   | "duskbreaker"
   | "sentinel"
   | "splitter"
-  | "glide";
+  | "glide"
+  | "wasp"
+  | "valiant"
+  | "aegis"
+  | "bastion"
+  | "apep"
+  | "sekhmet"
+  | "garuda"
+  | "vajra";
+export type ShipAbilityId =
+  | "solar-flare" | "wing-dive" | "vortex-camouflage" | "trinity-shift"
+  | "quantum-lock" | "proximity-ward" | "ring-split" | "skip-reentry"
+  | "vector-pursuit" | "adaptive-fire-control" | "aegis-intercept-grid" | "siege-configuration"
+  | "void-veil" | "solar-cataclysm" | "phantom-swarm" | "thunder-veil";
+export type PrimaryWeaponFit =
+  | "heavy-beam" | "twin-pulse" | "torpedo-cannon" | "support-pulse"
+  | "precision-cannon" | "escort-array" | "disruption-pulse" | "raider-pulse"
+  | "interceptor-pulse" | "multirole-cannon" | "point-defense-array" | "assault-cannon"
+  | "stealth-cannon" | "siege-lance" | "swarm-pulse" | "electronic-pulse";
+export type MissileFit =
+  | "heavy-seeker" | "interceptor" | "torpedo" | "defense-seeker"
+  | "precision-seeker" | "escort-seeker" | "tracking-disruptor" | "light-seeker"
+  | "short-range-interceptor" | "multirole-seeker" | "point-defense-interceptor"
+  | "anti-capital-torpedo" | "stealth-precision" | "siege-missile" | "swarm-pod" | "ew-seeker";
 
 export type ShipDef = {
   id: ShipId;
@@ -31,6 +54,11 @@ export type ShipDef = {
   ultName: string;
   ultShort: string;
   ultCd: number;
+  ability: ShipAbilityId;
+  primaryFit: PrimaryWeaponFit;
+  missileFit: MissileFit;
+  missileAmmo: number;
+  missileDamage: number;
 };
 
 export const PRESET_PIPS: Record<PresetId, [number, number, number]> = {
@@ -62,6 +90,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Solar Flare",
     ultShort: "FLARE",
     ultCd: 8,
+    ability: "solar-flare",
+    primaryFit: "heavy-beam",
+    missileFit: "heavy-seeker",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   shakuna: {
     id: "shakuna",
@@ -82,6 +115,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Wing Dive",
     ultShort: "DIVE",
     ultCd: 7,
+    ability: "wing-dive",
+    primaryFit: "twin-pulse",
+    missileFit: "interceptor",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   sundara: {
     id: "sundara",
@@ -102,6 +140,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Vortex Camouflage",
     ultShort: "CLOAK",
     ultCd: 10,
+    ability: "vortex-camouflage",
+    primaryFit: "torpedo-cannon",
+    missileFit: "torpedo",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   tripura: {
     id: "tripura",
@@ -122,6 +165,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Trinity Shift",
     ultShort: "SHIFT",
     ultCd: 11,
+    ability: "trinity-shift",
+    primaryFit: "support-pulse",
+    missileFit: "defense-seeker",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   duskbreaker: {
     id: "duskbreaker",
@@ -142,6 +190,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Quantum Lock",
     ultShort: "LOCK",
     ultCd: 11,
+    ability: "quantum-lock",
+    primaryFit: "precision-cannon",
+    missileFit: "precision-seeker",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   sentinel: {
     id: "sentinel",
@@ -162,6 +215,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Proximity Ward",
     ultShort: "WARD",
     ultCd: 12,
+    ability: "proximity-ward",
+    primaryFit: "escort-array",
+    missileFit: "escort-seeker",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   splitter: {
     id: "splitter",
@@ -182,6 +240,11 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Ring Split",
     ultShort: "SPLIT",
     ultCd: 9,
+    ability: "ring-split",
+    primaryFit: "disruption-pulse",
+    missileFit: "tracking-disruptor",
+    missileAmmo: 8,
+    missileDamage: 58,
   },
   glide: {
     id: "glide",
@@ -202,10 +265,86 @@ export const SHIPS: Record<ShipId, ShipDef> = {
     ultName: "Skip Reentry",
     ultShort: "RAM",
     ultCd: 12,
+    ability: "skip-reentry",
+    primaryFit: "raider-pulse",
+    missileFit: "light-seeker",
+    missileAmmo: 8,
+    missileDamage: 58,
+  },
+  wasp: {
+    id: "wasp", name: "Wasp", faction: "ussf", role: "Advanced Interceptor",
+    blurb: "High-response interceptor. Vector Pursuit tightens turns and adds controlled lateral thrust.",
+    handling: 1.38, maxSpeed: 37, accel: 53, shield: 82, hull: 60,
+    fireInterval: 0.115, shotDmg: 2.2, shotSpeed: 66, turnRate: 2.25, radius: 1.18,
+    ultName: "Vector Pursuit", ultShort: "VECTOR", ultCd: 9,
+    ability: "vector-pursuit", primaryFit: "interceptor-pulse", missileFit: "short-range-interceptor", missileAmmo: 10, missileDamage: 30,
+  },
+  valiant: {
+    id: "valiant", name: "Valiant", faction: "ussf", role: "Multirole Fighter",
+    blurb: "Balanced patrol fighter. Adaptive Fire Control trades a little impact for a short rapid-fire window.",
+    handling: 0.98, maxSpeed: 27, accel: 40, shield: 102, hull: 80,
+    fireInterval: 0.2, shotDmg: 3.8, shotSpeed: 62, turnRate: 2.15, radius: 1.36,
+    ultName: "Adaptive Fire Control", ultShort: "ADAPT", ultCd: 11,
+    ability: "adaptive-fire-control", primaryFit: "multirole-cannon", missileFit: "multirole-seeker", missileAmmo: 8, missileDamage: 50,
+  },
+  aegis: {
+    id: "aegis", name: "Aegis", faction: "ussf", role: "Missile-Defense Escort",
+    blurb: "Escort defense platform. Intercept Grid screens nearby allies against incoming missiles.",
+    handling: 0.72, maxSpeed: 19, accel: 27, shield: 150, hull: 98,
+    fireInterval: 0.24, shotDmg: 4, shotSpeed: 50, turnRate: 2.15, radius: 1.62,
+    ultName: "Aegis Intercept Grid", ultShort: "GRID", ultCd: 14,
+    ability: "aegis-intercept-grid", primaryFit: "point-defense-array", missileFit: "point-defense-interceptor", missileAmmo: 10, missileDamage: 32,
+  },
+  bastion: {
+    id: "bastion", name: "Bastion", faction: "ussf", role: "Heavy Assault Gunship",
+    blurb: "Armored forward gunship. Siege Configuration trades maneuverability for heavy cannon damage.",
+    handling: 0.54, maxSpeed: 17, accel: 24, shield: 145, hull: 125,
+    fireInterval: 0.58, shotDmg: 9.5, shotSpeed: 48, turnRate: 2.05, radius: 1.86,
+    ultName: "Siege Configuration", ultShort: "SIEGE", ultCd: 14,
+    ability: "siege-configuration", primaryFit: "assault-cannon", missileFit: "anti-capital-torpedo", missileAmmo: 6, missileDamage: 74,
+  },
+  apep: {
+    id: "apep", name: "Apep", faction: "accord", role: "Stealth Hunter",
+    blurb: "Recon hunter. Void Veil conceals the craft and disrupts a forward hostile sensor contact.",
+    handling: 1.12, maxSpeed: 31, accel: 46, shield: 70, hull: 56,
+    fireInterval: 0.23, shotDmg: 4.2, shotSpeed: 70, turnRate: 2.15, radius: 1.2,
+    ultName: "Void Veil", ultShort: "VEIL", ultCd: 12,
+    ability: "void-veil", primaryFit: "stealth-cannon", missileFit: "stealth-precision", missileAmmo: 6, missileDamage: 56,
+  },
+  sekhmet: {
+    id: "sekhmet", name: "Sekhmet", faction: "accord", role: "Heavy Siege Gunship",
+    blurb: "Slow siege hull. Solar Cataclysm charges a single armor-piercing forward energy lance.",
+    handling: 0.5, maxSpeed: 16, accel: 22, shield: 150, hull: 124,
+    fireInterval: 0.64, shotDmg: 11, shotSpeed: 54, turnRate: 2.05, radius: 1.88,
+    ultName: "Solar Cataclysm", ultShort: "CATACLYSM", ultCd: 16,
+    ability: "solar-cataclysm", primaryFit: "siege-lance", missileFit: "siege-missile", missileAmmo: 4, missileDamage: 76,
+  },
+  garuda: {
+    id: "garuda", name: "Garuda", faction: "accord", role: "Swarm Interceptor",
+    blurb: "Fast pursuit craft. Phantom Swarm releases a bounded salvo of independently guided attack drones.",
+    handling: 1.4, maxSpeed: 36, accel: 53, shield: 72, hull: 55,
+    fireInterval: 0.13, shotDmg: 2.4, shotSpeed: 70, turnRate: 2.2, radius: 1.16,
+    ultName: "Phantom Swarm", ultShort: "SWARM", ultCd: 14,
+    ability: "phantom-swarm", primaryFit: "swarm-pulse", missileFit: "swarm-pod", missileAmmo: 12, missileDamage: 28,
+  },
+  vajra: {
+    id: "vajra", name: "Vajra", faction: "accord", role: "Tactical Warfare Support",
+    blurb: "Electronic-warfare support craft. Thunder Veil disrupts hostile sensors and weapon timing nearby.",
+    handling: 0.82, maxSpeed: 21, accel: 31, shield: 132, hull: 98,
+    fireInterval: 0.24, shotDmg: 4.1, shotSpeed: 56, turnRate: 2.15, radius: 1.58,
+    ultName: "Thunder Veil", ultShort: "THUNDER", ultCd: 14,
+    ability: "thunder-veil", primaryFit: "electronic-pulse", missileFit: "ew-seeker", missileAmmo: 8, missileDamage: 44,
   },
 };
 
 export const ROSTER: Record<Faction, ShipId[]> = {
+  accord: ["mandjet", "shakuna", "sundara", "tripura", "apep", "sekhmet", "garuda", "vajra"],
+  ussf: ["duskbreaker", "sentinel", "splitter", "glide", "wasp", "valiant", "aegis", "bastion"],
+};
+
+// Default legacy and Orbital-training opponents stay on the certified starter
+// four until the expanded NPC roster receives its own balance pass.
+export const AI_ROSTER: Record<Faction, ShipId[]> = {
   accord: ["mandjet", "shakuna", "sundara", "tripura"],
   ussf: ["duskbreaker", "sentinel", "splitter", "glide"],
 };

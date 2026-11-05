@@ -2,6 +2,7 @@ import { SHIPS } from "./ships";
 import { detAtan2, detHypot } from "./detmath";
 import { integrateFlight, newFlight, rotate } from "./orbital-flight";
 import { distance3, guideMissile, launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
+import { activateOrbitalAbility, advanceOrbitalAbility, applyOrbitalAbilityInput, ORBITAL_ABILITY_COST, processOrbitalAbility } from "./orbital-abilities";
 import type { Craft, Match, StepInput } from "./sim";
 
 const IDLE: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null, countermeasure: false };
@@ -12,7 +13,10 @@ type Services = {
 
 // Shared campaign/training setup. Networked competitive rooms still use their own authority.
 export function prepareOrbital(match: Match) {
-  for (const craft of [match.player, ...match.allies, ...match.enemies]) craft.space = newFlight(craft.yaw);
+  for (const craft of [match.player, ...match.allies, ...match.enemies]) {
+    craft.space = newFlight(craft.yaw);
+    craft.space.ammo = SHIPS[craft.ship].missileAmmo;
+  }
   match.player.x = 0; match.player.z = 28;
   match.enemies.forEach((craft, i) => {
     craft.x = i === 0 ? 0 : (i % 2 ? -1 : 1) * (16 + i * 4);
@@ -30,6 +34,21 @@ export function prepareOrbital(match: Match) {
   });
   match.relays = []; match.runner = null;
   return match;
+}
+
+function resolveBoostHit(match: Match, craft: Craft, hurt: Services["hurt"]) {
+  if (craft.boost <= 0 || craft.boostDmg <= 0 || craft.rammed) return;
+  for (const target of craft.team === "foe" ? [match.player, ...match.allies] : match.enemies) {
+    if (!target.alive || target.guard > 0 || distance3(craft, target) >= craft.radius + target.radius + 0.8) continue;
+    hurt(match, target, craft.boostDmg, craft.x, craft.z);
+    craft.rammed = true;
+    if (craft.ship === "glide") {
+      craft.boost = 0;
+      craft.recover = 1.35;
+      craft.untargetable = 0;
+    }
+    break;
+  }
 }
 
 function selectTarget(match: Match, input: StepInput) {
@@ -51,6 +70,7 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
   for (const craft of crafts) {
     if (!craft.alive) continue;
     services.tickTimers(craft, dt);
+    advanceOrbitalAbility(match, craft);
     const space = craft.space;
     if (!space) throw new Error("All orbital pilots need spatial state.");
     let played = input;
@@ -72,9 +92,14 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
           space.lockProgress >= 1 && targetSolution(craft, target, match.rocks).available;
         // First defender is a stationary gun platform; other defenders maneuver.
         if (craft.id === match.enemies[0]?.id) played.throttle = 0;
+        played.ult = craft.ultCd <= 0 && space.energy >= ORBITAL_ABILITY_COST[SHIPS[craft.ship].ability] &&
+          (distance < 32 || SHIPS[craft.ship].ability === "aegis-intercept-grid");
       }
     }
+    if (played.ult) activateOrbitalAbility(match, craft, services);
+    played = applyOrbitalAbilityInput(craft, played);
     integrateFlight(craft, played, dt, 1, match);
+    resolveBoostHit(match, craft, services.hurt);
     updateAcquisition(match, craft, dt);
     if (played.missile && launchMissile(match, craft) && craft.ai) {
       // AI ordnance is intentionally intermittent; it creates readable
@@ -94,12 +119,31 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
     }
     if (played.fire && craft.fireCd <= 0 && craft.root <= 0 && match.bullets.length < 110) {
       const def = SHIPS[craft.ship];
-      craft.fireCd = def.fireInterval;
-      match.bullets.push(primaryBullet(match, craft, def.shotDmg * (craft.ai ? .28 : 2.2)));
+      let damage = def.shotDmg * (craft.ai ? .28 : 2.2);
+      if (craft.dmgMulT > 0) damage *= craft.dmgMul;
+      if (craft.nextCrit) {
+        damage *= 2.45;
+        craft.nextCrit = false;
+      }
+      let fireInterval = def.fireInterval;
+      if (SHIPS[craft.ship].ability === "adaptive-fire-control" &&
+          (craft.abilityState?.active ?? 0) > 0 && (craft.abilityState?.shotsRemaining ?? 0) > 0) {
+        fireInterval *= .62;
+        damage *= .78;
+        craft.abilityState!.shotsRemaining--;
+      }
+      if (SHIPS[craft.ship].ability === "siege-configuration" && (craft.abilityState?.active ?? 0) > 0) {
+        fireInterval *= 1.25;
+        damage *= 1.75;
+      }
+      craft.fireCd = fireInterval;
+      if (craft.cloak > 0) craft.cloak = 0;
+      match.bullets.push(primaryBullet(match, craft, damage));
       match.fx.push({ k: "shot", x: craft.x, y: space.y, z: craft.z, big: false, you: !craft.ai });
     }
     if (craft.hurtT <= 0) craft.shield = Math.min(craft.shieldMax, craft.shield + 3 * dt);
   }
+  for (const craft of crafts) processOrbitalAbility(match, craft);
   for (let i = match.bullets.length - 1; i >= 0; i--) {
     const bullet = match.bullets[i];
     const targets = bullet.faction === player.faction ? match.enemies : [player, ...match.allies];

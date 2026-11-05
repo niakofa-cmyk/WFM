@@ -38,6 +38,8 @@ export type SpatialCraft = {
   id: number; x: number; z: number; yaw: number; pitch: number; speed: number; steer: number;
   hull: number; hullMax: number; alive: boolean; root: number; jam: number; boost: number;
   cloak: number; untargetable: number; radius: number; lockTargetId: number | null;
+  /** A thrust-only disable; unlike root/jam it does not disable weapons or steering. */
+  thrustMuted?: number;
   space?: OrbitalFlight;
 };
 export type SpatialBullet = {
@@ -79,6 +81,7 @@ export function integrateSpatialFlight(
   if (input.inertial) s.assist = !s.assist;
   if (input.aimAssist) s.aimAssist = !s.aimAssist;
   const disrupted = craft.root > 0 || craft.jam > 0;
+  const thrustMuted = disrupted || (craft.thrustMuted ?? 0) > 0;
   const rate = def.turnRate * def.handling * (disrupted ? .35 : 1);
   const maneuverCooldown = Math.max(0, (s.maneuverCooldown ?? 0) - dt);
   if (s.maneuverCooldown !== undefined) s.maneuverCooldown = maneuverCooldown;
@@ -130,7 +133,7 @@ export function integrateSpatialFlight(
   }
   const f = rotate(s.q, 0, 0, -1);
   craft.yaw = detAtan2(-f.x, -f.z); craft.pitch = detAtan2(f.y, detHypot(f.x, f.z)); craft.steer = input.yaw;
-  const boosting = !disrupted && (input.boost || craft.boost > 0) && s.energy > .1;
+  const boosting = !thrustMuted && (input.boost || craft.boost > 0) && s.energy > .1;
   const rollEnergyCost = Math.abs(directRollStep) * 18 / (2 * Math.PI);
   s.energy = Math.max(0, Math.min(100, s.energy + (boosting ? -28 : 15) * dt - rollEnergyCost));
   const evasiveStrafe = rollDirection !== 0 && rollProgress < .34
@@ -138,7 +141,7 @@ export function integrateSpatialFlight(
     : -directRollStrength * .38;
   const thrust = rotate(s.q, -clamp(input.strafe + evasiveStrafe), clamp(input.vertical ?? 0), -clamp(input.throttle));
   const engineCondition = .55 + .45 * Math.max(0, craft.hull / craft.hullMax);
-  const acceleration = disrupted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
+  const acceleration = thrustMuted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
   const length = Math.max(1, detHypot(detHypot(thrust.x, thrust.y), thrust.z));
   s.vx += thrust.x / length * acceleration * dt; s.vy += thrust.y / length * acceleration * dt; s.vz += thrust.z / length * acceleration * dt;
   const damping = input.brake ? 7 : input.drift ? 0.04 : s.assist ? 1.65 : 0;

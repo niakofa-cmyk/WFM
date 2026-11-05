@@ -228,7 +228,7 @@ test("primary weapon output and ultimate recharge stay within the tuned band", (
   for (const ship of Object.values(SHIPS)) {
     const sustainedDps = ship.shotDmg / ship.fireInterval;
     assert.ok(sustainedDps >= 16 && sustainedDps <= 22, `${ship.name} sustained DPS ${sustainedDps}`);
-    assert.ok(ship.ultCd >= 7 && ship.ultCd <= 12, `${ship.name} ultimate cooldown ${ship.ultCd}`);
+    assert.ok(ship.ultCd >= 7 && ship.ultCd <= 16, `${ship.name} ultimate cooldown ${ship.ultCd}`);
   }
 });
 

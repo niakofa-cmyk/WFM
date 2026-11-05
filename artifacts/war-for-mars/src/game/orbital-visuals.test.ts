@@ -23,11 +23,15 @@ test("hangar procedural hulls map every canonical roster ID to a distinct popula
   assert.equal(assets.size, Object.keys(SHIPS).length);
 });
 
-test("the eight Orbital hulls have individual construction, role fittings, faction identity, and mobile-sized detail", () => {
+test("all sixteen Orbital hulls have individual construction, role fittings, faction identity, and mobile-sized detail", () => {
   const silhouettes = new Set<string>();
   for (const shipId of Object.keys(SHIPS) as ShipId[]) {
     const model = buildOrbitalShip(shipId);
     assert.equal(model.userData.faction, SHIPS[shipId].faction);
+    assert.equal(model.userData.specialAbility, SHIPS[shipId].ultName);
+    assert.equal(model.userData.primaryWeaponFit, SHIPS[shipId].primaryFit);
+    assert.equal(model.userData.missileFit, SHIPS[shipId].missileFit);
+    assert.equal(model.userData.missileAmmo, SHIPS[shipId].missileAmmo);
     assert.equal(
       model.userData.designLanguage,
       SHIPS[shipId].faction === "accord" ? "accord-energy-forged" : "ussf-modular-military",

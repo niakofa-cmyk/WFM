@@ -1,4 +1,4 @@
-import { otherFaction, PRESET_PIPS, refitMul, ROSTER, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
+import { AI_ROSTER, otherFaction, PRESET_PIPS, refitMul, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 import type { FlightInput, OrbitalFlight } from "./orbital-flight";
 import type { TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
@@ -20,6 +20,8 @@ export type Craft = {
   boost: number; boostDmg: number; rammed: boolean; untargetable: number; root: number; jam: number;
   dmgMul: number; dmgMulT: number; nextCrit: boolean; recover: number; hurtT: number; guard: number;
   evadeCd: number; radius: number; ace: boolean; human: StepInput | null; lockTargetId: number | null;
+  thrustMuted?: number;
+  abilityState?: { active: number; charge: number; shotsRemaining: number; interceptsRemaining: number; released: boolean };
   space?: OrbitalFlight;
 };
 
@@ -343,7 +345,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     player.shieldMax *= 1.25;
     player.shield *= 1.25;
   }
-  const mine = ROSTER[faction];
+  const mine = AI_ROSTER[faction];
   const allyIds = mine.filter((id) => id !== shipId);
   while (allyIds.length < 4) allyIds.push(mine[allyIds.length % mine.length]);
   const allySpots = [
@@ -370,7 +372,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     const s = allySpots[i];
     return craft(id, true, "you", s.x, s.z, 0, 1);
   });
-  const foeRoster = ROSTER[otherFaction(faction)];
+  const foeRoster = AI_ROSTER[otherFaction(faction)];
   const foeShips = [...foeRoster, foeRoster[1]].slice(0, foeCount);
   const foeSpots = [
     {
@@ -631,6 +633,15 @@ function tickTimers(c: Craft, dt: number) {
   c.root = Math.max(0, c.root - dt);
   c.boost = Math.max(0, c.boost - dt);
   c.recover = Math.max(0, c.recover - dt);
+  if (c.thrustMuted !== undefined) c.thrustMuted = Math.max(0, c.thrustMuted - dt);
+  if (c.abilityState) {
+    c.abilityState.active = Math.max(0, c.abilityState.active - dt);
+    c.abilityState.charge = Math.max(0, c.abilityState.charge - dt);
+    if (c.abilityState.active === 0) {
+      c.abilityState.shotsRemaining = 0;
+      c.abilityState.interceptsRemaining = 0;
+    }
+  }
 }
 function moveCraft(match: Match, c: Craft, steer: number, throttle: number, strafe: number, dt: number, speedMul: number) {
   const def = SHIPS[c.ship];
@@ -648,6 +659,11 @@ function moveCraft(match: Match, c: Craft, steer: number, throttle: number, stra
     useThrottle = 1;
     maxSp *= 1.9;
   }
+  if (c.ship === "bastion" && (c.abilityState?.active ?? 0) > 0) {
+    useSteer *= 0.58;
+    useThrottle *= 0.62;
+    useStrafe *= 0.55;
+  }
   if (c.recover > 0) maxSp *= .45;
   const accel = def.accel * Math.max(.7, speedMul);
   const target = Math.max(-1, Math.min(1, useThrottle)) * maxSp;
@@ -656,6 +672,7 @@ function moveCraft(match: Match, c: Craft, steer: number, throttle: number, stra
   if (c.speed < target) c.speed = Math.min(target, c.speed + speedResponse * dt);
   else c.speed = Math.max(target, c.speed - speedResponse * dt);
   let rate = def.turnRate * def.handling * (c.ai ? .84 : 1);
+  if (c.ship === "wasp" && (c.abilityState?.active ?? 0) > 0) rate *= 1.35;
   if (!c.ai && match.tech === "stick") rate *= 1.12;
   const targetSteer = Math.max(-1, Math.min(1, useSteer));
   c.steer += (targetSteer - c.steer) * (1 - detExp(-18 * dt));
@@ -686,12 +703,23 @@ function fire(match: Match, c: Craft, speedMulWep: number) {
   if (!c.alive || c.fireCd > 0 || c.root > 0) return;
   if (match.bullets.length > 110) return;
   const def = SHIPS[c.ship];
-  c.fireCd = def.fireInterval / speedMulWep;
+  let fireInterval = def.fireInterval;
+  c.fireCd = fireInterval / speedMulWep;
   if (!c.ai && match.tech === "barrels") c.fireCd *= .88;
   let dmg = def.shotDmg * Math.sqrt(speedMulWep);
   if (c.ai && !c.human) dmg *= .46;
   else dmg *= 1 + match.refit * .04;
   if (!c.ai && c.dmgMulT > 0) dmg *= c.dmgMul;
+  if (c.ship === "valiant" && (c.abilityState?.active ?? 0) > 0 && (c.abilityState?.shotsRemaining ?? 0) > 0) {
+    fireInterval *= 0.62;
+    c.fireCd = fireInterval / speedMulWep;
+    dmg *= 0.78;
+    c.abilityState!.shotsRemaining--;
+  }
+  if (c.ship === "bastion" && (c.abilityState?.active ?? 0) > 0) {
+    c.fireCd = fireInterval * 1.25 / speedMulWep;
+    dmg *= 1.75;
+  }
   let big = false;
   if (!c.ai && c.nextCrit) {
     dmg *= 2.45;
@@ -804,6 +832,86 @@ function triggerUlt(match: Match, c: Craft) {
     c.rammed = false;
     c.speed = def.maxSpeed * 1.65;
     pushFx(match, { k: "ram", x: c.x, z: c.z, yaw: c.yaw });
+  } else if (c.ship === "wasp") {
+    c.abilityState = { active: 3.2, charge: 0, shotsRemaining: 0, interceptsRemaining: 0, released: true };
+  } else if (c.ship === "valiant") {
+    c.abilityState = { active: 4.2, charge: 0, shotsRemaining: 7, interceptsRemaining: 0, released: true };
+  } else if (c.ship === "aegis") {
+    c.abilityState = { active: 5, charge: 0, shotsRemaining: 0, interceptsRemaining: 3, released: true };
+    const friendlies = c.team === "foe" ? match.enemies : [match.player, ...match.allies];
+    for (const ally of friendlies) {
+      if (!ally.alive || detHypot(ally.x - c.x, ally.z - c.z) > 24) continue;
+      ally.shield = Math.min(ally.shieldMax, ally.shield + ally.shieldMax * 0.14);
+    }
+    for (let i = match.bullets.length - 1; i >= 0; i--) {
+      const bullet = match.bullets[i]!;
+      if (bullet.missile && bullet.faction !== c.faction &&
+          friendlies.some((ally) => detHypot(ally.x - bullet.x, ally.z - bullet.z) < 18)) {
+        match.bullets.splice(i, 1);
+      }
+    }
+    pushFx(match, { k: "guard", x: c.x, z: c.z });
+  } else if (c.ship === "bastion") {
+    c.abilityState = { active: 4.5, charge: 0, shotsRemaining: 0, interceptsRemaining: 0, released: true };
+    pushFx(match, { k: "mark", x: c.x, z: c.z });
+  } else if (c.ship === "apep") {
+    c.cloak = 2.7;
+    const target = opposing(match, c)
+      .filter((enemy) => enemy.alive)
+      .sort((a, b) => detHypot(a.x - c.x, a.z - c.z) - detHypot(b.x - c.x, b.z - c.z))[0];
+    if (target && detHypot(target.x - c.x, target.z - c.z) < 46) {
+      target.jam = Math.max(target.jam, 1.8);
+      target.lockTargetId = null;
+    }
+    pushFx(match, { k: "cloak", x: c.x, z: c.z });
+  } else if (c.ship === "sekhmet") {
+    const yaw = c.yaw;
+    match.bullets.push({
+      x: c.x + -detSin(yaw) * (c.radius + 1),
+      z: c.z + -detCos(yaw) * (c.radius + 1),
+      vx: -detSin(yaw) * 60,
+      vz: -detCos(yaw) * 60,
+      life: 1.7,
+      dmg: 40,
+      faction: c.faction,
+      r: 0.8,
+      homeId: null,
+      own: !c.ai,
+    });
+    pushFx(match, { k: "shot", x: c.x, z: c.z, big: true, you: !c.ai });
+  } else if (c.ship === "garuda") {
+    const targets = opposing(match, c)
+      .filter((enemy) => enemy.alive)
+      .sort((a, b) => detHypot(a.x - c.x, a.z - c.z) - detHypot(b.x - c.x, b.z - c.z))
+      .slice(0, 3);
+    for (const target of targets) {
+      const dx = target.x - c.x;
+      const dz = target.z - c.z;
+      const distance = Math.max(0.001, detHypot(dx, dz));
+      const speed = 42;
+      match.bullets.push({
+        x: c.x + -detSin(c.yaw) * (c.radius + 0.8),
+        z: c.z + -detCos(c.yaw) * (c.radius + 0.8),
+        vx: dx / distance * speed,
+        vz: dz / distance * speed,
+        life: 2.5,
+        dmg: 9,
+        faction: c.faction,
+        r: 0.28,
+        homeId: target.id,
+        own: !c.ai,
+        missile: true,
+      });
+    }
+    if (targets.length) pushFx(match, { k: "shot", x: c.x, z: c.z, big: true, you: !c.ai });
+  } else if (c.ship === "vajra") {
+    for (const enemy of opposing(match, c)) {
+      if (!enemy.alive || detHypot(enemy.x - c.x, enemy.z - c.z) > 25) continue;
+      enemy.jam = Math.max(enemy.jam, 2.4);
+      enemy.lockTargetId = null;
+      enemy.fireCd = Math.max(enemy.fireCd, 0.45);
+    }
+    pushFx(match, { k: "jam", x: c.x, z: c.z });
   }
 }
 function setLockTarget(match: Match, pilot: Craft, targetId: number | null) {

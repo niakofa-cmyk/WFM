@@ -114,6 +114,38 @@ const ART: Record<ShipId, Art> = {
       </>
     ),
   },
+  wasp: {
+    body: <path d="M60 5 L67 34 L78 42 L114 25 L98 51 L108 62 L88 68 L81 88 L70 77 L64 108 L56 108 L50 77 L39 88 L32 68 L12 62 L22 51 L6 25 L42 42 L53 34 Z" />,
+    detail: <><path d="M60 18 L60 102 M42 48 L18 34 M78 48 L102 34 M47 72 L27 68 M73 72 L93 68" /><path d="M51 104 L51 112 M69 104 L69 112" /></>,
+  },
+  valiant: {
+    body: <path d="M60 7 L68 26 L72 54 L102 66 L108 82 L72 78 L68 104 L60 112 L52 104 L48 78 L12 82 L18 66 L48 54 L52 26 Z" />,
+    detail: <><path d="M60 22 L60 104 M49 58 L24 72 M71 58 L96 72 M48 79 L72 79" /><rect x="56" y="30" width="8" height="12" /></>,
+  },
+  aegis: {
+    body: <><rect x="43" y="26" width="34" height="68" /><path d="M42 42 L8 34 L8 50 L42 58 M78 42 L112 34 L112 50 L78 58 M42 64 L8 72 L8 88 L42 80 M78 64 L112 72 L112 88 L78 80 Z" /></>,
+    detail: <><path d="M46 36 L74 36 M46 48 L74 48 M46 60 L74 60 M46 72 L74 72 M46 84 L74 84" /><circle cx="60" cy="18" r="8" fill="none" /><path d="M60 10 L60 4 M11 40 L11 82 M109 40 L109 82" /></>,
+  },
+  bastion: {
+    body: <path d="M60 8 L72 28 L76 52 L112 38 L116 68 L82 77 L78 100 L70 108 L50 108 L42 100 L38 77 L4 68 L8 38 L44 52 L48 28 Z" />,
+    detail: <><path d="M60 20 L60 100 M44 58 L14 51 M76 58 L106 51 M42 78 L20 74 M78 78 L100 74" /><rect x="48" y="34" width="24" height="10" /><path d="M49 107 L49 115 M71 107 L71 115" /></>,
+  },
+  apep: {
+    body: <path d="M60 7 L68 36 L76 52 L116 29 L103 58 L89 66 L83 82 L70 76 L65 108 L55 108 L50 76 L37 82 L31 66 L17 58 L4 29 L44 52 L52 36 Z" />,
+    detail: <><path d="M60 17 L60 101 M47 56 L18 43 M73 56 L102 43 M45 72 L30 69 M75 72 L90 69" /><path d="M53 29 L60 23 L67 29" /></>,
+  },
+  sekhmet: {
+    body: <path d="M60 8 L72 28 L75 54 L104 62 L112 83 L78 78 L73 101 L60 112 L47 101 L42 78 L8 83 L16 62 L45 54 L48 28 Z" />,
+    detail: <><path d="M60 16 L60 103 M48 57 L24 68 M72 57 L96 68" /><circle cx="60" cy="43" r="10" fill="none" /><path d="M52 112 L52 118 M68 112 L68 118" /></>,
+  },
+  garuda: {
+    body: <path d="M60 5 L66 34 L75 43 L111 28 L94 54 L112 68 L81 72 L96 96 L70 84 L64 112 L56 112 L50 84 L24 96 L39 72 L8 68 L26 54 L9 28 L45 43 L54 34 Z" />,
+    detail: <><path d="M60 14 L60 104 M44 50 L18 38 M76 50 L102 38 M46 68 L24 66 M74 68 L96 66" /><circle cx="60" cy="42" r="5" /></>,
+  },
+  vajra: {
+    body: <><path d="M60 10 L70 34 L96 28 L86 52 L110 66 L84 73 L88 100 L65 84 L60 112 L55 84 L32 100 L36 73 L10 66 L34 52 L24 28 L50 34 Z" /></>,
+    detail: <><circle cx="60" cy="59" r="18" fill="none" /><circle cx="60" cy="59" r="7" /><path d="M60 18 L60 40 M60 78 L60 102 M20 66 L42 61 M78 57 L100 52" /></>,
+  },
 };
 
 export function ShipIllustration({

@@ -509,7 +509,7 @@ components:
       properties:
         credits: { type: integer, minimum: 0 }
         faction: { type: string, enum: [accord, ussf] }
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
         scheme: { type: string, enum: [arc, strafe] }
         refit: { type: integer, minimum: 0, maximum: 5 }
         shieldMk2: { type: boolean }
@@ -562,7 +562,7 @@ components:
       required: [faction, shipId]
       properties:
         faction: { type: string, enum: [accord, ussf] }
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
     ControlSchemeInput:
       type: object
       additionalProperties: false
@@ -588,7 +588,7 @@ components:
       additionalProperties: false
       required: [shipId, faction, scheme, pace, mission, tech]
       properties:
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
         faction: { type: string, enum: [accord, ussf] }
         scheme: { type: string, enum: [arc, strafe] }
         pace: { type: string, enum: [practice, strike] }
@@ -606,7 +606,7 @@ components:
           type: object
           required: [shipId, faction, refit, pace, goal, disc, allyCount, foeCount, tech, mission]
           properties:
-            shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+            shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
             faction: { type: string, enum: [accord, ussf] }
             refit: { type: integer, minimum: 0, maximum: 5 }
             shieldMk2: { type: boolean }

@@ -42,6 +42,14 @@ export const GameProfileShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type GameProfileScheme = typeof GameProfileScheme[keyof typeof GameProfileScheme];
@@ -205,6 +213,14 @@ export const LoadoutInputShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export interface LoadoutInput {
@@ -256,6 +272,14 @@ export const StrikeStartInputShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type StrikeStartInputFaction = typeof StrikeStartInputFaction[keyof typeof StrikeStartInputFaction];
@@ -328,6 +352,14 @@ export const StrikeRunConfigShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type StrikeRunConfigFaction = typeof StrikeRunConfigFaction[keyof typeof StrikeRunConfigFaction];

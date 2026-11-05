@@ -55,7 +55,7 @@ export const getGameProfileResponseRevisionMin = 0;
 export const GetGameProfileResponse = zod.object({
   "credits": zod.number().int().min(getGameProfileResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(getGameProfileResponseRefitMin).max(getGameProfileResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -142,7 +142,7 @@ export const updateLeaderboardProfileResponseRevisionMin = 0;
 export const UpdateLeaderboardProfileResponse = zod.object({
   "credits": zod.number().int().min(updateLeaderboardProfileResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateLeaderboardProfileResponseRefitMin).max(updateLeaderboardProfileResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -170,7 +170,7 @@ export const UpdateLeaderboardProfileResponse = zod.object({
  */
 export const UpdateLoadoutBody = zod.object({
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide'])
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra'])
 })
 
 export const updateLoadoutResponseCreditsMin = 0;
@@ -199,7 +199,7 @@ export const updateLoadoutResponseRevisionMin = 0;
 export const UpdateLoadoutResponse = zod.object({
   "credits": zod.number().int().min(updateLoadoutResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateLoadoutResponseRefitMin).max(updateLoadoutResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -255,7 +255,7 @@ export const updateControlSchemeResponseRevisionMin = 0;
 export const UpdateControlSchemeResponse = zod.object({
   "credits": zod.number().int().min(updateControlSchemeResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateControlSchemeResponseRefitMin).max(updateControlSchemeResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -313,7 +313,7 @@ export const ApplyProgressionActionResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(applyProgressionActionResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(applyProgressionActionResponseProfileRefitMin).max(applyProgressionActionResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),
@@ -348,7 +348,7 @@ export const ApplyProgressionActionResponse = zod.object({
  * @summary Start a server-issued single-player sortie
  */
 export const StartStrikeBody = zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "scheme": zod.enum(['arc', 'strafe']),
   "pace": zod.enum(['practice', 'strike']),
@@ -394,7 +394,7 @@ export const StartStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(startStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(startStrikeResponseProfileRefitMin).max(startStrikeResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),
@@ -416,7 +416,7 @@ export const StartStrikeResponse = zod.object({
   "revision": zod.number().int().min(startStrikeResponseProfileRevisionMin)
 }),
   "config": zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "refit": zod.number().int().min(startStrikeResponseConfigRefitMin).max(startStrikeResponseConfigRefitMax),
   "shieldMk2": zod.boolean().optional(),
@@ -545,7 +545,7 @@ export const ClaimStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(claimStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(claimStrikeResponseProfileRefitMin).max(claimStrikeResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),

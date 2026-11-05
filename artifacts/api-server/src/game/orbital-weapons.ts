@@ -10,7 +10,7 @@ export function updateAcquisition(match: Match, pilot: Craft, dt: number) {
   acquireTarget(pilot, targetFor(match, pilot), dt, match.rocks);
 }
 export function launchMissile(match: Match, pilot: Craft) {
-  const bullet = spawnMissile(pilot, targetFor(match, pilot), match.bullets.length, pilot.ai ? 16 : 58, match.rocks);
+  const bullet = spawnMissile(pilot, targetFor(match, pilot), match.bullets.length, pilot.ai ? 16 : SHIPS[pilot.ship].missileDamage, match.rocks);
   if (!bullet) return false;
   match.bullets.push({ ...bullet, faction: pilot.faction, own: !pilot.ai });
   match.fx.push({ k: "shot", x: pilot.x, y: pilot.space!.y, z: pilot.z, big: true, you: !pilot.ai });

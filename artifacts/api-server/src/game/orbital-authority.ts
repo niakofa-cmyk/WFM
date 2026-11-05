@@ -21,7 +21,8 @@ export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] =
     const x = offset === 0 ? 0 : (offset % 2 ? -1 : 1) * Math.ceil(offset / 2) * 18;
     const yaw = slotId < 5 ? 0 : Math.PI;
     return { ...craft, slotId, x, z: slotId < 5 ? 28 : -4, yaw, pitch: 0, speed: 0,
-      ai: false, human: null, guard: 0, lastSeq: 0, lockTargetId: null, space: newFlight(yaw) };
+      ai: false, human: null, guard: 0, lastSeq: 0, lockTargetId: null,
+      space: { ...newFlight(yaw), ammo: SHIPS[craft.ship].missileAmmo } };
   });
   const queues: OrbitalInput[][] = pilots.map(() => []);
   let bullets: Projectile[] = [];
@@ -87,7 +88,7 @@ export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] =
         const target = pilots.find((c) => c.id === pilot.lockTargetId && c.faction !== pilot.faction);
         acquireTarget(pilot, target, ORBITAL_DT, rocks);
         if (input.missile) {
-          const missile = spawnMissile(pilot, target, bullets.length, 58, rocks);
+          const missile = spawnMissile(pilot, target, bullets.length, SHIPS[pilot.ship].missileDamage, rocks);
           if (missile) {
             bullets.push({ ...missile, owner: pilot.id, faction: pilot.faction });
             events.push({ type: "missile", source: pilot.id, target: missile.homeId! });

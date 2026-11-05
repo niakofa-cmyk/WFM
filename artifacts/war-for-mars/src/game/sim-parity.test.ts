@@ -13,6 +13,7 @@ const SHARED_SIMULATION_MODULES = [
   "orbital-flight.ts",
   "orbital-damage.ts",
   "orbital-sim.ts",
+  "orbital-abilities.ts",
   "orbital-weapons.ts",
 ];
 const RENDERER_IMPORT =
