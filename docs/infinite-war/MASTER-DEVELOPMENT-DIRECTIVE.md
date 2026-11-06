@@ -1,6 +1,24 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
-## Latest controlling directive — 2026-11-06
+## Current connected-universe redesign direction — 2026-11-06
+
+The owner has now explicitly authorized starting the visual redesign and
+provided another complete Multiplayer Universe Architecture document plus
+five reference images. The maintained current redesign brief, preserved source,
+reference index and bounded implementation scope are in
+[`REDESIGN-DIRECTION.md`](REDESIGN-DIRECTION.md).
+
+The subsequent Infinite Open Universe source in that brief explicitly restores
+**one canonical Orbital gameplay runtime** as the final architecture. Preserve
+specialist game experiences as distinct configurations; retain existing runtimes
+only as tested migration/rollback paths until their replacements are proven.
+The redesign must not remove working modes or flatten distinctive mechanics. Earlier
+engine-first sequencing below is historical where it would block this newly
+authorized visual slice. It does not mean full migration has been completed.
+No visual representation may be called live multiplayer without actual
+server-backed participants and observer evidence.
+
+## Previous engine-first directive — 2026-11-06
 
 The complete new source is retained unchanged at
 `attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
@@ -45,7 +63,7 @@ The player should enter one universe, belong to one faction, command one ship,
 progress through one connected journey, and participate in validated
 operations whose consequences are visible in that universe.
 
-## Controlling full-game runtime direction
+## Earlier canonical runtime target — historical
 
 The owner's complete **Master Orbital Engine Consolidation Directive** is
 preserved at

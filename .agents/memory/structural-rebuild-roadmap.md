@@ -9,9 +9,10 @@ current checkpoint are in `docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md`.
 The repo-specific menu/consolidation diagnosis is preserved at
 `docs/infinite-war/REPO-UNIFICATION-REQUEST.txt`.
 
-The current master directive takes precedence over the historical UI-first
-priority order below: audit/consolidate the Orbital main engine before visual
-redesign. See [master directive](master-development-directive.md).
+The owner has now authorized starting a connected-universe visual redesign.
+This supersedes the previous appearance deferral without certifying full engine
+consolidation. See [master directive](master-development-directive.md) and the
+current repository redesign brief.
 
 The central direction is one connected WAR FOR MARS experience: one identity,
 one saved ship/loadout, operations in a shared universe, and validated outcomes

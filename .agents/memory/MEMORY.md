@@ -1,4 +1,4 @@
-- [Master development directive](master-development-directive.md) — consolidate the Orbital main engine before visual redesign; extract verified features and preserve authority/rollback during migration.
+- [Master development directive](master-development-directive.md) — run the playable universe inside Orbital, not beside a training link; preserve authority and verified migration.
 - [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
 - [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.

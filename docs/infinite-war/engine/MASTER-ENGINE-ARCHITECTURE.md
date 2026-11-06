@@ -2,6 +2,15 @@
 
 ## Controlling direction
 
+The owner's latest [Orbital universe rebuild contract](../ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)
+clarifies the execution boundary: build the playable Infinite War universe
+inside the Orbital runtime, replacing its role as merely an optional training
+link. Training becomes a mode within that game. Extract the Lab/Arena/approach
+lifecycle responsibilities into the main runtime rather than putting another
+universe application around them. Existing shared imports, charts and account
+links do not demonstrate this migration; the actual-architecture section below
+still describes separate lifecycle owners.
+
 The complete source is retained unchanged at
 [`../../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`](../../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt).
 This directive supersedes older descriptions of permanently independent engine

@@ -193,13 +193,13 @@ function PublicLanding() {
   );
 }
 
-function SignedInGame() {
+function SignedInGame({ universe = false }: { universe?: boolean }) {
   const client = useQueryClient();
   useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
-        <WarApp />
+        <WarApp initialUniverseOpen={universe} />
       </Suspense>
       <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
@@ -209,11 +209,23 @@ function SignedInGame() {
   );
 }
 
-function AccountGameEntry() {
+function AccountGameEntry({ universe = false }: { universe?: boolean }) {
   const { isLoaded, isSignedIn, userId } = useAuth();
   // Discovery and solo entry remain visible while hosted authentication loads.
   // Never mount account/progression hooks until the session is confirmed.
-  return isLoaded && isSignedIn ? <SignedInGame key={userId} /> : <PublicLanding />;
+  if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}`} universe={universe} />;
+  if (universe) return (
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-void px-6 py-12 text-bone">
+      <p className="font-hud text-xs tracking-widest text-solar">WAR FOR MARS / ORBITAL NAVIGATION</p>
+      <h1 className="font-hud text-4xl">CONNECT TO YOUR UNIVERSE</h1>
+      <p className="max-w-lg text-sm text-muted">Your saved position, route costs and operation access come from your signed-in account. Offline training remains available without an account.</p>
+      {isLoaded ? <Link data-testid="link-sign-in-universe" href={`/sign-in?redirect_url=${encodeURIComponent(`${basePath}/universe`)}`} className="flex min-h-12 items-center bg-solar px-6 font-hud text-void">SIGN IN TO CONNECT</Link>
+        : <p role="status" data-testid="status-universe-session">Checking pilot session…</p>}
+      <a data-testid="link-offline-orbital" className="min-h-11 border border-bone/30 px-5 py-3 text-sm" href={`${basePath}/combat-lab.html`}>OFFLINE ORBITAL TRAINING</a>
+      <Link data-testid="link-universe-home" href="/" className="min-h-11 py-3 text-sm text-muted">BACK TO COMMAND</Link>
+    </main>
+  );
+  return <PublicLanding />;
 }
 
 function ApiAuthBridge() {
@@ -253,7 +265,8 @@ function Routes() {
     >
       <ApiAuthBridge />
       <Switch>
-        <Route path="/" component={AccountGameEntry} />
+        <Route path="/"><AccountGameEntry /></Route>
+        <Route path="/universe"><AccountGameEntry universe /></Route>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/expedition">
