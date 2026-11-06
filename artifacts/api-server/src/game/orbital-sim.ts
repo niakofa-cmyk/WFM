@@ -241,5 +241,13 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
   match.painted = match.enemies.filter((c) => c.alive && targetSolution(c, player, match.rocks).available).map((c) => c.id);
   if (!player.alive) match.over = "loss";
   else if (match.enemies.every((c) => !c.alive)) match.over = "win";
-  else if (match.time >= match.limit) match.over = "loss";
+  else {
+    // A fixed-step replay can end a few ULPs below an exact seconds limit
+    // (for example 7200 * 1/60). This is only a numeric-boundary correction:
+    // it does not add a simulation frame or widen the accepted replay cap.
+    const boundaryTolerance = match.orbitalRulesVersion === undefined
+      ? 0
+      : Math.max(1, Math.abs(match.limit)) * Number.EPSILON * 512;
+    if (match.time + boundaryTolerance >= match.limit) match.over = "loss";
+  }
 }
