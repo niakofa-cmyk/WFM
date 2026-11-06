@@ -668,7 +668,8 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
     station.add(module);
   }
   station.position.set(65, 17, -110); station.rotation.y = -.4; scene.add(station);
-  return { textures: [texture, bump] };
+  station.name = "cinder-ring-station";
+  return { textures: [texture, bump], station };
 }
 
 export function orbitalRock(radius: number, seed: number) {

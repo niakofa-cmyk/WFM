@@ -124,11 +124,14 @@ network/reconnect and performance claims require their own tests.
 
 ## Status of this clarification
 
-**Implemented in the rebuild/redesign instructions, not yet implemented as a
-complete runtime rebuild.** This document does not change live entry labels,
-replace application code, certify unlimited exploration or claim that the
-multiplayer universe is finished. It changes the execution target and
-acceptance criteria against which subsequent code work must be judged.
+**Partially implemented, not a complete runtime rebuild.** The first bounded
+local universe slice now runs exploration, physical station docking, training
+and retained-state return within one existing Arena lifecycle. See
+[the slice evidence and limitations](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
+The historical separation table above describes the audited starting point.
+Legacy entry paths remain compatibility access. Browser end-to-end flight
+certification, connected authority, unlimited exploration and all-mode migration
+are not established by this increment.
 
 Related maintained documents:
 

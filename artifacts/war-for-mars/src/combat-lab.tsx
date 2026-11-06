@@ -12,13 +12,13 @@ import "./game/orbital-universe.css";
 const Arena = lazy(() => import("./game/Arena").then((m) => ({ default: m.Arena })));
 const CinderRingDockingApproach = lazy(() => import("./game/CinderRingDockingApproach").then((m) => ({ default: m.CinderRingDockingApproach })));
 
-type Mode = "entry" | "arena" | "approach";
+type Mode = "entry" | "arena" | "approach" | "universe";
 const HUB = `${import.meta.env.BASE_URL}universe`;
 
 function CombatLab() {
   const [faction, setFaction] = useState<Faction>("ussf");
   const [ship, setShip] = useState<ShipId>("duskbreaker");
-  const [mode, setMode] = useState<Mode>("entry");
+  const [mode, setMode] = useState<Mode>(() => new URLSearchParams(window.location.search).get("universe") === "1" ? "universe" : "entry");
   const [run, setRun] = useState(0);
   const [summary, setSummary] = useState("");
   const [destId, setDestId] = useState("mars-orbit");
@@ -26,6 +26,7 @@ function CombatLab() {
   const loading = (t: string) => <main className="lab-loading">{t}</main>;
 
   if (mode === "arena") return <div className="combat-lab"><Suspense fallback={loading("Loading flight systems…")}><Arena key={run} modeId="orbital-combat-lab" runtime={ORBITAL_RUNTIME_ID} shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="MARS ORBIT · COMBAT LAB" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} onNetworkExit={() => { throw new Error("The offline Combat Lab must not open a network session."); }} onDone={(result) => { setSummary(`Mars Orbit training complete. ${result.kills} defenders destroyed. ${result.reason}`); setMode("entry"); }} /></Suspense></div>;
+  if (mode === "universe") return <div className="combat-lab"><Suspense fallback={loading("Entering local Mars sector…")}><Arena key={`u${run}`} modeId="orbital-universe-local" runtime={ORBITAL_RUNTIME_ID} shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="CINDER RING · LOCAL TRAINING" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} localUniverse={{ servicesHref: HUB, onExit: () => { setSummary("Left the local universe. Nothing was saved or rewarded."); setMode("entry"); } }} onNetworkExit={() => { throw new Error("The local universe must not open a network session."); }} onGraphicsError={() => {}} onDone={() => { setMode("entry"); }} /></Suspense></div>;
   if (mode === "approach") return <div className="combat-lab"><Suspense fallback={loading("Plotting Cinder Ring approach…")}><CinderRingDockingApproach shipId={ship} faction={faction} onDock={() => { setSummary("Local docking at Cinder Ring complete. This practice approach does not admit you to a match or grant rewards. Station services live on the signed-in account hub."); setMode("entry"); }} onAbort={() => { setSummary("Cinder Ring approach aborted. No progress was recorded."); setMode("entry"); }} /></Suspense></div>;
 
   const launch = () => {
@@ -60,6 +61,8 @@ function CombatLab() {
           <label className="lab-ship-label">AIRFRAME<select data-testid="select-ship" value={ship} onChange={(event) => setShip(event.target.value as ShipId)}>{ROSTER[faction].map((id) => <option key={id} value={id}>{SHIPS[id].name} · {SHIPS[id].role}</option>)}</select></label>
         </fieldset>
 
+        <button data-testid="button-launch-local-universe" className="uv-launch" onClick={() => { unlockAudio(); setSummary(""); setRun((r) => r + 1); setMode("universe"); }}>FLY LOCAL MARS SECTOR</button>
+        <p className="uv-map__hint" data-testid="text-local-universe-scope">Bounded offline sector · fly to Cinder Ring, dock, train, return · no rewards, not multiplayer</p>
         {dest.status === "training" ? <button data-testid="button-launch-combat-lab" className="uv-launch" onClick={launch}>LAUNCH TRAINING</button>
           : dest.status === "approach" ? <button data-testid="button-launch-cinder-approach" className="uv-launch uv-launch--approach" onClick={launch}>BEGIN LOCAL APPROACH</button>
           : <button className="uv-launch" disabled data-testid="button-destination-unavailable">NOT YET CHARTED</button>}

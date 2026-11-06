@@ -1,5 +1,14 @@
 # Connected-universe entry redesign — implementation evidence
 
+## Newer runtime rebuild increment
+
+The first playable local universe now runs inside the Orbital Arena lifecycle,
+not just the chart/account navigation bridge described below.
+See [local universe implementation and verification](ORBITAL-LOCAL-UNIVERSE-SLICE.md)
+for the bounded flight → dock → training → retained-world return path and
+the browser WebGL verification limitation. Earlier counts and screenshots
+below remain evidence only for their original increments.
+
 ## Subsequent account-universe connection
 
 The next three steps are described in

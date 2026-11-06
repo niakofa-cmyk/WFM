@@ -128,6 +128,7 @@ function PublicLanding() {
                 <Link href="/sign-in" className={`${cta} wfm-cmd-secondary`}>SIGN IN</Link>
               </>
             )}
+            <a href="/combat-lab.html?universe=1" data-testid="link-landing-local-universe" className={`${cta} wfm-cmd-secondary`}>FLY THE MARS SECTOR · LOCAL</a>
             <Link href="/play" className={`${cta} wfm-cmd-quiet`}>TRY SOLO FLIGHT · LOCAL</Link>
           </div>
           <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">

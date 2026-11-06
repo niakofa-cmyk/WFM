@@ -8,6 +8,7 @@ import type { OrbitalRulesVersion } from "./flight";
 
 export type GameModeId =
   | "orbital-combat-lab"
+  | "orbital-universe-local"
   | "local-arena-practice"
   | "rust-disc-local"
   | "rust-disc-sector-coop"
@@ -51,6 +52,23 @@ export type GameModeDefinition = {
  * `migration` describes implementation evidence, not product intent.
  */
 export const GAME_MODE_DEFINITIONS = [
+  {
+    id: "orbital-universe-local",
+    mission: "Local Mars and Cinder universe flight with station training",
+    environment: "mars-and-space",
+    players: { min: 1, max: 1, minimumHumans: 1 },
+    ai: "mission",
+    objectives: ["explore-local-sector", "approach-cinder", "station-training", "return-to-universe"],
+    rules: ["offline", "no-rewards", "bounded-local-sector", "fixed-step-orbital-rules", "no-server-location-authority"],
+    rewardEligibility: "none",
+    authority: "local",
+    simulation: {
+      runtimeId: ORBITAL_RUNTIME_ID,
+      packages: ["@workspace/orbital-sim", "Arena"],
+      migration: "canonical",
+    },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
+  },
   {
     id: "orbital-combat-lab",
     mission: "Offline combat and flight training",

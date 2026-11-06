@@ -1,5 +1,13 @@
 # WAR FOR MARS: THE INFINITE WAR — structural rebuild roadmap
 
+## First local runtime slice
+
+The bounded Orbital universe now has one Arena-owned exploration, physical
+Cinder docking, training/debrief and retained-flight return loop.
+See [implementation and evidence](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
+Interactive browser certification is blocked by the test browser's unavailable
+WebGL context; do not mark the full rebuild or online migration complete.
+
 ## Current precedence
 
 The owner's controlling clarification is recorded in the

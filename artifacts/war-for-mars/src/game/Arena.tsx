@@ -35,7 +35,26 @@ import {
   ORBITAL_RUNTIME_ID,
   type CombatRuntimeId,
   type GameModeId,
+  integrateSpatialFlight,
+  normalizeFlightControls,
 } from "@workspace/orbital-sim";
+import {
+  UNIVERSE_BOUNDARY_RADIUS,
+  UNIVERSE_COLLIDERS,
+  UNIVERSE_MODE_ID,
+  capturePilotPose,
+  cinderStationTransform,
+  createUniverseSession,
+  evaluateCinderDock,
+  placeAtSpawn,
+  restorePilotPose,
+  transitionUniverse,
+  universeFrozen,
+  type DockEvaluation,
+  type UniverseEvent,
+  type UniverseSession,
+} from "./orbital-universe-session";
+import { UniverseStationOverlay } from "./UniverseStationOverlay";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -123,6 +142,11 @@ type ArenaProps = {
   /** The operation contract is checked against the selected simulation at launch. */
   modeId: GameModeId;
   orbitalCampaign?: boolean;
+  /**
+   * Opt-in local Orbital universe profile: bounded offline exploration with a
+   * physical Cinder Ring dock and a subordinate training activity. No rewards.
+   */
+  localUniverse?: { onExit: () => void; servicesHref: string };
 };
 
 const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
@@ -510,6 +534,7 @@ export function Arena({
   runtime,
   modeId,
   orbitalCampaign = false,
+  localUniverse,
 }: ArenaProps) {
   const modeDefinition = getGameModeDefinition(modeId);
   const orbitalRuntime = isOrbitalRuntimeId(runtime)
@@ -525,6 +550,22 @@ export function Arena({
   }
   if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
+  if (localUniverse && (online || !orbital || orbitalCampaign || localEndurance || modeId !== UNIVERSE_MODE_ID)) {
+    throw new Error("The local Orbital universe requires the offline orbital-universe-local profile.");
+  }
+  if (!localUniverse && modeId === UNIVERSE_MODE_ID) throw new Error("orbital-universe-local requires the localUniverse profile.");
+  const universeTemplateRef = useRef<Match | null>(null);
+  const universeRef = useRef<UniverseSession | null>(null);
+  const [universe, setUniverse] = useState<UniverseSession | null>(() => {
+    if (!localUniverse) return null;
+    universeRef.current = universeRef.current ?? createUniverseSession();
+    return universeRef.current;
+  });
+  const [dockState, setDockState] = useState<DockEvaluation | null>(null);
+  const [glReady, setGlReady] = useState(false);
+  const glReadyRef = useRef(false);
+  const universeExitRef = useRef(localUniverse?.onExit);
+  universeExitRef.current = localUniverse?.onExit;
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
   const countermeasureRef = useRef<HTMLButtonElement>(null);
@@ -622,7 +663,34 @@ export function Arena({
       prepareOrbital(matchRef.current, orbitalRuntime!.rulesVersion);
     }
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
+    if (localUniverse) {
+      universeTemplateRef.current = copyMatch(matchRef.current);
+      placeAtSpawn(matchRef.current.player);
+    }
   }
+  const dispatchUniverse = (event: UniverseEvent) => {
+    const session = universeRef.current;
+    const match = matchRef.current;
+    const template = universeTemplateRef.current;
+    const bus = busRef.current;
+    if (!session || !match || !template) return;
+    const next = transitionUniverse(session, event);
+    if (next === session) return;
+    if (bus) clearInput(bus);
+    rollCameraStabilizationRef.current = 0;
+    setMapOpen(false);
+    setCountermeasureVisible(false);
+    countermeasureVisibleRef.current = false;
+    if (event.type === "launch-training") {
+      Object.assign(match, copyMatch(template));
+    } else if ((event.type === "training-outcome" || event.type === "abort-training") && next.retained) {
+      // Leave the training activity: rebuild the world match and restore the exact retained pose.
+      Object.assign(match, copyMatch(template));
+      restorePilotPose(match.player, next.retained);
+    }
+    universeRef.current = next;
+    setUniverse(next);
+  };
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(false);
@@ -638,9 +706,13 @@ export function Arena({
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   cameraModeRef.current = cameraMode;
   const pausedRef = useRef(false);
+  const dispatchUniverseRef = useRef(dispatchUniverse);
+  dispatchUniverseRef.current = dispatchUniverse;
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const unifiedOrbitalControls = orbital && !online;
+  /** Combat-only HUD is hidden outside the training activity of the local universe. */
+  const exploringHud = Boolean(localUniverse) && universe?.phase !== "training";
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
   const ship = SHIPS[online ? pilotCraft(matchRef.current!, online.slotId).ship : shipId];
@@ -923,6 +995,17 @@ export function Arena({
     const scene = new THREE.Scene();
     scene.fog = orbital ? null : new THREE.FogExp2(look.clear, look.fog);
     const orbitalAssets = orbital ? addOrbitalEnvironment(scene) : null;
+    if (localUniverse && orbitalAssets) {
+      const stationPose = cinderStationTransform();
+      orbitalAssets.station.position.set(stationPose.position.x, stationPose.position.y, stationPose.position.z);
+      orbitalAssets.station.rotation.set(0, stationPose.rotationY, 0);
+      const gate = new THREE.Mesh(
+        new THREE.TorusGeometry(7.2, 0.08, 8, 72),
+        new THREE.MeshBasicMaterial({ color: 0xe0a15a, transparent: true, opacity: 0.55, depthWrite: false }),
+      );
+      gate.name = "cinder-dock-gate";
+      orbitalAssets.station.add(gate);
+    }
     const makeShip = orbital ? buildOrbitalShip : buildShip;
     if (orbital) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -989,6 +1072,7 @@ export function Arena({
     marsLimb.position.copy(mars.position);
     scene.add(marsLimb);
 
+    const rockMeshes: THREE.Object3D[] = [];
     for (const rock of match.rocks) {
       const mesh = orbital ? orbitalRock(rock.r, rock.x) : new THREE.Mesh(
         new THREE.DodecahedronGeometry(rock.r, 0),
@@ -997,6 +1081,7 @@ export function Arena({
       mesh.position.set(rock.x, orbital ? .9 : rock.r * 0.35, rock.z);
       mesh.rotation.set(rock.x, rock.z, 0);
       scene.add(mesh);
+      rockMeshes.push(mesh);
     }
 
     const relayMats: THREE.MeshStandardMaterial[] = [];
@@ -1247,6 +1332,7 @@ export function Arena({
       bus.keys.delete(event.code);
     };
     const clearHeld = () => clearInput(bus);
+    const onOrientationReset = () => { if (localUniverse) clearHeld(); };
     const onVisibilityChange = () => {
       const visible = document.visibilityState === "visible";
       performanceVisibilityRef.current?.({ timestampMs: performance.now(), visible });
@@ -1271,6 +1357,7 @@ export function Arena({
     window.addEventListener("blur", clearHeld);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("orientationchange", resize);
+    window.addEventListener("orientationchange", onOrientationReset);
     window.visualViewport?.addEventListener("resize", resize);
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointerup", onPointerUp);
@@ -1299,6 +1386,8 @@ export function Arena({
     const onContextLost = (event: Event) => {
       event.preventDefault();
       alive = false;
+      glReadyRef.current = false;
+      setGlReady(false);
       cancelAnimationFrame(raf);
       engineGain(0);
       const message = "Graphics connection lost. Exit this flight and relaunch; no result has been submitted.";
@@ -1339,6 +1428,9 @@ export function Arena({
       setShakeUi(false);
     }
     const FIXED = 1 / 60;
+    let lastDockKey = "";
+    glReadyRef.current = true;
+    setGlReady(true);
 
     const frame = (now: number) => {
       if (!alive) return;
@@ -1359,8 +1451,37 @@ export function Arena({
         bus.gyroYaw = 0;
         bus.gyroPitch = 0;
       }
-      const sample = isOnline || held || (orbital && acc < FIXED) ? IDLE : readInput(bus);
-      if (isOnline) {
+      const universePhase = localUniverse ? universeRef.current?.phase ?? "exploration" : null;
+      const sample = isOnline || held || (orbital && acc < FIXED) || universePhase !== null && universePhase !== "training" ? IDLE : readInput(bus);
+      const exploringUniverse = universePhase !== null && universePhase !== "training";
+      for (const rockMesh of rockMeshes) rockMesh.visible = !exploringUniverse;
+      if (exploringUniverse) {
+        // Local universe exploration: player-only spatial flight, no AI, no clock, no rewards.
+        if (universeFrozen(universePhase)) acc = 0;
+        let steps = 0;
+        const pilot = match.player;
+        while (acc >= FIXED && steps < 5 && pilot.space) {
+          const frameControls = normalizeFlightControls(readInput(bus));
+          integrateSpatialFlight(pilot, {
+            throttle: frameControls.throttle, yaw: frameControls.yaw, strafe: frameControls.strafe,
+            pitch: frameControls.pitch, roll: frameControls.roll, vertical: frameControls.vertical,
+            boost: frameControls.boost, brake: frameControls.brake, drift: frameControls.drift,
+            inertial: steps === 0 && frameControls.inertial,
+            ...(frameControls.maneuver ? { maneuver: frameControls.maneuver } : {}),
+          }, FIXED, 1, UNIVERSE_COLLIDERS, SHIPS[pilot.ship], { boundaryRadius: UNIVERSE_BOUNDARY_RADIUS });
+          acc -= FIXED;
+          steps += 1;
+        }
+        if (universePhase === "exploration") {
+          const dock = evaluateCinderDock(pilot);
+          const key = `${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
+          if (key !== lastDockKey) {
+            lastDockKey = key;
+            setDockState(dock);
+          }
+        }
+        match.fx.length = 0;
+      } else if (isOnline) {
         acc = 0;
         const authoritative = snapshotRef.current;
         if (authoritative) {
@@ -1512,7 +1633,20 @@ export function Arena({
         }
       }
       match.fx.length = 0;
-      if (match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
+      if (universePhase === "training" && match.over) {
+        dispatchUniverseRef.current({
+          type: "training-outcome",
+          debrief: {
+            outcome: match.over === "win" ? "win" : match.over === "loss" ? "loss" : "draw",
+            kills: match.kills,
+            reason: match.over === "win"
+              ? "All defenders destroyed. Local training only, no credits or progress recorded."
+              : !match.player.alive
+                ? "Your ship was destroyed in training. Your universe position was kept."
+                : "Training time expired. Your universe position was kept.",
+          },
+        });
+      } else if (!localUniverse && match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
         reported = true;
         setEnd({
           outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
@@ -1578,6 +1712,10 @@ export function Arena({
       if (orbital) {
         const poses: Array<[THREE.Group, Craft]> = [[playerGroup, player], ...match.allies.map((c, i) => [allyGroups[i], c] as [THREE.Group, Craft]), ...match.enemies.map((c, i) => [enemyGroups[i], c] as [THREE.Group, Craft])];
         for (const [group, craft] of poses) {
+          if (exploringUniverse && group !== playerGroup) {
+            group.visible = false;
+            continue;
+          }
           if (!craft.space) continue;
           group.position.set(craft.x, .9 + craft.space.y, craft.z);
           group.quaternion.fromArray(craft.space.q);
@@ -1622,7 +1760,7 @@ export function Arena({
       }
       const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;
       const locked = hostiles.find((enemy) => enemy.id === player.lockTargetId && enemy.alive);
-      bracket.visible = Boolean(locked);
+      bracket.visible = Boolean(locked) && !exploringUniverse;
       if (locked) {
         bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
         if (orbital) bracket.quaternion.copy(camera.quaternion);
@@ -1810,7 +1948,10 @@ export function Arena({
       }
       if (!painting) paintClock = 0;
       paintOn = painting;
-      if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
+      if (contactRef.current) {
+        if (exploringUniverse) contactRef.current.getContext("2d")?.clearRect(0, 0, contactRef.current.width, contactRef.current.height);
+        else drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
+      }
       if (orbital && player.space) {
         const s = player.space;
         const speed = Math.hypot(s.vx, s.vy, s.vz);
@@ -1856,7 +1997,7 @@ export function Arena({
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
         if (targetStatusRef.current) {
-          targetStatusRef.current.hidden = !locked;
+          targetStatusRef.current.hidden = !locked || exploringUniverse;
           if (locked && solution) {
             const factionAccent = targetFactionAccent(locked.faction);
             const critical = isTargetHullCritical(hull);
@@ -2055,6 +2196,7 @@ export function Arena({
       window.removeEventListener("blur", clearHeld);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("orientationchange", resize);
+      window.removeEventListener("orientationchange", onOrientationReset);
       window.visualViewport?.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
@@ -2076,6 +2218,7 @@ export function Arena({
       orbitalAssets?.textures.forEach((texture) => texture.dispose());
       damageControllers.forEach((controller) => controller.dispose());
       renderer.dispose();
+      glReadyRef.current = false;
     };
   }, [ship.ultShort]);
 
@@ -2116,6 +2259,25 @@ export function Arena({
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      {localUniverse && universe ? (
+        <UniverseStationOverlay
+          session={universe}
+          dock={dockState}
+          rendererReady={glReady && !glError}
+          graphicsError={glError}
+          servicesHref={localUniverse.servicesHref}
+          onDock={() => {
+            const pilot = matchRef.current?.player;
+            if (!pilot || glError || !glReadyRef.current) return;
+            dispatchUniverse({ type: "dock", pose: capturePilotPose(pilot), dock: evaluateCinderDock(pilot), rendererReady: glReadyRef.current });
+          }}
+          onUndock={() => dispatchUniverse({ type: "undock" })}
+          onLaunchTraining={() => dispatchUniverse({ type: "launch-training" })}
+          onAbortTraining={() => dispatchUniverse({ type: "abort-training" })}
+          onReturn={() => dispatchUniverse({ type: "return-from-debrief" })}
+          onExit={() => universeExitRef.current?.()}
+        />
       ) : null}
       <div className="pointer-events-none absolute inset-0">
         <div className="pilot-top-bar absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-3 pt-3">
@@ -2165,7 +2327,7 @@ export function Arena({
           </div>
 
           <div className="lab-status-center min-w-0 text-center">
-            <span ref={clockRef} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
+            <span ref={clockRef} hidden={exploringHud} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
             {!orbital ? <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p> : null}
@@ -2214,7 +2376,7 @@ export function Arena({
                 onActivate={() => setCameraMode((mode) => mode === "chase" ? "cockpit" : "chase")}
               />
             ) : null}
-            <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />
+            {exploringHud ? null : <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />}
             <PilotActionButton icon="pause" label={paused ? "Resume sortie" : "Open flight menu"} testId="button-pause" active={paused} onActivate={() => {
               const next = !pausedRef.current;
               pausedRef.current = next;
@@ -2314,7 +2476,7 @@ export function Arena({
                       </div>
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
-                    <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                    {exploringHud ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -2388,7 +2550,7 @@ export function Arena({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
-                    {orbitalCampaign ? null : (
+                    {orbitalCampaign || exploringHud ? null : (
                       <PilotActionButton
                         ref={countermeasureRef}
                         icon="flare"
@@ -2413,7 +2575,7 @@ export function Arena({
                         }}
                       />
                     )}
-                    <PilotActionButton
+                    {exploringHud ? null : <PilotActionButton
                       ref={missileRef}
                       icon="missile"
                       label="Launch guided missile"
@@ -2425,7 +2587,7 @@ export function Arena({
                         unlockAudio();
                         if (bus) bus.missilePulse = true;
                       }}
-                    />
+                    />}
                     <div className="pilot-boost-fire-stack flex flex-col items-center gap-1">
                       <PilotActionButton
                         ref={boostRef}
@@ -2442,7 +2604,7 @@ export function Arena({
                           requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
                         }}
                       />
-                      <PilotActionButton
+                      {exploringHud ? null : <PilotActionButton
                         icon="fire"
                         label="Hold primary guns"
                         testId="button-fire"
@@ -2456,7 +2618,7 @@ export function Arena({
                           requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
                         }}
                         className="pilot-action-fire"
-                      />
+                      />}
                     </div>
                   </div>
                 </div>
