@@ -185,6 +185,7 @@ export function spawnMissileVolley(
       turnRate: missile.turnRateRadiansPerSecond,
       launcherId: pilot.id,
       guidance: missile.guidance,
+      countermeasureClass: missile.countermeasureClass,
       visualEffect: missile.visualEffect,
       audioCue: missile.audioCue,
     };
@@ -257,12 +258,57 @@ export function spawnPrimaryVolley(
     };
   });
 }
+export const COUNTERMEASURE_COOLDOWN_SECONDS = 3.5;
+export const HARDENED_MISSILE_DISRUPTION_SECONDS = 0.55;
+export type CountermeasureResult = { activated: boolean; decoyed: number; disrupted: number };
+
+/**
+ * Orbital v3 flares only affect missiles currently tracking this pilot.
+ * Standard seekers are decoyed into ballistic flight; hardened seekers retain
+ * their target but temporarily lose steering, leaving a window to evade.
+ */
+export function deployCountermeasure(
+  bullets: Array<SpatialBullet & { faction: string }>,
+  pilot: SpatialCraft & { faction: string },
+): CountermeasureResult {
+  const flight = pilot.space;
+  if (!flight || flight.countermeasureCd === undefined || flight.countermeasureCd > 0) {
+    return { activated: false, decoyed: 0, disrupted: 0 };
+  }
+  const incoming = bullets.filter((bullet) =>
+    bullet.missile === true && bullet.faction !== pilot.faction && bullet.homeId === pilot.id,
+  );
+  if (incoming.length === 0) return { activated: false, decoyed: 0, disrupted: 0 };
+
+  flight.countermeasureCd = COUNTERMEASURE_COOLDOWN_SECONDS;
+  let decoyed = 0;
+  let disrupted = 0;
+  for (const bullet of incoming) {
+    if (bullet.countermeasureClass === "hardened") {
+      bullet.guidanceSuppressed = Math.max(
+        bullet.guidanceSuppressed ?? 0,
+        HARDENED_MISSILE_DISRUPTION_SECONDS,
+      );
+      disrupted++;
+    } else {
+      bullet.homeId = null;
+      decoyed++;
+    }
+  }
+  return { activated: true, decoyed, disrupted };
+}
+
 export function guideMissile(
   b: SpatialBullet,
-  target: SpatialCraft,
+  target: SpatialCraft | undefined,
   dt: number,
   launcher?: Pick<SpatialCraft, "lockTargetId">,
 ) {
+  if ((b.guidanceSuppressed ?? 0) > 0) {
+    b.guidanceSuppressed = Math.max(0, b.guidanceSuppressed! - dt);
+    return;
+  }
+  if (!target) return;
   if (b.guidance === "semi-active" && launcher?.lockTargetId !== b.homeId) return;
   steerProjectileToward(b, { x: target.x, y: target.space?.y ?? 0, z: target.z }, dt, b.turnRate ?? 2.5);
 }

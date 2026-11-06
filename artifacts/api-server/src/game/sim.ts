@@ -30,6 +30,7 @@ export type Bullet = {
   y?: number; vy?: number; missile?: boolean;
   faction: Faction; r: number; homeId: number | null; own: boolean;
   weaponId?: string; turnRate?: number; launcherId?: number; guidance?: "active" | "semi-active";
+  countermeasureClass?: "standard" | "hardened"; guidanceSuppressed?: number;
   visualEffect?: "beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm";
   audioCue?: "energy" | "pulse" | "heavy" | "ion";
 };
@@ -39,7 +40,7 @@ export type Fx = (
   | { k: "shot"; x: number; z: number; big: boolean; you: boolean; faction?: Faction; visualEffect?: Bullet["visualEffect"]; audioCue?: Bullet["audioCue"] }
   | { k: "hit"; x: number; z: number; you: boolean; fromX: number; fromZ: number; dmg: number }
   | { k: "boom"; x: number; z: number }
-  | { k: "flare"; x: number; z: number; yaw: number }
+  | { k: "flare"; x: number; z: number; yaw: number; decoyed?: number; disrupted?: number }
   | { k: "dive"; x: number; z: number; yaw: number }
   | { k: "ram"; x: number; z: number; yaw: number }
   | { k: "emp"; x: number; z: number }

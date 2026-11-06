@@ -144,7 +144,7 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
     allyCount: 4,
     foeCount: 4,
     mission: "contact",
-    flightModel: "orbital-v2",
+    flightModel: "orbital-v3",
     cleared: 0,
     inputs,
   });

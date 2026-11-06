@@ -1,5 +1,5 @@
 import { SHIPS } from "./ships";
-import { ORBITAL_RULES_VERSION, type OrbitalRulesVersion } from "@workspace/orbital-sim";
+import { deployCountermeasure, ORBITAL_RULES_VERSION, type OrbitalRulesVersion } from "@workspace/orbital-sim";
 import { detAtan2, detHypot } from "./detmath";
 import { integrateFlight, newFlight, rotate } from "./orbital-flight";
 import { distance3, guideMissile, launchMissile, primaryBullet, primaryVolley, primaryWeaponFor, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
@@ -18,6 +18,7 @@ export function prepareOrbital(match: Match, rulesVersion: OrbitalRulesVersion =
   for (const craft of [match.player, ...match.allies, ...match.enemies]) {
     craft.space = newFlight(craft.yaw);
     craft.space.ammo = SHIPS[craft.ship].missileAmmo;
+    if (rulesVersion === ORBITAL_RULES_VERSION) craft.space.countermeasureCd = 0;
   }
   match.player.x = 0; match.player.z = 28;
   match.enemies.forEach((craft, i) => {
@@ -109,15 +110,26 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
       space.missileCd = Math.max(space.missileCd, 12 + (craft.id % 3) * 2);
     }
     if (craft.id === player.id && played.countermeasure) {
-      for (let i = match.bullets.length - 1; i >= 0; i--) {
-        const bullet = match.bullets[i]!;
-        if (bullet.faction !== player.faction && bullet.missile) {
-          match.bullets.splice(i, 1);
+      let decoyed = 0;
+      let disrupted = 0;
+      let activated = true;
+      if (match.orbitalRulesVersion === ORBITAL_RULES_VERSION) {
+        const result = deployCountermeasure(match.bullets, player);
+        ({ decoyed, disrupted, activated } = result);
+      } else {
+        for (let i = match.bullets.length - 1; i >= 0; i--) {
+          const bullet = match.bullets[i]!;
+          if (bullet.faction !== player.faction && bullet.missile) {
+            match.bullets.splice(i, 1);
+            decoyed++;
+          }
         }
       }
       // Show an unmistakable release cue even if the incoming missile expired
       // on the same simulation step as the pilot's countermeasure tap.
-      match.fx.push({ k: "flare", x: player.x, y: space.y, z: player.z, yaw: player.yaw });
+      if (activated) {
+        match.fx.push({ k: "flare", x: player.x, y: space.y, z: player.z, yaw: player.yaw, decoyed, disrupted });
+      }
     }
     const weapon = primaryWeaponFor(match, craft);
     const volleySize = weapon?.volleyCount ?? 1;
@@ -155,9 +167,11 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
   for (let i = match.bullets.length - 1; i >= 0; i--) {
     const bullet = match.bullets[i];
     const targets = bullet.faction === player.faction ? match.enemies : [player, ...match.allies];
-    if (bullet.homeId != null) {
-      const target = targets.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
-      if (target) guideMissile(bullet, target, dt, crafts.find((craft) => craft.id === bullet.launcherId));
+    if (bullet.missile) {
+      const target = bullet.homeId == null
+        ? undefined
+        : targets.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
+      guideMissile(bullet, target, dt, crafts.find((craft) => craft.id === bullet.launcherId));
     }
     const px = bullet.x; const py = bullet.y ?? 0; const pz = bullet.z;
     bullet.x += bullet.vx * dt; bullet.y = py + (bullet.vy ?? 0) * dt; bullet.z += bullet.vz * dt; bullet.life -= dt;

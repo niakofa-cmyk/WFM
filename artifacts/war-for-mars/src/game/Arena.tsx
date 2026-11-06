@@ -1902,10 +1902,13 @@ export function Arena({
           );
         }
         if (countermeasureRef.current) {
-          const incomingCount = match.bullets.filter((bullet) => bullet.missile && bullet.faction !== player.faction).length;
+          const incomingCount = match.bullets.filter((bullet) =>
+            bullet.missile && bullet.faction !== player.faction && bullet.homeId === player.id,
+          ).length;
           if (incomingCount > 0) countermeasureUntilRef.current = Math.max(countermeasureUntilRef.current, match.time + 2);
           const incomingMissile = incomingCount > 0 || match.time < countermeasureUntilRef.current;
-          countermeasureRef.current.disabled = !player.alive || !incomingMissile;
+          const countermeasureCd = s.countermeasureCd ?? 0;
+          countermeasureRef.current.disabled = !player.alive || !incomingMissile || countermeasureCd > 0;
           countermeasureRef.current.hidden = !incomingMissile;
           if (countermeasureVisibleRef.current !== incomingMissile) {
             countermeasureVisibleRef.current = incomingMissile;
@@ -1914,11 +1917,13 @@ export function Arena({
           countermeasureRef.current.dataset.incoming = String(incomingCount);
           countermeasureRef.current.setAttribute(
             "aria-label",
-            incomingCount > 0
-              ? `Deploy flare to break ${incomingCount} incoming missile${incomingCount === 1 ? "" : "s"}`
+            countermeasureCd > 0 && incomingMissile
+              ? `Countermeasure recharging for ${countermeasureCd.toFixed(1)} seconds`
+              : incomingCount > 0
+              ? `Deploy countermeasure to decoy or disrupt ${incomingCount} incoming missile${incomingCount === 1 ? "" : "s"}`
               : incomingMissile
-                ? "Deploy flare; incoming missile warning"
-              : "Countermeasure flare available when hostile missiles are incoming",
+                ? "Deploy countermeasure flare; incoming missile warning"
+              : "Countermeasure available when a missile is tracking this pilot",
           );
         }
       }
@@ -2354,7 +2359,7 @@ export function Arena({
                       <PilotActionButton
                         ref={countermeasureRef}
                         icon="flare"
-                        label="Deploy flare to break incoming missile guidance"
+                        label="Deploy countermeasure to decoy or disrupt incoming missile guidance"
                         testId="button-countermeasure"
                         accent
                         disabled={!countermeasureVisible}

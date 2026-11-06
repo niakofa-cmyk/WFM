@@ -1,7 +1,7 @@
 import {
   acquireTarget,
   MISSILE_CATALOG,
-  ORBITAL_RULES_VERSION,
+  ORBITAL_WEAPON_RULES_VERSION,
   PRIMARY_WEAPON_CATALOG,
   spawnMissile,
   spawnMissileVolley,
@@ -13,12 +13,12 @@ import type { Bullet, Craft, Match } from "./sim";
 
 export { MISSILE_RANGE, LOCK_SECONDS, distance3, guideMissile, segmentHit, targetSolution } from "@workspace/orbital-sim";
 export function primaryWeaponFor(match: Match, pilot: Craft) {
-  return match.orbitalRulesVersion === ORBITAL_RULES_VERSION
+  return (match.orbitalRulesVersion ?? 1) >= ORBITAL_WEAPON_RULES_VERSION
     ? PRIMARY_WEAPON_CATALOG[SHIPS[pilot.ship].primaryFit]
     : undefined;
 }
 function missileWeaponFor(match: Match, pilot: Craft) {
-  return match.orbitalRulesVersion === ORBITAL_RULES_VERSION
+  return (match.orbitalRulesVersion ?? 1) >= ORBITAL_WEAPON_RULES_VERSION
     ? MISSILE_CATALOG[SHIPS[pilot.ship].missileFit]
     : undefined;
 }

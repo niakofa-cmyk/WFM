@@ -108,11 +108,11 @@ cross-mode feature.
 
 ### Primary weapons
 
-- Orbital v2 resolves all sixteen typed `primaryFit` IDs through the shared
+- Orbital v2/v3 resolve all sixteen typed `primaryFit` IDs through the shared
   `@workspace/orbital-sim` catalog. Each entry declares compatible hulls,
   hardpoint, volley shape/spread, projectile speed/radius/lifetime, damage
   scale, ammo, energy and heat fields, plus visual/audio cues.
-- These definitions now affect real Orbital shots. Twin-pulse, escort-array,
+- These definitions affect real Orbital shots. Twin-pulse, escort-array,
   interceptor-pulse, point-defense-array, and swarm-pulse launch deterministic
   multi-projectile spreads; the remaining fits have distinct projectile
   behavior. Projectile collision uses each definition's radius, and the Arena
@@ -129,7 +129,7 @@ cross-mode feature.
 
 ### Missiles
 
-- Orbital v2 resolves all sixteen typed `missileFit` IDs from the same shared
+- Orbital v2/v3 resolve all sixteen typed `missileFit` IDs from the same shared
   catalog. Each fit now owns lock time/range/cone, cooldown, launch speed, turn
   rate, lifetime, collision radius, hardpoint compatibility, guidance mode,
   salvo size, and visual/audio metadata.
@@ -139,14 +139,16 @@ cross-mode feature.
   the existing missile damage across three guided projectiles. Hull ammo and
   missile damage values remain unchanged.
 - The existing valid-target and rock-occlusion checks remain in force, now
-  using each missile fit's lock limits. Missile `countermeasureClass` is
-  catalogued, but Orbital v2 still uses the existing all-hostile-missiles
-  countermeasure removal; selective decoys/interactions belong to Phase E.
-- Orbital v1's generic `.3` primary radius, `1.6s` primary life, missile speed
-  `38`, missile lifetime `4s`, and `3.5s` missile cooldown remain available
-  for already-issued campaign replays. New Contact runs use `orbital-v2` and
-  the fit catalog. The API run schema and client/server runtime contract pin
-  this version split.
+  using each missile fit's lock limits. Orbital v3 makes the catalogued
+  countermeasure class active: standard seekers lose target guidance and
+  continue ballistically; hardened seekers retain their target but have
+  steering suppressed for `.55s`. A flare affects only hostile missiles
+  currently tracking that pilot, and has a server-owned `3.5s` cooldown.
+- Orbital v1 retains generic primary/missile behavior; Orbital v2 retains the
+  fit catalog and its prior all-hostile-missile countermeasure behavior.
+  Already-issued v1/v2 campaign replays remain pinned to those rules. New
+  Contact runs use `orbital-v3`; the API schema and runtime contract include
+  the versioned split.
 
 ### Damage and countermeasures
 
@@ -230,7 +232,7 @@ or a complete capital-vessel simulation.
 | B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Arcade, Solo Flight, legacy campaign, and Wing still include surface compatibility paths. |
 | C — original eight abilities | **IMPLEMENTED AND VERIFIED in Orbital** | All eight have actual state effects and deterministic `step()` tests. Legacy mode parity is incomplete. |
 | D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
-| E — countermeasures and missile defense | **PARTIALLY IMPLEMENTED** | Guided-missile removal, flare feedback, and Aegis interception exist; decoy guidance and general defensive systems do not. |
+| E — countermeasures and missile defense | **CORE IMPLEMENTED AND VERIFIED in Orbital v3; PARTIAL for live Wing** | Standard seekers are decoyed, hardened seekers are disrupted, only missiles tracking the pilot are affected, and a cooldown is server-owned. Legacy v1/v2 outcomes are preserved. Live Wing integration, physical-device checks, and broader defenses remain unverified. |
 | F — distinct 3D reconstruction | **PARTIALLY IMPLEMENTED** | Sixteen unique procedural fighter blueprints and hangar inspection exist; detailed authored fleet models and ship-specific damage are not verified. |
 | G/H — eight additional fighters | **PARTIALLY IMPLEMENTED** | Eight specialist IDs, definitions, abilities, and procedural hulls are present; normal AI rosters still use only the original four per faction. |
 | I — fleet AI/formations | **PARTIALLY IMPLEMENTED** | Generic Orbital AI pursues the nearest opponent; Iron Eclipse has one fixed three-ship mission wing, not a fleet director. |
@@ -240,12 +242,12 @@ or a complete capital-vessel simulation.
 
 ## Recommended next implementation slice
 
-Phase E is next: turn the missile countermeasure metadata into server-authoritative
-decoy and defensive behavior, then test missile-specific susceptibility without
-changing Orbital v1 replay outcomes. Preserve the current energy/heat baseline
-until the pilot HUD can communicate weapon limits clearly. Follow with the
-separate fleet AI, capital-system, live Wing, and physical-device certification
-phases; do not infer those capabilities from this weapon migration.
+Next, plan a safe live Wing migration for the versioned Orbital input/snapshot
+contract and certify ten authenticated pilots on staging before enabling it.
+Keep the existing surface Wing as the rollback path. Preserve the current
+energy/heat baseline until the pilot HUD can communicate weapon limits clearly.
+Then continue fleet AI, capital-system, and physical-device certification; do
+not infer those capabilities from this countermeasure migration.
 
 Do not present the current certification smoke test, hangar preview, Rust Disc
 Android sample, or unregistered Orbital authority harness as proof of live 5v5

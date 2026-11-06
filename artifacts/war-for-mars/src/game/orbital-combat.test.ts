@@ -6,6 +6,7 @@ import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight, rotate } from "./orbital-flight";
 import { launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
 import { armorSpill } from "./orbital-damage";
+import { ORBITAL_WEAPON_RULES_VERSION } from "@workspace/orbital-sim";
 import { clearInput, createBus, readInput } from "./input";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
@@ -307,21 +308,58 @@ test("orbital input pulses are edge triggered and clear on focus loss", () => {
   clearInput(bus); assert.equal(readInput(bus).vertical, 0);
 });
 
-test("Orbital countermeasures clear hostile guided missiles but preserve other projectiles", () => {
+test("Orbital v3 decoys standard and disrupts hardened missiles tracking the pilot", () => {
   const match = lab();
   match.bullets.push(
-    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true },
-    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: null, own: false, missile: false },
-    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "ussf", r: 0.4, homeId: match.player.id, own: true, missile: true },
+    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true, weaponId: "standard-test", countermeasureClass: "standard" },
+    { x: 510, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true, weaponId: "hardened-test", countermeasureClass: "hardened" },
+    { x: 520, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.enemies[0]!.id, own: false, missile: true, weaponId: "ally-target-test", countermeasureClass: "standard" },
+    { x: 530, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "ussf", r: 0.4, homeId: match.player.id, own: true, missile: true, weaponId: "friendly-test", countermeasureClass: "standard" },
+    { x: 540, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: null, own: false, missile: false },
   );
   step(match, { ...idle, countermeasure: true }, 1 / 60);
-  assert.equal(match.bullets.length, 2);
-  assert.ok(match.bullets.every((bullet) => !(bullet.faction === "accord" && bullet.missile)));
-  assert.ok(match.fx.some((fx) => fx.k === "flare"));
+  const standard = match.bullets.find((bullet) => bullet.weaponId === "standard-test");
+  const hardened = match.bullets.find((bullet) => bullet.weaponId === "hardened-test");
+  const allyTargeted = match.bullets.find((bullet) => bullet.weaponId === "ally-target-test");
+  const friendly = match.bullets.find((bullet) => bullet.weaponId === "friendly-test");
+  assert.equal(standard?.homeId, null, "standard seekers keep flying but lose target guidance");
+  assert.equal(hardened?.homeId, match.player.id, "hardened seekers retain the target");
+  assert.ok((hardened?.guidanceSuppressed ?? 0) > 0.5, "hardened guidance is disrupted for a short evasion window");
+  assert.equal(allyTargeted?.homeId, match.enemies[0]!.id, "missiles tracking someone else are unaffected");
+  assert.equal(friendly?.homeId, match.player.id, "friendly ordnance is unaffected");
+  const flare = match.fx.find((fx) => fx.k === "flare");
+  assert.equal(flare?.decoyed, 1);
+  assert.equal(flare?.disrupted, 1);
+  assert.equal(match.player.space!.countermeasureCd, 3.5);
+
+  const flareCount = match.fx.filter((fx) => fx.k === "flare").length;
+  step(match, { ...idle, countermeasure: true }, 1 / 60);
+  assert.equal(match.fx.filter((fx) => fx.k === "flare").length, flareCount, "cooldown prevents repeated flare pulses");
 });
 
-test("Orbital countermeasure release emits visible hull feedback even if a missile expires on the same frame", () => {
+test("Orbital v2 keeps its already-issued all-missile countermeasure behavior", () => {
+  const match = prepareOrbital(
+    createMatch("duskbreaker", "ussf", 0, "practice", { seed: 1938, foeCount: 3, orbitalTraining: true }),
+    ORBITAL_WEAPON_RULES_VERSION,
+  );
+  match.rocks = [];
+  match.bullets.push(
+    { x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true },
+    { x: 510, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: match.enemies[0]!.id, own: false, missile: true },
+    { x: 520, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 4, dmg: 10, faction: "accord", r: 0.4, homeId: null, own: false, missile: false },
+  );
+  step(match, { ...idle, countermeasure: true }, 1 / 60);
+  assert.equal(match.bullets.length, 1);
+  assert.equal(match.player.space!.countermeasureCd, undefined);
+});
+
+test("Orbital v3 flare release remains visible when a decoyed missile expires that frame", () => {
   const match = lab();
+  match.bullets.push({
+    x: 500, z: 500, vx: 0, vz: 0, y: 0, vy: 0, life: 1 / 120, dmg: 10,
+    faction: "accord", r: 0.4, homeId: match.player.id, own: false, missile: true,
+    countermeasureClass: "standard",
+  });
   step(match, { ...idle, countermeasure: true }, 1 / 60);
   assert.ok(match.fx.some((fx) =>
     fx.k === "flare" && fx.x === match.player.x && fx.y === match.player.space!.y && fx.z === match.player.z,

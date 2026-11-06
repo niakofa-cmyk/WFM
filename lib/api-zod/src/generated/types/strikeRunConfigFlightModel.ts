@@ -13,4 +13,5 @@ export const StrikeRunConfigFlightModel = {
   'surface-v1': 'surface-v1',
   'orbital-v1': 'orbital-v1',
   'orbital-v2': 'orbital-v2',
+  'orbital-v3': 'orbital-v3',
 } as const;

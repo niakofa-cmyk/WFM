@@ -10,6 +10,8 @@ import {
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
   ORBITAL_RUNTIME_ID,
+  ORBITAL_WEAPON_RULES_VERSION,
+  ORBITAL_WEAPON_RUNTIME_ID,
   PRIMARY_WEAPON_CATALOG,
   newFlight,
   type SpatialBullet,
@@ -59,9 +61,11 @@ test("browser and server math adapters use the same shared deterministic source"
 
 test("versioned Orbital weapon catalog covers every compatible hull fit", () => {
   assert.equal(LEGACY_ORBITAL_RUNTIME_ID, "orbital-v1");
-  assert.equal(ORBITAL_RUNTIME_ID, "orbital-v2");
+  assert.equal(ORBITAL_WEAPON_RUNTIME_ID, "orbital-v2");
+  assert.equal(ORBITAL_RUNTIME_ID, "orbital-v3");
   assert.equal(LEGACY_ORBITAL_RULES_VERSION, 1);
-  assert.equal(ORBITAL_RULES_VERSION, 2);
+  assert.equal(ORBITAL_WEAPON_RULES_VERSION, 2);
+  assert.equal(ORBITAL_RULES_VERSION, 3);
   const primaryFits = new Set<string>();
   const missileFits = new Set<string>();
   for (const ship of Object.values(SHIPS)) {
@@ -81,7 +85,7 @@ test("versioned Orbital weapon catalog covers every compatible hull fit", () => 
   assert.equal(missileFits.size, Object.keys(MISSILE_CATALOG).length);
 });
 
-test("Orbital v2 fires deterministic multi-projectile primary and missile salvos", () => {
+test("Orbital v3 fires deterministic multi-projectile primary and missile salvos", () => {
   const primaryMatch = prepareOrbital(createMatch("shakuna", "accord", 0, "practice", { seed: 402 }));
   primaryMatch.rocks = [];
   const primaryPilot = primaryMatch.player;
@@ -178,6 +182,15 @@ test("versioned Contact orbital replay advances identically on client and reward
   };
   const client = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", setup));
   const server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", setup));
+  client.rocks = [];
+  server.rocks = [];
+  const incoming = {
+    x: 500, y: 0, z: 500, vx: 0, vy: 0, vz: -30, life: 4, dmg: 10,
+    faction: "accord" as const, r: 0.4, homeId: client.player.id, own: false,
+    missile: true, weaponId: "precision-seeker", countermeasureClass: "standard" as const,
+  };
+  client.bullets.push({ ...incoming });
+  server.bullets.push({ ...incoming });
   const controls: StepInput = {
     ...idle,
     throttle: 0.35,
@@ -195,7 +208,9 @@ test("versioned Contact orbital replay advances identically on client and reward
   };
   const releasedControls: StepInput = { ...controls, lock: false, boost: false };
   for (let tick = 0; tick < 240 && !client.over; tick += 1) {
-    const input = tick === 0 ? controls : tick === 60
+    const input = tick === 0 ? controls : tick === 30 || tick === 31
+      ? { ...releasedControls, countermeasure: true }
+      : tick === 60
       ? { ...releasedControls, missile: true }
       : tick === 61
         ? { ...releasedControls, missile: false }
@@ -210,7 +225,7 @@ test("versioned Contact orbital replay advances identically on client and reward
   }
 });
 
-test("Orbital v2 multi-projectile fire remains bit-identical across browser and reward server", () => {
+test("Orbital v3 multi-projectile fire remains bit-identical across browser and reward server", () => {
   const setup = { seed: 7791, goal: "disc" as const, disc: "rust" as const, allyCount: 1, foeCount: 2 };
   const client = prepareOrbital(createMatch("garuda", "accord", 0, "practice", setup));
   const server = prepareServerOrbital(createServerMatch("garuda", "accord", 0, "practice", setup));

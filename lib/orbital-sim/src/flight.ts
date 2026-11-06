@@ -1,8 +1,12 @@
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 
 export const LEGACY_ORBITAL_RULES_VERSION = 1 as const;
-export const ORBITAL_RULES_VERSION = 2 as const;
-export type OrbitalRulesVersion = typeof LEGACY_ORBITAL_RULES_VERSION | typeof ORBITAL_RULES_VERSION;
+export const ORBITAL_WEAPON_RULES_VERSION = 2 as const;
+export const ORBITAL_RULES_VERSION = 3 as const;
+export type OrbitalRulesVersion =
+  | typeof LEGACY_ORBITAL_RULES_VERSION
+  | typeof ORBITAL_WEAPON_RULES_VERSION
+  | typeof ORBITAL_RULES_VERSION;
 export const ORBITAL_TICK_RATE = 30;
 export const ORBITAL_DT = 1 / ORBITAL_TICK_RATE;
 export const MISSILE_RANGE = 65;
@@ -26,6 +30,7 @@ export type OrbitalFlight = {
   energy: number; assist: boolean; armor: number; armorMax: number;
   lockProgress: number; lockTargetId: number | null; missileCd: number; ammo: number; aimAssist: boolean;
   maneuverRollRemaining?: number; maneuverCooldown?: number;
+  countermeasureCd?: number;
 };
 export type FlightInput = { vertical?: number; roll?: number; boost?: boolean; brake?: boolean; drift?: boolean; inertial?: boolean; missile?: boolean; countermeasure?: boolean; aimAssist?: boolean };
 export type FlightControls = FlightInput & {
@@ -48,6 +53,7 @@ export type SpatialBullet = {
   x: number; y?: number; z: number; vx: number; vy?: number; vz: number;
   life: number; dmg: number; r: number; homeId: number | null; missile?: boolean;
   weaponId?: string; turnRate?: number; launcherId?: number; guidance?: "active" | "semi-active";
+  countermeasureClass?: "standard" | "hardened"; guidanceSuppressed?: number;
   visualEffect?: "beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm";
   audioCue?: "energy" | "pulse" | "heavy" | "ion";
 };
@@ -85,6 +91,7 @@ export function integrateSpatialFlight(
   if (!s) throw new Error("Orbital flight requires initialized spatial state.");
   if (input.inertial) s.assist = !s.assist;
   if (input.aimAssist) s.aimAssist = !s.aimAssist;
+  if (s.countermeasureCd !== undefined) s.countermeasureCd = Math.max(0, s.countermeasureCd - dt);
   const disrupted = craft.root > 0 || craft.jam > 0;
   const thrustMuted = disrupted || (craft.thrustMuted ?? 0) > 0;
   const rate = def.turnRate * def.handling * (disrupted ? .35 : 1);
