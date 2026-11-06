@@ -69,7 +69,6 @@ export type Match = {
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
   localEndurance?: boolean;
   orbitalTraining?: boolean;
-  orbitalRulesVersion?: OrbitalRulesVersion;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
   orbitalRulesVersion?: OrbitalRulesVersion;
@@ -91,6 +90,7 @@ export type MatchSetup = {
   seed?: number;
   localEndurance?: boolean;
   orbitalTraining?: boolean;
+  orbitalRulesVersion?: OrbitalRulesVersion;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
 };

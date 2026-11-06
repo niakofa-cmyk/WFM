@@ -6,12 +6,21 @@ import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight, rotate } from "./orbital-flight";
 import { launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
 import { armorSpill } from "./orbital-damage";
-import { ORBITAL_WEAPON_RULES_VERSION } from "@workspace/orbital-sim";
+import { ORBITAL_COUNTERMEASURE_RULES_VERSION, ORBITAL_WEAPON_RULES_VERSION } from "@workspace/orbital-sim";
 import { clearInput, createBus, readInput } from "./input";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
 function lab() {
-  const match = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", { foeCount: 3, allyCount: 1, seed: 1938, orbitalTraining: true }));
+  const match = prepareOrbital(
+    createMatch("duskbreaker", "ussf", 0, "practice", {
+      foeCount: 3,
+      allyCount: 1,
+      seed: 1938,
+      orbitalTraining: true,
+      orbitalRulesVersion: ORBITAL_COUNTERMEASURE_RULES_VERSION,
+    }),
+    ORBITAL_COUNTERMEASURE_RULES_VERSION,
+  );
   match.rocks = []; match.allies = [];
   return match;
 }

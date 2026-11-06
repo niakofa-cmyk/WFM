@@ -343,6 +343,8 @@ export const AI_ROSTER: Record<Faction, ShipId[]> = {
   ussf: ["duskbreaker", "sentinel", "splitter", "glide"],
 };
 
+// Orbital v4 is the first ruleset to field the specialist ships in normal AI
+// wings. Earlier runs keep the certified starter roster for replay stability.
 export const FLEET_AI_ROSTER: Record<Faction, ShipId[]> = {
   accord: ["mandjet", "shakuna", "apep", "garuda", "tripura", "sekhmet", "sundara", "vajra"],
   ussf: ["duskbreaker", "splitter", "wasp", "valiant", "sentinel", "aegis", "glide", "bastion"],

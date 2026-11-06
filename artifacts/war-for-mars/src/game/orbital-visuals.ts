@@ -68,7 +68,10 @@ export function createOrbitalDamageController(model: THREE.Group): OrbitalDamage
   );
   scorch.name = "orbital-flight-damage-scorch";
   scorch.userData.presentationOnly = true;
-  scorch.position.set(engine?.position.x ?? -.45, (engine?.position.y ?? .2) + .12, engine?.position.z ?? -.8);
+  const scorchPosition = engine
+    ? model.worldToLocal(engine.getWorldPosition(new THREE.Vector3()))
+    : new THREE.Vector3(-.45, .32, -.8);
+  scorch.position.copy(scorchPosition).add(new THREE.Vector3(0, .12, .1));
   scorch.rotation.x = Math.PI / 2;
   scorch.visible = false;
   model.add(scorch);

@@ -525,6 +525,7 @@ test(
         allyCount: config.allyCount,
         foeCount: config.foeCount,
         tech: config.tech,
+        orbitalRulesVersion: 4,
       });
       prepareOrbital(match);
       const input = {

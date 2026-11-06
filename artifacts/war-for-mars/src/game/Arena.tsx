@@ -1481,7 +1481,7 @@ export function Arena({
             countermeasureFeedbackRef.current.textContent = countermeasureFeedbackLabel(ev.decoyed ?? 0, ev.disrupted ?? 0);
             countermeasureFeedbackRef.current.hidden = false;
           }
-          countermeasureFeedbackUntil = match.time + 2.2;
+          countermeasureFeedbackUntil = performance.now() + 2200;
           burst(ev.x, ev.z, 0xffd9a0, 0.35, 10);
           sfxFlare();
         } else if (ev.k === "dive" || ev.k === "ram") {
@@ -1947,7 +1947,7 @@ export function Arena({
         }
       }
       if (countermeasureFeedbackRef.current && countermeasureFeedbackUntil > 0) {
-        countermeasureFeedbackRef.current.hidden = match.time >= countermeasureFeedbackUntil;
+        countermeasureFeedbackRef.current.hidden = performance.now() >= countermeasureFeedbackUntil;
       }
       if (pipRef.current) {
         pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;

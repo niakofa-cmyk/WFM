@@ -100,28 +100,30 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
   const { createMatch, step } = await import("./sim");
   const { prepareOrbital } = await import("./orbital-sim");
   const seed = 123;
-  const match = createMatch("mandjet", "accord", 0, "practice", {
+  const victoryClaim = { ...claim, shipId: "sundara" as const };
+  const match = createMatch("sundara", "accord", 0, "practice", {
     seed,
     goal: "disc",
     disc: "rust",
     allyCount: 4,
     foeCount: 4,
     tech: null,
+    orbitalRulesVersion: 4,
   });
   prepareOrbital(match);
   const input = {
-    throttle: 0,
+    throttle: 0.2,
     yaw: 0,
     strafe: 0,
     pitch: 0,
-    fire: false,
+    fire: true,
     ult: false,
     lock: false,
     evade: 0,
     preset: null,
     vertical: 0,
     roll: 0,
-    boost: false,
+    boost: true,
     brake: false,
     inertial: false,
     missile: false,
@@ -129,14 +131,21 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
   } as const;
   const inputs = [];
   for (let frame = 0; frame < 120 * 60 && !match.over; frame += 1) {
-    const played = frame === 0 ? { ...input, ult: true } : input;
+    const targetPulse = frame % 60 === 0;
+    const played = {
+      ...input,
+      ult: frame === 0,
+      lock: targetPulse,
+      missile: targetPulse,
+      aimAssist: targetPulse,
+    };
     step(match, played, 1 / 60);
     inputs.push(played);
   }
   assert.equal(match.over, "win");
 
   const result = adjudicateStrike({
-    ...claim,
+    ...victoryClaim,
     seed,
     pace: "practice",
     goal: "disc",

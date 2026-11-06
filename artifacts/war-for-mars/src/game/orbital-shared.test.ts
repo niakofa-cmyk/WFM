@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   guideMissile,
   IDLE_ORBITAL,
+  isOrbitalRuntimeId,
   LEGACY_ORBITAL_RULES_VERSION,
   LEGACY_ORBITAL_RUNTIME_ID,
   MISSILE_CATALOG,
@@ -17,6 +18,7 @@ import {
   ORBITAL_WEAPON_RUNTIME_ID,
   PRIMARY_WEAPON_CATALOG,
   newFlight,
+  orbitalRulesVersionForRuntime,
   type SpatialBullet,
   type SpatialCraft,
 } from "@workspace/orbital-sim";
@@ -74,6 +76,12 @@ test("versioned Orbital weapon catalog covers every compatible hull fit", () => 
   assert.equal(ORBITAL_COUNTERMEASURE_RULES_VERSION, 3);
   assert.equal(ORBITAL_FLEET_RULES_VERSION, 4);
   assert.equal(ORBITAL_RULES_VERSION, 4);
+  assert.equal(orbitalRulesVersionForRuntime(LEGACY_ORBITAL_RUNTIME_ID), 1);
+  assert.equal(orbitalRulesVersionForRuntime(ORBITAL_WEAPON_RUNTIME_ID), 2);
+  assert.equal(orbitalRulesVersionForRuntime(ORBITAL_COUNTERMEASURE_RUNTIME_ID), 3);
+  assert.equal(orbitalRulesVersionForRuntime(ORBITAL_RUNTIME_ID), 4);
+  assert.equal(isOrbitalRuntimeId("orbital-v3"), true);
+  assert.equal(isOrbitalRuntimeId("orbital-v5"), false);
   const primaryFits = new Set<string>();
   const missileFits = new Set<string>();
   for (const ship of Object.values(SHIPS)) {
@@ -243,8 +251,8 @@ test("Orbital v4 introduces specialist AI wings and role-based fleet approach wi
   const v4Server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", v4Setup), 4);
   for (const match of [v3, v4, v4Server]) {
     match.rocks = [];
-    match.allies = [];
     match.player.z = 150;
+    for (const ally of match.allies) ally.z = 150;
   }
 
   assert.ok(![...v3.allies, ...v3.enemies].some((craft) =>
