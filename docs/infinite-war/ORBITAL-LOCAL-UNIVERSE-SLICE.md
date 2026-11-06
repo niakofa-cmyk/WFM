@@ -56,6 +56,38 @@ damage or ammunition into a saved account.
 
 ## Verification
 
+### Runtime integration follow-through
+
+`orbital-universe-runtime.ts` now owns the activity transition side effects
+that Arena actually calls. It does not create a renderer, network connection or
+animation driver. The dock command recomputes eligibility from the current
+simulation instead of accepting a caller-supplied pose or stale eligibility.
+The completion command requires a genuinely ended training match and derives
+the debrief from its actual outcome and kill count.
+
+Eight additional integration regressions exercise that production code:
+
+- Remote, stale-speed and renderer-unavailable docking rejection.
+- Canonical exploration flight without clock, AI or weapon side effects.
+- Frozen station/debrief flight and resource state.
+- Rejection of completion before the match ends.
+- A real primary-projectile win against stationary low-integrity fixtures.
+- An actual normal-rule timeout and a damage-produced destroyed-hull loss.
+- Exact exploration resource/velocity restoration and subsequent undock motion.
+- Twelve repeated training/abort cycles retaining match identity and a pristine
+  training template.
+
+All **300 game/auth tests** and WFM type checking pass. These are simulation
+integration tests, not browser or live-multiplayer evidence.
+
+One targeted follow-up browser attempt used genuine Chromium software-WebGL
+flags, without mocking the renderer or injecting game state. That browser still
+reported its graphics renderer disabled and failed context creation. It stopped
+without flight input. No complete interactive loop, renderer-resource retention,
+API-write audit, physical Android or multiplayer certification is established.
+
+### Initial slice checks
+
 - Shared library build and WFM type check passed.
 - 292 game/auth tests passed, including ten new local-universe regressions:
   contract ownership, physical gate, invalid telemetry, renderer prerequisite,

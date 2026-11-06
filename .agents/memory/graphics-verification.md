@@ -20,6 +20,17 @@ browser also failed before launch on missing system libraries.
 failures, use the supported project-side browser for software-rendering evidence,
 and never equate software-rendering success with physical GPU performance.
 
+Software-WebGL launch flags alone may not enable a remote browser whose
+graphics vendor/renderer is reported as `Disabled`.
+
+**Why:** genuine Chromium SwiftShader flags still failed in that browser while
+the separate preview capture rendered the scene. Changing app physics or adding
+a fake renderer would not resolve the evidence gap.
+
+**How to apply:** stop repeated flag-only retries after the explicit disabled
+graphics result. Use a verified project-side browser or physical device for the
+interactive journey and report the remote limitation separately.
+
 Isolated browser component fixtures must share the application's resolved
 provider module, including Vite's dependency-version query string.
 

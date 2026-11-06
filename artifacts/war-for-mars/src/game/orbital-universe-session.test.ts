@@ -173,9 +173,8 @@ test("canonical left thumb drives signed translation and right thumb rolls the r
 test("universe transitions do not remount a second renderer or launch a parallel approach", () => {
   const source = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
   assert.equal((source.match(/new THREE.WebGLRenderer\(/g) ?? []).length, 1);
-  assert.ok(source.includes("Object.assign(match, copyMatch(template))"));
-  assert.ok(source.includes("restorePilotPose(match.player, next.retained)"));
-  assert.ok(source.includes("integrateSpatialFlight(pilot"));
+  assert.ok(source.includes("transitionLocalUniverse(match, template, session, event)"));
+  assert.ok(source.includes("advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED)"));
   assert.ok(source.includes("if (!localUniverse && modeId === UNIVERSE_MODE_ID)"));
   assert.ok(!source.includes("CinderRingDockingApproach"));
   const helper = readFileSync(new URL("./orbital-universe-session.ts", import.meta.url), "utf8");

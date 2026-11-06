@@ -35,25 +35,18 @@ import {
   ORBITAL_RUNTIME_ID,
   type CombatRuntimeId,
   type GameModeId,
-  integrateSpatialFlight,
-  normalizeFlightControls,
 } from "@workspace/orbital-sim";
 import {
-  UNIVERSE_BOUNDARY_RADIUS,
-  UNIVERSE_COLLIDERS,
   UNIVERSE_MODE_ID,
-  capturePilotPose,
   cinderStationTransform,
   createUniverseSession,
   evaluateCinderDock,
   placeAtSpawn,
-  restorePilotPose,
-  transitionUniverse,
   universeFrozen,
   type DockEvaluation,
-  type UniverseEvent,
   type UniverseSession,
 } from "./orbital-universe-session";
+import { advanceLocalUniverseFlight, transitionLocalUniverse, type LocalUniverseCommand } from "./orbital-universe-runtime";
 import { UniverseStationOverlay } from "./UniverseStationOverlay";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
@@ -668,26 +661,19 @@ export function Arena({
       placeAtSpawn(matchRef.current.player);
     }
   }
-  const dispatchUniverse = (event: UniverseEvent) => {
+  const dispatchUniverse = (event: LocalUniverseCommand) => {
     const session = universeRef.current;
     const match = matchRef.current;
     const template = universeTemplateRef.current;
     const bus = busRef.current;
     if (!session || !match || !template) return;
-    const next = transitionUniverse(session, event);
+    const next = transitionLocalUniverse(match, template, session, event);
     if (next === session) return;
     if (bus) clearInput(bus);
     rollCameraStabilizationRef.current = 0;
     setMapOpen(false);
     setCountermeasureVisible(false);
     countermeasureVisibleRef.current = false;
-    if (event.type === "launch-training") {
-      Object.assign(match, copyMatch(template));
-    } else if ((event.type === "training-outcome" || event.type === "abort-training") && next.retained) {
-      // Leave the training activity: rebuild the world match and restore the exact retained pose.
-      Object.assign(match, copyMatch(template));
-      restorePilotPose(match.player, next.retained);
-    }
     universeRef.current = next;
     setUniverse(next);
   };
@@ -1461,14 +1447,7 @@ export function Arena({
         let steps = 0;
         const pilot = match.player;
         while (acc >= FIXED && steps < 5 && pilot.space) {
-          const frameControls = normalizeFlightControls(readInput(bus));
-          integrateSpatialFlight(pilot, {
-            throttle: frameControls.throttle, yaw: frameControls.yaw, strafe: frameControls.strafe,
-            pitch: frameControls.pitch, roll: frameControls.roll, vertical: frameControls.vertical,
-            boost: frameControls.boost, brake: frameControls.brake, drift: frameControls.drift,
-            inertial: steps === 0 && frameControls.inertial,
-            ...(frameControls.maneuver ? { maneuver: frameControls.maneuver } : {}),
-          }, FIXED, 1, UNIVERSE_COLLIDERS, SHIPS[pilot.ship], { boundaryRadius: UNIVERSE_BOUNDARY_RADIUS });
+          advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED);
           acc -= FIXED;
           steps += 1;
         }
@@ -1636,15 +1615,6 @@ export function Arena({
       if (universePhase === "training" && match.over) {
         dispatchUniverseRef.current({
           type: "training-outcome",
-          debrief: {
-            outcome: match.over === "win" ? "win" : match.over === "loss" ? "loss" : "draw",
-            kills: match.kills,
-            reason: match.over === "win"
-              ? "All defenders destroyed. Local training only, no credits or progress recorded."
-              : !match.player.alive
-                ? "Your ship was destroyed in training. Your universe position was kept."
-                : "Training time expired. Your universe position was kept.",
-          },
         });
       } else if (!localUniverse && match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
         reported = true;
@@ -2270,7 +2240,7 @@ export function Arena({
           onDock={() => {
             const pilot = matchRef.current?.player;
             if (!pilot || glError || !glReadyRef.current) return;
-            dispatchUniverse({ type: "dock", pose: capturePilotPose(pilot), dock: evaluateCinderDock(pilot), rendererReady: glReadyRef.current });
+            dispatchUniverse({ type: "dock", rendererReady: glReadyRef.current });
           }}
           onUndock={() => dispatchUniverse({ type: "undock" })}
           onLaunchTraining={() => dispatchUniverse({ type: "launch-training" })}
