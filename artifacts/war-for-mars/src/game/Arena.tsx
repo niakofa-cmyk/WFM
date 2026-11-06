@@ -1358,6 +1358,10 @@ export function Arena({
           ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
           : craft.speed;
       },
+      getPosition: () => {
+        const craft = pilotCraft(match, slotIdRef.current);
+        return { x: craft.x, y: craft.space?.y ?? 0, z: craft.z };
+      },
       getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);

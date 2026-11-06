@@ -48,7 +48,8 @@ import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
 import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
-import { isOrbitalRuntimeId } from "@workspace/orbital-sim";
+import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { UNIVERSE_MODE_ID } from "./orbital-universe-session";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -154,6 +155,7 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
   }, [userId]);
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
+  const [localUniverseOpen, setLocalUniverseOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -1120,6 +1122,41 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
     );
   }
 
+  if (localUniverseOpen) {
+    return (
+      <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
+        <Arena
+          key={`local-universe-${userId ?? "guest"}-${save.ship}-${save.faction}`}
+          modeId={UNIVERSE_MODE_ID}
+          runtime={ORBITAL_RUNTIME_ID}
+          shipId={save.ship}
+          faction={save.faction}
+          scheme={save.scheme}
+          refit={save.refit}
+          shieldMk2={save.shieldMk2 ?? false}
+          pace="practice"
+          goal="disc"
+          disc="rust"
+          allyCount={1}
+          foeCount={3}
+          objective="CINDER RING · LOCAL TRAINING"
+          tech={null}
+          gyro={save.gyro}
+          drilled
+          onDrill={() => {}}
+          localUniverse={{
+            servicesHref: "/universe",
+            onExit: () => setLocalUniverseOpen(false),
+          }}
+          onNetworkExit={() => {
+            throw new Error("The local Orbital universe must not open a network session.");
+          }}
+          onDone={() => {}}
+        />
+      </Suspense>
+    );
+  }
+
   if (phase === "fight") {
     const runConfig = activeRun?.config;
     const orbitalCampaign =
@@ -1316,6 +1353,7 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
+        onLocalUniverse={() => setLocalUniverseOpen(true)}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}

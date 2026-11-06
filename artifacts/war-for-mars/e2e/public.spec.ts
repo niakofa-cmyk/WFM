@@ -1,6 +1,77 @@
 import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
+test("local universe flies to Cinder, enters training, and returns inside one Arena", async ({ page }) => {
+  test.setTimeout(45_000);
+  const pageErrors: string[] = [];
+  const apiRequests: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/")) apiRequests.push(request.method());
+  });
+  await page.setViewportSize({ width: 803, height: 360 });
+  await page.goto("/combat-lab.html?universe=1");
+  await expect(page.getByTestId("arena-stage")).toBeVisible();
+  await expect(page.getByTestId("text-universe-scope")).toContainText("LOCAL · OFFLINE · NO REWARDS");
+  await expect(page.getByTestId("button-universe-dock")).toBeDisabled();
+  await expect(page.getByTestId("button-fire")).toHaveCount(0);
+  await expect(page.getByTestId("button-missile")).toHaveCount(0);
+  const runtimeReady = await page.evaluate(() => typeof window.__controlsTest?.getPosition === "function");
+  expect(runtimeReady, "a real Orbital/WebGL runtime must initialize before flight can be tested").toBe(true);
+
+  const canvas = await page.locator("canvas").first().elementHandle();
+  expect(canvas).not.toBeNull();
+  const initialCanvasCount = await page.locator("canvas").count();
+  let appliedKey = "";
+  const command = async (next: string) => {
+    if (next === appliedKey) return;
+    if (appliedKey) await page.keyboard.up(appliedKey);
+    if (next) await page.keyboard.down(next);
+    appliedKey = next;
+  };
+  let gateReached = false;
+  for (let attempt = 0; attempt < 36; attempt++) {
+    const pose = await page.evaluate(() => window.__controlsTest!.getPosition!());
+    const speed = await page.evaluate(() => window.__controlsTest!.getSpeed());
+    const distance = Math.hypot(pose.x, pose.y, pose.z + 118);
+    if (distance <= 8 && speed <= 3.5) {
+      gateReached = true;
+      break;
+    }
+    const key = distance > 12 && speed < 6 ? "w"
+      : speed > 0.65 ? "b"
+        : distance > 8 ? "w" : "b";
+    await command(key);
+    await page.waitForTimeout(120);
+  }
+  await command("");
+  expect(gateReached, "pilot should reach the physical docking envelope under actual flight controls").toBe(true);
+  await expect(page.getByTestId("status-dock-gate")).toHaveText("DOCKING CLEARED");
+  await expect(page.getByTestId("button-universe-dock")).toBeEnabled();
+  await page.getByTestId("button-universe-dock").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+
+  await page.getByTestId("button-universe-launch-training").click();
+  await expect(page.getByTestId("text-universe-training")).toBeVisible();
+  await expect(page.getByTestId("button-fire")).toBeVisible();
+  await expect(page.getByTestId("button-universe-abort-training")).toBeVisible();
+  await page.getByTestId("button-universe-abort-training").click();
+  await expect(page.getByTestId("text-universe-debrief")).toContainText("TRAINING ABORTED");
+  await page.getByTestId("button-universe-return").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  expect(await canvas!.evaluate((element) => element.isConnected)).toBe(true);
+
+  const retained = await page.evaluate(() => window.__controlsTest!.getPosition!());
+  await page.getByTestId("button-universe-undock").click();
+  await expect(page.getByTestId("universe-exploration-hud")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).not.toBe(retained.z);
+  await expect(page.getByTestId("stick-flight")).toBeVisible();
+  expect(apiRequests).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
 test("landing page explains the game and offers a solo flight", async ({ page }) => {
   await page.route("**/api/game/leaderboard", (route) =>
     route.fulfill({
