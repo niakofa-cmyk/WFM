@@ -18,6 +18,7 @@ export type Bus = {
   missilePulse: boolean;
   countermeasurePulse: boolean;
   circularRoll: number;
+  circularRollStartedAt: number;
   circularRollUntil: number;
   inertialPulse: boolean;
   aimAssistPulse: boolean;
@@ -57,6 +58,7 @@ export function createBus(scheme: Scheme): Bus {
     missilePulse: false,
     countermeasurePulse: false,
     circularRoll: 0,
+    circularRollStartedAt: 0,
     circularRollUntil: 0,
     inertialPulse: false,
     aimAssistPulse: false,
@@ -96,6 +98,7 @@ export function clearInput(bus: Bus) {
   bus.missilePulse = false;
   bus.countermeasurePulse = false;
   bus.circularRoll = 0;
+  bus.circularRollStartedAt = 0;
   bus.circularRollUntil = 0;
   bus.inertialPulse = false;
   bus.aimAssistPulse = false;
@@ -123,15 +126,23 @@ export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs =
 }
 
 /** Continuous roll is accepted only by the offline unified Orbital pilot adapter. */
-export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = 120) {
-  if (!bus.orbital || !bus.leftStickFlight) return;
-  if (!Number.isFinite(input) || Math.abs(input) < 0.01) {
+export const MAX_CIRCULAR_ROLL_HOLD_MS = 120;
+
+export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = MAX_CIRCULAR_ROLL_HOLD_MS) {
+  if (
+    !bus.orbital || !bus.leftStickFlight ||
+    !Number.isFinite(input) || Math.abs(input) < 0.01 ||
+    !Number.isFinite(at) || at < 0 ||
+    !Number.isFinite(holdMs) || holdMs <= 0
+  ) {
     bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
     bus.circularRollUntil = 0;
     return;
   }
   bus.circularRoll = Math.max(-1, Math.min(1, input));
-  bus.circularRollUntil = at + Math.max(1, holdMs);
+  bus.circularRollStartedAt = at;
+  bus.circularRollUntil = at + Math.min(MAX_CIRCULAR_ROLL_HOLD_MS, Math.max(1, holdMs));
 }
 
 function clamp(n: number): number {
@@ -205,11 +216,17 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
   const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
-  const circularRoll = bus.orbital && bus.leftStickFlight && at < bus.circularRollUntil
+  const circularRoll = bus.orbital && bus.leftStickFlight &&
+    Number.isFinite(at) && at >= 0 &&
+    Number.isFinite(bus.circularRoll) && Number.isFinite(bus.circularRollUntil) &&
+    Number.isFinite(bus.circularRollStartedAt) &&
+    at >= bus.circularRollStartedAt && at < bus.circularRollUntil &&
+    bus.circularRollUntil - bus.circularRollStartedAt <= MAX_CIRCULAR_ROLL_HOLD_MS
     ? clamp(bus.circularRoll)
     : 0;
   if (circularRoll === 0) {
     bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
     bus.circularRollUntil = 0;
   }
   const fDown = keys.has("KeyF");

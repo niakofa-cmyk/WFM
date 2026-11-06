@@ -16,18 +16,26 @@ The user's full source documents and supplied roll illustration are retained at:
 
 ## First implemented slice
 
+Current status and the re-supplied owner directive are reviewed in
+[ADVANCED-TACTICAL-CONTROLS-REVIEW.md](ADVANCED-TACTICAL-CONTROLS-REVIEW.md).
+The direct live-arc behavior below supersedes the original queued full-loop
+prototype; the verification history further below is historical, not a new
+device certification.
+
 - Only the offline unified Orbital right aim stick enables this gesture.
 - Ordinary aiming begins immediately when the player starts dragging.
-- A smooth, continuous 300–360 degree loop around the visible stick center
-  issues one typed, versioned barrel-roll intent within a three-second window;
-  no stationary hold or mode switch is required.
-- The aim stick continues updating aim while the circle is in progress; after
-  the roll commits, a visible cue confirms its direction.
-  clockwise requests a right roll and counterclockwise a left roll.
+- A deliberate arc around the visible stick center arms direct roll after
+  60 degrees plus sample/time gates. The tracing window is ten seconds from
+  the first valid circular sample, not initial touch-down.
+- Aim remains active while signed thumb motion controls roll immediately;
+  clockwise rolls right and counterclockwise rolls left. Reversal changes
+  direction and release stops control instead of queuing a later animation.
 - The simulation rotates the ship's quaternion over time and applies a brief
   lateral thrust phase. This is movement, not a camera/model-only animation.
-- The roll costs 18 energy, has a 2.8-second cooldown, is rejected when energy
-  is insufficient or the craft is disrupted, and grants no invulnerability.
+- Direct roll charges 18 energy per full turn, respects the existing energy and
+  disruption rules, and adds bounded lateral thrust. The older queued intent
+  retains an 18-energy upfront cost and 2.8-second cooldown; it is not the
+  active circular-thumb default. Neither grants invulnerability.
 - Opposite deliberate roll input can interrupt the active rotation.
 - Gesture cancellation, focus loss, orientation change, and release neutralize
   touch input. The stick shows a compact progress ring and direction feedback.

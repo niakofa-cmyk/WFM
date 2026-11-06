@@ -162,6 +162,14 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
     sendAxis(0, 0);
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
     if (root.current) root.current.dataset.recenter = "true";
+    if (cancelled) {
+      gesture.current = { ...gesture.current, pending: null };
+      clearFeedbackTimer();
+      setFeedback(null);
+      if (root.current) delete root.current.dataset.pulse;
+      if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "";
+      return;
+    }
     if (touch.circularMode) {
       gesture.current = { ...gesture.current, pending: null };
       if (!cancelled) {

@@ -25,6 +25,11 @@ It does not certify that engine consolidation has finished.
 
 ## Product identity
 
+Advanced pilot controls are part of this universe redesign, not a separate
+engine or decorative interface. The [tactical-control review](ADVANCED-TACTICAL-CONTROLS-REVIEW.md)
+indexes both newly supplied copies of the advanced directive, the preserved
+working control mappings, the safety implementation and A–K status/gaps.
+
 The universe is the player's primary context. Stations, asteroid arenas,
 cooperative operations, campaigns, specialist flight experiences and anomalies
 belong to locations in that universe rather than disconnected applications.
