@@ -1,34 +1,40 @@
 ---
-name: Unified Orbital engine and connected universe
-description: Owner's latest direction makes Orbital Combat the shared gameplay engine while preserving versioned migration and service authority.
+name: Connected universe and mode-specific runtimes
+description: The universe connects destinations while established combat engines remain explicit and independently authoritative.
 ---
 
-The latest owner reconstruction references are
+Earlier owner reconstruction references are
 `attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
 and `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`.
-The source-backed current audit is
-`docs/infinite-war/UPDATED-REPOSITORY-FORENSIC-EVALUATION.md`.
+The current owner direction is preserved in
+`attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793989681065.txt`,
+`attached_assets/Pasted--War-for-Mars-Infinite-War-Orbital-Combat-Lab-Infinite-_1793990090269.txt`,
+`attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
+and `attached_assets/Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
+The earlier repository audit is historical at
+`docs/infinite-war/UPDATED-REPOSITORY-FORENSIC-EVALUATION.md`; follow the newer
+maintained roadmap and asteroid-hub contract for current architecture.
 
-**Rule:** WFM is one connected universe with Orbital Combat as the canonical
-gameplay runtime for Rust Disc, Iron Eclipse, Route to Mars, Arcade, Campaign,
-co-op, and competitive operations. Do not use the old Rust Disc scene as the
-new rendering runtime. Three.js is allowed as a low-level dependency only when
-Orbital owns the scene, camera, renderer, and gameplay-loop lifecycle. Track
-simulation and presentation migration separately. Preserve compatibility paths
-only until each mode's flight, controls, objectives, authority, and presentation
-are migrated and verified. Retain existing identity, matchmaking, economy,
-progression, and reward services.
+**Rule:** WFM is one connected universe, but it hosts multiple explicit
+operation runtimes. The Three.js/Vite universe owns navigation, destination
+presentation, and local approach scenes; it is not the multiplayer combat
+engine. Orbital Combat Lab is a simulation foundation and validation environment
+that may be integrated per mode after proof. Preserve Rust Disc, Arcade Skirmish,
+and Wing as independent playable/authoritative experiences until each proposed
+migration passes gameplay, network, reward, and rollback checks. Retain existing
+identity, matchmaking, economy, progression, and reward services.
 
-**Why:** the latest owner directives explicitly prohibit reusing the Rust Disc
-scene as the new runtime while allowing a proven graphics library to serve inside
-Orbital; they also require staged migration, rollback, server authority, and
-preservation of verified systems.
+**Why:** the owner clarified that Cinder Ring is the physical competition hub,
+the universe is its navigation/presentation layer, and established combat
+engines still execute their battles. Earlier prompts proposed a universal Orbital
+runtime; the current architecture clarification takes precedence.
 
-**How to apply:** move one mode at a time through shared controls, simulation,
-and Orbital-owned presentation adapters; version any changed network or replay
-contract. Migrate client, API, and socket together when authority changes. Keep
-Orbital training no-reward, preserve Wing's server-owned competitive and reward
-gates, and retire a legacy path only after parity, acceptance, and rollback pass.
+**How to apply:** use explicit operation definitions/adapters to connect
+destination, discovery, and launch to the correct existing runtime. The Cinder
+Ring approach is local/no-reward and cannot authorize a queue or create an
+operation. Migrate a combat runtime only one mode at a time, version changed
+network/replay contracts, and change client/API/socket authority together.
+Retain Wing's server-owned competitive and reward gates.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc

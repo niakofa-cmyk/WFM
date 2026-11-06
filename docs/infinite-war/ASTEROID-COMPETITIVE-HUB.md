@@ -52,12 +52,45 @@ Use the attached project images as visual references for future Cinder Ring and 
 - `attached_assets/cofPu5h4jkGZZQGwnCtZvFPKzF7MKb8xq0X7qulPpDO0WZ_Y7bVqwFHf9HmLK_1793818224640.jpeg`
 - `attached_assets/ubY_uxagutK2Uoslr49hk8MJxbO8677nuP0TJnASmyfOjKyoy387Ryeh4afUt_1793818224653.jpeg`
 - `attached_assets/HmmFGQ-RWlI7o9GpzqYgDZfXx1ZUU-76vpA-0MiY8gs6S3zEdz3CuSahIcapY_1793818224668.jpeg`
+- `attached_assets/e_yl8Z3KSs2cM6wlFwExtXV_7PfPJH126_vh2DvhFgTFhH8KYIYY5VhZeOpfJ_1793991103190.jpeg` — stacked docking rings, elevated platforms, and a station embedded in asteroid terrain.
+- `attached_assets/b6x_mzOGs37FsoE9v9GQ9VPkxiqFRaklqab66zL-gitvyUqVHNobIme7YJVnI_1793991103253.jpeg` — industrial habitat scale, clustered tanks, traffic, and readable debris-field flight.
+
+The current source briefs are preserved unchanged in `attached_assets/`:
+`Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793989681065.txt`,
+`Pasted--War-for-Mars-Infinite-War-Orbital-Combat-Lab-Infinite-_1793990090269.txt`,
+`Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
+and `Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
+Use them as direction, not as evidence that every described multiplayer capability exists.
 
 Visual goals: make the asteroid read as a real place in the larger universe; show scale through rings, dock structures, traffic, light, and distant battle activity; keep the arena interface legible on phones; use distinct faction color language; and make active operations visible as server-reported state, not decorative animation.
 
+## Flightable local approach
+
+After the server confirms the player's universe location is Cinder Ring, the
+universe screen now offers a local 3D flight approach to a procedural station
+collar. It uses the shared Orbital spatial-flight integrator, the saved ship
+model, touch/keyboard steering, forward thrust, and braking. Docking is gated
+locally on entering a bounded capture volume, reducing speed, and aligning the
+ship to the collar. Successful docking reveals the existing station hub;
+undocking returns to the approach entry.
+
+This is a local navigation/presentation step only. It does not register a
+multiplayer operation, write campaign state, grant a match seat, or replace any
+combat runtime. The competitive queue still validates location and ten human
+pilots on the server. Private rooms remain no-reward and absent from public
+discovery.
+
 ## Explicitly not claimed as complete
 
-This slice does not yet provide a complete shared-world flight session, a full 3D asteroid approach/docking scene, tournament brackets, cross-server match federation, a spectator camera inside the 3D combat runtime, Arcade Skirmish entry from the asteroid, a constellation of finished stations, or gameplay migration to Orbital Combat Lab. The Cinder Ring art in the hub is an authored vector illustration, not a flightable 3D model. A directory card or visual illustration is not evidence of those capabilities. The current implementation must still pass deployed staging checks and real client checks before it can be called live or production-ready.
+This slice does not yet provide shared free-flight between universe destinations,
+visible live battles rendered in the approach scene, a full in-combat spectator
+camera, tournament brackets, cross-server match federation, Arcade Skirmish
+entry from the asteroid, a constellation of finished stations/anomalies, or
+gameplay migration to one universal Orbital combat runtime. The station scene
+is a procedural local approach, not a shared-world docking session. Live
+competition listings and spectator state remain available through the separate
+server-backed station hub. Staging and real-device checks are still required
+before calling the approach live or production-ready.
 
 ## Acceptance checks
 
@@ -65,6 +98,7 @@ This slice does not yet provide a complete shared-world flight session, a full 3
 - The directory publishes active status only for a live, queue-created ten-human Wing match.
 - Competitive queue attempts outside Cinder Ring are rejected server-side.
 - The universe station has distinct private-room and competitive-entry panels; the private dock appears only at Cinder Ring.
+- At Cinder Ring, the pilot must complete the local, no-reward approach gate before the station operations hub is shown; this client-only arrival does not authorize online queue entry.
 - Private-room creation/join reuses the existing room flow and remains no-reward, invite-only, and absent from public discovery.
 - Private and AI-fill matches never appear in the public arena directory or spectator endpoint.
 - The spectator endpoint requires the existing authenticated session, is read-only, does not consume a pilot seat, and sends no player identity or account data.
@@ -76,8 +110,8 @@ This slice does not yet provide a complete shared-world flight session, a full 3
 ## Next development phases
 
 1. Verify the live spectator and location gate in the staging environment; no physical phone test is implied by local tests.
-2. Add an asteroid approach/docking experience that reaches the current arena panel through universe travel.
+2. Test the new flightable approach in landscape on Android, including low-throttle arrival, alignment, brake handling, and abort/re-entry.
 3. Connect Arcade Skirmish as a separately versioned operation.
-4. Add more stations and operation entry points to the strategic map.
-5. Evaluate Orbital Combat Lab for incremental combat migration only after compatibility, gameplay, network, and reward boundaries are proven.
-6. Add tournament/event scheduling only after active match discovery and match lifecycle are dependable.
+4. Add a destination-operation adapter for additional asteroid hubs, stations, and anomalies; publish only real server operations and keep each combat engine explicit.
+5. Evaluate Orbital Combat Lab for per-mode integration only after compatibility, gameplay, network, and reward boundaries are proven.
+6. Add tournament/event scheduling and in-approach live-battle rendering only after active-match discovery and lifecycle are dependable.

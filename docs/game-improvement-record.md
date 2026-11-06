@@ -1069,3 +1069,35 @@ to use the existing Wing runtime. No API/socket authority, rewards, staging, or
 Production deployment changed. A direct full-workspace test run during this
 session hit an unrelated API progression assertion (`match.over`); that
 progression test passed in isolation, and no API code was changed here.
+
+## 2026-11-06 — Cinder Ring flightable station approach
+
+Cinder Ring now has a procedural 3D station, surrounding asteroid field, and
+local flightable approach after server-confirmed universe travel. The approach
+uses the saved ship model and shared Orbital spatial-flight integrator, with
+touch steering, analog forward thrust, brake, keyboard controls, closure-speed
+and alignment readouts, and a gated docking action. After local docking, the
+existing station hub becomes visible; returning to orbit allows another approach.
+
+The docking gate is only local presentation/navigation state. It creates no
+operation instance, matchmaking seat, reward, or server authorization. Existing
+Wing queue checks, ten-human competitive rules, private-room boundaries, and
+combat runtimes were not changed. The operation catalog now explicitly records
+that universe navigation uses Orbital spatial flight only for docking and is not
+a combat authority.
+
+The owner's four open-universe, Orbital Lab, structural-rebuild, and
+multiplayer-universe briefs remain in `attached_assets/`; the structural roadmap,
+Cinder Ring hub plan, and project memory now reflect the latest clarification:
+Three.js connects destinations, while each battle continues through its explicit
+combat runtime. The two newest station/ship images are recorded as art direction,
+not copied into the renderer.
+
+Verification: WFM typecheck passed; **254/254** WFM tests passed, including the
+docking volume/speed/alignment checks and arrival-flow gating. Both WFM Vite
+builds and all **4/4** preview-build checks passed; `git diff --check` passed.
+The WFM workflow restarted successfully. Screenshot verification showed only
+the public landing page; the signed-in universe and WebGL approach were not
+visually verified. The capture browser reported no WebGL adapters, so it cannot
+certify the 3D flight scene. No Android device test, staging rollout, or
+Production deployment was performed.

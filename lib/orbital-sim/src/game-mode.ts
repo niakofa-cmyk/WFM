@@ -279,12 +279,16 @@ export const GAME_MODE_DEFINITIONS = [
     players: { min: 1, max: 1, minimumHumans: 1 },
     ai: "none",
     objectives: ["discover-operation", "approach-destination"],
-    rules: ["operation-directory-is-not-a-combat-session"],
+      rules: [
+        "operation-directory-is-not-a-combat-session",
+        "local-docking-does-not-authorize-competition",
+        "no-rewards",
+      ],
     rewardEligibility: "none",
     authority: "server-authoritative",
     simulation: {
       runtimeId: "universe-navigation-v1",
-      packages: ["GalaxyScreen", "world-operation-directory"],
+      packages: ["@workspace/orbital-sim", "GalaxyScreen", "CinderRingDockingApproach", "world-operation-directory"],
       migration: "navigation-only",
     },
     presentation: { renderer: "universe-ui-v1", lifecycleOwner: "GalaxyScreen", migration: "navigation-only" },

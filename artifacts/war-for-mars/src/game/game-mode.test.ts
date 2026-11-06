@@ -115,3 +115,19 @@ test("standalone Solo Flight uses canonical Orbital combat without progression a
   assert.equal(soloFlight.rewardEligibility, "none");
   assert.equal(createOrbitalRuntime(soloFlight).modeId, "solo-flight");
 });
+
+test("universe navigation uses Orbital spatial flight only for local docking, not combat authority", () => {
+  const universe = getGameModeDefinition("universe-navigation");
+  assert.equal(universe.simulation.runtimeId, "universe-navigation-v1");
+  assert.equal(universe.simulation.migration, "navigation-only");
+  assert.deepEqual(universe.simulation.packages, [
+    "@workspace/orbital-sim",
+    "GalaxyScreen",
+    "CinderRingDockingApproach",
+    "world-operation-directory",
+  ]);
+  assert.equal(universe.rewardEligibility, "none");
+  assert.ok(universe.rules.includes("operation-directory-is-not-a-combat-session"));
+  assert.ok(universe.rules.includes("local-docking-does-not-authorize-competition"));
+  assert.ok(universe.rules.includes("no-rewards"));
+});

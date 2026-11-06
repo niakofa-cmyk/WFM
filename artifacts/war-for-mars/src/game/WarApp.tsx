@@ -1271,6 +1271,8 @@ export function WarApp() {
           onBack={() => setGalaxyOpen(false)}
           credits={save.credits}
           onCredits={syncCredits}
+          shipId={save.ship}
+          faction={save.faction}
           roomCode={roomCode}
           onRoomCode={setRoomCode}
           onCreatePrivateRoom={() => {
