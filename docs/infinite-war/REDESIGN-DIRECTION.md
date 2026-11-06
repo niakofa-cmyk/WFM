@@ -1,5 +1,20 @@
 # WAR FOR MARS: INFINITE WAR — connected-universe redesign
 
+## Controlling clarification — Orbital is the main game
+
+The owner has clarified that the new playable universe and multiplayer game
+must be built **inside the Orbital Combat Lab runtime foundation**, not beside
+it with Orbital left under an optional `COMBAT TRAINING` link. Training becomes
+one activity inside the main game. A shared chart, renamed card or link to the
+old account universe is not this runtime migration.
+
+The [Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)
+now defines the actual current function split, required execution flow and
+acceptance loop. This controls earlier descriptions of the Lab as only an
+offline entry or of account-page handoffs as the final architecture. The
+existing redesigned entry and docking/input work are interim integrations;
+they do not complete the open-universe rebuild.
+
 ## Owner direction · 2026-11-06
 
 The owner has explicitly asked to **start the redesign now**, using Orbital

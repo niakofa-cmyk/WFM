@@ -2,12 +2,15 @@
 
 ## Current precedence
 
-The 2026-11-06 master directive
-`Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`
-now controls the immediate sequence: engine source audit and consolidation
-before universe appearance redesign. The target is one Orbital main engine
-with distinct configurations/adapters; independently retained engines are
-compatibility and rollback paths, not a permanent end state. See the
+The owner's controlling clarification is recorded in the
+[Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md).
+The **game and its playable universe run inside the rebuilt Orbital foundation**;
+Orbital must not remain a training side link beside a separately executed
+universe. Break down the Lab's entry, simulation, rendering, controls and return
+functions into the primary game runtime. Training becomes a subordinate
+activity; existing runtimes remain compatibility/rollback paths until verified.
+The target is one Orbital main foundation with distinct configurations and
+authority adapters, not one monolithic multiplayer server. See the
 [current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
 [mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
 and checkpoints below are historical where they conflict with this directive.
@@ -48,10 +51,11 @@ unbounded count of live ships or a literally infinite galaxy.
   a research/authoring candidate, not a second production runtime. The Three.js
   universe is the navigation/presentation layer; it is not itself a multiplayer
   combat engine.
-- Develop Orbital Combat Lab as a combat simulation foundation and validation
-  environment. Integrate its simulation and rendering per operation only after
-  parity, authority, networking, progression, and rollback are proven. Do not
-  force every established experience into one runtime.
+- Re-engineer Orbital Combat Lab into the main playable universe runtime,
+  retaining training as an internal activity and validation profile. Consolidate
+  simulation/render/input ownership without flattening different mode rules;
+  migrate authoritative operation adapters only after parity, networking,
+  progression and rollback are proven.
 - Retain Rust Disc, Mars Approach, Pale Beacons, Iron Eclipse, Arcade Skirmish,
   and Wing as distinct playable/authoritative experiences behind explicit
   operation entry points. Preserve their existing combat engines until a

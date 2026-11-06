@@ -1,5 +1,15 @@
 # Orbital master directives — source reconciliation and next verified slice
 
+## Latest owner clarification
+
+The [Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)
+controls the execution target: the new universe/game lives inside the rebuilt
+Orbital runtime. Orbital is not a permanently separate offline training module.
+The account-world link, separate approach scene and shared chart described
+below are interim bridges, not the completed main game. Preserve specialist
+operation adapters and server authority without using them as a reason to
+build the main universe in a separate engine.
+
 The five new owner documents were read **in full** and copied byte-for-byte.
 One multiplayer-architecture document is a resend of the already saved source;
 the recommendation includes the engine-consolidation directive verbatim, with

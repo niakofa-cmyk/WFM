@@ -3,10 +3,21 @@ name: WFM master development directive
 description: Owner-designated execution order and consolidation rules for Infinite War.
 ---
 
-The owner now explicitly authorizes starting the connected-universe visual
-redesign through Orbital Combat Lab. The current direction and preserved
-Multiplayer Universe Architecture source are indexed in
-`docs/infinite-war/REDESIGN-DIRECTION.md`.
+The owner clarified again that the playable Infinite War universe and game
+must run **inside the rebuilt Orbital Combat Lab runtime**, not beside it with
+Orbital left as an optional offline `COMBAT TRAINING` link. Training becomes
+one activity within the main game. A chart redesign or account-universe link
+does not satisfy this rebuild.
+
+**Why:** the user explicitly corrected the execution boundary and asked to save
+it in the rebuild/redesign files.
+
+**How to apply:** use `docs/infinite-war/ORBITAL-UNIVERSE-REBUILD-CONTRACT.md`
+for the end-to-end lifecycle breakdown and acceptance loop. Extract and
+re-engineer the Lab's runtime responsibilities; do not just rename or move its
+training card. Preserve working replacements, offline capability and server
+authority while consolidating. The current source archive and direction remain
+indexed in `docs/infinite-war/REDESIGN-DIRECTION.md`.
 The subsequent Infinite Open Universe source restores one canonical Orbital
 gameplay/runtime owner as the final target. Specialist experiences remain
 distinct configurations/adapters; existing runtimes are migration and rollback
