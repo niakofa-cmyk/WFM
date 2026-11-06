@@ -1073,7 +1073,9 @@ progression test passed in isolation, and no API code was changed here.
 ## 2026-11-06 — Cinder Ring flightable station approach
 
 Cinder Ring now has a procedural 3D station, surrounding asteroid field, and
-local flightable approach after server-confirmed universe travel. The approach
+local flightable approach when the available world snapshot places the pilot at
+the destination. Cached location data can also open this presentation flow; it
+is not fresh server authorization. The approach
 uses the saved ship model and shared Orbital spatial-flight integrator, with
 touch steering, analog forward thrust, brake, keyboard controls, closure-speed
 and alignment readouts, and a gated docking action. After local docking, the

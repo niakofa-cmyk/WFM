@@ -138,7 +138,9 @@ Expedition selector accepts that navigation hint, but existing account-progress
 and server prerequisite checks remain authoritative.
 
 Cinder Ring is now a physical universe destination with a local flightable
-approach and a slow/aligned docking gate before the station hub opens. The
+approach and a slow/aligned docking gate before the station hub opens when the
+available world snapshot places the pilot there. That can be cached location
+state, so it is a presentation gate rather than fresh server authorization. The
 approach reuses the Orbital spatial-flight integrator and saved ship model, but
 it is no-reward navigation; the 5v5 and private-room flows retain their separate
 existing authority and combat runtimes. Other multiplayer destinations,

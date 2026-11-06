@@ -66,9 +66,10 @@ Visual goals: make the asteroid read as a real place in the larger universe; sho
 
 ## Flightable local approach
 
-After the server confirms the player's universe location is Cinder Ring, the
-universe screen now offers a local 3D flight approach to a procedural station
-collar. It uses the shared Orbital spatial-flight integrator, the saved ship
+When the available world snapshot places the pilot at Cinder Ring, the universe
+screen offers a local 3D flight approach to a procedural station collar. That
+snapshot can be cached while offline, so it is a presentation gate rather than a
+fresh server authorization. The approach uses the shared Orbital spatial-flight integrator, the saved ship
 model, touch/keyboard steering, forward thrust, and braking. Docking is gated
 locally on entering a bounded capture volume, reducing speed, and aligning the
 ship to the collar. Successful docking reveals the existing station hub;
