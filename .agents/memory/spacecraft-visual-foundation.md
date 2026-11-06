@@ -4,6 +4,8 @@ description: User's fleet art direction and staged scope for Orbital hull develo
 ---
 
 The user's spacecraft and fleet references are retained in:
+- `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-ORBITAL-COMBAT-LAB-MASTER-SP_1793924339098.txt`
+- `docs/infinite-war/SPACECRAFT-FLEET-FORENSIC-AUDIT.md`
 - `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-ORBITAL-COMBAT-LAB-MASTER-SP_1793917569394.txt`
 - `attached_assets/Pasted-WFM-Forensic-spacecraft-and-fleet-evaluation-I-inspecte_1793917662770.txt`
 - `attached_assets/Screenshot_20261105-163953_1793918498147.png`
@@ -15,7 +17,7 @@ The user's spacecraft and fleet references are retained in:
 - `attached_assets/Screenshot_20261105-163637_1793918498287.png`
 - `attached_assets/Screenshot_20261105-163648_1793918498305.png`
 
-**Rule:** Preserve the identities, names, factions, and established roles of the original eight selectable ships. The planned fighter roster is four additional specialists per faction: USSF Wasp, Valiant, Aegis, Bastion; Accord Apep, Sekhmet, Garuda, Vajra. USSF should read as disciplined, modular military construction with blue identification; Accord should use warm bronze/amber, unconventional, radial, and energy-driven forms. Keep ship identity, weapon fit, and ability mechanical rather than purely decorative. Visual-only geometry must not imply changed simulation stats or collision. Keep multiplayer effects server-authoritative and versioned.
+**Rule:** Preserve the identities, names, factions, and established roles of the original eight selectable ships. The planned fighter roster is four additional specialists per faction: USSF Wasp, Valiant, Aegis, Bastion; Accord Apep, Sekhmet, Garuda, Vajra. USSF should read as disciplined, modular military construction with blue identification; Accord should use warm bronze/amber, unconventional, radial, and energy-driven forms. Keep ship identity, weapon fit, and ability mechanical rather than purely decorative. Visual-only geometry must not imply changed simulation stats or collision. Keep multiplayer effects server-authoritative and versioned. The latest spacecraft-and-fleet directive orders work from a repository-backed audit through reusable weapons, missiles/countermeasures, fleet AI, capital systems, multiplayer and mobile certification; the current evidence and phase status are recorded in `docs/infinite-war/SPACECRAFT-FLEET-FORENSIC-AUDIT.md`.
 
 **Why:** The user asked to retain the current roster while substantially improving the actual 3D construction, then approved the supplied eight-ship specialist expansion. The forensic review also found that old special-ability labels were not proof that Orbital executed them; a canonical Orbital ability path must work before expanding further.
 
