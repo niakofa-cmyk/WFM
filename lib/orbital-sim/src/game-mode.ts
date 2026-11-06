@@ -148,7 +148,7 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim", "Arena offline Strike adapter"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
     presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },

@@ -99,6 +99,7 @@ test("offline Arcade uses canonical Orbital combat and cannot settle rewards", (
   const arcade = getGameModeDefinition("arcade-skirmish");
   assert.equal(arcade.simulation.runtimeId, ORBITAL_RUNTIME_ID);
   assert.equal(arcade.simulation.migration, "canonical");
+  assert.deepEqual(arcade.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
   assert.equal(arcade.authority, "local");
   assert.equal(arcade.rewardEligibility, "none");
   assert.equal(createOrbitalRuntime(arcade).modeId, "arcade-skirmish");

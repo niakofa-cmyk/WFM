@@ -992,3 +992,36 @@ smoke checks passed with **0 page exceptions / 0 trainer API calls or writes**.
 This is not physical Android or online-sector evidence. No reward, campaign,
 auth, database, server simulation, Railway configuration, push or deployment
 changes were made. The new trainer is deliberately ineligible for progression.
+
+## 2026-11-06 — Offline Arcade enters the canonical Orbital runtime
+
+The local Offline Strike / Arcade Skirmish launch now resolves to the
+`arcade-skirmish` GameModeDefinition and `orbital-v5`, rather than being
+misidentified as generic Arena practice. The mode contract records the actual
+`@workspace/orbital-sim` and `Arena` sources, local authority, and no reward
+eligibility. Generic local practice remains a separate mode. Server-issued
+Contact still selects its pinned Orbital mode; legacy campaign runs retain
+their issued surface runtime, and private/live Wing authority, controls, and
+reward gates were not changed.
+
+The mode-routing tests cover offline Arcade, generic local practice, Orbital
+Contact, legacy-pinned sorties, and live Wing. The canonical offline runtime
+test verifies no reward eligibility. The first full workspace-quality run had
+an intermittent Contact progression assertion and cancelled frontend tests;
+the affected API test file passed in isolation, and the subsequent full
+workspace-quality run passed: scripts **53/53**, API **162/162**, and WFM
+**245/245**, with workspace typechecks and builds passing. After tightening the
+mode source-package assertion, the shared-library and WFM typechecks and all
+WFM tests passed again (**245/245**). The staging-results JSON parsed and
+`git diff --check` passed.
+
+The local preview rendered the WFM landing page after restart. The screenshot
+did not enter a signed-in game session, so the Offline Strike screen itself was
+not visually exercised; the mode launch mapping is covered by tests. No new
+staging deployment or Production change was made.
+
+Separately, the owner reported that two devices joined the same private room
+and controls/firing worked. The screenshot shows a two-human lobby; no room
+code is retained. This is owner-reported private-room smoke evidence only, not
+an Orbital v5 campaign test, ten-human competitive test, sector co-op proof, or
+reward-settlement verification. See `STAGING-TEST-REPORT.md`.
