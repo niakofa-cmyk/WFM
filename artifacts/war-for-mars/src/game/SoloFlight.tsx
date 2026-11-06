@@ -12,6 +12,7 @@ import {
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import type { Pace } from "./sim";
 import type { StrikeResult } from "./Arena";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 
@@ -177,6 +178,8 @@ export function SoloFlight({ onExit }: { onExit?: () => void } = {}) {
       <Suspense fallback={<div className="sf" role="status">Loading combat systems...<style>{css}</style></div>}>
         <Arena
           key={run}
+          modeId="solo-flight"
+          runtime={ORBITAL_RUNTIME_ID}
           shipId={ship}
           faction={def.faction}
           scheme="arc"

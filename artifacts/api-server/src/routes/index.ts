@@ -4,15 +4,20 @@ import gameRouter from "./game";
 import strikesRouter from "./strikes";
 import marketRouter from "./market";
 import worldRouter from "./world";
+import worldOperationsRouter from "./world-operations";
 import publicLeaderboardRouter from "./public-leaderboard";
 
-const router: IRouter = Router();
+export function createApiRouter(operationsRouter: IRouter = worldOperationsRouter): IRouter {
+  const router: IRouter = Router();
+  router.use(healthRouter);
+  router.use(publicLeaderboardRouter);
+  // Keep the public directory/SSE routes before routers with auth-wide middleware.
+  router.use(operationsRouter);
+  router.use(gameRouter);
+  router.use(strikesRouter);
+  router.use(marketRouter);
+  router.use(worldRouter);
+  return router;
+}
 
-router.use(healthRouter);
-router.use(publicLeaderboardRouter);
-router.use(gameRouter);
-router.use(strikesRouter);
-router.use(marketRouter);
-router.use(worldRouter);
-
-export default router;
+export default createApiRouter();

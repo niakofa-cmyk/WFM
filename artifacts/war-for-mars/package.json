@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts && vite build --config vite.config.ts --mode combat-lab && node scripts/preview-build.test.mjs",
+    "build": "WFM_BUNDLE_REPORT=1 vite build --config vite.config.ts && WFM_BUNDLE_REPORT=1 vite build --config vite.config.ts --mode combat-lab && node scripts/preview-build.test.mjs",
     "bundle:audit": "WFM_BUNDLE_REPORT=1 vite build --config vite.config.ts",
     "test": "tsx --test --test-concurrency=1 src/auth/*.test.ts src/game/*.test.ts",
     "test:determinism": "tsx scripts/sim-determinism.ts",

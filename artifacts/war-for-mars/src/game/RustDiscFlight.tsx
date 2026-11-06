@@ -1,19 +1,35 @@
-import { useCallback, useEffect, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import * as THREE from "three";
+import type * as THREE_TYPES from "three";
 import { SHIPS, ROSTER, type ShipId } from "./ships";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
 import { parseTrainingShipPreset, resolveInitialTrainingShip } from "./flight-preset";
-import { stickAxesFromDelta } from "./input";
+import { sfxDive, unlockAudio } from "./audio";
 import { combatLockCue } from "./combat-readout";
 import {
   canLock, createFlight, stepFlight, flightObjective, flightForward, vectorLength,
-  NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, type FlightInput, type FlightState,
+  RUST_DISC_SECTOR, type FlightInput, type FlightSector, type FlightState,
 } from "./flight-sector";
+import { neutralFlightControls, toSectorFlightInput, type FlightControlFrame } from "./flight-control";
+import { PilotActionButton } from "./PilotActionButton";
+import { PilotFlightStick } from "./PilotFlightStick";
+import { COORDINATED_BANK, mapFlightStickAxes, MANEUVER_PULSE_DURATION_MS, type ManeuverPulse } from "./pilot-stick-gestures";
 import { AdaptiveResolutionController, FramePacingMonitor, type FramePacingWindow } from "./flight-performance";
+import {
+  createLocalPerformanceRecorder,
+  readBrowserHeap,
+  readLocalPerformanceDeviceInfo,
+  type BrowserHeapReading,
+  type LocalPerformanceDeviceInfo,
+  type LocalPerformanceSummary,
+} from "./local-performance";
+import { LocalPerformanceReport } from "./LocalPerformanceReport";
 import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
+import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
+import { useLeaveWorldOperationInstance } from "@workspace/api-client-react";
+import { createOrbitalRuntime, getGameModeDefinition } from "@workspace/orbital-sim";
 
 /**
  * RUST DISC — local flight trainer. Pure client-side vertical slice.
@@ -38,7 +54,13 @@ type CrewRow = { slot: number; shipId: ShipId; connected: boolean; hull: number;
 
 type Phase = "briefing" | "flight" | "summary" | "unsupported";
 type Quality = "low" | "high";
-type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null };
+type ThreeModule = typeof import("./three-flight-runtime");
+type PerformanceReadout = { window: FramePacingWindow; scale: number; rttMs: number | null; heap: BrowserHeapReading | null };
+type LocalPerformanceCaptureReport = {
+  device: LocalPerformanceDeviceInfo;
+  summary: LocalPerformanceSummary;
+  capturedAt: string;
+};
 type CombatTargetReadout = {
   name: string; affiliation: string; distance: number; hull: number; maxHull: number;
   lockable: boolean; lockHeld: boolean;
@@ -55,6 +77,8 @@ type Hud = {
 
 const STEP = 1 / 60;
 const MAX_CATCHUP = 5;
+const LOCAL_PERFORMANCE_SAMPLE_SECONDS = 60;
+const RUST_DISC_LOCAL_RUNTIME = createOrbitalRuntime(getGameModeDefinition("rust-disc-local"));
 const STAGE_LABEL: Record<FlightState["stage"], string> = {
   relay: "PHASE 1 / SURVEY", drone: "PHASE 2 / ENGAGE", extract: "PHASE 3 / EXTRACT",
   complete: "SORTIE COMPLETE", destroyed: "HULL LOST",
@@ -72,11 +96,11 @@ const POLY: Partial<Record<ShipId, number[]>> = {
 };
 const S = 40;
 
-function hullShape(id: ShipId): THREE.Shape {
-  const shape = new THREE.Shape();
+function hullShape(three: ThreeModule, id: ShipId): THREE_TYPES.Shape {
+  const shape = new three.Shape();
   if (id === "splitter") {
     shape.absarc(0, 0, 48 / S, 0, Math.PI * 2, false);
-    const hole = new THREE.Path();
+    const hole = new three.Path();
     hole.absarc(0, 0, 30 / S, 0, Math.PI * 2, true);
     shape.holes.push(hole);
     return shape;
@@ -90,34 +114,34 @@ function hullShape(id: ShipId): THREE.Shape {
   return shape;
 }
 
-function buildHull(id: ShipId, track: (d: { dispose(): void }) => void): THREE.Group {
+function buildHull(three: ThreeModule, id: ShipId, track: (d: { dispose(): void }) => void): THREE_TYPES.Group {
   const pal = FACTION_PALETTE[SHIPS[id].faction];
-  const g = new THREE.Group();
-  const geo = new THREE.ExtrudeGeometry(hullShape(id), { depth: 0.26, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.06, bevelSegments: 1 });
+  const g = new three.Group();
+  const geo = new three.ExtrudeGeometry(hullShape(three, id), { depth: 0.26, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.06, bevelSegments: 1 });
   geo.rotateX(Math.PI / 2); geo.translate(0, 0.13, 0);
-  const hullMat = new THREE.MeshStandardMaterial({ color: pal.hull, metalness: 0.55, roughness: 0.5, flatShading: true });
-  const trim = new THREE.MeshStandardMaterial({ color: pal.glow, emissive: pal.glow, emissiveIntensity: 0.9, roughness: 0.4 });
-  const canopyMat = new THREE.MeshStandardMaterial({ color: 0x1a2028, metalness: 0.9, roughness: 0.15 });
+  const hullMat = new three.MeshStandardMaterial({ color: pal.hull, metalness: 0.55, roughness: 0.5, flatShading: true });
+  const trim = new three.MeshStandardMaterial({ color: pal.glow, emissive: pal.glow, emissiveIntensity: 0.9, roughness: 0.4 });
+  const canopyMat = new three.MeshStandardMaterial({ color: 0x1a2028, metalness: 0.9, roughness: 0.15 });
   [geo, hullMat, trim, canopyMat].forEach(track);
-  g.add(new THREE.Mesh(geo, hullMat));
-  const spine = new THREE.BoxGeometry(0.16, 0.12, 2.0); track(spine);
-  const sp = new THREE.Mesh(spine, trim); sp.position.set(0, 0.24, 0.1); sp.scale.set(1, 1, id === "splitter" ? 0.4 : 1); g.add(sp);
-  const canopy = new THREE.SphereGeometry(0.22, 12, 8); track(canopy);
-  const c = new THREE.Mesh(canopy, canopyMat); c.scale.set(1, 0.6, 1.8); c.position.set(0, 0.3, -0.45); g.add(c);
-  const engineGeo = new THREE.SphereGeometry(0.16, 10, 8); track(engineGeo);
-  const engMat = new THREE.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.9 }); track(engMat);
-  const plumeGeo = new THREE.ConeGeometry(0.16, 1.6, 10, 1, true); plumeGeo.rotateX(-Math.PI / 2); plumeGeo.translate(0, 0, 0.8); track(plumeGeo);
-  const plumeMat = new THREE.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }); track(plumeMat);
-  const engines = new THREE.Group(); engines.name = "engines";
+  g.add(new three.Mesh(geo, hullMat));
+  const spine = new three.BoxGeometry(0.16, 0.12, 2.0); track(spine);
+  const sp = new three.Mesh(spine, trim); sp.position.set(0, 0.24, 0.1); sp.scale.set(1, 1, id === "splitter" ? 0.4 : 1); g.add(sp);
+  const canopy = new three.SphereGeometry(0.22, 12, 8); track(canopy);
+  const c = new three.Mesh(canopy, canopyMat); c.scale.set(1, 0.6, 1.8); c.position.set(0, 0.3, -0.45); g.add(c);
+  const engineGeo = new three.SphereGeometry(0.16, 10, 8); track(engineGeo);
+  const engMat = new three.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.9 }); track(engMat);
+  const plumeGeo = new three.ConeGeometry(0.16, 1.6, 10, 1, true); plumeGeo.rotateX(-Math.PI / 2); plumeGeo.translate(0, 0, 0.8); track(plumeGeo);
+  const plumeMat = new three.MeshBasicMaterial({ color: pal.glow, transparent: true, opacity: 0.45, blending: three.AdditiveBlending, depthWrite: false }); track(plumeMat);
+  const engines = new three.Group(); engines.name = "engines";
   for (const x of id === "sundara" ? [0] : [-0.28, 0.28]) {
-    const e = new THREE.Mesh(engineGeo, engMat); e.position.set(x, 0.15, 1.3); engines.add(e);
-    const pl = new THREE.Mesh(plumeGeo, plumeMat); pl.position.set(x, 0.15, 1.35); pl.name = "plume"; engines.add(pl);
+    const e = new three.Mesh(engineGeo, engMat); e.position.set(x, 0.15, 1.3); engines.add(e);
+    const pl = new three.Mesh(plumeGeo, plumeMat); pl.position.set(x, 0.15, 1.35); pl.name = "plume"; engines.add(pl);
   }
   g.add(engines);
   return g;
 }
 
-function marsTexture(): THREE.CanvasTexture {
+function marsTexture(three: ThreeModule): THREE_TYPES.CanvasTexture {
   const c = document.createElement("canvas"); c.width = 512; c.height = 256;
   const x = c.getContext("2d")!;
   const grd = x.createLinearGradient(0, 0, 0, 256);
@@ -130,13 +154,13 @@ function marsTexture(): THREE.CanvasTexture {
     x.beginPath(); x.ellipse(rnd() * 512, rnd() * 256, 6 + rnd() * 50, 3 + rnd() * 14, rnd() * 3, 0, Math.PI * 2); x.fill();
   }
   x.fillStyle = "rgba(235,225,210,0.55)"; x.fillRect(0, 0, 512, 10); x.fillRect(0, 248, 512, 8);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = new three.CanvasTexture(c); t.colorSpace = three.SRGBColorSpace; return t;
 }
 
-function rockGeometry(): THREE.BufferGeometry {
-  const g = new THREE.IcosahedronGeometry(1, 2);
-  const pos = g.attributes.position as THREE.BufferAttribute;
-  const v = new THREE.Vector3();
+function rockGeometry(three: ThreeModule): THREE_TYPES.BufferGeometry {
+  const g = new three.IcosahedronGeometry(1, 2);
+  const pos = g.attributes.position as THREE_TYPES.BufferAttribute;
+  const v = new three.Vector3();
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
     const n = 1 + 0.16 * Math.sin(v.x * 4.1 + v.y * 2.3) * Math.cos(v.z * 3.7) + 0.07 * Math.sin(v.y * 9 + v.x * 7);
@@ -160,10 +184,19 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const net = !!expedition;
   const ironEclipse = net && expedition?.mission.id === "iron-eclipse";
   const trainingSearch = typeof window !== "undefined" ? window.location.search : "";
+  const localSector = localTrainingSector(trainingSearch);
+  const specialistOperation = new URLSearchParams(trainingSearch).get("operation") === CINDER_ASTEROID_OPERATION_ID;
+  const instanceCandidate = new URLSearchParams(trainingSearch).get("instanceId") ?? "";
+  const operationInstanceId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(instanceCandidate)
+    ? instanceCandidate
+    : null;
+  const leaveOperation = useLeaveWorldOperationInstance();
   const [hangarPresetShip] = useState<ShipId | null>(() => parseTrainingShipPreset(trainingSearch));
   const expeditionRef = useRef(expedition);
   expeditionRef.current = expedition;
   const [phase, setPhase] = useState<Phase>(net ? "flight" : "briefing");
+  const [threeModule, setThreeModule] = useState<ThreeModule | null>(null);
+  const [rendererReady, setRendererReady] = useState(false);
   const [shipId, setShipId] = useState<ShipId>(() => {
     const snap = expedition?.snapshotRef.current;
     const serverShip = snap?.pilots.find(p => p.slot === snap.ownSlot)?.shipId;
@@ -173,30 +206,40 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches ?? false) ? "low" : "high");
   const [runId, setRunId] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [portrait, setPortrait] = useState(false);
   const [portraitDismissed, setPortraitDismissed] = useState(false);
   const [hud, setHud] = useState<Hud | null>(null);
   const [performanceOpen, setPerformanceOpen] = useState(false);
   const [performanceReadout, setPerformanceReadout] = useState<PerformanceReadout | null>(null);
+  const [localPerformanceCapturing, setLocalPerformanceCapturing] = useState(false);
+  const [localPerformanceProgress, setLocalPerformanceProgress] = useState(0);
+  const [localPerformanceReport, setLocalPerformanceReport] = useState<LocalPerformanceCaptureReport | null>(null);
   const [summary, setSummary] = useState<FlightState | null>(null);
   const [failure, setFailure] = useState("");
 
   const mountRef = useRef<HTMLDivElement>(null);
+  const mapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const mapOpenRef = useRef(false);
   const pilotMarkerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const markerRef = useRef<HTMLDivElement>(null);
   const droneMarkerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<FlightInput>({ ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 });
+  const inputRef = useRef<FlightControlFrame>(neutralFlightControls(0.35));
   const pulseRef = useRef({ missile: false, countermeasure: false });
   const pausedRef = useRef(false);
   const performanceOpenRef = useRef(false);
   const performanceReadoutRef = useRef<PerformanceReadout | null>(null);
+  const localPerformanceRecorderRef = useRef<ReturnType<typeof createLocalPerformanceRecorder> | null>(null);
+  const localPerformanceDeviceRef = useRef<LocalPerformanceDeviceInfo | null>(null);
+  const localPerformanceStartElapsedRef = useRef(0);
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   const keysRef = useRef(new Set<string>());
   const reducedMotion = useRef(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
+  mapOpenRef.current = mapOpen;
 
   const resetControls = useCallback(() => {
     const t = inputRef.current.throttle;
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: t };
+    inputRef.current = neutralFlightControls(t);
     pulseRef.current = { missile: false, countermeasure: false };
     keysRef.current.clear();
     window.dispatchEvent(new Event("wfm-flight-reset"));
@@ -207,13 +250,45 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     if (p) { resetControls(); expeditionRef.current?.sendInput(holdInput()); }
   }, [resetControls]);
 
+  const finishLocalPerformanceCapture = useCallback(() => {
+    const recorder = localPerformanceRecorderRef.current;
+    if (!recorder) return;
+    setLocalPerformanceReport({
+      device: localPerformanceDeviceRef.current ?? readLocalPerformanceDeviceInfo(),
+      summary: recorder.finish(),
+      capturedAt: new Date().toISOString(),
+    });
+    localPerformanceRecorderRef.current = null;
+    localPerformanceDeviceRef.current = null;
+    setLocalPerformanceCapturing(false);
+    setPerformanceOpen(false);
+    performanceOpenRef.current = false;
+    setPausedBoth(true);
+  }, [setPausedBoth]);
+
+  const startLocalPerformanceCapture = () => {
+    if (net || phase !== "flight") return;
+    localPerformanceRecorderRef.current = createLocalPerformanceRecorder(LOCAL_PERFORMANCE_SAMPLE_SECONDS);
+    localPerformanceDeviceRef.current = readLocalPerformanceDeviceInfo();
+    localPerformanceStartElapsedRef.current = hud?.elapsed ?? 0;
+    setLocalPerformanceProgress(0);
+    setLocalPerformanceReport(null);
+    setLocalPerformanceCapturing(true);
+    performanceOpenRef.current = true;
+    setPerformanceOpen(true);
+    setPausedBoth(false);
+  };
+
   const exit = useCallback(() => {
     pausedRef.current = true; resetControls();
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
     expeditionRef.current?.sendInput(holdInput());
+    if (operationInstanceId && specialistOperation) {
+      void leaveOperation.mutateAsync({ instanceId: operationInstanceId }).catch(() => undefined);
+    }
     if (expeditionRef.current) expeditionRef.current.onExit(); else if (onExit) onExit(); else setLocation("/");
-  }, [onExit, resetControls, setLocation]);
+  }, [leaveOperation, onExit, operationInstanceId, resetControls, setLocation, specialistOperation]);
 
   const launch = useCallback(() => {
     if (!webglAvailable()) {
@@ -226,9 +301,10 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> })?.lock?.("landscape"))
         .catch(() => undefined);
     }
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
+    inputRef.current = neutralFlightControls(0.35);
     cameraModeRef.current = "chase";
     setSummary(null); setHud(null); setPortraitDismissed(false);
+    setRendererReady(false);
     pausedRef.current = false; setPaused(false);
     setRunId(r => r + 1); setPhase("flight");
   }, []);
@@ -247,15 +323,29 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
   }, []);
 
+  useEffect(() => {
+    if (phase !== "flight" || threeModule) return;
+    let active = true;
+    void import("./three-flight-runtime").then((module) => {
+      if (active) setThreeModule(module);
+    }).catch(() => {
+      if (!active) return;
+      setFailure("The 3D flight systems could not load. Check your connection and try again.");
+      setPhase("unsupported");
+    });
+    return () => { active = false; };
+  }, [phase, threeModule]);
+
   // ---------- Renderer + loop ----------
   useEffect(() => {
-    if (phase !== "flight") return;
+    if (phase !== "flight" || !threeModule) return;
+    const THREE = threeModule;
     const mount = mountRef.current; if (!mount) return;
-    inputRef.current = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.35 };
+    inputRef.current = neutralFlightControls(0.35);
     let summaryTimer: number | undefined;
     const disposables: { dispose(): void }[] = [];
     const track = (d: { dispose(): void }) => { disposables.push(d); };
-    let renderer: THREE.WebGLRenderer;
+    let renderer: THREE_TYPES.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: quality === "high", powerPreference: "high-performance" });
     } catch {
@@ -274,12 +364,18 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     renderer.setClearColor(0x0a0710);
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
+    let rendererReadySent = false;
+    const markRendererReady = () => {
+      if (rendererReadySent) return;
+      rendererReadySent = true;
+      setRendererReady(true);
+    };
     let lost = false;
     const onLost = (e: Event) => { e.preventDefault(); lost = true; setFailure("The GPU dropped the 3D context (common when memory is tight). Return to briefing and relaunch on LOW quality."); setPhase("unsupported"); };
     renderer.domElement.addEventListener("webglcontextlost", onLost);
 
     const netMode = !!expeditionRef.current;
-    const sector = expeditionRef.current?.mission.sector ?? RUST_DISC_SECTOR;
+    const sector = expeditionRef.current?.mission.sector ?? localSector;
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x1a0f10, quality === "high" ? 0.0011 : 0.0014);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 6000);
@@ -295,7 +391,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const capitalTrimMat = new THREE.MeshStandardMaterial({ color: 0xe0a15a, metalness: 0.52, roughness: 0.34, emissive: 0x9b4f25, emissiveIntensity: 0.48 });
     const capitalDarkMat = new THREE.MeshStandardMaterial({ color: 0x232a31, metalness: 0.82, roughness: 0.44 });
     [capitalHullMat, capitalTrimMat, capitalDarkMat].forEach(track);
-    const capitalParts: [THREE.BufferGeometry, THREE.Material, [number, number, number], [number, number, number]?][] = [
+    const capitalParts: [THREE_TYPES.BufferGeometry, THREE_TYPES.Material, [number, number, number], [number, number, number]?][] = [
       [new THREE.BoxGeometry(34, 13, 92), capitalHullMat, [0, 0, 0]],
       [new THREE.BoxGeometry(57, 3.5, 25), capitalHullMat, [0, -1, 20]],
       [new THREE.BoxGeometry(48, 5, 23), capitalDarkMat, [0, 7, -5]],
@@ -315,8 +411,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     }
     capital.visible = false;
     scene.add(capital);
-    const operationSubsystems = new Map<string, THREE.Group>();
-    const operationWing = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const operationSubsystems = new Map<string, THREE_TYPES.Group>();
+    const operationWing = new Map<string, { group: THREE_TYPES.Group; shipId: ShipId }>();
     const subsystemGeo = new THREE.OctahedronGeometry(4, 0); track(subsystemGeo);
     const subsystemActiveMat = new THREE.MeshStandardMaterial({ color: 0xff7a5c, emissive: 0xb63420, emissiveIntensity: 0.55, metalness: 0.3, roughness: 0.45 });
     const subsystemDisabledMat = new THREE.MeshStandardMaterial({ color: 0x69736f, emissive: 0x29332f, emissiveIntensity: 0.15, metalness: 0.3, roughness: 0.8 });
@@ -333,7 +429,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     }
 
     // Mars + thin haze
-    const marsTex = marsTexture(); track(marsTex);
+    const marsTex = marsTexture(THREE); track(marsTex);
     const marsGeo = new THREE.SphereGeometry(1200, 48, 32); track(marsGeo);
     const marsMat = new THREE.MeshStandardMaterial({ map: marsTex, roughness: 1, metalness: 0, fog: false }); track(marsMat);
     const mars = new THREE.Mesh(marsGeo, marsMat); mars.position.set(-1550, 450, -3200); mars.rotation.z = 0.35; scene.add(mars);
@@ -366,7 +462,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const dust = new THREE.Points(dustGeo, dustMat); scene.add(dust);
 
     // Instanced asteroid field — exact RUST_DISC_SECTOR positions/radii
-    const rockGeo = rockGeometry(); track(rockGeo);
+    const rockGeo = rockGeometry(THREE); track(rockGeo);
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a4a36, roughness: 0.95, metalness: 0.08, flatShading: true }); track(rockMat);
     const rocks = new THREE.InstancedMesh(rockGeo, rockMat, sector.rocks.length);
     const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e4 = new THREE.Euler();
@@ -423,7 +519,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     scene.add(beacon);
 
     // Player ship
-    const ship = buildHull(shipId, track);
+    const ship = buildHull(THREE, shipId, track);
     scene.add(ship);
     const engines = ship.getObjectByName("engines")!;
 
@@ -432,13 +528,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const missileGeo = new THREE.ConeGeometry(0.35, 1.8, 8); missileGeo.rotateX(-Math.PI / 2); track(missileGeo);
     const friendlyMat = new THREE.MeshBasicMaterial({ color: pal.glow }); track(friendlyMat);
     const hostileMat = new THREE.MeshBasicMaterial({ color: 0xff7a5c }); track(hostileMat);
-    const pool: THREE.Mesh[] = [];
+    const pool: THREE_TYPES.Mesh[] = [];
     for (let i = 0; i < 64; i++) { const m = new THREE.Mesh(boltGeo, friendlyMat); m.visible = false; scene.add(m); pool.push(m); }
 
     // Sim (local) or authoritative snapshot (network)
     const ownPilot = () => { const sn = expeditionRef.current?.snapshotRef.current; return sn?.pilots.find(p => p.slot === sn.ownSlot); };
     let state: FlightState = netMode ? (ownPilot()?.flight ?? createFlight(shipId, sector)) : createFlight(shipId);
-    const others = new Map<number, { group: THREE.Group; shipId: ShipId; engines: THREE.Object3D }>();
+    const others = new Map<number, { group: THREE_TYPES.Group; shipId: ShipId; engines: THREE_TYPES.Object3D }>();
     const remoteProjectiles: FlightState["projectiles"] = [];
     const seenPilots = new Set<number>();
     const seenWing = new Set<string>();
@@ -450,7 +546,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         if (pausedRef.current || document.hidden || t.connection !== "connected") { t.sendInput(holdInput()); return; }
         keyInput();
         const inp = inputRef.current;
-        t.sendInput(sanitizeInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure }));
+        t.sendInput(sanitizeInput(toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure })));
         pulseRef.current = { missile: false, countermeasure: false };
       }, SECTOR_INPUT_INTERVAL_MS);
     }
@@ -493,7 +589,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       const p = axis("KeyS", "KeyW") || axis("ArrowDown", "ArrowUp");
       const y = axis("KeyD", "KeyA") || axis("ArrowRight", "ArrowLeft");
       const r = axis("KeyE", "KeyQ");
-      if (p) inp.pitch = -p; if (y) inp.yaw = y; if (r) inp.roll = r;
+      if (p) inp.pitch = -p; if (y) inp.yaw = y; if (r) inp.roll = r; else if (y) inp.roll = y * COORDINATED_BANK;
       if (k.has("KeyR")) inp.throttle = Math.min(1, inp.throttle + STEP * 0.8);
       if (k.has("KeyF")) inp.throttle = Math.max(0, inp.throttle - STEP * 0.8);
     };
@@ -501,7 +597,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       if (lost) return;
-      let dt = (now - last) / 1000; last = now;
+      const frameIntervalMs = Math.max(0, now - last);
+      let dt = frameIntervalMs / 1000; last = now;
       dt = Math.min(dt, 0.25);
       const frameWindow = framePacing.record(now);
       if (frameWindow) {
@@ -511,6 +608,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           window: frameWindow,
           scale: adaptiveResolution.currentScale,
           rttMs: expeditionRef.current?.latencyRef.current ?? null,
+          heap: readBrowserHeap(),
         };
         performanceReadoutRef.current = readout;
         if (performanceOpenRef.current) setPerformanceReadout(readout);
@@ -532,7 +630,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           let o = others.get(p.slot);
           if (!o || o.shipId !== p.shipId) {
             if (o) scene.remove(o.group);
-            const group = buildHull(p.shipId, track); scene.add(group);
+            const group = buildHull(THREE, p.shipId, track); scene.add(group);
             o = { group, shipId: p.shipId, engines: group.getObjectByName("engines")! };
             group.position.set(p.flight.position.x, p.flight.position.y, p.flight.position.z);
             others.set(p.slot, o);
@@ -546,7 +644,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         }
         for (const [slot, o] of others) if (!seenPilots.has(slot)) { scene.remove(o.group); others.delete(slot); }
         projectiles = remoteProjectiles;
-      } else if (pausedRef.current || ended) { acc = 0; renderer.render(scene, camera); return; }
+      } else if (pausedRef.current || ended) {
+        acc = 0;
+        renderer.render(scene, camera);
+        markRendererReady();
+        return;
+      }
       const authoritativeOperation = ironEclipse
         ? expeditionRef.current?.snapshotRef.current?.operation ?? null
         : null;
@@ -566,7 +669,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           group.position.set(subsystem.position.x, subsystem.position.y, subsystem.position.z);
           const mat = subsystem.disabled ? subsystemDisabledMat : subsystemActiveMat;
           if (group.userData.disabled !== subsystem.disabled) {
-            group.children.forEach(child => { (child as THREE.Mesh).material = mat; });
+            group.children.forEach(child => { (child as THREE_TYPES.Mesh).material = mat; });
             group.userData.disabled = subsystem.disabled;
           }
           group.scale.setScalar(subsystem.id === op.target ? 1.45 : 1);
@@ -580,7 +683,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           let wingUnit = operationWing.get(unit.id);
           if (!wingUnit || wingUnit.shipId !== unit.shipId) {
             if (wingUnit) scene.remove(wingUnit.group);
-            const group = buildHull(unit.shipId, track);
+            const group = buildHull(THREE, unit.shipId, track);
             group.scale.setScalar(2.2);
             scene.add(group);
             wingUnit = { group, shipId: unit.shipId };
@@ -603,15 +706,34 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       while (!netMode && acc >= STEP && steps < MAX_CATCHUP) {
         keyInput();
         const inp = inputRef.current;
-        const tickInput: FlightInput = { ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure };
-        stepFlight(state, tickInput, STEP);
+        const tickInput: FlightInput = toSectorFlightInput({ ...inp, missile: inp.missile || pulseRef.current.missile, countermeasure: inp.countermeasure || pulseRef.current.countermeasure });
+        stepFlight(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME.runtimeId);
         pulseRef.current = { missile: false, countermeasure: false };
         acc -= STEP; steps++;
       }
       if (steps === MAX_CATCHUP) acc = 0;
 
+      if (mapOpenRef.current && mapCanvasRef.current) drawFlightMap(mapCanvasRef.current, state, sector);
+
       // Visual sync
       if (!netMode) projectiles = state.projectiles;
+      if (!netMode && localPerformanceRecorderRef.current) {
+        const recorder = localPerformanceRecorderRef.current;
+        const sampleSeconds = Math.max(0, state.elapsed - localPerformanceStartElapsedRef.current);
+        const nonActive = pausedRef.current || state.stage === "complete" || state.stage === "destroyed";
+        recorder.recordFrame({
+          timestampMs: now,
+          frameIntervalMs,
+          gameSeconds: sampleSeconds,
+          pageVisible: !document.hidden,
+          phase: nonActive ? "post-match" : "active-play",
+        });
+        if (frameWindow) {
+          recorder.recordMemorySample(sampleSeconds, readBrowserHeap());
+          setLocalPerformanceProgress(sampleSeconds);
+        }
+        if (recorder.isTargetReached()) finishLocalPerformanceCapture();
+      }
       tmpV.set(state.position.x, state.position.y, state.position.z); ship.position.lerp(tmpV, blend);
       tmpQ.set(state.orientation.x, state.orientation.y, state.orientation.z, state.orientation.w); ship.quaternion.slerp(tmpQ, blend);
       const inp = inputRef.current;
@@ -673,6 +795,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       stars.position.copy(camera.position); mars.rotation.y += reducedMotion.current ? 0 : 0.00004;
 
       renderer.render(scene, camera);
+      markRendererReady();
 
       const snapNow = netMode ? expeditionRef.current?.snapshotRef.current : null;
       const obj = flightObjective(state, sector);
@@ -727,6 +850,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         });
       }
       if (!netMode && (state.stage === "complete" || state.stage === "destroyed")) {
+        if (localPerformanceRecorderRef.current) finishLocalPerformanceCapture();
         ended = true;
         summaryTimer = window.setTimeout(() => { setSummary({ ...state, projectiles: [] }); setPhase("summary"); }, 900);
       }
@@ -784,13 +908,20 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
-      inputRef.current = { ...NEUTRAL_FLIGHT_INPUT };
+      inputRef.current = neutralFlightControls();
       keysRef.current.clear();
     };
-  }, [phase, runId, shipId, quality, setPausedBoth]);
+  }, [phase, runId, shipId, quality, setPausedBoth, threeModule, finishLocalPerformanceCapture]);
 
-  const restart = () => { resetControls(); launch(); };
+  const restart = () => {
+    const wasCapturing = Boolean(localPerformanceRecorderRef.current);
+    if (wasCapturing) finishLocalPerformanceCapture();
+    resetControls();
+    launch();
+    if (wasCapturing) setPausedBoth(true);
+  };
   const toBriefing = () => {
+    if (localPerformanceRecorderRef.current) finishLocalPerformanceCapture();
     resetControls(); pausedRef.current = true; setPhase("briefing");
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
     try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
@@ -807,12 +938,21 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   return (
     <div className="fixed inset-0 z-40 select-none overflow-hidden bg-[#0a0710] text-bone" style={{ touchAction: phase === "flight" ? "none" : "pan-y" }} data-testid="screen-flight">
       {phase === "briefing" ? (
-        <Briefing shipId={shipId} hangarPresetShip={hangarPresetShip} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} />
+        <Briefing shipId={shipId} hangarPresetShip={hangarPresetShip} setShipId={setShipId} quality={quality} setQuality={setQuality} onLaunch={launch} onExit={exit} expeditionHref={expeditionHref} specialistOperation={specialistOperation} />
       ) : null}
 
       {phase === "flight" ? (
         <>
           <div ref={mountRef} className="absolute inset-0" data-testid="canvas-flight" />
+          {!rendererReady ? (
+            <div role="status" aria-live="polite" data-testid="status-flight-engine-loading"
+              className="pointer-events-auto absolute inset-0 z-[60] grid place-items-center bg-[#0a0710]/95 px-6 text-center">
+              <div className="border border-[#e0a15a]/50 bg-[#13161c]/95 px-6 py-5">
+                <div className="font-hud text-xs tracking-[0.26em] text-[#e0a15a]">INITIALIZING FLIGHT SYSTEMS</div>
+                <div className="mt-2 text-sm text-[#c8c1b4]">Loading the 3D flight engine…</div>
+              </div>
+            </div>
+          ) : null}
           <div ref={markerRef} className="pointer-events-none absolute left-0 top-0 h-0 w-0 opacity-0">
             <ObjectiveMarker label={hud?.objective ?? ""} distance={hud?.distance ?? 0} />
           </div>
@@ -847,13 +987,42 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               {performanceReadout ? (
                 <>
                   <p>{performanceReadout.window.fps.toFixed(0)} FPS · P95 ≈ {performanceReadout.window.p95FrameMs.toFixed(1)} ms</p>
+                  {localPerformanceCapturing ? (
+                    <p>SAMPLE {Math.min(LOCAL_PERFORMANCE_SAMPLE_SECONDS, Math.floor(localPerformanceProgress))}/{LOCAL_PERFORMANCE_SAMPLE_SECONDS} ACTIVE SEC</p>
+                  ) : null}
                   <p>LONG FRAMES {performanceReadout.window.longFrameCount}/s · RES {Math.round(performanceReadout.scale * 100)}%</p>
                   <p>NETWORK RTT {net ? performanceReadout.rttMs === null ? "MEASURING" : `${performanceReadout.rttMs} ms` : "LOCAL ONLY"}</p>
+                  <p>JS HEAP {performanceReadout.heap
+                    ? `${(performanceReadout.heap.usedBytes / 1048576).toFixed(1)} / ${(performanceReadout.heap.totalBytes / 1048576).toFixed(1)} MiB`
+                    : "UNAVAILABLE"}</p>
                 </>
               ) : <p>CALIBRATING · 1 SECOND</p>}
             </div>
           ) : null}
-          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused} missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} onPause={() => setPausedBoth(true)} onCamera={toggleCam} throttle={hud?.throttle ?? 0.35} vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          <TouchControls inputRef={inputRef} pulseRef={pulseRef} disabled={paused}
+            missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} missiles={hud?.missiles ?? 0} incoming={hud?.incoming ?? 0}
+            onPause={() => setPausedBoth(true)} onCamera={toggleCam} onMap={() => setMapOpen(true)} throttle={hud?.throttle ?? 0.35}
+            vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          {mapOpen && hud ? (
+            <div className="pilot-map-backdrop absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rust Disc tactical map">
+              <div className="pilot-map-panel">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-hud text-xs tracking-[0.24em] text-solar">RUST DISC · SECTOR MAP</p>
+                    <p className="mt-1 font-hud text-sm tracking-wider text-bone">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
+                  </div>
+                  <PilotActionButton icon="pause" label="Close sector map" testId="button-close-tactical-map" onActivate={() => setMapOpen(false)} />
+                </div>
+                <canvas ref={mapCanvasRef} width={320} height={320} className="pilot-map-canvas" aria-label="Sector map showing your ship, rocks, relay, extraction, and active hostile" />
+                <div className="pilot-map-legend font-hud text-[10px] tracking-widest">
+                  <span><i className="pilot-map-key pilot-map-friendly" /> PILOT</span>
+                  <span><i className="pilot-map-key pilot-map-hostile" /> ACTIVE HOSTILE</span>
+                  <span><i className="pilot-map-key pilot-map-objective" /> MISSION</span>
+                </div>
+                <p className="mt-2 text-center font-hud text-[9px] tracking-widest text-muted">MAP OPEN · FLIGHT SIMULATION CONTINUES</p>
+              </div>
+            </div>
+          ) : null}
           {paused && !portraitBlock ? (
             <Overlay translucent={net} title={net ? "CONTROLS PAUSED" : "HOLDING POSITION"} sub={net
               ? "Your hull is transmitting neutral throttle and brake. The expedition server keeps running and your crew keeps flying; you are still visible and can take damage."
@@ -864,6 +1033,16 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               <OverlayButton onClick={togglePerformance} testId="button-flight-performance">
                 {performanceOpen ? "HIDE PERFORMANCE HUD" : "SHOW PERFORMANCE HUD"}
               </OverlayButton>
+              {!net && !localPerformanceCapturing ? (
+                <OverlayButton onClick={startLocalPerformanceCapture} testId="button-start-rust-disc-performance-sample">
+                  START 60S LOCAL FLIGHT SAMPLE
+                </OverlayButton>
+              ) : null}
+              {!net && localPerformanceCapturing ? (
+                <OverlayButton onClick={finishLocalPerformanceCapture} testId="button-stop-rust-disc-performance-sample">
+                  STOP & VIEW PARTIAL REPORT
+                </OverlayButton>
+              ) : null}
               {net ? null : <OverlayButton onClick={toBriefing} testId="button-briefing">BACK TO BRIEFING</OverlayButton>}
               <OverlayButton onClick={exit} testId="button-exit">{net ? "LEAVE EXPEDITION" : "EXIT TO COMMAND"}</OverlayButton>
               <p className="mt-2 font-hud text-[10px] tracking-[0.2em] text-muted">KEYS: W/S PITCH · A/D YAW · Q/E ROLL · R/F THROTTLE · SHIFT BOOST · X BRAKE · G DRIFT · SPACE GUNS · L LOCK · M MISSILE · C FLARE · V CAMERA · P PAUSE</p>
@@ -883,6 +1062,34 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         <Summary s={summary} onRestart={restart} onBriefing={toBriefing} onExit={exit} />
       ) : null}
 
+      {localPerformanceReport && !net ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-[80] overflow-y-auto bg-[#07090c]/95 px-3 py-4 sm:px-6 sm:py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rust Disc local flight performance report"
+          data-testid="rust-disc-performance-report"
+        >
+          <div className="mx-auto max-w-3xl">
+            <button
+              type="button"
+              onClick={() => setLocalPerformanceReport(null)}
+              className="min-h-11 border border-bone/30 px-4 font-hud text-xs tracking-widest text-bone"
+              data-testid="button-close-rust-disc-performance-report"
+            >
+              CLOSE REPORT · RETURN TO PAUSE
+            </button>
+            <LocalPerformanceReport
+              device={localPerformanceReport.device}
+              summary={localPerformanceReport.summary}
+              capturedAt={localPerformanceReport.capturedAt}
+              title="Rust Disc local no-reward flight frame pacing sample"
+              buttonClassName="mt-3 min-h-11 bg-solar px-5 font-hud text-xs tracking-widest text-void"
+            />
+          </div>
+        </div>
+      ) : null}
+
       {phase === "unsupported" ? (
         <Overlay title="3D FLIGHT UNAVAILABLE" sub={failure}>
           <OverlayButton primary onClick={() => { setQuality("low"); setPhase(net ? "flight" : "briefing"); }} testId="button-retry-low">RETRY ON LOW QUALITY</OverlayButton>
@@ -898,7 +1105,7 @@ export default RustDiscFlight;
 // ---------- Briefing ----------
 function Briefing(props: {
   shipId: ShipId; hangarPresetShip: ShipId | null; setShipId: (s: ShipId) => void; quality: Quality; setQuality: (q: Quality) => void;
-  onLaunch: () => void; onExit: () => void; expeditionHref?: string;
+  onLaunch: () => void; onExit: () => void; expeditionHref?: string; specialistOperation: boolean;
 }) {
   const def = SHIPS[props.shipId];
   const pal = FACTION_PALETTE[def.faction];
@@ -907,11 +1114,12 @@ function Briefing(props: {
       <div className="mx-auto grid min-h-[100dvh] max-w-6xl gap-5 p-4 md:grid-cols-[1.1fr_1fr] md:p-8">
         <section className="flex flex-col">
           <div className="flex items-center justify-between">
-            <p className="font-hud text-[11px] tracking-[0.3em] text-muted">LOCAL TRAINER · NO REWARDS · OFFLINE</p>
+            <p className="font-hud text-[11px] tracking-[0.3em] text-muted">{props.specialistOperation ? "CINDER RING · LEGACY FLIGHT ADAPTER" : "LOCAL TRAINER · NO REWARDS · OFFLINE"}</p>
             <button onClick={props.onExit} className="min-h-11 border border-bone/25 px-3 font-hud text-xs tracking-widest" data-testid="button-briefing-exit">EXIT</button>
           </div>
-          <h1 className="mt-4 font-hud text-5xl leading-[0.9] tracking-tight md:text-7xl">RUST<br />DISC</h1>
-          <p className="mt-2 font-hud text-sm tracking-[0.25em] text-solar">MARS HIGH ORBIT · TRAINING SORTIE</p>
+          <h1 className="mt-4 font-hud text-5xl leading-[0.9] tracking-tight md:text-7xl">{props.specialistOperation ? <>CINDER<br />RING</> : <>RUST<br />DISC</>}</h1>
+          <p className="mt-2 font-hud text-sm tracking-[0.25em] text-solar">{props.specialistOperation ? "ASTEROID BELT · FLIGHT CIRCUIT" : "MARS HIGH ORBIT · TRAINING SORTIE"}</p>
+          {props.specialistOperation ? <p className="mt-3 max-w-xl border-l-2 border-solar/60 pl-3 text-sm leading-relaxed text-muted">A distinct legacy flight-simulation operation hosted at a navigable universe destination. This is local practice only; no live match, spectator feed, account write, or reward is active.</p> : null}
           <ol className="mt-6 space-y-3 border-l-2 border-bone/20 pl-4 text-sm">
             <li><span className="font-hud tracking-widest text-bone">01 SURVEY</span><span className="block text-muted">A relay went quiet inside the debris disc. Fly within 24m to pull its log.</span></li>
             <li><span className="font-hud tracking-widest text-bone">02 ENGAGE</span><span className="block text-muted">After the relay, center the hostile contact in your reticle. Hold GUNS for primary fire; hold LOCK until confirmed, then tap MSL. Flares clear incoming rounds.</span></li>
@@ -1026,23 +1234,23 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
     <div className="pointer-events-none absolute inset-0 font-hud">
       <div className="absolute left-1/2 top-2 -translate-x-1/2 text-center">
         <p className="text-[10px] tracking-[0.3em] text-muted">{STAGE_LABEL[hud.stage]} · {String(Math.floor(t / 60)).padStart(2, "0")}:{String(t % 60).padStart(2, "0")}</p>
-        <p className="text-sm tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
-        {hud.stage === "drone" ? <p className="text-[10px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
-        {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-xs tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
+        <p className="mt-0.5 text-xs tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
+        {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
+        {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-[10px] tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
       </div>
-      <div className="pointer-events-none absolute left-1/2 top-[4.4rem] z-[4] w-64 -translate-x-1/2 border border-[#ff7a5c]/50 bg-[#080b12]/90 px-2.5 py-1.5 text-center shadow-lg sm:w-72" data-testid="panel-combat-target">
+      <div className="pointer-events-none absolute left-1/2 top-[3.8rem] z-[4] w-56 -translate-x-1/2 text-center" data-testid="panel-combat-target">
         {hud.target ? (
           <>
             <div className="flex items-center justify-between gap-2 font-hud text-[9px] tracking-[0.18em]">
               <span className="truncate text-[#ff7a5c]">{hud.target.affiliation} · {hud.target.name}</span>
               <span className="shrink-0 text-bone">{Math.round(hud.target.distance)}M</span>
             </div>
-            <div className="mt-1 h-1 bg-bone/15" role="progressbar" aria-label={`${hud.target.name} hull`} aria-valuemin={0} aria-valuemax={hud.target.maxHull} aria-valuenow={hud.target.hull}>
+            <div className="mt-1 h-0.5 bg-bone/15" role="progressbar" aria-label={`${hud.target.name} hull`} aria-valuemin={0} aria-valuemax={hud.target.maxHull} aria-valuenow={hud.target.hull}>
               <div className="h-full bg-[#ff7a5c]" style={{ width: `${Math.max(0, Math.min(100, hud.target.hull / Math.max(1, hud.target.maxHull) * 100))}%` }} />
             </div>
-            <div className="mt-1 flex items-center justify-between gap-2 text-[9px] tracking-[0.12em]">
+            <div className="mt-0.5 flex items-center justify-between gap-2 text-[8px] tracking-[0.12em]">
               <span className="text-bone/80">{combatLockCue({ targetActive: true, canAcquire: hud.target.lockable, lockHeld: hud.target.lockHeld, lock: hud.lock })}</span>
-              <span className="shrink-0 text-solar">HITS {hud.hits}</span>
+              {hud.hits > 0 ? <span className="shrink-0 text-solar">HITS {hud.hits}</span> : null}
             </div>
           </>
         ) : (
@@ -1051,15 +1259,15 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
           </p>
         )}
       </div>
-      <div className="absolute left-3 top-2 space-y-1.5">
+      <div className="absolute left-3 top-2 space-y-1">
         <Bar label="HULL" value={hud.hull} color={hud.hull < 30 ? "#ff7a5c" : "#e6e1d6"} testId="status-hull" />
         <Bar label="ENERGY" value={hud.energy} color={pal.accent} testId="status-energy" />
       </div>
-      <div className="absolute right-3 top-14 text-right text-[11px] tracking-[0.2em]">
+      <div className="absolute right-3 top-2 text-right text-[9px] tracking-[0.16em]">
         <p data-testid="text-speed"><span className="text-2xl tracking-normal">{Math.round(hud.speed)}</span> M/S</p>
-        <p className="text-muted">THR {Math.round(hud.throttle * 100)}% · MSL {hud.missiles} · FLR {hud.flare > 0 ? Math.ceil(hud.flare) + "S" : "RDY"}</p>
+        <p className="text-muted">THR {Math.round(hud.throttle * 100)}% · MSL {hud.missiles}</p>
         {hud.drifting ? <p className="text-solar" data-testid="status-vector-drift">VECTOR DRIFT ACTIVE</p> : null}
-        <p className="text-muted">{hud.camera === "chase" ? "CHASE CAM" : "COCKPIT"}</p>
+        {hud.flare > 0 ? <p className="text-[#ff7a5c]">FLARE {Math.ceil(hud.flare)}S</p> : null}
       </div>
       <div className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2">
         <div className="absolute left-1/2 top-0 h-2 w-px bg-bone/70" /><div className="absolute bottom-0 left-1/2 h-2 w-px bg-bone/70" />
@@ -1069,6 +1277,63 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
       {hud.lock >= 1 ? <p className="absolute left-1/2 top-[58%] -translate-x-1/2 text-xs tracking-[0.3em] text-[#ff7a5c]">LOCKED · TAP MISSILE</p> : null}
     </div>
   );
+}
+
+function drawFlightMap(canvas: HTMLCanvasElement, state: FlightState, sector: FlightSector) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const size = Math.min(canvas.width, canvas.height);
+  const center = size / 2;
+  const radius = center - 14;
+  const scale = radius / Math.max(1, sector.radius);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#080b12";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(center, center);
+  ctx.strokeStyle = "rgba(230,225,214,.16)";
+  ctx.lineWidth = 1;
+  for (const ring of [0.33, 0.66, 1]) {
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * ring, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const point = (x: number, z: number) => [x * scale, z * scale] as const;
+  ctx.fillStyle = "rgba(141,135,124,.65)";
+  for (const rock of sector.rocks) {
+    const [x, y] = point(rock.position.x, rock.position.z);
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(2, rock.radius * scale), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const marker = (position: { x: number; z: number }, color: string, shape: "square" | "circle") => {
+    const [x, y] = point(position.x - state.position.x, position.z - state.position.z);
+    ctx.fillStyle = color;
+    if (shape === "square") ctx.fillRect(x - 5, y - 5, 10, 10);
+    else {
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  marker(sector.relay, "#55d7ef", "square");
+  marker(sector.extraction, "#e0a15a", "square");
+  if (state.stage === "drone" && state.drone.hull > 0) marker(state.drone.position, "#ff7a5c", "circle");
+  ctx.save();
+  ctx.rotate(Math.atan2(
+    2 * (state.orientation.w * state.orientation.y + state.orientation.x * state.orientation.z),
+    1 - 2 * (state.orientation.y * state.orientation.y + state.orientation.z * state.orientation.z),
+  ));
+  ctx.fillStyle = "#f3eee5";
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(6, 7);
+  ctx.lineTo(0, 4);
+  ctx.lineTo(-6, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.restore();
 }
 
 function describeSectorCommand(command: SectorTacticalCommand): string {
@@ -1262,127 +1527,120 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
 }
 
 // ---------- Touch controls ----------
-function TouchControls({ inputRef, pulseRef, disabled, missileReady, onPause, onCamera, throttle, vectorDriftAvailable }: {
-  inputRef: MutableRefObject<FlightInput>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
-  disabled: boolean; missileReady: boolean; onPause: () => void; onCamera: () => void; throttle: number; vectorDriftAvailable: boolean;
+function TouchControls({ inputRef, pulseRef, disabled, missileReady, missiles, incoming, onPause, onCamera, onMap, throttle, vectorDriftAvailable }: {
+  inputRef: MutableRefObject<FlightControlFrame>; pulseRef: MutableRefObject<{ missile: boolean; countermeasure: boolean }>;
+  disabled: boolean; missileReady: boolean; missiles: number; incoming: number; onPause: () => void; onCamera: () => void; onMap: () => void; throttle: number; vectorDriftAvailable: boolean;
 }) {
-  const knob = useRef<HTMLDivElement>(null);
-  const thrKnob = useRef<HTMLDivElement>(null);
-  const stickOrigin = useRef<{ x: number; y: number } | null>(null);
+  const flightAxes = useRef({ x: 0, y: 0 });
+  const aimAxes = useRef({ x: 0, y: 0 });
+  const pulseTimers = useRef<{ vertical: ReturnType<typeof setTimeout> | null; strafe: ReturnType<typeof setTimeout> | null }>({ vertical: null, strafe: null });
+  const [maneuversOpen, setManeuversOpen] = useState(false);
+  const applyOrientation = () => {
+    const flight = mapFlightStickAxes(flightAxes.current.x, flightAxes.current.y);
+    const aim = mapFlightStickAxes(aimAxes.current.x, aimAxes.current.y);
+    inputRef.current.yaw = Math.max(-1, Math.min(1, flight.yaw + aim.yaw));
+    inputRef.current.pitch = Math.max(-1, Math.min(1, flight.pitch + aim.pitch));
+    inputRef.current.roll = flight.roll;
+  };
+  const pulseManeuver = (pulse: ManeuverPulse) => {
+    if (disabled) return;
+    const prior = pulseTimers.current[pulse.axis];
+    if (prior) clearTimeout(prior);
+    inputRef.current[pulse.axis] = pulse.direction;
+    unlockAudio();
+    sfxDive();
+    pulseTimers.current[pulse.axis] = setTimeout(() => {
+      if (inputRef.current[pulse.axis] === pulse.direction) inputRef.current[pulse.axis] = 0;
+      pulseTimers.current[pulse.axis] = null;
+    }, MANEUVER_PULSE_DURATION_MS);
+  };
   useEffect(() => {
-    const reset = () => { stickOrigin.current = null; if (knob.current) knob.current.style.transform = "translate(0px,0px)"; };
+    const reset = () => {
+      flightAxes.current = { x: 0, y: 0 }; aimAxes.current = { x: 0, y: 0 };
+      for (const axis of ["vertical", "strafe"] as const) {
+        const timer = pulseTimers.current[axis];
+        if (timer) clearTimeout(timer);
+        pulseTimers.current[axis] = null;
+      }
+      inputRef.current.strafe = 0; inputRef.current.vertical = 0;
+      inputRef.current.yaw = 0; inputRef.current.pitch = 0; inputRef.current.roll = 0;
+      inputRef.current.fire = false; inputRef.current.lock = false;
+      inputRef.current.boost = false; inputRef.current.brake = false; inputRef.current.drift = false;
+    };
     window.addEventListener("wfm-flight-reset", reset);
-    return () => window.removeEventListener("wfm-flight-reset", reset);
-  }, []);
-  useEffect(() => { if (thrKnob.current) thrKnob.current.style.bottom = `${throttle * 100}%`; }, [throttle]);
+    return () => {
+      window.removeEventListener("wfm-flight-reset", reset);
+      for (const timer of Object.values(pulseTimers.current)) if (timer) clearTimeout(timer);
+    };
+  }, [inputRef]);
+  useEffect(() => {
+    if (disabled) setManeuversOpen(false);
+  }, [disabled]);
 
-  const stick = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!stickOrigin.current) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const { x, y } = stickAxesFromDelta(e.clientX - stickOrigin.current.x, e.clientY - stickOrigin.current.y, r.width / 2);
-    inputRef.current.yaw = x; inputRef.current.pitch = -y;
-    if (knob.current) knob.current.style.transform = `translate(${x * r.width * 0.35}px,${y * r.height * 0.35}px)`;
-  };
-  const stickEnd = () => { stickOrigin.current = null; inputRef.current.pitch = 0; inputRef.current.yaw = 0; if (knob.current) knob.current.style.transform = "translate(0px,0px)"; };
-  const thr = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const v = Math.min(1, Math.max(0, 1 - (e.clientY - r.top) / r.height));
-    inputRef.current.throttle = v;
-    if (thrKnob.current) thrKnob.current.style.bottom = `${v * 100}%`;
-  };
-  const capture = (e: ReactPointerEvent<HTMLElement>) => { if (disabled) return false; e.currentTarget.setPointerCapture(e.pointerId); return true; };
-
-  const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", label: string, cls = "") => (
-    <HoldButton label={label} cls={cls} testId={`button-${key}`} disabled={disabled}
-      on={() => { inputRef.current[key] = true; }} off={() => { inputRef.current[key] = false; }} />
+  const hold = (key: "fire" | "boost" | "brake" | "lock" | "drift", icon: "fire" | "boost" | "brake" | "aim" | "drift", label: string, testId: string, accent = false) => (
+    <PilotActionButton icon={icon} label={label} testId={testId} disabled={disabled} accent={accent}
+      onPress={() => { inputRef.current[key] = true; }}
+      onRelease={() => { inputRef.current[key] = false; }}
+      onActivate={() => {
+        inputRef.current[key] = true;
+        requestAnimationFrame(() => { inputRef.current[key] = false; });
+      }} />
   );
-  const rollHold = (dir: -1 | 1, label: string) => (
-    <HoldButton label={label} testId={`button-roll-${dir < 0 ? "left" : "right"}`} disabled={disabled}
-      on={() => { inputRef.current.roll = dir; }} off={() => { inputRef.current.roll = 0; }} />
-  );
+  const thrust = () => {
+    inputRef.current.throttle = 1;
+    requestAnimationFrame(() => { inputRef.current.throttle = throttle; });
+  };
 
   return (
     <div className="pointer-events-none absolute inset-0 font-hud">
       <div className="pointer-events-auto absolute right-3 top-2 flex gap-1.5">
-        <button onClick={onCamera} className="min-h-11 min-w-11 border border-bone/30 bg-void/50 px-2 text-[10px] tracking-widest" data-testid="button-camera-toggle">CAM</button>
-        <button onClick={onPause} className="min-h-11 min-w-11 border border-bone/30 bg-void/50 px-3 text-[10px] tracking-widest" data-testid="button-pause">II</button>
+        <PilotActionButton icon="camera" label="Toggle chase or cockpit camera" testId="button-camera-toggle" disabled={disabled} onActivate={onCamera} />
+        <PilotActionButton icon="map" label="Open sector map" testId="button-tactical-map" disabled={disabled} onActivate={onMap} />
+        <PilotActionButton icon="pause" label="Pause flight controls" testId="button-pause" onActivate={onPause} />
       </div>
-      {/* Left: throttle + stick */}
-      <div className="pointer-events-auto absolute bottom-4 left-3 flex items-end gap-2 sm:gap-3">
-        <div className="relative h-36 w-11 border border-bone/30 bg-void/40" data-testid="slider-throttle"
-          onPointerDown={e => { if (capture(e)) thr(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) thr(e); }}>
-          <span className="absolute -top-4 left-0 text-[9px] tracking-widest text-muted">THR</span>
-          <div ref={thrKnob} className="absolute left-0 right-0 h-2 translate-y-1/2 bg-bone" style={{ bottom: "35%" }} />
+      <div className="pointer-events-auto absolute bottom-4 left-3 flex items-end gap-2 sm:gap-3" data-testid="flight-controls-left">
+        <div className="relative">
+          <PilotFlightStick label="Left thumb flight" testId="stick-flight" size="rust-disc" disabled={disabled}
+            onAxis={(x, y) => { flightAxes.current = { x, y }; applyOrientation(); }}
+            onPulse={pulseManeuver} />
+          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[7px] tracking-[0.16em] text-bone/65">FLIGHT · DOUBLE-TAP EDGE</span>
         </div>
-        <div className="relative h-24 w-24 rounded-full border border-bone/30 bg-void/30 sm:h-36 sm:w-36" data-testid="stick-flight"
-          onPointerDown={e => {
-            if (!stickOrigin.current && capture(e)) {
-              stickOrigin.current = { x: e.clientX, y: e.clientY };
-              inputRef.current.pitch = 0; inputRef.current.yaw = 0;
-            }
-          }}
-          onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) stick(e); }}
-          onPointerUp={stickEnd} onPointerCancel={stickEnd} onLostPointerCapture={stickEnd}>
-          <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/15" />
-          <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/15" />
-          <div ref={knob} className="absolute left-[calc(50%-1.5rem)] top-[calc(50%-1.5rem)] h-12 w-12 rounded-full border-2 border-bone/70 bg-bone/15" />
+        <div className="flex flex-col items-center gap-2">
+          <PilotActionButton icon="thrust" label={`Hold thrust; current setting ${Math.round(throttle * 100)} percent`} testId="button-thrust"
+            disabled={disabled} accent badge={`${Math.round(throttle * 100)}%`}
+            onPress={() => { inputRef.current.throttle = 1; }}
+            onRelease={() => { inputRef.current.throttle = throttle; }}
+            onActivate={thrust} />
+          <PilotActionButton icon="maneuver" label={maneuversOpen ? "Hide maneuver controls" : "Open maneuver controls"} testId="button-maneuvers"
+            active={maneuversOpen} disabled={disabled} onActivate={() => setManeuversOpen(value => !value)} />
         </div>
       </div>
-      {/* Right: weapons */}
-      <div className="pointer-events-auto absolute bottom-4 right-3 grid grid-cols-3 gap-1.5">
-        {rollHold(-1, "ROLL L")}
-        {hold("brake", "BRAKE")}
-        {rollHold(1, "ROLL R")}
-        {hold("lock", "LOCK")}
-        <PulseButton label="MSL" testId="button-missile" disabled={disabled || !missileReady} title={missileReady ? "Launch one guided missile" : "Acquire a target lock before launching a missile"} fire={() => { pulseRef.current.missile = true; }} />
-        <PulseButton label="FLARE" testId="button-countermeasure" disabled={disabled} title="Clear incoming hostile guided missiles" fire={() => { pulseRef.current.countermeasure = true; }} />
-        {vectorDriftAvailable ? hold("drift", "DRIFT", "border-solar/50") : null}
-        {hold("boost", "BOOST")}
-        {hold("fire", "GUNS", "border-solar/70 text-solar")}
+      <div className="pointer-events-auto absolute bottom-4 right-3 flex items-end gap-2 sm:gap-3" data-testid="flight-controls-right">
+        <div className="flex flex-col items-center gap-2">
+          {maneuversOpen ? (
+            <div className="pilot-rust-maneuvers flex max-w-[48vw] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+              {hold("brake", "brake", "Hold brake", "button-brake")}
+              {hold("boost", "boost", "Hold boost", "button-boost")}
+              {vectorDriftAvailable ? hold("drift", "drift", "Hold vector drift", "button-drift") : null}
+              {incoming > 0 ? <PilotActionButton icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={disabled}
+                onActivate={() => { pulseRef.current.countermeasure = true; }} /> : null}
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            {hold("lock", "aim", "Hold target lock", "button-lock")}
+            <PilotActionButton icon="missile" label={missileReady ? `Launch missile, ${missiles} remaining` : "Missile requires a valid target lock"}
+              testId="button-missile" disabled={disabled || !missileReady} accent badge={missiles}
+              onActivate={() => { pulseRef.current.missile = true; }} />
+            {hold("fire", "fire", "Hold primary guns", "button-fire", true)}
+          </div>
+        </div>
+        <div className="relative">
+          <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" disabled={disabled}
+            onAxis={(x, y) => { aimAxes.current = { x, y }; applyOrientation(); }} />
+          <span className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.2em] text-bone/65">AIM</span>
+        </div>
       </div>
     </div>
-  );
-}
-
-function HoldButton({ label, on, off, testId, disabled, cls = "" }: { label: string; on: () => void; off: () => void; testId: string; disabled: boolean; cls?: string }) {
-  const [active, setActive] = useState(false);
-  useEffect(() => {
-    const reset = () => setActive(false);
-    window.addEventListener("wfm-flight-reset", reset);
-    return () => window.removeEventListener("wfm-flight-reset", reset);
-  }, []);
-  const end = () => { off(); setActive(false); };
-  return (
-    <button data-testid={testId} disabled={disabled}
-      aria-pressed={active}
-      aria-label={keyLabel(label)}
-      title={keyLabel(label)}
-      className={`min-h-14 min-w-14 border border-bone/30 px-2 text-[10px] tracking-widest ${active ? "bg-bone/30" : "bg-void/45"} ${cls}`}
-      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); on(); setActive(true); }}
-      onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}
-      onContextMenu={e => e.preventDefault()}>
-      {label}
-    </button>
-  );
-}
-
-function keyLabel(label: string): string {
-  const help: Record<string, string> = {
-    DRIFT: "Hold to preserve your travel direction while turning.",
-    LOCK: "Hold while the hostile contact is centered, close, and unobstructed.",
-    GUNS: "Hold to fire primary guns at the center reticle.",
-    BOOST: "Hold to spend energy for extra thrust.",
-    BRAKE: "Hold to reduce speed quickly.",
-    "ROLL L": "Hold to roll left.",
-    "ROLL R": "Hold to roll right.",
-  };
-  return help[label] ?? label;
-}
-
-function PulseButton({ label, fire, testId, disabled, title }: { label: string; fire: () => void; testId: string; disabled: boolean; title: string }) {
-  return (
-    <button aria-label={title} title={title} data-testid={testId} disabled={disabled} onPointerDown={fire} onContextMenu={e => e.preventDefault()}
-      className="min-h-14 min-w-14 border border-bone/30 bg-void/45 px-2 text-[10px] tracking-widest active:bg-bone/30 disabled:opacity-30">{label}</button>
   );
 }
 

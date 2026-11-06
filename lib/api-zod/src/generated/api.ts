@@ -55,7 +55,7 @@ export const getGameProfileResponseRevisionMin = 0;
 export const GetGameProfileResponse = zod.object({
   "credits": zod.number().int().min(getGameProfileResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(getGameProfileResponseRefitMin).max(getGameProfileResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -142,7 +142,7 @@ export const updateLeaderboardProfileResponseRevisionMin = 0;
 export const UpdateLeaderboardProfileResponse = zod.object({
   "credits": zod.number().int().min(updateLeaderboardProfileResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateLeaderboardProfileResponseRefitMin).max(updateLeaderboardProfileResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -170,7 +170,7 @@ export const UpdateLeaderboardProfileResponse = zod.object({
  */
 export const UpdateLoadoutBody = zod.object({
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide'])
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra'])
 })
 
 export const updateLoadoutResponseCreditsMin = 0;
@@ -199,7 +199,7 @@ export const updateLoadoutResponseRevisionMin = 0;
 export const UpdateLoadoutResponse = zod.object({
   "credits": zod.number().int().min(updateLoadoutResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateLoadoutResponseRefitMin).max(updateLoadoutResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -255,7 +255,7 @@ export const updateControlSchemeResponseRevisionMin = 0;
 export const UpdateControlSchemeResponse = zod.object({
   "credits": zod.number().int().min(updateControlSchemeResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(updateControlSchemeResponseRefitMin).max(updateControlSchemeResponseRefitMax),
   "shieldMk2": zod.boolean(),
@@ -313,7 +313,7 @@ export const ApplyProgressionActionResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(applyProgressionActionResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(applyProgressionActionResponseProfileRefitMin).max(applyProgressionActionResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),
@@ -348,7 +348,7 @@ export const ApplyProgressionActionResponse = zod.object({
  * @summary Start a server-issued single-player sortie
  */
 export const StartStrikeBody = zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "scheme": zod.enum(['arc', 'strafe']),
   "pace": zod.enum(['practice', 'strike']),
@@ -394,7 +394,7 @@ export const StartStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(startStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(startStrikeResponseProfileRefitMin).max(startStrikeResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),
@@ -416,7 +416,7 @@ export const StartStrikeResponse = zod.object({
   "revision": zod.number().int().min(startStrikeResponseProfileRevisionMin)
 }),
   "config": zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "refit": zod.number().int().min(startStrikeResponseConfigRefitMin).max(startStrikeResponseConfigRefitMax),
   "shieldMk2": zod.boolean().optional(),
@@ -427,7 +427,7 @@ export const StartStrikeResponse = zod.object({
   "foeCount": zod.number().int().min(1).max(startStrikeResponseConfigFoeCountMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
-  "flightModel": zod.enum(['surface-v1', 'orbital-v1']).optional()
+  "flightModel": zod.enum(['surface-v1', 'orbital-v1', 'orbital-v2', 'orbital-v3', 'orbital-v4', 'orbital-v5']).optional()
 })
 })
 
@@ -545,7 +545,7 @@ export const ClaimStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(claimStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(claimStrikeResponseProfileRefitMin).max(claimStrikeResponseProfileRefitMax),
   "shieldMk2": zod.boolean(),
@@ -968,7 +968,7 @@ export const ExecuteWorldServiceResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemXMin).max(executeWorldServiceResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemYMin).max(executeWorldServiceResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemUnlockAfterMin).max(executeWorldServiceResponseWorldLocationsItemUnlockAfterMax),
@@ -1108,7 +1108,7 @@ export const GetWorldResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(getWorldResponseLocationsItemXMin).max(getWorldResponseLocationsItemXMax),
   "y": zod.number().int().min(getWorldResponseLocationsItemYMin).max(getWorldResponseLocationsItemYMax),
   "unlockAfter": zod.number().int().min(getWorldResponseLocationsItemUnlockAfterMin).max(getWorldResponseLocationsItemUnlockAfterMax),
@@ -1133,6 +1133,229 @@ export const GetWorldResponse = zod.object({
   "reputationReward": zod.number().int().min(getWorldResponseQuestsItemReputationRewardMin)
 }))
 })
+
+
+/**
+ * Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
+ * @summary Discover public operations in the universe
+ */
+export const getWorldOperationsResponseLocationsItemIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemWorldLocationIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemNameMax = 120;
+
+export const getWorldOperationsResponseLocationsItemSectorIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemPositionXMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionXMax = 100000;
+
+export const getWorldOperationsResponseLocationsItemPositionYMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionYMax = 100000;
+
+export const getWorldOperationsResponseLocationsItemPositionZMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionZMax = 100000;
+
+export const getWorldOperationsResponseOperationsItemIdMax = 100;
+
+export const getWorldOperationsResponseOperationsItemTitleMax = 160;
+
+export const getWorldOperationsResponseOperationsItemDescriptionMax = 1000;
+
+export const getWorldOperationsResponseOperationsItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseOperationsItemRuntimeIdMax = 80;
+
+export const getWorldOperationsResponseOperationsItemRulesetIdMax = 100;
+
+export const getWorldOperationsResponseOperationsItemTeamSizeMax = 100;
+
+export const getWorldOperationsResponseOperationsItemCapacityMax = 200;
+
+export const getWorldOperationsResponseInstancesItemIdMax = 100;
+
+export const getWorldOperationsResponseInstancesItemOperationIdMax = 100;
+
+export const getWorldOperationsResponseInstancesItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseInstancesItemCurrentPlayersMin = 0;
+export const getWorldOperationsResponseInstancesItemCurrentPlayersMax = 200;
+
+export const getWorldOperationsResponseInstancesItemCapacityMax = 200;
+
+export const getWorldOperationsResponseInstancesItemRuntimeIdMax = 80;
+
+export const getWorldOperationsResponseInstancesItemRulesetIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseEventsItemOperationInstanceIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemTitleMax = 160;
+
+export const getWorldOperationsResponsePresenceItemLocationIdMax = 80;
+
+export const getWorldOperationsResponsePresenceItemActivePilotsMin = 0;
+export const getWorldOperationsResponsePresenceItemActivePilotsMax = 100000;
+
+
+
+export const GetWorldOperationsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseLocationsItemIdMax),
+  "worldLocationId": zod.string().min(1).max(getWorldOperationsResponseLocationsItemWorldLocationIdMax),
+  "name": zod.string().min(1).max(getWorldOperationsResponseLocationsItemNameMax),
+  "kind": zod.enum(['asteroid', 'station', 'orbital-sector']),
+  "sectorId": zod.string().min(1).max(getWorldOperationsResponseLocationsItemSectorIdMax),
+  "position": zod.object({
+  "x": zod.number().min(getWorldOperationsResponseLocationsItemPositionXMin).max(getWorldOperationsResponseLocationsItemPositionXMax),
+  "y": zod.number().min(getWorldOperationsResponseLocationsItemPositionYMin).max(getWorldOperationsResponseLocationsItemPositionYMax),
+  "z": zod.number().min(getWorldOperationsResponseLocationsItemPositionZMin).max(getWorldOperationsResponseLocationsItemPositionZMax)
+})
+})),
+  "operations": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseOperationsItemIdMax),
+  "title": zod.string().min(1).max(getWorldOperationsResponseOperationsItemTitleMax),
+  "description": zod.string().max(getWorldOperationsResponseOperationsItemDescriptionMax),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemLocationIdMax),
+  "experience": zod.enum(['flight-simulation', 'orbital-combat', 'cooperative', 'competitive', 'campaign', 'arcade']),
+  "runtimeId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemRulesetIdMax),
+  "teamSize": zod.number().int().min(1).max(getWorldOperationsResponseOperationsItemTeamSizeMax),
+  "capacity": zod.number().int().min(1).max(getWorldOperationsResponseOperationsItemCapacityMax),
+  "visibility": zod.enum(['public', 'unlisted', 'private']),
+  "lifecycle": zod.enum(['on-demand', 'queued', 'scheduled', 'persistent']),
+  "access": zod.enum(['local-training', 'matchmaking', 'invitation', 'direct']),
+  "rewardPolicy": zod.enum(['none', 'existing-authority'])
+})),
+  "instances": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseInstancesItemIdMax),
+  "operationId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemOperationIdMax),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemLocationIdMax),
+  "phase": zod.enum(['assembling', 'ready', 'active', 'complete', 'closed']),
+  "currentPlayers": zod.number().int().min(getWorldOperationsResponseInstancesItemCurrentPlayersMin).max(getWorldOperationsResponseInstancesItemCurrentPlayersMax),
+  "capacity": zod.number().int().min(1).max(getWorldOperationsResponseInstancesItemCapacityMax),
+  "runtimeId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemRulesetIdMax),
+  "visibility": zod.enum(['public', 'unlisted']),
+  "registeredAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseEventsItemIdMax),
+  "kind": zod.enum(['operation-opened', 'match-started', 'match-completed', 'faction-event']),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseEventsItemLocationIdMax),
+  "operationInstanceId": zod.string().max(getWorldOperationsResponseEventsItemOperationInstanceIdMax).nullish(),
+  "status": zod.enum(['active', 'completed']),
+  "title": zod.string().min(1).max(getWorldOperationsResponseEventsItemTitleMax)
+})),
+  "presence": zod.array(zod.object({
+  "locationId": zod.string().min(1).max(getWorldOperationsResponsePresenceItemLocationIdMax),
+  "activePilots": zod.number().int().min(getWorldOperationsResponsePresenceItemActivePilotsMin).max(getWorldOperationsResponsePresenceItemActivePilotsMax)
+})).optional(),
+  "presenceStatus": zod.enum(['available', 'unavailable']).optional()
+})
+
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const HeartbeatWorldPresenceResponse = zod.void()
+
+
+/**
+ * Server-sent events stream. Each `operations.snapshot` event carries a public OperationDirectoryResponse snapshot with no account identifiers. The stream is read-only; clients cannot publish status through it.
+ * @summary Subscribe to read-only universe operation status
+ */
+export const SubscribeWorldOperationEventsResponse = zod.unknown()
+
+
+/**
+ * Registers only supported on-demand operations at their server-verified world location. Admission is single-seat, server-issued, expires automatically, and cannot grant rewards.
+ * @summary Authenticated player registers and enters an operation
+ */
+export const registerWorldOperationInstancePathOperationIdMax = 100;
+
+
+
+export const RegisterWorldOperationInstanceParams = zod.object({
+  "operationId": zod.coerce.string().min(1).max(registerWorldOperationInstancePathOperationIdMax)
+})
+
+export const RegisterWorldOperationInstanceBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "visibility": zod.enum(['public', 'unlisted'])
+})
+
+export const registerWorldOperationInstanceResponseInstanceIdMax = 100;
+
+export const registerWorldOperationInstanceResponseInstanceOperationIdMax = 100;
+
+export const registerWorldOperationInstanceResponseInstanceLocationIdMax = 80;
+
+export const registerWorldOperationInstanceResponseInstanceCurrentPlayersMin = 0;
+export const registerWorldOperationInstanceResponseInstanceCurrentPlayersMax = 200;
+
+export const registerWorldOperationInstanceResponseInstanceCapacityMax = 200;
+
+export const registerWorldOperationInstanceResponseInstanceRuntimeIdMax = 80;
+
+export const registerWorldOperationInstanceResponseInstanceRulesetIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneAssignmentIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneOperationInstanceIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneRuntimeIdMax = 80;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneRulesetIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMin = 0;
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMax = 199;
+
+
+
+export const RegisterWorldOperationInstanceResponse = zod.object({
+  "instance": zod.object({
+  "id": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceIdMax),
+  "operationId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceOperationIdMax),
+  "locationId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceLocationIdMax),
+  "phase": zod.enum(['assembling', 'ready', 'active', 'complete', 'closed']),
+  "currentPlayers": zod.number().int().min(registerWorldOperationInstanceResponseInstanceCurrentPlayersMin).max(registerWorldOperationInstanceResponseInstanceCurrentPlayersMax),
+  "capacity": zod.number().int().min(1).max(registerWorldOperationInstanceResponseInstanceCapacityMax),
+  "runtimeId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceRulesetIdMax),
+  "visibility": zod.enum(['public', 'unlisted']),
+  "registeredAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+}),
+  "authorization": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.enum(['authorized', 'authentication-required', 'operation-closed', 'full', 'ineligible', 'version-mismatch', 'not-at-location', 'unsupported-operation']),
+  "assignment": zod.union([zod.object({
+  "assignmentId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneAssignmentIdMax),
+  "operationInstanceId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneOperationInstanceIdMax),
+  "runtimeId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneRulesetIdMax),
+  "seat": zod.number().int().min(registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMin).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMax),
+  "expiresAt": zod.coerce.date()
+}),zod.null()])
+})
+})
+
+
+/**
+ * @summary End the authenticated player's operation seat
+ */
+export const LeaveWorldOperationInstanceParams = zod.object({
+  "instanceId": zod.coerce.string().uuid()
+})
+
+export const LeaveWorldOperationInstanceResponse = zod.unknown()
 
 
 /**
@@ -1258,7 +1481,7 @@ export const TravelWorldResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(travelWorldResponseWorldLocationsItemXMin).max(travelWorldResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(travelWorldResponseWorldLocationsItemYMin).max(travelWorldResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(travelWorldResponseWorldLocationsItemUnlockAfterMin).max(travelWorldResponseWorldLocationsItemUnlockAfterMax),
@@ -1408,7 +1631,7 @@ export const ExploreLocationResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(exploreLocationResponseWorldLocationsItemXMin).max(exploreLocationResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(exploreLocationResponseWorldLocationsItemYMin).max(exploreLocationResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(exploreLocationResponseWorldLocationsItemUnlockAfterMin).max(exploreLocationResponseWorldLocationsItemUnlockAfterMax),
@@ -1560,7 +1783,7 @@ export const ActOnWorldQuestResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemXMin).max(actOnWorldQuestResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemYMin).max(actOnWorldQuestResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin).max(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax),

@@ -10,8 +10,11 @@ import type { Plugin } from 'vite';
 const port = Number(process.env.PORT || 5173);
 const basePath = process.env.BASE_PATH || '/';
 const workspaceRoot = path.resolve(import.meta.dirname, '..', '..');
+const MAX_ENGINE_CHUNK_BYTES = 560_000;
+const MAX_ENGINE_CHUNK_GZIP_BYTES = 150 * 1024;
+const MAX_INITIAL_STATIC_GZIP_BYTES = 140 * 1024;
 
-function bundleAuditPlugin(): Plugin {
+function bundleAuditPlugin(buildMode: string): Plugin {
   return {
     name: 'wfm-bundle-audit',
     generateBundle(_options, bundle: OutputBundle) {
@@ -69,6 +72,7 @@ function bundleAuditPlugin(): Plugin {
       );
       const report = {
         generatedAt: new Date().toISOString(),
+        buildMode,
         app: '@workspace/war-for-mars',
         engine: 'Three.js / WebGL',
         engineChunk: engineChunk?.fileName ?? null,
@@ -88,12 +92,16 @@ function bundleAuditPlugin(): Plugin {
         ),
         chunks: reportChunks,
       };
+      const reportName =
+        buildMode === 'combat-lab'
+          ? 'wfm-combat-lab-bundle-audit.json'
+          : 'wfm-bundle-audit.json';
       const reportPath = path.resolve(
         import.meta.dirname,
         '..',
         '..',
         'generated-artifacts',
-        'wfm-bundle-audit.json',
+        reportName,
       );
 
       mkdirSync(path.dirname(reportPath), { recursive: true });
@@ -105,6 +113,27 @@ function bundleAuditPlugin(): Plugin {
         `[WFM bundle audit] Three.js chunk: ${engineChunk ? `${Buffer.byteLength(engineChunk.code)} B raw / ${gzipSync(engineChunk.code).byteLength} B gzip; initial load: ${report.engineLoadedInInitialStaticGraph}` : 'not found'}`,
       );
       console.info(`[WFM bundle audit] Detailed report: ${reportPath}`);
+      if (report.initialStaticJavascriptGzipBytes > MAX_INITIAL_STATIC_GZIP_BYTES) {
+        this.error(
+          `Initial static JavaScript is ${report.initialStaticJavascriptGzipBytes} B gzip; budget is ${MAX_INITIAL_STATIC_GZIP_BYTES} B.`,
+        );
+      }
+      if (
+        engineChunk &&
+        Buffer.byteLength(engineChunk.code) > MAX_ENGINE_CHUNK_BYTES
+      ) {
+        this.error(
+          `Three.js chunk is ${Buffer.byteLength(engineChunk.code)} B raw; budget is ${MAX_ENGINE_CHUNK_BYTES} B.`,
+        );
+      }
+      if (
+        engineChunk &&
+        gzipSync(engineChunk.code).byteLength > MAX_ENGINE_CHUNK_GZIP_BYTES
+      ) {
+        this.error(
+          `Three.js chunk is ${gzipSync(engineChunk.code).byteLength} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
+        );
+      }
       if (engineChunk && staticClosure.has(engineChunk.fileName)) {
         this.error('Three.js entered the initial static-load graph; keep combat renderer imports deferred.');
       }
@@ -112,16 +141,15 @@ function bundleAuditPlugin(): Plugin {
   };
 }
 
-const auditPlugins =
-  process.env.WFM_BUNDLE_REPORT === '1' ? [bundleAuditPlugin()] : [];
-
 export default defineConfig(({ mode }) => ({
   base: mode === 'combat-lab' ? './' : basePath,
   publicDir: 'public',
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
-    ...(mode === 'combat-lab' ? [] : auditPlugins),
+    ...(process.env.WFM_BUNDLE_REPORT === '1'
+      ? [bundleAuditPlugin(mode)]
+      : []),
   ],
   resolve: {
     alias: {
@@ -139,6 +167,8 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: mode !== 'combat-lab',
+    // The build audit below enforces tighter raw/gzip budgets for Three.js.
+    chunkSizeWarningLimit: 575,
     rollupOptions: {
       input: path.resolve(import.meta.dirname, mode === 'combat-lab' ? 'combat-lab.html' : 'index.html'),
       output: {

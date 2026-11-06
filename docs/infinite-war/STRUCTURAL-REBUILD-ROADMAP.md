@@ -2,8 +2,18 @@
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
+The controlling full-game orbital migration source is preserved unchanged in
+[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt);
+its maintained migration plan is
+[`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
 The later repository-specific diagnosis is preserved unchanged in
 [`REPO-UNIFICATION-REQUEST.txt`](./REPO-UNIFICATION-REQUEST.txt).
+The current owner-supplied open-universe, Orbital Lab, structural-rebuild, and
+multiplayer-universe briefs remain unchanged in `attached_assets/`:
+`Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793989681065.txt`,
+`Pasted--War-for-Mars-Infinite-War-Orbital-Combat-Lab-Infinite-_1793990090269.txt`,
+`Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
+and `Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
 This maintained guide summarizes its decisions and applies them to the current
 codebase. The source document remains authoritative if this summary and the
 original differ.
@@ -23,11 +33,17 @@ unbounded count of live ships or a literally infinite galaxy.
 ## Preserve before replacing
 
 - Keep the custom Three.js/Vite runtime as the initial foundation. Needle remains
-  a research/authoring candidate, not a second production runtime.
-- Evolve Orbital Combat Lab into the canonical combat foundation; consolidate
-  overlapping flight rules only after parity and rollback are proven.
-- Retain Rust Disc, Mars Approach, Pale Beacons, and Iron Eclipse as flight,
-  exploration, and cooperative operation content.
+  a research/authoring candidate, not a second production runtime. The Three.js
+  universe is the navigation/presentation layer; it is not itself a multiplayer
+  combat engine.
+- Develop Orbital Combat Lab as a combat simulation foundation and validation
+  environment. Integrate its simulation and rendering per operation only after
+  parity, authority, networking, progression, and rollback are proven. Do not
+  force every established experience into one runtime.
+- Retain Rust Disc, Mars Approach, Pale Beacons, Iron Eclipse, Arcade Skirmish,
+  and Wing as distinct playable/authoritative experiences behind explicit
+  operation entry points. Preserve their existing combat engines until a
+  replacement is certified.
 - Retain the existing authenticated 5v5 Wing matchmaking, reward ledger,
   account isolation, reconnect behavior, and private/AI-fill boundaries.
 - Retain the existing campaign, Armory, market, inventory, persistent Galaxy,
@@ -50,7 +66,7 @@ already unified.
 | --- | --- |
 | A | Forensic inventory and architecture assessment |
 | B | Unified opening, hangar, operations, and universe navigation |
-| C | Canonical orbital flight, targeting, weapons, damage, and readable feedback |
+| C | Orbital flight/combat validation and per-operation runtime integration |
 | D | Campaign briefings, objectives, debriefs, and validated progression |
 | E | Connect existing cooperative sectors and Iron Eclipse |
 | F | Integrate orbital combat with authenticated competitive Wing |
@@ -60,13 +76,31 @@ already unified.
 Each stage needs a working build, automated tests, explicit acceptance criteria,
 and documented limitations before expanding scope.
 
+## Latest owner priority order
+
+1. **Command center:** establish the opening, game identity, and unified
+   navigation into one connected universe.
+2. **Hangar:** make the player's home the gateway for saved ship inspection,
+   fleet/loadout selection, equipment, and launch.
+3. **Combat-engine integration:** make Orbital Combat Lab the shared development
+   and validation foundation, then connect operations through explicit,
+   versioned adapters. Existing Rust Disc, Arcade, and Wing engines remain
+   independent until each mode passes migration and rollback gates.
+4. **Universe destinations:** connect Mars, Cinder Ring, sectors, exploration,
+   multiplayer stations, and anomalies through real travel and operation
+   discovery. Cinder Ring is the first physical competitive hub; additional
+   destinations must publish only server-confirmed activities.
+5. **Settings:** unify persistent flight controls, graphics, audio,
+   accessibility, and HUD preferences.
+
 ## First unified playable slice
 
 1. Introduce the Mars conflict and the USSF/Accord stakes.
 2. Choose a faction and configure a saved ship/loadout in the 3D Hangar.
 3. Select Rust Disc from universe/operations navigation.
-4. Launch the canonical 3D combat runtime and complete an objective through
-   targeting, weapons, damage, and extraction.
+4. Launch the correct operation-specific combat runtime and complete an
+   objective through targeting, weapons, damage, and extraction. Promote Orbital
+   combat for that operation only after its compatibility gate passes.
 5. Debrief, return to the Hangar, and apply account progression only from a
    validated server result.
 6. Unlock the next story operation through the existing account progression.
@@ -103,6 +137,16 @@ recorded flight discoveries and carries its mission ID into Expedition. The
 Expedition selector accepts that navigation hint, but existing account-progress
 and server prerequisite checks remain authoritative.
 
+Cinder Ring is now a physical universe destination with a local flightable
+approach and a slow/aligned docking gate before the station hub opens when the
+available world snapshot places the pilot there. That can be cached location
+state, so it is a presentation gate rather than fresh server authorization. The
+approach reuses the Orbital spatial-flight integrator and saved ship model, but
+it is no-reward navigation; the 5v5 and private-room flows retain their separate
+existing authority and combat runtimes. Other multiplayer destinations,
+shared-world free flight, and live combat rendered during approach remain
+future work.
+
 The public landing now emphasizes account entry or local solo flight and groups
 the alternate Rust Disc, Combat Lab, and co-op routes in an expandable
 operations panel. The signed-in mobile command screen presents the campaign as
@@ -132,3 +176,28 @@ This advances one bounded campaign slice, not the complete Stage C–D journey.
 Automated client/server replay and reward-claim checks are not staging, phone, or
 Production verification. Do not promote the change until its exact staging
 revision passes the appropriate authenticated campaign and reward checks.
+
+### Persistent universe signal layer
+
+The first Layer A increment keeps the world-navigation and combat-authority
+boundaries separate. Signed-in clients refresh a short-lived presence lease
+while the Galaxy navigation screen is active; the client stops heartbeats when
+launching an operation. The API derives the location from saved world state
+rather than accepting a client-supplied destination. Public consumers receive
+only grouped, destination-level pilot counts. Expired leases are excluded from
+counts and pruned during directory refreshes.
+
+The Galaxy screen now surfaces public operation events and active destination
+counts from the existing operation directory/SSE stream, including each
+operation's declared runtime. It does not create activity, reveal account
+identities, or merge combat systems. Existing travel and station hubs remain
+the entry points into each independent runtime.
+
+The additive universe-presence schema migration has been applied to the Replit
+Development database and verified with an isolated, temporary presence probe.
+No Railway staging or Production database was changed. If the table is absent
+during a staged rollout, operation events remain available and the directory
+reports presence as unavailable.
+This increment does not provide exact nearby ship positions, continuous shared
+3D free flight, or new station/asteroid destinations; those require separate
+server-authoritative work and verification.

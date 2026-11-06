@@ -59,6 +59,16 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
     services: ["Discovery", "Salvage"],
   },
   {
+    id: "cinder-asteroid",
+    name: "Cinder Ring",
+    kind: "asteroid",
+    x: 44,
+    y: 74,
+    unlockAfter: 0,
+    description: "A navigable asteroid field off the Rust Disc relay. Its local flight circuit is a separate no-reward specialist operation; no live match is currently hosted here.",
+    services: ["Flight circuit", "Operation directory"],
+  },
+  {
     id: "pale-beacons",
     name: "Pale Beacons",
     kind: "relay",
@@ -107,6 +117,10 @@ const ROUTES: Record<string, RouteDefinition[]> = {
   "rust-disc": [
     { destinationId: "phobos-yard", costCredits: 8 },
     { destinationId: "pale-beacons", costCredits: 12 },
+    { destinationId: "cinder-asteroid", costCredits: 10 },
+  ],
+  "cinder-asteroid": [
+    { destinationId: "rust-disc", costCredits: 10 },
   ],
   "pale-beacons": [
     { destinationId: "rust-disc", costCredits: 12 },

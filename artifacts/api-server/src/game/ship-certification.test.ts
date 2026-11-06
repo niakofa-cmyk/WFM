@@ -2,23 +2,31 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatShipCertification, runShipCertification } from "./ship-certification";
 
-test("ship certification covers all eight ships and opposing role groups", () => {
+test("ship certification covers all sixteen ships and opposing role groups", () => {
   const rows = runShipCertification({ seeds: 1, durationSeconds: 10 });
-  assert.equal(rows.length, 8);
+  assert.equal(rows.length, 16);
   assert.deepEqual(rows.map((row) => row.shipId).sort(), [
+    "aegis",
+    "apep",
+    "bastion",
     "duskbreaker",
+    "garuda",
     "glide",
     "mandjet",
+    "sekhmet",
     "sentinel",
     "shakuna",
     "splitter",
     "sundara",
     "tripura",
+    "vajra",
+    "valiant",
+    "wasp",
   ]);
 
   for (const row of rows) {
-    assert.equal(row.matches, 4);
-    assert.equal(Object.values(row.opponentRoles).reduce((sum, role) => sum + role.matches, 0), 4);
+    assert.equal(row.matches, 8);
+    assert.equal(Object.values(row.opponentRoles).reduce((sum, role) => sum + role.matches, 0), 8);
     assert.ok(Number.isFinite(row.winRate));
     assert.ok(Number.isFinite(row.avgDamageDealt));
     assert.ok(Number.isFinite(row.avgDamageReceived));

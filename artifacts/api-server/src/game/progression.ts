@@ -22,6 +22,7 @@ import {
 } from "./rewards";
 import type { Disc, Goal, Pace, StepInput } from "./sim";
 import { ROSTER, type Faction, type ShipId } from "./ships";
+import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 type StrikeStartInput = {
   shipId: ShipId;
@@ -74,11 +75,11 @@ const MISSION_ORDER: Record<MissionId, number> = {
   cage: 3,
 };
 const MISSION_CONFIG: Record<MissionId, MissionConfig> = {
-  skirmish: { flightModel: "surface-v1", pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
-  contact: { flightModel: "orbital-v1", pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
-  beacon: { flightModel: "surface-v1", pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
-  warden: { flightModel: "surface-v1", pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
-  cage: { flightModel: "surface-v1", pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
+  skirmish: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
+  contact: { flightModel: ORBITAL_RUNTIME_ID, pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
+  beacon: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
+  warden: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
+  cage: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
 };
 const TECH_UNLOCK: Record<NonNullable<GameProfile["tech"]>, number> = {
   stick: 1,
@@ -218,7 +219,9 @@ export function flightModelForStart(
   supportsOrbitalReplay: boolean | undefined,
 ): FlightModel {
   const serverModel = MISSION_CONFIG[mission].flightModel;
-  return serverModel === "orbital-v1" && supportsOrbitalReplay ? serverModel : "surface-v1";
+  return serverModel === ORBITAL_RUNTIME_ID && supportsOrbitalReplay
+    ? serverModel
+    : LEGACY_SURFACE_RUNTIME_ID;
 }
 
 export async function startPlayerStrike(userId: string, input: StrikeStartInput) {

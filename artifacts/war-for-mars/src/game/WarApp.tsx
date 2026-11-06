@@ -46,8 +46,9 @@ import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
-import { resolveArenaTech } from "./arena-config";
+import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
+import { isOrbitalRuntimeId } from "@workspace/orbital-sim";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -230,6 +231,11 @@ export function WarApp() {
       already_queued: "This account is already waiting in the competitive queue.",
       already_in_match: "This account is already assigned to an active match.",
       queue_capacity: "The competitive queue is full. Try again shortly.",
+      cinder_ring_required: "Travel to Cinder Ring before joining the 5v5 Relay queue.",
+      arena_status_unavailable: "The arena location service is unavailable. No competitive queue entry was made.",
+      spectator_match_unavailable: "That live competition has ended or is no longer available.",
+      spectator_capacity: "This match has reached its spectator limit.",
+      spectator_read_only: "Spectator connections cannot send combat commands.",
       queue_wait_expired: "Queue wait expired. Rejoin when you are ready.",
       competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
       queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
@@ -1117,13 +1123,16 @@ export function WarApp() {
   if (phase === "fight") {
     const runConfig = activeRun?.config;
     const orbitalCampaign =
-      runConfig?.mission === "contact" && runConfig.flightModel === "orbital-v1";
+      runConfig?.mission === "contact" && isOrbitalRuntimeId(runConfig.flightModel);
+    const arenaRuntime = resolveArenaRuntime(runConfig, Boolean(onlineSession));
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
     return (
       <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
+        modeId={resolveArenaModeId(runConfig, Boolean(onlineSession), offlineMode)}
+        runtime={arenaRuntime}
         shipId={runConfig?.shipId ?? save.ship}
         faction={runFaction}
         scheme={save.scheme}
@@ -1143,7 +1152,6 @@ export function WarApp() {
         }
         tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
-        orbital={orbitalCampaign}
         orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
         drilled={save.drilled}
@@ -1263,6 +1271,20 @@ export function WarApp() {
           onBack={() => setGalaxyOpen(false)}
           credits={save.credits}
           onCredits={syncCredits}
+          shipId={save.ship}
+          faction={save.faction}
+          roomCode={roomCode}
+          onRoomCode={setRoomCode}
+          onCreatePrivateRoom={() => {
+            const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
+            setRoomCode(generated);
+            joinOnline(generated);
+          }}
+          onJoinPrivateRoom={(code) => joinOnline(code)}
+          onlineStatus={onlineStatus}
+          onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+          competitiveQueueAvailable={competitiveQueueAvailable}
+          competitiveQueueing={competitiveQueueing}
         />
       </Suspense>
     );
@@ -1294,21 +1316,13 @@ export function WarApp() {
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
-        onOnline={joinOnline}
-        onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
+        onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}
         competitiveQueueing={competitiveQueueing}
         competitiveQueueAvailable={competitiveQueueAvailable}
         casualAiQueueing={casualAiQueueing}
         casualAiQueueAvailable={casualAiQueueAvailable}
-        roomCode={roomCode}
-        onRoomCode={setRoomCode}
-        onCreateRoom={() => {
-          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-          setRoomCode(generated);
-          joinOnline(generated);
-        }}
         onlineStatus={onlineStatus}
         offlineAvailable={offlineAvailable}
         onOfflineStrike={() => {

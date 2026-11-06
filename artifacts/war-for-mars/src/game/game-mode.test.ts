@@ -1,0 +1,133 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  createOrbitalRuntime,
+  GAME_MODE_DEFINITIONS,
+  getGameModeDefinition,
+  LEGACY_ORBITAL_RULES_VERSION,
+  LEGACY_ORBITAL_RUNTIME_ID,
+  ORBITAL_WEAPON_RULES_VERSION,
+  ORBITAL_WEAPON_RUNTIME_ID,
+  ORBITAL_RULES_VERSION,
+  ORBITAL_RUNTIME_ID,
+} from "@workspace/orbital-sim";
+
+test("the mode registry is a complete, unique source-backed launch inventory", () => {
+  const ids = GAME_MODE_DEFINITIONS.map((mode) => mode.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const mode of GAME_MODE_DEFINITIONS) {
+    assert.ok(mode.mission.length > 0);
+    assert.ok(mode.environment.length > 0);
+    assert.ok(mode.players.min > 0 && mode.players.max >= mode.players.min);
+    assert.ok(mode.players.minimumHumans <= mode.players.max);
+    assert.ok(mode.objectives.length > 0);
+    assert.ok(mode.rules.length > 0);
+    assert.ok(mode.simulation.packages.length > 0);
+    assert.ok(mode.presentation.renderer.length > 0);
+    assert.ok(mode.presentation.lifecycleOwner.length > 0);
+  }
+});
+
+test("canonical Orbital modes initialize with the pinned simulation rules", () => {
+  for (const id of [
+    "orbital-combat-lab", "local-arena-practice", "rust-disc-local",
+    "rust-disc-sector-coop", "iron-eclipse", "arcade-skirmish", "solo-flight",
+    "campaign-contact",
+  ] as const) {
+    const mode = getGameModeDefinition(id);
+    const runtime = createOrbitalRuntime(mode);
+    assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);
+    assert.equal(runtime.rulesVersion, ORBITAL_RULES_VERSION);
+    assert.equal(runtime.modeId, id);
+    if (mode.authority === "local") assert.equal(runtime.rewardEligibility, "none");
+  }
+});
+
+test("the prior Orbital runtime remains available for already-issued campaign replays", () => {
+  const session = createOrbitalRuntime(
+    getGameModeDefinition("campaign-contact"),
+    LEGACY_ORBITAL_RUNTIME_ID,
+  );
+  assert.equal(session.runtimeId, LEGACY_ORBITAL_RUNTIME_ID);
+  assert.equal(session.rulesVersion, LEGACY_ORBITAL_RULES_VERSION);
+  const weaponSession = createOrbitalRuntime(
+    getGameModeDefinition("campaign-contact"),
+    ORBITAL_WEAPON_RUNTIME_ID,
+  );
+  assert.equal(weaponSession.runtimeId, ORBITAL_WEAPON_RUNTIME_ID);
+  assert.equal(weaponSession.rulesVersion, ORBITAL_WEAPON_RULES_VERSION);
+});
+
+test("compatibility, partial, navigation-only, and planned modes cannot silently launch as Orbital", () => {
+  for (const mode of GAME_MODE_DEFINITIONS.filter((candidate) => candidate.simulation.migration !== "canonical")) {
+    assert.throws(
+      () => createOrbitalRuntime(mode),
+      new RegExp(`Mode ${mode.id} is not ready for canonical Orbital launch`),
+    );
+  }
+});
+
+test("simulation and presentation migrations are reported independently", () => {
+  const rustDiscLocal = getGameModeDefinition("rust-disc-local");
+  assert.equal(rustDiscLocal.simulation.migration, "canonical");
+  assert.equal(rustDiscLocal.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+  assert.equal(rustDiscLocal.presentation.renderer, "rust-disc-three-v1");
+  assert.equal(rustDiscLocal.presentation.lifecycleOwner, "RustDiscFlight");
+  assert.equal(rustDiscLocal.presentation.migration, "compatibility");
+
+  for (const id of ["rust-disc-sector-coop", "iron-eclipse"] as const) {
+    const mode = getGameModeDefinition(id);
+    assert.equal(mode.simulation.migration, "canonical");
+    assert.equal(mode.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+    assert.equal(mode.presentation.renderer, "rust-disc-three-v1");
+    assert.equal(mode.presentation.migration, "compatibility");
+  }
+
+  const lab = getGameModeDefinition("orbital-combat-lab");
+  assert.equal(lab.presentation.renderer, "arena-three-v1");
+  assert.equal(lab.presentation.lifecycleOwner, "Arena");
+});
+
+test("live competitive, private, and AI-fill reward boundaries are declared in the mode contract", () => {
+  const competitive = getGameModeDefinition("wing-competitive");
+  assert.equal(competitive.players.minimumHumans, 10);
+  assert.equal(competitive.rewardEligibility, "server-validated");
+  assert.equal(getGameModeDefinition("wing-private").rewardEligibility, "none");
+  assert.equal(getGameModeDefinition("wing-casual-ai").rewardEligibility, "none");
+});
+
+test("offline Arcade uses canonical Orbital combat and cannot settle rewards", () => {
+  const arcade = getGameModeDefinition("arcade-skirmish");
+  assert.equal(arcade.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+  assert.equal(arcade.simulation.migration, "canonical");
+  assert.deepEqual(arcade.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
+  assert.equal(arcade.authority, "local");
+  assert.equal(arcade.rewardEligibility, "none");
+  assert.equal(createOrbitalRuntime(arcade).modeId, "arcade-skirmish");
+});
+
+test("standalone Solo Flight uses canonical Orbital combat without progression authority", () => {
+  const soloFlight = getGameModeDefinition("solo-flight");
+  assert.equal(soloFlight.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+  assert.equal(soloFlight.simulation.migration, "canonical");
+  assert.deepEqual(soloFlight.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
+  assert.equal(soloFlight.authority, "local");
+  assert.equal(soloFlight.rewardEligibility, "none");
+  assert.equal(createOrbitalRuntime(soloFlight).modeId, "solo-flight");
+});
+
+test("universe navigation uses Orbital spatial flight only for local docking, not combat authority", () => {
+  const universe = getGameModeDefinition("universe-navigation");
+  assert.equal(universe.simulation.runtimeId, "universe-navigation-v1");
+  assert.equal(universe.simulation.migration, "navigation-only");
+  assert.deepEqual(universe.simulation.packages, [
+    "@workspace/orbital-sim",
+    "GalaxyScreen",
+    "CinderRingDockingApproach",
+    "world-operation-directory",
+  ]);
+  assert.equal(universe.rewardEligibility, "none");
+  assert.ok(universe.rules.includes("operation-directory-is-not-a-combat-session"));
+  assert.ok(universe.rules.includes("local-docking-does-not-authorize-competition"));
+  assert.ok(universe.rules.includes("no-rewards"));
+});

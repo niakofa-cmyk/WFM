@@ -24,3 +24,9 @@ For multiplayer reliability evidence, compare client views at the same authorita
 **Why:** the ten-client impairment run showed that equality checks across each client's latest snapshot are timing-sensitive, while equality at a shared server tick directly tests authoritative state convergence.
 
 **How to apply:** record deterministic per-link impairment settings and metrics, check that all clients receive an identical snapshot for one server tick, and keep real-network, long-duration, and physical-device certification as separate gates.
+
+The user reports a successful two-device private-room smoke test: both phones joined the same room, and in-match controls and firing worked. The supplied screenshot shows the lobby at 2/10 pilots; it does not establish ten-human competitive queue behavior, rewards, sector co-op, or Production behavior.
+
+**Why:** retain user-observed physical-device evidence while keeping its scope distinct from automated multiplayer and production certification.
+
+**How to apply:** count this as evidence for private-room joining and basic flight/combat input on two devices only. Keep ten-human competition, reward settlement, sector co-op, and Production as separate verification gates.

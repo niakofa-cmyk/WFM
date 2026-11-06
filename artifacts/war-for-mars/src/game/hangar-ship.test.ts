@@ -13,6 +13,11 @@ test("hangar display exposes the saved hull and accessible inspection instructio
     assert.ok(markup.includes(`data-ship-id="${ship}"`));
     assert.ok(markup.includes(`Hangar display of saved ${SHIPS[ship].name} spacecraft`));
     assert.ok(markup.includes("DRAG TO INSPECT · SAVED HULL"));
+    assert.ok(markup.includes('aria-label="Inspect ship components"'));
+    assert.ok(markup.includes('aria-label="Presentation-only damage view"'));
+    assert.ok(markup.includes('data-testid="hangar-view-engines"'));
+    assert.ok(markup.includes('data-testid="hangar-view-weapons"'));
+    assert.ok(markup.includes('data-testid="hangar-damage-critical"'));
   }
 });
 

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { IDLE_ORBITAL, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput } from "@workspace/orbital-sim";
+import { IDLE_ORBITAL, MISSILE_CATALOG, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput } from "@workspace/orbital-sim";
 import { createOrbitalAuthority } from "./orbital-authority";
+import { SHIPS } from "./ships";
 
 const packet = (seq: number, patch: Record<string, unknown> = {}) => ({ ...IDLE_ORBITAL, seq, ...patch });
 test("strict versioned packets reject client state, outcomes, malformed controls and unsafe sequences", () => {
   assert.equal(parseOrbitalInput(packet(1)).ok, true);
-  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 2 }]) {
+  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { maneuver: { version: 1, kind: "barrel-roll", direction: "right" } }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 1 }, { version: 2 }, { countermeasure: 1 }]) {
     assert.equal(parseOrbitalInput(packet(1, patch)).ok, false, JSON.stringify(patch));
   }
   for (const value of [null, [], "fire", {}, { ...packet(1), vertical: undefined }]) assert.equal(parseOrbitalInput(value).ok, false);
@@ -26,6 +27,8 @@ test("ten synthetic server seats use five ships per faction, detached snapshots 
   assert.equal(server.input(0, packet(1, { damage: 999 })).ok, false);
   const after = server.step();
   assert.equal(after.tick, 1); assert.equal(after.time, ORBITAL_DT); assert.equal(after.bullets.length, 0);
+  assert.equal("maneuverRollRemaining" in after.pilots[0].space, false);
+  assert.equal("maneuverCooldown" in after.pilots[0].space, false);
 });
 
 test("bounded input queue rejects stale, duplicate, jumping sequences and does not advance simulation on receive", () => {
@@ -80,8 +83,9 @@ test("fixed-tick recorded controls replay identically without wall clock or clie
   }
 });
 
-test("repeated launch requests cannot bypass the server's 1.25-second lock or 3.5-second cooldown", () => {
+test("missile launch timing follows the server-owned hull fit definition", () => {
   const server = createOrbitalAuthority(); const target = server.snapshot().pilots[5];
+  const missileFit = MISSILE_CATALOG["precision-seeker"];
   const launches: number[] = [];
   for (let seq = 1; seq <= 160; seq++) {
     assert.equal(server.input(0, packet(seq, { targetId: target.id, missile: true })).ok, true);
@@ -89,9 +93,47 @@ test("repeated launch requests cannot bypass the server's 1.25-second lock or 3.
     if (snapshot.events.some((event) => event.type === "missile")) launches.push(snapshot.tick);
   }
   assert.equal(launches.length, 2);
-  assert.ok(launches[0] * ORBITAL_DT >= 1.25);
-  assert.ok((launches[1] - launches[0]) * ORBITAL_DT >= 3.5);
+  assert.ok(launches[0] * ORBITAL_DT >= missileFit.lockSeconds);
+  assert.ok((launches[1] - launches[0]) * ORBITAL_DT >= missileFit.cooldownSeconds);
   assert.equal(server.snapshot().pilots[0].space.ammo, 6);
+});
+
+test("Orbital v4 authority retains v3 fit-aware countermeasures and enforces cooldown", () => {
+  const server = createOrbitalAuthority();
+  const initial = server.snapshot();
+  const target = initial.pilots[0]!;
+  const launcher = initial.pilots[5]!;
+  const fit = MISSILE_CATALOG[SHIPS[launcher.ship].missileFit];
+  let incoming: (typeof initial.bullets)[number] | undefined;
+
+  for (let seq = 1; seq <= 150 && !incoming; seq++) {
+    assert.equal(server.input(5, packet(seq, { targetId: target.id, missile: true })).ok, true);
+    const snapshot = server.step();
+    incoming = snapshot.bullets.find((bullet) => bullet.owner === launcher.id && bullet.homeId === target.id);
+  }
+  assert.ok(incoming, `launcher fit ${fit.fitId} must produce a real incoming missile`);
+  assert.equal(incoming.countermeasureClass, fit.countermeasureClass);
+
+  assert.equal(server.input(0, packet(1, { countermeasure: true })).ok, true);
+  let snapshot = server.step();
+  const response = snapshot.events.find((event) => event.type === "countermeasure");
+  assert.ok(response);
+  assert.equal(response.decoyed, fit.countermeasureClass === "standard" ? 1 : 0);
+  assert.equal(response.disrupted, fit.countermeasureClass === "hardened" ? 1 : 0);
+  assert.equal(snapshot.pilots[0]!.space.countermeasureCd, 3.5);
+  const affected = snapshot.bullets.find((bullet) => bullet.owner === launcher.id);
+  assert.ok(affected, "countermeasures disrupt guidance rather than deleting the missile");
+  if (fit.countermeasureClass === "standard") {
+    assert.equal(affected.homeId, null);
+  } else {
+    assert.equal(affected.homeId, target.id);
+    assert.ok((affected.guidanceSuppressed ?? 0) > 0.5);
+  }
+
+  assert.equal(server.input(0, packet(2, { countermeasure: true })).ok, true);
+  snapshot = server.step();
+  assert.equal(snapshot.events.some((event) => event.type === "countermeasure"), false);
+  assert.ok(snapshot.pilots[0]!.space.countermeasureCd > 3.4);
 });
 
 test("server rejects acquisition and stops real primary projectiles at an occluding asteroid", () => {

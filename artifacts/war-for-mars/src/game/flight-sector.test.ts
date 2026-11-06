@@ -3,14 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { FACTION_PALETTE } from "./faction-palette";
 import { SHIPS } from "./ships";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import {
   createFlight, flightForward, flightObjective, stepFlight, sphereHit, canLock, removeHostileProjectilesInPlace,
   NEUTRAL_FLIGHT_INPUT, RUST_DISC_SECTOR, vectorLength,
   type FlightInput, type FlightState,
 } from "./flight-sector";
 
-function run(state: FlightState, frames: number, input: Partial<FlightInput> = {}) {
-  for (let i = 0; i < frames; i++) stepFlight(state, { ...NEUTRAL_FLIGHT_INPUT, ...input }, 1 / 60);
+function run(state: FlightState, frames: number, input: Partial<FlightInput> = {}, runtime = ORBITAL_RUNTIME_ID) {
+  for (let i = 0; i < frames; i++) stepFlight(state, { ...NEUTRAL_FLIGHT_INPUT, ...input }, 1 / 60, RUST_DISC_SECTOR, runtime);
 }
 const near = (actual: number, expected: number, tolerance = 1e-8) =>
   assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
@@ -35,11 +36,11 @@ test("yaw and roll compose in ship-local quaternion space and remain normalized"
   near(vectorLength(flightForward(q)), 1);
 });
 
-test("momentum persists without thrust and braking stops it much faster", () => {
+test("legacy compatibility motion retains its original momentum and braking behavior", () => {
   const coast = createFlight(), brake = createFlight();
-  run(coast, 30, { throttle: 1 }); run(brake, 30, { throttle: 1 });
+  run(coast, 30, { throttle: 1 }, "sector-motion-v1"); run(brake, 30, { throttle: 1 }, "sector-motion-v1");
   const before = vectorLength(coast.velocity);
-  run(coast, 30); run(brake, 30, { brake: true });
+  run(coast, 30, {}, "sector-motion-v1"); run(brake, 30, { brake: true }, "sector-motion-v1");
   assert.ok(vectorLength(coast.velocity) > before / 2);
   assert.ok(vectorLength(brake.velocity) < vectorLength(coast.velocity) / 5);
 });
@@ -57,6 +58,57 @@ test("vector drift preserves the travel vector through a turn and brake override
   assert.ok(Math.abs(drift.velocity.x) < 1e-6, "turning must not rotate existing velocity");
   assert.ok(vectorLength(drift.velocity) > vectorLength(normal.velocity) * 1.2);
   assert.ok(vectorLength(emergencyBrake.velocity) < vectorLength(drift.velocity) / 5);
+});
+
+test("lateral and vertical thrusters add controlled six-axis translation", () => {
+  const state = createFlight();
+  run(state, 30, { throttle: 0.2, strafe: 0.6, vertical: 0.4 });
+  assert.ok(state.position.x > 0, "right strafe moves along local right");
+  assert.ok(state.position.y > 0, "vertical thrust moves along local up");
+  assert.ok(state.position.z < 70, "the independent thrust axes do not invert forward");
+});
+
+test("the canonical Orbital runtime preserves Rust Disc flight, objectives, and sector boundary", () => {
+  const sector = { ...RUST_DISC_SECTOR, rocks: [], radius: 3000 };
+  const migrated = createFlight("glide", sector);
+  for (let i = 0; i < 90; i++) {
+    stepFlight(migrated, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, ORBITAL_RUNTIME_ID);
+  }
+  assert.ok(migrated.position.x > 0, "positive right strafe remains right after the adapter");
+  assert.ok(migrated.position.y > 0, "vertical thrust is integrated by the shared spatial model");
+  assert.ok(migrated.position.z < 70, "forward thrust follows the migrated orientation");
+  assert.equal(migrated.stage, "relay", "the Rust Disc objective remains owned by its operation adapter");
+  assert.ok(vectorLength(migrated.position) < sector.radius);
+
+  const replay = createFlight("glide", sector);
+  for (let i = 0; i < 90; i++) {
+    stepFlight(replay, { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.45, yaw: 0.2, strafe: 0.35, vertical: 0.25 }, 1 / 60, sector, ORBITAL_RUNTIME_ID);
+  }
+  assert.deepEqual(replay, migrated, "the local versioned movement adapter is deterministic");
+
+  const edge = createFlight("glide", sector);
+  edge.position = { x: 70, y: 0, z: 0 };
+  edge.velocity = { x: 300, y: 0, z: 0 };
+  stepFlight(edge, NEUTRAL_FLIGHT_INPUT, 1 / 60, { ...sector, radius: 72 }, ORBITAL_RUNTIME_ID);
+  assert.ok(vectorLength(edge.position) <= 72.000001, "sector boundary enforcement remains active after shared movement");
+});
+
+test("sector flight defaults to Orbital; the old motion model remains opt-in compatibility", async () => {
+  const implicit = createFlight();
+  const canonical = createFlight();
+  const legacy = createFlight();
+  const input = { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, yaw: 0.2, pitch: 0.1, strafe: 0.2, vertical: 0.1 };
+  for (let i = 0; i < 60; i++) {
+    stepFlight(implicit, input, 1 / 60);
+    stepFlight(canonical, input, 1 / 60, RUST_DISC_SECTOR, ORBITAL_RUNTIME_ID);
+    stepFlight(legacy, input, 1 / 60, RUST_DISC_SECTOR, "sector-motion-v1");
+  }
+  assert.deepEqual(implicit, canonical, "the default sector adapter must use the shared Orbital runtime");
+  assert.notDeepEqual(implicit.position, legacy.position, "legacy physics must require an explicit compatibility selection");
+
+  const ui = await readFile(new URL("./RustDiscFlight.tsx", import.meta.url), "utf8");
+  assert.match(ui, /createOrbitalRuntime\(getGameModeDefinition\("rust-disc-local"\)\)/);
+  assert.match(ui, /stepFlight\(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME\.runtimeId\)/);
 });
 
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
@@ -226,12 +278,16 @@ test("USSF hulls are blue and Accord hulls are warm, with no roster reassignment
   assert.equal(SHIPS.glide.faction, "ussf");
 });
 
-test("local flight sector has no progression, storage, auth or network capability", async () => {
-  const source = await readFile(new URL("./flight-sector.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
-  const imports = source.match(/^import .* from ["'](.+)["'];/gm);
-  assert.deepEqual(imports, [
-    'import { SHIPS, type ShipId } from "./ships";',
-    'import { detSin, detCos, detExp } from "./detmath";',
+test("local flight operation has no account progression writes, storage, auth or network capability", async () => {
+  const [adapter, runtime] = await Promise.all([
+    readFile(new URL("./flight-sector.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../../../lib/orbital-sim/src/sector-flight.ts", import.meta.url), "utf8"),
   ]);
+  assert.match(adapter, /stepSectorFlight/);
+  assert.doesNotMatch(adapter, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
+  assert.match(runtime, /integrateSpatialFlight/);
+  assert.match(runtime, /canAcquireSectorTarget/);
+  assert.match(runtime, /sphereSweepTime/);
+  assert.match(runtime, /stepFlight|stage === "relay"/);
+  assert.doesNotMatch(runtime, /\b(fetch|WebSocket|localStorage|sessionStorage|saveServer|claimReward)\s*[.(]/);
 });

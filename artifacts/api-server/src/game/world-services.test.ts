@@ -33,6 +33,16 @@ test("salvage, material refits, hyperdrive gates, contracts and black-market con
     const service = (serviceId: string, locationId: string, key = randomUUID()) => executeWorldService(user, { serviceId, locationId, cycleDate, idempotencyKey: key });
     await assert.rejects(travelToWorldLocation(user, "outer-fringe", randomUUID()), /Hyperdrive tier 2/);
     await travelToWorldLocation(user, "rust-disc", randomUUID());
+    snapshot = await getWorldSnapshot(user);
+    const cinder = snapshot.locations.find((location) => location.id === "cinder-asteroid");
+    assert.equal(cinder?.kind, "asteroid");
+    assert.equal(cinder?.unlocked, true);
+    assert.equal(snapshot.routes.find((route) => route.destinationId === "cinder-asteroid")?.available, true);
+    await travelToWorldLocation(user, "cinder-asteroid", randomUUID());
+    snapshot = await getWorldSnapshot(user);
+    assert.equal(snapshot.currentLocation, "cinder-asteroid");
+    assert.equal(snapshot.routes.find((route) => route.destinationId === "rust-disc")?.available, true);
+    await travelToWorldLocation(user, "rust-disc", randomUUID());
     await assert.rejects(service("salvage", "rust-disc"), /discovery/);
     await exploreWorldLocation(user, "rust-disc", randomUUID());
     await assert.rejects(service("refine", "phobos-yard"), /Travel to this station/);

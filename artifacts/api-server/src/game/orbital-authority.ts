@@ -1,6 +1,7 @@
 import {
-  absorbArmor, acquireTarget, guideMissile, IDLE_ORBITAL, integrateSpatialFlight, newFlight,
-  ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput, PROJECTILE_LIMIT, segmentHit, spawnMissile, spawnPrimary,
+  absorbArmor, acquireTarget, deployCountermeasure, guideMissile, IDLE_ORBITAL, integrateSpatialFlight, newFlight,
+  MISSILE_CATALOG, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput, PRIMARY_WEAPON_CATALOG,
+  PROJECTILE_LIMIT, segmentHit, spawnMissileVolley, spawnPrimaryVolley,
   type OrbitalFlight, type OrbitalInput, type Rock, type SpatialBullet,
 } from "@workspace/orbital-sim";
 import { createMatch, type Craft } from "./sim";
@@ -8,20 +9,26 @@ import { SHIPS } from "./ships";
 
 type Pilot = Craft & { space: OrbitalFlight; slotId: number; lastSeq: number };
 type Projectile = SpatialBullet & { owner: number; faction: Pilot["faction"] };
-type Event = { type: "hit" | "destroyed" | "missile"; source: number; target: number; damage?: number };
+type Event = {
+  type: "hit" | "destroyed" | "missile" | "countermeasure";
+  source: number; target: number; damage?: number; decoyed?: number; disrupted?: number;
+};
 const QUEUE_LIMIT = 8;
 const MAX_SEQUENCE_ADVANCE = 256;
 
 // Not registered with the existing socket service. Caller must bind an authenticated seat before integration.
 export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] = []) {
-  const baseline = createMatch("duskbreaker", "ussf", 0, "strike", { seed, allyCount: 4, foeCount: 5 });
+  const baseline = createMatch("duskbreaker", "ussf", 0, "strike", {
+    seed, allyCount: 4, foeCount: 5, orbitalRulesVersion: ORBITAL_RULES_VERSION,
+  });
   const rocks = obstacles.map((rock) => ({ ...rock }));
   const pilots: Pilot[] = [baseline.player, ...baseline.allies, ...baseline.enemies].map((craft, slotId) => {
     const offset = slotId % 5;
     const x = offset === 0 ? 0 : (offset % 2 ? -1 : 1) * Math.ceil(offset / 2) * 18;
     const yaw = slotId < 5 ? 0 : Math.PI;
     return { ...craft, slotId, x, z: slotId < 5 ? 28 : -4, yaw, pitch: 0, speed: 0,
-      ai: false, human: null, guard: 0, lastSeq: 0, lockTargetId: null, space: newFlight(yaw) };
+      ai: false, human: null, guard: 0, lastSeq: 0, lockTargetId: null,
+      space: { ...newFlight(yaw), ammo: SHIPS[craft.ship].missileAmmo, countermeasureCd: 0 } };
   });
   const queues: OrbitalInput[][] = pilots.map(() => []);
   let bullets: Projectile[] = [];
@@ -85,24 +92,40 @@ export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] =
         if (!pilot.alive) continue;
         const input = inputs[pilot.slotId];
         const target = pilots.find((c) => c.id === pilot.lockTargetId && c.faction !== pilot.faction);
-        acquireTarget(pilot, target, ORBITAL_DT, rocks);
+         const missileWeapon = MISSILE_CATALOG[SHIPS[pilot.ship].missileFit];
+         acquireTarget(pilot, target, ORBITAL_DT, rocks, missileWeapon);
+         if (input.countermeasure) {
+           const result = deployCountermeasure(bullets, pilot);
+           if (result.activated) {
+             events.push({
+               type: "countermeasure", source: pilot.id, target: pilot.id,
+               decoyed: result.decoyed, disrupted: result.disrupted,
+             });
+           }
+         }
         if (input.missile) {
-          const missile = spawnMissile(pilot, target, bullets.length, 58, rocks);
-          if (missile) {
-            bullets.push({ ...missile, owner: pilot.id, faction: pilot.faction });
-            events.push({ type: "missile", source: pilot.id, target: missile.homeId! });
+           const salvo = spawnMissileVolley(pilot, target, bullets.length, SHIPS[pilot.ship].missileDamage, rocks, missileWeapon);
+           if (salvo.length) {
+             bullets.push(...salvo.map((missile) => ({ ...missile, owner: pilot.id, faction: pilot.faction })));
+             events.push({ type: "missile", source: pilot.id, target: salvo[0]!.homeId! });
           }
         }
-        if (input.fire && pilot.fireCd <= 0 && pilot.root <= 0 && bullets.length < PROJECTILE_LIMIT) {
+         const primaryWeapon = PRIMARY_WEAPON_CATALOG[SHIPS[pilot.ship].primaryFit];
+         if (input.fire && pilot.fireCd <= 0 && pilot.root <= 0 && bullets.length + primaryWeapon.volleyCount <= PROJECTILE_LIMIT) {
           const def = SHIPS[pilot.ship];
-          bullets.push({ ...spawnPrimary(pilot, target, def.shotSpeed, def.shotDmg, rocks), owner: pilot.id, faction: pilot.faction });
+           const salvo = spawnPrimaryVolley(pilot, target, def.shotSpeed, def.shotDmg, rocks, primaryWeapon);
+           bullets.push(...salvo.map((bullet) => ({ ...bullet, owner: pilot.id, faction: pilot.faction })));
           pilot.fireCd = def.fireInterval;
         }
         if (pilot.hurtT <= 0) pilot.shield = Math.min(pilot.shieldMax, pilot.shield + 3 * ORBITAL_DT);
       }
       bullets = bullets.filter((bullet) => {
-        const target = pilots.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
-        if (target) guideMissile(bullet, target, ORBITAL_DT);
+        const target = bullet.homeId == null
+          ? undefined
+          : pilots.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
+        if (bullet.missile) {
+          guideMissile(bullet, target, ORBITAL_DT, pilots.find((pilot) => pilot.id === bullet.launcherId));
+        }
         const px = bullet.x; const py = bullet.y ?? 0; const pz = bullet.z;
         bullet.x += bullet.vx * ORBITAL_DT; bullet.y = py + (bullet.vy ?? 0) * ORBITAL_DT; bullet.z += bullet.vz * ORBITAL_DT; bullet.life -= ORBITAL_DT;
         if (bullet.life <= 0) return false;

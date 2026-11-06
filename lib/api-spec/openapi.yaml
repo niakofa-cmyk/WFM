@@ -301,6 +301,110 @@ paths:
                 $ref: "#/components/schemas/WorldState"
         "401":
           description: Authentication required
+  /world/operations:
+    get:
+      operationId: getWorldOperations
+      tags: [progression]
+      summary: Discover public operations in the universe
+      description: Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
+      responses:
+        "200":
+          description: Public operation directory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationDirectoryResponse"
+  /world/presence/heartbeat:
+    post:
+      operationId: heartbeatWorldPresence
+      tags: [progression]
+      summary: Refresh the signed-in pilot's universe presence
+      description: The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+      security:
+        - ClerkSession: []
+      responses:
+        "204":
+          description: Presence lease refreshed
+        "401":
+          description: Authentication required
+        "503":
+          description: Universe presence is temporarily unavailable
+  /world/operations/events:
+    get:
+      operationId: subscribeWorldOperationEvents
+      tags: [progression]
+      summary: Subscribe to read-only universe operation status
+      description: Server-sent events stream. Each `operations.snapshot` event carries a public OperationDirectoryResponse snapshot with no account identifiers. The stream is read-only; clients cannot publish status through it.
+      responses:
+        "200":
+          description: Read-only server-sent operation status snapshots
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "503":
+          description: Operation status is temporarily unavailable
+  /world/operations/{operationId}/instances:
+    post:
+      operationId: registerWorldOperationInstance
+      tags: [progression]
+      summary: Authenticated player registers and enters an operation
+      description: Registers only supported on-demand operations at their server-verified world location. Admission is single-seat, server-issued, expires automatically, and cannot grant rewards.
+      security:
+        - ClerkSession: []
+      parameters:
+        - in: path
+          name: operationId
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationRegistrationBody"
+      responses:
+        "200":
+          description: Existing idempotent registration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationRegistrationResponse"
+        "201":
+          description: New operation registration and admission assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationRegistrationResponse"
+        "400":
+          description: Invalid operation registration
+        "401":
+          description: Authentication required
+        "403":
+          description: Player must travel to the operation location
+        "409":
+          description: Unsupported operation or existing active seat
+  /world/operations/instances/{instanceId}/leave:
+    post:
+      operationId: leaveWorldOperationInstance
+      tags: [progression]
+      summary: End the authenticated player's operation seat
+      security:
+        - ClerkSession: []
+      parameters:
+        - in: path
+          name: instanceId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Operation seat closed
+        "204":
+          description: Operation seat closed
+        "401":
+          description: Authentication required
+        "404":
+          description: Operation seat not found for this player
   /world/travel:
     post:
       operationId: travelWorld
@@ -420,7 +524,7 @@ components:
       properties:
         credits: { type: integer, minimum: 0 }
         faction: { type: string, enum: [accord, ussf] }
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
         scheme: { type: string, enum: [arc, strafe] }
         refit: { type: integer, minimum: 0, maximum: 5 }
         shieldMk2: { type: boolean }
@@ -473,7 +577,7 @@ components:
       required: [faction, shipId]
       properties:
         faction: { type: string, enum: [accord, ussf] }
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
     ControlSchemeInput:
       type: object
       additionalProperties: false
@@ -499,7 +603,7 @@ components:
       additionalProperties: false
       required: [shipId, faction, scheme, pace, mission, tech]
       properties:
-        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+        shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
         faction: { type: string, enum: [accord, ussf] }
         scheme: { type: string, enum: [arc, strafe] }
         pace: { type: string, enum: [practice, strike] }
@@ -517,7 +621,7 @@ components:
           type: object
           required: [shipId, faction, refit, pace, goal, disc, allyCount, foeCount, tech, mission]
           properties:
-            shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide] }
+            shipId: { type: string, enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide, wasp, valiant, aegis, bastion, apep, sekhmet, garuda, vajra] }
             faction: { type: string, enum: [accord, ussf] }
             refit: { type: integer, minimum: 0, maximum: 5 }
             shieldMk2: { type: boolean }
@@ -528,7 +632,7 @@ components:
             foeCount: { type: integer, minimum: 1, maximum: 5 }
             tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
             mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
-            flightModel: { type: string, enum: [surface-v1, orbital-v1] }
+            flightModel: { type: string, enum: [surface-v1, orbital-v1, orbital-v2, orbital-v3, orbital-v4, orbital-v5] }
     StrikeStepInput:
       type: object
       additionalProperties: false
@@ -675,13 +779,173 @@ components:
         market: { $ref: "#/components/schemas/MarketSnapshot" }
         transaction: { $ref: "#/components/schemas/MarketTransaction" }
         replayed: { type: boolean }
+    UniverseVector3:
+      type: object
+      required: [x, y, z]
+      properties:
+        x: { type: number, minimum: -100000, maximum: 100000 }
+        y: { type: number, minimum: -100000, maximum: 100000 }
+        z: { type: number, minimum: -100000, maximum: 100000 }
+    UniverseLocation:
+      type: object
+      required: [id, worldLocationId, name, kind, sectorId, position]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 80 }
+        worldLocationId: { type: string, minLength: 1, maxLength: 80 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        kind: { type: string, enum: [asteroid, station, orbital-sector] }
+        sectorId: { type: string, minLength: 1, maxLength: 80 }
+        position: { $ref: "#/components/schemas/UniverseVector3" }
+    UniversePresenceSummary:
+      type: object
+      required: [locationId, activePilots]
+      properties:
+        locationId: { type: string, minLength: 1, maxLength: 80 }
+        activePilots: { type: integer, minimum: 0, maximum: 100000 }
+    UniverseEvent:
+      type: object
+      required: [id, kind, locationId, status, title]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, enum: [operation-opened, match-started, match-completed, faction-event] }
+        locationId: { type: string, minLength: 1, maxLength: 80 }
+        operationInstanceId: { type: ["string", "null"], maxLength: 100 }
+        status: { type: string, enum: [active, completed] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+    OperationDefinition:
+      type: object
+      required: [id, title, description, locationId, experience, runtimeId, rulesetId, teamSize, capacity, visibility, lifecycle, access, rewardPolicy]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 100 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string, maxLength: 1000 }
+        locationId: { type: string, minLength: 1, maxLength: 80 }
+        experience: { type: string, enum: [flight-simulation, orbital-combat, cooperative, competitive, campaign, arcade] }
+        runtimeId: { type: string, minLength: 1, maxLength: 80 }
+        rulesetId: { type: string, minLength: 1, maxLength: 100 }
+        teamSize: { type: integer, minimum: 1, maximum: 100 }
+        capacity: { type: integer, minimum: 1, maximum: 200 }
+        visibility: { type: string, enum: [public, unlisted, private] }
+        lifecycle: { type: string, enum: [on-demand, queued, scheduled, persistent] }
+        access: { type: string, enum: [local-training, matchmaking, invitation, direct] }
+        rewardPolicy: { type: string, enum: [none, existing-authority] }
+    OperationInstance:
+      type: object
+      required: [id, operationId, locationId, phase, currentPlayers, capacity, runtimeId, rulesetId, visibility, registeredAt, expiresAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 100 }
+        operationId: { type: string, minLength: 1, maxLength: 100 }
+        locationId: { type: string, minLength: 1, maxLength: 80 }
+        phase: { type: string, enum: [assembling, ready, active, complete, closed] }
+        currentPlayers: { type: integer, minimum: 0, maximum: 200 }
+        capacity: { type: integer, minimum: 1, maximum: 200 }
+        runtimeId: { type: string, minLength: 1, maxLength: 80 }
+        rulesetId: { type: string, minLength: 1, maxLength: 100 }
+        visibility: { type: string, enum: [public, unlisted] }
+        registeredAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    OperationRegistrationBody:
+      type: object
+      required: [idempotencyKey, visibility]
+      properties:
+        idempotencyKey: { type: string, format: uuid }
+        visibility: { type: string, enum: [public, unlisted] }
+    OperationRegistrationResponse:
+      type: object
+      required: [instance, authorization]
+      properties:
+        instance: { $ref: "#/components/schemas/OperationInstance" }
+        authorization: { $ref: "#/components/schemas/JoinAuthorization" }
+    PlayerPresence:
+      type: object
+      required: [publicCallsign, team, position, connected]
+      properties:
+        publicCallsign: { type: ["string", "null"], maxLength: 32 }
+        team: { type: ["string", "null"], enum: [ussf, accord, null] }
+        position:
+          oneOf:
+            - { $ref: "#/components/schemas/UniverseVector3" }
+            - { type: "null" }
+        connected: { type: boolean }
+    MatchAssignment:
+      type: object
+      required: [assignmentId, operationInstanceId, runtimeId, rulesetId, seat, expiresAt]
+      properties:
+        assignmentId: { type: string, minLength: 1, maxLength: 100 }
+        operationInstanceId: { type: string, minLength: 1, maxLength: 100 }
+        runtimeId: { type: string, minLength: 1, maxLength: 80 }
+        rulesetId: { type: string, minLength: 1, maxLength: 100 }
+        seat: { type: integer, minimum: 0, maximum: 199 }
+        expiresAt: { type: string, format: date-time }
+    SpectatorSession:
+      type: object
+      required: [sessionId, operationInstanceId, readOnly, cameraModes, expiresAt]
+      properties:
+        sessionId: { type: string, minLength: 1, maxLength: 100 }
+        operationInstanceId: { type: string, minLength: 1, maxLength: 100 }
+        readOnly: { type: boolean, enum: [true] }
+        cameraModes:
+          type: array
+          items: { type: string, enum: [overview, ussf, accord] }
+        expiresAt: { type: string, format: date-time }
+    JoinAuthorization:
+      type: object
+      required: [allowed, reason, assignment]
+      properties:
+        allowed: { type: boolean }
+        reason: { type: string, enum: [authorized, authentication-required, operation-closed, full, ineligible, version-mismatch, not-at-location, unsupported-operation] }
+        assignment:
+          oneOf:
+            - { $ref: "#/components/schemas/MatchAssignment" }
+            - { type: "null" }
+    OperationResult:
+      type: object
+      required: [operationInstanceId, runtimeId, rulesetId, outcome, objectives, completedAt, serverVerified]
+      properties:
+        operationInstanceId: { type: string, minLength: 1, maxLength: 100 }
+        runtimeId: { type: string, minLength: 1, maxLength: 80 }
+        rulesetId: { type: string, minLength: 1, maxLength: 100 }
+        outcome: { type: string, enum: [victory, defeat, draw, abandoned] }
+        objectives:
+          type: array
+          items:
+            type: object
+            required: [id, completed]
+            properties:
+              id: { type: string, minLength: 1, maxLength: 100 }
+              completed: { type: boolean }
+        completedAt: { type: string, format: date-time }
+        serverVerified: { type: boolean }
+    OperationDirectoryResponse:
+      type: object
+      required: [generatedAt, locations, operations, instances, events]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        locations:
+          type: array
+          items: { $ref: "#/components/schemas/UniverseLocation" }
+        operations:
+          type: array
+          items: { $ref: "#/components/schemas/OperationDefinition" }
+        instances:
+          type: array
+          items: { $ref: "#/components/schemas/OperationInstance" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/UniverseEvent" }
+        presence:
+          type: array
+          items: { $ref: "#/components/schemas/UniversePresenceSummary" }
+        presenceStatus:
+          type: string
+          enum: [available, unavailable]
     WorldLocation:
       type: object
       required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]
       properties:
         id: { type: string }
         name: { type: string }
-        kind: { type: string, enum: [station, relay, moon, ruins] }
+        kind: { type: string, enum: [station, relay, moon, ruins, asteroid] }
         x: { type: integer, minimum: 0, maximum: 100 }
         y: { type: integer, minimum: 0, maximum: 100 }
         unlockAfter: { type: integer, minimum: 0, maximum: 4 }

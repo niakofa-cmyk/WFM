@@ -133,20 +133,16 @@ function PublicLanding() {
           <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
-                <span className="block">OTHER FLIGHT OPERATIONS</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Rust Disc · Combat Lab · Co-op sectors</span>
+                <span className="block">TRAINING & CO-OP OPERATIONS</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Combat Lab · server-run sectors</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
             </summary>
             <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              <Link href="/flight" data-testid="link-landing-rust-disc" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left`}>
-                <span>RUST DISC · LOCAL FLIGHT</span>
-                <span className="font-sans text-xs tracking-normal text-muted">3D trainer · no rewards or account changes</span>
-              </Link>
               <a href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left`}>
                 <span>ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="font-sans text-xs tracking-normal text-muted">Combat prototype · no rewards</span>
+                <span className="font-sans text-xs tracking-normal text-muted">Orbital training runtime · no rewards</span>
               </a>
               {expeditionEnabled ? (
                 <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>

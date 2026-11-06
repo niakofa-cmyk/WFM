@@ -3,8 +3,8 @@ import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
-import { createSectorRuntime } from "./sector-runtime";
-import { sectorMission, type SectorProgress } from "../game/sector-missions";
+import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
+import { sectorMission, type SectorProgress, type SectorProtocolVersion } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
   createWing,
@@ -29,6 +29,9 @@ const DEFAULT_CASUAL_AI_FILL_WAIT_MS = 30_000;
 const ROOM_IDLE_MS = DISCONNECT_GRACE_MS * 2;
 const LOBBY_IDLE_MS = 15 * 60_000;
 const ROOM_ID = /^[a-z0-9][a-z0-9-]{5,23}$/i;
+const SPECTATE_MATCH_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_SPECTATORS_PER_MATCH = 12;
+const COMPETITIVE_OPERATION_HEARTBEAT_MS = 10_000;
 const AUTH_QUERY_PARAMETER =
   /^(?:token|access_token|session_token|auth_token|authorization|jwt)$/i;
 const SOCKET_AUTH_TIMEOUT_MS = 5_000;
@@ -38,6 +41,7 @@ type Room = {
   id: string;
   wing: ReturnType<typeof createWing>;
   sockets: Set<WebSocket>;
+  spectators: Set<WebSocket>;
   slotSockets: Map<number, WebSocket>;
   emptySince: number | null;
   phase: "lobby" | "active";
@@ -48,6 +52,10 @@ type Room = {
   readySlots: Set<number>;
   lastActivityAt: number;
   matchId: string | null;
+  lastOperationSyncAt: number;
+  operationSyncChain: Promise<void>;
+  lastSpectatorSnapshotAt: number;
+  operationClosed: boolean;
   matchParticipants: Map<number, MatchParticipant>;
   admittedPlayerIds: Set<string> | null;
   lastTickAt: number;
@@ -74,6 +82,8 @@ type Client = {
   authenticating: boolean;
   roomId: string;
   room: Room | null;
+  spectatorRoom: Room | null;
+  spectateMatchId: string | null;
   slotId: number | null;
   messageWindow: number;
   messageCount: number;
@@ -108,8 +118,16 @@ export async function startWingSocketServer(
     enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
     enableSectorFlight?: boolean;
+    sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+    isAtCinderRing?: (userId: string) => Promise<boolean>;
+    publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
+    publishCompetitiveMatch?: (state: {
+      matchId: string;
+      phase: "active" | "closed";
+      currentPlayers: number;
+    }) => Promise<void>;
     casualAiFillWaitMs?: number;
     /**
      * Trusted server-only resolver. It must return "competitive" only for
@@ -129,6 +147,9 @@ export async function startWingSocketServer(
   const sectorRuntime = createSectorRuntime({
     loadProgress: options.loadSectorProgress,
     settle: options.settleSectorDiscovery,
+    isAtCinderRing: options.isAtCinderRing,
+    publishOperation: options.publishSectorOperation,
+    protocolVersion: options.sectorProtocolVersion,
   });
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
@@ -170,6 +191,7 @@ export async function startWingSocketServer(
       queueRequested: boolean;
       aiFillQueueRequested: boolean;
       sectorMission: string | null;
+      spectateMatchId: string | null;
     }
   >();
 
@@ -200,6 +222,15 @@ export async function startWingSocketServer(
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
     const sectorId = url.searchParams.get("sector");
+    const requestedSpectateId = url.searchParams.get("spectate");
+    const spectateMatchId =
+      requestedSpectateId && SPECTATE_MATCH_ID.test(requestedSpectateId)
+        ? requestedSpectateId.toLowerCase()
+        : null;
+    const spectatorRequested =
+      spectateMatchId !== null &&
+      !url.searchParams.has("room") &&
+      url.searchParams.size === 1;
     if (sectorId !== null) {
       if (!sectorMission(sectorId) || url.searchParams.size !== 2 || !ROOM_ID.test(roomId)) {
         rejectUpgrade(socket, "400 Bad Request");
@@ -211,7 +242,9 @@ export async function startWingSocketServer(
       }
     }
     const queueOnly =
-      !url.searchParams.has("room") && url.searchParams.size === 1;
+      !url.searchParams.has("room") &&
+      url.searchParams.has("queue") &&
+      url.searchParams.size === 1;
     const competitiveQueueRequested =
       queueOnly && url.searchParams.get("queue") === "competitive";
     const aiFillQueueRequested =
@@ -220,6 +253,7 @@ export async function startWingSocketServer(
       competitiveQueueRequested || aiFillQueueRequested;
     const roomRequested =
       !url.searchParams.has("queue") &&
+      !spectatorRequested &&
       ROOM_ID.test(roomId);
     if (
       competitiveQueueRequested &&
@@ -237,7 +271,8 @@ export async function startWingSocketServer(
     }
     if (
       (url.pathname !== "/ws" && url.pathname !== "/ws/") ||
-      (!queueRequested && !roomRequested)
+      (!queueRequested && !roomRequested && !spectatorRequested) ||
+      (url.searchParams.has("spectate") && !spectatorRequested)
     ) {
       rejectUpgrade(socket, "400 Bad Request");
       return;
@@ -248,6 +283,7 @@ export async function startWingSocketServer(
         queueRequested,
         aiFillQueueRequested,
         sectorMission: sectorId,
+        spectateMatchId: spectatorRequested ? spectateMatchId : null,
       });
       sockets.emit("connection", client, request);
     });
@@ -258,6 +294,7 @@ export async function startWingSocketServer(
       id: roomId,
       wing: createWing(randomInt(1, 0x7fffffff)),
       sockets: new Set(),
+      spectators: new Set(),
       slotSockets: new Map(),
       emptySince: null,
       phase: "lobby",
@@ -268,6 +305,10 @@ export async function startWingSocketServer(
       readySlots: new Set(),
       lastActivityAt: Date.now(),
       matchId: null,
+      lastOperationSyncAt: 0,
+      operationSyncChain: Promise.resolve(),
+      lastSpectatorSnapshotAt: 0,
+      operationClosed: false,
       matchParticipants: new Map(),
       admittedPlayerIds: matchMode === "competitive" ? new Set() : null,
       lastTickAt: Date.now(),
@@ -299,6 +340,95 @@ export async function startWingSocketServer(
 
   function socketForClient(client: Client) {
     return client.socket;
+  }
+
+  function spectatorSnapshot(room: Room) {
+    const snapshot = room.wing.snapshot();
+    const craftView = (craft: (typeof snapshot.match.player)) => ({
+      x: craft.x,
+      z: craft.z,
+      yaw: craft.yaw,
+      hull: craft.hull,
+      hullMax: craft.hullMax,
+      alive: craft.alive,
+    });
+    return {
+      tick: snapshot.tick,
+      time: snapshot.time,
+      players: snapshot.players.map(({ slotId, team, connected, x, z, yaw, hp }) => ({
+        slotId,
+        team,
+        connected,
+        x,
+        z,
+        yaw,
+        hp,
+        lastSeq: 0,
+        name: null,
+      })),
+      match: {
+        player: craftView(snapshot.match.player),
+        allies: snapshot.match.allies.map(craftView),
+        enemies: snapshot.match.enemies.map(craftView),
+        relays: snapshot.match.relays.map(({ x, z, own, cap }) => ({ x, z, own, cap })),
+        over: snapshot.match.over,
+      },
+    };
+  }
+
+  function publishCompetitiveOperation(room: Room, phase: "active" | "closed") {
+    if (
+      room.matchMode !== "competitive" ||
+      !room.matchId ||
+      !options.publishCompetitiveMatch
+    ) return;
+    const currentPlayers = room.wing.snapshot().players.filter((player) => player.connected).length;
+    room.lastOperationSyncAt = Date.now();
+    room.operationSyncChain = room.operationSyncChain
+      .then(() => options.publishCompetitiveMatch!({
+        matchId: room.matchId!,
+        phase,
+        currentPlayers,
+      }))
+      .catch(() => {
+        // The operation directory is observational; it must never halt combat.
+      });
+  }
+
+  function attachSpectator(client: Client, socket: WebSocket) {
+    const matchId = client.spectateMatchId;
+    const room = matchId
+      ? [...rooms.values()].find((candidate) =>
+          candidate.matchId === matchId &&
+          candidate.matchMode === "competitive" &&
+          candidate.phase === "active" &&
+          !candidate.wing.match.over)
+      : undefined;
+    if (!room) {
+      send(socket, { type: "error", reason: "spectate_match_unavailable" });
+      socket.close(1000, "That competitive match is no longer available.");
+      return;
+    }
+    if (room.spectators.size >= MAX_SPECTATORS_PER_MATCH) {
+      send(socket, { type: "error", reason: "spectator_capacity" });
+      socket.close(1008, "Spectator capacity reached.");
+      return;
+    }
+    client.spectatorRoom = room;
+    room.spectators.add(socket);
+    send(socket, {
+      type: "spectator_joined",
+      matchId: room.matchId,
+      snapshot: spectatorSnapshot(room),
+    });
+  }
+
+  function closeSpectators(room: Room, reason: string) {
+    for (const socket of room.spectators) {
+      send(socket, { type: "spectator_ended", reason });
+      socket.close(1000, reason);
+    }
+    room.spectators.clear();
   }
 
   function removeFromCompetitiveQueue(client: Client) {
@@ -564,6 +694,7 @@ export async function startWingSocketServer(
       sendJoinedPacket(assignment.socket, room, assignment.result, snapshot);
     }
     publishCompetitiveQueueStatus();
+    publishCompetitiveOperation(room, "active");
     return true;
   }
 
@@ -586,6 +717,53 @@ export async function startWingSocketServer(
     publishCompetitiveQueueStatus();
   }
 
+  function enqueueCompetitivePilot(client: Client, socket: WebSocket, now: number) {
+    const playerId = client.playerId;
+    if (!playerId) {
+      send(socket, { type: "error", reason: "authentication_required" });
+      socket.close(1008, "Authentication required.");
+      return;
+    }
+    const pending = pendingCompetitiveAssignments.get(playerId);
+    if (pending) {
+      const pendingRoom = rooms.get(pending.roomId);
+      if (
+        pending.expiresAt > now &&
+        pendingRoom?.matchMode === "competitive" &&
+        pendingRoom.admittedPlayerIds?.has(playerId) &&
+        pendingRoom.wing.canReconnect(pending.reconnectToken)
+      ) {
+        const result = attachQueuedPilot(socket, client, pendingRoom, pending.reconnectToken);
+        if (result) {
+          sendJoinedPacket(socket, pendingRoom, result);
+          return;
+        }
+      }
+      pendingCompetitiveAssignments.delete(playerId);
+    }
+    const alreadyInMatch = [...rooms.values()].some(
+      (room) =>
+        room.phase === "active" &&
+        !room.wing.match.over &&
+        room.wing.participants().some((participant) => participant.userId === playerId),
+    );
+    if (alreadyInMatch) {
+      send(socket, { type: "error", reason: "already_in_match" });
+      return;
+    }
+    if (competitiveQueue.some((queuedClient) => queuedClient.playerId === playerId)) {
+      send(socket, { type: "error", reason: "already_queued" });
+      return;
+    }
+    if (competitiveQueue.length >= MAX_COMPETITIVE_QUEUE) {
+      send(socket, { type: "error", reason: "queue_capacity" });
+      return;
+    }
+    competitiveQueue.push(client);
+    client.queueEnteredAt = now;
+    matchCompetitiveQueue();
+  }
+
   sockets.on("connection", (socket) => {
     const request = connectionRequests.get(socket);
     const client: Client = {
@@ -594,6 +772,8 @@ export async function startWingSocketServer(
       authenticating: false,
       roomId: request?.roomId ?? "",
       room: null,
+      spectatorRoom: null,
+      spectateMatchId: request?.spectateMatchId ?? null,
       slotId: null,
       messageWindow: Date.now(),
       messageCount: 0,
@@ -686,6 +866,7 @@ export async function startWingSocketServer(
             client.authenticating = false;
             clearAuthenticationTimeout();
             send(socket, { type: "authenticated" });
+            if (client.spectateMatchId) attachSpectator(client, socket);
           })
           .catch(() => {
             client.authenticating = false;
@@ -697,6 +878,12 @@ export async function startWingSocketServer(
       if (packet.type === "authenticate") {
         send(socket, { type: "error", reason: "already_authenticated" });
         socket.close(1008, "Already authenticated");
+        return;
+      }
+
+      if (client.spectatorRoom) {
+        send(socket, { type: "error", reason: "spectator_read_only" });
+        socket.close(1008, "Spectator connections are read-only.");
         return;
       }
 
@@ -722,55 +909,20 @@ export async function startWingSocketServer(
           joinCasualAiQueue(client, socket, now);
           return;
         }
-        const pending = pendingCompetitiveAssignments.get(client.playerId);
-        if (pending) {
-          const pendingRoom = rooms.get(pending.roomId);
-          if (
-            pending.expiresAt > now &&
-            pendingRoom?.matchMode === "competitive" &&
-            pendingRoom.admittedPlayerIds?.has(client.playerId) &&
-            pendingRoom.wing.canReconnect(pending.reconnectToken)
-          ) {
-            const result = attachQueuedPilot(
-              socket,
-              client,
-              pendingRoom,
-              pending.reconnectToken,
-            );
-            if (result) {
-              sendJoinedPacket(socket, pendingRoom, result);
-              return;
-            }
+        if (!options.isAtCinderRing) {
+          send(socket, { type: "error", reason: "arena_status_unavailable" });
+          return;
+        }
+        void options.isAtCinderRing(client.playerId).then((atArena) => {
+          if (socket.readyState !== WebSocket.OPEN) return;
+          if (!atArena) {
+            send(socket, { type: "error", reason: "cinder_ring_required" });
+            return;
           }
-          pendingCompetitiveAssignments.delete(client.playerId);
-        }
-        const alreadyInMatch = [...rooms.values()].some(
-          (room) =>
-            room.phase === "active" &&
-            !room.wing.match.over &&
-            room.wing
-              .participants()
-              .some((participant) => participant.userId === client.playerId),
-        );
-        if (alreadyInMatch) {
-          send(socket, { type: "error", reason: "already_in_match" });
-          return;
-        }
-        if (
-          competitiveQueue.some(
-            (queuedClient) => queuedClient.playerId === client.playerId,
-          )
-        ) {
-          send(socket, { type: "error", reason: "already_queued" });
-          return;
-        }
-        if (competitiveQueue.length >= MAX_COMPETITIVE_QUEUE) {
-          send(socket, { type: "error", reason: "queue_capacity" });
-          return;
-        }
-        competitiveQueue.push(client);
-        client.queueEnteredAt = now;
-        matchCompetitiveQueue();
+          enqueueCompetitivePilot(client, socket, now);
+        }).catch(() => {
+          send(socket, { type: "error", reason: "arena_status_unavailable" });
+        });
         return;
       }
 
@@ -1080,6 +1232,8 @@ export async function startWingSocketServer(
       clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
       if (removeFromCompetitiveQueue(client)) matchCompetitiveQueue();
+      client.spectatorRoom?.spectators.delete(socket);
+      client.spectatorRoom = null;
       const room = client.room;
       const slotId = client.slotId;
       clients.delete(socket);
@@ -1299,12 +1453,14 @@ export async function startWingSocketServer(
         now - room.emptySince > ROOM_IDLE_MS
       ) {
         rooms.delete(id);
+        closeSpectators(room, "Match feed ended.");
         if (casualAiRoomId === id) casualAiRoomId = null;
         matchCompetitiveQueue();
         continue;
       }
       if (room.phase === "lobby" && now - room.lastActivityAt > LOBBY_IDLE_MS) {
         rooms.delete(id);
+        closeSpectators(room, "Lobby expired.");
         if (casualAiRoomId === id) casualAiRoomId = null;
         for (const socket of room.sockets) socket.close(1001, "Lobby expired");
         matchCompetitiveQueue();
@@ -1347,6 +1503,17 @@ export async function startWingSocketServer(
           participant.activeMs += activeDeltaMs;
         }
       }
+      if (room.matchMode === "competitive" && room.matchId) {
+        if (room.wing.match.over && !room.operationClosed) {
+          room.operationClosed = true;
+          publishCompetitiveOperation(room, "closed");
+        } else if (
+          !room.wing.match.over &&
+          now - room.lastOperationSyncAt >= COMPETITIVE_OPERATION_HEARTBEAT_MS
+        ) {
+          publishCompetitiveOperation(room, "active");
+        }
+      }
       if (room.wing.match.over && !room.settlementDone) {
         startWingRewardSettlement(room, now);
         if (!room.settlementDone) {
@@ -1369,6 +1536,25 @@ export async function startWingSocketServer(
           continue;
         }
         socket.send(message);
+      }
+      if (
+        room.spectators.size > 0 &&
+        now - room.lastSpectatorSnapshotAt >= 100
+      ) {
+        room.lastSpectatorSnapshotAt = now;
+        const spectatorMessage = JSON.stringify({
+          type: "spectator_snapshot",
+          matchId: room.matchId,
+          snapshot: spectatorSnapshot(room),
+        });
+        for (const socket of room.spectators) {
+          if (socket.readyState !== WebSocket.OPEN) continue;
+          if (socket.bufferedAmount > 524_288) {
+            socket.close(1013, "Spectator cannot keep up.");
+            continue;
+          }
+          socket.send(spectatorMessage);
+        }
       }
       room.wing.match.fx.length = 0;
     }
