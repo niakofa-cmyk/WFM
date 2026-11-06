@@ -35,8 +35,9 @@ vertical slice over a large but disconnected map.
 fabricate active pilots, competition status or reward eligibility.
 
 **Architecture rule:** maintain one persistent universe layer for destinations,
-server-owned travel and short-lived player presence, while preserving multiple
-independent combat runtimes. Surface live activities from real operation
+server-owned travel and short-lived player presence. The latest master directive
+targets one Orbital main engine; preserve existing combat runtimes as explicit
+migration/rollback adapters until parity is proven. Surface live activities from real operation
 instances; publish presence only as anonymous destination-level counts, never
 player identities or exact coordinates.
 

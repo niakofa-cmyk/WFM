@@ -9,13 +9,16 @@ current checkpoint are in `docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md`.
 The repo-specific menu/consolidation diagnosis is preserved at
 `docs/infinite-war/REPO-UNIFICATION-REQUEST.txt`.
 
+The current master directive takes precedence over the historical UI-first
+priority order below: audit/consolidate the Orbital main engine before visual
+redesign. See [master directive](master-development-directive.md).
+
 The central direction is one connected WAR FOR MARS experience: one identity,
 one saved ship/loadout, operations in a shared universe, and validated outcomes
-that lead back to the Hangar. The latest owner priority is command center,
-Hangar, operation-specific combat-engine integration, universe destinations,
-then persistent settings. Orbital Combat Lab is a development/validation
-foundation; preserve Rust Disc, Arcade, and Wing as explicit independent
-experiences until each migration passes its own proof and rollback gates.
+that lead back to the Hangar. The earlier UI-first priority order is historical.
+Orbital Combat Lab is the main-engine destination; preserve Rust Disc, Arcade,
+and Wing as distinct playable experiences through configurations/adapters,
+keeping their existing runtimes until migration and rollback gates pass.
 
 **Why:** the owner designated this roadmap to guide the evolutionary rebuild.
 It explicitly warns against another parallel runtime or discarding verified
