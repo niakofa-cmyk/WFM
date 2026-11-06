@@ -193,9 +193,11 @@ operation's declared runtime. It does not create activity, reveal account
 identities, or merge combat systems. Existing travel and station hubs remain
 the entry points into each independent runtime.
 
-The additive universe-presence schema migration is committed as a migration
-file but has not been applied to any database. Until it is applied, operation
-events remain available and the directory reports presence as unavailable.
+The additive universe-presence schema migration has been applied to the Replit
+Development database and verified with an isolated, temporary presence probe.
+No Railway staging or Production database was changed. If the table is absent
+during a staged rollout, operation events remain available and the directory
+reports presence as unavailable.
 This increment does not provide exact nearby ship positions, continuous shared
 3D free flight, or new station/asteroid destinations; those require separate
 server-authoritative work and verification.

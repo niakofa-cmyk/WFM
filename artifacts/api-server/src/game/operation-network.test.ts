@@ -241,7 +241,9 @@ test("operation activity stays readable while the additive presence schema is no
   const coordinator = createOperationCoordinator({
     ...store,
     async listUniversePresence() {
-      throw Object.assign(new Error("missing table details"), { code: "42P01" });
+      throw new Error("presence query failed", {
+        cause: Object.assign(new Error("missing table details"), { code: "42P01" }),
+      });
     },
   });
   const directory = await coordinator.getDirectory();

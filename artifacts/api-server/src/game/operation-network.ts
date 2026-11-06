@@ -363,8 +363,14 @@ export function buildOperationDirectory(
 }
 
 function isMissingUniversePresenceTable(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error &&
-    (error as { code?: unknown }).code === "42P01";
+  let candidate = error;
+  const visited = new Set<object>();
+  while (typeof candidate === "object" && candidate !== null && !visited.has(candidate)) {
+    visited.add(candidate);
+    if ("code" in candidate && (candidate as { code?: unknown }).code === "42P01") return true;
+    candidate = "cause" in candidate ? (candidate as { cause?: unknown }).cause : undefined;
+  }
+  return false;
 }
 
 export function createOperationCoordinator(
