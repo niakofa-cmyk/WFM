@@ -1,6 +1,12 @@
 import { SHIPS } from "./ships";
-import { deployCountermeasure, ORBITAL_RULES_VERSION, type OrbitalRulesVersion } from "@workspace/orbital-sim";
-import { detAtan2, detHypot } from "./detmath";
+import {
+  deployCountermeasure,
+  ORBITAL_COUNTERMEASURE_RULES_VERSION,
+  ORBITAL_FLEET_RULES_VERSION,
+  ORBITAL_RULES_VERSION,
+  type OrbitalRulesVersion,
+} from "@workspace/orbital-sim";
+import { detAtan2, detCos, detHypot, detSin } from "./detmath";
 import { integrateFlight, newFlight, rotate } from "./orbital-flight";
 import { distance3, guideMissile, launchMissile, primaryBullet, primaryVolley, primaryWeaponFor, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
 import { activateOrbitalAbility, advanceOrbitalAbility, applyOrbitalAbilityInput, ORBITAL_ABILITY_COST, processOrbitalAbility } from "./orbital-abilities";
@@ -18,7 +24,7 @@ export function prepareOrbital(match: Match, rulesVersion: OrbitalRulesVersion =
   for (const craft of [match.player, ...match.allies, ...match.enemies]) {
     craft.space = newFlight(craft.yaw);
     craft.space.ammo = SHIPS[craft.ship].missileAmmo;
-    if (rulesVersion === ORBITAL_RULES_VERSION) craft.space.countermeasureCd = 0;
+    if (rulesVersion >= ORBITAL_COUNTERMEASURE_RULES_VERSION) craft.space.countermeasureCd = 0;
   }
   match.player.x = 0; match.player.z = 28;
   match.enemies.forEach((craft, i) => {
@@ -65,6 +71,24 @@ function selectTarget(match: Match, input: StepInput) {
   match.lockId = pilot.lockTargetId;
 }
 
+function fleetFormationAnchor(match: Match, craft: Craft) {
+  const squad = craft.team === "foe" ? match.enemies : match.allies;
+  const slot = squad.findIndex((pilot) => pilot.id === craft.id);
+  const leader = craft.team === "foe" ? squad[0] : match.player;
+  if (!leader?.space || slot < 0) return null;
+  const offsets: ReadonlyArray<readonly [number, number]> = craft.team === "foe"
+    ? [[0, 0], [-9, 7], [9, 7], [-16, 15], [16, 15]]
+    : [[-9, 13], [9, 13], [-17, 25], [17, 25]];
+  const [localX, localZ] = offsets[slot] ?? [0, 0];
+  const sin = detSin(leader.yaw);
+  const cos = detCos(leader.yaw);
+  return {
+    x: leader.x + localX * cos + localZ * sin,
+    y: leader.space.y,
+    z: leader.z - localX * sin + localZ * cos,
+  };
+}
+
 export function stepOrbital(match: Match, input: StepInput, dt: number, services: Services) {
   if (!Number.isFinite(dt) || dt <= 0 || dt > .1) throw new Error("Orbital step must be finite and at most 100 ms.");
   const player = match.player;
@@ -81,20 +105,45 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
       const foes = (craft.team === "foe" ? [player, ...match.allies] : match.enemies).filter((c) => c.alive);
       const target = foes.sort((a, b) => distance3(craft, a) - distance3(craft, b))[0];
       played = { ...IDLE };
-      if (target) {
+      const isFleetRules = (match.orbitalRulesVersion ?? 0) >= ORBITAL_FLEET_RULES_VERSION;
+      const targetDistance = target ? distance3(craft, target) : Number.POSITIVE_INFINITY;
+      const fleetLead = craft.team === "foe" && craft.id === match.enemies[0]?.id;
+      const holdFormation = isFleetRules && !fleetLead && (!target || targetDistance > 55);
+      if (holdFormation) {
+        const anchor = fleetFormationAnchor(match, craft);
+        if (anchor) {
+          const local = rotate([-space.q[0], -space.q[1], -space.q[2], space.q[3]],
+            anchor.x - craft.x, anchor.y - space.y, anchor.z - craft.z);
+          const distance = detHypot(local.x, detHypot(local.y, local.z));
+          played.yaw = Math.max(-1, Math.min(1, detAtan2(-local.x, -local.z) * 1.7));
+          played.pitch = Math.max(-1, Math.min(1, detAtan2(local.y, detHypot(local.x, local.z)) * 1.7));
+          played.throttle = distance > 4 ? .38 : 0;
+          played.strafe = Math.max(-.28, Math.min(.28, local.x * .025));
+          played.vertical = Math.max(-.22, Math.min(.22, local.y * .025));
+        }
+      }
+      if (target && !holdFormation) {
         const dx = target.x - craft.x; const dy = target.space!.y - space.y; const dz = target.z - craft.z;
         // Inverse rotation transforms the desired direction into local flight axes.
         const local = rotate([-space.q[0], -space.q[1], -space.q[2], space.q[3]], dx, dy, dz);
         played.yaw = Math.max(-1, Math.min(1, detAtan2(-local.x, -local.z) * 1.7));
         played.pitch = Math.max(-1, Math.min(1, detAtan2(local.y, detHypot(local.x, local.z)) * 1.7));
         const distance = distance3(craft, target);
-        played.throttle = distance > 35 ? .4 : distance < 15 ? -.3 : 0;
+        const role = SHIPS[craft.ship].role.toLowerCase();
+        const preferredDistance = !isFleetRules ? 35
+          : role.includes("support") || role.includes("escort") ? 30
+            : role.includes("heavy") || role.includes("siege") ? 36
+              : role.includes("striker") ? 23 : 18;
+        played.throttle = distance > preferredDistance ? .4 : distance < preferredDistance * .55 ? -.3 : 0;
+        if (isFleetRules && !role.includes("heavy") && !role.includes("siege")) {
+          played.strafe = (craft.id % 2 === 0 ? 1 : -1) * .16;
+        }
         craft.lockTargetId = target.id;
         played.fire = match.time > 5 && targetSolution(craft, target, match.rocks).available && targetSolution(craft, target, match.rocks).angle < .18 && distance < 60;
         played.missile = match.orbitalTraining === true && match.time >= 2 + (craft.id % 3) && space.missileCd <= 0 && space.ammo > 0 &&
           space.lockProgress >= 1 && targetSolution(craft, target, match.rocks).available;
         // First defender is a stationary gun platform; other defenders maneuver.
-        if (craft.id === match.enemies[0]?.id) played.throttle = 0;
+        if (!isFleetRules && craft.id === match.enemies[0]?.id) played.throttle = 0;
         played.ult = craft.ultCd <= 0 && space.energy >= ORBITAL_ABILITY_COST[SHIPS[craft.ship].ability] &&
           (distance < 32 || SHIPS[craft.ship].ability === "aegis-intercept-grid");
       }
@@ -113,7 +162,7 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
       let decoyed = 0;
       let disrupted = 0;
       let activated = true;
-      if (match.orbitalRulesVersion === ORBITAL_RULES_VERSION) {
+      if ((match.orbitalRulesVersion ?? 0) >= ORBITAL_COUNTERMEASURE_RULES_VERSION) {
         const result = deployCountermeasure(match.bullets, player);
         ({ decoyed, disrupted, activated } = result);
       } else {

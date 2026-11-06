@@ -1,7 +1,7 @@
-import { AI_ROSTER, otherFaction, PRESET_PIPS, refitMul, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
+import { AI_ROSTER, FLEET_AI_ROSTER, otherFaction, PRESET_PIPS, refitMul, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 import type { FlightInput, OrbitalFlight } from "./orbital-flight";
-import type { OrbitalRulesVersion, TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
+import { ORBITAL_FLEET_RULES_VERSION, type OrbitalRulesVersion, type TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
 import { armorSpill } from "./orbital-damage";
 import { stepOrbital } from "./orbital-sim";
 
@@ -69,6 +69,7 @@ export type Match = {
   goal: Goal; disc: Disc; tech: "stick" | "barrels" | "mark" | null; runner: Runner | null; seed: number;
   localEndurance?: boolean;
   orbitalTraining?: boolean;
+  orbitalRulesVersion?: OrbitalRulesVersion;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
   orbitalRulesVersion?: OrbitalRulesVersion;
@@ -350,7 +351,8 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     player.shieldMax *= 1.25;
     player.shield *= 1.25;
   }
-  const mine = AI_ROSTER[faction];
+  const aiRoster = (setup.orbitalRulesVersion ?? 0) >= ORBITAL_FLEET_RULES_VERSION ? FLEET_AI_ROSTER : AI_ROSTER;
+  const mine = aiRoster[faction];
   const allyIds = mine.filter((id) => id !== shipId);
   while (allyIds.length < 4) allyIds.push(mine[allyIds.length % mine.length]);
   const allySpots = [
@@ -377,7 +379,7 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
     const s = allySpots[i];
     return craft(id, true, "you", s.x, s.z, 0, 1);
   });
-  const foeRoster = AI_ROSTER[otherFaction(faction)];
+  const foeRoster = aiRoster[otherFaction(faction)];
   const foeShips = [...foeRoster, foeRoster[1]].slice(0, foeCount);
   const foeSpots = [
     {

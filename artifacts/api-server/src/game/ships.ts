@@ -343,6 +343,11 @@ export const AI_ROSTER: Record<Faction, ShipId[]> = {
   ussf: ["duskbreaker", "sentinel", "splitter", "glide"],
 };
 
+export const FLEET_AI_ROSTER: Record<Faction, ShipId[]> = {
+  accord: ["mandjet", "shakuna", "apep", "garuda", "tripura", "sekhmet", "sundara", "vajra"],
+  ussf: ["duskbreaker", "splitter", "wasp", "valiant", "sentinel", "aegis", "glide", "bastion"],
+};
+
 export function otherFaction(f: Faction): Faction {
   return f === "accord" ? "ussf" : "accord";
 }

@@ -108,7 +108,7 @@ cross-mode feature.
 
 ### Primary weapons
 
-- Orbital v2/v3 resolve all sixteen typed `primaryFit` IDs through the shared
+- Orbital v2-v4 resolve all sixteen typed `primaryFit` IDs through the shared
   `@workspace/orbital-sim` catalog. Each entry declares compatible hulls,
   hardpoint, volley shape/spread, projectile speed/radius/lifetime, damage
   scale, ammo, energy and heat fields, plus visual/audio cues.
@@ -129,7 +129,7 @@ cross-mode feature.
 
 ### Missiles
 
-- Orbital v2/v3 resolve all sixteen typed `missileFit` IDs from the same shared
+- Orbital v2-v4 resolve all sixteen typed `missileFit` IDs from the same shared
   catalog. Each fit now owns lock time/range/cone, cooldown, launch speed, turn
   rate, lifetime, collision radius, hardpoint compatibility, guidance mode,
   salvo size, and visual/audio metadata.
@@ -147,7 +147,7 @@ cross-mode feature.
 - Orbital v1 retains generic primary/missile behavior; Orbital v2 retains the
   fit catalog and its prior all-hostile-missile countermeasure behavior.
   Already-issued v1/v2 campaign replays remain pinned to those rules. New
-  Contact runs use `orbital-v3`; the API schema and runtime contract include
+  Contact runs use `orbital-v4`; the API schema and runtime contract include
   the versioned split.
 
 ### Damage and countermeasures
@@ -233,21 +233,20 @@ or a complete capital-vessel simulation.
 | C — original eight abilities | **IMPLEMENTED AND VERIFIED in Orbital** | All eight have actual state effects and deterministic `step()` tests. Legacy mode parity is incomplete. |
 | D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
 | E — countermeasures and missile defense | **CORE IMPLEMENTED AND VERIFIED in Orbital v3; PARTIAL for live Wing** | Standard seekers are decoyed, hardened seekers are disrupted, only missiles tracking the pilot are affected, and a cooldown is server-owned. Legacy v1/v2 outcomes are preserved. Live Wing integration, physical-device checks, and broader defenses remain unverified. |
-| F — distinct 3D reconstruction | **PARTIALLY IMPLEMENTED** | Sixteen unique procedural fighter blueprints and hangar inspection exist; detailed authored fleet models and ship-specific damage are not verified. |
-| G/H — eight additional fighters | **PARTIALLY IMPLEMENTED** | Eight specialist IDs, definitions, abilities, and procedural hulls are present; normal AI rosters still use only the original four per faction. |
-| I — fleet AI/formations | **PARTIALLY IMPLEMENTED** | Generic Orbital AI pursues the nearest opponent; Iron Eclipse has one fixed three-ship mission wing, not a fleet director. |
+| F — distinct 3D reconstruction | **PARTIALLY IMPLEMENTED** | Sixteen unique procedural fighter blueprints, hangar inspection, and live hull damage presentation exist; detailed authored fleet models and ship-specific subsystem damage remain incomplete. |
+| G/H — eight additional fighters | **IMPLEMENTED IN ORBITAL v4 AI WINGS; BALANCE PARTIAL** | Specialist ships are now included in new Orbital AI rosters; earlier runtime rosters and replay outcomes remain pinned. Full human-versus-human balance remains unverified. |
+| I — fleet AI/formations | **CORE IMPLEMENTED IN ORBITAL v4; DIRECTOR PARTIAL** | AI wingmates hold role-specific formation slots at range and use role-dependent engagement distances and flanking; persistent fleet command, adaptive multi-wing formations, and strategic orders remain incomplete. |
 | J — capital ship/subsystem combat | **PARTIALLY IMPLEMENTED** | Iron Eclipse has server-owned subsystems, not a general, first-class capital-ship fleet system. |
 | K — multiplayer authority/balance | **PARTIALLY IMPLEMENTED** | Server-authoritative test/replay foundations exist; the Orbital 5v5 socket migration and human balance certification are not established. |
 | L — mobile performance/certification | **PARTIALLY IMPLEMENTED** | Automated geometry/render budgets exist; no Orbital physical-device certification is evidenced. |
 
 ## Recommended next implementation slice
 
-Next, plan a safe live Wing migration for the versioned Orbital input/snapshot
-contract and certify ten authenticated pilots on staging before enabling it.
-Keep the existing surface Wing as the rollback path. Preserve the current
-energy/heat baseline until the pilot HUD can communicate weapon limits clearly.
-Then continue fleet AI, capital-system, and physical-device certification; do
-not infer those capabilities from this countermeasure migration.
+Next, plan a safe live Wing migration for the Orbital v4 input/snapshot contract
+and certify ten authenticated pilots on staging before enabling it. Keep the
+existing surface Wing as the rollback path. Then continue general capital-ship
+subsystem combat and physical-device certification; do not infer those
+capabilities from the AI roster or hull-damage presentation.
 
 Do not present the current certification smoke test, hangar preview, Rust Disc
 Android sample, or unregistered Orbital authority harness as proof of live 5v5

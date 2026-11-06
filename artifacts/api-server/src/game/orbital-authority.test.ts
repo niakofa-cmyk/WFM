@@ -98,7 +98,7 @@ test("missile launch timing follows the server-owned hull fit definition", () =>
   assert.equal(server.snapshot().pilots[0].space.ammo, 6);
 });
 
-test("Orbital v3 server countermeasures affect only tracking missiles and enforce cooldown", () => {
+test("Orbital v4 authority retains v3 fit-aware countermeasures and enforces cooldown", () => {
   const server = createOrbitalAuthority();
   const initial = server.snapshot();
   const target = initial.pilots[0]!;

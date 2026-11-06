@@ -18,7 +18,9 @@ const MAX_SEQUENCE_ADVANCE = 256;
 
 // Not registered with the existing socket service. Caller must bind an authenticated seat before integration.
 export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] = []) {
-  const baseline = createMatch("duskbreaker", "ussf", 0, "strike", { seed, allyCount: 4, foeCount: 5 });
+  const baseline = createMatch("duskbreaker", "ussf", 0, "strike", {
+    seed, allyCount: 4, foeCount: 5, orbitalRulesVersion: ORBITAL_RULES_VERSION,
+  });
   const rocks = obstacles.map((rock) => ({ ...rock }));
   const pilots: Pilot[] = [baseline.player, ...baseline.allies, ...baseline.enemies].map((craft, slotId) => {
     const offset = slotId % 5;

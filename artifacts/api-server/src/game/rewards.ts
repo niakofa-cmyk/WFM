@@ -213,6 +213,7 @@ export function adjudicateStrike(claim: ReplayClaim) {
     foeCount: claim.foeCount,
     tech: claim.tech,
     shieldMk2: claim.shieldMk2,
+    orbitalRulesVersion: isOrbitalRuntimeId(flightModel) ? orbitalRulesVersionForRuntime(flightModel) : undefined,
   });
   if (isOrbitalRuntimeId(flightModel)) prepareOrbital(match, orbitalRulesVersionForRuntime(flightModel));
   for (const input of claim.inputs) {

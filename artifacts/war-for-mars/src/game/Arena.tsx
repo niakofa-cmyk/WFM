@@ -23,7 +23,8 @@ import { prepareOrbital } from "./orbital-sim";
 import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
-import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
+import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
+import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
 import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pilot-hud";
@@ -527,6 +528,7 @@ export function Arena({
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
   const countermeasureRef = useRef<HTMLButtonElement>(null);
+  const countermeasureFeedbackRef = useRef<HTMLParagraphElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const radarRef = useRef<HTMLCanvasElement>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -611,7 +613,11 @@ export function Arena({
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance, orbitalTraining: orbital && !orbitalCampaign });
+      : createMatch(shipId, faction, refit, pace, {
+          goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance,
+          orbitalTraining: orbital && !orbitalCampaign,
+          orbitalRulesVersion: orbitalRuntime?.rulesVersion,
+        });
     if (orbital) {
       prepareOrbital(matchRef.current, orbitalRuntime!.rulesVersion);
     }
@@ -1045,6 +1051,12 @@ export function Arena({
       scene.add(group);
       return group;
     });
+    const damageControllers = new Map<THREE.Group, ReturnType<typeof createOrbitalDamageController>>();
+    if (orbital) {
+      for (const group of [playerGroup, ...allyGroups, ...enemyGroups]) {
+        damageControllers.set(group, createOrbitalDamageController(group));
+      }
+    }
 
     const cage = new THREE.Group();
     const cageBody = new THREE.Mesh(
@@ -1312,6 +1324,7 @@ export function Arena({
     let flareY = 0;
     let flareZ = 0;
     let flareYaw = 0;
+    let countermeasureFeedbackUntil = 0;
     let streakT = 0;
     let streakX = 0;
     let streakZ = 0;
@@ -1464,6 +1477,11 @@ export function Arena({
           flareY = ev.y ?? 0;
           flareZ = ev.z;
           flareYaw = ev.yaw;
+          if (countermeasureFeedbackRef.current) {
+            countermeasureFeedbackRef.current.textContent = countermeasureFeedbackLabel(ev.decoyed ?? 0, ev.disrupted ?? 0);
+            countermeasureFeedbackRef.current.hidden = false;
+          }
+          countermeasureFeedbackUntil = match.time + 2.2;
           burst(ev.x, ev.z, 0xffd9a0, 0.35, 10);
           sfxFlare();
         } else if (ev.k === "dive" || ev.k === "ram") {
@@ -1564,6 +1582,7 @@ export function Arena({
           group.position.set(craft.x, .9 + craft.space.y, craft.z);
           group.quaternion.fromArray(craft.space.q);
           group.rotateY(Math.PI);
+          damageControllers.get(group)?.update(craft.hull, craft.hullMax);
         }
       }
       if (match.runner) {
@@ -1927,6 +1946,9 @@ export function Arena({
           );
         }
       }
+      if (countermeasureFeedbackRef.current && countermeasureFeedbackUntil > 0) {
+        countermeasureFeedbackRef.current.hidden = match.time >= countermeasureFeedbackUntil;
+      }
       if (pipRef.current) {
         pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;
       }
@@ -2052,6 +2074,7 @@ export function Arena({
       mats.forEach((mat) => mat.dispose());
       theaterTextures.dispose();
       orbitalAssets?.textures.forEach((texture) => texture.dispose());
+      damageControllers.forEach((controller) => controller.dispose());
       renderer.dispose();
     };
   }, [ship.ultShort]);
@@ -2200,6 +2223,14 @@ export function Arena({
         </div>
 
         <div data-testid="reticle-center" className="pointer-events-none absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
+        <p
+          ref={countermeasureFeedbackRef}
+          data-testid="countermeasure-feedback"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+          className="pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top,0px)+7.25rem)] max-w-[13rem] border border-solar/45 bg-void/80 px-2 py-1 font-hud text-[9px] uppercase tracking-[0.16em] text-bone shadow-lg"
+        />
         <div ref={markRef} className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0" />
         {!orbital ? (
           <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">

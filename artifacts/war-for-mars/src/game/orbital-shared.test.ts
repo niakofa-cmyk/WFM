@@ -7,6 +7,9 @@ import {
   LEGACY_ORBITAL_RULES_VERSION,
   LEGACY_ORBITAL_RUNTIME_ID,
   MISSILE_CATALOG,
+  ORBITAL_COUNTERMEASURE_RULES_VERSION,
+  ORBITAL_COUNTERMEASURE_RUNTIME_ID,
+  ORBITAL_FLEET_RULES_VERSION,
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
   ORBITAL_RUNTIME_ID,
@@ -19,17 +22,19 @@ import {
 } from "@workspace/orbital-sim";
 import * as sharedDetmath from "@workspace/orbital-sim/detmath";
 import { createOrbitalAuthority } from "../../../api-server/src/game/orbital-authority";
-import { SHIPS as serverShips } from "../../../api-server/src/game/ships";
+import { FLEET_AI_ROSTER as serverFleetAiRoster, SHIPS as serverShips } from "../../../api-server/src/game/ships";
 import {
   createMatch as createServerMatch,
   step as stepServerMatch,
 } from "../../../api-server/src/game/sim";
 import { prepareOrbital as prepareServerOrbital } from "../../../api-server/src/game/orbital-sim";
 import { SHIPS } from "./ships";
+import { FLEET_AI_ROSTER } from "./ships";
 import { createMatch, step as stepClientMatch, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight } from "./orbital-flight";
 import { launchMissile, primaryBullet, primaryVolley, updateAcquisition } from "./orbital-weapons";
+import { matchChecksum } from "./sim-trace";
 import * as gameDetmath from "./detmath";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
@@ -62,10 +67,13 @@ test("browser and server math adapters use the same shared deterministic source"
 test("versioned Orbital weapon catalog covers every compatible hull fit", () => {
   assert.equal(LEGACY_ORBITAL_RUNTIME_ID, "orbital-v1");
   assert.equal(ORBITAL_WEAPON_RUNTIME_ID, "orbital-v2");
-  assert.equal(ORBITAL_RUNTIME_ID, "orbital-v3");
+  assert.equal(ORBITAL_COUNTERMEASURE_RUNTIME_ID, "orbital-v3");
+  assert.equal(ORBITAL_RUNTIME_ID, "orbital-v4");
   assert.equal(LEGACY_ORBITAL_RULES_VERSION, 1);
   assert.equal(ORBITAL_WEAPON_RULES_VERSION, 2);
-  assert.equal(ORBITAL_RULES_VERSION, 3);
+  assert.equal(ORBITAL_COUNTERMEASURE_RULES_VERSION, 3);
+  assert.equal(ORBITAL_FLEET_RULES_VERSION, 4);
+  assert.equal(ORBITAL_RULES_VERSION, 4);
   const primaryFits = new Set<string>();
   const missileFits = new Set<string>();
   for (const ship of Object.values(SHIPS)) {
@@ -85,7 +93,7 @@ test("versioned Orbital weapon catalog covers every compatible hull fit", () => 
   assert.equal(missileFits.size, Object.keys(MISSILE_CATALOG).length);
 });
 
-test("Orbital v3 fires deterministic multi-projectile primary and missile salvos", () => {
+test("Orbital v4 fires deterministic multi-projectile primary and missile salvos", () => {
   const primaryMatch = prepareOrbital(createMatch("shakuna", "accord", 0, "practice", { seed: 402 }));
   primaryMatch.rocks = [];
   const primaryPilot = primaryMatch.player;
@@ -172,6 +180,95 @@ test("client and server share roster flight axes, boost, inertia and braking", (
   }
 });
 
+test("Orbital v1 and v2 replay traces retain their pinned behavior", () => {
+  const oldIdle: StepInput = { ...idle };
+  const expectedChecksums: Record<1 | 2, number> = {
+    1: 458059440,
+    2: 3274748056,
+  };
+  for (const version of [1, 2] as const) {
+    const setup = {
+      seed: 6248 + version,
+      goal: "disc" as const,
+      disc: "rust" as const,
+      allyCount: 4,
+      foeCount: 4,
+      orbitalRulesVersion: version,
+    };
+    const client = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", setup), version);
+    const server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", setup), version);
+    client.rocks = [];
+    server.rocks = [];
+    const incoming = {
+      x: 500, y: 0, z: 500, vx: 0, vy: 0, vz: -30, life: 4, dmg: 10,
+      faction: "accord" as const, r: 0.4, homeId: client.player.id, own: false, missile: true,
+      weaponId: "legacy-replay-seeker",
+    };
+    client.bullets.push({ ...incoming });
+    server.bullets.push({ ...incoming });
+    for (let tick = 0; tick < 180; tick += 1) {
+      const input: StepInput = tick === 60 && version === 2
+        ? { ...oldIdle, countermeasure: true }
+        : tick % 24 < 4
+          ? { ...oldIdle, throttle: .25, yaw: .08, fire: true }
+          : { ...oldIdle, throttle: .25, yaw: .08 };
+      stepClientMatch(client, input, 1 / 60);
+      stepServerMatch(server, input, 1 / 60);
+      assert.deepEqual(server, client, `Orbital v${version} replay diverged at frame ${tick + 1}`);
+    }
+    assert.equal(client.orbitalRulesVersion, version);
+    assert.equal(client.player.space!.countermeasureCd, undefined);
+    if (version === 1) {
+      assert.ok(client.bullets.some((bullet) => bullet.weaponId === "legacy-replay-seeker"));
+    } else {
+      assert.ok(!client.bullets.some((bullet) => bullet.weaponId === "legacy-replay-seeker"));
+    }
+    assert.equal(matchChecksum(client), expectedChecksums[version], `Orbital v${version} result changed`);
+  }
+});
+
+test("Orbital v4 introduces specialist AI wings and role-based fleet approach without changing v3", () => {
+  assert.deepEqual(FLEET_AI_ROSTER, serverFleetAiRoster);
+  const setup = {
+    seed: 8081,
+    goal: "disc" as const,
+    disc: "rust" as const,
+    allyCount: 4,
+    foeCount: 5,
+  };
+  const v3Setup = { ...setup, orbitalRulesVersion: ORBITAL_COUNTERMEASURE_RULES_VERSION };
+  const v4Setup = { ...setup, orbitalRulesVersion: ORBITAL_FLEET_RULES_VERSION };
+  const v3 = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", v3Setup), 3);
+  const v4 = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", v4Setup), 4);
+  const v4Server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", v4Setup), 4);
+  for (const match of [v3, v4, v4Server]) {
+    match.rocks = [];
+    match.allies = [];
+    match.player.z = 150;
+  }
+
+  assert.ok(![...v3.allies, ...v3.enemies].some((craft) =>
+    ["wasp", "valiant", "aegis", "bastion", "apep", "sekhmet", "garuda", "vajra"].includes(craft.ship),
+  ));
+  assert.ok(v4.allies.some((craft) => craft.ship === "wasp"));
+  assert.ok(v4.enemies.some((craft) => craft.ship === "apep" || craft.ship === "garuda"));
+
+  const legacyLeadZ = v3.enemies[0]!.z;
+  const legacyLeadX = v3.enemies[0]!.x;
+  const fleetLeadZ = v4.enemies[0]!.z;
+  const fleetLeadX = v4.enemies[0]!.x;
+  stepClientMatch(v3, idle, 1 / 30);
+  stepClientMatch(v4, idle, 1 / 30);
+  stepServerMatch(v4Server, idle, 1 / 30);
+  assert.equal(v3.enemies[0]!.z, legacyLeadZ, "v3 keeps the previous stationary lead behavior");
+  assert.equal(v3.enemies[0]!.x, legacyLeadX);
+  assert.ok(
+    Math.hypot(v4.enemies[0]!.x - fleetLeadX, v4.enemies[0]!.z - fleetLeadZ) > 0,
+    "v4 fleet lead pursues while followers hold wing slots",
+  );
+  assert.deepEqual(v4Server, v4, "the reward-server fleet step must match the browser simulation");
+});
+
 test("versioned Contact orbital replay advances identically on client and reward server", () => {
   const setup = {
     seed: 8851,
@@ -179,6 +276,7 @@ test("versioned Contact orbital replay advances identically on client and reward
     disc: "rust" as const,
     allyCount: 4,
     foeCount: 4,
+    orbitalRulesVersion: ORBITAL_RULES_VERSION,
   };
   const client = prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", setup));
   const server = prepareServerOrbital(createServerMatch("duskbreaker", "ussf", 0, "practice", setup));
@@ -225,7 +323,7 @@ test("versioned Contact orbital replay advances identically on client and reward
   }
 });
 
-test("Orbital v3 multi-projectile fire remains bit-identical across browser and reward server", () => {
+test("Orbital v4 multi-projectile fire remains bit-identical across browser and reward server", () => {
   const setup = { seed: 7791, goal: "disc" as const, disc: "rust" as const, allyCount: 1, foeCount: 2 };
   const client = prepareOrbital(createMatch("garuda", "accord", 0, "practice", setup));
   const server = prepareServerOrbital(createServerMatch("garuda", "accord", 0, "practice", setup));

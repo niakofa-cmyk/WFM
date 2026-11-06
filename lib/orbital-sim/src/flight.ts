@@ -2,10 +2,13 @@ import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 
 export const LEGACY_ORBITAL_RULES_VERSION = 1 as const;
 export const ORBITAL_WEAPON_RULES_VERSION = 2 as const;
-export const ORBITAL_RULES_VERSION = 3 as const;
+export const ORBITAL_COUNTERMEASURE_RULES_VERSION = 3 as const;
+export const ORBITAL_FLEET_RULES_VERSION = 4 as const;
+export const ORBITAL_RULES_VERSION = ORBITAL_FLEET_RULES_VERSION;
 export type OrbitalRulesVersion =
   | typeof LEGACY_ORBITAL_RULES_VERSION
   | typeof ORBITAL_WEAPON_RULES_VERSION
+  | typeof ORBITAL_COUNTERMEASURE_RULES_VERSION
   | typeof ORBITAL_RULES_VERSION;
 export const ORBITAL_TICK_RATE = 30;
 export const ORBITAL_DT = 1 / ORBITAL_TICK_RATE;

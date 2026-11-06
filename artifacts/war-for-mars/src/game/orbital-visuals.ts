@@ -19,6 +19,10 @@ type HullBlueprint = {
 };
 export type HangarInspectionView = "hull" | "engines" | "weapons";
 export type HangarDamageState = "intact" | "field" | "critical";
+export type OrbitalDamageController = {
+  update: (hull: number, hullMax: number) => HangarDamageState;
+  dispose: () => void;
+};
 export type HangarInspectionEffects = {
   setDamage: (state: HangarDamageState) => void;
   update: (view: HangarInspectionView, elapsedMs: number, animate: boolean) => void;
@@ -26,6 +30,82 @@ export type HangarInspectionEffects = {
 };
 export function shouldAnimateHangarPreview(visible: boolean, documentVisible: boolean, reducedMotion: boolean) {
   return visible && documentVisible && !reducedMotion;
+}
+
+/**
+ * Applies presentation-only battle wear to a live Orbital hull. It changes no
+ * simulation values, collision geometry, targeting, or damage outcomes.
+ */
+export function createOrbitalDamageController(model: THREE.Group): OrbitalDamageController {
+  const targets = ["engine-housing-1", "primary-cannon-1", "port-armor-plate"]
+    .map((name) => model.getObjectByName(name))
+    .filter((object): object is THREE.Mesh => object instanceof THREE.Mesh);
+  const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const fieldMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const criticalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const tint = (material: THREE.Material, severity: "field" | "critical") => {
+    const damaged = material.clone();
+    if (damaged instanceof THREE.MeshStandardMaterial) {
+      damaged.color.lerp(new THREE.Color(0x6e3026), severity === "field" ? .28 : .62);
+      damaged.emissive.set(severity === "field" ? 0x5e2418 : 0xc33220);
+      damaged.emissiveIntensity = severity === "field" ? .16 : .42;
+      damaged.roughness = .82;
+    }
+    return damaged;
+  };
+  const mapMaterials = (material: THREE.Material | THREE.Material[], severity: "field" | "critical") =>
+    Array.isArray(material) ? material.map((part) => tint(part, severity)) : tint(material, severity);
+  for (const mesh of targets) {
+    originalMaterials.set(mesh, mesh.material);
+    fieldMaterials.set(mesh, mapMaterials(mesh.material, "field"));
+    criticalMaterials.set(mesh, mapMaterials(mesh.material, "critical"));
+  }
+
+  const engine = model.getObjectByName("engine-housing-1");
+  const scorch = new THREE.Mesh(
+    new THREE.RingGeometry(.09, .2, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff6848, transparent: true, opacity: .68, depthWrite: false }),
+  );
+  scorch.name = "orbital-flight-damage-scorch";
+  scorch.userData.presentationOnly = true;
+  scorch.position.set(engine?.position.x ?? -.45, (engine?.position.y ?? .2) + .12, engine?.position.z ?? -.8);
+  scorch.rotation.x = Math.PI / 2;
+  scorch.visible = false;
+  model.add(scorch);
+
+  let current: HangarDamageState = "intact";
+  const update = (hull: number, hullMax: number): HangarDamageState => {
+    const ratio = Number.isFinite(hull) && Number.isFinite(hullMax) && hullMax > 0
+      ? Math.max(0, Math.min(1, hull / hullMax))
+      : 0;
+    const next: HangarDamageState = ratio <= .25 ? "critical" : ratio <= .55 ? "field" : "intact";
+    if (next === current) return current;
+    current = next;
+    for (const mesh of targets) {
+      mesh.material = next === "intact"
+        ? originalMaterials.get(mesh)!
+        : next === "field" ? fieldMaterials.get(mesh)! : criticalMaterials.get(mesh)!;
+    }
+    scorch.visible = next !== "intact";
+    model.userData.flightDamageState = next;
+    return next;
+  };
+  model.userData.flightDamageState = current;
+  return {
+    update,
+    dispose: () => {
+      for (const mesh of targets) {
+        mesh.material = originalMaterials.get(mesh)!;
+      }
+      for (const materials of [...fieldMaterials.values(), ...criticalMaterials.values()]) {
+        (Array.isArray(materials) ? materials : [materials]).forEach((material) => material.dispose());
+      }
+      model.remove(scorch);
+      scorch.geometry.dispose();
+      (scorch.material as THREE.Material).dispose();
+      delete model.userData.flightDamageState;
+    },
+  };
 }
 
 /**

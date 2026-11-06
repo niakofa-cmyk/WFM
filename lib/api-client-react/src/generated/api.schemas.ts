@@ -429,6 +429,7 @@ export const StrikeRunConfigFlightModel = {
   'orbital-v1': 'orbital-v1',
   'orbital-v2': 'orbital-v2',
   'orbital-v3': 'orbital-v3',
+  'orbital-v4': 'orbital-v4',
 } as const;
 
 export type StrikeRunConfig = {
