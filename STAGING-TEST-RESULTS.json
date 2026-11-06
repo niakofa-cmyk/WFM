@@ -1897,6 +1897,19 @@
     "releaseStatus": "PENDING"
   },
   "productionReadiness": "NOT_CLAIMED",
+  "latestStagingOrbitalV5DeploymentCheck": {
+    "date": "2026-11-06",
+    "sourceCommit": "f968c89",
+    "webDeployment": "SUCCESS",
+    "apiDeployment": "SUCCESS",
+    "socketDeployment": "SUCCESS",
+    "stagingPostgres": "ONLINE",
+    "authenticatedOrbitalContactTest": "NOT_VERIFIED",
+    "browserHelper": "BLOCKED_CLIENT_TRUST",
+    "productionChanged": false,
+    "laterIntegrationRevision": "310402d",
+    "laterIntegrationRevisionDeployed": false
+  },
   "latestOwnerReportedTwoDevicePrivateRoomFlightCheck": {
     "date": "2026-11-06",
     "status": "OWNER_REPORTED_PASS",

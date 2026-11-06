@@ -1220,3 +1220,20 @@ test only. It does not verify the ten-human competitive queue, reward
 settlement, Orbital v5 campaign combat, sector co-op, account isolation, or
 Production. No credentials, room code, reward claim, or deployment change are
 part of this evidence.
+
+#### Orbital v5 staging deployment record — 2026-11-06
+
+The last read-only Railway revision check recorded successful web, API, and
+socket deployments on source commit `f968c89`, with the staging Postgres
+service online. Production was not changed. This establishes deployment
+health, not gameplay certification.
+
+The automated staging browser helper did not complete sign-in because its
+sessions reached the client-trust gate. It therefore did not verify an
+authenticated Orbital Contact run, a v5 lineup, or replay settlement. The
+owner-reported private-room phone test above is separate evidence and does not
+fill that gap.
+
+The integration branch now contains a later Offline Arcade mode-routing
+change (`310402d`); that revision was pushed to the repository but was not
+deployed to staging or Production in this update.
