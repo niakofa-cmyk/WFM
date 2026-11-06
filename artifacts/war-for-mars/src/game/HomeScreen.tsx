@@ -38,10 +38,6 @@ type HomeProps = {
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
   onGalaxy: () => void;
-  onOnline: (roomCode: string) => void;
-  roomCode: string;
-  onRoomCode: (roomCode: string) => void;
-  onCreateRoom: () => void;
   onJoinCompetitiveQueue: () => void;
   onJoinCasualAiQueue: () => void;
   onCancelMatchmaking: () => void;
@@ -272,8 +268,6 @@ function MainMenu(props: HomeProps) {
 }
 
 function OnlineWing({
-  onOnline,
-  onCreateRoom,
   onJoinCompetitiveQueue,
   onJoinCasualAiQueue,
   onCancelMatchmaking,
@@ -282,8 +276,6 @@ function OnlineWing({
   casualAiQueueing,
   casualAiQueueAvailable,
   signedIn,
-  onRoomCode,
-  roomCode,
   onlineStatus,
   offlineAvailable,
   onOfflineStrike,
@@ -300,40 +292,17 @@ function OnlineWing({
       ) : null}
 
       <div className="mt-3 border-l-2 border-bone/20 pl-3">
-        <p className="font-hud text-xs tracking-[0.2em] text-muted">PRIVATE ROOM · NO WING CREDITS</p>
-        <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
+        <p className="font-hud text-xs tracking-[0.2em] text-muted">CINDER RING MULTIPLAYER STATION</p>
+        <p className="mb-2 text-xs text-muted">Private invite rooms and the human-only 5v5 competition are accessed at the asteroid dock.</p>
         <button
           type="button"
           data-testid="button-online-5v5"
-          onClick={onCreateRoom}
+          onClick={onJoinCompetitiveQueue}
           className="wfm-cmd wfm-cmd-secondary wfm-chamfer min-h-12 w-full flex-col items-start justify-center gap-0 px-3"
         >
-          <span className="font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
-          <span className="text-xs text-muted">Generate a code and launch the 5v5.</span>
+          <span className="font-hud text-base leading-none tracking-widest">OPEN MULTIPLAYER DOCK</span>
+          <span className="text-xs text-muted">Travel to Cinder Ring to create or join a private room.</span>
         </button>
-        <div className="mt-2 flex gap-2">
-          <label className="sr-only" htmlFor="online-room-code">Room code</label>
-          <input
-            id="online-room-code"
-            data-testid="input-room-code"
-            autoCapitalize="characters"
-            autoComplete="off"
-            maxLength={24}
-            onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-            placeholder="6–24 CHAR ROOM CODE"
-            value={roomCode}
-            className="h-11 min-w-0 flex-1 scroll-mb-24 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-          />
-          <button
-            type="button"
-            data-testid="button-join-room"
-            disabled={roomCode.trim().length < 6}
-            onClick={() => onOnline(roomCode)}
-            className="wfm-cmd wfm-cmd-quiet h-11 justify-center px-4 font-hud tracking-widest"
-          >
-            JOIN
-          </button>
-        </div>
       </div>
 
       {casualAiQueueAvailable || competitiveQueueAvailable || queueing ? (

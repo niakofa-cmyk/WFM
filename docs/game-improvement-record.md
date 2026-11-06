@@ -1043,3 +1043,29 @@ check. Shared-library and WFM typechecks passed; all **246** WFM tests passed.
 This is browser evidence, not physical Android device certification. Legacy
 campaign missions and live Wing were not changed; staging and Production were
 not updated.
+
+## 2026-11-06 — Cinder Ring becomes the multiplayer station entry
+
+The home-screen multiplayer shortcut now opens the universe instead of creating
+a room immediately. At Cinder Ring, the asteroid hub presents two distinct
+lanes: the existing server-authoritative ten-human 5v5 Wing Relay queue and a
+private-room dock that reuses the existing invite-code lobby. The private dock
+is shown only when the universe state places the pilot at Cinder Ring; invite
+rooms remain no-reward and are not added to the public match feed or spectator
+directory. The hub itself stays visible when the live directory is unavailable
+and reports that state instead of hiding the station.
+
+Verification: WFM typecheck passed, **248/248** WFM tests passed, the WFM build
+and its four preview-build checks passed, and `git diff --check` passed. The
+private-dock location/code rules have dedicated unit tests. The screenshot
+verified the public landing page only; the signed-in universe station UI was
+not visually captured. The owner separately confirmed that two devices joined
+a private room and controls/firing worked, but that test did not exercise the
+new Cinder Ring entry flow or a ten-human competitive match.
+
+This hub is still a universe-screen station entry with authored artwork, not a
+flightable 3D approach or docking scene. The actual competitive match continues
+to use the existing Wing runtime. No API/socket authority, rewards, staging, or
+Production deployment changed. A direct full-workspace test run during this
+session hit an unrelated API progression assertion (`match.over`); that
+progression test passed in isolation, and no API code was changed here.

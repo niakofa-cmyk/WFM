@@ -4,12 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import type { OnlineSnapshot } from "./Arena";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { CinderRingArtwork } from "./CinderRingArtwork";
+import { privateRoomDockAccess } from "./private-room-dock";
 
 type Props = {
-  operations: OperationDirectoryResponse;
+  operations?: OperationDirectoryResponse;
+  directoryLoading: boolean;
+  directoryError: boolean;
   atAsteroid: boolean;
   queueAvailable: boolean;
   queueing: boolean;
+  roomCode: string;
+  onRoomCode: (roomCode: string) => void;
+  onCreatePrivateRoom: () => void;
+  onJoinPrivateRoom: (roomCode: string) => void;
+  onlineStatus?: string;
   onJoinQueue: () => void;
   onTravel: () => void;
 };
@@ -59,9 +67,16 @@ function statusLabel(status: ConnectionState) {
 
 export function AsteroidArenaHub({
   operations,
+  directoryLoading,
+  directoryError,
   atAsteroid,
   queueAvailable,
   queueing,
+  roomCode,
+  onRoomCode,
+  onCreatePrivateRoom,
+  onJoinPrivateRoom,
+  onlineStatus,
   onJoinQueue,
   onTravel,
 }: Props) {
@@ -72,14 +87,14 @@ export function AsteroidArenaHub({
   const [state, setState] = useState<SpectatorState | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
-  const operation = operations.operations.find((entry) => entry.id === WING_RELAY_ID);
-  const activeMatches = operations.instances.filter((instance) =>
+  const operation = operations?.operations.find((entry) => entry.id === WING_RELAY_ID);
+  const activeMatches = operations?.instances.filter((instance) =>
     instance.operationId === WING_RELAY_ID &&
     instance.phase === "active" &&
     MATCH_ID_PATTERN.test(instance.id),
-  );
+  ) ?? [];
   const location = operation
-    ? operations.locations.find((entry) => entry.id === operation.locationId)
+    ? operations?.locations.find((entry) => entry.id === operation.locationId)
     : undefined;
 
   useEffect(() => {
@@ -185,6 +200,7 @@ export function AsteroidArenaHub({
   };
 
   const canQueue = atAsteroid && queueAvailable && isLoaded && Boolean(isSignedIn) && !queueing;
+  const privateRoomAccess = privateRoomDockAccess(atAsteroid, roomCode);
 
   return (
     <section data-testid="screen-asteroid-arena-hub" className="relative overflow-hidden border border-solar/30 bg-void px-4 py-6 text-bone sm:px-8 sm:py-10">
@@ -208,6 +224,16 @@ export function AsteroidArenaHub({
             </div>
           </div>
         </header>
+        {onlineStatus ? (
+          <p
+            data-testid="status-multiplayer-connection"
+            role="status"
+            aria-live="polite"
+            className="mt-4 border border-bone/15 bg-panel/65 px-3 py-2 text-xs text-muted"
+          >
+            {onlineStatus}
+          </p>
+        ) : null}
 
         <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
           <div className="min-w-0 border border-bone/15 bg-panel/75">
@@ -239,6 +265,14 @@ export function AsteroidArenaHub({
                   </div>
                 )}
               </div>
+            ) : directoryLoading && !operations ? (
+              <p role="status" className="m-4 border border-dashed border-bone/20 p-6 text-sm text-muted">
+                Connecting to the Cinder Ring match signal…
+              </p>
+            ) : directoryError || !operations ? (
+              <p role="alert" className="m-4 border border-alert/30 p-6 text-sm text-alert">
+                Live match status is unavailable. The station and private dock remain open, but no competition listing can be confirmed.
+              </p>
             ) : activeMatches.length === 0 ? (
               <div className="m-4 border border-dashed border-bone/20 p-6">
                 <p className="font-hud text-lg tracking-wide">NO ACTIVE MATCH SIGNAL</p>
@@ -322,6 +356,61 @@ export function AsteroidArenaHub({
                   <p className="mt-3 text-[10px] leading-relaxed text-muted">
                     {queueing ? "Searching for ten authenticated human pilots. This queue never fills seats with AI." : "Queue entry uses the existing server-authoritative Wing matchmaking and combat simulation."}
                   </p>
+                </>
+              )}
+            </section>
+
+            <section data-testid="panel-cinder-ring-private-dock" className="border border-spectral/35 bg-panel/75 p-4">
+              <p className="font-hud text-xs tracking-[0.2em] text-spectral">CINDER RING PRIVATE DOCK</p>
+              <h2 className="mt-1 font-hud text-2xl">Invite-only flight</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Private 5v5 rooms use an invite code, may fill open seats with AI, and award no Wing credits. They never appear in the public match feed.
+              </p>
+              {!atAsteroid ? (
+                <div className="mt-4 border-l-2 border-spectral pl-3">
+                  <p className="font-hud text-xs tracking-widest text-spectral">DOCK ACCESS REQUIRES CINDER RING</p>
+                  <button
+                    type="button"
+                    data-testid="button-travel-to-private-dock"
+                    onClick={onTravel}
+                    className="mt-3 min-h-12 w-full border border-spectral/60 px-3 font-hud text-xs tracking-widest text-spectral"
+                  >
+                    TRAVEL TO CINDER RING
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    data-testid="button-create-private-room"
+                    onClick={onCreatePrivateRoom}
+                    className="mt-4 min-h-12 w-full border border-spectral/60 bg-spectral/10 px-4 font-hud text-xs tracking-widest text-bone"
+                  >
+                    CREATE PRIVATE 5V5 ROOM
+                  </button>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <label className="sr-only" htmlFor="cinder-ring-private-room-code">Private room code</label>
+                    <input
+                      id="cinder-ring-private-room-code"
+                      data-testid="input-private-room-code"
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      maxLength={24}
+                      onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
+                      placeholder="6–24 CHAR ROOM CODE"
+                      value={roomCode}
+                      className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
+                    />
+                    <button
+                      type="button"
+                      data-testid="button-join-private-room"
+                      disabled={!privateRoomAccess.canJoin}
+                      onClick={() => onJoinPrivateRoom(roomCode)}
+                      className="min-h-11 border border-spectral/45 px-4 font-hud tracking-widest text-spectral disabled:opacity-40"
+                    >
+                      JOIN ROOM
+                    </button>
+                  </div>
                 </>
               )}
             </section>

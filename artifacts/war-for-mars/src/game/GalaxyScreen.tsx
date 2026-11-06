@@ -17,6 +17,11 @@ type Props = {
   onBack: () => void;
   credits: number;
   onCredits: (credits: number) => void;
+  roomCode: string;
+  onRoomCode: (roomCode: string) => void;
+  onCreatePrivateRoom: () => void;
+  onJoinPrivateRoom: (roomCode: string) => void;
+  onlineStatus?: string;
   onJoinCompetitiveQueue: () => void;
   competitiveQueueAvailable: boolean;
   competitiveQueueing: boolean;
@@ -38,6 +43,11 @@ export function GalaxyScreen({
   onBack,
   credits,
   onCredits,
+  roomCode,
+  onRoomCode,
+  onCreatePrivateRoom,
+  onJoinPrivateRoom,
+  onlineStatus,
   onJoinCompetitiveQueue,
   competitiveQueueAvailable,
   competitiveQueueing,
@@ -255,16 +265,21 @@ export function GalaxyScreen({
               )}
             </section>
 
-            {operationDirectory ? (
-              <AsteroidArenaHub
-                operations={operationDirectory}
-                atAsteroid={world.currentLocation === "cinder-asteroid"}
-                queueAvailable={competitiveQueueAvailable}
-                queueing={competitiveQueueing}
-                onJoinQueue={onJoinCompetitiveQueue}
-                onTravel={() => travelTo("cinder-asteroid")}
-              />
-            ) : null}
+            <AsteroidArenaHub
+              operations={operationDirectory}
+              directoryLoading={operationsQuery.isLoading}
+              directoryError={operationsQuery.isError}
+              atAsteroid={world.currentLocation === "cinder-asteroid"}
+              queueAvailable={competitiveQueueAvailable}
+              queueing={competitiveQueueing}
+              roomCode={roomCode}
+              onRoomCode={onRoomCode}
+              onCreatePrivateRoom={onCreatePrivateRoom}
+              onJoinPrivateRoom={onJoinPrivateRoom}
+              onlineStatus={onlineStatus}
+              onJoinQueue={onJoinCompetitiveQueue}
+              onTravel={() => travelTo("cinder-asteroid")}
+            />
 
             <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
               <div className="border-b border-bone/10 px-4 py-4">

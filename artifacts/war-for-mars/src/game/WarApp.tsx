@@ -1271,6 +1271,15 @@ export function WarApp() {
           onBack={() => setGalaxyOpen(false)}
           credits={save.credits}
           onCredits={syncCredits}
+          roomCode={roomCode}
+          onRoomCode={setRoomCode}
+          onCreatePrivateRoom={() => {
+            const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
+            setRoomCode(generated);
+            joinOnline(generated);
+          }}
+          onJoinPrivateRoom={(code) => joinOnline(code)}
+          onlineStatus={onlineStatus}
           onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
           competitiveQueueAvailable={competitiveQueueAvailable}
           competitiveQueueing={competitiveQueueing}
@@ -1305,7 +1314,6 @@ export function WarApp() {
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
-        onOnline={joinOnline}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}
@@ -1313,13 +1321,6 @@ export function WarApp() {
         competitiveQueueAvailable={competitiveQueueAvailable}
         casualAiQueueing={casualAiQueueing}
         casualAiQueueAvailable={casualAiQueueAvailable}
-        roomCode={roomCode}
-        onRoomCode={setRoomCode}
-        onCreateRoom={() => {
-          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-          setRoomCode(generated);
-          joinOnline(generated);
-        }}
         onlineStatus={onlineStatus}
         offlineAvailable={offlineAvailable}
         onOfflineStrike={() => {

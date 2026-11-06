@@ -4,14 +4,14 @@
 
 **The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.**
 
-Cinder Ring is a physical asteroid destination in the persistent universe and the shared gateway to competitive operations. It is more than a decorative Three.js location: players can travel there, discover live competitions, spectate a running battle, and enter the next eligible match.
+Cinder Ring is a physical asteroid destination in the persistent universe and the shared access point for two separate multiplayer lanes: public competitive operations and invite-only private rooms. Players can travel there, discover live competitions, spectate a running battle, and enter the next eligible match.
 
 The asteroid is a venue, not a mandate to merge every mode into one simulation:
 
 | Layer | Responsibility |
 | --- | --- |
 | Persistent universe | Navigation, locations, travel, operation discovery, and the visual presence of destinations |
-| Cinder Ring arena hub | Competition directory, live match viewing, and entry to available operations |
+| Cinder Ring arena hub | Competition directory, live match viewing, competitive queue entry, and a separate no-reward private-room dock |
 | Wing Relay 5v5 | Existing authoritative competitive combat, matchmaking, and separately gated reward settlement |
 | Arcade Skirmish | Existing playable arcade experience, exposed as an operation when its route is connected |
 | Orbital Combat Lab | Offline combat development and validation; promote only after compatibility and authority checks |
@@ -32,6 +32,12 @@ The first playable arena operation is the existing **5v5 Wing Relay** match:
 7. Match presence is refreshed by the server and expires quickly when its heartbeat stops. Completed matches are removed from the public live directory.
 
 The operation directory exposes a match UUID, phase, and aggregate connected-player count only. It never exposes account IDs, callsigns, room codes, reconnect credentials, or reward data. Spectator packets contain only anonymous combat state.
+
+## Separate private-room dock
+
+The Cinder Ring station also exposes the existing private-room create/join flow. Pilots travel to the asteroid in the universe UI, then create a code or enter an invite code from the dock. The home-screen shortcut opens the universe station rather than creating a room directly.
+
+This is a separate lane from the competitive queue: private rooms remain invite-only, may fill open seats with AI under their existing rules, never award Wing credits, and never appear in the public operation directory or spectator feed. The dock's location check is a UI navigation rule; it does not replace server authority. The competitive queue continues to require a server-confirmed Cinder Ring location and ten distinct authenticated humans.
 
 ## Reference imagery and art direction
 
@@ -58,6 +64,8 @@ This slice does not yet provide a complete shared-world flight session, a full 3
 - Cinder Ring is a real, server-recognized travel destination.
 - The directory publishes active status only for a live, queue-created ten-human Wing match.
 - Competitive queue attempts outside Cinder Ring are rejected server-side.
+- The universe station has distinct private-room and competitive-entry panels; the private dock appears only at Cinder Ring.
+- Private-room creation/join reuses the existing room flow and remains no-reward, invite-only, and absent from public discovery.
 - Private and AI-fill matches never appear in the public arena directory or spectator endpoint.
 - The spectator endpoint requires the existing authenticated session, is read-only, does not consume a pilot seat, and sends no player identity or account data.
 - Heartbeats keep live listings fresh; closed or abandoned matches disappear without manual cleanup.
