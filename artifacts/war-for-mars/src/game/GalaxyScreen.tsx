@@ -16,6 +16,8 @@ import { useWorldOperationEvents } from "./world-operation-events";
 import { CinderRingArtwork } from "./CinderRingArtwork";
 import { cinderRingEntrySurface, type CinderRingDockingPhase } from "./cinder-ring-entry";
 import { UniverseActivityFeed } from "./UniverseActivityFeed";
+import { ConnectedUniverseNavigation } from "./ConnectedUniverseNavigation";
+import { connectedDestinations, operationControlTarget } from "./orbital-navigation";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const CinderRingDockingApproach = lazy(() =>
@@ -208,9 +210,32 @@ export function GalaxyScreen({
   );
   const routes = world.routes;
   const discovered = new Set(world.discoveries);
-  const operationDirectory = operationsQuery.data as OperationDirectoryResponse | undefined;
+  const directoryUnavailable = operationsQuery.isError || operationsQuery.fetchStatus === "paused";
+  const operationDirectory = directoryUnavailable ? undefined : operationsQuery.data as OperationDirectoryResponse | undefined;
   const atCinderRing = world.currentLocation === CINDER_RING_LOCATION_ID;
   const cinderSurface = cinderRingEntrySurface(atCinderRing, cinderDockingPhase);
+  const navigationBlocked = cached || worldQuery.isError || worldQuery.fetchStatus === "paused" || busy;
+  const navigationDestinations = connectedDestinations(world, operationDirectory, credits, navigationBlocked);
+  const scrollToControls = (target: string) => {
+    const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]"))
+      .find((entry) => entry.dataset.testid === target);
+    if (!element) return;
+    element.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+    element.setAttribute("tabindex", "-1");
+    element.focus({ preventScroll: true });
+  };
+  const openDestination = () => {
+    if (navigationBlocked) return;
+    scrollToControls(atCinderRing && cinderSurface === "approach-entry"
+      ? "panel-cinder-ring-approach-entry" : atCinderRing
+        ? "screen-asteroid-arena-hub" : "panel-operation-network");
+  };
+  const openOperation = (operationId: string) => {
+    const current = navigationDestinations.find((entry) => entry.id === world.currentLocation);
+    const operation = current?.operations.find((entry) => entry.id === operationId);
+    if (!current?.canOpen || !operation || directoryUnavailable) return;
+    scrollToControls(operationControlTarget(operation.experience, operation.id, cinderSurface));
+  };
 
   if (cinderSurface === "approach-flight") {
     return (
@@ -236,7 +261,7 @@ export function GalaxyScreen({
             <p className="font-hud text-[10px] tracking-[0.24em] text-solar sm:text-xs">
               WAR FOR MARS / USSF–ACCORD THEATER
             </p>
-            <h1 className="mt-2 font-hud text-4xl leading-none sm:text-6xl">THEATER CONTROL</h1>
+            <h1 className="mt-2 font-hud text-4xl leading-none sm:text-6xl">ORBITAL UNIVERSE</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
               Move between verified routes, log discoveries, and fulfill persistent contracts.
             </p>
@@ -258,6 +283,20 @@ export function GalaxyScreen({
             </button>
           </div>
         </header>
+
+        <ConnectedUniverseNavigation
+          destinations={navigationDestinations}
+          currentLocationId={world.currentLocation}
+          directoryState={directoryUnavailable ? "unavailable" : operationDirectory ? "available" : "loading"}
+          stale={cached || worldQuery.isError || worldQuery.fetchStatus === "paused"}
+          busy={busy}
+          onTravel={(id) => {
+            if (navigationDestinations.find((entry) => entry.id === id)?.canTravel) void travelTo(id);
+          }}
+          onOpenOperation={openOperation}
+          onOpenDestination={openDestination}
+          onRefresh={() => { void worldQuery.refetch(); void operationsQuery.refetch(); }}
+        />
 
         <section
           data-testid="panel-world-event"
@@ -287,6 +326,7 @@ export function GalaxyScreen({
           currentLocationId={world.currentLocation}
           streamState={operationStreamState}
           loading={operationsQuery.isLoading}
+          unavailable={directoryUnavailable}
         />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
@@ -456,7 +496,7 @@ export function GalaxyScreen({
                         <p className="mt-2 text-sm leading-relaxed text-muted">{operation.description}</p>
                         {instances.length === 0 ? (
                           <p data-testid={`status-no-live-${operation.id}`} className="mt-3 border-l border-bone/25 pl-2 text-xs text-muted">NO PUBLIC INSTANCE · No live multiplayer match or spectator feed is available.</p>
-                        ) : operation.experience === "cooperative" ? (
+                        ) : operation.experience !== "flight-simulation" || operation.access !== "local-training" ? (
                           <div className="mt-3 space-y-1 text-xs text-solar" data-testid={`status-live-${operation.id}`}>
                             {instances.map((instance) => (
                               <p key={instance.id}>{instance.phase.toUpperCase()} · {instance.currentPlayers}/{instance.capacity} PILOTS</p>

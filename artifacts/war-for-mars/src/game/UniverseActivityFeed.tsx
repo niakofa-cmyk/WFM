@@ -81,6 +81,7 @@ type Props = {
   currentLocationId: string;
   streamState: OperationEventLinkState;
   loading: boolean;
+  unavailable?: boolean;
 };
 
 export function UniverseActivityFeed({
@@ -89,7 +90,13 @@ export function UniverseActivityFeed({
   currentLocationId,
   streamState,
   loading,
+  unavailable = false,
 }: Props) {
+  if (unavailable) return (
+    <section data-testid="status-universe-directory-unavailable" role="status" className="mt-5 border border-alert/40 bg-panel/75 p-4 text-sm text-alert">
+      Operation directory unavailable. Live destinations, pilot counts and public sessions cannot be confirmed. Retry the navigation link above; no empty or live state is inferred.
+    </section>
+  );
   const activity = buildUniverseActivityView(directory, locations, currentLocationId);
   const presenceStatus = directory?.presenceStatus ?? "unavailable";
 
@@ -109,17 +116,17 @@ export function UniverseActivityFeed({
         </span>
       </header>
       <p className="border-b border-bone/10 px-4 py-3 text-xs leading-relaxed text-muted">
-        Destinations and activity are shared across the universe; each listed operation keeps its own combat runtime and authority.
+        Destinations and activity share one universe. Existing operation authority stays intact during the staged migration to Orbital.
       </p>
       <div className="grid gap-4 p-4 md:grid-cols-2">
         <div>
           <h3 className="font-hud text-[10px] tracking-[0.18em] text-bone/80">PILOTS BY DESTINATION</h3>
-          {presenceStatus === "unavailable" ? (
+          {loading && !directory ? (
+            <p role="status" className="mt-3 text-xs text-muted">Loading destination signals…</p>
+          ) : presenceStatus === "unavailable" ? (
             <p role="status" data-testid="status-universe-presence-unavailable" className="mt-3 border-l border-alert/60 pl-3 text-xs leading-relaxed text-alert">
               Destination presence is unavailable on this server. Its database migration may still need to be applied.
             </p>
-          ) : loading && !directory ? (
-            <p role="status" className="mt-3 text-xs text-muted">Loading destination signals…</p>
           ) : activity.locations.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {activity.locations.map((location) => (

@@ -13,7 +13,7 @@ const Arena = lazy(() => import("./game/Arena").then((m) => ({ default: m.Arena 
 const CinderRingDockingApproach = lazy(() => import("./game/CinderRingDockingApproach").then((m) => ({ default: m.CinderRingDockingApproach })));
 
 type Mode = "entry" | "arena" | "approach";
-const HUB = import.meta.env.BASE_URL;
+const HUB = `${import.meta.env.BASE_URL}universe`;
 
 function CombatLab() {
   const [faction, setFaction] = useState<Faction>("ussf");

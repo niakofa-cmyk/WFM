@@ -1,5 +1,41 @@
 # Connected-universe entry redesign — implementation evidence
 
+## Subsequent account-universe connection
+
+The next three steps are described in
+[Connected universe integration](CONNECTED-UNIVERSE-INTEGRATION.md): real account
+position, real operation discovery and safe handoff to existing authorized
+destination controls. These extend the original offline-entry slice below.
+
+WFM typecheck and 274/274 game/auth tests pass; both builds and 4/4 static checks
+pass. The additional seven guards cover server-only map data, location/selection
+separation, travel affordability/lock/freshness, public operation filtering,
+session expiry/privacy, docking-aware control targets and authenticated versus
+offline entry separation. Actual signed-in account travel, persistence and
+match admission have not yet been certified by these checks.
+
+Browser evidence:
+
+- Actual public-page handoff from the offline Lab to the account universe gate
+  passed; the internal sign-in return path is `/universe`. Returning to offline
+  training triggered no account-world/API request.
+- An explicitly isolated component fixture verified inspect-only selection,
+  10-credit confirmation/cancellation, exactly one travel callback after confirm,
+  selection stability across polling, confirmed-location changes, directory
+  failure messaging, operation-controls-only callbacks and stale-state disabling.
+  The initial disabled current-site controls check used an inconsistent
+  `canOpen:false` fixture; correcting the fixture resolved it without relaxing
+  application gates.
+- Phone 402×874 and desktop 1280×800 fixture checks found no horizontal overflow.
+  This is not a physical Android or signed-in account test.
+- Read-only development probes: API health 200; anonymous world GET 401; public
+  directory GET 200 with one site, three catalog operations, zero instances and
+  zero events at observation time. No empty directory was presented as a live
+  match. These counts are observations, not hard-coded expectations.
+- No user was created or signed in, and no real travel, queue, room, registration,
+  reward, staging or Production action was submitted. The dedicated signed-in
+  journey remains a verification gap.
+
 ## Scope
 
 The first redesign slice changes the existing `/combat-lab.html` entry rather

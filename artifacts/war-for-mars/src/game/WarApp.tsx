@@ -106,7 +106,7 @@ type LobbySession = {
   ready: boolean;
 };
 
-export function WarApp() {
+export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: boolean }) {
   const { getToken, userId } = useAuth();
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
@@ -153,7 +153,7 @@ export function WarApp() {
     authUserIdRef.current = userId;
   }, [userId]);
   const durable = useDurableAction();
-  const [galaxyOpen, setGalaxyOpen] = useState(false);
+  const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);

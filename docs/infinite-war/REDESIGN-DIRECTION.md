@@ -159,6 +159,12 @@ Private/AI-fill restrictions and competitive reward gates remain unchanged.
 
 ## Additional Infinite Open Universe directive: requirement mapping
 
+The subsequent [connected-universe integration](CONNECTED-UNIVERSE-INTEGRATION.md)
+joins the shared chart to real account world state and operation discovery at
+`/universe`, with explicit paid-travel confirmation and handoffs to existing
+authorized destination controls. It preserves the independent offline entry.
+This advances navigation integration, not continuous sector flight.
+
 The requested full milestone is **launch from Mars → continuous sector
 exploration → discover/investigate an opposing patrol → engage or evade →
 discover a multiplayer installation → authorized activity entry → return to the

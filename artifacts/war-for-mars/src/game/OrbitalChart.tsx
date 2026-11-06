@@ -1,18 +1,23 @@
 import type { KeyboardEvent } from "react";
-import { DESTINATIONS, type Destination } from "./universe-destinations";
+import { DESTINATIONS, type DestinationStatus } from "./universe-destinations";
 
-type Props = { selected: string; onSelect: (id: string) => void };
+type ChartDestination = {
+  id: string; name: string; kind: string; x: number; y: number;
+  status: DestinationStatus | "current" | "available" | "locked"; label?: string;
+};
+type Props = { selected: string; onSelect: (id: string) => void; destinations?: readonly ChartDestination[] };
 
-export function OrbitalChart({ selected, onSelect }: Props) {
+export function OrbitalChart({ selected, onSelect, destinations = DESTINATIONS }: Props) {
   const onKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const delta = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
     if (!delta) return;
     event.preventDefault();
-    const next = DESTINATIONS[(index + delta + DESTINATIONS.length) % DESTINATIONS.length];
+    const next = destinations[(index + delta + destinations.length) % destinations.length];
+    if (!next) return;
     onSelect(next.id);
     document.getElementById(`node-${next.id}`)?.focus();
   };
-  const sel = DESTINATIONS.find((d) => d.id === selected);
+  const sel = destinations.find((d) => d.id === selected);
   return (
     <div className="uv-chart" role="radiogroup" aria-label="Orbital destinations">
       <svg className="uv-chart__lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -23,7 +28,7 @@ export function OrbitalChart({ selected, onSelect }: Props) {
       </svg>
       <div className="uv-chart__belt" aria-hidden="true" />
       <div className="uv-chart__rift" aria-hidden="true" />
-      {DESTINATIONS.map((d: Destination, i) => (
+      {destinations.map((d, i) => (
         <button
           key={d.id}
           id={`node-${d.id}`}
@@ -39,7 +44,7 @@ export function OrbitalChart({ selected, onSelect }: Props) {
           onKeyDown={(e) => onKey(e, i)}
         >
           <span className="uv-node__mark" aria-hidden="true" />
-          <span className="uv-node__label"><b>{d.name}</b><small>{d.status === "planned" ? "PLANNED" : d.kind}</small></span>
+          <span className="uv-node__label"><b>{d.name}</b><small>{d.label ?? (d.status === "planned" ? "PLANNED" : d.kind)}</small></span>
         </button>
       ))}
     </div>

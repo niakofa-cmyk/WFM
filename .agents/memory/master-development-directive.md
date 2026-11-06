@@ -20,6 +20,18 @@ Infinite Open Universe directive requiring one canonical engine.
 entry paths without claiming live battles, infinite streaming or full engine
 migration from visuals. Preserve authentication, authority, rewards and rollback.
 
+Keep local no-reward Orbital training independent of hosted authentication and
+account-world availability. Share presentation with the connected account
+universe, but do not require a live account service to launch offline training.
+
+**Why:** connecting persisted travel/discovery must not remove the verified
+offline training boundary or treat a local approach as server location authority.
+
+**How to apply:** reuse existing account world/travel/operation contracts for
+connected navigation; preserve the independent local launch and its no-write
+boundary. A chart selection or completed local docking animation never grants
+server position, match access or rewards.
+
 The previous engine-first owner directive is retained at
 `attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
 It put engine consolidation before appearance redesign; the user's newer
