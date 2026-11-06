@@ -1,10 +1,26 @@
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { buildOrbitalShip } from "./orbital-visuals";
+import {
+  buildOrbitalShip,
+  createHangarInspectionEffects,
+  shouldAnimateHangarPreview,
+  type HangarDamageState,
+  type HangarInspectionView,
+} from "./orbital-visuals";
 import { SHIPS, type Faction, type ShipId } from "./ships";
 
 type HangarShipProps = { ship: ShipId; faction: Faction; isSaved?: boolean };
+const INSPECTION_VIEWS: Array<{ id: HangarInspectionView; label: string }> = [
+  { id: "hull", label: "HULL" },
+  { id: "engines", label: "ENGINES" },
+  { id: "weapons", label: "WEAPONS" },
+];
+const DAMAGE_STATES: Array<{ id: HangarDamageState; label: string }> = [
+  { id: "intact", label: "INTACT" },
+  { id: "field", label: "FIELD" },
+  { id: "critical", label: "CRITICAL" },
+];
 
 /**
  * Lightweight hangar display for the already-saved hull. Pointer gestures are
@@ -12,7 +28,23 @@ type HangarShipProps = { ship: ShipId; faction: Faction; isSaved?: boolean };
  */
 export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const refreshSceneRef = useRef<(() => void) | null>(null);
   const [failed, setFailed] = useState(false);
+  const [view, setView] = useState<HangarInspectionView>("hull");
+  const [damage, setDamage] = useState<HangarDamageState>("intact");
+  const inspectionRef = useRef({ view, damage });
+  inspectionRef.current = { view, damage };
+
+  const selectView = (next: HangarInspectionView) => {
+    inspectionRef.current = { ...inspectionRef.current, view: next };
+    setView(next);
+    refreshSceneRef.current?.();
+  };
+  const selectDamage = (next: HangarDamageState) => {
+    inspectionRef.current = { ...inspectionRef.current, damage: next };
+    setDamage(next);
+    refreshSceneRef.current?.();
+  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -69,15 +101,54 @@ export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
     const hull = buildOrbitalShip(ship);
     hull.scale.setScalar(0.84);
     hull.position.y = -0.05;
+    const factionColor = faction === "accord" ? 0xe0a15a : 0x78bfff;
+    const inspectionEffects = createHangarInspectionEffects(hull, factionColor);
     scene.add(hull);
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let visible = true;
+    let raf = 0;
+    let lastTime = 0;
+    let activeTimeMs = 0;
+    const viewCamera = (next: HangarInspectionView) => {
+      if (next === "engines") {
+        camera.fov = 38;
+        camera.position.set(-.18, .7, -3.45);
+        camera.lookAt(-.18, -.04, -.82);
+      } else if (next === "weapons") {
+        camera.fov = 38;
+        camera.position.set(0, .68, 3.55);
+        camera.lookAt(0, -.08, .48);
+      } else {
+        camera.fov = 32;
+        camera.position.set(4.4, 3.3, 6.7);
+        camera.lookAt(0, 0, 0);
+      }
+      camera.updateProjectionMatrix();
+    };
+    const renderInspection = () => {
+      const current = inspectionRef.current;
+      viewCamera(current.view);
+      inspectionEffects.setDamage(current.damage);
+      inspectionEffects.update(
+        current.view,
+        activeTimeMs,
+        shouldAnimateHangarPreview(visible, document.visibilityState !== "hidden", reducedMotion.matches),
+      );
+      canvas.setAttribute(
+        "aria-label",
+        `3D ${current.view === "hull" ? "hull overview" : `close-up of ${current.view}`} for ${SHIPS[ship].name}; ${current.damage} presentation damage. Drag or use arrow keys to inspect.`,
+      );
+      renderer.render(scene, camera);
+    };
+    refreshSceneRef.current = renderInspection;
 
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
-      camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
-      renderer.render(scene, camera);
+      renderInspection();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
@@ -119,20 +190,18 @@ export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
     canvas.addEventListener("pointercancel", onPointerUp);
     canvas.addEventListener("keydown", onKeyDown);
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let visible = true;
-    let raf = 0;
-    let lastTime = 0;
     const draw = (time: number) => {
-      if (!visible || document.visibilityState === "hidden") {
+      if (!shouldAnimateHangarPreview(visible, document.visibilityState !== "hidden", reducedMotion.matches)) {
+        inspectionEffects.update(inspectionRef.current.view, activeTimeMs, false);
         raf = 0;
         return;
       }
-      if (!reducedMotion.matches) {
-        const dt = Math.min((time - (lastTime || time)) / 1000, 0.05);
-        if (pointerX === null) hull.rotation.y += dt * 0.17;
-        hull.position.y = -0.05 + Math.sin(time * 0.0007) * 0.025;
-      }
+      const dt = Math.min((time - (lastTime || time)) / 1000, 0.05);
+      activeTimeMs += dt * 1000;
+      if (inspectionRef.current.view === "hull" && pointerX === null) hull.rotation.y += dt * 0.17;
+      if (inspectionRef.current.view === "hull") hull.position.y = -0.05 + Math.sin(activeTimeMs * 0.0007) * 0.025;
+      else hull.position.y = -0.05;
+      inspectionEffects.update(inspectionRef.current.view, activeTimeMs, true);
       lastTime = time;
       renderer.render(scene, camera);
       raf = window.requestAnimationFrame(draw);
@@ -140,10 +209,14 @@ export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
     const start = () => {
       if (!visible || document.visibilityState === "hidden") return;
       if (reducedMotion.matches) {
+        inspectionEffects.update(inspectionRef.current.view, activeTimeMs, false);
         renderer.render(scene, camera);
         return;
       }
-      if (!raf) raf = window.requestAnimationFrame(draw);
+      if (!raf) {
+        lastTime = 0;
+        raf = window.requestAnimationFrame(draw);
+      }
     };
     const stop = () => { if (raf) window.cancelAnimationFrame(raf); raf = 0; };
     const visibility = () => document.visibilityState === "hidden" ? stop() : start();
@@ -166,13 +239,15 @@ export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
       intersection.disconnect();
       document.removeEventListener("visibilitychange", visibility);
       reducedMotion.removeEventListener("change", motionPreference);
+      if (refreshSceneRef.current === renderInspection) refreshSceneRef.current = null;
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("keydown", onKeyDown);
+      inspectionEffects.dispose();
       scene.traverse((object) => {
-        if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line)) return;
+        if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Line) && !(object instanceof THREE.Points)) return;
         object.geometry.dispose();
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         materials.forEach((material) => material.dispose());
@@ -188,10 +263,46 @@ export function HangarShip({ ship, faction, isSaved = true }: HangarShipProps) {
       className="hangar-ship-stage relative isolate min-h-[250px] w-full overflow-hidden sm:min-h-[340px]"
       data-testid="hangar-ship-stage"
       data-ship-id={ship}
+      data-inspection-view={view}
+      data-damage-view={damage}
       role="group"
       aria-label={`Hangar display of ${isSaved ? "saved" : "unsaved"} ${SHIPS[ship].name} spacecraft. Drag or focus and use arrow keys to inspect.`}
     >
       <div className="hangar-stage-grid absolute inset-0" aria-hidden="true" />
+      <div className="absolute left-2 right-2 top-2 z-10 flex flex-wrap items-start justify-between gap-1">
+        <div role="group" aria-label="Inspect ship components" className="flex gap-1">
+          {INSPECTION_VIEWS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              data-testid={`hangar-view-${option.id}`}
+              aria-pressed={view === option.id}
+              title={`Inspect ${option.label.toLowerCase()}`}
+              disabled={failed}
+              onClick={() => selectView(option.id)}
+              className={`rounded-sm border px-2 py-1 font-hud text-[8px] tracking-[0.12em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:opacity-40 ${view === option.id ? "border-accent bg-black/70 text-white" : "border-white/20 bg-black/40 text-muted"}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div role="group" aria-label="Presentation-only damage view" className="flex gap-1">
+          {DAMAGE_STATES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              data-testid={`hangar-damage-${option.id}`}
+              aria-pressed={damage === option.id}
+              title={`${option.label.toLowerCase()} presentation damage`}
+              disabled={failed}
+              onClick={() => selectDamage(option.id)}
+              className={`rounded-sm border px-2 py-1 font-hud text-[8px] tracking-[0.12em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:opacity-40 ${damage === option.id ? "border-accent bg-black/70 text-white" : "border-white/20 bg-black/40 text-muted"}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 font-hud text-[9px] tracking-[0.22em] text-muted">
         DRAG TO INSPECT · {isSaved ? "SAVED HULL" : "UNSAVED PREVIEW"}
       </div>

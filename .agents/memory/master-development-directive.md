@@ -3,26 +3,37 @@ name: WFM master development directive
 description: Owner-designated execution order and consolidation rules for Infinite War.
 ---
 
-The complete owner directive is retained at
-`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-THE-INFINITE_1793752668891.txt`.
-Its maintained, code-grounded companion is
-`docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md`, supported by the forensic
-inventory, architecture assessment, and integration matrix in that directory.
+The latest reconstruction references are retained unchanged at
+`attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
+and `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`.
+The current source audit is in
+`docs/infinite-war/UPDATED-REPOSITORY-FORENSIC-EVALUATION.md`; the mode inventory
+and ordered migration proof gates are in
+`docs/infinite-war/INFINITE-UNIVERSE-ORBITAL-RUNTIME-DIRECTION.md`.
 
-The directive is the leading execution reference for WFM consolidation. Its
-core rule is: “The universe is the battlefield. Every competitive engagement
-is an operation within the larger war. Every operation can have consequences
-for the universe.”
+The leading direction is one canonical Orbital gameplay runtime, with Rust
+Disc, Iron Eclipse, Route to Mars, Arcade, Campaign, co-op, and Wing capabilities
+migrated through versioned, tested operation adapters. Do not transplant the
+legacy Rust Disc flight scene. Three.js may remain only as a low-level renderer
+dependency if the Orbital presentation layer owns scene, camera, renderer and
+gameplay-loop lifecycle; removing Three.js itself requires a separate benchmark.
 
-**Why:** the owner explicitly designated this directive as the foundation for
-the next WFM development version. It requires a single coherent game but
-explicitly forbids discarding verified existing systems before replacements
-are integrated, tested, and rollback-safe.
+**Why:** the newest owner directive explicitly designates Orbital Combat as the
+main engine and calls for extraction of verified systems, not a visual-only
+rebuild. It also requires mobile controls, deterministic simulation, server
+authority, compatibility, and rollback during migration.
 
-**How to apply:** perform the source/test audit before broad rewrites. Keep the
-custom Three.js/Vite runtime; preserve existing Clerk identity, Wing matchmaking
-and reward safeguards, co-op sector progression, campaign claims, and shared
-account data. Integrate one versioned playable slice at a time. Keep Combat Lab
-and local training no-reward. Treat production readiness, live ten-human 3D
-combat, persistent war effects, and physical-device verification as unproven
-until their specific acceptance gates pass.
+**How to apply:** use the source-backed extraction matrix before broad rewrites.
+Keep the custom Three.js/Vite renderer, but move mode gameplay toward the shared
+Orbital simulation through explicit adapters. Preserve Clerk identity, Wing
+matchmaking/rewards, co-op progression, campaign claims, and account data.
+Integrate one versioned slice at a time; keep training no-reward; do not claim
+mobile performance, live ten-human orbital combat, or full mode migration without
+their acceptance evidence.
+
+The new directive makes Rust Disc pilot controls and co-op operation behavior
+required extraction sources, and defines the intended extended universe. Keep
+that target distinct from current bounded sectors and navigation. Track
+simulation migration separately from presentation migration: a mode must not
+be called fully consolidated while a legacy scene owns its rendering lifecycle.
+Preserve identity, server authority, progression and rewards throughout migration.

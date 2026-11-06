@@ -185,7 +185,7 @@ test("world discoveries, quests, reputation, and global events persist server-si
     assert.equal(travelResults[0].travelCost, 8);
     assert.deepEqual(
       travelResults[0].world.routes.map((route) => [route.destinationId, route.available]),
-      [["phobos-yard", true], ["pale-beacons", false]],
+      [["phobos-yard", true], ["pale-beacons", false], ["cinder-asteroid", true]],
     );
     await assert.rejects(
       travelToWorldLocation(firstUser, "phobos-yard", travelKey),

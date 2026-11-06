@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
-import { clearInput, createBus, readInput, stickAxesFromDelta, type Bus } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -20,9 +20,31 @@ import type { TechId } from "./campaign";
 import { battlefieldProfile } from "./battlefield";
 import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
-import { rotate } from "./orbital-flight";
+import { orbitalAbilityAvailability } from "./orbital-abilities";
+import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
-import { addOrbitalEnvironment, buildOrbitalShip, orbitalRock } from "./orbital-visuals";
+import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
+import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
+import { PilotActionButton } from "./PilotActionButton";
+import { PilotFlightStick } from "./PilotFlightStick";
+import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pilot-hud";
+import {
+  createOrbitalRuntime,
+  getGameModeDefinition,
+  isOrbitalRuntimeId,
+  ORBITAL_RUNTIME_ID,
+  type CombatRuntimeId,
+  type GameModeId,
+} from "@workspace/orbital-sim";
+
+const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
+  beam: { accord: 0xffb461, ussf: 0x7de6ff },
+  pulse: { accord: 0xffd7a1, ussf: 0xbcecff },
+  heavy: { accord: 0xff8b4f, ussf: 0x69cfff },
+  precision: { accord: 0xffe2b2, ussf: 0xe0f7ff },
+  ion: { accord: 0xffa86c, ussf: 0xa6aaff },
+  swarm: { accord: 0xffc35e, ussf: 0x79f0e0 },
+};
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -96,7 +118,10 @@ type ArenaProps = {
   onPerformanceVisibilityChange?: (change: LocalPerformanceVisibilityChange) => void;
   localEndurance?: boolean;
   online?: OnlineRoom;
-  orbital?: boolean;
+  /** Required so every Arena caller states its runtime instead of silently falling back. */
+  runtime: CombatRuntimeId;
+  /** The operation contract is checked against the selected simulation at launch. */
+  modeId: GameModeId;
   orbitalCampaign?: boolean;
 };
 
@@ -177,6 +202,7 @@ const _tmp = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
 const _cam = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const _cameraUp = new THREE.Vector3();
 
 function orient(obj: THREE.Object3D, yaw: number, pitch: number, steer: number) {
   const cp = Math.cos(pitch);
@@ -457,79 +483,6 @@ function drawContacts(canvas: HTMLCanvasElement, match: Match, local: Craft = ma
   }
 }
 
-function Stick({ label, onAxis }: { label: string; onAxis: (x: number, y: number) => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  const knob = useRef<HTMLDivElement>(null);
-  const pointerOrigin = useRef<{ pointerId: number; x: number; y: number } | null>(null);
-  const setAxis = (x: number, y: number) => {
-    if (root.current) {
-      root.current.dataset.axisX = x.toFixed(3);
-      root.current.dataset.axisY = y.toFixed(3);
-    }
-    onAxis(x, y);
-  };
-  const place = (clientX: number, clientY: number) => {
-    const el = root.current;
-    const dot = knob.current;
-    const origin = pointerOrigin.current;
-    if (!el || !dot || !origin) return;
-    const rect = el.getBoundingClientRect();
-    const max = Math.max(1, rect.width * 0.36);
-    const axis = stickAxesFromDelta(clientX - origin.x, clientY - origin.y, max);
-    const dx = axis.x * max;
-    const dy = axis.y * max;
-    dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    setAxis(axis.x, axis.y);
-  };
-  const reset = (pointerId?: number) => {
-    if (pointerId !== undefined && pointerOrigin.current?.pointerId !== pointerId) return;
-    pointerOrigin.current = null;
-    if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    setAxis(0, 0);
-  };
-  return (
-    <div
-      ref={root}
-      role="group"
-      aria-label={`${label} stick`}
-      data-testid={`stick-${label.toLowerCase()}`}
-      data-axis-x="0.000"
-      data-axis-y="0.000"
-      className="relative size-28 touch-none rounded-full border border-bone/30 bg-panel/80"
-      onPointerDown={(event) => {
-        event.stopPropagation();
-        if (pointerOrigin.current) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        pointerOrigin.current = {
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-        };
-        place(event.clientX, event.clientY);
-      }}
-      onPointerMove={(event) => {
-        if (
-          pointerOrigin.current?.pointerId !== event.pointerId ||
-          !event.currentTarget.hasPointerCapture(event.pointerId)
-        ) return;
-        place(event.clientX, event.clientY);
-      }}
-      onPointerUp={(event) => {
-        event.stopPropagation();
-        reset(event.pointerId);
-      }}
-      onPointerCancel={(event) => reset(event.pointerId)}
-      onLostPointerCapture={(event) => reset(event.pointerId)}
-    >
-      <div
-        ref={knob}
-        className="absolute top-1/2 left-1/2 size-11 rounded-full bg-solar"
-        style={{ transform: "translate(-50%, -50%)" }}
-      />
-    </div>
-  );
-}
-
 export function Arena({
   shipId,
   faction,
@@ -554,13 +507,28 @@ export function Arena({
   onPerformanceVisibilityChange,
   localEndurance = false,
   online,
-  orbital = false,
+  runtime,
+  modeId,
   orbitalCampaign = false,
 }: ArenaProps) {
-  if (orbital && online) throw new Error("Combat Lab cannot connect to live matches.");
+  const modeDefinition = getGameModeDefinition(modeId);
+  const orbitalRuntime = isOrbitalRuntimeId(runtime)
+    ? createOrbitalRuntime(modeDefinition, runtime)
+    : null;
+  if (modeDefinition.simulation.runtimeId !== runtime &&
+      !(orbitalRuntime && modeDefinition.simulation.runtimeId === ORBITAL_RUNTIME_ID)) {
+    throw new Error(`Mode ${modeId} is configured for ${modeDefinition.simulation.runtimeId}, not ${runtime}.`);
+  }
+  const orbital = orbitalRuntime !== null;
+  if (isOrbitalRuntimeId(runtime) && !orbital) {
+    throw new Error("Orbital runtime initialization failed.");
+  }
+  if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
+  const countermeasureRef = useRef<HTMLButtonElement>(null);
+  const countermeasureFeedbackRef = useRef<HTMLParagraphElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const radarRef = useRef<HTMLCanvasElement>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -573,8 +541,23 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const speedRef = useRef<HTMLSpanElement>(null);
+  const throttleMeterRef = useRef<HTMLDivElement>(null);
+  const throttleFillRef = useRef<HTMLDivElement>(null);
+  const throttleValueRef = useRef<HTMLSpanElement>(null);
+  const boostRef = useRef<HTMLButtonElement>(null);
   const lockNameRef = useRef<HTMLParagraphElement>(null);
   const lockHpRef = useRef<HTMLDivElement>(null);
+  const targetStatusRef = useRef<HTMLDivElement>(null);
+  const targetFactionRef = useRef<HTMLSpanElement>(null);
+  const targetNameRef = useRef<HTMLSpanElement>(null);
+  const targetDistanceRef = useRef<HTMLSpanElement>(null);
+  const targetShieldRef = useRef<HTMLDivElement>(null);
+  const targetShieldValueRef = useRef<HTMLSpanElement>(null);
+  const targetHullRef = useRef<HTMLDivElement>(null);
+  const targetHullValueRef = useRef<HTMLSpanElement>(null);
+  const targetLockRef = useRef<HTMLDivElement>(null);
+  const targetLockValueRef = useRef<HTMLSpanElement>(null);
   const callRef = useRef<HTMLParagraphElement>(null);
   const relayRef = useRef<HTMLParagraphElement>(null);
   const markRef = useRef<HTMLDivElement>(null);
@@ -584,7 +567,6 @@ export function Arena({
   const rightRef = useRef<HTMLDivElement>(null);
   const behindRef = useRef<HTMLDivElement>(null);
   const downRef = useRef<HTMLParagraphElement>(null);
-  const paintRef = useRef<HTMLParagraphElement>(null);
   const contactRef = useRef<HTMLCanvasElement>(null);
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
@@ -622,16 +604,22 @@ export function Arena({
   gyroOn.current = gyro;
   drillCb.current = onDrill;
   if (!busRef.current) busRef.current = createBus(scheme);
+  busRef.current.orbital = orbital;
+  busRef.current.leftStickFlight = orbital && !online;
+  busRef.current.countermeasureEnabled = orbital && !orbitalCampaign;
   if (!matchRef.current) {
     const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
     seedRef.current = seed;
     replayRef.current = [];
     matchRef.current = online
       ? copyMatch(online.snapshot.match)
-      : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance });
+      : createMatch(shipId, faction, refit, pace, {
+          goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance,
+          orbitalTraining: orbital && !orbitalCampaign,
+          orbitalRulesVersion: orbitalRuntime?.rulesVersion,
+        });
     if (orbital) {
-      prepareOrbital(matchRef.current);
-      busRef.current.orbital = true;
+      prepareOrbital(matchRef.current, orbitalRuntime!.rulesVersion);
     }
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
@@ -640,9 +628,19 @@ export function Arena({
   const [muted, setMutedUi] = useState(false);
   const [paused, setPaused] = useState(false);
   const [shakeUi, setShakeUi] = useState(true);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [maneuversOpen, setManeuversOpen] = useState(false);
+  const [countermeasureVisible, setCountermeasureVisible] = useState(false);
+  const countermeasureVisibleRef = useRef(false);
+  const countermeasureUntilRef = useRef(0);
+  const rollCameraStabilizationRef = useRef(0);
+  const [cameraMode, setCameraMode] = useState<"chase" | "cockpit">("chase");
+  const cameraModeRef = useRef<"chase" | "cockpit">("chase");
+  cameraModeRef.current = cameraMode;
   const pausedRef = useRef(false);
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const unifiedOrbitalControls = orbital && !online;
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
   const ship = SHIPS[online ? pilotCraft(matchRef.current!, online.slotId).ship : shipId];
@@ -1053,6 +1051,12 @@ export function Arena({
       scene.add(group);
       return group;
     });
+    const damageControllers = new Map<THREE.Group, ReturnType<typeof createOrbitalDamageController>>();
+    if (orbital) {
+      for (const group of [playerGroup, ...allyGroups, ...enemyGroups]) {
+        damageControllers.set(group, createOrbitalDamageController(group));
+      }
+    }
 
     const cage = new THREE.Group();
     const cageBody = new THREE.Mesh(
@@ -1090,6 +1094,15 @@ export function Arena({
     flare.geometry.rotateX(Math.PI / 2);
     flare.visible = false;
     scene.add(flare);
+    const flareCoreMat = new THREE.MeshBasicMaterial({
+      color: 0xffe1ad,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    });
+    const flareCore = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 10), flareCoreMat);
+    flareCore.visible = false;
+    scene.add(flareCore);
     const empMat = new THREE.MeshBasicMaterial({
       color: 0xe0a15a,
       transparent: true,
@@ -1266,7 +1279,12 @@ export function Arena({
 
     window.__controlsTest = {
       getYaw: () => pilotCraft(match, slotIdRef.current).yaw,
-      getSpeed: () => pilotCraft(match, slotIdRef.current).speed,
+      getSpeed: () => {
+        const craft = pilotCraft(match, slotIdRef.current);
+        return craft.space
+          ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
+          : craft.speed;
+      },
       getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
@@ -1303,8 +1321,10 @@ export function Arena({
     let paintClock = 0;
     let flareT = 0;
     let flareX = 0;
+    let flareY = 0;
     let flareZ = 0;
     let flareYaw = 0;
+    let countermeasureFeedbackUntil = 0;
     let streakT = 0;
     let streakX = 0;
     let streakZ = 0;
@@ -1413,8 +1433,11 @@ export function Arena({
       }
       for (const ev of match.fx) {
         if (ev.k === "shot") {
-          burst(ev.x, ev.z, ev.you ? 0xffd9a0 : 0xc45c48, 0.12, ev.big ? 5 : 2.4, ev.y);
-          if (ev.you) sfxShot(ev.big);
+          const effectColor = ev.visualEffect
+            ? WEAPON_EFFECT_COLORS[ev.visualEffect][ev.faction ?? (ev.you ? "accord" : "ussf")]
+            : ev.you ? 0xffd9a0 : 0xc45c48;
+          burst(ev.x, ev.z, effectColor, 0.12, ev.big ? 5 : 2.4, ev.y);
+          if (ev.you) sfxShot(ev.audioCue === "heavy" || ev.big);
         } else if (ev.k === "hit") {
           burst(ev.x, ev.z, ev.you ? 0xc45c48 : 0xffd9a0, 0.16, 3.2, ev.y);
           impactSparks(ev.x, ev.z, ev.you ? 10 : 6, ev.you ? 8 : 5, 0.28, ev.y);
@@ -1449,10 +1472,16 @@ export function Arena({
           callT = 1.35;
           callName = `${ev.name.toUpperCase()} DOWN`;
         } else if (ev.k === "flare") {
-          flareT = 0.42;
+          flareT = 0.9;
           flareX = ev.x;
+          flareY = ev.y ?? 0;
           flareZ = ev.z;
           flareYaw = ev.yaw;
+          if (countermeasureFeedbackRef.current) {
+            countermeasureFeedbackRef.current.textContent = countermeasureFeedbackLabel(ev.decoyed ?? 0, ev.disrupted ?? 0);
+            countermeasureFeedbackRef.current.hidden = false;
+          }
+          countermeasureFeedbackUntil = performance.now() + 2200;
           burst(ev.x, ev.z, 0xffd9a0, 0.35, 10);
           sfxFlare();
         } else if (ev.k === "dive" || ev.k === "ram") {
@@ -1553,6 +1582,7 @@ export function Arena({
           group.position.set(craft.x, .9 + craft.space.y, craft.z);
           group.quaternion.fromArray(craft.space.q);
           group.rotateY(Math.PI);
+          damageControllers.get(group)?.update(craft.hull, craft.hullMax);
         }
       }
       if (match.runner) {
@@ -1579,11 +1609,15 @@ export function Arena({
         }
         mesh.visible = true;
         mesh.position.set(bullet.x, .85 + (bullet.y ?? 0), bullet.z);
-        mesh.scale.set(orbital ? .65 : 1, orbital ? .65 : 1, orbital ? (bullet.missile ? 3.5 : 2.5) : 1);
+        const caliber = Math.max(0.55, Math.min(2.2, bullet.r / 0.3));
+        mesh.scale.set(orbital ? .65 * caliber : 1, orbital ? .65 * caliber : 1, orbital ? (bullet.missile ? 3.5 : 2.5) * caliber : 1);
         if (orbital) mesh.quaternion.setFromUnitVectors(_fwd.set(0, 0, 1), _tmp.set(bullet.vx, bullet.vy ?? 0, bullet.vz).normalize());
         else mesh.scale.setScalar(bullet.r > 0.5 ? 2.2 : 1);
+        const effectColor = bullet.visualEffect ? WEAPON_EFFECT_COLORS[bullet.visualEffect] : null;
         (mesh.material as THREE.MeshBasicMaterial).color.setHex(
-          bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
+          effectColor
+            ? effectColor[bullet.faction]
+            : bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
         );
       }
       const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;
@@ -1597,12 +1631,19 @@ export function Arena({
 
       flareT = Math.max(0, flareT - delta);
       flare.visible = flareT > 0;
+      flareCore.visible = flare.visible;
       if (flare.visible) {
         const fax = -Math.sin(flareYaw);
         const faz = -Math.cos(flareYaw);
-        flare.position.set(flareX + fax * 8, 0.7, flareZ + faz * 8);
+        const flareHeight = 0.85 + flareY;
+        flare.position.set(flareX + fax * 4, flareHeight, flareZ + faz * 4);
         flare.rotation.set(0, flareYaw + Math.PI, 0);
-        flareMat.opacity = (flareT / 0.42) * 0.55;
+        const flareProgress = 1 - flareT / 0.9;
+        flare.scale.setScalar(0.7 + flareProgress * 0.45);
+        flareMat.opacity = (flareT / 0.9) * 0.78;
+        flareCore.position.set(flareX + fax * 2.5, flareHeight, flareZ + faz * 2.5);
+        flareCore.scale.setScalar(0.75 + flareProgress * 1.1);
+        flareCoreMat.opacity = Math.min(1, flareT * 1.4);
       }
       streakT = Math.max(0, streakT - delta);
       streak.visible = streakT > 0;
@@ -1644,12 +1685,24 @@ export function Arena({
       _cam.set(player.x - fwx * 16, 7.4, player.z - fwz * 16);
       _look.set(player.x + fwx * 14, 1.05, player.z + fwz * 14);
       if (orbital && player.space) {
-        const offset = rotate(player.space.q, 0, 4, 15);
-        const ahead = rotate(player.space.q, 0, 1.1, -24);
-        _cam.set(player.x + offset.x, .9 + player.space.y + offset.y, player.z + offset.z);
-        _look.set(player.x + ahead.x, .9 + player.space.y + ahead.y, player.z + ahead.z);
-        const up = rotate(player.space.q, 0, 1, 0);
-        camera.up.set(up.x, up.y, up.z);
+        const cockpit = cameraModeRef.current === "cockpit";
+        const liveRollActive = bus.orbital && bus.leftStickFlight &&
+          Date.now() < bus.circularRollUntil &&
+          Math.abs(bus.circularRoll) > 0.01;
+        const rollActive = Math.abs(player.space.maneuverRollRemaining ?? 0) > 0 || liveRollActive;
+        rollCameraStabilizationRef.current = rollActive
+          ? 1
+          : Math.max(0, rollCameraStabilizationRef.current - delta * 2.6);
+        const stabilization = rollCameraStabilizationRef.current;
+        const pose = orbitalCameraPose(player.space.q, cockpit, stabilization);
+        _cam.set(player.x + pose.offset.x, .9 + player.space.y + pose.offset.y, player.z + pose.offset.z);
+        _look.set(player.x + pose.ahead.x, .9 + player.space.y + pose.ahead.y, player.z + pose.ahead.z);
+        if (stabilization > 0) {
+          _cameraUp.set(pose.up.x, pose.up.y, pose.up.z);
+          camera.up.lerp(_cameraUp, 1 - Math.exp(-12 * delta)).normalize();
+        } else {
+          camera.up.set(pose.up.x, pose.up.y, pose.up.z);
+        }
       }
       const blend = 1 - Math.exp(-5 * delta);
       camera.position.lerp(_cam, blend);
@@ -1750,7 +1803,6 @@ export function Arena({
           !player.alive && !match.over ? `HULL DOWN ${Math.max(0, player.respawn).toFixed(1)}` : "";
       }
       const painting = player.alive && match.painted.length > 0;
-      if (paintRef.current) paintRef.current.textContent = painting ? "PAINTED" : "";
       paintClock -= delta;
       if (painting && (!paintOn || paintClock <= 0)) {
         sfxPaint();
@@ -1761,9 +1813,74 @@ export function Arena({
       if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
       if (orbital && player.space) {
         const s = player.space;
+        const speed = Math.hypot(s.vx, s.vy, s.vz);
+        if (speedRef.current) speedRef.current.textContent = `${Math.round(speed)} M/S`;
+        if (throttleMeterRef.current) {
+          const controlBus = busRef.current;
+          const throttle = controlBus ? readThrottle(controlBus) : 0;
+          const moving = speed > 0.8;
+          throttleMeterRef.current.hidden = !moving;
+          if (moving) {
+            const magnitude = Math.abs(throttle);
+            const direction = throttle > 0.04 ? "forward" : throttle < -0.04 ? "reverse" : "coast";
+            const value = Math.round(throttle * 100);
+            throttleMeterRef.current.dataset.direction = direction;
+            throttleMeterRef.current.setAttribute("aria-valuenow", String(value));
+            throttleMeterRef.current.setAttribute(
+              "aria-valuetext",
+              `${direction === "forward" ? "Forward" : direction === "reverse" ? "Reverse" : "Coasting"} ${Math.round(magnitude * 100)} percent`,
+            );
+            if (throttleFillRef.current) {
+              throttleFillRef.current.style.top = `${throttle >= 0 ? 50 - magnitude * 50 : 50}%`;
+              throttleFillRef.current.style.height = `${magnitude * 50}%`;
+            }
+            if (throttleValueRef.current) {
+              throttleValueRef.current.textContent = `${direction === "forward" ? "FWD" : direction === "reverse" ? "REV" : "COAST"} ${Math.round(magnitude * 100)}%`;
+            }
+          }
+        }
+        if (boostRef.current) {
+          const energyPercent = Math.max(0, Math.min(100, Math.round(s.energy)));
+          if (boostRef.current.dataset.energyPercent !== String(energyPercent)) {
+            boostRef.current.dataset.energyPercent = String(energyPercent);
+            boostRef.current.dataset.energyLevel = energyPercent <= 15 ? "low" : "ready";
+            boostRef.current.setAttribute(
+              "aria-label",
+              `Hold forward boost; energy ${energyPercent} percent. Boost drains energy while held and recharges when released.`,
+            );
+            const badge = boostRef.current.querySelector(".pilot-action-badge");
+            if (badge) badge.textContent = `${energyPercent}%`;
+          }
+        }
         const solution = locked ? targetSolution(player, locked, match.rocks) : null;
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
+        if (targetStatusRef.current) {
+          targetStatusRef.current.hidden = !locked;
+          if (locked && solution) {
+            const factionAccent = targetFactionAccent(locked.faction);
+            const critical = isTargetHullCritical(hull);
+            targetStatusRef.current.dataset.faction = locked.faction;
+            targetStatusRef.current.dataset.critical = critical ? "true" : "false";
+            targetStatusRef.current.style.setProperty("--target-accent", factionAccent);
+            targetStatusRef.current.style.setProperty("--target-hull", targetHullColor(locked.faction, hull));
+            if (targetFactionRef.current) targetFactionRef.current.textContent = locked.faction.toUpperCase();
+            if (targetNameRef.current) targetNameRef.current.textContent = SHIPS[locked.ship].name.toUpperCase();
+            if (targetDistanceRef.current) targetDistanceRef.current.textContent = `${Math.round(solution.distance)} M`;
+            if (targetShieldRef.current) {
+              targetShieldRef.current.style.width = `${Math.max(0, Math.min(100, shield))}%`;
+              targetShieldRef.current.style.backgroundColor = factionAccent;
+            }
+            if (targetShieldValueRef.current) targetShieldValueRef.current.textContent = `${Math.max(0, shield)}%`;
+            if (targetHullRef.current) {
+              targetHullRef.current.style.width = `${Math.max(0, Math.min(100, hull))}%`;
+              targetHullRef.current.style.backgroundColor = targetHullColor(locked.faction, hull);
+            }
+            if (targetHullValueRef.current) targetHullValueRef.current.textContent = `${Math.max(0, hull)}%`;
+            if (targetLockRef.current) targetLockRef.current.style.width = `${Math.max(0, Math.min(100, s.lockProgress * 100))}%`;
+            if (targetLockValueRef.current) targetLockValueRef.current.textContent = `${Math.floor(s.lockProgress * 100)}% LOCK`;
+          }
+        }
         if (telemetryRef.current) {
           telemetryRef.current.textContent = `${orbitalCampaign ? "CONTACT · CAMPAIGN" : "LAB · NO REWARDS"} · ${match.kills}/${match.enemies.length} DESTROYED\nSPD ${Math.hypot(s.vx, s.vy, s.vz).toFixed(1)} · ALT ${s.y.toFixed(1)} · ENERGY ${Math.ceil(s.energy)} · ARMOR ${Math.ceil(s.armor)}\n${s.assist ? "FLIGHT ASSIST" : "INERTIAL"} · ${s.aimAssist ? "AIM ASSIST" : "MANUAL AIM"}\n${locked ? `${locked.faction.toUpperCase()} · ${solution!.distance.toFixed(0)} m · SHD ${shield}% · HULL ${hull}% · LOCK ${Math.floor(s.lockProgress * 100)}%` : "R / TARGET: SELECT AN ENEMY"}`;
           telemetryRef.current.dataset.kills = String(match.kills);
@@ -1771,9 +1888,66 @@ export function Arena({
           telemetryRef.current.dataset.lock = String(s.lockProgress);
         }
         if (missileRef.current) {
-          missileRef.current.textContent = s.missileCd > 0 ? `MISSILE ${s.missileCd.toFixed(1)}s` : `MISSILE ${s.ammo} · ${Math.floor(s.lockProgress * 100)}%`;
           missileRef.current.disabled = !player.alive || s.lockProgress < 1 || s.missileCd > 0 || s.ammo <= 0;
+          missileRef.current.dataset.ammo = String(s.ammo);
+          missileRef.current.dataset.cooldown = s.missileCd > 0 ? s.missileCd.toFixed(1) : "0";
+          const fireState = s.ammo <= 0
+            ? "empty"
+            : s.missileCd > 0
+              ? "cooldown"
+              : s.lockProgress < 1
+                ? "acquiring-lock"
+                : "ready";
+          missileRef.current.dataset.fireState = fireState;
+          const badge = missileRef.current.querySelector(".pilot-action-badge");
+          if (badge) badge.textContent = s.missileCd > 0
+            ? `${s.missileCd.toFixed(0)}s`
+            : s.ammo <= 0
+              ? "0"
+              : s.lockProgress < 1
+                ? `L${Math.floor(s.lockProgress * 100)}`
+                : String(s.ammo);
+          missileRef.current.setAttribute(
+            "aria-label",
+            !player.alive
+              ? "Missile unavailable; pilot disabled"
+              : s.ammo <= 0
+                ? "Missiles depleted"
+                : s.missileCd > 0
+                  ? `Missile cooling down ${s.missileCd.toFixed(1)} seconds`
+                  : s.lockProgress < 1
+                    ? `Missile acquiring target lock, ${Math.floor(s.lockProgress * 100)} percent; select a target with the lock control`
+                    : `Launch guided missile, ${s.ammo} remaining`,
+          );
         }
+        if (countermeasureRef.current) {
+          const incomingCount = match.bullets.filter((bullet) =>
+            bullet.missile && bullet.faction !== player.faction && bullet.homeId === player.id,
+          ).length;
+          if (incomingCount > 0) countermeasureUntilRef.current = Math.max(countermeasureUntilRef.current, match.time + 2);
+          const incomingMissile = incomingCount > 0 || match.time < countermeasureUntilRef.current;
+          const countermeasureCd = s.countermeasureCd ?? 0;
+          countermeasureRef.current.disabled = !player.alive || !incomingMissile || countermeasureCd > 0;
+          countermeasureRef.current.hidden = !incomingMissile;
+          if (countermeasureVisibleRef.current !== incomingMissile) {
+            countermeasureVisibleRef.current = incomingMissile;
+            setCountermeasureVisible(incomingMissile);
+          }
+          countermeasureRef.current.dataset.incoming = String(incomingCount);
+          countermeasureRef.current.setAttribute(
+            "aria-label",
+            countermeasureCd > 0 && incomingMissile
+              ? `Countermeasure recharging for ${countermeasureCd.toFixed(1)} seconds`
+              : incomingCount > 0
+              ? `Deploy countermeasure to decoy or disrupt ${incomingCount} incoming missile${incomingCount === 1 ? "" : "s"}`
+              : incomingMissile
+                ? "Deploy countermeasure flare; incoming missile warning"
+              : "Countermeasure available when a missile is tracking this pilot",
+          );
+        }
+      }
+      if (countermeasureFeedbackRef.current && countermeasureFeedbackUntil > 0) {
+        countermeasureFeedbackRef.current.hidden = performance.now() >= countermeasureFeedbackUntil;
       }
       if (pipRef.current) {
         pipRef.current.textContent = `ENG ${match.pips.eng.toFixed(1)}  WEP ${match.pips.wep.toFixed(1)}  DEF ${match.pips.def.toFixed(1)}`;
@@ -1791,11 +1965,34 @@ export function Arena({
           : relayCallout(match, invertedTeam ? "foe" : "you", player.x, player.z);
       }
       if (ultRef.current) {
-        ultRef.current.textContent =
-          player.ultCd > 0.05 ? `${ship.ultShort} ${player.ultCd.toFixed(1)}` : ship.ultShort;
+        const availability = orbital ? orbitalAbilityAvailability(player) : null;
+        const coolingDown = player.ultCd > 0.05;
+        const energyBlocked = availability?.reason === "energy";
+        const cooldown = coolingDown ? `${player.ultCd.toFixed(1)}s` : ship.ultShort;
+        const badge = ultRef.current.querySelector(".pilot-action-badge");
+        if (badge) badge.textContent = coolingDown ? cooldown : energyBlocked ? "LOW E" : ship.ultShort;
+        if (availability) {
+          ultRef.current.disabled = !availability.ready;
+          const label = availability.reason === "cooldown"
+            ? `${ship.ultShort} cooling down ${availability.cooldownSeconds.toFixed(1)} seconds`
+            : availability.reason === "energy"
+              ? `${ship.ultShort} unavailable: requires ${availability.energyCost} energy; ${Math.floor(availability.energy)} available`
+              : availability.reason === "disabled"
+                ? `${ship.ultShort} unavailable while pilot is disabled`
+                : ship.ultShort;
+          ultRef.current.setAttribute("aria-label", label);
+          ultRef.current.title = label;
+        } else {
+          ultRef.current.setAttribute("aria-label", coolingDown ? `${ship.ultShort} cooling down ${cooldown}` : ship.ultShort);
+          ultRef.current.title = ship.ultShort;
+        }
       }
       if (lockRef.current) {
-        lockRef.current.textContent = locked ? SHIPS[locked.ship].name.toUpperCase() : "LOCK";
+        lockRef.current.dataset.target = locked ? SHIPS[locked.ship].name : "";
+        lockRef.current.dataset.locked = locked ? "true" : "false";
+        if (locked) lockRef.current.style.setProperty("--lock-accent", targetFactionAccent(locked.faction));
+        else lockRef.current.style.removeProperty("--lock-accent");
+        lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
@@ -1831,7 +2028,10 @@ export function Arena({
       markT = Math.max(0, markT - delta);
       callT = Math.max(0, callT - delta);
       if (markRef.current) markRef.current.style.opacity = markT > 0 ? "1" : "0";
-      if (callRef.current) callRef.current.textContent = callT > 0 ? callName : "";
+      if (callRef.current) {
+        callRef.current.hidden = callT <= 0;
+        callRef.current.textContent = callT > 0 ? callName : "";
+      }
       performanceFrameRef.current?.({
         timestampMs: now,
         frameIntervalMs,
@@ -1874,6 +2074,7 @@ export function Arena({
       mats.forEach((mat) => mat.dispose());
       theaterTextures.dispose();
       orbitalAssets?.textures.forEach((texture) => texture.dispose());
+      damageControllers.forEach((controller) => controller.dispose());
       renderer.dispose();
     };
   }, [ship.ultShort]);
@@ -1882,6 +2083,8 @@ export function Arena({
   return (
     <div
       data-testid="arena-stage"
+      data-mode-id={modeId}
+      data-runtime-id={runtime}
       data-local-endurance={localEndurance ? "true" : "false"}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
@@ -1911,48 +2114,66 @@ export function Arena({
       <div ref={rightRef} className="pointer-events-none absolute top-1/2 right-3 h-16 w-1.5 -translate-y-1/2 bg-alert opacity-0" />
       <div ref={behindRef} className="pointer-events-none absolute bottom-32 left-1/2 h-1.5 w-16 -translate-x-1/2 bg-alert opacity-0" />
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
-      <p ref={paintRef} className="pointer-events-none absolute top-[46%] left-1/2 -translate-x-1/2 font-hud text-xs tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
       ) : null}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
-          <div className="w-40">
-            <p className="font-hud text-sm tracking-widest text-solar">{ship.name.toUpperCase()}</p>
+        <div className="pilot-top-bar absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-3 pt-3">
+          <div className="w-[min(30vw,11rem)]">
+            <p className="font-hud text-[10px] tracking-widest text-solar">{ship.name.toUpperCase()}</p>
+            {orbital ? <p className="mt-0.5 font-hud text-[11px] tracking-widest text-bone"><span ref={speedRef}>0 M/S</span></p> : null}
             <div className="mt-1 flex items-center gap-1">
-              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">SHIELD</span>
-              <div className="h-2 flex-1 overflow-hidden bg-panel">
-                <div ref={shieldRef} className="h-full w-full bg-solar" />
-              </div>
+              <span className="w-10 font-hud text-[8px] tracking-widest text-muted">SHD</span>
+              <div className="h-1.5 flex-1 overflow-hidden bg-panel/70"><div ref={shieldRef} className="h-full w-full bg-solar" /></div>
             </div>
             <div className="mt-1 flex items-center gap-1">
-              <span className="w-12 font-hud text-[9px] tracking-widest text-muted">HULL</span>
-              <div className="h-2 flex-1 overflow-hidden bg-panel">
-                <div ref={hullRef} className="h-full w-full bg-alert" />
-              </div>
+              <span className="w-10 font-hud text-[8px] tracking-widest text-muted">HULL</span>
+              <div className="h-1.5 flex-1 overflow-hidden bg-panel/70"><div ref={hullRef} className="h-full w-full bg-alert" /></div>
             </div>
-            <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-xs tracking-wide text-muted">
-              ENG 2.0  WEP 2.0  DEF 2.0
-            </p>
+            <p ref={pipRef} hidden={orbital} className="mt-1 font-hud text-[9px] tracking-wide text-muted">ENG 2.0 · WEP 2.0 · DEF 2.0</p>
+            {orbital ? (
+              <>
+                <div
+                  ref={targetStatusRef}
+                  hidden
+                  data-testid="orbital-target-status"
+                  aria-label="Locked target status"
+                  className="pilot-target-status mt-2 rounded-sm border px-2 py-1.5"
+                >
+                  <div className="flex items-baseline justify-between gap-2 font-hud text-[8px] tracking-[0.14em]">
+                    <span className="pilot-target-faction truncate"><span ref={targetFactionRef}>CONTACT</span> · <span ref={targetNameRef}>TARGET</span></span>
+                    <span ref={targetDistanceRef} className="shrink-0 text-bone/75">— M</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 font-hud text-[7px] tracking-widest text-muted">
+                    <span className="w-7">SHD</span>
+                    <div className="h-1 flex-1 overflow-hidden bg-panel/90"><div ref={targetShieldRef} data-testid="target-shield-bar" className="h-full w-full" /></div>
+                    <span ref={targetShieldValueRef} className="w-7 text-right text-bone">100%</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 font-hud text-[7px] tracking-widest text-muted">
+                    <span className="w-7">HULL</span>
+                    <div className="h-1 flex-1 overflow-hidden bg-panel/90"><div ref={targetHullRef} data-testid="target-hull-bar" className="h-full w-full" /></div>
+                    <span ref={targetHullValueRef} data-testid="target-hull-value" className="w-7 text-right text-bone">100%</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="h-px flex-1 overflow-hidden bg-panel/90"><div ref={targetLockRef} className="h-full w-0 bg-bone/75" /></div>
+                    <span ref={targetLockValueRef} className="w-10 text-right font-mono text-[7px] tracking-wider text-bone/70">0% LOCK</span>
+                  </div>
+                </div>
+                <p ref={callRef} data-testid="text-combat-callout" aria-live="off" className="mt-1 min-h-3 font-hud text-[8px] tracking-widest text-bone" />
+              </>
+            ) : null}
           </div>
-          <div className="lab-status-center text-center">
-            <span
-              ref={clockRef}
-              className="font-hud text-3xl leading-none text-bone"
-              role="timer"
-              aria-live="off"
-              aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}
-            >
+
+          <div className="lab-status-center min-w-0 text-center">
+            <span ref={clockRef} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
-            <p className="font-hud text-xs tracking-widest text-muted">
-              <span ref={wingRef}>WING</span>
-            </p>
+            {!orbital ? <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p> : null}
             {online ? (
               <button
                 type="button"
                 aria-label={`Copy room code ${online.roomId.toUpperCase()}`}
-                className="pointer-events-auto font-hud text-[10px] tracking-widest text-solar"
+                className="pointer-events-auto font-hud text-[9px] tracking-widest text-solar"
                 onClick={async (event) => {
                   const button = event.currentTarget;
                   try {
@@ -1965,244 +2186,427 @@ export function Arena({
                     button.textContent = `ROOM ${online.roomId.toUpperCase()}`;
                   }
                 }}
-              >
-                ROOM {online.roomId.toUpperCase()} · COPY
-              </button>
+              >ROOM {online.roomId.toUpperCase()} · COPY</button>
             ) : null}
-            <p className="font-hud text-[10px] tracking-widest text-solar">{objective}</p>
-            <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[10px] tracking-widest text-bone/80">
-              0/3 HELD · HOLD 2 TO DRAIN
-            </p>
-            <p ref={cageRef} className="font-hud text-[10px] tracking-widest text-bone" />
-            {tech ? (
-              <p className="font-hud text-[10px] tracking-widest text-muted">
-                {tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}
-              </p>
+            {!orbital ? (
+              <>
+                <p className="font-hud text-[9px] tracking-widest text-solar">{objective}</p>
+                <p ref={relayRef} data-testid="text-relay-status" className="font-hud text-[9px] tracking-widest text-bone/80">0/3 HELD · HOLD 2 TO DRAIN</p>
+                <p ref={cageRef} className="font-hud text-[9px] tracking-widest text-bone" />
+                {tech ? <p className="font-hud text-[9px] tracking-widest text-muted">{tech === "stick" ? "LIGHTER STICK" : tech === "barrels" ? "HOT BARRELS" : "MARKED PREY"}</p> : null}
+              </>
             ) : null}
-            <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center gap-2`}>
-              <span className="font-hud text-xs text-solar">YOU</span>
-              <div className="h-2 w-16 overflow-hidden bg-panel">
-                <div ref={youRef} className="h-full w-full bg-solar" />
-              </div>
-              <div className="h-2 w-16 overflow-hidden bg-panel">
-                <div ref={foeRef} className="h-full w-full bg-alert" />
-              </div>
-              <span className="font-hud text-xs text-muted">THEM</span>
+            <div className={`${orbital ? "hidden" : "flex"} mt-1 items-center justify-center gap-2`}>
+              <span className="font-hud text-[9px] text-solar">YOU</span>
+              <div className="h-1.5 w-12 overflow-hidden bg-panel/70"><div ref={youRef} className="h-full w-full bg-solar" /></div>
+              <div className="h-1.5 w-12 overflow-hidden bg-panel/70"><div ref={foeRef} className="h-full w-full bg-alert" /></div>
+              <span className="font-hud text-[9px] text-muted">THEM</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <canvas ref={radarRef} width={160} height={160} className="size-24 border border-bone/20 bg-void/70" />
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !pausedRef.current;
-                pausedRef.current = next;
-                setPaused(next);
-              }}
-            >
-              {paused ? "RESUME" : "HOLD"}
-            </button>
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !shakeRef.current;
-                shakeRef.current = next;
-                setShakeUi(next);
-              }}
-            >
-              {shakeUi ? "SHAKE" : "SHAKE OFF"}
-            </button>
-            <button
-              type="button"
-              className="pointer-events-auto h-11 px-3 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                const next = !isMuted();
-                setMuted(next);
-                setMutedUi(next);
-              }}
-            >
-              {muted ? "SOUND OFF" : "SOUND"}
-            </button>
+
+          <div className="pointer-events-auto flex shrink-0 gap-2">
+            {orbital ? (
+              <PilotActionButton
+                icon="camera"
+                label={cameraMode === "chase" ? "Switch to cockpit camera" : "Switch to chase camera"}
+                testId="button-camera-toggle"
+                active={cameraMode === "cockpit"}
+                onActivate={() => setCameraMode((mode) => mode === "chase" ? "cockpit" : "chase")}
+              />
+            ) : null}
+            <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />
+            <PilotActionButton icon="pause" label={paused ? "Resume sortie" : "Open flight menu"} testId="button-pause" active={paused} onActivate={() => {
+              const next = !pausedRef.current;
+              pausedRef.current = next;
+              setPaused(next);
+              if (next) setManeuversOpen(false);
+            }} />
           </div>
         </div>
 
-        <p className={`${orbital ? "lab-key-help " : ""}absolute top-16 right-3 left-3 hidden text-center font-hud text-xs tracking-widest text-muted sm:block`}>
-          {orbital ? "W/S THRUST · A/D YAW · I/K PITCH · Q/E ROLL · Z/X SLIDE · C/V LIFT · SHIFT BOOST · B BRAKE · R TARGET · M MISSILE" : scheme === "arc"
-            ? "A NOSE LEFT  ·  D NOSE RIGHT  ·  W BURN  ·  SPACE FIRE  ·  F ULT"
-            : "A SLIDE LEFT  ·  D SLIDE RIGHT  ·  AIM STICK TURNS  ·  W BURN"}
-        </p>
-        <div className="absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
-        <div
-          ref={markRef}
-          className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0"
+        <div data-testid="reticle-center" className="pointer-events-none absolute top-1/2 left-1/2 size-5 -translate-x-1/2 -translate-y-1/2 border border-solar/80" />
+        <p
+          ref={countermeasureFeedbackRef}
+          data-testid="countermeasure-feedback"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+          className="pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top,0px)+7.25rem)] max-w-[13rem] border border-solar/45 bg-void/80 px-2 py-1 font-hud text-[9px] uppercase tracking-[0.16em] text-bone shadow-lg"
         />
-        <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
-          <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
-          <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80">
-            <div ref={lockHpRef} className="h-full w-0 bg-alert" />
+        <div ref={markRef} className="pointer-events-none absolute top-1/2 left-1/2 size-8 -translate-x-1/2 -translate-y-1/2 border border-alert opacity-0" />
+        {!orbital ? (
+          <div className="pointer-events-none absolute top-[42%] left-1/2 w-28 -translate-x-1/2 text-center">
+            <p ref={lockNameRef} className="font-hud text-xs tracking-widest text-solar" />
+            <div className="mx-auto mt-1 h-1 overflow-hidden bg-panel/80"><div ref={lockHpRef} className="h-full w-0 bg-alert" /></div>
+            <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
           </div>
-          <p ref={callRef} className="mt-2 font-hud text-xs tracking-widest text-bone" />
-        </div>
-        {orbital ? <p ref={telemetryRef} data-testid="lab-telemetry" className="absolute left-3 top-28 max-w-[65vw] whitespace-pre-line border-l-2 border-solar bg-void/85 p-2 font-mono text-[10px] leading-5 sm:text-xs" /> : null}
-        {coach ? (
-          <p className="pointer-events-none absolute bottom-36 left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/80 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">
-            {coach}
-          </p>
         ) : null}
+        {coach ? <p className="pilot-coach pointer-events-none absolute left-1/2 w-[min(28rem,92vw)] -translate-x-1/2 bg-void/75 px-3 py-2 text-center font-hud text-sm tracking-wide text-bone">{coach}</p> : null}
 
         <div
           data-testid="flight-controls-left"
-          className="absolute bottom-4 left-3 flex flex-col items-start gap-2"
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-            left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)",
-          }}
+          className={`pilot-control-left absolute flex flex-col items-start gap-2 ${unifiedOrbitalControls ? "pilot-unified-controls" : ""}`}
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)", left: "calc(env(safe-area-inset-left, 0px) + 0.75rem)" }}
         >
-          {orbital ? <div className="pointer-events-auto grid grid-cols-3 gap-1">
-            {[["UP", "KeyC"], ["DOWN", "KeyV"], ["BOOST", "ShiftLeft"], ["ROLL L", "KeyQ"], ["ROLL R", "KeyE"], ["BRAKE", "KeyB"], ["SLIDE L", "KeyZ"], ["SLIDE R", "KeyX"], ["DRIFT G", "KeyG"]].map(([label, code]) => <button key={code} type="button" className="h-11 min-w-11 border border-bone/30 bg-panel px-1 font-hud text-[10px]" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); bus?.keys.add(code); }} onPointerUp={() => bus?.keys.delete(code)} onPointerCancel={() => bus?.keys.delete(code)} onLostPointerCapture={() => bus?.keys.delete(code)}>{label}</button>)}
-          </div> : null}
-          <div className="pointer-events-auto flex flex-col gap-2">
-            {(orbital ? [] : PRESET_NAME).map((name, index) => (
-              <button
-                key={name}
-                type="button"
-                ref={(node) => {
-                  presetRefs.current[index] = node;
-                }}
-                data-on={index === 0 ? "1" : "0"}
-                data-testid={`flight-preset-${index}`}
-                aria-pressed={index === 0}
-                className="h-11 w-16 border border-bone/25 bg-panel font-hud text-base tracking-widest text-bone"
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3;
-                }}
-                onClick={(event) => {
-                  if (event.detail !== 0 || !bus) return;
-                  bus.presetPulse = index as 0 | 1 | 2 | 3;
-                }}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          <div className="pointer-events-auto">
-            <Stick
-              label="Move"
-              onAxis={(x, y) => {
+          {orbital && !unifiedOrbitalControls && maneuversOpen ? (
+            <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-start gap-1.5" data-testid="pilot-maneuver-actions">
+              <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+              <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
+              <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+              <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
+              <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
+              {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={!countermeasureVisible} hidden={!countermeasureVisible} onPress={() => {
                 if (!bus) return;
-                bus.leftX = x;
-                bus.leftY = y;
-              }}
-            />
+                bus.countermeasurePulse = true;
+                countermeasureUntilRef.current = 0;
+                countermeasureVisibleRef.current = false;
+                setCountermeasureVisible(false);
+              }} onActivate={() => {
+                if (!bus) return;
+                bus.countermeasurePulse = true;
+                countermeasureUntilRef.current = 0;
+                countermeasureVisibleRef.current = false;
+                setCountermeasureVisible(false);
+              }} />}
+            </div>
+          ) : null}
+          <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+            <div className="relative">
+              <PilotFlightStick
+                label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
+                testId={`stick-${orbital ? "flight" : "move"}`}
+                size={unifiedOrbitalControls ? "rust-disc" : "arena"}
+                className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
+                description={unifiedOrbitalControls ? "Drag up for forward thrust, down for reverse, and left or right to turn and bank. Double-tap an outer edge for a short vector-thrust pulse." : undefined}
+                onAxis={(x, y) => {
+              if (!bus) return;
+              bus.leftX = x;
+              bus.leftY = y;
+                }}
+                onPulse={unifiedOrbitalControls && bus ? (pulse) => {
+              pulseVectorManeuver(bus, pulse);
+              unlockAudio();
+              sfxDive();
+                } : undefined}
+              />
+            </div>
+            {orbital ? (
+              <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
+                {unifiedOrbitalControls ? (
+                  <>
+                    <div
+                      ref={throttleMeterRef}
+                      hidden
+                      role="meter"
+                      aria-label="Left-stick throttle"
+                      aria-valuemin={-100}
+                      aria-valuemax={100}
+                      aria-valuenow={0}
+                      aria-valuetext="Coasting 0 percent"
+                      data-testid="pilot-throttle-meter"
+                      data-direction="coast"
+                      className="pilot-throttle-meter"
+                    >
+                      <span ref={throttleValueRef} className="pilot-throttle-value">COAST 0%</span>
+                      <div className="pilot-throttle-track" aria-hidden="true">
+                        <div className="pilot-throttle-centerline" />
+                        <div ref={throttleFillRef} className="pilot-throttle-fill" />
+                      </div>
+                      <span className="pilot-throttle-caption">THR</span>
+                    </div>
+                    <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                  </>
+                ) : null}
+                {!unifiedOrbitalControls ? (
+                  <>
+                    <PilotActionButton
+                      icon="thrust"
+                      label="Hold forward thrust"
+                      testId="button-thrust"
+                      accent
+                      onPress={() => bus?.keys.add("KeyW")}
+                      onRelease={() => bus?.keys.delete("KeyW")}
+                      onActivate={() => {
+                        if (bus) {
+                          bus.keys.add("KeyW");
+                          requestAnimationFrame(() => bus.keys.delete("KeyW"));
+                        }
+                      }}
+                    />
+                    <PilotActionButton
+                      icon="maneuver"
+                      label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
+                      testId="button-maneuvers"
+                      active={maneuversOpen}
+                      onActivate={() => setManeuversOpen((value) => !value)}
+                    />
+                  </>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div
           data-testid="flight-controls-right"
-          className="absolute right-3 bottom-4 flex flex-col items-end gap-2"
-          style={{
-            right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)",
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-          }}
+          className="pilot-control-right absolute flex flex-col items-end gap-2"
+          style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
-          <div className={`${orbital ? "lab-weapons " : ""}pointer-events-auto flex gap-2`}>
-            <button
-              ref={lockRef}
-              type="button"
-              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (bus) bus.lockPulse = true;
-              }}
-              onClick={(event) => {
-                if (event.detail === 0 && bus) bus.lockPulse = true;
-              }}
-            >
-              LOCK
-            </button>
-            {!orbital ? <button
-              type="button"
-              className="h-12 min-w-16 border border-bone/30 bg-panel px-2 font-hud text-sm tracking-widest text-bone"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (!bus) return;
-                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0 || !bus) return;
-                bus.evadePulse = bus.leftX > 0.2 ? -1 : 1;
-              }}
-            >
-              DODGE
-            </button> : null}
-            {orbital ? <button ref={missileRef} type="button" aria-label="Launch guided missile" className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-xs text-solar disabled:opacity-40" onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); unlockAudio(); bus?.keys.add("KeyM"); }} onPointerUp={() => bus?.keys.delete("KeyM")} onLostPointerCapture={() => bus?.keys.delete("KeyM")}>MISSILE</button> : <button
-              ref={ultRef}
-              type="button"
-              className="h-12 min-w-16 border border-solar bg-panel px-2 font-hud text-sm tracking-widest text-solar"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                unlockAudio();
-                if (bus) bus.ultPulse = true;
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0) return;
-                unlockAudio();
-                if (bus) bus.ultPulse = true;
-              }}
-            >
-              {ship.ultShort}
-            </button>}
-            <button
-              type="button"
-              data-flight-fire=""
-              className="h-12 min-w-16 bg-solar px-3 font-hud text-sm tracking-widest text-void"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                unlockAudio();
-                if (bus) bus.fireButton = true;
-              }}
-              onPointerUp={(event) => {
-                event.stopPropagation();
-                if (bus) bus.fireButton = false;
-              }}
-              onPointerCancel={() => {
-                if (bus) bus.fireButton = false;
-              }}
-            >
-              FIRE
-            </button>
-          </div>
-          <div className="pointer-events-auto">
-            <Stick
-              label="Aim"
-              onAxis={(x, y) => {
-                if (!bus) return;
-                bus.rightX = x;
-                bus.rightY = y;
-              }}
-            />
-          </div>
+          {unifiedOrbitalControls ? (
+            <>
+              {orbital && maneuversOpen ? (
+                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+                  <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+                  <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+                  <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
+                  <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
+                </div>
+              ) : null}
+              <div className="pointer-events-auto flex items-end gap-2 sm:gap-3">
+                <div className="pilot-flight-actions pointer-events-auto flex flex-col items-center gap-2">
+                  <PilotActionButton
+                    icon="thrust"
+                    label="Hold or pulse vertical ascent"
+                    testId="button-thrust"
+                    accent
+                    onPress={() => bus?.keys.add("KeyC")}
+                    onRelease={() => bus?.keys.delete("KeyC")}
+                    onActivate={() => {
+                      if (!bus) return;
+                      pulseVectorManeuver(bus, { axis: "vertical", direction: 1 });
+                      unlockAudio();
+                      sfxDive();
+                    }}
+                  />
+                  <PilotActionButton
+                    icon="maneuver"
+                    label={maneuversOpen ? "Hide flight maneuvers" : "Open flight maneuvers"}
+                    testId="button-maneuvers"
+                    active={maneuversOpen}
+                    onActivate={() => setManeuversOpen((value) => !value)}
+                  />
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+                    {orbitalCampaign ? null : (
+                      <PilotActionButton
+                        ref={countermeasureRef}
+                        icon="flare"
+                        label="Deploy countermeasure to decoy or disrupt incoming missile guidance"
+                        testId="button-countermeasure"
+                        accent
+                        disabled={!countermeasureVisible}
+                        hidden={!countermeasureVisible}
+                        onPress={() => {
+                          if (!bus) return;
+                          bus.countermeasurePulse = true;
+                          countermeasureUntilRef.current = 0;
+                          countermeasureVisibleRef.current = false;
+                          setCountermeasureVisible(false);
+                        }}
+                        onActivate={() => {
+                          if (!bus) return;
+                          bus.countermeasurePulse = true;
+                          countermeasureUntilRef.current = 0;
+                          countermeasureVisibleRef.current = false;
+                          setCountermeasureVisible(false);
+                        }}
+                      />
+                    )}
+                    <PilotActionButton
+                      ref={missileRef}
+                      icon="missile"
+                      label="Launch guided missile"
+                      testId="button-missile"
+                      accent
+                      badge="MSL"
+                      onPress={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                      onActivate={() => {
+                        unlockAudio();
+                        if (bus) bus.missilePulse = true;
+                      }}
+                    />
+                    <div className="pilot-boost-fire-stack flex flex-col items-center gap-1">
+                      <PilotActionButton
+                        ref={boostRef}
+                        icon="boost"
+                        label="Hold forward boost; drains energy while held"
+                        testId="button-boost"
+                        accent
+                        badge="100%"
+                        onPress={() => bus?.keys.add("ShiftLeft")}
+                        onRelease={() => bus?.keys.delete("ShiftLeft")}
+                        onActivate={() => {
+                          if (!bus) return;
+                          bus.keys.add("ShiftLeft");
+                          requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
+                        }}
+                      />
+                      <PilotActionButton
+                        icon="fire"
+                        label="Hold primary guns"
+                        testId="button-fire"
+                        accent
+                        fireAction
+                        onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                        onRelease={() => { if (bus) bus.fireButton = false; }}
+                        onActivate={() => {
+                          unlockAudio();
+                          if (bus) bus.fireButton = true;
+                          requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                        }}
+                        className="pilot-action-fire"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="relative">
+                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                    onCircularRollInput={bus?.orbital && bus.leftStickFlight ? (input) => {
+                      setCircularRollControl(bus, input);
+                      if (Math.abs(input) > 0.01) rollCameraStabilizationRef.current = 1;
+                    } : undefined}
+                    onAxis={(x, y) => {
+                    if (!bus) return;
+                    bus.rightX = x;
+                    bus.rightY = y;
+                  }} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
+                <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                {orbital ? (
+                  <PilotActionButton
+                    ref={missileRef}
+                    icon="missile"
+                    label="Launch guided missile"
+                    testId="button-missile"
+                    accent
+                    badge="MSL"
+                    onPress={() => { unlockAudio(); if (bus) bus.missilePulse = true; }}
+                    onActivate={() => {
+                      unlockAudio();
+                      if (bus) bus.missilePulse = true;
+                    }}
+                  />
+                ) : (
+                  <>
+                    <PilotActionButton
+                      icon="maneuver"
+                      label="Evade incoming fire"
+                      testId="button-dodge"
+                      onActivate={() => { if (bus) bus.evadePulse = bus.leftX > 0.2 ? -1 : 1; }}
+                    />
+                    <PilotActionButton
+                      ref={ultRef}
+                      icon="boost"
+                      label={ship.ultShort}
+                      testId="button-special"
+                      accent
+                      badge={ship.ultShort}
+                      onActivate={() => { unlockAudio(); if (bus) bus.ultPulse = true; }}
+                    />
+                  </>
+                )}
+                <PilotActionButton
+                  icon="fire"
+                  label="Hold primary guns"
+                  testId="button-fire"
+                  accent
+                  fireAction
+                  onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                  onRelease={() => { if (bus) bus.fireButton = false; }}
+                  onActivate={() => {
+                    unlockAudio();
+                    if (bus) bus.fireButton = true;
+                    requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                  }}
+                  className="pilot-action-fire"
+                />
+              </div>
+              <div className="pointer-events-auto">
+                <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {
+                  if (!bus) return;
+                  bus.rightX = x;
+                  bus.rightY = y;
+                }} />
+              </div>
+            </>
+          )}
         </div>
       </div>
+      {mapOpen && !end ? (
+        <div className="pilot-map-backdrop absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Tactical map">
+          <div className="pilot-map-panel">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-hud text-xs tracking-[0.24em] text-solar">TACTICAL MAP</p>
+                <p className="mt-1 font-hud text-sm tracking-wider text-bone">{objective}</p>
+              </div>
+              <PilotActionButton icon="pause" label="Close tactical map" testId="button-close-tactical-map" onActivate={() => setMapOpen(false)} />
+            </div>
+            <canvas ref={radarRef} width={320} height={320} className="pilot-map-canvas" aria-label="Battlefield map showing current combat contacts" />
+            <div className="pilot-map-legend font-hud text-[10px] tracking-widest">
+              <span><i className="pilot-map-key pilot-map-friendly" /> FRIENDLY</span>
+              <span><i className="pilot-map-key pilot-map-hostile" /> HOSTILE</span>
+              <span><i className="pilot-map-key pilot-map-objective" /> OBJECTIVE</span>
+            </div>
+            <p className="mt-2 text-center font-hud text-[9px] tracking-widest text-muted">LIVE SORTIE CONTINUES WHILE MAP IS OPEN</p>
+          </div>
+        </div>
+      ) : null}
       {paused && !end ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-void/75">
-          <div className="text-center">
-            <p className="font-hud text-4xl tracking-widest text-bone">HOLD</p>
-            <p className="mt-2 font-hud text-xs tracking-widest text-muted">P or HOLD resumes the strike</p>
-            <button
-              type="button"
-              className="pointer-events-auto mt-4 h-11 border border-solar/50 px-4 font-hud text-sm tracking-widest text-bone"
-              onClick={() => {
-                pausedRef.current = false;
-                setPaused(false);
-              }}
-            >
-              RESUME
-            </button>
+        <div className="pilot-pause-backdrop absolute inset-0 z-30 flex items-center justify-center overflow-y-auto p-4">
+          <div className="pilot-pause-panel">
+            <p className="font-hud text-3xl tracking-widest text-bone">FLIGHT MENU</p>
+            <p className="mt-2 max-w-lg font-hud text-xs leading-relaxed tracking-wider text-muted">
+              {online ? "This is a live room: the match continues while this menu is open." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
+            </p>
+            <button type="button" data-testid="button-resume-sortie" className="pilot-menu-primary mt-4" onClick={() => {
+              pausedRef.current = false;
+              setPaused(false);
+            }}>RESUME FLIGHT</button>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" data-testid="button-shake-toggle" aria-pressed={shakeUi} className="pilot-menu-setting" onClick={() => {
+                const next = !shakeRef.current;
+                shakeRef.current = next;
+                setShakeUi(next);
+              }}>{shakeUi ? "CAMERA SHAKE · ON" : "CAMERA SHAKE · OFF"}</button>
+              <button type="button" data-testid="button-sound-toggle" aria-pressed={!muted} className="pilot-menu-setting" onClick={() => {
+                const next = !isMuted();
+                setMuted(next);
+                setMutedUi(next);
+              }}>{muted ? "SOUND · OFF" : "SOUND · ON"}</button>
+            </div>
+            {!orbital ? (
+              <div className="mt-4">
+                <p className="font-hud text-[10px] tracking-[0.22em] text-solar">FLIGHT PRESET</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {PRESET_NAME.map((name, index) => (
+                    <button key={name} type="button" ref={(node) => { presetRefs.current[index] = node; }}
+                      data-on={index === 0 ? "1" : "0"} data-testid={`flight-preset-${index}`}
+                      aria-pressed={index === 0} className="pilot-menu-setting pilot-preset"
+                      onClick={() => { if (bus) bus.presetPulse = index as 0 | 1 | 2 | 3; }}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <details className="mt-4 border-t border-bone/15 pt-3">
+                <summary className="cursor-pointer font-hud text-[10px] tracking-[0.22em] text-solar">FLIGHT DIAGNOSTICS</summary>
+                <p ref={telemetryRef} data-testid="lab-telemetry" className="mt-2 whitespace-pre-line border-l border-solar/60 pl-3 font-mono text-[10px] leading-5 text-bone/80" />
+              </details>
+            )}
+            <details className="mt-3 border-t border-bone/15 pt-3">
+              <summary className="cursor-pointer font-hud text-[10px] tracking-[0.22em] text-muted">KEYBOARD CONTROLS</summary>
+              <p className="mt-2 font-mono text-[10px] leading-5 text-muted">
+                {orbital ? "W/S THRUST · A/D YAW · I/K PITCH · Q/E ROLL · Z/X SLIDE · C/V LIFT · SHIFT BOOST · B BRAKE · R TARGET · M MISSILE" : scheme === "arc" ? "A/D TURN · W/S THRUST · SPACE FIRE · F SPECIAL" : "A/D SLIDE · AIM STICK TURNS · W/S THRUST · SPACE FIRE"}
+              </p>
+            </details>
           </div>
         </div>
       ) : null}

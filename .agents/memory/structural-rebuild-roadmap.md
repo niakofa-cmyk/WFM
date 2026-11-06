@@ -11,18 +11,21 @@ The repo-specific menu/consolidation diagnosis is preserved at
 
 The central direction is one connected WAR FOR MARS experience: one identity,
 one saved ship/loadout, operations in a shared universe, and validated outcomes
-that lead back to the Hangar. Deliver this in stages A–H, beginning with the
-unified player journey and canonical orbital combat, then campaign/co-op,
-competitive integration, validated persistence, and later expansion.
+that lead back to the Hangar. The latest owner priority is command center,
+Hangar, operation-specific combat-engine integration, universe destinations,
+then persistent settings. Orbital Combat Lab is a development/validation
+foundation; preserve Rust Disc, Arcade, and Wing as explicit independent
+experiences until each migration passes its own proof and rollback gates.
 
 **Why:** the owner designated this roadmap to guide the evolutionary rebuild.
 It explicitly warns against another parallel runtime or discarding verified
 systems before replacements and rollback are proven.
 
-**How to apply:** retain the custom Three.js/Vite runtime and existing Clerk,
-Wing, co-op, campaign, economy, and progression contracts. Treat the menu-to-
-mission-to-debrief-to-progression loop as incomplete until it is verified
-end-to-end. Keep local trainers no-reward; keep multiplayer outcomes and
-progression server-authoritative; distinguish code, tests, staging, and physical
-device evidence. Consolidate the command screen without deleting older routes;
-migrate their runtime and progression contracts one tested operation at a time.
+**How to apply:** retain the custom Three.js/Vite universe presentation and
+existing Clerk, Wing, co-op, campaign, economy, and progression contracts. Keep
+the mode-specific combat engine explicit behind each operation entry point.
+Treat the menu-to-mission-to-debrief-to-progression loop as incomplete until
+verified end-to-end. Keep local trainers/approaches no-reward; keep multiplayer
+outcomes and progression server-authoritative; distinguish code, tests, staging,
+and physical-device evidence. Consolidate the command screen without deleting
+older routes; migrate one runtime and progression contract at a time.

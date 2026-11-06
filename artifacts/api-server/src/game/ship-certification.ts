@@ -22,7 +22,7 @@ const IDLE: StepInput = {
   evade: 0,
   preset: null,
 };
-const ROLES = ["Vanguard", "Hunter", "Striker", "Support", "Raider"] as const;
+const ROLES = [...new Set(Object.values(SHIPS).map((ship) => ship.role))].sort();
 
 type DuelResult = {
   duration: number;
@@ -425,6 +425,12 @@ function abilityTrial(shipId: ShipId) {
   const rootAtActivation = opponent.root;
   const jamAtActivation = opponent.jam;
   const guardAtActivation = player.guard;
+  const abilityActiveAtActivation = player.abilityState?.active ?? 0;
+  const shotsRemainingAtActivation = player.abilityState?.shotsRemaining ?? 0;
+  const interceptsRemainingAtActivation = player.abilityState?.interceptsRemaining ?? 0;
+  const abilityProjectileDamage = match.bullets
+    .filter((bullet) => bullet.own)
+    .reduce((maximum, bullet) => Math.max(maximum, bullet.dmg), 0);
   let ramHit = 0;
   if (ramTest) {
     opponent.x = player.x;
@@ -432,7 +438,7 @@ function abilityTrial(shipId: ShipId) {
     ramHit = tick(IDLE);
   }
   let firstShotDamage = 0;
-  if (shipId === "sundara" || shipId === "duskbreaker") {
+  if (shipId === "sundara" || shipId === "duskbreaker" || shipId === "valiant" || shipId === "bastion") {
     for (let i = 0; i < 120 && firstShotDamage === 0; i += 1) {
       firstShotDamage = tick({ ...IDLE, fire: true });
     }
@@ -463,6 +469,30 @@ function abilityTrial(shipId: ShipId) {
       break;
     case "glide":
       effect = `Skip Reentry: ${ramHit.toFixed(1)} measured ram damage; ${untargetableAtActivation.toFixed(2)} s untargetable; ${boostAtActivation.toFixed(2)} s boost`;
+      break;
+    case "wasp":
+      effect = `Vector Pursuit: ${abilityActiveAtActivation.toFixed(2)} s responsive-flight window`;
+      break;
+    case "valiant":
+      effect = `Adaptive Fire Control: ${shotsRemainingAtActivation} rapid-fire shots; ${firstShotDamage.toFixed(1)} measured impact`;
+      break;
+    case "aegis":
+      effect = `Aegis Intercept Grid: ${interceptsRemainingAtActivation} missile intercepts; ${(player.shield - shieldBefore).toFixed(1)} shield restored`;
+      break;
+    case "bastion":
+      effect = `Siege Configuration: ${abilityActiveAtActivation.toFixed(2)} s heavy-weapon window; ${firstShotDamage.toFixed(1)} measured impact`;
+      break;
+    case "apep":
+      effect = `Void Veil: ${cloakAtActivation.toFixed(2)} s cloak; ${jamAtActivation.toFixed(2)} s hostile sensor disruption`;
+      break;
+    case "sekhmet":
+      effect = `Solar Cataclysm: ${abilityProjectileDamage.toFixed(1)} forward lance damage configured`;
+      break;
+    case "garuda":
+      effect = `Phantom Swarm: ${match.bullets.filter((bullet) => bullet.own && bullet.missile).length} guided drones deployed`;
+      break;
+    case "vajra":
+      effect = `Thunder Veil: ${jamAtActivation.toFixed(2)} s nearby targeting disruption`;
       break;
   }
 

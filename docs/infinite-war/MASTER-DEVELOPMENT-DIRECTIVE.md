@@ -9,6 +9,14 @@ The complete owner-provided directive is retained unchanged at:
 This file is its maintained implementation companion, not a replacement for
 the complete source. The product blueprint remains
 [`../references/wfm-infinite-war-blueprint.md`](../references/wfm-infinite-war-blueprint.md).
+The owner's latest **Infinite Open Universe** and **Master AI Game Development
+Plan** source documents are preserved unchanged at
+[`../../attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt`](../../attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793847773369.txt)
+and
+[`../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-D_1793847836168.txt).
+These are the current owner-designated direction for the extended universe;
+this document remains the source-checked implementation policy and migration
+status, not a claim that the planned game is already complete.
 The current code audit is split into:
 
 - [`FORENSIC-INVENTORY.md`](FORENSIC-INVENTORY.md)
@@ -24,13 +32,40 @@ The player should enter one universe, belong to one faction, command one ship,
 progress through one connected journey, and participate in validated
 operations whose consequences are visible in that universe.
 
+## Controlling full-game runtime direction
+
+The owner's complete **Master Orbital Engine Consolidation Directive** is
+preserved at
+[`../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt`](../../attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-MASTER-ORBITAL-ENGINE-CO_1793798261341.txt).
+The later **Master Engine Feature Extraction & Evolution Directive** is preserved
+at
+[`../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt`](../../attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793819815572.txt)
+and controls the current extraction order. Its code-backed companion is
+[`MASTER-ENGINE-FEATURE-EXTRACTION.md`](./MASTER-ENGINE-FEATURE-EXTRACTION.md).
+Its implementation companion is
+[`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
+
+This direction resolves the end state: **all playable modes must ultimately use
+one canonical, versioned Orbital Combat Engine.** Combat Lab remains offline and
+no-reward as its training interface, not a separate production engine. Rust
+Disc, Arcade, every campaign sortie, co-op, Iron Eclipse, all room types, Wing
+and later fleet operations are configurations of the same gameplay runtime.
+Their existing authentication, matchmaking, mission authority, account data,
+progression, reward and idempotency services remain authoritative.
+
+This supersedes any interpretation that the legacy planar Wing or other
+mode-specific combat runtime is a permanent destination. It does **not** justify
+a client-only toggle: migrate each mode through coordinated runtime-versioned
+client/API/socket changes, preserve already-issued runs, and keep rollback until
+parity and acceptance pass.
+
 ## Required integration policy
 
 1. Treat the existing custom Three.js/Vite game as the production runtime.
    Needle remains an authoring/research candidate; do not add a second runtime
    without an evaluated, measured migration decision.
-2. Evolve the orbital simulation toward the canonical combat foundation, but
-   do not assume the existing modes already share one combat protocol.
+2. Migrate every mode toward the canonical orbital combat foundation; do not
+   assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session
    contracts, reward policy, idempotent ledger, and account-isolation behavior.
    Migrate its combat behavior only through a versioned, coordinated client/API/

@@ -12,4 +12,8 @@ export type StrikeRunConfigFlightModel = typeof StrikeRunConfigFlightModel[keyof
 export const StrikeRunConfigFlightModel = {
   'surface-v1': 'surface-v1',
   'orbital-v1': 'orbital-v1',
+  'orbital-v2': 'orbital-v2',
+  'orbital-v3': 'orbital-v3',
+  'orbital-v4': 'orbital-v4',
+  'orbital-v5': 'orbital-v5',
 } as const;

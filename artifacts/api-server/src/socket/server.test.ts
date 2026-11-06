@@ -758,9 +758,12 @@ test("ten-client private rooms cannot be made reward-eligible by client fields",
 });
 
 test("competitive queue waits for ten distinct authenticated pilots and auto-starts one balanced match", async () => {
+  let publicMatchId: string | null = null;
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
     enableCompetitiveQueue: true,
+    isAtCinderRing: async () => true,
+    publishCompetitiveMatch: async (state) => { publicMatchId = state.matchId; },
     tickIntervalMs: 25,
     snapshotIntervalMs: 25,
   });
@@ -811,12 +814,35 @@ test("competitive queue waits for ten distinct authenticated pilots and auto-sta
     );
     assert.equal(assignments.filter((packet) => packet.team === 0).length, 5);
     assert.equal(assignments.filter((packet) => packet.team === 1).length, 5);
+    assert.ok(publicMatchId);
     for (const assignment of assignments) {
       const snapshot = assignment.snapshot as {
         players: Array<{ connected: boolean }>;
       };
       assert.equal(snapshot.players.filter((player) => player.connected).length, 10);
     }
+
+    const spectator = new WebSocket(
+      `ws://127.0.0.1:${runtime.port}/ws?spectate=${publicMatchId}`,
+    );
+    sockets.push(spectator);
+    await new Promise<void>((resolve, reject) => {
+      spectator.once("open", resolve);
+      spectator.once("error", reject);
+    });
+    const spectatorJoined = nextPacket(spectator, (packet) => packet.type === "spectator_joined");
+    await authenticateTestSocket(spectator, testAuth, "spectator-account");
+    const spectatorPacket = await spectatorJoined;
+    assert.equal(spectatorPacket.matchId, publicMatchId);
+    const anonymous = spectatorPacket.snapshot as {
+      players: Array<{ name: string | null }>;
+      match: { player: { x: number }; enemies: unknown[] };
+    };
+    assert.equal(anonymous.players.some((player) => player.name !== null), false);
+    assert.ok(anonymous.match.enemies.length > 0);
+    const readonlyError = nextPacket(spectator, (packet) => packet.type === "error");
+    spectator.send(JSON.stringify({ type: "fire", target: 0 }));
+    assert.equal((await readonlyError).reason, "spectator_read_only");
 
     const matchRoomId = String(assignments[0]!.roomId);
     const intruder = await connect(
@@ -859,6 +885,7 @@ test("competitive queue rejects duplicate account entries and supports cancellat
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
     enableCompetitiveQueue: true,
+    isAtCinderRing: async () => true,
   });
   const sockets: WebSocket[] = [];
   try {
@@ -894,6 +921,28 @@ test("competitive queue rejects duplicate account entries and supports cancellat
   }
 });
 
+test("competitive queue requires server-confirmed arrival at Cinder Ring", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: testAuth.verifySessionToken,
+    enableCompetitiveQueue: true,
+    isAtCinderRing: async () => false,
+  });
+  const socket = await connect(
+    `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`,
+    "remote-pilot",
+  );
+  try {
+    const rejected = nextPacket(socket, (packet) => packet.type === "error");
+    socket.send(JSON.stringify({ type: "queue_join" }));
+    assert.equal((await rejected).reason, "cinder_ring_required");
+    assert.equal(runtime.queuedPilotCount, 0);
+    assert.equal(runtime.roomCount, 0);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
 test("competitive queue stays unavailable unless the socket operator enables it", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
@@ -922,6 +971,7 @@ test("competitive queue rejects unauthenticated queue requests", async () => {
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: testAuth.verifySessionToken,
     enableCompetitiveQueue: true,
+    isAtCinderRing: async () => true,
   });
   const socket = new WebSocket(
     `ws://127.0.0.1:${runtime.port}/ws?queue=competitive`,

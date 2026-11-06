@@ -1205,3 +1205,35 @@ Ledger is not the 5v5 Wing reward ledger; no Wing reward event or claim was
 inspected or submitted, and no direct cross-account API request was attempted.
 The broader account-isolation gate remains **PARTIAL**, and the reward and
 interrupted/expired-claim gates remain **PENDING**.
+
+#### Owner-reported two-device private-room flight — 2026-11-06
+
+The owner reported that two phones/devices entered the same private room and
+that flight controls and firing worked during the match. The shared screenshot
+shows a private-room lobby with two human pilots; the room code is intentionally
+not retained here. The report followed staging test guidance, but the screenshot
+does not identify a host or deployed revision, so this remains owner-reported
+device evidence rather than an independently environment-verified test.
+
+This supports a basic two-device private-room join and control/firing smoke
+test only. It does not verify the ten-human competitive queue, reward
+settlement, Orbital v5 campaign combat, sector co-op, account isolation, or
+Production. No credentials, room code, reward claim, or deployment change are
+part of this evidence.
+
+#### Orbital v5 staging deployment record — 2026-11-06
+
+The last read-only Railway revision check recorded successful web, API, and
+socket deployments on source commit `f968c89`, with the staging Postgres
+service online. Production was not changed. This establishes deployment
+health, not gameplay certification.
+
+The automated staging browser helper did not complete sign-in because its
+sessions reached the client-trust gate. It therefore did not verify an
+authenticated Orbital Contact run, a v5 lineup, or replay settlement. The
+owner-reported private-room phone test above is separate evidence and does not
+fill that gap.
+
+The integration branch now contains a later Offline Arcade mode-routing
+change (`310402d`); that revision was pushed to the repository but was not
+deployed to staging or Production in this update.

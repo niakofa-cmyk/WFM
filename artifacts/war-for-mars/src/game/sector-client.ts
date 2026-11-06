@@ -1,8 +1,9 @@
 import { NEUTRAL_FLIGHT_INPUT, type FlightInput } from "./flight-sector";
 import {
-  SECTOR_MISSIONS, SECTOR_PROTOCOL_VERSION, sectorMission,
+  ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
+  SECTOR_PROTOCOL_VERSION, sectorMission,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
-  type IronEclipseSnapshot,
+  type IronEclipseSnapshot, type SectorProtocolVersion,
 } from "./sector-missions";
 import { SHIPS, type ShipId } from "./ships";
 
@@ -17,6 +18,13 @@ const ROOM_CODE = /^[A-Za-z0-9-]{6,24}$/;
 export function expeditionFeatureEnabled(env: { DEV?: boolean; VITE_WFM_SECTOR_EXPEDITION_ENABLED?: string }): boolean {
   if (env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "false") return false;
   return env.DEV === true || env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true";
+}
+
+/** V2 remains opt-in so the existing authenticated compatibility route is the default. */
+export function sectorClientProtocolVersion(env: { VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string }): SectorProtocolVersion {
+  return env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true"
+    ? SECTOR_ORBITAL_PROTOCOL_VERSION
+    : SECTOR_PROTOCOL_VERSION;
 }
 
 export function normalizeRoomCode(raw: string): string {
@@ -97,10 +105,20 @@ function validIronEclipseSnapshot(value: unknown): value is IronEclipseSnapshot 
 }
 
 /** Structural validation of the server's typed snapshot. Rejects anything else. */
-export function parseSectorSnapshot(raw: unknown): SectorSnapshot | null {
+export function parseSectorSnapshot(
+  raw: unknown,
+  expectedVersion: SectorProtocolVersion = SECTOR_PROTOCOL_VERSION,
+): SectorSnapshot | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<SectorSnapshot>;
-  if (p.type !== "sector_snapshot" || p.version !== SECTOR_PROTOCOL_VERSION) return null;
+  if (p.type !== "sector_snapshot" || p.version !== expectedVersion) return null;
+  if (expectedVersion === SECTOR_ORBITAL_PROTOCOL_VERSION) {
+    const simulation = p.simulation as Record<string, unknown> | undefined;
+    if (!simulation ||
+        Object.keys(simulation).length !== 2 ||
+        simulation.runtimeId !== ORBITAL_SECTOR_SIMULATION_CONTRACT.runtimeId ||
+        simulation.rulesVersion !== ORBITAL_SECTOR_SIMULATION_CONTRACT.rulesVersion) return null;
+  } else if (p.simulation !== undefined) return null;
   if (!sectorMission(p.missionId) || typeof p.roomCode !== "string") return null;
   if (!["lobby", "active", "complete", "interrupted", "failed"].includes(p.phase as string)) return null;
   if (!Array.isArray(p.pilots) || p.pilots.length > SECTOR_MAX_PILOTS) return null;
@@ -157,6 +175,7 @@ export function sanitizeInput(i: FlightInput): FlightInput {
   const c = (v: number, lo: number) => (Number.isFinite(v) ? Math.max(lo, Math.min(1, v)) : 0);
   const clean: FlightInput = {
     throttle: c(i.throttle, 0), pitch: c(i.pitch, -1), yaw: c(i.yaw, -1), roll: c(i.roll, -1),
+    strafe: c(i.strafe ?? 0, -1), vertical: c(i.vertical ?? 0, -1),
     boost: !!i.boost, brake: !!i.brake, fire: !!i.fire, lock: !!i.lock, missile: !!i.missile, countermeasure: !!i.countermeasure,
   };
   if (i.drift === true) clean.drift = true;

@@ -1,4 +1,13 @@
 import { SECTOR_MISSIONS, sectorMission, type SectorMission, type SectorMissionId } from "./sector-missions";
+import { CINDER_ASTEROID_SECTOR, RUST_DISC_SECTOR, type FlightSector } from "./flight-sector";
+
+export const CINDER_ASTEROID_OPERATION_ID = "cinder-asteroid-circuit";
+
+/** Selects only a known local operation; online sector assignments remain server-owned. */
+export function localTrainingSector(search: string): FlightSector {
+  const operationId = new URLSearchParams(search).get("operation");
+  return operationId === CINDER_ASTEROID_OPERATION_ID ? CINDER_ASTEROID_SECTOR : RUST_DISC_SECTOR;
+}
 
 const STORY_ROUTE: readonly SectorMissionId[] = ["rust-disc", "mars-approach", "pale-beacons"];
 

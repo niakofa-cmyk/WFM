@@ -5,14 +5,18 @@ export function LocalPerformanceReport({
   device,
   summary,
   capturedAt,
+  title = "Local no-reward Solo Flight performance sample",
+  buttonClassName = "sf-btn",
 }: {
   device: LocalPerformanceDeviceInfo;
   summary: LocalPerformanceSummary;
   capturedAt: string;
+  title?: string;
+  buttonClassName?: string;
 }) {
   const [copyStatus, setCopyStatus] = useState("");
   const report = JSON.stringify({
-    title: "Local no-reward Solo Flight performance sample",
+    title,
     capturedAt,
     device,
     summary,
@@ -36,7 +40,8 @@ export function LocalPerformanceReport({
       <h2 className="mt-0">Local performance sample</h2>
       <p className="text-sm leading-relaxed text-bone/80">
         This report stays in this browser and is not uploaded. The target counts active game seconds in one local run.
-        Active-play and result-screen frame cadence are separate; frame intervals estimate browser cadence, not GPU timing.
+        Active-play and non-active frame cadence are separate; non-active includes pause/result screens.
+        Frame intervals estimate browser cadence, not GPU timing.
         Temperature is not exposed to the page; record any device warning separately.
       </p>
       {summary.targetReached === false && summary.targetGameSeconds !== null && (
@@ -56,7 +61,7 @@ export function LocalPerformanceReport({
         data-testid="local-performance-report-data"
       >{report}</pre>
       <button
-        className="sf-btn"
+        className={buttonClassName}
         data-testid="button-copy-performance-report"
         onClick={() => void copyReport()}
         type="button"

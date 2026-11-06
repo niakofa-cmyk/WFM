@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { armGyro, disarmGyro, gyroAim } from "./gyro";
-import { clearInput, createBus, readInput, stickAxesFromDelta } from "./input";
+import { clearInput, createBus, pulseVectorManeuver, readInput, stickAxesFromDelta } from "./input";
+import { COORDINATED_BANK } from "./pilot-stick-gestures";
 
 function installOrientationWindow(permission: "granted" | "denied") {
   const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -89,7 +90,76 @@ test("virtual stick starts neutral, ignores tiny drift, and clamps deliberate dr
   assert.equal(readInput(bus).yaw, -1);
 });
 
-test("lost focus clears held keys, both sticks, and latched buttons", () => {
+test("legacy orbital vector axes remain available when unified flight-stick mode is off", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftX = 0.65;
+  bus.leftY = -0.4;
+
+  const input = readInput(bus);
+  assert.equal(input.strafe, -0.65);
+  assert.equal(input.vertical, 0.4);
+  assert.equal(input.throttle, 0);
+
+  clearInput(bus);
+  assert.equal(bus.leftX, 0);
+  assert.equal(bus.leftY, 0);
+  assert.equal(readInput(bus).strafe, 0);
+  assert.equal(readInput(bus).vertical, 0);
+});
+
+test("unified Orbital stick turns and drives throttle while the right stick controls pitch and aim", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.leftX = -0.65;
+  bus.leftY = -0.4;
+  bus.rightX = 0.1;
+  bus.rightY = 0.2;
+
+  const input = readInput(bus);
+  assert.ok(Math.abs(input.yaw - 0.55) < 1e-9);
+  assert.ok(Math.abs(input.throttle - 0.4) < 1e-9);
+  assert.ok(Math.abs(input.pitch + 0.2) < 1e-9);
+  assert.ok(Math.abs(input.roll - 0.65 * COORDINATED_BANK) < 1e-9);
+  assert.ok(Math.abs(input.strafe) < Number.EPSILON);
+  assert.ok(Math.abs(input.vertical) < Number.EPSILON);
+});
+
+test("short vector-thrust gestures reach the flight input and interruption clears them", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  pulseVectorManeuver(bus, { axis: "vertical", direction: 1 }, 1000);
+  pulseVectorManeuver(bus, { axis: "strafe", direction: -1 }, 1000);
+  assert.equal(readInput(bus).vertical, 1);
+  assert.equal(readInput(bus).strafe, 1);
+
+  clearInput(bus);
+  assert.ok(Math.abs(readInput(bus).vertical) < Number.EPSILON);
+  assert.ok(Math.abs(readInput(bus).strafe) < Number.EPSILON);
+});
+
+test("vector-thrust input returns to neutral when its short pulse expires", async () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  pulseVectorManeuver(bus, { axis: "vertical", direction: -1 }, 15);
+  assert.equal(readInput(bus).vertical, -1);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(readInput(bus).vertical, 0);
+});
+
+test("orbital vector axes do not add vertical thrust to legacy surface modes", () => {
+  const bus = createBus("arc");
+  bus.leftX = 1;
+  bus.leftY = -1;
+  const input = readInput(bus);
+  assert.equal(input.strafe, 0);
+  assert.equal("vertical" in input, false);
+});
+
+test("lost focus clears held keys, all sticks, and latched buttons", () => {
   const bus = createBus("strafe");
   bus.keys.add("Space");
   bus.override = new Set(["KeyW"]);
@@ -118,6 +188,8 @@ test("lost focus clears held keys, both sticks, and latched buttons", () => {
     preset: null,
   });
   assert.equal(bus.override, null);
+  assert.equal(bus.leftX, 0);
+  assert.equal(bus.leftY, 0);
 });
 
 test("missing sensor APIs and insecure pages retain touch-only controls", async () => {

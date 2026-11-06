@@ -992,3 +992,114 @@ smoke checks passed with **0 page exceptions / 0 trainer API calls or writes**.
 This is not physical Android or online-sector evidence. No reward, campaign,
 auth, database, server simulation, Railway configuration, push or deployment
 changes were made. The new trainer is deliberately ineligible for progression.
+
+## 2026-11-06 — Offline Arcade enters the canonical Orbital runtime
+
+The local Offline Strike / Arcade Skirmish launch now resolves to the
+`arcade-skirmish` GameModeDefinition and `orbital-v5`, rather than being
+misidentified as generic Arena practice. The mode contract records the actual
+`@workspace/orbital-sim` and `Arena` sources, local authority, and no reward
+eligibility. Generic local practice remains a separate mode. Server-issued
+Contact still selects its pinned Orbital mode; legacy campaign runs retain
+their issued surface runtime, and private/live Wing authority, controls, and
+reward gates were not changed.
+
+The mode-routing tests cover offline Arcade, generic local practice, Orbital
+Contact, legacy-pinned sorties, and live Wing. The canonical offline runtime
+test verifies no reward eligibility. The first full workspace-quality run had
+an intermittent Contact progression assertion and cancelled frontend tests;
+the affected API test file passed in isolation, and the subsequent full
+workspace-quality run passed: scripts **53/53**, API **162/162**, and WFM
+**245/245**, with workspace typechecks and builds passing. After tightening the
+mode source-package assertion, the shared-library and WFM typechecks and all
+WFM tests passed again (**245/245**). The staging-results JSON parsed and
+`git diff --check` passed.
+
+The local preview rendered the WFM landing page after restart. The screenshot
+did not enter a signed-in game session, so the Offline Strike screen itself was
+not visually exercised; the mode launch mapping is covered by tests. No new
+staging deployment or Production change was made.
+
+Separately, the owner reported that two devices joined the same private room
+and controls/firing worked. The screenshot shows a two-human lobby; no room
+code is retained. This is owner-reported private-room smoke evidence only, not
+an Orbital v5 campaign test, ten-human competitive test, sector co-op proof, or
+reward-settlement verification. See `STAGING-TEST-REPORT.md`.
+
+## 2026-11-06 — Standalone Solo Flight enters Orbital v5
+
+The public `/play` Solo Flight now launches the canonical `orbital-v5`
+simulation through `Arena`. Its mode contract records the actual Orbital package,
+mission AI, local authority, fixed-step rules, and no reward eligibility. The
+offline boundary is unchanged: this route does not issue a server run or settle
+campaign progress.
+
+The runtime element now exposes mode/runtime identifiers for end-to-end checks.
+Playwright verified renderer initialization and forward-input movement on the
+desktop browser route, then repeated the runtime, WebGL, analog-stick movement,
+and recenter checks in an 844×390 landscape touch viewport. The focused browser
+suite passed **3/3** tests, including the existing Orbital Combat Lab control
+check. Shared-library and WFM typechecks passed; all **246** WFM tests passed.
+This is browser evidence, not physical Android device certification. Legacy
+campaign missions and live Wing were not changed; staging and Production were
+not updated.
+
+## 2026-11-06 — Cinder Ring becomes the multiplayer station entry
+
+The home-screen multiplayer shortcut now opens the universe instead of creating
+a room immediately. At Cinder Ring, the asteroid hub presents two distinct
+lanes: the existing server-authoritative ten-human 5v5 Wing Relay queue and a
+private-room dock that reuses the existing invite-code lobby. The private dock
+is shown only when the universe state places the pilot at Cinder Ring; invite
+rooms remain no-reward and are not added to the public match feed or spectator
+directory. The hub itself stays visible when the live directory is unavailable
+and reports that state instead of hiding the station.
+
+Verification: WFM typecheck passed, **248/248** WFM tests passed, the WFM build
+and its four preview-build checks passed, and `git diff --check` passed. The
+private-dock location/code rules have dedicated unit tests. The screenshot
+verified the public landing page only; the signed-in universe station UI was
+not visually captured. The owner separately confirmed that two devices joined
+a private room and controls/firing worked, but that test did not exercise the
+new Cinder Ring entry flow or a ten-human competitive match.
+
+This hub is still a universe-screen station entry with authored artwork, not a
+flightable 3D approach or docking scene. The actual competitive match continues
+to use the existing Wing runtime. No API/socket authority, rewards, staging, or
+Production deployment changed. A direct full-workspace test run during this
+session hit an unrelated API progression assertion (`match.over`); that
+progression test passed in isolation, and no API code was changed here.
+
+## 2026-11-06 — Cinder Ring flightable station approach
+
+Cinder Ring now has a procedural 3D station, surrounding asteroid field, and
+local flightable approach when the available world snapshot places the pilot at
+the destination. Cached location data can also open this presentation flow; it
+is not fresh server authorization. The approach
+uses the saved ship model and shared Orbital spatial-flight integrator, with
+touch steering, analog forward thrust, brake, keyboard controls, closure-speed
+and alignment readouts, and a gated docking action. After local docking, the
+existing station hub becomes visible; returning to orbit allows another approach.
+
+The docking gate is only local presentation/navigation state. It creates no
+operation instance, matchmaking seat, reward, or server authorization. Existing
+Wing queue checks, ten-human competitive rules, private-room boundaries, and
+combat runtimes were not changed. The operation catalog now explicitly records
+that universe navigation uses Orbital spatial flight only for docking and is not
+a combat authority.
+
+The owner's four open-universe, Orbital Lab, structural-rebuild, and
+multiplayer-universe briefs remain in `attached_assets/`; the structural roadmap,
+Cinder Ring hub plan, and project memory now reflect the latest clarification:
+Three.js connects destinations, while each battle continues through its explicit
+combat runtime. The two newest station/ship images are recorded as art direction,
+not copied into the renderer.
+
+Verification: WFM typecheck passed; **254/254** WFM tests passed, including the
+docking volume/speed/alignment checks and arrival-flow gating. Both WFM Vite
+builds and all **4/4** preview-build checks passed; `git diff --check` passed.
+The WFM workflow restarted successfully. Screenshot verification showed only
+the public landing page; the signed-in universe and WebGL approach were not
+visually verified. The capture browser reported no WebGL adapters, so it cannot
+certify the 3D flight scene. No Android device test, staging rollout, or
+Production deployment was performed.

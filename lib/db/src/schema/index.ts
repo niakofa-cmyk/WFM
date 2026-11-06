@@ -20,3 +20,5 @@
 export * from "./progression";
 export * from "./universe";
 export * from "./economy-rejections";
+export * from "./operations";
+export * from "./universe-presence";

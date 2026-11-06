@@ -38,10 +38,6 @@ type HomeProps = {
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
   onGalaxy: () => void;
-  onOnline: (roomCode: string) => void;
-  roomCode: string;
-  onRoomCode: (roomCode: string) => void;
-  onCreateRoom: () => void;
   onJoinCompetitiveQueue: () => void;
   onJoinCasualAiQueue: () => void;
   onCancelMatchmaking: () => void;
@@ -226,20 +222,16 @@ function MainMenu(props: HomeProps) {
           <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
-                <span className="block">FLIGHT & COMBAT SYSTEMS</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Rust Disc trainer · offline prototype · alternate skirmish</span>
+                <span className="block">COMBAT TRAINING</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Lab · local arcade compatibility</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
             </summary>
             <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              <Link href={`/flight?ship=${encodeURIComponent(ship)}`} data-testid="link-home-rust-disc" className="wfm-cmd wfm-cmd-secondary min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4">
-                <span className="font-hud text-lg tracking-widest">RUST DISC · LOCAL FLIGHT</span>
-                <span className="text-xs text-muted">Preselect {def.name} · trainer only · no rewards or account changes</span>
-              </Link>
               <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
                 <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="text-xs text-muted">Targeting and weapons prototype · no rewards</span>
+                <span className="text-xs text-muted">Canonical local combat training · no rewards</span>
               </a>
               <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4 sm:col-span-2">
                 <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
@@ -276,8 +268,6 @@ function MainMenu(props: HomeProps) {
 }
 
 function OnlineWing({
-  onOnline,
-  onCreateRoom,
   onJoinCompetitiveQueue,
   onJoinCasualAiQueue,
   onCancelMatchmaking,
@@ -286,8 +276,6 @@ function OnlineWing({
   casualAiQueueing,
   casualAiQueueAvailable,
   signedIn,
-  onRoomCode,
-  roomCode,
   onlineStatus,
   offlineAvailable,
   onOfflineStrike,
@@ -304,40 +292,17 @@ function OnlineWing({
       ) : null}
 
       <div className="mt-3 border-l-2 border-bone/20 pl-3">
-        <p className="font-hud text-xs tracking-[0.2em] text-muted">PRIVATE ROOM · NO WING CREDITS</p>
-        <p className="mb-2 text-xs text-muted">Create a private room or enter a pilot’s code. Empty seats fly with AI. Private rooms do not award Wing credits.</p>
+        <p className="font-hud text-xs tracking-[0.2em] text-muted">CINDER RING MULTIPLAYER STATION</p>
+        <p className="mb-2 text-xs text-muted">Private invite rooms and the human-only 5v5 competition are accessed at the asteroid dock.</p>
         <button
           type="button"
           data-testid="button-online-5v5"
-          onClick={onCreateRoom}
+          onClick={onJoinCompetitiveQueue}
           className="wfm-cmd wfm-cmd-secondary wfm-chamfer min-h-12 w-full flex-col items-start justify-center gap-0 px-3"
         >
-          <span className="font-hud text-base leading-none tracking-widest">CREATE NEW ROOM</span>
-          <span className="text-xs text-muted">Generate a code and launch the 5v5.</span>
+          <span className="font-hud text-base leading-none tracking-widest">OPEN MULTIPLAYER DOCK</span>
+          <span className="text-xs text-muted">Travel to Cinder Ring to create or join a private room.</span>
         </button>
-        <div className="mt-2 flex gap-2">
-          <label className="sr-only" htmlFor="online-room-code">Room code</label>
-          <input
-            id="online-room-code"
-            data-testid="input-room-code"
-            autoCapitalize="characters"
-            autoComplete="off"
-            maxLength={24}
-            onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-            placeholder="6–24 CHAR ROOM CODE"
-            value={roomCode}
-            className="h-11 min-w-0 flex-1 scroll-mb-24 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-          />
-          <button
-            type="button"
-            data-testid="button-join-room"
-            disabled={roomCode.trim().length < 6}
-            onClick={() => onOnline(roomCode)}
-            className="wfm-cmd wfm-cmd-quiet h-11 justify-center px-4 font-hud tracking-widest"
-          >
-            JOIN
-          </button>
-        </div>
       </div>
 
       {casualAiQueueAvailable || competitiveQueueAvailable || queueing ? (
@@ -372,13 +337,13 @@ function OnlineWing({
               className="wfm-cmd wfm-cmd-secondary mt-2 min-h-12 w-full flex-col items-start justify-center gap-0 px-3 py-1"
             >
               <span className="font-hud text-base leading-none tracking-widest text-solar">
-                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "FIND COMPETITIVE MATCH"}
+                {competitiveQueueing ? "SEARCHING FOR PILOTS" : "OPEN CINDER RING ARENA"}
               </span>
               <span className="text-xs text-muted">
                 {competitiveQueueing
                   ? onlineStatus || "Waiting for ten authenticated human pilots."
                   : signedIn
-                    ? "10 human pilots · auto-start · server-verified rewards when enabled."
+                    ? "Travel to the asteroid hub to queue, watch, and enter live Relay competitions."
                     : "Sign in to queue · ten human pilots required."}
               </span>
             </button>

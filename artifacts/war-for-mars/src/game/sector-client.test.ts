@@ -2,15 +2,32 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   expeditionFeatureEnabled, generateRoomCode, holdInput, isTerminalClose, isValidRoomCode,
-  missionLockState, parseSectorSnapshot, sanitizeInput, sectorSocketUrl, createSeqCounter,
+  missionLockState, parseSectorSnapshot, sanitizeInput, sectorClientProtocolVersion,
+  sectorSocketUrl, createSeqCounter,
 } from "./sector-client";
-import { SECTOR_MISSIONS } from "./sector-missions";
+import {
+  ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
+} from "./sector-missions";
 import { NEUTRAL_FLIGHT_INPUT, createFlight } from "./flight-sector";
 
 test("feature is off in production unless explicitly enabled, on in development", () => {
   assert.equal(expeditionFeatureEnabled({ DEV: false }), false);
   assert.equal(expeditionFeatureEnabled({ DEV: true }), true);
   assert.equal(expeditionFeatureEnabled({ DEV: false, VITE_WFM_SECTOR_EXPEDITION_ENABLED: "true" }), true);
+});
+test("client keeps compatibility protocol by default and pins opt-in snapshots to Orbital rules", () => {
+  assert.equal(sectorClientProtocolVersion({}), 1);
+  assert.equal(sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "TRUE" }), 1);
+  assert.equal(
+    sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true" }),
+    SECTOR_ORBITAL_PROTOCOL_VERSION,
+  );
+  const snapshot = {
+    type: "sector_snapshot", version: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  assert.equal(parseSectorSnapshot(snapshot), null, "a v2 packet is not accepted by a compatibility client");
+  assert.equal(parseSectorSnapshot(snapshot, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "incomplete snapshots remain invalid");
 });
 
 test("room codes are 6-24 alnum/hyphen and generated codes are valid", () => {
@@ -44,6 +61,18 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     progress: { completed: [], persistenceAvailable: true }, settlement: { status: "not_started", reason: "" },
   };
   assert.ok(parseSectorSnapshot(snap));
+  const orbitalSnapshot = {
+    ...snap, version: SECTOR_ORBITAL_PROTOCOL_VERSION, simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  assert.ok(parseSectorSnapshot(orbitalSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...orbitalSnapshot,
+    simulation: { ...ORBITAL_SECTOR_SIMULATION_CONTRACT, runtimeId: "other-runtime" },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null);
+  assert.equal(parseSectorSnapshot({
+    ...orbitalSnapshot,
+    simulation: { ...ORBITAL_SECTOR_SIMULATION_CONTRACT, extra: true },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null);
   assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true, tacticalCommands: true } }));
   assert.equal(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: "yes" } }), null);
   const command = {
@@ -91,6 +120,8 @@ test("Iron Eclipse snapshots require complete bounded server state and matching 
 test("hold input is neutral with zero throttle and brake; sanitize clamps", () => {
   assert.deepEqual(holdInput(), { ...NEUTRAL_FLIGHT_INPUT, throttle: 0, brake: true });
   assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, throttle: 3, yaw: Number.NaN }).throttle, 1);
+  assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, strafe: 2, vertical: -2 }).strafe, 1);
+  assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, strafe: 2, vertical: -2 }).vertical, -1);
   assert.equal("drift" in sanitizeInput(NEUTRAL_FLIGHT_INPUT), false);
   assert.equal(sanitizeInput({ ...NEUTRAL_FLIGHT_INPUT, drift: true }).drift, true);
 });

@@ -29,6 +29,9 @@ import type {
   MarketSnapshot,
   MarketTradeInput,
   MarketTradeResult,
+  OperationDirectoryResponse,
+  OperationRegistrationBody,
+  OperationRegistrationResponse,
   ProgressionActionInput,
   ProgressionActionResult,
   PublicWingLeaderboardResponse,
@@ -1236,6 +1239,401 @@ export function useGetWorld<TData = Awaited<ReturnType<typeof getWorld>>, TError
 
 
 
+
+export const getGetWorldOperationsUrl = () => {
+
+
+
+
+  return `/api/world/operations`
+}
+
+/**
+ * Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
+ * @summary Discover public operations in the universe
+ */
+export const getWorldOperations = async ( options?: Parameters<typeof customFetch>[1]): Promise<OperationDirectoryResponse> => {
+
+  return customFetch<OperationDirectoryResponse>(getGetWorldOperationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldOperationsQueryKey = () => {
+    return [
+    `/api/world/operations`
+    ] as const;
+    }
+
+
+export const getGetWorldOperationsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldOperations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldOperationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldOperations>>> = ({ signal }) => getWorldOperations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldOperationsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldOperations>>>
+export type GetWorldOperationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Discover public operations in the universe
+ */
+
+export function useGetWorldOperations<TData = Awaited<ReturnType<typeof getWorldOperations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldOperationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getHeartbeatWorldPresenceUrl = () => {
+
+
+
+
+  return `/api/world/presence/heartbeat`
+}
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const heartbeatWorldPresence = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getHeartbeatWorldPresenceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getHeartbeatWorldPresenceMutationKey = () => ['heartbeatWorldPresence'] as const;
+
+export const getHeartbeatWorldPresenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext> => {
+
+const mutationKey = getHeartbeatWorldPresenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof heartbeatWorldPresence>>, void> = () => {
+
+
+          return  heartbeatWorldPresence(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeartbeatWorldPresenceMutationResult = NonNullable<Awaited<ReturnType<typeof heartbeatWorldPresence>>>
+
+    export type HeartbeatWorldPresenceMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const useHeartbeatWorldPresence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof heartbeatWorldPresence>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getHeartbeatWorldPresenceMutationOptions(options));
+    }
+
+export const getSubscribeWorldOperationEventsUrl = () => {
+
+
+
+
+  return `/api/world/operations/events`
+}
+
+/**
+ * Server-sent events stream. Each `operations.snapshot` event carries a public OperationDirectoryResponse snapshot with no account identifiers. The stream is read-only; clients cannot publish status through it.
+ * @summary Subscribe to read-only universe operation status
+ */
+export const subscribeWorldOperationEvents = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getSubscribeWorldOperationEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubscribeWorldOperationEventsQueryKey = () => {
+    return [
+    `/api/world/operations/events`
+    ] as const;
+    }
+
+
+export const getSubscribeWorldOperationEventsQueryOptions = <TData = Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSubscribeWorldOperationEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>> = ({ signal }) => subscribeWorldOperationEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SubscribeWorldOperationEventsQueryResult = NonNullable<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>>
+export type SubscribeWorldOperationEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Subscribe to read-only universe operation status
+ */
+
+export function useSubscribeWorldOperationEvents<TData = Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSubscribeWorldOperationEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegisterWorldOperationInstanceUrl = (operationId: string,) => {
+
+
+
+
+  return `/api/world/operations/${operationId}/instances`
+}
+
+/**
+ * Registers only supported on-demand operations at their server-verified world location. Admission is single-seat, server-issued, expires automatically, and cannot grant rewards.
+ * @summary Authenticated player registers and enters an operation
+ */
+export const registerWorldOperationInstance = async (operationId: string,
+    operationRegistrationBody: OperationRegistrationBody, options?: Parameters<typeof customFetch>[1]): Promise<OperationRegistrationResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OperationRegistrationResponse>(getRegisterWorldOperationInstanceUrl(operationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(operationRegistrationBody)
+  }
+);}
+
+
+
+
+
+export const getRegisterWorldOperationInstanceMutationKey = () => ['registerWorldOperationInstance'] as const;
+
+export const getRegisterWorldOperationInstanceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext> => {
+
+const mutationKey = getRegisterWorldOperationInstanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerWorldOperationInstance>>, RegisterWorldOperationInstanceMutationVariables> = (props) => {
+          const {operationId,data} = props ?? {};
+
+          return  registerWorldOperationInstance(operationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterWorldOperationInstanceMutationResult = NonNullable<Awaited<ReturnType<typeof registerWorldOperationInstance>>>
+    export type RegisterWorldOperationInstanceMutationBody = BodyType<OperationRegistrationBody>
+    export type RegisterWorldOperationInstanceMutationError = ErrorType<void>
+    export type RegisterWorldOperationInstanceMutationVariables = {operationId: string;data: BodyType<OperationRegistrationBody>}
+
+    /**
+ * @summary Authenticated player registers and enters an operation
+ */
+export const useRegisterWorldOperationInstance = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerWorldOperationInstance>>,
+        TError,
+        RegisterWorldOperationInstanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRegisterWorldOperationInstanceMutationOptions(options));
+    }
+
+export const getLeaveWorldOperationInstanceUrl = (instanceId: string,) => {
+
+
+
+
+  return `/api/world/operations/instances/${instanceId}/leave`
+}
+
+/**
+ * @summary End the authenticated player's operation seat
+ */
+export const leaveWorldOperationInstance = async (instanceId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLeaveWorldOperationInstanceUrl(instanceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveWorldOperationInstanceMutationKey = () => ['leaveWorldOperationInstance'] as const;
+
+export const getLeaveWorldOperationInstanceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext> => {
+
+const mutationKey = getLeaveWorldOperationInstanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, LeaveWorldOperationInstanceMutationVariables> = (props) => {
+          const {instanceId} = props ?? {};
+
+          return  leaveWorldOperationInstance(instanceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveWorldOperationInstanceMutationResult = NonNullable<Awaited<ReturnType<typeof leaveWorldOperationInstance>>>
+
+    export type LeaveWorldOperationInstanceMutationError = ErrorType<void>
+    export type LeaveWorldOperationInstanceMutationVariables = {instanceId: string}
+
+    /**
+ * @summary End the authenticated player's operation seat
+ */
+export const useLeaveWorldOperationInstance = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveWorldOperationInstance>>,
+        TError,
+        LeaveWorldOperationInstanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveWorldOperationInstanceMutationOptions(options));
+    }
 
 export const getTravelWorldUrl = () => {
 
