@@ -46,12 +46,12 @@ already been extracted.
 | Mode/system | Actual path in this checkout | Status and next migration proof |
 |---|---|---|
 | Orbital Combat Lab | `Arena` + `@workspace/orbital-sim`, local fixed-step combat; no reward settlement. `Arena` currently constructs the Three.js renderer and owns its scene loop. | Canonical training foundation, but renderer lifecycle is still owned by the Arena UI component rather than an extracted engine presentation module. |
-| Local Arena practice | `WarApp` → `Arena` → `orbital-v1` when no legacy server run is pinned | Canonical local entry. Must preserve no-reward behavior. |
+| Local Arena practice | `WarApp` → `Arena` → `orbital-v5` when no legacy server run is pinned | Canonical local entry. Must preserve no-reward behavior. |
 | Rust Disc local flight | `/flight` → `RustDiscFlight` → dynamically loaded `three-flight-runtime`; that component creates a separate Three.js renderer, scene, camera, and animation loop. It calls `@workspace/orbital-sim` for canonical fixed-step flight/combat rules, while the Rust Disc component owns presentation and operation UI. | Simulation is Orbital; presentation remains a separate compatibility scene. The user-directed destination is an Orbital-owned renderer/lifecycle, not reuse of this scene. Do not remove the route until the replacement proves control, camera, objective, and no-reward parity. |
 | Rust Disc co-op / Mars Approach / Pale Beacons | Authenticated sector socket and `sector-motion-v1`; server validates movement, snapshots and objective lifecycle. `RustDiscFlight` renders the snapshots. | Compatibility runtime and presentation. Migrate client, API, socket and mission state together; retain authority, reconnect behavior, and operation results. |
 | Iron Eclipse | Sector runtime plus server-owned squadron commands and capital-ship operation state; currently rendered through `RustDiscFlight`. | Compatibility runtime and presentation. Preserve command permissions, AI, subsystem gating, extraction and result idempotency. |
-| Arcade Skirmish | `Arena` with `surface-v1` combat path | Compatibility runtime. Migrate objective-by-objective with no-reward local behavior. |
-| Campaign Contact | `Arena` with `orbital-v1` for capable, pinned runs; server replay validates settlement | Canonical combat slice; keep existing issued-run compatibility. |
+| Arcade Skirmish | `WarApp` Offline Strike → `Arena` → `arcade-skirmish` / `orbital-v5` | Canonical local mode with no reward settlement. Server-issued legacy Skirmish runs remain pinned through `campaign-sortie`. |
+| Campaign Contact | `Arena` with `orbital-v5` for capable, pinned runs; server replay validates settlement | Canonical combat slice; keep earlier issued-run compatibility. |
 | Other campaign sorties | `Arena` with pinned `surface-v1` or configured runtime | Compatibility runtime. Preserve run IDs, objective replay, story state and idempotent claims. |
 | Live Wing 5v5 / private / AI-fill | Authenticated Wing socket, matchmaking and `surface-v1` combat; Orbital Arena rejects live rooms | Not migrated. Keep competitive ten-human and reward gates; private and AI-fill remain no-reward. |
 | Universe / Galaxy navigation | `GalaxyScreen`, world-operation directory and operation registration | Navigation and discovery only; not continuous 3D travel or shared flight. |
@@ -177,8 +177,10 @@ scene. Implement it as:
    proof current for relay → combat → extraction, no rewards, bounded collision
    safety, and desktop/mobile behavior. Physical-device visual/control checks
    have not been claimed.
-4. **Migrate local Arcade and campaign:** preserve each mission's objective
-   adapter, issued runtime, deterministic replay and validated settlement.
+4. **Migrate local Arcade and campaign:** Offline Strike / Arcade Skirmish now
+   launches the canonical `arcade-skirmish` contract with no rewards. Continue
+   server-issued campaign migrations one operation at a time, preserving each
+   objective adapter, issued runtime, deterministic replay and validated settlement.
 5. **Migrate co-op / Iron Eclipse:** coordinated client/API/socket versioning;
    preserve authenticated rooms, server movement, orders, reconnects, objectives
    and no duplicate reward or identity system.

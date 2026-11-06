@@ -46,7 +46,7 @@ import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
-import { resolveArenaRuntime, resolveArenaTech } from "./arena-config";
+import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
 import { isOrbitalRuntimeId } from "@workspace/orbital-sim";
 
@@ -1131,15 +1131,7 @@ export function WarApp() {
       <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
-        modeId={
-          onlineSession
-            ? "wing-online"
-            : isOrbitalRuntimeId(arenaRuntime)
-              ? runConfig
-                ? "campaign-contact"
-                : "local-arena-practice"
-              : "campaign-sortie"
-        }
+        modeId={resolveArenaModeId(runConfig, Boolean(onlineSession), offlineMode)}
         runtime={arenaRuntime}
         shipId={runConfig?.shipId ?? save.ship}
         faction={runFaction}

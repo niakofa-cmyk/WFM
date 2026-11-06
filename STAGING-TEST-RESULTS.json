@@ -1896,5 +1896,20 @@
     "productionSettingsOrDeploymentChanged": false,
     "releaseStatus": "PENDING"
   },
-  "productionReadiness": "NOT_CLAIMED"
+  "productionReadiness": "NOT_CLAIMED",
+  "latestOwnerReportedTwoDevicePrivateRoomFlightCheck": {
+    "date": "2026-11-06",
+    "status": "OWNER_REPORTED_PASS",
+    "environment": "Not independently captured; report followed staging test guidance",
+    "reportedOutcome": "Two devices entered the same private room; the owner reports flight controls and firing worked during the match.",
+    "screenshotScope": "Private-room lobby showing two human pilots; room code omitted.",
+    "limits": [
+      "Does not verify ten-human competitive matchmaking",
+      "Does not verify reward settlement",
+      "Does not verify Orbital v5 campaign combat",
+      "Does not verify sector co-op",
+      "Does not verify Production"
+    ],
+    "productionSettingsOrDeploymentChanged": false
+  }
 }

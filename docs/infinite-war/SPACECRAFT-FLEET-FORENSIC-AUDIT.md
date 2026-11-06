@@ -207,7 +207,8 @@ it does not store selectable primary/secondary weapon equipment.
 |---|---|
 | Orbital Combat Lab, Local Arena practice, Contact campaign | Canonical Orbital simulation; Arena owns current Three.js presentation. |
 | Rust Disc local, Rust Disc co-op, Iron Eclipse | Orbital simulation/authority adapters are declared, but presentation remains `RustDiscFlight` compatibility renderer. |
-| Arcade Skirmish, legacy campaign sortie, Solo Flight | `surface-v1` compatibility simulation. |
+| Offline Arcade Skirmish | Canonical `orbital-v5` simulation, local authority, no reward settlement. |
+| Legacy campaign sorties, Solo Flight | `surface-v1` compatibility simulation; issued server runs remain pinned. |
 | Competitive/live/private/AI-fill Wing | `surface-v1` socket and simulation path; not live 5v5 Orbital combat. |
 | Universe navigation | Navigation UI/directory only; not an active universe combat simulation. |
 | Fleet Warfare | Planned, with no gameplay renderer. |
@@ -230,7 +231,7 @@ or a complete capital-vessel simulation.
 | Phase | Status | Evidence-based summary |
 |---|---|---|
 | A — forensic ship/weapon audit | **IMPLEMENTED AND VERIFIED** | This report records the current definitions, actual behavior, consumers, and gaps. |
-| B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Arcade, Solo Flight, legacy campaign, and Wing still include surface compatibility paths. |
+| B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Offline Arcade now uses Orbital v5; Solo Flight, legacy campaign, and Wing still include surface compatibility paths. |
 | C — original eight abilities | **IMPLEMENTED AND VERIFIED in Orbital** | All eight have actual state effects and deterministic `step()` tests. Legacy mode parity is incomplete. |
 | D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
 | E — countermeasures and missile defense | **CORE IMPLEMENTED AND VERIFIED in Orbital v3; PARTIAL for live Wing** | Standard seekers are decoyed, hardened seekers are disrupted, only missiles tracking the pilot are affected, and a cooldown is server-owned. Legacy v1/v2 outcomes are preserved. Live Wing integration, physical-device checks, and broader defenses remain unverified. |
@@ -245,11 +246,15 @@ or a complete capital-vessel simulation.
 
 The v4 scripted AI balance probe showed large ship-to-ship outcome spreads, but
 it is not representative of human 5v5 play; no ship statistics were changed
-from that evidence alone. First test the v5 lineup on a matched staging revision,
-then run authenticated co-op checks and a separate Wing migration gate. Keep
-rewards and live queue flags disabled and retain surface Wing as the rollback
-path. Staging still runs a prior shared app/API/socket commit, so it does not
-yet verify this v5 build. Continue authored hull/subsystem work and
+from that evidence alone. The last recorded matched staging deployment for v5
+was successful across app, API, and socket on `f968c89`. The owner later
+reported that two devices joined a private Wing room and controls/firing worked;
+that report does not exercise Orbital v5 or establish ten-human balance. An
+authenticated Contact/v5 lineup test is still unverified. Next, verify that
+pinned Contact run on staging, then migrate remaining server-issued campaign
+operations one at a time before authenticated co-op checks and the separate
+Wing migration gate. Keep rewards and live queue flags unchanged and retain
+surface Wing as the rollback path. Continue authored hull/subsystem work and
 physical-device certification separately.
 
 Do not present the current certification smoke test, hangar preview, Rust Disc

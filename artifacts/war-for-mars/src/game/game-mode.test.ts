@@ -31,7 +31,7 @@ test("the mode registry is a complete, unique source-backed launch inventory", (
 test("canonical Orbital modes initialize with the pinned simulation rules", () => {
   for (const id of [
     "orbital-combat-lab", "local-arena-practice", "rust-disc-local",
-    "rust-disc-sector-coop", "iron-eclipse", "campaign-contact",
+    "rust-disc-sector-coop", "iron-eclipse", "arcade-skirmish", "campaign-contact",
   ] as const) {
     const mode = getGameModeDefinition(id);
     const runtime = createOrbitalRuntime(mode);
@@ -93,4 +93,13 @@ test("live competitive, private, and AI-fill reward boundaries are declared in t
   assert.equal(competitive.rewardEligibility, "server-validated");
   assert.equal(getGameModeDefinition("wing-private").rewardEligibility, "none");
   assert.equal(getGameModeDefinition("wing-casual-ai").rewardEligibility, "none");
+});
+
+test("offline Arcade uses canonical Orbital combat and cannot settle rewards", () => {
+  const arcade = getGameModeDefinition("arcade-skirmish");
+  assert.equal(arcade.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+  assert.equal(arcade.simulation.migration, "canonical");
+  assert.equal(arcade.authority, "local");
+  assert.equal(arcade.rewardEligibility, "none");
+  assert.equal(createOrbitalRuntime(arcade).modeId, "arcade-skirmish");
 });
