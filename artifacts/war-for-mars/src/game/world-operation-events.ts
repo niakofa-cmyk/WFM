@@ -27,6 +27,9 @@ export function parseOperationDirectorySnapshot(data: string): OperationDirector
   if (!isRecord(value) || typeof value.generatedAt !== "string") return null;
   if (!Array.isArray(value.locations) || !Array.isArray(value.operations) ||
       !Array.isArray(value.instances) || !Array.isArray(value.events)) return null;
+  if (value.presence !== undefined && !Array.isArray(value.presence)) return null;
+  if (value.presenceStatus !== undefined &&
+      value.presenceStatus !== "available" && value.presenceStatus !== "unavailable") return null;
 
   const validLocations = value.locations.every((location) =>
     hasStringFields(location, ["id", "name", "worldLocationId", "kind", "sectorId"]) &&
@@ -60,7 +63,14 @@ export function parseOperationDirectorySnapshot(data: string): OperationDirector
     (event.operationInstanceId === undefined || event.operationInstanceId === null ||
       typeof event.operationInstanceId === "string"),
   );
-  return validLocations && validOperations && validInstances && validEvents
+  const validPresence = (value.presence ?? []).every((entry) =>
+    hasStringFields(entry, ["locationId"]) &&
+    isRecord(entry) &&
+    typeof entry.activePilots === "number" &&
+    Number.isInteger(entry.activePilots) &&
+    (entry.activePilots as number) >= 0,
+  );
+  return validLocations && validOperations && validInstances && validEvents && validPresence
     ? value as unknown as OperationDirectoryResponse
     : null;
 }

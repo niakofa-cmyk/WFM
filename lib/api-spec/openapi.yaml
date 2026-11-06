@@ -314,6 +314,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationDirectoryResponse"
+  /world/presence/heartbeat:
+    post:
+      operationId: heartbeatWorldPresence
+      tags: [progression]
+      summary: Refresh the signed-in pilot's universe presence
+      description: The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+      security:
+        - ClerkSession: []
+      responses:
+        "204":
+          description: Presence lease refreshed
+        "401":
+          description: Authentication required
+        "503":
+          description: Universe presence is temporarily unavailable
   /world/operations/events:
     get:
       operationId: subscribeWorldOperationEvents
@@ -781,6 +796,12 @@ components:
         kind: { type: string, enum: [asteroid, station, orbital-sector] }
         sectorId: { type: string, minLength: 1, maxLength: 80 }
         position: { $ref: "#/components/schemas/UniverseVector3" }
+    UniversePresenceSummary:
+      type: object
+      required: [locationId, activePilots]
+      properties:
+        locationId: { type: string, minLength: 1, maxLength: 80 }
+        activePilots: { type: integer, minimum: 0, maximum: 100000 }
     UniverseEvent:
       type: object
       required: [id, kind, locationId, status, title]
@@ -912,6 +933,12 @@ components:
         events:
           type: array
           items: { $ref: "#/components/schemas/UniverseEvent" }
+        presence:
+          type: array
+          items: { $ref: "#/components/schemas/UniversePresenceSummary" }
+        presenceStatus:
+          type: string
+          enum: [available, unavailable]
     WorldLocation:
       type: object
       required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]

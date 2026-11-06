@@ -48,10 +48,20 @@ const snapshot = {
     status: "active",
     operationInstanceId: "match-1",
   }],
+  presence: [{ locationId: "cinder-asteroid", activePilots: 2 }],
+  presenceStatus: "available",
 };
 
 test("public universe operation event snapshots parse the documented read-only directory payload", () => {
   assert.deepEqual(parseOperationDirectorySnapshot(JSON.stringify(snapshot)), snapshot);
+});
+
+test("new clients tolerate an older server snapshot that predates destination presence", () => {
+  const { presence: _presence, presenceStatus: _presenceStatus, ...legacySnapshot } = snapshot;
+  const parsed = parseOperationDirectorySnapshot(JSON.stringify(legacySnapshot));
+  assert.ok(parsed);
+  assert.equal(parsed.presence, undefined);
+  assert.equal(parsed.presenceStatus, undefined);
 });
 
 test("invalid snapshots are rejected without replacing cached directory state", () => {
@@ -60,6 +70,10 @@ test("invalid snapshots are rejected without replacing cached directory state", 
   assert.equal(parseOperationDirectorySnapshot(JSON.stringify({
     ...snapshot,
     instances: [{ id: "match-1", operationId: "wing-5v5", phase: "active", currentPlayers: "ten", capacity: 10 }],
+  })), null);
+  assert.equal(parseOperationDirectorySnapshot(JSON.stringify({
+    ...snapshot,
+    presence: [{ locationId: "cinder-asteroid", activePilots: -1 }],
   })), null);
 });
 

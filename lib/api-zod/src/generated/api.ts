@@ -1195,6 +1195,11 @@ export const getWorldOperationsResponseEventsItemOperationInstanceIdMax = 100;
 
 export const getWorldOperationsResponseEventsItemTitleMax = 160;
 
+export const getWorldOperationsResponsePresenceItemLocationIdMax = 80;
+
+export const getWorldOperationsResponsePresenceItemActivePilotsMin = 0;
+export const getWorldOperationsResponsePresenceItemActivePilotsMax = 100000;
+
 
 
 export const GetWorldOperationsResponse = zod.object({
@@ -1246,8 +1251,20 @@ export const GetWorldOperationsResponse = zod.object({
   "operationInstanceId": zod.string().max(getWorldOperationsResponseEventsItemOperationInstanceIdMax).nullish(),
   "status": zod.enum(['active', 'completed']),
   "title": zod.string().min(1).max(getWorldOperationsResponseEventsItemTitleMax)
-}))
+})),
+  "presence": zod.array(zod.object({
+  "locationId": zod.string().min(1).max(getWorldOperationsResponsePresenceItemLocationIdMax),
+  "activePilots": zod.number().int().min(getWorldOperationsResponsePresenceItemActivePilotsMin).max(getWorldOperationsResponsePresenceItemActivePilotsMax)
+})).optional(),
+  "presenceStatus": zod.enum(['available', 'unavailable']).optional()
 })
+
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const HeartbeatWorldPresenceResponse = zod.void()
 
 
 /**

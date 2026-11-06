@@ -1318,6 +1318,81 @@ export function useGetWorldOperations<TData = Awaited<ReturnType<typeof getWorld
 
 
 
+export const getHeartbeatWorldPresenceUrl = () => {
+
+
+
+
+  return `/api/world/presence/heartbeat`
+}
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const heartbeatWorldPresence = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getHeartbeatWorldPresenceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getHeartbeatWorldPresenceMutationKey = () => ['heartbeatWorldPresence'] as const;
+
+export const getHeartbeatWorldPresenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext> => {
+
+const mutationKey = getHeartbeatWorldPresenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof heartbeatWorldPresence>>, void> = () => {
+
+
+          return  heartbeatWorldPresence(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeartbeatWorldPresenceMutationResult = NonNullable<Awaited<ReturnType<typeof heartbeatWorldPresence>>>
+
+    export type HeartbeatWorldPresenceMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const useHeartbeatWorldPresence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof heartbeatWorldPresence>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getHeartbeatWorldPresenceMutationOptions(options));
+    }
+
 export const getSubscribeWorldOperationEventsUrl = () => {
 
 

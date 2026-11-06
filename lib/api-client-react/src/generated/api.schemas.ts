@@ -787,6 +787,19 @@ export interface UniverseLocation {
   position: UniverseVector3;
 }
 
+export interface UniversePresenceSummary {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  activePilots: number;
+}
+
 export type UniverseEventKind = typeof UniverseEventKind[keyof typeof UniverseEventKind];
 
 
@@ -1141,12 +1154,22 @@ export interface OperationResult {
   serverVerified: boolean;
 }
 
+export type OperationDirectoryResponsePresenceStatus = typeof OperationDirectoryResponsePresenceStatus[keyof typeof OperationDirectoryResponsePresenceStatus];
+
+
+export const OperationDirectoryResponsePresenceStatus = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
 export interface OperationDirectoryResponse {
   generatedAt: string;
   locations: UniverseLocation[];
   operations: OperationDefinition[];
   instances: OperationInstance[];
   events: UniverseEvent[];
+  presence?: UniversePresenceSummary[];
+  presenceStatus?: OperationDirectoryResponsePresenceStatus;
 }
 
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];

@@ -33,3 +33,19 @@ vertical slice over a large but disconnected map.
 
 **How to apply:** expose live operation visibility in navigation, but never
 fabricate active pilots, competition status or reward eligibility.
+
+**Architecture rule:** maintain one persistent universe layer for destinations,
+server-owned travel and short-lived player presence, while preserving multiple
+independent combat runtimes. Surface live activities from real operation
+instances; publish presence only as anonymous destination-level counts, never
+player identities or exact coordinates.
+
+**Why:** the owner explicitly wants a shared multiplayer ecosystem without
+forcing every battle system into one simulation or destabilizing the open-world
+layer.
+
+**How to apply:** send heartbeats only while the pilot is in universe
+navigation; derive locations from saved world state, expire leases quickly, and
+stop updates when an operation starts. Keep discovery/event feeds read-only.
+Do not claim shared continuous 3D flight or nearby ship positions until those
+systems are actually implemented and verified.

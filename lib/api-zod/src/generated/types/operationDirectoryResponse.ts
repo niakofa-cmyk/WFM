@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OperationDefinition } from './operationDefinition';
+import type { OperationDirectoryResponsePresenceStatus } from './operationDirectoryResponsePresenceStatus';
 import type { OperationInstance } from './operationInstance';
 import type { UniverseEvent } from './universeEvent';
 import type { UniverseLocation } from './universeLocation';
+import type { UniversePresenceSummary } from './universePresenceSummary';
 
 export interface OperationDirectoryResponse {
   generatedAt: Date;
@@ -16,4 +18,6 @@ export interface OperationDirectoryResponse {
   operations: OperationDefinition[];
   instances: OperationInstance[];
   events: UniverseEvent[];
+  presence?: UniversePresenceSummary[];
+  presenceStatus?: OperationDirectoryResponsePresenceStatus;
 }

@@ -32,9 +32,13 @@ test("public directory and SSE publish read-only snapshots; registration require
     }],
     instances: [],
     events: [],
+    presence: [],
+    presenceStatus: "available",
   };
+  let heartbeatCalls = 0;
   const coordinator: Parameters<typeof createWorldOperationsRouter>[0] = {
     getDirectory: async () => directory,
+    heartbeatPresence: async () => { heartbeatCalls++; },
     register: async () => {
       registerCalls++;
       return {
@@ -93,6 +97,11 @@ test("public directory and SSE publish read-only snapshots; registration require
     });
     assert.equal(anonymous.status, 401);
     assert.equal(registerCalls, 0);
+    const anonymousHeartbeat = await fetch(`http://127.0.0.1:${address.port}/api/world/presence/heartbeat`, {
+      method: "POST",
+    });
+    assert.equal(anonymousHeartbeat.status, 401);
+    assert.equal(heartbeatCalls, 0);
 
     const controller = new AbortController();
     const stream = await fetch(`${baseUrl}/events`, { signal: controller.signal });
@@ -114,6 +123,14 @@ test("public directory and SSE publish read-only snapshots; registration require
     assert.equal(body.authorization.allowed, true);
     assert.equal(body.authorization.assignment.seat, 0);
     assert.equal(registerCalls, 1);
+
+    const heartbeat = await fetch(`http://127.0.0.1:${address.port}/api/world/presence/heartbeat`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ locationId: "client-supplied-location" }),
+    });
+    assert.equal(heartbeat.status, 204);
+    assert.equal(heartbeatCalls, 1);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -123,6 +140,7 @@ test("public directory and SSE publish read-only snapshots; registration require
 test("database failure returns a generic unavailable response without query details", async () => {
   const coordinator: Parameters<typeof createWorldOperationsRouter>[0] = {
     getDirectory: async () => { throw new Error("relation operation_instances does not exist"); },
+    heartbeatPresence: async () => { throw new Error("database query detail"); },
     register: async () => { throw new Error("database query detail"); },
     leave: async () => { throw new Error("database query detail"); },
     syncCooperativeRoom: async () => undefined,

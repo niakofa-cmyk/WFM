@@ -1,7 +1,8 @@
-import { and, eq, gt, lte } from "drizzle-orm";
+import { and, count, eq, gt, lte } from "drizzle-orm";
 import {
   db,
   operationInstancesTable,
+  universePresenceTable,
   type OperationInstancePhase,
   type OperationInstanceRecord,
 } from "@workspace/db";
@@ -19,6 +20,7 @@ const LOCATION = {
   sectorId: "rust-disc-belt",
   position: { x: 0, y: 18, z: -260 },
 };
+const UNIVERSE_LOCATIONS: OperationDirectoryResponse["locations"] = [LOCATION];
 
 export const CINDER_CIRCUIT = {
   id: "cinder-asteroid-circuit",
@@ -75,6 +77,11 @@ const OPERATION_DEFINITIONS: OperationDirectoryResponse["operations"] = [
 ];
 const ACTIVE_TTL_MS = 45 * 60 * 1000;
 const COMPETITIVE_MATCH_TTL_MS = 45_000;
+const UNIVERSE_PRESENCE_TTL_MS = 60_000;
+const UNIVERSE_PRESENCE_MIN_HEARTBEAT_MS = 10_000;
+const UNIVERSE_PRESENCE_CLEANUP_MS = 5 * 60_000;
+let lastUniversePresenceCleanupAt = 0;
+type UniversePresenceSummary = NonNullable<OperationDirectoryResponse["presence"]>[number];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class OperationError extends Error {
@@ -86,6 +93,13 @@ export class OperationError extends Error {
 
 export interface OperationStore {
   listPublicActive(now: Date): Promise<OperationInstanceRecord[]>;
+  listUniversePresence(now: Date): Promise<UniversePresenceSummary[]>;
+  heartbeatPresence(input: {
+    userId: string;
+    locationId: string;
+    lastSeenAt: Date;
+    expiresAt: Date;
+  }): Promise<void>;
   findByOwnerAndKey(ownerUserId: string, idempotencyKey: string): Promise<OperationInstanceRecord | undefined>;
   register(input: {
     ownerUserId: string;
@@ -124,6 +138,41 @@ const databaseStore: OperationStore = {
       eq(operationInstancesTable.visibility, "public"),
       gt(operationInstancesTable.expiresAt, now),
     ));
+  },
+  async listUniversePresence(now) {
+    if (now.getTime() - lastUniversePresenceCleanupAt >= UNIVERSE_PRESENCE_CLEANUP_MS) {
+      await db.delete(universePresenceTable).where(lte(universePresenceTable.expiresAt, now));
+      lastUniversePresenceCleanupAt = now.getTime();
+    }
+    return db.select({
+      locationId: universePresenceTable.locationId,
+      activePilots: count(),
+    })
+      .from(universePresenceTable)
+      .where(gt(universePresenceTable.expiresAt, now))
+      .groupBy(universePresenceTable.locationId);
+  },
+  async heartbeatPresence(input) {
+    const [existing] = await db.select({
+      locationId: universePresenceTable.locationId,
+      lastSeenAt: universePresenceTable.lastSeenAt,
+    })
+      .from(universePresenceTable)
+      .where(eq(universePresenceTable.userId, input.userId))
+      .limit(1);
+    if (
+      existing?.locationId === input.locationId &&
+      input.lastSeenAt.getTime() - existing.lastSeenAt.getTime() < UNIVERSE_PRESENCE_MIN_HEARTBEAT_MS
+    ) return;
+
+    await db.insert(universePresenceTable).values(input).onConflictDoUpdate({
+      target: universePresenceTable.userId,
+      set: {
+        locationId: input.locationId,
+        lastSeenAt: input.lastSeenAt,
+        expiresAt: input.expiresAt,
+      },
+    });
   },
   async findByOwnerAndKey(ownerUserId, idempotencyKey) {
     const [record] = await db.select().from(operationInstancesTable).where(and(
@@ -256,10 +305,13 @@ function isUniqueViolation(error: unknown): boolean {
 
 function toInstance(record: OperationInstanceRecord, now: Date): OperationDirectoryResponse["instances"][number] {
   const isActive = record.status === "active" && record.expiresAt > now;
+  const operationLocationId = OPERATION_DEFINITIONS.find((operation) =>
+    operation.id === record.operationId,
+  )?.locationId ?? record.locationId;
   return {
     id: record.id,
     operationId: record.operationId,
-    locationId: CINDER_CIRCUIT.locationId,
+    locationId: operationLocationId,
     phase: isActive ? record.phase : "closed",
     currentPlayers: isActive ? record.currentPlayers : 0,
     capacity: record.capacity,
@@ -274,22 +326,45 @@ function toInstance(record: OperationInstanceRecord, now: Date): OperationDirect
 export function buildOperationDirectory(
   now: Date,
   publicInstances: OperationInstanceRecord[],
+  presence: UniversePresenceSummary[] = [],
+  presenceStatus: OperationDirectoryResponse["presenceStatus"] = "available",
 ): OperationDirectoryResponse {
-  const active = publicInstances.filter((record) => record.status === "active" && record.expiresAt > now);
+  const definitions = new Map(OPERATION_DEFINITIONS.map((operation) => [operation.id, operation]));
+  const active = publicInstances.filter((record) => {
+    const definition = definitions.get(record.operationId);
+    if (!definition) return false;
+    const operationLocation = UNIVERSE_LOCATIONS.find((location) => location.id === definition.locationId);
+    if (!operationLocation) return false;
+    return record.status === "active" &&
+      record.visibility === "public" &&
+      record.expiresAt > now &&
+      (operationLocation?.worldLocationId === record.locationId || operationLocation?.id === record.locationId) &&
+      definition.runtimeId === record.runtimeId &&
+      definition.rulesetId === record.rulesetId;
+  });
   return {
     generatedAt: now,
-    locations: [LOCATION],
+    locations: UNIVERSE_LOCATIONS,
     operations: OPERATION_DEFINITIONS,
     instances: active.map((record) => toInstance(record, now)),
     events: active.map((record) => ({
       id: `operation-opened-${record.id}`,
-      kind: "operation-opened" as const,
-      locationId: CINDER_CIRCUIT.locationId,
+      kind: record.phase === "active" && definitions.get(record.operationId)?.experience === "competitive"
+        ? "match-started" as const
+        : "operation-opened" as const,
+      locationId: definitions.get(record.operationId)?.locationId ?? record.locationId,
       operationInstanceId: record.id,
       status: "active" as const,
-      title: `${OPERATION_DEFINITIONS.find((operation) => operation.id === record.operationId)?.title ?? "Cinder operation"} is active`,
+      title: `${definitions.get(record.operationId)?.title ?? "Universe operation"} is active`,
     })),
+    presence,
+    presenceStatus,
   };
+}
+
+function isMissingUniversePresenceTable(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error &&
+    (error as { code?: unknown }).code === "42P01";
 }
 
 export function createOperationCoordinator(
@@ -301,7 +376,31 @@ export function createOperationCoordinator(
   return {
     async getDirectory(): Promise<OperationDirectoryResponse> {
       const timestamp = now();
-      return buildOperationDirectory(timestamp, await store.listPublicActive(timestamp));
+      const publicInstances = await store.listPublicActive(timestamp);
+      try {
+        return buildOperationDirectory(
+          timestamp,
+          publicInstances,
+          await store.listUniversePresence(timestamp),
+          "available",
+        );
+      } catch (error) {
+        if (!isMissingUniversePresenceTable(error)) throw error;
+        return buildOperationDirectory(timestamp, publicInstances, [], "unavailable");
+      }
+    },
+    async heartbeatPresence(userId: string): Promise<void> {
+      const locationId = await currentLocation(userId);
+      if (typeof locationId !== "string" || locationId.length === 0 || locationId.length > 80) {
+        throw new Error("Current universe location is unavailable.");
+      }
+      const lastSeenAt = now();
+      await store.heartbeatPresence({
+        userId,
+        locationId,
+        lastSeenAt,
+        expiresAt: new Date(lastSeenAt.getTime() + UNIVERSE_PRESENCE_TTL_MS),
+      });
     },
     async register(
       ownerUserId: string,
@@ -324,7 +423,7 @@ export function createOperationCoordinator(
       const record = await store.register({
         ownerUserId,
         operationId,
-        locationId: LOCATION.worldLocationId,
+        locationId: CINDER_CIRCUIT.locationId,
         idempotencyKey: request.idempotencyKey,
         runtimeId: CINDER_CIRCUIT.runtimeId,
         rulesetId: CINDER_CIRCUIT.rulesetId,

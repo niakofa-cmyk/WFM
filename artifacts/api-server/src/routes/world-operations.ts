@@ -73,6 +73,15 @@ export function createWorldOperationsRouter(
       storeUnavailable(res, error, "event stream");
     }
   });
+  router.post("/world/presence/heartbeat", requirePlayerAuth, async (req, res) => {
+    try {
+      await coordinator.heartbeatPresence(playerIdFromRequest(req));
+      res.setHeader("Cache-Control", "no-store");
+      res.status(204).end();
+    } catch (error) {
+      storeUnavailable(res, error, "presence heartbeat");
+    }
+  });
   router.post("/world/operations/:operationId/instances", requirePlayerAuth, async (req, res, next) => {
     const params = RegisterWorldOperationInstanceParams.safeParse(req.params);
     const body = RegisterWorldOperationInstanceBody.strict().safeParse(req.body);

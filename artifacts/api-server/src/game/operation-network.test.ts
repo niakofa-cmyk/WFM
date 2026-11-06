@@ -15,9 +15,28 @@ import type { OperationInstanceRecord } from "@workspace/db";
 
 function memoryStore(): OperationStore {
   const rows: OperationInstanceRecord[] = [];
+  const presenceRows = new Map<string, {
+    locationId: string;
+    lastSeenAt: Date;
+    expiresAt: Date;
+  }>();
   return {
     async listPublicActive(now) {
       return rows.filter((row) => row.status === "active" && row.visibility === "public" && row.expiresAt > now);
+    },
+    async listUniversePresence(now) {
+      const counts = new Map<string, number>();
+      for (const row of presenceRows.values()) {
+        if (row.expiresAt > now) counts.set(row.locationId, (counts.get(row.locationId) ?? 0) + 1);
+      }
+      return [...counts].map(([locationId, activePilots]) => ({ locationId, activePilots }));
+    },
+    async heartbeatPresence(input) {
+      presenceRows.set(input.userId, {
+        locationId: input.locationId,
+        lastSeenAt: input.lastSeenAt,
+        expiresAt: input.expiresAt,
+      });
     },
     async findByOwnerAndKey(ownerUserId, idempotencyKey) {
       return rows.find((row) => row.ownerUserId === ownerUserId && row.idempotencyKey === idempotencyKey);
@@ -188,6 +207,47 @@ test("only server-registered 5v5 Relay matches appear as anonymous live arena in
     coordinator.syncCompetitiveMatch({ matchId: crypto.randomUUID(), phase: "active", currentPlayers: 11 }),
     /occupancy is out of bounds/,
   );
+});
+
+test("universe presence uses server-owned locations and publishes only expiring destination counts", async () => {
+  let timestamp = new Date("2026-11-06T12:00:00.000Z");
+  const store = memoryStore();
+  const coordinator = createOperationCoordinator(
+    store,
+    async (userId) => userId === "pilot-one" ? "cinder-asteroid" : "mars-orbit",
+    () => timestamp,
+  );
+  await coordinator.heartbeatPresence("pilot-one");
+  await coordinator.heartbeatPresence("pilot-two");
+
+  const directory = await coordinator.getDirectory();
+  assert.equal(directory.presenceStatus, "available");
+  assert.deepEqual(
+    (directory.presence ?? []).sort((left, right) => left.locationId.localeCompare(right.locationId)),
+    [
+      { locationId: "cinder-asteroid", activePilots: 1 },
+      { locationId: "mars-orbit", activePilots: 1 },
+    ],
+  );
+  assert.equal(JSON.stringify(directory).includes("pilot-one"), false);
+  assert.equal(JSON.stringify(directory).includes("pilot-two"), false);
+
+  timestamp = new Date(timestamp.getTime() + 61_000);
+  assert.deepEqual((await coordinator.getDirectory()).presence ?? [], []);
+});
+
+test("operation activity stays readable while the additive presence schema is not installed", async () => {
+  const store = memoryStore();
+  const coordinator = createOperationCoordinator({
+    ...store,
+    async listUniversePresence() {
+      throw Object.assign(new Error("missing table details"), { code: "42P01" });
+    },
+  });
+  const directory = await coordinator.getDirectory();
+  assert.equal(directory.presenceStatus, "unavailable");
+  assert.deepEqual(directory.presence ?? [], []);
+  assert.ok(directory.operations.length > 0);
 });
 
 test("operation entry requires arrival at the server-owned asteroid location", async () => {

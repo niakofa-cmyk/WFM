@@ -176,3 +176,26 @@ This advances one bounded campaign slice, not the complete Stage C–D journey.
 Automated client/server replay and reward-claim checks are not staging, phone, or
 Production verification. Do not promote the change until its exact staging
 revision passes the appropriate authenticated campaign and reward checks.
+
+### Persistent universe signal layer
+
+The first Layer A increment keeps the world-navigation and combat-authority
+boundaries separate. Signed-in clients refresh a short-lived presence lease
+while the Galaxy navigation screen is active; the client stops heartbeats when
+launching an operation. The API derives the location from saved world state
+rather than accepting a client-supplied destination. Public consumers receive
+only grouped, destination-level pilot counts. Expired leases are excluded from
+counts and pruned during directory refreshes.
+
+The Galaxy screen now surfaces public operation events and active destination
+counts from the existing operation directory/SSE stream, including each
+operation's declared runtime. It does not create activity, reveal account
+identities, or merge combat systems. Existing travel and station hubs remain
+the entry points into each independent runtime.
+
+The additive universe-presence schema migration is committed as a migration
+file but has not been applied to any database. Until it is applied, operation
+events remain available and the directory reports presence as unavailable.
+This increment does not provide exact nearby ship positions, continuous shared
+3D free flight, or new station/asteroid destinations; those require separate
+server-authoritative work and verification.

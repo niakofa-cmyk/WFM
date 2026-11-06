@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useAuth } from "@clerk/react";
 import { getGetWorldOperationsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useRegisterWorldOperationInstance } from "@workspace/api-client-react";
+import { heartbeatWorldPresence } from "@workspace/api-client-react";
 import type { OperationDirectoryResponse, WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import type { Faction, ShipId } from "./ships";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
@@ -13,6 +15,7 @@ import { AsteroidArenaHub } from "./AsteroidArenaHub";
 import { useWorldOperationEvents } from "./world-operation-events";
 import { CinderRingArtwork } from "./CinderRingArtwork";
 import { cinderRingEntrySurface, type CinderRingDockingPhase } from "./cinder-ring-entry";
+import { UniverseActivityFeed } from "./UniverseActivityFeed";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const CinderRingDockingApproach = lazy(() =>
@@ -63,7 +66,9 @@ export function GalaxyScreen({
   competitiveQueueAvailable,
   competitiveQueueing,
 }: Props) {
+  const { getToken, userId } = useAuth();
   const [, setLocation] = useLocation();
+  const [presenceActive, setPresenceActive] = useState(true);
   const operationStreamState = useWorldOperationEvents();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
   const operationsQuery = useGetWorldOperations({
@@ -80,6 +85,36 @@ export function GalaxyScreen({
   const [operationError, setOperationError] = useState("");
   const [cinderDockingPhase, setCinderDockingPhase] = useState<CinderRingDockingPhase>("entry");
   const world = snapshot.data;
+  useEffect(() => {
+    if (!userId || !presenceActive) return;
+    let active = true;
+    let inFlight = false;
+    const sendHeartbeat = async () => {
+      if (!active || document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      try {
+        const token = await getToken();
+        if (active && token) {
+          await heartbeatWorldPresence({ headers: { Authorization: `Bearer ${token}` } });
+        }
+      } catch {
+        // The directory exposes presence availability without blocking navigation.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const timer = window.setInterval(() => void sendHeartbeat(), 20_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void sendHeartbeat();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void sendHeartbeat();
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [getToken, presenceActive, userId]);
   useEffect(() => {
     if (world?.currentLocation !== CINDER_RING_LOCATION_ID) {
       setCinderDockingPhase("entry");
@@ -106,6 +141,7 @@ export function GalaxyScreen({
       if (!response.authorization.allowed || !assignment) {
         throw new Error("The server did not authorize this operation seat.");
       }
+      setPresenceActive(false);
       setLocation(`/flight?operation=${encodeURIComponent(operationId)}&instanceId=${encodeURIComponent(assignment.operationInstanceId)}`);
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "Operation registration failed. No flight was started.");
@@ -245,6 +281,14 @@ export function GalaxyScreen({
           </div>
         </section>
 
+        <UniverseActivityFeed
+          directory={operationDirectory}
+          locations={locations}
+          currentLocationId={world.currentLocation}
+          streamState={operationStreamState}
+          loading={operationsQuery.isLoading}
+        />
+
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-5">
             <section className="border border-bone/15 bg-panel/65">
@@ -342,10 +386,19 @@ export function GalaxyScreen({
                   queueing={competitiveQueueing}
                   roomCode={roomCode}
                   onRoomCode={onRoomCode}
-                  onCreatePrivateRoom={onCreatePrivateRoom}
-                  onJoinPrivateRoom={onJoinPrivateRoom}
+                  onCreatePrivateRoom={() => {
+                    setPresenceActive(false);
+                    onCreatePrivateRoom();
+                  }}
+                  onJoinPrivateRoom={(code) => {
+                    setPresenceActive(false);
+                    onJoinPrivateRoom(code);
+                  }}
                   onlineStatus={onlineStatus}
-                  onJoinQueue={onJoinCompetitiveQueue}
+                  onJoinQueue={() => {
+                    setPresenceActive(false);
+                    onJoinCompetitiveQueue();
+                  }}
                   onTravel={() => travelTo(CINDER_RING_LOCATION_ID)}
                 />
               </>
@@ -418,6 +471,7 @@ export function GalaxyScreen({
                         )}
                         {operation.experience === "cooperative" && showSectorExpedition && atSite ? (
                           <Link href="/expedition?mission=rust-disc" data-testid={`link-coop-${operation.id}`}
+                            onClick={() => setPresenceActive(false)}
                             className="mt-3 flex min-h-11 items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
                             OPEN RUST DISC CO-OP AT CINDER RING
                           </Link>
