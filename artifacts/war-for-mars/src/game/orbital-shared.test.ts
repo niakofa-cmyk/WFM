@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { IDLE_ORBITAL, ORBITAL_DT } from "@workspace/orbital-sim";
+import {
+  guideMissile,
+  IDLE_ORBITAL,
+  LEGACY_ORBITAL_RULES_VERSION,
+  LEGACY_ORBITAL_RUNTIME_ID,
+  MISSILE_CATALOG,
+  ORBITAL_DT,
+  ORBITAL_RULES_VERSION,
+  ORBITAL_RUNTIME_ID,
+  PRIMARY_WEAPON_CATALOG,
+  newFlight,
+  type SpatialBullet,
+  type SpatialCraft,
+} from "@workspace/orbital-sim";
 import * as sharedDetmath from "@workspace/orbital-sim/detmath";
 import { createOrbitalAuthority } from "../../../api-server/src/game/orbital-authority";
 import { SHIPS as serverShips } from "../../../api-server/src/game/ships";
@@ -14,7 +27,7 @@ import { SHIPS } from "./ships";
 import { createMatch, step as stepClientMatch, type StepInput } from "./sim";
 import { prepareOrbital } from "./orbital-sim";
 import { integrateFlight } from "./orbital-flight";
-import { launchMissile, primaryBullet, updateAcquisition } from "./orbital-weapons";
+import { launchMissile, primaryBullet, primaryVolley, updateAcquisition } from "./orbital-weapons";
 import * as gameDetmath from "./detmath";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
@@ -42,6 +55,102 @@ test("browser and server math adapters use the same shared deterministic source"
   for (const [y, x] of [[0, 0], [1, 0], [-1, 2], [2, -1], [-4, -3]] as const) {
     assert.equal(gameDetmath.detAtan2(y, x), sharedDetmath.detAtan2(y, x));
   }
+});
+
+test("versioned Orbital weapon catalog covers every compatible hull fit", () => {
+  assert.equal(LEGACY_ORBITAL_RUNTIME_ID, "orbital-v1");
+  assert.equal(ORBITAL_RUNTIME_ID, "orbital-v2");
+  assert.equal(LEGACY_ORBITAL_RULES_VERSION, 1);
+  assert.equal(ORBITAL_RULES_VERSION, 2);
+  const primaryFits = new Set<string>();
+  const missileFits = new Set<string>();
+  for (const ship of Object.values(SHIPS)) {
+    const primary = PRIMARY_WEAPON_CATALOG[ship.primaryFit];
+    const missile = MISSILE_CATALOG[ship.missileFit];
+    assert.ok(primary.compatibleShipIds.includes(ship.id), `${ship.id} must fit ${primary.fitId}`);
+    assert.ok(missile.compatibleShipIds.includes(ship.id), `${ship.id} must fit ${missile.fitId}`);
+    assert.equal(primary.ammoCapacity, null);
+    assert.equal(primary.ammoCost, 0);
+    assert.equal(primary.energyCost, 0);
+    assert.equal(primary.heatPerShot, 0);
+    assert.equal(missile.ammoCost, 1);
+    primaryFits.add(primary.fitId);
+    missileFits.add(missile.fitId);
+  }
+  assert.equal(primaryFits.size, Object.keys(PRIMARY_WEAPON_CATALOG).length);
+  assert.equal(missileFits.size, Object.keys(MISSILE_CATALOG).length);
+});
+
+test("Orbital v2 fires deterministic multi-projectile primary and missile salvos", () => {
+  const primaryMatch = prepareOrbital(createMatch("shakuna", "accord", 0, "practice", { seed: 402 }));
+  primaryMatch.rocks = [];
+  const primaryPilot = primaryMatch.player;
+  primaryPilot.space!.aimAssist = false;
+  const primary = primaryVolley(primaryMatch, primaryPilot, SHIPS.shakuna.shotDmg);
+  assert.equal(primary.length, 2);
+  assert.ok(Math.abs(primary.reduce((sum, bullet) => sum + bullet.dmg, 0) - SHIPS.shakuna.shotDmg) < 1e-9);
+  assert.deepEqual(primary.map((bullet) => bullet.weaponId), ["twin-pulse", "twin-pulse"]);
+  assert.notEqual(primary[0]!.vx, primary[1]!.vx);
+  const integrated = prepareOrbital(createMatch("shakuna", "accord", 0, "practice", { seed: 405 }));
+  integrated.rocks = [];
+  stepClientMatch(integrated, { ...idle, fire: true }, 1 / 30);
+  assert.equal(integrated.bullets.length, 2, "the actual orbital step must execute both twin-pulse projectiles");
+
+  const missileMatch = prepareOrbital(createMatch("garuda", "accord", 0, "practice", { seed: 403, foeCount: 1 }));
+  missileMatch.rocks = [];
+  const pilot = missileMatch.player;
+  const target = missileMatch.enemies[0]!;
+  pilot.lockTargetId = target.id;
+  pilot.space!.lockTargetId = target.id;
+  pilot.space!.lockProgress = 1;
+  assert.equal(launchMissile(missileMatch, pilot), true);
+  assert.equal(missileMatch.bullets.length, 3);
+  assert.ok(Math.abs(missileMatch.bullets.reduce((sum, bullet) => sum + bullet.dmg, 0) - SHIPS.garuda.missileDamage) < 1e-9);
+  assert.equal(pilot.space!.ammo, SHIPS.garuda.missileAmmo - 1);
+  assert.equal(pilot.space!.missileCd, MISSILE_CATALOG["swarm-pod"].cooldownSeconds);
+  assert.ok(missileMatch.bullets.every((bullet) => bullet.weaponId === "swarm-pod" && bullet.guidance === "active"));
+});
+
+test("semi-active missile guidance stops steering when the launcher loses lock", () => {
+  const target: SpatialCraft = {
+    id: 2, x: 20, z: -20, yaw: 0, pitch: 0, speed: 0, steer: 0,
+    hull: 100, hullMax: 100, alive: true, root: 0, jam: 0, boost: 0,
+    cloak: 0, untargetable: 0, radius: 1, lockTargetId: null, space: newFlight(),
+  };
+  const launcher = { lockTargetId: null };
+  const missile: SpatialBullet = {
+    x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: -30, life: 4,
+    dmg: 10, r: 0.5, homeId: target.id, missile: true, guidance: "semi-active",
+  };
+  guideMissile(missile, target, 1 / 30, launcher);
+  assert.equal(missile.vx, 0);
+  assert.equal(missile.vz, -30);
+  launcher.lockTargetId = target.id;
+  guideMissile(missile, target, 1 / 30, launcher);
+  assert.ok(missile.vx > 0);
+});
+
+test("Orbital v1 retains the former generic primary and missile behavior", () => {
+  const match = prepareOrbital(
+    createMatch("duskbreaker", "ussf", 0, "practice", { seed: 404, foeCount: 1 }),
+    LEGACY_ORBITAL_RULES_VERSION,
+  );
+  match.rocks = [];
+  const pilot = match.player;
+  const target = match.enemies[0]!;
+  pilot.lockTargetId = target.id;
+  pilot.space!.lockTargetId = target.id;
+  pilot.space!.lockProgress = 1;
+  const primary = primaryBullet(match, pilot, SHIPS.duskbreaker.shotDmg);
+  assert.equal(primary.vz, -SHIPS.duskbreaker.shotSpeed);
+  assert.equal(primary.r, 0.3);
+  assert.equal(primary.life, 1.6);
+  assert.equal(launchMissile(match, pilot), true);
+  const missile = match.bullets[0]!;
+  assert.equal(missile.vz, -38);
+  assert.equal(missile.r, 0.5);
+  assert.equal(missile.life, 4);
+  assert.equal(pilot.space!.missileCd, 3.5);
 });
 
 test("client and server share roster flight axes, boost, inertia and braking", () => {
@@ -99,6 +208,22 @@ test("versioned Contact orbital replay advances identically on client and reward
     stepServerMatch(server, input, 1 / 60);
     assert.deepEqual(server, client, `orbital replay diverged at frame ${tick + 1}`);
   }
+});
+
+test("Orbital v2 multi-projectile fire remains bit-identical across browser and reward server", () => {
+  const setup = { seed: 7791, goal: "disc" as const, disc: "rust" as const, allyCount: 1, foeCount: 2 };
+  const client = prepareOrbital(createMatch("garuda", "accord", 0, "practice", setup));
+  const server = prepareServerOrbital(createServerMatch("garuda", "accord", 0, "practice", setup));
+  client.rocks = [];
+  server.rocks = [];
+  const fire = { ...idle, fire: true, aimAssist: false };
+  for (let tick = 0; tick < 3; tick++) {
+    stepClientMatch(client, fire, 1 / 30);
+    stepServerMatch(server, fire, 1 / 30);
+    assert.deepEqual(server, client, `weapon simulation diverged at tick ${tick + 1}`);
+  }
+  assert.equal(client.bullets.filter((bullet) => bullet.own).length, 3);
+  assert.ok(client.bullets.filter((bullet) => bullet.own).every((bullet) => bullet.weaponId === "swarm-pulse"));
 });
 
 test("acquired lock cannot be transferred to a different target or survive clear", () => {

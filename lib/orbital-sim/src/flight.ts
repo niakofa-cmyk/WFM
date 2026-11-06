@@ -1,6 +1,8 @@
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 
-export const ORBITAL_RULES_VERSION = 1 as const;
+export const LEGACY_ORBITAL_RULES_VERSION = 1 as const;
+export const ORBITAL_RULES_VERSION = 2 as const;
+export type OrbitalRulesVersion = typeof LEGACY_ORBITAL_RULES_VERSION | typeof ORBITAL_RULES_VERSION;
 export const ORBITAL_TICK_RATE = 30;
 export const ORBITAL_DT = 1 / ORBITAL_TICK_RATE;
 export const MISSILE_RANGE = 65;
@@ -45,6 +47,9 @@ export type SpatialCraft = {
 export type SpatialBullet = {
   x: number; y?: number; z: number; vx: number; vy?: number; vz: number;
   life: number; dmg: number; r: number; homeId: number | null; missile?: boolean;
+  weaponId?: string; turnRate?: number; launcherId?: number; guidance?: "active" | "semi-active";
+  visualEffect?: "beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm";
+  audioCue?: "energy" | "pulse" | "heavy" | "ion";
 };
 export function newFlight(yaw = 0): OrbitalFlight {
   return {

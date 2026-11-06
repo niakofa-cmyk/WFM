@@ -1,6 +1,7 @@
 import type { TechId } from "./campaign";
 import {
   LEGACY_SURFACE_RUNTIME_ID,
+  isOrbitalRuntimeId,
   ORBITAL_RUNTIME_ID,
   type CombatRuntimeId,
 } from "@workspace/orbital-sim";
@@ -24,8 +25,8 @@ export function resolveArenaRuntime(
   online: boolean,
 ): CombatRuntimeId {
   if (serverConfig) {
-    return serverConfig.flightModel === ORBITAL_RUNTIME_ID
-      ? ORBITAL_RUNTIME_ID
+    return isOrbitalRuntimeId(serverConfig.flightModel)
+      ? serverConfig.flightModel
       : LEGACY_SURFACE_RUNTIME_ID;
   }
   return online ? LEGACY_SURFACE_RUNTIME_ID : ORBITAL_RUNTIME_ID;

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { IDLE_ORBITAL, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput } from "@workspace/orbital-sim";
+import { IDLE_ORBITAL, MISSILE_CATALOG, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput } from "@workspace/orbital-sim";
 import { createOrbitalAuthority } from "./orbital-authority";
 
 const packet = (seq: number, patch: Record<string, unknown> = {}) => ({ ...IDLE_ORBITAL, seq, ...patch });
 test("strict versioned packets reject client state, outcomes, malformed controls and unsafe sequences", () => {
   assert.equal(parseOrbitalInput(packet(1)).ok, true);
-  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { maneuver: { version: 1, kind: "barrel-roll", direction: "right" } }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 2 }]) {
+  for (const patch of [{ damage: 9999 }, { x: 40 }, { hull: 999 }, { rewards: 10 }, { dt: 1 }, { maneuver: { version: 1, kind: "barrel-roll", direction: "right" } }, { fire: 1 }, { yaw: NaN }, { throttle: 2 }, { seq: 1.2 }, { seq: Infinity }, { seq: 0 }, { version: 1 }]) {
     assert.equal(parseOrbitalInput(packet(1, patch)).ok, false, JSON.stringify(patch));
   }
   for (const value of [null, [], "fire", {}, { ...packet(1), vertical: undefined }]) assert.equal(parseOrbitalInput(value).ok, false);
@@ -82,8 +82,9 @@ test("fixed-tick recorded controls replay identically without wall clock or clie
   }
 });
 
-test("repeated launch requests cannot bypass the server's 1.25-second lock or 3.5-second cooldown", () => {
+test("missile launch timing follows the server-owned hull fit definition", () => {
   const server = createOrbitalAuthority(); const target = server.snapshot().pilots[5];
+  const missileFit = MISSILE_CATALOG["precision-seeker"];
   const launches: number[] = [];
   for (let seq = 1; seq <= 160; seq++) {
     assert.equal(server.input(0, packet(seq, { targetId: target.id, missile: true })).ok, true);
@@ -91,8 +92,8 @@ test("repeated launch requests cannot bypass the server's 1.25-second lock or 3.
     if (snapshot.events.some((event) => event.type === "missile")) launches.push(snapshot.tick);
   }
   assert.equal(launches.length, 2);
-  assert.ok(launches[0] * ORBITAL_DT >= 1.25);
-  assert.ok((launches[1] - launches[0]) * ORBITAL_DT >= 3.5);
+  assert.ok(launches[0] * ORBITAL_DT >= missileFit.lockSeconds);
+  assert.ok((launches[1] - launches[0]) * ORBITAL_DT >= missileFit.cooldownSeconds);
   assert.equal(server.snapshot().pilots[0].space.ammo, 6);
 });
 

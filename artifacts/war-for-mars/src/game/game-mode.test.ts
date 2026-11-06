@@ -4,6 +4,8 @@ import {
   createOrbitalRuntime,
   GAME_MODE_DEFINITIONS,
   getGameModeDefinition,
+  LEGACY_ORBITAL_RULES_VERSION,
+  LEGACY_ORBITAL_RUNTIME_ID,
   ORBITAL_RUNTIME_ID,
 } from "@workspace/orbital-sim";
 
@@ -31,10 +33,19 @@ test("canonical Orbital modes initialize with the pinned simulation rules", () =
     const mode = getGameModeDefinition(id);
     const runtime = createOrbitalRuntime(mode);
     assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);
-    assert.equal(runtime.rulesVersion, 1);
+    assert.equal(runtime.rulesVersion, 2);
     assert.equal(runtime.modeId, id);
     if (mode.authority === "local") assert.equal(runtime.rewardEligibility, "none");
   }
+});
+
+test("the prior Orbital runtime remains available for already-issued campaign replays", () => {
+  const session = createOrbitalRuntime(
+    getGameModeDefinition("campaign-contact"),
+    LEGACY_ORBITAL_RUNTIME_ID,
+  );
+  assert.equal(session.runtimeId, LEGACY_ORBITAL_RUNTIME_ID);
+  assert.equal(session.rulesVersion, LEGACY_ORBITAL_RULES_VERSION);
 });
 
 test("compatibility, partial, navigation-only, and planned modes cannot silently launch as Orbital", () => {

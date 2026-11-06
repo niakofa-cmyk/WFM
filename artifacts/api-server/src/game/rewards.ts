@@ -1,7 +1,13 @@
 import { relaysHeld, createMatch, step, type Disc, type Goal, type Pace, type StepInput } from "./sim";
 import { SHIPS, type Faction, type ShipId } from "./ships";
 import { prepareOrbital } from "./orbital-sim";
-import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID, type CombatRuntimeId } from "@workspace/orbital-sim";
+import {
+  isOrbitalRuntimeId,
+  LEGACY_SURFACE_RUNTIME_ID,
+  ORBITAL_RUNTIME_ID,
+  orbitalRulesVersionForRuntime,
+  type CombatRuntimeId,
+} from "@workspace/orbital-sim";
 
 export const STRIKE_STEP_LIMIT = 360 * 60;
 export const PRACTICE_STEP_LIMIT = 120 * 60;
@@ -100,7 +106,9 @@ export function validateStrikeReplayInputs(
     const record = frame as Record<string, unknown>;
     const keys = Object.keys(record);
     const orbital = keys.some((key) => ORBITAL_CONTROL_KEYS.has(key));
-    const frameMode: FlightModel = orbital ? ORBITAL_RUNTIME_ID : LEGACY_SURFACE_RUNTIME_ID;
+    const frameMode: FlightModel = orbital
+      ? isOrbitalRuntimeId(mode) ? mode : ORBITAL_RUNTIME_ID
+      : LEGACY_SURFACE_RUNTIME_ID;
     const expectedKeys = orbital ? ORBITAL_STEP_INPUT_KEYS : STEP_INPUT_KEYS;
     if (
       (mode !== "any" && mode !== frameMode) ||
@@ -187,10 +195,10 @@ function missionUnlocked(mission: MissionId, cleared: number) {
 
 export function adjudicateStrike(claim: ReplayClaim) {
   const flightModel = claim.flightModel ?? LEGACY_SURFACE_RUNTIME_ID;
-  if (flightModel !== LEGACY_SURFACE_RUNTIME_ID && flightModel !== ORBITAL_RUNTIME_ID) {
+  if (flightModel !== LEGACY_SURFACE_RUNTIME_ID && !isOrbitalRuntimeId(flightModel)) {
     throw new InvalidStrikeReplay("The issued flight model is not supported.");
   }
-  if (flightModel === ORBITAL_RUNTIME_ID && claim.mission !== "contact") {
+  if (isOrbitalRuntimeId(flightModel) && claim.mission !== "contact") {
     throw new InvalidStrikeReplay("Orbital flight is not authorized for this campaign sortie.");
   }
   validateStrikeReplayInputs(claim.inputs, claim.pace, flightModel);
@@ -206,7 +214,7 @@ export function adjudicateStrike(claim: ReplayClaim) {
     tech: claim.tech,
     shieldMk2: claim.shieldMk2,
   });
-  if (flightModel === ORBITAL_RUNTIME_ID) prepareOrbital(match);
+  if (isOrbitalRuntimeId(flightModel)) prepareOrbital(match, orbitalRulesVersionForRuntime(flightModel));
   for (const input of claim.inputs) {
     if (match.over) {
       throw new InvalidStrikeReplay("The replay contains control frames after the match ended.");

@@ -1,6 +1,7 @@
 import {
   absorbArmor, acquireTarget, guideMissile, IDLE_ORBITAL, integrateSpatialFlight, newFlight,
-  ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput, PROJECTILE_LIMIT, segmentHit, spawnMissile, spawnPrimary,
+  MISSILE_CATALOG, ORBITAL_DT, ORBITAL_RULES_VERSION, parseOrbitalInput, PRIMARY_WEAPON_CATALOG,
+  PROJECTILE_LIMIT, segmentHit, spawnMissileVolley, spawnPrimaryVolley,
   type OrbitalFlight, type OrbitalInput, type Rock, type SpatialBullet,
 } from "@workspace/orbital-sim";
 import { createMatch, type Craft } from "./sim";
@@ -86,24 +87,32 @@ export function createOrbitalAuthority(seed = 1938, obstacles: readonly Rock[] =
         if (!pilot.alive) continue;
         const input = inputs[pilot.slotId];
         const target = pilots.find((c) => c.id === pilot.lockTargetId && c.faction !== pilot.faction);
-        acquireTarget(pilot, target, ORBITAL_DT, rocks);
+         const missileWeapon = MISSILE_CATALOG[SHIPS[pilot.ship].missileFit];
+         acquireTarget(pilot, target, ORBITAL_DT, rocks, missileWeapon);
         if (input.missile) {
-          const missile = spawnMissile(pilot, target, bullets.length, SHIPS[pilot.ship].missileDamage, rocks);
-          if (missile) {
-            bullets.push({ ...missile, owner: pilot.id, faction: pilot.faction });
-            events.push({ type: "missile", source: pilot.id, target: missile.homeId! });
+           const salvo = spawnMissileVolley(pilot, target, bullets.length, SHIPS[pilot.ship].missileDamage, rocks, missileWeapon);
+           if (salvo.length) {
+             bullets.push(...salvo.map((missile) => ({ ...missile, owner: pilot.id, faction: pilot.faction })));
+             events.push({ type: "missile", source: pilot.id, target: salvo[0]!.homeId! });
           }
         }
-        if (input.fire && pilot.fireCd <= 0 && pilot.root <= 0 && bullets.length < PROJECTILE_LIMIT) {
+         const primaryWeapon = PRIMARY_WEAPON_CATALOG[SHIPS[pilot.ship].primaryFit];
+         if (input.fire && pilot.fireCd <= 0 && pilot.root <= 0 && bullets.length + primaryWeapon.volleyCount <= PROJECTILE_LIMIT) {
           const def = SHIPS[pilot.ship];
-          bullets.push({ ...spawnPrimary(pilot, target, def.shotSpeed, def.shotDmg, rocks), owner: pilot.id, faction: pilot.faction });
+           const salvo = spawnPrimaryVolley(pilot, target, def.shotSpeed, def.shotDmg, rocks, primaryWeapon);
+           bullets.push(...salvo.map((bullet) => ({ ...bullet, owner: pilot.id, faction: pilot.faction })));
           pilot.fireCd = def.fireInterval;
         }
         if (pilot.hurtT <= 0) pilot.shield = Math.min(pilot.shieldMax, pilot.shield + 3 * ORBITAL_DT);
       }
       bullets = bullets.filter((bullet) => {
         const target = pilots.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
-        if (target) guideMissile(bullet, target, ORBITAL_DT);
+        if (target) guideMissile(
+          bullet,
+          target,
+          ORBITAL_DT,
+          pilots.find((pilot) => pilot.id === bullet.launcherId),
+        );
         const px = bullet.x; const py = bullet.y ?? 0; const pz = bullet.z;
         bullet.x += bullet.vx * ORBITAL_DT; bullet.y = py + (bullet.vy ?? 0) * ORBITAL_DT; bullet.z += bullet.vz * ORBITAL_DT; bullet.life -= ORBITAL_DT;
         if (bullet.life <= 0) return false;

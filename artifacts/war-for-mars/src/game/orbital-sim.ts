@@ -1,7 +1,8 @@
 import { SHIPS } from "./ships";
+import { ORBITAL_RULES_VERSION, type OrbitalRulesVersion } from "@workspace/orbital-sim";
 import { detAtan2, detHypot } from "./detmath";
 import { integrateFlight, newFlight, rotate } from "./orbital-flight";
-import { distance3, guideMissile, launchMissile, primaryBullet, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
+import { distance3, guideMissile, launchMissile, primaryBullet, primaryVolley, primaryWeaponFor, segmentHit, targetSolution, updateAcquisition } from "./orbital-weapons";
 import { activateOrbitalAbility, advanceOrbitalAbility, applyOrbitalAbilityInput, ORBITAL_ABILITY_COST, processOrbitalAbility } from "./orbital-abilities";
 import type { Craft, Match, StepInput } from "./sim";
 
@@ -12,7 +13,8 @@ type Services = {
 };
 
 // Shared campaign/training setup. Networked competitive rooms still use their own authority.
-export function prepareOrbital(match: Match) {
+export function prepareOrbital(match: Match, rulesVersion: OrbitalRulesVersion = ORBITAL_RULES_VERSION) {
+  match.orbitalRulesVersion = rulesVersion;
   for (const craft of [match.player, ...match.allies, ...match.enemies]) {
     craft.space = newFlight(craft.yaw);
     craft.space.ammo = SHIPS[craft.ship].missileAmmo;
@@ -117,7 +119,9 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
       // on the same simulation step as the pilot's countermeasure tap.
       match.fx.push({ k: "flare", x: player.x, y: space.y, z: player.z, yaw: player.yaw });
     }
-    if (played.fire && craft.fireCd <= 0 && craft.root <= 0 && match.bullets.length < 110) {
+    const weapon = primaryWeaponFor(match, craft);
+    const volleySize = weapon?.volleyCount ?? 1;
+    if (played.fire && craft.fireCd <= 0 && craft.root <= 0 && match.bullets.length + volleySize <= 110) {
       const def = SHIPS[craft.ship];
       let damage = def.shotDmg * (craft.ai ? .28 : 2.2);
       if (craft.dmgMulT > 0) damage *= craft.dmgMul;
@@ -138,8 +142,12 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
       }
       craft.fireCd = fireInterval;
       if (craft.cloak > 0) craft.cloak = 0;
-      match.bullets.push(primaryBullet(match, craft, damage));
-      match.fx.push({ k: "shot", x: craft.x, y: space.y, z: craft.z, big: false, you: !craft.ai });
+      match.bullets.push(...primaryVolley(match, craft, damage));
+      match.fx.push({
+        k: "shot", x: craft.x, y: space.y, z: craft.z,
+        big: (weapon?.projectileRadius ?? 0.3) >= 0.45,
+        you: !craft.ai, faction: craft.faction, visualEffect: weapon?.visualEffect, audioCue: weapon?.audioCue,
+      });
     }
     if (craft.hurtT <= 0) craft.shield = Math.min(craft.shieldMax, craft.shield + 3 * dt);
   }
@@ -149,7 +157,7 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
     const targets = bullet.faction === player.faction ? match.enemies : [player, ...match.allies];
     if (bullet.homeId != null) {
       const target = targets.find((c) => c.id === bullet.homeId && c.alive && c.cloak <= 0);
-      if (target) guideMissile(bullet, target, dt);
+      if (target) guideMissile(bullet, target, dt, crafts.find((craft) => craft.id === bullet.launcherId));
     }
     const px = bullet.x; const py = bullet.y ?? 0; const pz = bullet.z;
     bullet.x += bullet.vx * dt; bullet.y = py + (bullet.vy ?? 0) * dt; bullet.z += bullet.vz * dt; bullet.life -= dt;

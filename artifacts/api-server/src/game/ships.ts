@@ -1,3 +1,5 @@
+import type { MissileFitId, PrimaryWeaponFitId } from "@workspace/orbital-sim";
+
 export type Faction = "accord" | "ussf";
 export type Scheme = "arc" | "strafe";
 export type PresetId = 0 | 1 | 2 | 3;
@@ -24,16 +26,8 @@ export type ShipAbilityId =
   | "quantum-lock" | "proximity-ward" | "ring-split" | "skip-reentry"
   | "vector-pursuit" | "adaptive-fire-control" | "aegis-intercept-grid" | "siege-configuration"
   | "void-veil" | "solar-cataclysm" | "phantom-swarm" | "thunder-veil";
-export type PrimaryWeaponFit =
-  | "heavy-beam" | "twin-pulse" | "torpedo-cannon" | "support-pulse"
-  | "precision-cannon" | "escort-array" | "disruption-pulse" | "raider-pulse"
-  | "interceptor-pulse" | "multirole-cannon" | "point-defense-array" | "assault-cannon"
-  | "stealth-cannon" | "siege-lance" | "swarm-pulse" | "electronic-pulse";
-export type MissileFit =
-  | "heavy-seeker" | "interceptor" | "torpedo" | "defense-seeker"
-  | "precision-seeker" | "escort-seeker" | "tracking-disruptor" | "light-seeker"
-  | "short-range-interceptor" | "multirole-seeker" | "point-defense-interceptor"
-  | "anti-capital-torpedo" | "stealth-precision" | "siege-missile" | "swarm-pod" | "ew-seeker";
+export type PrimaryWeaponFit = PrimaryWeaponFitId;
+export type MissileFit = MissileFitId;
 
 export type ShipDef = {
   id: ShipId;

@@ -108,37 +108,45 @@ cross-mode feature.
 
 ### Primary weapons
 
-- `primaryFit` is currently read by the 3D hangar model only as
-  `userData.primaryWeaponFit`; it does not select a projectile implementation.
-- Orbital `spawnPrimary()` emits the same projectile shape for all ships:
-  radius `.3`, lifetime `1.6s`, with speed supplied from `shotSpeed`. Orbital
-  may apply aim correction inside a `.22`-radian target angle.
-- Ship values do change interval, base damage, and speed. Orbital training then
-  multiplies player damage by `2.2` and AI damage by `.28`. The isolated
-  server-authority harness currently uses the unscaled `shotDmg`.
-- The legacy surface path has a special larger, longer-lived, homing primary
-  projectile for Sundara. That special case is not present in the generic
-  Orbital primary-spawn path.
-- Heat, ammunition, energy use, armor class, shield interaction, weapon
-  families, hardpoint compatibility, and player-selectable weapon slots are
-  not part of a reusable primary-weapon definition/execution contract.
+- Orbital v2 resolves all sixteen typed `primaryFit` IDs through the shared
+  `@workspace/orbital-sim` catalog. Each entry declares compatible hulls,
+  hardpoint, volley shape/spread, projectile speed/radius/lifetime, damage
+  scale, ammo, energy and heat fields, plus visual/audio cues.
+- These definitions now affect real Orbital shots. Twin-pulse, escort-array,
+  interceptor-pulse, point-defense-array, and swarm-pulse launch deterministic
+  multi-projectile spreads; the remaining fits have distinct projectile
+  behavior. Projectile collision uses each definition's radius, and the Arena
+  renders fit-specific color, caliber, flash, and heavy-shot audio feedback.
+- Hull-owned damage, cadence, and shot speed remain the balance baseline.
+  Catalog damage scales are `1`; multi-projectile salvos divide the hull's
+  existing shot damage across their bolts. Primary ammunition is unlimited.
+  Primary energy and heat costs are explicitly `0` for this migration so the
+  new profiles do not silently drain flight energy or introduce an unshown
+  overheat mechanic.
+- Orbital training still applies its existing player `2.2×` and AI `.28×`
+  damage multipliers. The isolated server authority uses the hull's unscaled
+  `shotDmg`.
 
 ### Missiles
 
-- `missileAmmo` and `missileDamage` are consumed for the player's Orbital
-  loadout; AI launches are assigned a fixed damage of `16`.
-- `missileFit` itself does not select a unique runtime. All standard missiles
-  require a valid target, completed `1.25s` lock, range/cone/line-of-sight
-  validation, and ammunition; they launch at speed `38`, have lifetime `4s`,
-  and use a shared turn-rate default of `2.5` radians/second with a `3.5s`
-  launch cooldown.
-- Targeting rejects dead, cloaked, untargetable, jammed, out-of-range,
-  off-cone, or rock-occluded contacts. The shared target cone is based on a
-  `.3`-radian limit.
-- Heat-seeking, active/semi-active sensor, dumbfire, torpedo, EMP, swarm,
-  interceptor, and stealth missile behaviors are not separate runtime
-  implementations. Garuda’s ability creates three guided projectile records,
-  not a general drone/swarm entity system.
+- Orbital v2 resolves all sixteen typed `missileFit` IDs from the same shared
+  catalog. Each fit now owns lock time/range/cone, cooldown, launch speed, turn
+  rate, lifetime, collision radius, hardpoint compatibility, guidance mode,
+  salvo size, and visual/audio metadata.
+- Missile launches remain lock-gated and server-owned. Active seekers guide
+  after launch; semi-active torpedoes/EW fits stop steering if their launcher
+  loses the matching target lock. Garuda's swarm pod spends one ammo and splits
+  the existing missile damage across three guided projectiles. Hull ammo and
+  missile damage values remain unchanged.
+- The existing valid-target and rock-occlusion checks remain in force, now
+  using each missile fit's lock limits. Missile `countermeasureClass` is
+  catalogued, but Orbital v2 still uses the existing all-hostile-missiles
+  countermeasure removal; selective decoys/interactions belong to Phase E.
+- Orbital v1's generic `.3` primary radius, `1.6s` primary life, missile speed
+  `38`, missile lifetime `4s`, and `3.5s` missile cooldown remain available
+  for already-issued campaign replays. New Contact runs use `orbital-v2` and
+  the fit catalog. The API run schema and client/server runtime contract pin
+  this version split.
 
 ### Damage and countermeasures
 
@@ -221,7 +229,7 @@ or a complete capital-vessel simulation.
 | A — forensic ship/weapon audit | **IMPLEMENTED AND VERIFIED** | This report records the current definitions, actual behavior, consumers, and gaps. |
 | B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Arcade, Solo Flight, legacy campaign, and Wing still include surface compatibility paths. |
 | C — original eight abilities | **IMPLEMENTED AND VERIFIED in Orbital** | All eight have actual state effects and deterministic `step()` tests. Legacy mode parity is incomplete. |
-| D — weapon and missile architecture | **PARTIALLY IMPLEMENTED** | Basic projectiles and guided missiles work; fit IDs do not select weapon families and missile families are generic. |
+| D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
 | E — countermeasures and missile defense | **PARTIALLY IMPLEMENTED** | Guided-missile removal, flare feedback, and Aegis interception exist; decoy guidance and general defensive systems do not. |
 | F — distinct 3D reconstruction | **PARTIALLY IMPLEMENTED** | Sixteen unique procedural fighter blueprints and hangar inspection exist; detailed authored fleet models and ship-specific damage are not verified. |
 | G/H — eight additional fighters | **PARTIALLY IMPLEMENTED** | Eight specialist IDs, definitions, abilities, and procedural hulls are present; normal AI rosters still use only the original four per faction. |
@@ -232,14 +240,12 @@ or a complete capital-vessel simulation.
 
 ## Recommended next implementation slice
 
-The highest-impact next slice is Phase D: replace descriptive weapon-fit names
-with a typed, shared, server-authoritative weapon catalog and execution rules.
-Start with the existing sixteen hulls and preserve current values as a baseline.
-For each fit, specify projectile/missile behavior, compatible classes/hardpoints,
-damage and timing, ammunition/energy, collision, countermeasure interaction,
-and visual feedback. Keep browser and server using the same canonical source,
-add a migration/version test, and demonstrate real in-runtime firing before
-adding more ship names or capital classes.
+Phase E is next: turn the missile countermeasure metadata into server-authoritative
+decoy and defensive behavior, then test missile-specific susceptibility without
+changing Orbital v1 replay outcomes. Preserve the current energy/heat baseline
+until the pilot HUD can communicate weapon limits clearly. Follow with the
+separate fleet AI, capital-system, live Wing, and physical-device certification
+phases; do not infer those capabilities from this weapon migration.
 
 Do not present the current certification smoke test, hangar preview, Rust Disc
 Android sample, or unregistered Orbital authority harness as proof of live 5v5

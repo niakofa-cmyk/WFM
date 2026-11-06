@@ -1,5 +1,6 @@
 import { detAcos, detCos, detHypot } from "./detmath";
 import { LOCK_SECONDS, MISSILE_RANGE, PROJECTILE_LIMIT, rotate, type Rock, type SpatialBullet, type SpatialCraft } from "./flight";
+import type { MissileDefinition, PrimaryWeaponDefinition } from "./weapons-catalog";
 
 const hypot3 = (x: number, y: number, z: number) => detHypot(detHypot(x, y), z);
 
@@ -86,7 +87,13 @@ export function targetSolution(
     { ...rules, minForwardDot: rules.minForwardDot ?? detCos(.3) },
   );
 }
-export function acquireTarget(pilot: SpatialCraft, target: SpatialCraft | undefined, dt: number, rocks: readonly Rock[] = []) {
+export function acquireTarget(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  dt: number,
+  rocks: readonly Rock[] = [],
+  missile?: MissileDefinition,
+) {
   const s = pilot.space;
   if (!s) throw new Error("Acquisition requires orbital state.");
   s.missileCd = Math.max(0, s.missileCd - dt);
@@ -94,24 +101,110 @@ export function acquireTarget(pilot: SpatialCraft, target: SpatialCraft | undefi
     s.lockProgress = 0;
     s.lockTargetId = pilot.lockTargetId;
   }
-  s.lockProgress = target && targetSolution(pilot, target, rocks).available ? Math.min(1, s.lockProgress + dt / LOCK_SECONDS) : 0;
+  const available = !!target && targetSolution(pilot, target, rocks, missile ? {
+    maxRange: missile.maxLockRange,
+    minForwardDot: detCos(missile.lockConeRadians),
+  } : {}).available;
+  s.lockProgress = available
+    ? Math.min(1, s.lockProgress + dt / (missile?.lockSeconds ?? LOCK_SECONDS))
+    : 0;
+}
+function missileSolutionAvailable(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  rocks: readonly Rock[],
+  missile?: MissileDefinition,
+) {
+  return !!target && target.id === pilot.lockTargetId && targetSolution(pilot, target, rocks, missile ? {
+    maxRange: missile.maxLockRange,
+    minForwardDot: detCos(missile.lockConeRadians),
+  } : {}).available;
+}
+function missileCanLaunch(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  count: number,
+  rocks: readonly Rock[],
+  missile?: MissileDefinition,
+) {
+  const s = pilot.space;
+  if (!s || !pilot.alive || pilot.root > 0 || s.ammo < (missile?.ammoCost ?? 1) ||
+      s.missileCd > 0 || s.lockProgress < 1 || s.lockTargetId !== pilot.lockTargetId ||
+      count + (missile?.projectilesPerLaunch ?? 1) > PROJECTILE_LIMIT) return false;
+  return missileSolutionAvailable(pilot, target, rocks, missile);
 }
 export function spawnMissile(pilot: SpatialCraft, target: SpatialCraft | undefined, count: number, damage: number, rocks: readonly Rock[] = []): SpatialBullet | null {
   const s = pilot.space;
-  if (!s || !pilot.alive || pilot.root > 0 || s.ammo <= 0 || s.missileCd > 0 || s.lockProgress < 1 || s.lockTargetId !== pilot.lockTargetId || count >= PROJECTILE_LIMIT) return null;
-  if (!target || target.id !== pilot.lockTargetId || !targetSolution(pilot, target, rocks).available) return null;
+  if (!s || !target || !missileCanLaunch(pilot, target, count, rocks)) return null;
   const f = rotate(s.q, 0, 0, -1);
   s.ammo--; s.missileCd = 3.5;
   return { x: pilot.x + f.x * 2.5, y: s.y + f.y * 2.5, z: pilot.z + f.z * 2.5,
     vx: f.x * 38, vy: f.y * 38, vz: f.z * 38, life: 4, dmg: damage, r: .5, homeId: target.id, missile: true };
 }
-export function spawnPrimary(pilot: SpatialCraft, target: SpatialCraft | undefined, speed: number, damage: number, rocks: readonly Rock[] = []): SpatialBullet {
+export function spawnMissileVolley(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  count: number,
+  damage: number,
+  rocks: readonly Rock[],
+  missile: MissileDefinition,
+): SpatialBullet[] {
+  const s = pilot.space;
+  if (!s || !missileCanLaunch(pilot, target, count, rocks, missile) || !target) return [];
+  const projectileCount = missile.projectilesPerLaunch;
+  s.ammo -= missile.ammoCost;
+  s.missileCd = missile.cooldownSeconds;
+  const forward = rotate(s.q, 0, 0, -1);
+  const right = rotate(s.q, 1, 0, 0);
+  return Array.from({ length: projectileCount }, (_, index) => {
+    const offset = projectileCount === 1
+      ? 0
+      : (index / (projectileCount - 1) - 0.5) * missile.spreadRadians;
+    const forwardScale = detCos(offset);
+    const lateralScale = detCos(Math.PI / 2 - offset);
+    const direction = {
+      x: forward.x * forwardScale + right.x * lateralScale,
+      y: forward.y * forwardScale + right.y * lateralScale,
+      z: forward.z * forwardScale + right.z * lateralScale,
+    };
+    const length = Math.max(0.001, hypot3(direction.x, direction.y, direction.z));
+    direction.x /= length; direction.y /= length; direction.z /= length;
+    return {
+      x: pilot.x + direction.x * 2.5,
+      y: s.y + direction.y * 2.5,
+      z: pilot.z + direction.z * 2.5,
+      vx: direction.x * missile.launchSpeed,
+      vy: direction.y * missile.launchSpeed,
+      vz: direction.z * missile.launchSpeed,
+      life: missile.lifetimeSeconds,
+      dmg: damage * missile.damageScale / projectileCount,
+      r: missile.projectileRadius,
+      homeId: target.id,
+      missile: true,
+      weaponId: missile.fitId,
+      turnRate: missile.turnRateRadiansPerSecond,
+      launcherId: pilot.id,
+      guidance: missile.guidance,
+      visualEffect: missile.visualEffect,
+      audioCue: missile.audioCue,
+    };
+  });
+}
+export function spawnPrimary(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  speed: number,
+  damage: number,
+  rocks: readonly Rock[] = [],
+  weapon?: PrimaryWeaponDefinition,
+): SpatialBullet {
   const s = pilot.space;
   if (!s) throw new Error("Spatial primary requires orbital state.");
   let direction = rotate(s.q, 0, 0, -1);
+  const effectiveSpeed = speed * (weapon?.projectileSpeedScale ?? 1);
   const solution = target && targetSolution(pilot, target, rocks);
   if (s.aimAssist && target && solution?.available && solution.angle < .22) {
-    const t = distance3(pilot, target) / speed;
+    const t = distance3(pilot, target) / effectiveSpeed;
     const dx = target.x + (target.space?.vx ?? 0) * t - pilot.x;
     const dy = (target.space?.y ?? 0) + (target.space?.vy ?? 0) * t - s.y;
     const dz = target.z + (target.space?.vz ?? 0) * t - pilot.z;
@@ -119,10 +212,59 @@ export function spawnPrimary(pilot: SpatialCraft, target: SpatialCraft | undefin
     direction = { x: dx / length, y: dy / length, z: dz / length };
   }
   return { x: pilot.x + direction.x * 2, y: s.y + direction.y * 2, z: pilot.z + direction.z * 2,
-    vx: direction.x * speed, vy: direction.y * speed, vz: direction.z * speed, life: 1.6, dmg: damage, r: .3, homeId: null };
+    vx: direction.x * effectiveSpeed, vy: direction.y * effectiveSpeed, vz: direction.z * effectiveSpeed,
+    life: weapon?.projectileLifetimeSeconds ?? 1.6,
+    dmg: damage * (weapon?.damageScale ?? 1),
+    r: weapon?.projectileRadius ?? .3,
+    homeId: null,
+    weaponId: weapon?.fitId,
+    visualEffect: weapon?.visualEffect,
+    audioCue: weapon?.audioCue,
+  };
 }
-export function guideMissile(b: SpatialBullet, target: SpatialCraft, dt: number) {
-  steerProjectileToward(b, { x: target.x, y: target.space?.y ?? 0, z: target.z }, dt);
+export function spawnPrimaryVolley(
+  pilot: SpatialCraft,
+  target: SpatialCraft | undefined,
+  speed: number,
+  damage: number,
+  rocks: readonly Rock[],
+  weapon: PrimaryWeaponDefinition,
+): SpatialBullet[] {
+  const first = spawnPrimary(pilot, target, speed, damage, rocks, weapon);
+  if (weapon.volleyCount <= 1) return [first];
+  const s = pilot.space!;
+  const forward = { x: first.vx, y: first.vy ?? 0, z: first.vz };
+  const forwardLength = Math.max(0.001, hypot3(forward.x, forward.y, forward.z));
+  forward.x /= forwardLength; forward.y /= forwardLength; forward.z /= forwardLength;
+  const right = rotate(s.q, 1, 0, 0);
+  return Array.from({ length: weapon.volleyCount }, (_, index) => {
+    const offset = (index / (weapon.volleyCount - 1) - 0.5) * weapon.spreadRadians;
+    const forwardScale = detCos(offset);
+    const lateralScale = detCos(Math.PI / 2 - offset);
+    const direction = {
+      x: forward.x * forwardScale + right.x * lateralScale,
+      y: forward.y * forwardScale + right.y * lateralScale,
+      z: forward.z * forwardScale + right.z * lateralScale,
+    };
+    const length = Math.max(0.001, hypot3(direction.x, direction.y, direction.z));
+    direction.x /= length; direction.y /= length; direction.z /= length;
+    return {
+      ...first,
+      vx: direction.x * speed * weapon.projectileSpeedScale,
+      vy: direction.y * speed * weapon.projectileSpeedScale,
+      vz: direction.z * speed * weapon.projectileSpeedScale,
+      dmg: first.dmg / weapon.volleyCount,
+    };
+  });
+}
+export function guideMissile(
+  b: SpatialBullet,
+  target: SpatialCraft,
+  dt: number,
+  launcher?: Pick<SpatialCraft, "lockTargetId">,
+) {
+  if (b.guidance === "semi-active" && launcher?.lockTargetId !== b.homeId) return;
+  steerProjectileToward(b, { x: target.x, y: target.space?.y ?? 0, z: target.z }, dt, b.turnRate ?? 2.5);
 }
 export function steerProjectileToward(
   b: { x: number; y?: number; z: number; vx: number; vy?: number; vz: number },

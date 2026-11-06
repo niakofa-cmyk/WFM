@@ -30,10 +30,20 @@ import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pi
 import {
   createOrbitalRuntime,
   getGameModeDefinition,
+  isOrbitalRuntimeId,
   ORBITAL_RUNTIME_ID,
   type CombatRuntimeId,
   type GameModeId,
 } from "@workspace/orbital-sim";
+
+const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
+  beam: { accord: 0xffb461, ussf: 0x7de6ff },
+  pulse: { accord: 0xffd7a1, ussf: 0xbcecff },
+  heavy: { accord: 0xff8b4f, ussf: 0x69cfff },
+  precision: { accord: 0xffe2b2, ussf: 0xe0f7ff },
+  ion: { accord: 0xffa86c, ussf: 0xa6aaff },
+  swarm: { accord: 0xffc35e, ussf: 0x79f0e0 },
+};
 
 export type StrikeResult = {
   outcome: "win" | "loss" | "draw";
@@ -501,14 +511,15 @@ export function Arena({
   orbitalCampaign = false,
 }: ArenaProps) {
   const modeDefinition = getGameModeDefinition(modeId);
-  if (modeDefinition.simulation.runtimeId !== runtime) {
+  const orbitalRuntime = isOrbitalRuntimeId(runtime)
+    ? createOrbitalRuntime(modeDefinition, runtime)
+    : null;
+  if (modeDefinition.simulation.runtimeId !== runtime &&
+      !(orbitalRuntime && modeDefinition.simulation.runtimeId === ORBITAL_RUNTIME_ID)) {
     throw new Error(`Mode ${modeId} is configured for ${modeDefinition.simulation.runtimeId}, not ${runtime}.`);
   }
-  const orbitalRuntime = runtime === ORBITAL_RUNTIME_ID
-    ? createOrbitalRuntime(modeDefinition)
-    : null;
-  const orbital = orbitalRuntime?.runtimeId === ORBITAL_RUNTIME_ID;
-  if (runtime === ORBITAL_RUNTIME_ID && !orbital) {
+  const orbital = orbitalRuntime !== null;
+  if (isOrbitalRuntimeId(runtime) && !orbital) {
     throw new Error("Orbital runtime initialization failed.");
   }
   if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
@@ -602,7 +613,7 @@ export function Arena({
       ? copyMatch(online.snapshot.match)
       : createMatch(shipId, faction, refit, pace, { goal, allyCount, foeCount, disc, tech, seed, shieldMk2, localEndurance, orbitalTraining: orbital && !orbitalCampaign });
     if (orbital) {
-      prepareOrbital(matchRef.current);
+      prepareOrbital(matchRef.current, orbitalRuntime!.rulesVersion);
     }
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
   }
@@ -1409,8 +1420,11 @@ export function Arena({
       }
       for (const ev of match.fx) {
         if (ev.k === "shot") {
-          burst(ev.x, ev.z, ev.you ? 0xffd9a0 : 0xc45c48, 0.12, ev.big ? 5 : 2.4, ev.y);
-          if (ev.you) sfxShot(ev.big);
+          const effectColor = ev.visualEffect
+            ? WEAPON_EFFECT_COLORS[ev.visualEffect][ev.faction ?? (ev.you ? "accord" : "ussf")]
+            : ev.you ? 0xffd9a0 : 0xc45c48;
+          burst(ev.x, ev.z, effectColor, 0.12, ev.big ? 5 : 2.4, ev.y);
+          if (ev.you) sfxShot(ev.audioCue === "heavy" || ev.big);
         } else if (ev.k === "hit") {
           burst(ev.x, ev.z, ev.you ? 0xc45c48 : 0xffd9a0, 0.16, 3.2, ev.y);
           impactSparks(ev.x, ev.z, ev.you ? 10 : 6, ev.you ? 8 : 5, 0.28, ev.y);
@@ -1576,11 +1590,15 @@ export function Arena({
         }
         mesh.visible = true;
         mesh.position.set(bullet.x, .85 + (bullet.y ?? 0), bullet.z);
-        mesh.scale.set(orbital ? .65 : 1, orbital ? .65 : 1, orbital ? (bullet.missile ? 3.5 : 2.5) : 1);
+        const caliber = Math.max(0.55, Math.min(2.2, bullet.r / 0.3));
+        mesh.scale.set(orbital ? .65 * caliber : 1, orbital ? .65 * caliber : 1, orbital ? (bullet.missile ? 3.5 : 2.5) * caliber : 1);
         if (orbital) mesh.quaternion.setFromUnitVectors(_fwd.set(0, 0, 1), _tmp.set(bullet.vx, bullet.vy ?? 0, bullet.vz).normalize());
         else mesh.scale.setScalar(bullet.r > 0.5 ? 2.2 : 1);
+        const effectColor = bullet.visualEffect ? WEAPON_EFFECT_COLORS[bullet.visualEffect] : null;
         (mesh.material as THREE.MeshBasicMaterial).color.setHex(
-          bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
+          effectColor
+            ? effectColor[bullet.faction]
+            : bullet.faction === "accord" ? 0xffd7a1 : 0xd5ecff,
         );
       }
       const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;

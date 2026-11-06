@@ -48,7 +48,7 @@ import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
 import { resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
-import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { isOrbitalRuntimeId } from "@workspace/orbital-sim";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -1123,7 +1123,7 @@ export function WarApp() {
   if (phase === "fight") {
     const runConfig = activeRun?.config;
     const orbitalCampaign =
-      runConfig?.mission === "contact" && runConfig.flightModel === ORBITAL_RUNTIME_ID;
+      runConfig?.mission === "contact" && isOrbitalRuntimeId(runConfig.flightModel);
     const arenaRuntime = resolveArenaRuntime(runConfig, Boolean(onlineSession));
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
@@ -1134,7 +1134,7 @@ export function WarApp() {
         modeId={
           onlineSession
             ? "wing-online"
-            : arenaRuntime === ORBITAL_RUNTIME_ID
+            : isOrbitalRuntimeId(arenaRuntime)
               ? runConfig
                 ? "campaign-contact"
                 : "local-arena-practice"

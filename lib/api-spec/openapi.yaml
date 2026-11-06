@@ -617,7 +617,7 @@ components:
             foeCount: { type: integer, minimum: 1, maximum: 5 }
             tech: { type: [string, "null"], enum: [stick, barrels, mark, null] }
             mission: { type: string, enum: [skirmish, contact, beacon, warden, cage] }
-            flightModel: { type: string, enum: [surface-v1, orbital-v1] }
+            flightModel: { type: string, enum: [surface-v1, orbital-v1, orbital-v2] }
     StrikeStepInput:
       type: object
       additionalProperties: false

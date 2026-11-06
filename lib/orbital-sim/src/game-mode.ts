@@ -1,5 +1,10 @@
-import { ORBITAL_RULES_VERSION } from "./flight";
-import { ORBITAL_RUNTIME_ID } from "./runtime";
+import {
+  isOrbitalRuntimeId,
+  orbitalRulesVersionForRuntime,
+  ORBITAL_RUNTIME_ID,
+  type OrbitalRuntimeId,
+} from "./runtime";
+import type { OrbitalRulesVersion } from "./flight";
 
 export type GameModeId =
   | "orbital-combat-lab"
@@ -314,8 +319,8 @@ export function getGameModeDefinition(id: GameModeId): GameModeDefinition {
 }
 
 export type OrbitalRuntimeSession = {
-  runtimeId: typeof ORBITAL_RUNTIME_ID;
-  rulesVersion: typeof ORBITAL_RULES_VERSION;
+  runtimeId: OrbitalRuntimeId;
+  rulesVersion: OrbitalRulesVersion;
   modeId: GameModeId;
   authority: GameModeDefinition["authority"];
   rewardEligibility: GameModeDefinition["rewardEligibility"];
@@ -325,16 +330,19 @@ export type OrbitalRuntimeSession = {
  * The canonical gameplay bootstrap. Compatibility modes cannot silently enter
  * Orbital as if their objectives and authority had already migrated.
  */
-export function createOrbitalRuntime(mode: GameModeDefinition): OrbitalRuntimeSession {
-  if (mode.simulation.runtimeId !== ORBITAL_RUNTIME_ID || mode.simulation.migration !== "canonical") {
+export function createOrbitalRuntime(
+  mode: GameModeDefinition,
+  runtimeId: OrbitalRuntimeId = ORBITAL_RUNTIME_ID,
+): OrbitalRuntimeSession {
+  if (!isOrbitalRuntimeId(runtimeId) || mode.simulation.runtimeId !== ORBITAL_RUNTIME_ID || mode.simulation.migration !== "canonical") {
     throw new Error(`Mode ${mode.id} is not ready for canonical Orbital launch.`);
   }
   if (mode.authority === "local" && mode.rewardEligibility !== "none") {
     throw new Error(`Local mode ${mode.id} cannot settle server-owned rewards.`);
   }
   return Object.freeze({
-    runtimeId: ORBITAL_RUNTIME_ID,
-    rulesVersion: ORBITAL_RULES_VERSION,
+    runtimeId,
+    rulesVersion: orbitalRulesVersionForRuntime(runtimeId),
     modeId: mode.id,
     authority: mode.authority,
     rewardEligibility: mode.rewardEligibility,

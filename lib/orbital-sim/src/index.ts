@@ -1,5 +1,6 @@
 export * from "./flight";
 export * from "./weapons";
+export * from "./weapons-catalog";
 export * from "./protocol";
 export * from "./detmath";
 export * from "./runtime";

@@ -1,6 +1,6 @@
 import { detCos, detExp, detSin } from "./detmath";
 import { integrateSpatialFlight, type FlightControls, type FlightTuning, type Rock, type SpatialCraft } from "./flight";
-import { ORBITAL_RUNTIME_ID } from "./runtime";
+import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID, type OrbitalRuntimeId } from "./runtime";
 import { applyHullDamage, sphereSweepTime, steerProjectileToward, targetSolution3d } from "./weapons";
 
 export type SectorVector3 = { x: number; y: number; z: number };
@@ -37,7 +37,7 @@ export type SectorFlightState<TShip extends string = string> = {
   stage: SectorFlightStage;
   discoveries: number; hits: number; collisions: number;
 };
-export type SectorFlightRuntime = "sector-motion-v1" | typeof ORBITAL_RUNTIME_ID;
+export type SectorFlightRuntime = "sector-motion-v1" | OrbitalRuntimeId;
 export type SectorShipTuning = FlightTuning & { fireInterval: number };
 
 const v = (x = 0, y = 0, z = 0): SectorVector3 => ({ x, y, z });
@@ -197,7 +197,7 @@ export function stepSectorFlight(
   }
   const previous = { ...state.position };
   let speed: number, next: SectorVector3;
-  if (runtime === ORBITAL_RUNTIME_ID) {
+  if (isOrbitalRuntimeId(runtime)) {
     speed = orbitalMotion(state, input, dt, tuning);
     next = state.position;
   } else {
@@ -297,7 +297,7 @@ export function stepSectorFlight(
     if (projectile.ttl <= 0) continue;
     const target = projectile.hostile ? state.position : state.drone.position;
     if (projectile.guided) {
-      if (runtime === ORBITAL_RUNTIME_ID) {
+      if (isOrbitalRuntimeId(runtime)) {
         const guided = {
           ...projectile.position,
           vx: projectile.velocity.x, vy: projectile.velocity.y, vz: projectile.velocity.z,

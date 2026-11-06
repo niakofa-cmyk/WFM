@@ -1,7 +1,7 @@
 import { AI_ROSTER, otherFaction, PRESET_PIPS, refitMul, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 import type { FlightInput, OrbitalFlight } from "./orbital-flight";
-import type { TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
+import type { OrbitalRulesVersion, TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
 import { armorSpill } from "./orbital-damage";
 import { stepOrbital } from "./orbital-sim";
 
@@ -29,11 +29,14 @@ export type Bullet = {
   x: number; z: number; vx: number; vz: number; life: number; dmg: number;
   y?: number; vy?: number; missile?: boolean;
   faction: Faction; r: number; homeId: number | null; own: boolean;
+  weaponId?: string; turnRate?: number; launcherId?: number; guidance?: "active" | "semi-active";
+  visualEffect?: "beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm";
+  audioCue?: "energy" | "pulse" | "heavy" | "ion";
 };
 
 export type Relay = { x: number; z: number; own: -1 | 0 | 1; cap: number };
 export type Fx = (
-  | { k: "shot"; x: number; z: number; big: boolean; you: boolean }
+  | { k: "shot"; x: number; z: number; big: boolean; you: boolean; faction?: Faction; visualEffect?: Bullet["visualEffect"]; audioCue?: Bullet["audioCue"] }
   | { k: "hit"; x: number; z: number; you: boolean; fromX: number; fromZ: number; dmg: number }
   | { k: "boom"; x: number; z: number }
   | { k: "flare"; x: number; z: number; yaw: number }
@@ -67,6 +70,7 @@ export type Match = {
   orbitalTraining?: boolean;
   playerShieldRegenRate?: number;
   symmetricDuelDeathPenalty?: number;
+  orbitalRulesVersion?: OrbitalRulesVersion;
 };
 
 export type StepInput = FlightInput & {
