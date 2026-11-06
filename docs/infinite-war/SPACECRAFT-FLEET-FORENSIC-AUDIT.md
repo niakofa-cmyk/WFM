@@ -207,8 +207,8 @@ it does not store selectable primary/secondary weapon equipment.
 |---|---|
 | Orbital Combat Lab, Local Arena practice, Contact campaign | Canonical Orbital simulation; Arena owns current Three.js presentation. |
 | Rust Disc local, Rust Disc co-op, Iron Eclipse | Orbital simulation/authority adapters are declared, but presentation remains `RustDiscFlight` compatibility renderer. |
-| Offline Arcade Skirmish | Canonical `orbital-v5` simulation, local authority, no reward settlement. |
-| Legacy campaign sorties, Solo Flight | `surface-v1` compatibility simulation; issued server runs remain pinned. |
+| Offline Arcade Skirmish, standalone Solo Flight | Canonical `orbital-v5` simulation in `Arena`; local authority, no reward settlement. |
+| Legacy campaign sorties | `surface-v1` compatibility simulation; issued server runs remain pinned. |
 | Competitive/live/private/AI-fill Wing | `surface-v1` socket and simulation path; not live 5v5 Orbital combat. |
 | Universe navigation | Navigation UI/directory only; not an active universe combat simulation. |
 | Fleet Warfare | Planned, with no gameplay renderer. |
@@ -231,7 +231,7 @@ or a complete capital-vessel simulation.
 | Phase | Status | Evidence-based summary |
 |---|---|---|
 | A — forensic ship/weapon audit | **IMPLEMENTED AND VERIFIED** | This report records the current definitions, actual behavior, consumers, and gaps. |
-| B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Offline Arcade now uses Orbital v5; Solo Flight, legacy campaign, and Wing still include surface compatibility paths. |
+| B — existing eight in Orbital | **IMPLEMENTED AND VERIFIED in Orbital modes; PARTIAL across all modes** | Original eight are playable through Orbital. Offline Arcade and standalone Solo Flight use Orbital v5 with local no-reward authority; legacy campaign and Wing still include surface compatibility paths. |
 | C — original eight abilities | **IMPLEMENTED AND VERIFIED in Orbital** | All eight have actual state effects and deterministic `step()` tests. Legacy mode parity is incomplete. |
 | D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
 | E — countermeasures and missile defense | **CORE IMPLEMENTED AND VERIFIED in Orbital v3; PARTIAL for live Wing** | Standard seekers are decoyed, hardened seekers are disrupted, only missiles tracking the pilot are affected, and a cooldown is server-owned. Legacy v1/v2 outcomes are preserved. Live Wing integration, physical-device checks, and broader defenses remain unverified. |

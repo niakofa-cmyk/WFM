@@ -31,7 +31,8 @@ test("the mode registry is a complete, unique source-backed launch inventory", (
 test("canonical Orbital modes initialize with the pinned simulation rules", () => {
   for (const id of [
     "orbital-combat-lab", "local-arena-practice", "rust-disc-local",
-    "rust-disc-sector-coop", "iron-eclipse", "arcade-skirmish", "campaign-contact",
+    "rust-disc-sector-coop", "iron-eclipse", "arcade-skirmish", "solo-flight",
+    "campaign-contact",
   ] as const) {
     const mode = getGameModeDefinition(id);
     const runtime = createOrbitalRuntime(mode);
@@ -103,4 +104,14 @@ test("offline Arcade uses canonical Orbital combat and cannot settle rewards", (
   assert.equal(arcade.authority, "local");
   assert.equal(arcade.rewardEligibility, "none");
   assert.equal(createOrbitalRuntime(arcade).modeId, "arcade-skirmish");
+});
+
+test("standalone Solo Flight uses canonical Orbital combat without progression authority", () => {
+  const soloFlight = getGameModeDefinition("solo-flight");
+  assert.equal(soloFlight.simulation.runtimeId, ORBITAL_RUNTIME_ID);
+  assert.equal(soloFlight.simulation.migration, "canonical");
+  assert.deepEqual(soloFlight.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
+  assert.equal(soloFlight.authority, "local");
+  assert.equal(soloFlight.rewardEligibility, "none");
+  assert.equal(createOrbitalRuntime(soloFlight).modeId, "solo-flight");
 });

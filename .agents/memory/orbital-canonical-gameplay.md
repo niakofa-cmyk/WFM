@@ -70,15 +70,15 @@ resolved non-interactively.
 user-confirmed staging database, then verify the new table/types and API path.
 Keep unrelated schema drift for a separately reviewed migration.
 
-**Verification guard:** Keep standalone Solo Flight on its current compatibility
-runtime until an orbital migration passes repeatable browser checks for renderer
-startup and responsive flight controls. A visible HUD or canvas alone is not
-proof that the orbital flight loop initialized.
+**Verification guard:** Standalone Solo Flight now uses canonical `orbital-v5`
+after its browser gate passed. Preserve checks for actual runtime identity,
+renderer startup, control-driven movement, and landscape touch controls. Browser
+evidence is not physical Android certification.
 
-**Why:** An attempted Solo Flight runtime switch produced inconsistent results
-in the headless WebGL flight test, so it was reverted rather than shipping an
-unverified control path.
+**Why:** An earlier runtime switch produced inconsistent headless WebGL results.
+The route stayed on compatibility until repeatable desktop and phone-sized
+browser checks verified the Orbital flight loop and responsive controls.
 
-**How to apply:** Before retrying this route, make the orbital renderer and
-movement test deterministic in the browser, then repeat it across the supported
-mobile-sized viewport.
+**How to apply:** Keep both browser checks passing when changing Solo Flight's
+renderer or input mapping. Record Android device verification separately and
+never report browser automation as a physical-device pass.

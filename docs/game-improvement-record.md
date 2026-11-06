@@ -1025,3 +1025,21 @@ and controls/firing worked. The screenshot shows a two-human lobby; no room
 code is retained. This is owner-reported private-room smoke evidence only, not
 an Orbital v5 campaign test, ten-human competitive test, sector co-op proof, or
 reward-settlement verification. See `STAGING-TEST-REPORT.md`.
+
+## 2026-11-06 — Standalone Solo Flight enters Orbital v5
+
+The public `/play` Solo Flight now launches the canonical `orbital-v5`
+simulation through `Arena`. Its mode contract records the actual Orbital package,
+mission AI, local authority, fixed-step rules, and no reward eligibility. The
+offline boundary is unchanged: this route does not issue a server run or settle
+campaign progress.
+
+The runtime element now exposes mode/runtime identifiers for end-to-end checks.
+Playwright verified renderer initialization and forward-input movement on the
+desktop browser route, then repeated the runtime, WebGL, analog-stick movement,
+and recenter checks in an 844×390 landscape touch viewport. The focused browser
+suite passed **3/3** tests, including the existing Orbital Combat Lab control
+check. Shared-library and WFM typechecks passed; all **246** WFM tests passed.
+This is browser evidence, not physical Android device certification. Legacy
+campaign missions and live Wing were not changed; staging and Production were
+not updated.

@@ -257,7 +257,7 @@ test("small-phone landing and solo setup respond to vertical touch scrolling", a
   }
 });
 
-test("solo flight launches and exits the playable 3D scene", async ({ page }) => {
+test("solo flight launches canonical Orbital v5, responds to input, and exits", async ({ page }) => {
   page.on("pageerror", (error) => console.error(`[solo-flight page error] ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error") console.error(`[solo-flight console error] ${message.text()}`);
@@ -270,6 +270,9 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
 
   await page.getByTestId("button-solo-launch").click();
   await expect(page.getByRole("button", { name: "EXIT SOLO FLIGHT" })).toBeVisible();
+  const stage = page.getByTestId("arena-stage");
+  await expect(stage).toHaveAttribute("data-mode-id", "solo-flight");
+  await expect(stage).toHaveAttribute("data-runtime-id", "orbital-v5");
   await expect(page.locator("canvas").first()).toBeVisible();
   // A canvas/HUD alone can be visible even when WebGL initialization failed.
   await expect.poll(() => page.evaluate(() => typeof window.__controlsTest?.getYaw === "function")).toBe(true);
@@ -280,6 +283,67 @@ test("solo flight launches and exits the playable 3D scene", async ({ page }) =>
 
   await page.getByRole("button", { name: "EXIT SOLO FLIGHT" }).click();
   await expect(page.getByTestId("solo-flight")).toBeVisible();
+});
+
+test("Solo Flight Orbital controls move the ship on a landscape touch viewport", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({
+    viewport: { width: 844, height: 390 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  const page = await context.newPage();
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  try {
+    await page.goto("/play");
+    await expect(page.getByTestId("solo-flight")).toBeVisible();
+    await page.getByTestId("button-solo-launch").click();
+    const stage = page.getByTestId("arena-stage");
+    await expect(stage).toHaveAttribute("data-mode-id", "solo-flight");
+    await expect(stage).toHaveAttribute("data-runtime-id", "orbital-v5");
+    await expect.poll(() => page.evaluate(() => typeof window.__controlsTest?.getSpeed)).toBe("function");
+
+    const flightStick = page.getByTestId("stick-flight");
+    await expect(flightStick).toBeVisible();
+    const box = await flightStick.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) throw new Error("Solo Flight's landscape flight stick is missing.");
+
+    const centerX = Math.round(box.x + box.width / 2);
+    const centerY = Math.round(box.y + box.height / 2);
+    const touch = (y: number) => ({
+      id: 1,
+      x: centerX,
+      y: Math.round(y),
+      radiusX: 5,
+      radiusY: 5,
+      force: 1,
+    });
+    const cdp = await context.newCDPSession(page);
+    const speedBefore = await page.evaluate(() => window.__controlsTest!.getSpeed());
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [touch(centerY)],
+    });
+    for (const y of [centerY - 12, centerY - 22, centerY - 30]) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [touch(y)],
+      });
+    }
+    await expect.poll(async () => Number(await flightStick.getAttribute("data-axis-y"))).toBeLessThan(-0.2);
+    await expect.poll(() => page.evaluate(() => window.__controlsTest!.getSpeed())).toBeGreaterThan(speedBefore);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(flightStick).toHaveAttribute("data-axis-y", "0.000");
+    await cdp.detach();
+
+    expect(pageErrors).toEqual([]);
+  } finally {
+    await context.close();
+  }
 });
 
 test("Rust Disc defers 3D startup until launch and reuses it on warm relaunch", async ({ browser }) => {

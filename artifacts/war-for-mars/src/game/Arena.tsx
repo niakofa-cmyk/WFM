@@ -2083,6 +2083,8 @@ export function Arena({
   return (
     <div
       data-testid="arena-stage"
+      data-mode-id={modeId}
+      data-runtime-id={runtime}
       data-local-endurance={localEndurance ? "true" : "false"}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >

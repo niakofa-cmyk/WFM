@@ -49,11 +49,11 @@ current authoritative services. Orbital Combat Lab training remains no-reward.
 | Mode/system | Current runtime/authority | Required migration |
 |---|---|---|
 | Orbital Combat Lab | Offline `Arena` using `lib/orbital-sim`; no reward settlement | Keep as the canonical engine test harness and no-reward trainer |
-| Offline Solo Flight | Still uses `surface-v1`; its attempted orbital switch did not pass the playable 3D browser gate and was reverted | Resolve and pass the graphics/controls gate before migrating this entry point |
+| Offline Solo Flight | Canonical `orbital-v5` in `Arena`; local authority, no rewards | Preserve the browser gate for runtime identity, renderer startup, responsive movement, and landscape touch controls; Android device certification is separate |
 | Offline `WarApp` Arena practice | `orbital-v5`; server-issued runs remain pinned to their original runtime | Extend this offline migration to local operation content |
 | Rust Disc local flight | Local `App` entry opts into `orbital-motion-v1` for kinematics through a cached adapter; sector objectives, projectiles, collision damage, and renderer remain in `flight-sector.ts` | Finish weapons/objective migration with parity; retain networked `sector-motion-v1` as rollback and compatibility path |
 | Sector Expedition / Iron Eclipse | Authenticated sector socket and a separate sector flight contract | Adapt the server-owned sector runtime and objectives to canonical orbital state |
-| Offline Arcade Skirmish | Canonical `orbital-v5` in `Arena`; local and no-reward | Complete this local migration; preserve objective semantics and keep server-issued runs separate |
+| Offline Arcade Skirmish | Canonical `orbital-v5` in `Arena`; local and no-reward | Preserve objective semantics and keep server-issued runs separate |
 | Legacy campaign sorties | Pinned `surface-v1` compatibility in `Arena` | Migrate one server-issued mission at a time while preserving its issued runtime, replay and claim semantics |
 | Campaign Contact | Versioned `orbital-v5` server replay for capable clients; earlier issued runs retain their recorded runtime | Preserve compatibility while expanding validated orbital mission coverage |
 | Online Wing / private / AI-fill | Existing authenticated socket and matchmaking; orbital `Arena` currently rejects live rooms | Coordinate client, API and socket protocol migration; retain all room/reward safeguards |
