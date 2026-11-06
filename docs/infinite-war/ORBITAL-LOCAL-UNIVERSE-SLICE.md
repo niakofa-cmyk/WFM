@@ -12,21 +12,24 @@ remain unchanged. It does not complete all-mode migration.
 
 ## Player path
 
-1. Main landing/Home: **FLY THE MARS SECTOR · LOCAL**, or open
-   `/combat-lab.html?universe=1`.
-2. Fly forward toward the physical Cinder ring, initially 118 m ahead.
-   The entry chart also offers **FLY LOCAL MARS SECTOR** with its selected
-   local faction and hull. Direct entry uses the local default hull; it does
-   not read or overwrite the account loadout.
-3. Enter the 8 m local gate, slow to at most 3.5 m/s and align within 35°.
+1. A signed-in pilot starts **FLY THE MARS SECTOR · LOCAL** from the existing
+   Home screen. This enters the same `WarApp`/`Arena` tree and uses the saved
+   faction, hull, control scheme, gyro preference and refit level.
+2. A public/standalone pilot can still open `/combat-lab.html?universe=1`;
+   that route remains an offline fallback and does not read or overwrite the
+   account loadout.
+3. Fly forward toward the physical Cinder ring, initially 118 m ahead.
+4. Enter the 8 m local gate, slow to at most 3.5 m/s and align within 35°.
    **DOCK** additionally requires a functioning renderer.
-4. From the station, launch the existing three-defender combat training.
-5. Finish or abort; the local debrief returns to Cinder.
-6. Undock from the retained universe position, orientation and velocity.
+5. From the station, launch the existing three-defender combat training.
+6. Finish or abort; the local debrief returns to Cinder.
+7. Undock from the retained universe position, orientation and velocity.
 
 Account services are clearly marked **external**. Following that link leaves
 the local session. Docking does not grant server location, eligibility, a room
 seat, currency or rewards. Closing/reloading the page loses this unsaved session.
+Exiting the signed-in local flight returns to the existing Home/Hangar screen;
+the signed-in account's saved profile is neither modified nor awarded progress.
 
 ## Runtime ownership and isolation
 
@@ -80,12 +83,6 @@ Eight additional integration regressions exercise that production code:
 All **300 game/auth tests** and WFM type checking pass. These are simulation
 integration tests, not browser or live-multiplayer evidence.
 
-One targeted follow-up browser attempt used genuine Chromium software-WebGL
-flags, without mocking the renderer or injecting game state. That browser still
-reported its graphics renderer disabled and failed context creation. It stopped
-without flight input. No complete interactive loop, renderer-resource retention,
-API-write audit, physical Android or multiplayer certification is established.
-
 ### Initial slice checks
 
 - Shared library build and WFM type check passed.
@@ -98,21 +95,26 @@ API-write audit, physical Android or multiplayer certification is established.
 - Development workflow restarted cleanly.
 - A landscape 803×360 screenshot rendered the actual Mars/Cinder scene and
   controls. Software-WebGL warnings were present; this is not performance proof.
-- A focused automated browser journey could not create a WebGL context in its
-  separate browser and stopped on the explicit **RENDERER UNAVAILABLE** screen.
-  It did not exercise docking, training, return, undock or resource identity.
-  Full interactive end-to-end certification is therefore **not established**.
+- Project-side Playwright Chromium with software WebGL loaded the actual
+  universe scene and accepted a physical pointer drag on the left flight stick;
+  simulation position advanced. The focused browser check is scoped to local
+  launch and stick movement, not the signed-in `WarApp` screen.
+- A longer approach experiment moved toward Cinder but did **not** satisfy the
+  full docking gate (8 m and at most 3.5 m/s). Therefore browser-certified
+  docking, training, return, undock and resource identity are **not established**.
+- No live API requests were made during the isolated public local-flight check.
 
-Repeated transition unit tests and a source-level renderer check do not prove
-browser frame-loop/resource behavior. Physical Android flight, interactive
+Repeated transition unit tests and a short pointer-driven browser check do not
+prove full browser frame-loop/resource behavior. Signed-in entry was not tested
+through an authenticated session. Physical Android flight, interactive
 finish/abort/return, full docking usability and runtime leak checks remain
-verification gaps. No staging/Production rollout or multiplayer parity is claimed.
+verification gaps. No staging/Production rollout or multiplayer parity is
+claimed.
 
 ## Next boundary
 
-Validate the physical approach and repeated activity-return loop on a
-WebGL-capable browser/device before promoting this slice as the primary,
-account-connected game. Then integrate the existing authoritative discovery,
-travel and operation admission contracts through explicit adapters. Streaming,
-shared flight, anomalies and live competition observation require separate
-implementation and evidence.
+Validate docking and the repeated activity-return loop on a real phone, including
+saved-profile entry and return. Then integrate the existing authoritative
+discovery, travel and operation-admission contracts through explicit adapters.
+Streaming, shared flight, anomalies and live competition observation require
+separate implementation and evidence.
