@@ -26,18 +26,17 @@ sector services exist. They are not yet one certified Orbital multiplayer
 simulation. Local docking cannot authorize a seat. An Orbital authority unit
 test or two-device private surface match does not certify ten-human Orbital.
 
-## Version risk found during audit
+## Room simulation contract
 
-`sector-contract.ts` advertises an opt-in `orbital-v2`/rules-2 contract.
-`socket/sector-runtime.ts` default dispatch passes the current
-`ORBITAL_RUNTIME_ID` (`orbital-v5`) into the sector adapter. That adapter currently
-uses a common movement implementation for Orbital IDs rather than selecting
-every combat ruleset by that declaration.
+Protocol 2 advertises `orbital-v2`/rules 2 and now dispatches that same pinned
+runtime. Compatibility protocol 1 stays on the preexisting server runtime;
+protocol 1 does not advertise a simulation contract. A shared resolver maps
+wire protocol to runtime. Unit tests assert both choices. This code-level fix
+does not switch the protocol rollout flag or prove a multi-device staging room.
 
-Do not silently rename the handshake or promote a new protocol. Establish one
-explicit, immutable per-room executed simulation contract, retain old room
-behavior, and test handshake → dispatch → snapshot → reconnect consistency.
-This mismatch is recorded, not claimed resolved by the pilot-input extraction.
+Continue to keep one explicit, immutable per-room executed contract. Test
+handshake → dispatch → snapshot → reconnect consistency before enabling a new
+protocol in staging.
 
 ## First real Orbital asteroid gate
 

@@ -32,8 +32,9 @@ live Wing retain explicit protocol restrictions.
 Local Rust Disc and the sector server now call shared Orbital movement through
 the operation adapter, while `sector-motion-v1` remains a compatibility path.
 Rust Disc still owns separate presentation and relay/drone/extraction logic;
-full interaction and renderer parity has not been established. The sector
-advertised/executed runtime-version risk is detailed in
+full interaction and renderer parity has not been established. The shared
+runtime resolver now maps protocol v2 to its advertised v2 rules and preserves
+the protocol v1 fallback. The remaining rollout gates are detailed in
 [`engine/MULTIPLAYER-OPERATION-ARCHITECTURE.md`](engine/MULTIPLAYER-OPERATION-ARCHITECTURE.md).
 The pilot frame, normalization and axis mapping now belong to the shared engine.
 

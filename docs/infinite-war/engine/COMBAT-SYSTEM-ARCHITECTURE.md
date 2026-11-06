@@ -11,10 +11,12 @@ behavior rather than reinterpreting already-issued campaign runs.
 ## Remaining owners
 
 Arena/client `orbital-sim.ts` coordinates AI, timers, weapon spawning and damage.
-The API has a matching file, currently byte-identical, but these are still
-duplicate orchestration sources. Ability orchestration also remains in
-client/API files. The sector adapter has operation-specific projectile,
-drone/objective and collision state; shared math does not merge those rules.
+The API has a byte-identical compatibility copy; these remain separate import
+owners, not one shared step-function implementation. Ability orchestration also
+remains duplicated. Both now call the same library-owned terminal-outcome rule,
+and a regression test fails if either copy drifts. The sector adapter has
+operation-specific projectile, drone/objective and collision state; shared math
+does not merge those rules.
 `orbital-visuals.ts` renders model damage/effects and is not damage authority.
 
 ## Authority
