@@ -70,6 +70,72 @@ saved as reference assets. They are not embedded as supposed WFM gameplay.
 
 ## Verification
 
+### Additional master directives and canonical approach controls
+
+The five new owner sources are preserved unchanged and reconciled in
+[MASTER-DIRECTIVE-RECONCILIATION.md](MASTER-DIRECTIVE-RECONCILIATION.md). This
+adds implementation to the existing artifact/branch, not a separate universe.
+
+Implementation:
+
+- `CinderRingDockingApproach.tsx` removes its separate steering/throttle/keyboard
+  mapping and uses the same `Bus`, `readInput`, normalization and spatial flight
+  rules as offline Orbital. Left controls signed thrust and coordinated turn;
+  right controls aim/pitch and direct roll; left edge taps retain vector pulses.
+- The signed slider and meter use the same canonical throttle axis. The meter
+  appears on commanded or actual motion; it does not introduce a second engine.
+- Existing `orbitalCameraPose` keeps the chase camera stable during direct
+  rolls, with the same release blend as Arena. Shared physics/rates/energy rules
+  are unchanged. Range uses the scene's metre-scale units, not a spurious km label.
+- Reset, all-stop/braking, abort and local dock neutralize the input. Hidden-tab
+  clock reset prevents accumulated frame catch-up. Weapons and match entry are
+  intentionally not added to local transit.
+- `CinderRingApproachInput.test.ts` adds five source/shared-flight regressions:
+  shared adapter selection, actual forward/reverse translation, simultaneous
+  turn/bank/pitch, immediate quaternion roll and neutralization.
+- Existing raw directives, required engine assessments, new source review and
+  owner-direction memory are linked rather than duplicating the architecture.
+
+| Check | Result for this slice |
+|---|---|
+| WFM typecheck | Passed, including final camera and visibility wiring |
+| Game/auth tests | 282/282 passed |
+| Main app and standalone entry builds | Both passed |
+| Build static-resource/lazy-renderer checks | 4/4 passed |
+| Five source archive comparisons | Byte-for-byte identical to uploads; architecture resend also matches the previous saved copy |
+| Browser approach at 803 × 360 | Actual local entry/launch/fallback/abort exercised; no sign-in attempted, DOCK disabled |
+| Actual WebGL flight browser proof | **Blocked:** browser could not create a WebGL context; no synthetic renderer or flight evidence substituted |
+| Focused landscape layout recheck | Both sticks measured 78 × 78 px; center controls unobstructed; viewport and document width both 803 px |
+| Physical Android controls and performance | Not verified for this revision |
+| Live multiplayer/observer/authorized admission | Not exercised or certified by this local input change |
+
+The browser reported `FLIGHT LINK UNAVAILABLE` with an explicit renderer error;
+Abort returned to Cinder Ring entry with the no-progress message. API writes were
+not independently audited in that browser pass. The local code path adds no
+API call, identity, progression, room or reward capability.
+
+The fallback screenshot exposed landscape flex shrink compressing the sticks
+into capsules. The landscape CSS now prevents stick shrinking and hides side
+captions/keyboard hints at short heights. A focused recheck confirmed circular
+78 × 78 px sticks, no center-button overlap and no horizontal overflow. Enabled
+buttons measured approximately 75 × 45 px. They were not re-clicked or treated
+as flight evidence.
+
+Audit references before this change: local base `fe07c9b`, staging branch
+`3663e144938ba931cccaa624004814ab0fd65ff1`, integration base
+`a9db849bfbbf559249b6bdd4def68ed794b31ec1`.
+Draft [PR 14](https://github.com/niakofa-cmyk/WFM/pull/14) targets the integration
+branch. These are Git references, **not** a verified deployment-revision report.
+No merge, deployment, database, auth, reward or multiplayer flag change was made.
+
+The prior tactical-input safety revision also passed 277/277 WFM tests and
+4/4 build checks. Its
+[advanced-control review](ADVANCED-TACTICAL-CONTROLS-REVIEW.md) records the
+remaining A–K requirements; the larger maneuver library and tactical-settings
+programme are not complete.
+
+### Original entry verification (historical revision)
+
 | Check | Result |
 |---|---|
 | WFM TypeScript check | Passed |
@@ -109,5 +175,9 @@ Shared flight simulation, stored player data and online services are unchanged.
 
 Continue by connecting existing account-backed discovery/location state to the
 same presentation through its real contracts, then verify universe-to-operation
-handoffs. Build actual observer/event capability before showing live battles
-or countdowns.
+handoffs. Those navigation connections are now implemented as described above.
+Continue with versioned operation adapters and actual observer authority before
+showing live battles or countdowns. The local Cinder control change can be
+rolled back independently by restoring its TSX/CSS and removing its focused
+tests; source archives and architecture evidence can remain. Shared physics and
+stored account data do not need a rollback.

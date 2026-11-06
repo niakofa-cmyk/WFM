@@ -82,3 +82,20 @@ that target distinct from current bounded sectors and navigation. Track
 simulation migration separately from presentation migration: a mode must not
 be called fully consolidated while a legacy scene owns its rendering lifecycle.
 Preserve identity, server authority, progression and rewards throughout migration.
+
+The owner's renewed master-engine and Orbital Operations Network directives
+also require independently operating battle instances and preserving a
+specialized Rust Disc side experience where forced simulation migration would
+break working mechanics. Orbital stays the primary shared flight/combat
+foundation; a retained specialist runtime is a versioned operation adapter,
+not a new identity, economy, or universe authority.
+
+**Why:** the user supplied both one-main-engine and multiple-specialized-
+experience directives together; forcing either a monolithic server or a new
+parallel game would violate the shared, staged design.
+
+**How to apply:** preserve verified runtimes until replacement parity is
+proven; distinguish a compatible specialist experience from a second game
+foundation. Refer to the source reconciliation in
+`docs/infinite-war/MASTER-DIRECTIVE-RECONCILIATION.md` before changing
+operation adapters or retiring a runtime.

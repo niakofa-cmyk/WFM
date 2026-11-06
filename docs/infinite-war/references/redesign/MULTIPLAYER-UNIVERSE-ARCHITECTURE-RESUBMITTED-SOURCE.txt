@@ -1,0 +1,1072 @@
+# War for Mars: Infinite War — Multiplayer Universe Architecture & Development Assessment
+
+What you're describing is considerably bigger than adding multiplayer to War for Mars. You're describing an interconnected multiplayer gaming universe in which multiple independent competitive games, live battles, space stations, operations, and player communities exist inside one persistent, explorable universe.
+
+I think this is the right direction for the evolution of War for Mars.
+
+The important distinction is that we should not build several disconnected multiplayer games and put them behind a menu. We should build one overarching multiplayer universe that hosts multiple playable experiences as locations, activities, and operations within that universe.
+
+Your asteroid example is particularly important because it establishes a new design principle:
+
+The universe itself becomes a living multiplayer game lobby.
+
+A player flying through space should be able to discover another group of players engaged in a competitive match, see the battle happening, approach the location, observe it, and eventually join or enter the competition.
+
+That is a much more ambitious experience than conventional matchmaking.
+
+## 1. The overarching concept
+
+[Chorus Game Review · Cinematic space combat](https://images.openai.com/static-rsc-4/EukiiLe6YenFvsRrwKWNnOL7i--ykmX5zUxGWqSwQ13Yv8UpWGPE_7knR4U753Jmh3GT2bD7n0PZo6ByX8y9PEVXMjMnY6sqNkG8i6PCW6HcFPeNzw9bpAJ7NT9IsfetsrHz3FFUpk0t12oxhBJDjKS8WwkPBsmMyM6WS0e0QRc?purpose=inline)
+
+[New Game from Hamburg: Deep Silver FISHLABS release CHORUS today | Gamecity Hamburg](https://images.openai.com/static-rsc-4/WOMQ47fSVyWFA_nSWm8Ag1_TvHkototthcCwdcy2me1fGMZ3tLysq6UXKhDxv42-zVVWfOGljn1aUkRPLo0uBzWN3HLn9_mi-fdcTMRwEoIC0I4NHVFBM0MhY3TXXna9YEeX9z9ZJ6aj23FgUReY-hoPjHQOQCvzhlspW-UiZIo?purpose=inline)
+
+[Starminer on Steam](https://images.openai.com/static-rsc-4/CzVZpqz7tm1QaofSKafpasDS6S_V72O1dl3-pj4FO-h-lvFxzoMDMpEcl4ZXkAItctnxmfNb7dlAUQ2DeOyqLugEQadlTm-o3H1fYoNbbeaodXaOEY05vwZTS9B-xjWujqBunuKyndkDfAzGWXnUbp28FR1L7EWY8Gj-2pGTsYc?purpose=inline)
+
+13
+
+# WAR FOR MARS: INFINITE WAR
+
+## One universe. Multiple battle systems. One connected multiplayer ecosystem.
+
+The universe contains:
+
+- A persistent open-world space environment.
+- Independently operating multiplayer battle arenas.
+- Asteroid-based competitive operations.
+- Orbital combat stations.
+- Cooperative missions and Wing operations.
+- Legacy flight simulation competitions.
+- Campaigns, arcade experiences, and exploration.
+- Live events visible to other players traveling through the universe.
+
+I would establish five architectural principles:
+
+1. One universe: Every experience belongs to the same overarching world.
+2. Multiple game engines: Different experiences can retain their own specialized simulation and gameplay runtimes.
+3. Shared identity: Players, progression, competition records, rewards, and matchmaking identities are connected.
+4. Live world visibility: Activities generate observable events in the universe.
+5. Independent scalability: A competitive match can operate independently without destabilizing the open-world simulation.
+
+## 2. What the actual WFM repository has established
+
+I inspected the GitHub development history, the latest orbital integration, the architecture assessment, the master development directive, and the feature integration matrix.
+
+There has been meaningful progress.
+
+PR #11 merged into staging — November 4, 2026
+
+The important development is [PR #11 — Integrate Infinite War orbital combat foundation](https://github.com/niakofa-cmyk/WFM/pull/11?utm_source=chatgpt.com).
+
+The integration selectively brought the orbital combat foundation into the newer staging architecture.
+
+### What is actually implemented
+
+| System                                  | Current assessment                     |
+| --------------------------------------- | -------------------------------------- |
+| Orbital Combat Lab                      | Implemented as offline 3D training     |
+| Six-axis orbital flight                 | Implemented                            |
+| Target acquisition and missile combat   | Implemented                            |
+| Shared deterministic simulation package | Implemented                            |
+| Server-side orbital authority harness   | Implemented for testing                |
+| Campaign Contact orbital integration    | Implemented as a versioned replay path |
+| Rust Disc                               | Retained                               |
+| Mars Approach and Pale Beacons          | Retained                               |
+| Iron Eclipse cooperative operations     | Retained                               |
+| Existing authenticated 5v5 Wing         | Retained separately                    |
+| Existing progression and reward ledger  | Retained                               |
+
+The most important accomplishment is that the new orbital simulation has begun entering the existing game without destroying its established infrastructure.
+
+For example:
+
+- The shared `lib/orbital-sim` package provides common flight and weapons rules.
+- The API can validate versioned orbital inputs.
+- The server-side authority harness tests ten synthetic seats, five USSF and five Accord.
+- Campaign Contact can use `orbital-v1` for capable clients.
+- Older clients and other campaign missions retain `surface-v1`.
+- Winning Contact can unlock Pale Beacons through existing server-owned progression.
+
+These are genuine architectural steps, not merely proposed designs.
+
+### What is not implemented yet
+
+Major multiplayer integration still outstanding
+
+The repository's own architecture assessment makes an important distinction:
+
+The new orbital combat engine is not yet the live multiplayer engine for the entire universe.
+
+The following systems remain distinct:
+
+1. Orbital Combat Lab: offline training.
+2. Rust Disc: its existing flight and exploration runtime.
+3. Campaign: server-issued runs and replay validation.
+4. Cooperative sectors: authenticated multiplayer socket operations.
+5. Online Wing: its existing competitive 5v5 planar combat system.
+
+The ten-seat orbital authority harness is not a ten-human multiplayer server. It does not yet establish authenticated players controlling ships together in the new 3D orbital environment.
+
+This is precisely where your new asteroid-based multiplayer concept should enter the development plan.
+
+The architecture must progress from a collection of working systems toward a shared universe that can host and display independently operating multiplayer experiences.
+
+## 3. The new system: Orbital Multiplayer Operations
+
+I recommend introducing a new foundational subsystem:
+
+# Orbital Operations Network (OON)
+
+A proposed new WFM universe subsystem
+
+This would connect the open universe to multiple competitive and cooperative game experiences.
+
+[STAR CONFLICT — MMO SPACE ACTION - Wallpapers](https://images.openai.com/static-rsc-4/jdhN5aGaJ3avUyFOoG2L-GsKzhZlidfsdetoA_TCfzW00dKN-6D2xqa6SU4A_u8bXcaKI0wOx8E7S1dv10RqZep4BtjvyQY83fvHcOrZ_6WoSn4-5dCPVO9Zd9RvrbgFf1qaXrZYM5iJj_YALVMl6HLLvEbYp-c8irftY5VMEkk?purpose=inline)
+
+[Aries Orbital Station 1 Building / Landmark in The Aries Program | World Anvil](https://images.openai.com/static-rsc-4/BKF3KSWimDEF2EANI_PRl8qJg8aU1NqMY6QIxpChL_tlUoN37BIdVI-zyeNrso6FkD_j_cwpLJz-s8Ff7CuK_WC7_mkA5-ar9ZkkJle07frxbIORUYHfZG0jjVNVYsv4ES87UwXeWvxbhTdkepnrBqZRiM2sPqDhi_1Tpha8oVs?purpose=inline)
+
+[NYX: путеводитель по системе](https://images.openai.com/static-rsc-4/cgtzkFez72lVd1qyD0DVAHTQ2BmP4pGeTkUB9g66rhDs_RxyIOMg5RuWYOydskwqF0-Xor9hlxutP2XK9aElyLt8NUS_3JvZrXqQ3xVkG-fayCeOnl0fyV-N9Pw76ph-4tLwQFiRuEA72Fs6IHfBLRwWcMcjFhFX3tnjDJY6aMY?purpose=inline)
+
+[Alpha 4.8 - Promote Your Organization! - Star Citizen Spectrum](https://images.openai.com/static-rsc-4/edIj3B2Y8vvkL61MW8Ubbhx-psecJ9SXAML6a8XmLmC-WylYfV9FesehVyxO0qyn3aVTnJe4-6lBkz2Rz7efY0f6wm4NwWgGC9z0KHZEUzjDa0tr_DRx0-QUh51u4lTqV8H7p7C9jv99t9wxqBtVKPGiWilRXP4hQduvj47_-3Y?purpose=inline)
+
+[Infinite Lagrange: Epische Weltraumschlachten wie im Kino – Auf dem Handy](https://images.openai.com/static-rsc-4/prGKJoNljeNLYgN3dj_vzAZa5tgcGZjxYDzcic5bQ7JsJ1wU6TQ0wg4fhFzFPrNKn1JhcQIkBP3m7ZDUVl7lsT3vi1rDq3yroJZcqWdFbqfTTrROSiz1XXwWNEzqe6OHnHXPPxQ63e-dCNFO0LgGcXWVEWrLsLh8GUGaRsJxNd0?purpose=inline)
+
+[Space Engineers: Sparks of th… — 65% off PS4 PS5 | Best price | PSprices](https://images.openai.com/static-rsc-4/FbUVKnKwt_79S3Y_fjncdRIJ8HR7-fq43I-bzx7HjIq3SaiAV9J2IPXGz-Yf0-xwb1dx5t2PTS8mKvN_mvn87kvzN-JiqeTDwUmj9iOZlhQ7Fw4P-fkhoBRa_-mUF97iBiTl_mAtmsxjRR9ZxQSRzNJn92CmXxW-moVSC5Ycu4U?purpose=inline)
+
+[DRONE SWARM | stillalive studios](https://images.openai.com/static-rsc-4/0sXug-UDzCvp1imCP8T5Fwm6czjbNm5DtqA1ZsoxO1d5YNS4iA5-SHDnxpI6f4rejgozvQPXJFcIAuCRYlPUBlgh4S1vdTnJHLKIUhax39olvRM1eJ2HMzSq4xgyjNLrVLa9Bue8ziYLgTH78KHDUgU68fs0fitg86UlG-719UY?purpose=inline)
+
+[Download GrimHEX (Star Citizen) Space Video Game Star Citizen 4k Ultra HD Wallpaper by DesoShow | 3840x2160 | Wallpaper Abyss](https://images.openai.com/static-rsc-4/Tu0yRyt_20ATMdhovhbR0h04eVcQEHoE0mLqv1ZimXaR0Stk17-YKmefS8J5pLgL2_4uXRTAmUoBChg-KHSAn9mzyPtt8HjLlIDOd54BctMT-XMa_0PbGowt_szRCRbjUEKjruFxx6I0dPmRGx0sXDnbKrEOr4CM407iWWdlKq8?purpose=inline)
+
+[Starborne: Frontiers on Steam](https://images.openai.com/static-rsc-4/HpAIcVnbIA3wdZcU9O0q-LcUph2ls4EzLxT9eA80fZbC67H4UmbFfPGyO21J-3iePtEKiPUNQCuER4jLJ7KP_CcJyqnRLu3cgrMbDLYS314qxHpP6fH4070m3a5gJ2Hj9COwxbuXJ_IzrV6XPHBQ1GBXR7P2LPdkvlnNbVR_NPg?purpose=inline)
+
+[The ultimate Elite Dangerous starter guide 2024, made by veteran players | Just Elite Dangerous](https://images.openai.com/static-rsc-4/N6V7BXD_NhdcuTNWgNvKmIsfykRLxc8doO1N8FaA1eG3aTRbeDOS_twEeifOPzFmf8D0wAlBVAVgz05Monb41JKXVuU7-Li--acBPuATj_t_tIaC6Z_5_bwDoQhIHSBLuhqMGhW7ZQTwWgtWa1mjXSWHXCB0GoHHYlaYGqWCPGI?purpose=inline)
+
+Think about what happens when a player approaches an asteroid.
+
+They aren't simply approaching a static rock.
+
+They are approaching a location hosting an active multiplayer operation.
+
+That asteroid has:
+
+- Its own geographical location within a universe sector.
+- An operational identity.
+- An active multiplayer match or event.
+- A live player roster.
+- A spectator environment.
+- An entry and exit system.
+- Its own rules, objectives, and match duration.
+- A connection to the larger universe.
+
+The same infrastructure can support multiple types of destinations.
+
+### The different multiplayer destinations
+
+[Star Citizen: A Space Trade/Combat Game, Now With a Gigantic Floating City - autoevolution](https://images.openai.com/static-rsc-4/HWnB7yVcMoAdej0UIJXRCJ0JrozU5huJARywH2G5S3AcfwjpaOiq9u1g_uy-_aR7o83TVA37FFBf2iSkK_uP-oCdqU9opU32uA4lBXCO1CDBZumKCRPdVJ6xwyqTVOMXm6Uay4gkfAY11S6X5SRe7DooEmrQOt9QaCnpE2txYT4?purpose=inline)
+
+1\. Asteroid Combat Arenas
+
+Competitive dogfighting, team battles, elimination matches, and tournaments. Players can fly to an asteroid, dock, and enter a match.
+
+[Star Wars: The Old Republic reveals Onslaught expansion](https://images.openai.com/static-rsc-4/4UR16e8mA8DZjgETRvtvmrNS-pKQ53iMWG6FewjlcSXvFR3crNgGuvITyMcn4m6T4vm4PJIBUkIB28gevbHj57dZtSZRX-ji4KiQsB5J0AMJblaBpAa6M9cCGRnd4r45VCkVH-NE2HuivgspCwEkyUzcEeqk8wr_yfy1sb4Dvuw?purpose=inline)
+
+2\. Orbital Combat Stations
+
+Permanent multiplayer destinations containing matchmaking, training, team selection, ship preparation, and competitive leagues.
+
+[The Invasion Is Coming – May 28th | EVE Online](https://images.openai.com/static-rsc-4/Qr-3iNcn7QAoz6ZPWuucY46GtS6hJO75HU1WOwXg7g8MaDldg-MrfWzuLvowZZvF2kOqMm_r1zcrcKi6-wTU3o-XMmcOMkFxv5Uhv08UyDjaIurROLCBIizAuq24Y6kG4yPMJyiaHRuPt3oxO0yWSyVU2IKRceryk1P5oCWE5XA?purpose=inline)
+
+3\. Cooperative Operations
+
+Players join together to attack capital ships, defend installations, escort fleets, and complete large-scale objectives.
+
+[PlinkPlay - Swipe. Play. Discover.](https://images.openai.com/static-rsc-4/sNUQjQDc_XYdGP5NNK2Tig1PmjRfl_HZGW90Z6ZVh44MeSXALSWb9-AVl8h-oc0c0P12JN-IeYAhx8rHMFlIDwZEgzJodtf-7B4AUnqE5BKOlmeje70USes6J-jVW49giruNdJKPZ7jojsKiC6D_dbiGyt-82VkIp9ZxlNtWQS0?purpose=inline)
+
+4\. Space Racing and Flight Challenges
+
+Time trials, team races, navigation competitions, obstacle courses, and flight-simulation tournaments.
+
+[Nebulous Fleet Command Game Customer Remake | Recreate a Playable Game Prototype with AI | SEELE AI](https://images.openai.com/static-rsc-4/n6xveHnCAslxjtxj_4NOntihQjVv6bCHxDmksxz-puWJKWCvRpMM2QWmPvwXnxwK2Eq48h7cnIXLN2Q6lBq1QNm6qckW_JKQc-DrGrIBhGvum3iKRxFueFoZ6_RXw1JqK3-t421PfidXHtKnulCjgp7jsHvOfX154IIhWTY6mOk?purpose=inline)
+
+5\. Live Galactic Events
+
+Temporary battles, faction invasions, fleet encounters, special operations, and universe-wide competitive events.
+
+The key is that these are not necessarily five different game engines.
+
+They are five types of operation that can use shared multiplayer infrastructure while retaining specialized gameplay rules.
+
+## 4. How the asteroid multiplayer experience should actually work
+
+This is the most important part of your vision.
+
+[Star Conflict on Steam](https://images.openai.com/static-rsc-4/fz2jaxy3oa3SoQJBkUErGsC6jFc3_jTtI3_PKzVJoP1DF3G6Ct6Of40RK8xYX1aZ3xXAapKEPhCf_ZnwP-pdzeqkDkjIc7nX9xILdCPz83fPmzCTveLeKrvofogp8cLsQpW7W4lV-DKtUKS2bYDaVxSa6xZT3eP9mEeVwi4DG1M?purpose=inline)
+
+[store.steampowered.com](https://store.steampowered.com/app/212070/Star_Conflict/?utm_source=chatgpt.com)
+
+Imagine this gameplay sequence.
+
+### Scenario: A player discovers an active asteroid competition
+
+1. Universe exploration
+
+   A player is flying through a 3D sector toward Phobos Yard. Their navigation system identifies an asteroid containing an active USSF-versus-Accord competition.
+2. Live battle visibility
+
+   As the player approaches, they can see spacecraft moving around the asteroid, firing weapons, launching missiles, and engaging opposing teams.
+
+   The battle is not a prerecorded animation. It is a visual representation of an actual active multiplayer session.
+3. Approach and observe
+
+   The player can fly closer, inspect the battle, see its status, and select an available spectator or participation opportunity.
+4. Enter the asteroid
+
+   The player flies toward an entrance, docking structure, or designated deployment corridor.
+
+   The game transitions them into the asteroid's competitive operation instance.
+5. Join the competition
+
+   If eligible and a seat is available, the player enters the appropriate team lobby, receives a server-authorized assignment, and joins the actual match.
+6. Complete the competition
+
+   The match has its own objectives, combat simulation, authoritative server, results, and eligible progression.
+7. Return to the universe
+
+   The player returns to the asteroid or nearby space, and the operation's visible status updates to reflect its actual completion.
+
+This should work in reverse too: players already competing should be able to see the surrounding universe and, where the game mode allows, see other spacecraft approaching their asteroid.
+
+### The technical secret: two connected simulation layers
+
+We should not attempt to render every bullet, projectile, and movement calculation from every multiplayer match to every player in the galaxy.
+
+That would become unnecessarily expensive.
+
+Instead, build two connected layers.
+
+## Layer A — Persistent Universe Simulation
+
+[Outworld Station on Steam](https://images.openai.com/static-rsc-4/jnQEaZOwtZyxxtEiwY3t5XOnF5M_f8oZ1ivRfwCmEEBIWQchrYJ2LHdxo0FHPmBiTsI4UEKZUZ17A2F9kE0YFdVycTddbM7LooAdxoK13KucPSG38EC30OUKSzrPYdBgDFqH_FzNVsQmh2-oyyfGjjJEmyZve4P_fdXesy9A6OY?purpose=inline)
+
+[store.steampowered.com](https://store.steampowered.com/app/3242950/Outworld_Station/?utm_source=chatgpt.com)
+
+This layer manages:
+
+- Locations and destinations.
+- Player travel and presence.
+- Asteroid and station locations.
+- Active operation discovery.
+- Nearby spacecraft and event visibility.
+- Universe navigation and transitions.
+  ## Layer B — Multiplayer Operation Instances
+  [New Game from Hamburg: Deep Silver FISHLABS release CHORUS today | Gamecity Hamburg](https://images.openai.com/static-rsc-4/WOMQ47fSVyWFA_nSWm8Ag1_TvHkototthcCwdcy2me1fGMZ3tLysq6UXKhDxv42-zVVWfOGljn1aUkRPLo0uBzWN3HLn9_mi-fdcTMRwEoIC0I4NHVFBM0MhY3TXXna9YEeX9z9ZJ6aj23FgUReY-hoPjHQOQCvzhlspW-UiZIo?purpose=inline)
+
+  [gamecity-hamburg.de](https://gamecity-hamburg.de/news/new-game-from-hamburg-deep-silver-fishlabs-release-chorus-today/?utm_source=chatgpt.com)
+
+  Each operation manages:
+- Actual authenticated participants.
+- Team assignments and matchmaking.
+- Real-time flight and weapons simulation.
+- Damage, objectives, and destruction.
+- Spectator permissions.
+- Reconnection and session recovery.
+- Server-validated outcomes.
+
+The connection between these layers is a new Live Operation Directory and Event Streaming System.
+
+It publishes information about active operations to the surrounding universe.
+
+For example:
+
+| Information        | What the passing player sees       |
+| ------------------ | ---------------------------------- |
+| Operation location | Asteroid 07                        |
+| Operation status   | Active                             |
+| Competition        | USSF vs Accord                     |
+| Players            | Actual connected participant count |
+| Battle             | Animated spacecraft and combat     |
+| Match time         | Actual elapsed match time          |
+| Spectating         | Available                          |
+| Joining            | Open, full, or restricted          |
+
+The critical distinction is that the outer universe receives a lightweight, server-generated representation of the actual battle. The operation server remains responsible for the real combat.
+
+This gives you the visual experience of a living universe without requiring every universe player to simulate every other player's full combat state.
+
+### Three levels of battle visibility
+
+I would make this a formal system:
+
+- Galaxy visibility: An operation marker identifies an active event.
+- Local visibility: Approaching players receive interpolated spacecraft positions, combat effects, and live event status.
+- Spectator visibility: Authorized observers receive a more detailed, read-only representation of the match.
+
+Players should not receive hidden opponent information, unrevealed tactical data, or unrestricted competitive information through spectator subscriptions.
+
+## 5. The architecture I recommend building
+
+The following is the proposed architecture, not a claim that these services already exist.
+
+[Actualités Aleryos : mises à jour et événements | Aleryos](https://images.openai.com/static-rsc-4/6z6flkIbubZVr0V4mkIRm4dkJYoVp28SULDIJR7W4tyKmFmHhQ2uPQoompcqLl1f_ZARkGPKLHEdknRdDqa8S8R7J49UJeElc8JS4dTe87cmcr0be6_QY8--L8l7OXENfTsFO4DkihxHthpi4CEbye1ou5nFMXdSZlpvpBAEN18?purpose=inline)
+
+[aleryos.com](https://aleryos.com/fr/annonces?utm_source=chatgpt.com)
+
+```
+           WAR FOR MARS: INFINITE WAR
+                     |
+              UNIVERSE CORE
+                     |
+        +------------+------------+
+        |            |            |
+     Galaxy       Player       Location
+     Systems      Presence     Management
+        |            |            |
+        +------------+------------+
+                     |
+          LIVE OPERATION DIRECTORY
+                     |
+          UNIVERSE EVENT STREAMING
+                     |
+        +------------+------------+
+        |            |            |
+     ASTEROID     ORBITAL       TEMPORARY
+     ARENAS       STATIONS      EVENTS
+        |            |            |
+        +------------+------------+
+                     |
+          MULTIPLAYER SESSION
+              ORCHESTRATOR
+                     |
+        +------------+------------+
+        |            |            |
+     MATCHMAKING  AUTHORITY    SPECTATOR
+                  SERVER       SERVICE
+        |            |            |
+        +------------+------------+
+                     |
+             GAME EXPERIENCES
+                     |
+       +-------------+-------------+
+       |             |             |
+    RUST DISC     ARCADE       CAMPAIGN
+       |             |             |
+       +-------------+-------------+
+                     |
+              COOPERATIVE
+                     |
+                WING 5v5
+                     |
+          SHARED PROGRESSION
+                     |
+          EXISTING DATABASE
+```
+
+There are six systems I would prioritize developing.
+
+| System                 | Responsibility                                             |
+| ---------------------- | ---------------------------------------------------------- |
+| Universe Presence      | Knows which players are in which sectors                   |
+| Operation Directory    | Knows which multiplayer activities exist and where         |
+| Instance Orchestrator  | Creates, manages, and closes match instances               |
+| Spectator/Event Stream | Publishes actual live battle representations               |
+| Operation Adapter      | Connects different game modes and simulation engines       |
+| Shared Progression     | Connects eligible results to existing accounts and records |
+
+One important architectural decision: the Instance Orchestrator should be able to run several different gameplay experiences simultaneously.
+
+For example:
+
+- Asteroid A: 10-player competitive dogfight.
+- Asteroid B: 4-player cooperative capital-ship mission.
+- Orbital Station C: flight simulation tournament.
+- Asteroid D: 5v5 competitive Wing.
+- Temporary Event E: faction invasion.
+
+All five activities could exist simultaneously without requiring one server process to simulate every match.
+
+This is how we build an expandable multiplayer universe instead of one oversized multiplayer room.
+
+## 6. How to preserve your existing engines and migrate the games
+
+I agree with keeping the original flight simulation available as a separate experience.
+
+In fact, I recommend that we distinguish three things:
+
+- The overarching universe platform.
+- The canonical orbital combat simulation.
+- Specialized legacy game experiences.
+
+They should communicate through explicit interfaces rather than being forced into one simulation implementation.
+
+The original Rust Disc flight simulation can remain a specialized competitive or training experience inside the new universe. The player does not have to abandon its existing gameplay to enter the larger Infinite War.
+
+Recommended migration sequence
+
+Staged migration
+
+1. Rust Disc integration
+
+   Introduce the canonical orbital combat foundation through a compatibility adapter. Preserve the original flight runtime as a fallback and retain its separate gameplay identity.
+2. Remaining Arcade and Campaign modes
+
+   Migrate one operation at a time. Use versioned simulation rules, preserve mission objectives, and validate replay and progression parity.
+3. Cooperative multiplayer
+
+   Connect the new combat foundation to Rust Disc's existing server-authoritative cooperative sectors and Iron Eclipse. Preserve squadron AI, commands, objectives, authentication, and discovery settlement.
+4. Competitive Wing
+
+   Migrate the existing planar 5v5 competitive system to the new 3D orbital protocol through a coordinated client/API/socket rollout.
+
+   Preserve ten distinct authenticated humans, team balance, reconnect, competitive eligibility, and the existing reward ledger.
+5. Orbital Operations Network
+
+   Connect the migrated experiences to asteroid destinations, live operation discovery, spectator visibility, and instance orchestration.
+6. Expansion
+
+   Introduce tournaments, multiple simultaneous arenas, larger fleet battles, faction events, and synchronized universe-wide operations.
+
+I would establish the operation directory and its location/event contracts early, then activate each game experience through it as that experience becomes genuinely multiplayer-capable. That prevents us from building several unrelated systems and trying to connect them afterward.
+
+## 7. The important gaps we need AI to solve
+
+After inspecting the existing implementation, I see several concrete gaps between today's architecture and your proposed multiplayer universe.
+
+| Capability                  | Existing foundation                             | Required development                            |
+| --------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| 3D orbital flight           | Combat Lab                                      | Live authenticated multiplayer                  |
+| Asteroid destinations       | Existing world locations and spatial simulation | Physical, navigable multiplayer arena locations |
+| Active match discovery      | Existing world API                              | Live operation directory                        |
+| Nearby battle visibility    | Existing 3D renderer                            | Observer-safe live event rendering              |
+| Spectator mode              | Not established for orbital combat              | Read-only spectator protocol                    |
+| Match entry                 | Existing Wing and co-op sessions                | Universe-to-instance handoff                    |
+| Multiple simultaneous games | Separate modes and rooms                        | Shared operation orchestration                  |
+| Persistent consequences     | Existing progression and world state            | Validated operation-to-universe updates         |
+
+### Three problems deserve particular attention
+
+1\. The universe is not yet a live multiplayer environment.
+
+The current `world.ts` provides locations, travel, discoveries, and other account-backed world information. `GalaxyScreen.tsx` refreshes its world snapshot periodically.
+
+That is useful groundwork, but it is not an event-streaming system that lets you see actual multiplayer battles occurring at distant locations.
+
+2\. The new orbital authority needs a real multiplayer connection.
+
+`orbital-authority.ts` is currently an isolated server testing harness. It must eventually become part of an authenticated, session-managed multiplayer architecture.
+
+It must not simply be exposed as a public socket endpoint.
+
+3\. The games need a common integration contract.
+
+This is arguably the biggest architectural challenge.
+
+We need every game experience to communicate with the universe without requiring every experience to have identical physics, controls, or gameplay.
+
+For example, Rust Disc can preserve its specialized flight simulation while an asteroid dogfight uses the newer orbital combat simulation.
+
+Both should understand:
+
+- Who the player is.
+- Which universe location they occupy.
+- Which operation they are entering.
+- Which ship and loadout they have.
+- How their match is authorized.
+- How the result is validated.
+- How they return to the universe.
+
+This is what the proposed Operation Adapter solves.
+
+### One important release distinction
+
+PR #11 has merged into `staging`, but that does not mean the entire new game has been promoted to Production.
+
+[The staging-to-main promotion PR #1](https://github.com/niakofa-cmyk/WFM/pull/1?utm_source=chatgpt.com) remains open. Its documented live staging evidence requirements are still outstanding, and no Production promotion was attempted.
+
+Also, the structural rebuild roadmap contains an outdated checkpoint describing PR #11 as open. That documentation should be corrected.
+
+I recommend continuing on the established staging path rather than creating another competing foundation.
+
+## 8. The master AI development prompt
+
+This is the prompt I would give the development AI.
+
+It is intentionally more demanding than a conventional feature request. It instructs the AI to act as a principal multiplayer architect, game-engine engineer, network engineer, and forensic software auditor.
+
+It also explicitly prevents the AI from taking shortcuts such as building a visual mockup and claiming that real multiplayer has been implemented.
+
+Recommended development directive
+
+# MASTER DEVELOPMENT DIRECTIVE
+
+# WAR FOR MARS: INFINITE WAR
+
+## THE CONNECTED MULTIPLAYER UNIVERSE, ORBITAL OPERATIONS NETWORK & ASTEROID BATTLE SYSTEM
+
+**Repository:** [https://github.com/niakofa-cmyk/WFM](https://github.com/niakofa-cmyk/WFM)
+
+**Primary product:** WAR FOR MARS: INFINITE WAR
+
+**Development foundation:** The established Orbital Combat Lab and the existing custom Three.js/Vite runtime.
+
+**Primary directive:** Transform War for Mars into one interconnected, expandable multiplayer universe capable of hosting multiple independent competitive, cooperative, campaign, arcade, and flight-simulation experiences within one shared universe.
+
+---
+
+# 1. UNDERSTAND THE COMPLETE VISION BEFORE WRITING CODE
+
+You are not being asked to add another game mode, another menu, another isolated arena, or another multiplayer lobby.
+
+You are being asked to architect and implement an overarching multiplayer universe.
+
+The universe must become the central game environment through which players discover, approach, enter, participate in, observe, and leave multiple independently operating multiplayer experiences.
+
+The defining product principle is:
+
+**THE UNIVERSE IS THE BATTLEFIELD. EVERY COMPETITIVE ENGAGEMENT IS AN OPERATION WITHIN THE LARGER WAR. EVERY OPERATION CAN HAVE CONSEQUENCES FOR THE UNIVERSE.**
+
+The player must experience one connected game, not a collection of disconnected game commands.
+
+Before implementation, inspect and understand:
+
+- The complete Infinite War blueprint.
+- The Master Development Directive.
+- The Structural Rebuild Roadmap.
+- The existing Orbital Combat Lab.
+- The shared orbital simulation package.
+- Rust Disc and its original flight simulation.
+- The remaining Arcade and Campaign modes.
+- Cooperative sectors and Operation Iron Eclipse.
+- Existing 5v5 Online Wing matchmaking.
+- Clerk authentication and account ownership.
+- Existing socket authentication and reconnect protocols.
+- World, Galaxy, travel, progression, inventory, and economy systems.
+- Railway deployment architecture and staging safeguards.
+- All existing automated tests and release evidence.
+
+Read the actual implementation. Do not infer capabilities from documentation alone.
+
+Establish the exact current staging commit and distinguish implemented, partially implemented, simulated, locally tested, staging-verified, and Production-verified functionality.
+
+# 2. BUILD THE ORBITAL OPERATIONS NETWORK
+
+Create a foundational subsystem named:
+
+**ORBITAL OPERATIONS NETWORK (OON)**
+
+This is the infrastructure that connects multiplayer activities to the larger universe.
+
+It must support:
+
+1. Asteroid-based competitive arenas.
+2. Permanent orbital multiplayer stations.
+3. Cooperative mission destinations.
+4. Flight-simulation competitions.
+5. Arcade and campaign operations.
+6. Temporary multiplayer events.
+7. Faction battles and fleet engagements.
+8. Future tournaments and large-scale multiplayer experiences.
+
+Every operation must have a defined identity, location, ruleset, lifecycle, player capacity, visibility policy, and server-authoritative session.
+
+Develop an explicit operation contract that can support different game engines and simulation runtimes.
+
+Evaluate and define the appropriate interfaces for:
+
+- OperationDefinition.
+- OperationInstance.
+- UniverseLocation.
+- UniverseEvent.
+- PlayerPresence.
+- MatchAssignment.
+- SpectatorSession.
+- JoinAuthorization.
+- OperationResult.
+
+Do not create duplicate player identity, account, inventory, progression, or reward systems.
+
+Reuse existing authoritative services and database contracts wherever possible.
+
+# 3. BUILD THE ASTEROID MULTIPLAYER EXPERIENCE
+
+This is a primary gameplay requirement.
+
+Create actual asteroid destinations within the 3D universe.
+
+These asteroids must be physical locations that players can navigate toward and approach.
+
+Each designated asteroid may host one or more multiplayer operations.
+
+The player must be able to:
+
+1. Discover the asteroid while exploring.
+2. See its location and operational status.
+3. Navigate toward it using real 3D flight.
+4. Observe actual battles happening around it.
+5. Approach the combat area.
+6. Inspect available competitions.
+7. Enter a spectator experience.
+8. Dock or enter a designated operation entrance.
+9. Join a match when authorized and eligible.
+10. Complete the competition.
+11. Return to the larger universe.
+
+Implement the asteroid as a real navigable universe destination, not a static background image or disconnected menu button.
+
+Use original WFM environments and the established procedural orbital assets where appropriate.
+
+# 4. IMPLEMENT LIVE MULTIPLAYER EVENT VISIBILITY
+
+One of the most important requirements is that players must be able to SEE actual multiplayer battles occurring elsewhere in the universe.
+
+For example:
+
+A player is flying through an asteroid field.
+
+An asteroid nearby is hosting an active USSF-versus-Accord competition.
+
+The player should see actual participating spacecraft moving, turning, accelerating, firing weapons, launching missiles, taking damage, and being destroyed.
+
+The visible event must reflect a genuine active multiplayer session.
+
+Implement three visibility levels:
+
+**LEVEL 1 — GALAXY DISCOVERY**
+
+Display active operations, destinations, faction involvement, and availability.
+
+**LEVEL 2 — LOCAL EVENT RENDERING**
+
+As players approach an active operation, subscribe them to an appropriate interest-managed event stream.
+
+Render observer-safe spacecraft proxies, movement, combat effects, and actual event status.
+
+Use interpolation and bounded update frequencies. Do not replicate unnecessary full combat state to every universe player.
+
+**LEVEL 3 — SPECTATOR EXPERIENCE**
+
+Provide an authorized read-only spectator session.
+
+Support appropriate camera perspectives, team observation, match status, and event progression.
+
+Prevent spectator connections from exposing hidden tactical information, unrevealed opponent state, private player information, or competitive advantages.
+
+The spectator system must never grant control over an active competitive participant.
+
+Most importantly, do not create prerecorded animations or simulated player activity and represent them as live users.
+
+Development fixtures must be explicitly identified as test fixtures.
+
+# 5. BUILD A REAL MULTI-INSTANCE MULTIPLAYER ARCHITECTURE
+
+The universe must support multiple independently operating multiplayer sessions.
+
+Do not attempt to put every player and every match inside one enormous simulation process.
+
+Implement a bounded, scalable instance architecture.
+
+Evaluate:
+
+- Session orchestration.
+- Matchmaking.
+- Room creation and lifecycle.
+- Region and server allocation.
+- Authenticated player admission.
+- Team assignment.
+- Live state replication.
+- Interest management.
+- Reconnection and session recovery.
+- Spectator subscriptions.
+- Match completion and cleanup.
+- Server health and capacity management.
+
+Inspect the existing Railway deployment topology before selecting an implementation.
+
+Do not introduce Redis, a new database, a new authentication provider, or additional infrastructure without demonstrating why the existing architecture cannot safely support the requirement.
+
+The architecture should allow:
+
+Asteroid A — competitive 5v5.
+
+Asteroid B — cooperative capital-ship operation.
+
+Orbital Station C — flight-simulation tournament.
+
+Asteroid D — another competitive match.
+
+Temporary Event E — faction invasion.
+
+All should be capable of operating independently while sharing the same overarching universe identity and operation directory.
+
+# 6. PRESERVE SPECIALIZED GAME ENGINES
+
+Do not destroy the original Rust Disc flight simulation.
+
+The objective is to integrate its experience into the new Infinite War architecture, not unnecessarily erase its identity or working mechanics.
+
+Establish a compatibility adapter between the universe operation system and the legacy flight simulation.
+
+The legacy experience must remain accessible as a specialized side experience or independent operation.
+
+Keep the newer Orbital Combat Lab as the evolving canonical orbital combat foundation.
+
+Where simulation migration is appropriate, use versioned rules and prove client/server parity.
+
+Where preserving an independent simulation is safer, preserve it.
+
+Do not force different game experiences into identical physics or controls simply to claim they share an engine.
+
+One universe does not require one monolithic simulation.
+
+# 7. FOLLOW THE REQUIRED MIGRATION SEQUENCE
+
+Execute the migration in this order.
+
+**STAGE A — RUST DISC**
+
+- Audit both the original local Rust Disc trainer and the authenticated cooperative Rust Disc sector.
+- Explicitly distinguish the two.
+- Identify all existing gameplay, flight, weapons, collision, mission, and progression behavior.
+- Connect the local flight experience to the new orbital foundation through a compatibility adapter.
+- Preserve the legacy runtime as a fallback.
+- Verify the actual player journey and mission completion.
+
+**STAGE B — REMAINING ARCADE AND CAMPAIGN**
+
+- Inventory every existing arcade and campaign experience.
+- Migrate one experience at a time.
+- Preserve story progression, mission objectives, ship behavior, and server-issued runs.
+- Version simulation contracts.
+- Maintain legacy replay compatibility.
+- Prove server/client replay parity.
+- Preserve existing claim and idempotency safeguards.
+
+**STAGE C — LIVE COOPERATIVE MULTIPLAYER**
+
+- Connect orbital simulation to authenticated cooperative operations.
+- Preserve Rust Disc → Mars Approach → Pale Beacons.
+- Preserve Iron Eclipse.
+- Preserve squadron AI, host commands, capital-ship subsystems, extraction, and mission objectives.
+- Ensure server-owned damage and completion.
+- Preserve existing zero-credit discovery settlement unless a separately approved reward policy is introduced.
+- Verify reconnection and interruption behavior.
+
+**STAGE D — COMPETITIVE WING**
+
+Migrate the existing 5v5 competitive system into the new orbital multiplayer architecture.
+
+Preserve:
+
+- Clerk authentication.
+- Ten distinct authenticated humans.
+- Balanced USSF and Accord teams.
+- Server-authoritative flight and damage.
+- Competitive queue eligibility.
+- Reconnect and account ownership.
+- Existing reward policy.
+- Transactional and idempotent reward settlement.
+- Private-room and AI-fill restrictions.
+- Feature flags and release safeguards.
+
+Do not enable competitive orbital rewards merely because the orbital simulation works.
+
+A successful migration requires actual ten-human staging verification.
+
+**STAGE E — UNIVERSE OPERATIONS**
+
+Connect the migrated experiences to the Orbital Operations Network.
+
+Implement asteroid destinations, operation discovery, live event visibility, spectator sessions, docking, matchmaking, instance transitions, and return-to-universe functionality.
+
+**STAGE F — EXPANSION**
+
+Introduce additional simultaneous operations, tournaments, larger fleet battles, faction events, synchronized anomalies, and new universe locations.
+
+Expand based on measured server capacity and mobile performance.
+
+# 8. BUILD THE SHARED OPERATION ADAPTER
+
+Develop a common interface allowing different game experiences to communicate with the universe.
+
+Each experience must be capable of:
+
+- Receiving an authenticated player identity.
+- Receiving the selected ship and eligible loadout.
+- Receiving an authorized operation assignment.
+- Starting the appropriate simulation runtime.
+- Reporting validated operation state.
+- Producing a server-owned completion result.
+- Returning the player to the universe.
+- Updating eligible existing progression systems.
+
+Support independent simulation implementations behind versioned adapters.
+
+The universe should not need to understand every internal mechanic of every game.
+
+It needs a consistent operation lifecycle and trusted results.
+
+# 9. PROTECT SERVER AUTHORITY AND EXISTING SYSTEMS
+
+This requirement is non-negotiable.
+
+Clients may render, predict, animate, and transmit validated control inputs.
+
+Clients must never decide:
+
+- Competitive damage.
+- Ship destruction.
+- Match outcomes.
+- Mission completion.
+- Player identity.
+- Team assignment.
+- Rewards.
+- Credits.
+- Persistent faction consequences.
+
+Preserve existing authentication and session verification.
+
+Reject forged, malformed, stale, unauthorized, and replayed inputs.
+
+Prevent duplicate account ownership across simultaneous competitive seats.
+
+Maintain existing reconnect and shutdown behavior.
+
+Ensure duplicate completion requests cannot create duplicate progression or rewards.
+
+Do not weaken security checks to make a prototype appear functional.
+
+# 10. BUILD THE ACTUAL PLAYER EXPERIENCE
+
+The finished player journey should become:
+
+UNIVERSE ENTRY\
+→ HANGAR\
+→ SHIP SELECTION\
+→ FACTION\
+→ GALAXY NAVIGATION\
+→ DESTINATION DISCOVERY\
+→ APPROACH\
+→ LIVE EVENT OBSERVATION\
+→ OPERATION ENTRY\
+→ MATCHMAKING\
+→ COMPETITIVE OR COOPERATIVE GAMEPLAY\
+→ VALIDATED DEBRIEF\
+→ RETURN TO UNIVERSE\
+→ PERSISTENT PROGRESSION.
+
+The player should never feel that they have exited one disconnected application and entered another.
+
+Use the same account identity, established visual language, faction identities, and navigation structure.
+
+The game should feel like one evolving universe.
+
+# 11. REQUIRED FORENSIC AND ENGINEERING VERIFICATION
+
+Do not stop at producing architecture documents.
+
+Inspect, implement, build, test, and demonstrate the actual experience.
+
+For every development stage:
+
+1. Identify the actual source files and dependencies.
+2. Document existing behavior before changing it.
+3. Establish an implementation plan.
+4. Implement a bounded vertical slice.
+5. Run existing regression tests.
+6. Add new tests.
+7. Run workspace typecheck and builds.
+8. Verify browser behavior.
+9. Verify server authority.
+10. Verify database persistence where applicable.
+11. Verify reconnect and interruption behavior.
+12. Document actual evidence and remaining blockers.
+
+For the asteroid multiplayer prototype, demonstrate:
+
+- A real asteroid destination.
+- An active server-owned operation.
+- Multiple actual authenticated participants.
+- Real synchronized combat.
+- A nearby observer receiving live event updates.
+- Correct spectator permissions.
+- Successful operation entry.
+- Correct match completion.
+- Return to the universe.
+- No unauthorized progression or rewards.
+
+Test several independent operations simultaneously.
+
+Use synthetic participants only for clearly labeled automated tests. Never count them as proof of human multiplayer capacity.
+
+Measure network bandwidth, server tick stability, latency, reconnect behavior, memory usage, and mobile rendering performance.
+
+Do not invent performance numbers or claim untested capabilities.
+
+# 12. DEVELOPMENT AND RELEASE SAFEGUARDS
+
+Use the current staging architecture.
+
+First inspect the current staging branch, latest commit, outstanding pull requests, and existing Railway services.
+
+Keep Production untouched.
+
+Do not:
+
+- Merge directly into main.
+- Bypass required CI checks.
+- Skip staging verification.
+- Disable authentication.
+- Remove existing multiplayer safeguards.
+- Replace the database.
+- Introduce duplicate reward systems.
+- Delete working legacy game modes.
+- Claim a successful deployment is proof of successful gameplay.
+
+Implement through small, independently reviewable pull requests.
+
+Each pull request must have a defined rollback path.
+
+Update outdated architecture documentation when implementation changes.
+
+# 13. AI ENGINEERING EXPECTATIONS
+
+Operate as a principal-level game architect and engineering team.
+
+Think beyond the immediate code change.
+
+Challenge architectural assumptions. Identify missing systems. Discover integration opportunities. Evaluate alternative technical approaches. Investigate performance and scalability risks.
+
+Do not settle for the easiest superficial implementation.
+
+Do not produce another isolated prototype when the requirement is integration into the existing game.
+
+Do not mistake a menu, static animation, synthetic player, or locally simulated battle for a functioning multiplayer system.
+
+Use the repository's actual existing infrastructure as the foundation.
+
+When a feature cannot safely be completed in one stage, establish its complete architecture and implement the next independently testable vertical slice.
+
+Do not stop at saying something is difficult. Find a technically sound, measurable path to implement it.
+
+However, never bypass security, testing, release gates, or existing data protections in pursuit of speed.
+
+# 14. REQUIRED FIRST DELIVERABLE
+
+Before making broad code changes, produce:
+
+**A. Current Architecture Audit**
+
+Identify exactly what exists, what is integrated, and what remains separate.
+
+**B. Multiplayer Universe Architecture**
+
+Show how the universe, operation directory, asteroid locations, matchmaking, multiplayer instances, event streaming, and specialized game runtimes communicate.
+
+**C. Migration Matrix**
+
+Map every existing game mode to its destination, compatibility requirements, migration order, and acceptance criteria.
+
+**D. Implementation Backlog**
+
+Produce prioritized, independently reviewable development stages.
+
+**E. Risk and Safeguard Assessment**
+
+Identify every authentication, socket, persistence, progression, reward, performance, and deployment risk.
+
+**F. First Playable Implementation**
+
+After the audit, implement the smallest safe, demonstrable asteroid-operation vertical slice on a new branch based on the current staging source.
+
+The first slice should establish the operation contract, one navigable asteroid destination, and server-backed operation discovery.
+
+Do not claim live combat or multiplayer spectator functionality until actual participants and synchronized server state have been demonstrated.
+
+**G. Final Engineering Report**
+
+Report exact commit, changed files, tests, build results, browser evidence, staging status, limitations, and next development stage.
+
+---
+
+# FINAL PRODUCT REQUIREMENT
+
+We are building WAR FOR MARS: INFINITE WAR as an interconnected multiplayer universe.
+
+The asteroid is not merely a map.
+
+It is a location in the universe where an independent multiplayer game is taking place.
+
+The orbital station is not merely a menu.
+
+It is a physical destination and operational hub.
+
+The competitive match is not a disconnected activity.
+
+It is an actual event occurring inside the larger universe.
+
+The player should be able to explore the universe, discover that other players are competing, fly toward them, observe their battle, enter their operation, participate, and return to the same persistent universe.
+
+Multiple games should coexist within one connected multiplayer ecosystem.
+
+**ONE UNIVERSE. MULTIPLE GAME EXPERIENCES. SIMULTANEOUS MULTIPLAYER OPERATIONS. ONE CONNECTED WAR.**
+
+Build toward this complete vision incrementally, with actual working implementations and verifiable engineering evidence.
+
+## 9. What I would have the AI build first
+
+I would resist asking the AI to implement all six stages in one enormous change. That is how we risk breaking the very systems we have spent time establishing.
+
+Instead, I would establish the first development milestone as follows:
+
+Milestone 1 — Asteroid Operations Foundation
+
+Start here
+
+[Космос в иллюстрациях нейросети (космические шахтеры) / Константин Костин @kka. Опубликовано: 2 апр. 2026 в 10:15](https://images.openai.com/static-rsc-4/0gzCLWMHZI2exlqiJo83-HH6REkTW5l5HBo4m6-Xx6rlu1wwDixoqd_xlVgs6KxIgEOXn9PrFu2Nqd6m0HEGeXSFwLBsLsZ6IORrtCXQZ_wChDp2pSVfr9gpyIXzqYufpWDcK4JWx0ARZ7pWPPxITLXoQA4YxbT5AR53uFaew40?purpose=inline)
+
+[author.today](https://author.today/post/819233?utm_source=chatgpt.com)
+
+Deliver an actual playable universe destination with a working operation infrastructure.
+
+Acceptance criteria:
+
+- One physical asteroid destination in the navigable universe.
+- A defined operation location and identity.
+- Server-backed operation registration and lifecycle.
+- An authenticated player can approach and enter its operation area.
+- The universe can discover active operations.
+- A read-only event subscription contract exists.
+- A real operation can publish its status to the universe.
+- No duplicate authentication, database, or reward architecture.
+- Existing Rust Disc and Wing functionality remains intact.
+- Automated tests prove operation lifecycle and access boundaries.
+
+Milestone 2 — First Live Asteroid Competition
+
+Connect actual authenticated players to the orbital simulation, then demonstrate a real battle visible to another player flying nearby.
+
+Milestone 3 — Multiple Simultaneous Operations
+
+Demonstrate two or more independent multiplayer operations running concurrently, with independent session authority and universe visibility.
+
+## 10. My final recommendation
+
+I believe this concept could become one of the most distinctive parts of War for Mars.
+
+The most interesting aspect isn't necessarily the asteroid arena itself. It is the fact that multiplayer becomes part of the environment rather than something players have to leave the environment to access.
+
+Consider the future possibilities:
+
+- You fly past a space station and see a tournament underway.
+- You encounter a distress signal from a cooperative mission.
+- You discover an asteroid hosting an ongoing faction war.
+- You observe a fleet battle before deciding whether to join.
+- You see a temporary invasion developing in a neighboring sector.
+- You travel to a location where several different competitions are taking place.
+- You participate in one operation, return to space, and immediately continue exploring.
+
+That is the foundation of a living multiplayer universe.
+
+My recommendation is to retain the custom Three.js foundation, preserve the original Rust Disc simulation, and make the Orbital Operations Network the next major architectural development.
+
+One additional item: I could not retrieve the shared ChatGPT conversation from the supplied link; both the provided URL and the version without the trailing `Review` failed to load. If that conversation contains additional design decisions or screenshots, please send a corrected share link or upload its contents. I can incorporate those into the repository assessment.
+
+The most important next action is to give the development AI the master directive and have it begin with the current `staging` architecture—not create another parallel game foundation.

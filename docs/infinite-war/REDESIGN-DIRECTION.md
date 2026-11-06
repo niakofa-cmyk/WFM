@@ -19,6 +19,13 @@ target where the two sources differ: **one canonical Orbital gameplay engine**.
 It adds the detailed faction ecosystems, encounter lifecycle, meaningful
 anomaly mechanics, streaming, activity gateway and A–J acceptance programme.
 
+Five additional engine/asteroid/OON documents are now preserved and reconciled
+in the [master directive review](MASTER-DIRECTIVE-RECONCILIATION.md). They
+reinforce Orbital as the primary foundation, operation adapters for preserved
+specialist experiences, and true server-backed battle visibility. The later
+multiplayer-architecture upload repeats the already archived source verbatim;
+neither copy certifies live spectator gameplay.
+
 This direction permits a bounded visual redesign now; the earlier
 engine-consolidation-before-appearance deferral does not prohibit this work.
 It does not certify that engine consolidation has finished.
