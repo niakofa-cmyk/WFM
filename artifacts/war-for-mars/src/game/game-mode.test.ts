@@ -8,6 +8,7 @@ import {
   LEGACY_ORBITAL_RUNTIME_ID,
   ORBITAL_WEAPON_RULES_VERSION,
   ORBITAL_WEAPON_RUNTIME_ID,
+  ORBITAL_RULES_VERSION,
   ORBITAL_RUNTIME_ID,
 } from "@workspace/orbital-sim";
 
@@ -35,7 +36,7 @@ test("canonical Orbital modes initialize with the pinned simulation rules", () =
     const mode = getGameModeDefinition(id);
     const runtime = createOrbitalRuntime(mode);
     assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);
-    assert.equal(runtime.rulesVersion, 4);
+    assert.equal(runtime.rulesVersion, ORBITAL_RULES_VERSION);
     assert.equal(runtime.modeId, id);
     if (mode.authority === "local") assert.equal(runtime.rewardEligibility, "none");
   }

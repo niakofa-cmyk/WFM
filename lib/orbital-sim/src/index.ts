@@ -7,3 +7,4 @@ export * from "./runtime";
 export * from "./game-mode";
 export * from "./sector-flight";
 export * from "./sector-contract";
+export * from "./lineup";

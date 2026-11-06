@@ -427,7 +427,7 @@ export const StartStrikeResponse = zod.object({
   "foeCount": zod.number().int().min(1).max(startStrikeResponseConfigFoeCountMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
-  "flightModel": zod.enum(['surface-v1', 'orbital-v1', 'orbital-v2', 'orbital-v3', 'orbital-v4']).optional()
+  "flightModel": zod.enum(['surface-v1', 'orbital-v1', 'orbital-v2', 'orbital-v3', 'orbital-v4', 'orbital-v5']).optional()
 })
 })
 

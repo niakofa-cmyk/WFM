@@ -1,7 +1,7 @@
 import { AI_ROSTER, FLEET_AI_ROSTER, otherFaction, PRESET_PIPS, refitMul, SHIPS, type Faction, type PresetId, type ShipId } from "./ships";
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
 import type { FlightInput, OrbitalFlight } from "./orbital-flight";
-import { ORBITAL_FLEET_RULES_VERSION, type OrbitalRulesVersion, type TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
+import { ORBITAL_FLEET_RULES_VERSION, ORBITAL_LINEUP_RULES_VERSION, selectCyclicRoster, type OrbitalRulesVersion, type TacticalManeuverIntentV1 } from "@workspace/orbital-sim";
 import { armorSpill } from "./orbital-damage";
 import { stepOrbital } from "./orbital-sim";
 
@@ -353,8 +353,6 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
   }
   const aiRoster = (setup.orbitalRulesVersion ?? 0) >= ORBITAL_FLEET_RULES_VERSION ? FLEET_AI_ROSTER : AI_ROSTER;
   const mine = aiRoster[faction];
-  const allyIds = mine.filter((id) => id !== shipId);
-  while (allyIds.length < 4) allyIds.push(mine[allyIds.length % mine.length]);
   const allySpots = [
     {
       x: -9,
@@ -375,12 +373,20 @@ export function createMatch(shipId: ShipId, faction: Faction, refit: number, pac
   ];
   const allyCount = Math.max(1, Math.min(4, setup.allyCount ?? 4));
   const foeCount = Math.max(1, Math.min(5, setup.foeCount ?? 5));
+  const rotatingLineups = (setup.orbitalRulesVersion ?? 0) >= ORBITAL_LINEUP_RULES_VERSION;
+  const seed = (setup.seed ?? 1) >>> 0 || 1;
+  const allyIds = rotatingLineups
+    ? selectCyclicRoster(mine, allyCount, seed, shipId)
+    : mine.filter((id) => id !== shipId);
+  if (!rotatingLineups) while (allyIds.length < 4) allyIds.push(mine[allyIds.length % mine.length]!);
   const allies = allyIds.slice(0, allyCount).map((id, i) => {
     const s = allySpots[i];
     return craft(id, true, "you", s.x, s.z, 0, 1);
   });
   const foeRoster = aiRoster[otherFaction(faction)];
-  const foeShips = [...foeRoster, foeRoster[1]].slice(0, foeCount);
+  const foeShips = rotatingLineups
+    ? selectCyclicRoster(foeRoster, foeCount, seed, undefined, 3)
+    : [...foeRoster, foeRoster[1]!].slice(0, foeCount);
   const foeSpots = [
     {
       x: -18,

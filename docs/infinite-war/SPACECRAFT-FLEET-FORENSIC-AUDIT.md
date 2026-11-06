@@ -147,8 +147,9 @@ cross-mode feature.
 - Orbital v1 retains generic primary/missile behavior; Orbital v2 retains the
   fit catalog and its prior all-hostile-missile countermeasure behavior.
   Already-issued v1/v2 campaign replays remain pinned to those rules. New
-  Contact runs use `orbital-v4`; the API schema and runtime contract include
-  the versioned split.
+  Contact runs now use `orbital-v5`. Orbital v4 remains available with its
+  fixed AI roster order; v5 adds deterministic, seed-rotated AI lineups without
+  changing v4 replay outcomes. The API schema and runtime contract include both.
 
 ### Damage and countermeasures
 
@@ -234,7 +235,7 @@ or a complete capital-vessel simulation.
 | D — weapon and missile architecture | **CORE IMPLEMENTED AND VERIFIED** | Shared v2 catalog now drives all 16 primary and missile fits; ammo/energy/heat economy remains at the existing baseline, and countermeasure interactions are Phase E. |
 | E — countermeasures and missile defense | **CORE IMPLEMENTED AND VERIFIED in Orbital v3; PARTIAL for live Wing** | Standard seekers are decoyed, hardened seekers are disrupted, only missiles tracking the pilot are affected, and a cooldown is server-owned. Legacy v1/v2 outcomes are preserved. Live Wing integration, physical-device checks, and broader defenses remain unverified. |
 | F — distinct 3D reconstruction | **PARTIALLY IMPLEMENTED** | Sixteen unique procedural fighter blueprints, hangar inspection, and live hull damage presentation exist; detailed authored fleet models and ship-specific subsystem damage remain incomplete. |
-| G/H — eight additional fighters | **IMPLEMENTED IN ORBITAL v4 AI WINGS; BALANCE PARTIAL** | Specialist ships are now included in new Orbital AI rosters; earlier runtime rosters and replay outcomes remain pinned. Full human-versus-human balance remains unverified. |
+| G/H — eight additional fighters | **IMPLEMENTED IN ORBITAL v4 AI WINGS; V5 LINEUP COVERAGE VERIFIED; BALANCE PARTIAL** | A v4 default five-enemy lineup sampled only the first five hulls. V5 rotates through all eight specialists deterministically; an eight-seed coverage test includes every hull while preserving the v4 replay checksum. Human balance remains unverified. |
 | I — fleet AI/formations | **CORE IMPLEMENTED IN ORBITAL v4; DIRECTOR PARTIAL** | AI wingmates hold role-specific formation slots at range and use role-dependent engagement distances and flanking; persistent fleet command, adaptive multi-wing formations, and strategic orders remain incomplete. |
 | J — capital ship/subsystem combat | **PARTIALLY IMPLEMENTED** | Iron Eclipse has server-owned subsystems, not a general, first-class capital-ship fleet system. |
 | K — multiplayer authority/balance | **PARTIALLY IMPLEMENTED** | Server-authoritative test/replay foundations exist; the Orbital 5v5 socket migration and human balance certification are not established. |
@@ -242,11 +243,14 @@ or a complete capital-vessel simulation.
 
 ## Recommended next implementation slice
 
-Next, plan a safe live Wing migration for the Orbital v4 input/snapshot contract
-and certify ten authenticated pilots on staging before enabling it. Keep the
-existing surface Wing as the rollback path. Then continue general capital-ship
-subsystem combat and physical-device certification; do not infer those
-capabilities from the AI roster or hull-damage presentation.
+The v4 scripted AI balance probe showed large ship-to-ship outcome spreads, but
+it is not representative of human 5v5 play; no ship statistics were changed
+from that evidence alone. First test the v5 lineup on a matched staging revision,
+then run authenticated co-op checks and a separate Wing migration gate. Keep
+rewards and live queue flags disabled and retain surface Wing as the rollback
+path. Staging still runs a prior shared app/API/socket commit, so it does not
+yet verify this v5 build. Continue authored hull/subsystem work and
+physical-device certification separately.
 
 Do not present the current certification smoke test, hangar preview, Rust Disc
 Android sample, or unregistered Orbital authority harness as proof of live 5v5

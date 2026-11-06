@@ -108,7 +108,7 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
     allyCount: 4,
     foeCount: 4,
     tech: null,
-    orbitalRulesVersion: 4,
+    orbitalRulesVersion: 5,
   });
   prepareOrbital(match);
   const input = {
@@ -153,7 +153,7 @@ test("a validated Contact victory charts Pale Beacons in the campaign galaxy", a
     allyCount: 4,
     foeCount: 4,
     mission: "contact",
-    flightModel: "orbital-v4",
+    flightModel: "orbital-v5",
     cleared: 0,
     inputs,
   });

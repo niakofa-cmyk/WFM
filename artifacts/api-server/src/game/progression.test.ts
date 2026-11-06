@@ -41,7 +41,7 @@ import { authenticateTestSocket, createSocketTestAuth } from "../socket/test-ses
 import { StrikeRunIdParams } from "../routes/strikes";
 
 test("the server negotiates orbital replay only for capable Contact clients", () => {
-  assert.equal(flightModelForStart("contact", true), "orbital-v4");
+  assert.equal(flightModelForStart("contact", true), "orbital-v5");
   assert.equal(flightModelForStart("contact", false), "surface-v1");
   assert.equal(flightModelForStart("contact", undefined), "surface-v1");
   assert.equal(flightModelForStart("beacon", true), "surface-v1");
@@ -492,7 +492,7 @@ test(
       assert.ok(firstRun.seed > 0);
       assert.equal(firstRun.config.seed, firstRun.seed);
       assert.equal(firstRun.config.refit, 0);
-      assert.equal(firstRun.config.flightModel, "orbital-v4");
+      assert.equal(firstRun.config.flightModel, "orbital-v5");
       const legacyClientRun = await startPlayerStrike(userId, {
         ...selection,
         supportsOrbitalReplay: false,
@@ -517,7 +517,7 @@ test(
       const { createMatch, step } = await import("./sim");
       const { prepareOrbital } = await import("./orbital-sim");
       const config = currentRun.config;
-      assert.equal(config.flightModel, "orbital-v4");
+      assert.equal(config.flightModel, "orbital-v5");
       const match = createMatch(config.shipId, config.faction, config.refit, config.pace, {
         seed: config.seed,
         goal: config.goal,
@@ -525,7 +525,7 @@ test(
         allyCount: config.allyCount,
         foeCount: config.foeCount,
         tech: config.tech,
-        orbitalRulesVersion: 4,
+        orbitalRulesVersion: 5,
       });
       prepareOrbital(match);
       const input = {
