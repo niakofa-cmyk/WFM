@@ -1,9 +1,9 @@
 ---
 name: Cinder Ring competitive hub
-description: Cinder Ring is the physical competitive destination for live Wing Relay operations, while each mode retains its authoritative runtime.
+description: Cinder Ring connects competitive experiences; existing runtimes remain authoritative until the main-engine migration passes proof.
 ---
 
-**Rule:** The asteroid is a physical operations hub and gateway to competitive experiences, not a decorative stop and not an instruction to collapse every mode into one engine. The Cinder Ring station presents a separate private-room dock and ten-human Wing Relay queue; private rooms remain invite-only, no-reward, and outside public discovery. The existing ten-human Wing Relay remains the 5v5 competitive runtime; Three.js handles universe navigation and presentation. Orbital Combat Lab remains development/test until an incremental migration proves compatibility. Rust Disc and Arcade Skirmish remain distinct experiences connected by versioned operation contracts.
+**Rule:** The asteroid is a physical operations hub, not a decorative stop. The newest master directive targets one Orbital main engine with distinctive mode adapters, but existing runtimes remain authoritative until migration passes proof. The Cinder Ring station presents a separate private-room dock and ten-human Wing Relay queue; private rooms remain invite-only, no-reward, and outside public discovery. Three.js renders universe navigation and presentation; it is not the multiplayer authority. Rust Disc and Arcade remain distinct playable experiences rather than being flattened into one generic mission.
 
 **Why:** the user clarified that active 5v5 competition, spectator discovery, arcade experiences, and open-universe travel should connect through a real asteroid destination, while existing combat engines and their safeguards remain intact.
 

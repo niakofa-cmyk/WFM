@@ -1,5 +1,17 @@
 # WAR FOR MARS: THE INFINITE WAR — structural rebuild roadmap
 
+## Current precedence
+
+The 2026-11-06 master directive
+`Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`
+now controls the immediate sequence: engine source audit and consolidation
+before universe appearance redesign. The target is one Orbital main engine
+with distinct configurations/adapters; independently retained engines are
+compatibility and rollback paths, not a permanent end state. See the
+[current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
+[mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
+and checkpoints below are historical where they conflict with this directive.
+
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
 The controlling full-game orbital migration source is preserved unchanged in

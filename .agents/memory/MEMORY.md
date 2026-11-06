@@ -1,4 +1,4 @@
-- [Master development directive](master-development-directive.md) — use the latest open-universe directive, Rust Disc controls, and code-backed mode inventory; preserve authority and rollback during migration.
+- [Master development directive](master-development-directive.md) — consolidate the Orbital main engine before visual redesign; extract verified features and preserve authority/rollback during migration.
 - [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
 - [Infinite War blueprint](infinite-war-blueprint.md) — The universe is the battlefield; stage authoritative combat, connected 5v5 warfronts, persistent consequences, then anomalies and scale.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.
@@ -34,12 +34,12 @@
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
 - [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve the original eight identities and evolve their hulls into distinct faction-specific 3D silhouettes before fleet expansion.
 - [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
-- [Open-universe direction](open-universe-direction.md) — one world with multiple runtimes; use server-owned travel, anonymous expiring presence, and real operation events.
+- [Open-universe direction](open-universe-direction.md) — one world and an Orbital main-engine target; preserve existing adapters, server-owned travel and anonymous expiring presence.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
 - [Three.js mobile loading](threejs-mobile-loading.md) — defer the renderer behind a narrow named-export adapter; never pass the full Three.js namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
-- [Connected universe and runtimes](orbital-canonical-gameplay.md) — connect distinct versioned experiences through one trusted operations network; preserve specialist Rust Disc flight and server safeguards.
+- [Canonical engine migration](orbital-canonical-gameplay.md) — one Orbital main engine with distinct mode adapters; keep existing runtimes until parity and authority gates pass.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.

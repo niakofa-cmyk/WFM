@@ -1,5 +1,18 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
+## Latest controlling directive — 2026-11-06
+
+The complete new source is retained unchanged at
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
+It makes Orbital Combat Lab the main-engine destination, requires extraction
+through modular adapters, and explicitly puts engine consolidation before
+universe appearance redesign. Earlier “multiple engines” descriptions describe
+current compatibility paths, not the permanent target architecture.
+The current source-backed architecture and ten required deliverables begin at
+[`engine/MASTER-ENGINE-ARCHITECTURE.md`](engine/MASTER-ENGINE-ARCHITECTURE.md).
+Historical references below remain evidence, not authority to contradict the
+new directive. Existing systems must remain available until replacement proof.
+
 ## Canonical owner reference
 
 The complete owner-provided directive is retained unchanged at:
