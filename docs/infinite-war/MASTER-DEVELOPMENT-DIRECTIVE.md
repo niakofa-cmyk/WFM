@@ -66,3 +66,16 @@ training entry; the competitive Wing is a distinct planar simulation and its
 existing reward eligibility must not be inferred from Lab or co-op success.
 Current local branch and verification status must be rechecked before each
 integration or release decision.
+
+
+## Owner clarification: Lab becomes the primary universe-game runtime
+
+The owner has explicitly clarified that the complete Infinite War game is to be played inside the Orbital Combat Lab-derived runtime. This supersedes any interpretation that the Lab should remain a separate offline training mode while the universe is linked beside it.
+
+The canonical implementation directive is now
+[ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md](./ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md).
+It requires a function-by-function extraction and rebuild of the Lab lifecycle, simulation, controls, rendering, camera, combat, HUD, AI, effects, and scene management into the primary WFM runtime. The Lab's useful combat foundation is generalized into a world/sector host; the old training activity remains selectable and no-reward, but it is no longer the product's primary destination.
+
+Mars is the first fully authored theater and narrative center. The architecture expands through planets, star systems, galaxies, anomalies, dimensions, and other universes using hierarchical coordinates, streamed bounded sectors, origin rebasing, and server-authoritative shared operations. “Infinite” means an expandable, meaningful universe—not infinite simultaneous simulation.
+
+Preserve existing Three.js/Vite rendering and verified Clerk, Wing, co-op, campaign, world, economy, and progression contracts. Migrate each into the unified runtime through versioned, tested vertical slices. This clarification does not authorize deleting working systems, bypassing authority boundaries, or promoting to Production. The new directive defines the target; runtime implementation remains unverified until its acceptance gates pass.
