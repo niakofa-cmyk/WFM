@@ -51,9 +51,9 @@ export const SORTIES: Sortie[] = [
     disc: "night",
     allyCount: 4,
     foeCount: 5,
-    objective: "KILL THE WARDEN",
+    objective: "DESTROY THE WARDEN",
     brief:
-      "WARDEN-0 is suppressing records tied to the prisoner transfer. Identify the marked command vessel, survive the night-side blackout, and recover its authenticated order archive.",
+      "WARDEN-0 is suppressing records tied to the prisoner transfer. Destroy the marked command vessel, survive the night-side blackout, and recover its authenticated order archive from the wreckage.",
   },
   {
     id: "cage",
