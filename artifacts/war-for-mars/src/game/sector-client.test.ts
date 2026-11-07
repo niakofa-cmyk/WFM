@@ -73,6 +73,23 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     ...orbitalSnapshot,
     simulation: { ...ORBITAL_SECTOR_SIMULATION_CONTRACT, extra: true },
   }, SECTOR_ORBITAL_PROTOCOL_VERSION), null);
+  const factionContact = {
+    actorFaction: "accord", stage: "investigating", action: "scan", reason: "passive_contact",
+    territory: "contested", transponder: "broadcast", distanceMeters: 1500, sensorRangeMeters: 2100,
+    speedMetersPerSecond: 0, lineOfSight: true, weaponsHot: false, targeting: false, enteredAtTick: 3,
+  };
+  const paleBeaconsSnapshot = {
+    ...orbitalSnapshot, missionId: "pale-beacons", phase: "active", factionContact,
+  };
+  assert.ok(parseSectorSnapshot(paleBeaconsSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot, factionContact: { ...factionContact, actorFaction: "ussf" },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the opposing contact cannot claim the player's faction");
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot, factionContact: { ...factionContact, enteredAtTick: 4 },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "contact state cannot claim a future server tick");
+  assert.equal(parseSectorSnapshot({ ...snap, factionContact }, 1), null,
+    "compatibility snapshots cannot inject Orbital faction decisions");
   assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true, tacticalCommands: true } }));
   assert.equal(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: "yes" } }), null);
   const command = {

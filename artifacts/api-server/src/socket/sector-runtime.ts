@@ -8,7 +8,7 @@ import {
   SECTOR_ORBITAL_PROTOCOL_VERSION,
 } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "../game/ships";
-import { createFlight, stepFlight, removeHostileProjectilesInPlace, NEUTRAL_FLIGHT_INPUT, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
+import { createFlight, stepFlight, removeHostileProjectilesInPlace, NEUTRAL_FLIGHT_INPUT, vectorLength, type FlightInput, type FlightSector, type FlightState } from "../game/flight-sector";
 import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
@@ -17,7 +17,10 @@ import {
   SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
-import { ExplorationEncounter, readExplorationReceipt, type ExplorationReceipt } from "../game/exploration-encounter";
+import {
+  decideFactionContact, ExplorationEncounter, readExplorationReceipt,
+  type ExplorationReceipt, type FactionContactDecision, type PilotTransponder,
+} from "../game/exploration-encounter";
 import {
   absorbWingDamage, advanceIronEclipse, completeIronEclipse, createIronEclipseState,
   damageIronEclipseTarget, ironEclipseSnapshot, ironEclipseTarget, markIronEclipseCapitalEngaged,
@@ -29,6 +32,8 @@ type Pilot = {
   flight: FlightState; input: FlightInput; seq: number; lastInput: number; disconnectedAt: number | null;
   activeTicks: number; acceptedInputs: number; progress: SectorProgress; settlement: SectorSettlement;
   proof: CompletedSectorMission | null; settling: Promise<void> | null; nextRetry: number; attempts: number;
+  transponder: PilotTransponder; transponderChangedAt: number | null;
+  factionContact?: FactionContactDecision; lastHostileActionTick?: number;
   scoutResult?: SectorScoutResult;
   scoutResultStatus?: "pending" | "recorded" | "unavailable";
 };
@@ -126,6 +131,30 @@ export function parseIronEclipseCommand(value: unknown): IronEclipseCommandReque
   }
   return null;
 }
+export function parseSectorTransponder(value: unknown): PilotTransponder | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const packet = value as Record<string, unknown>;
+  if (Object.keys(packet).length !== 2 || packet.type !== "sector_transponder" ||
+      (packet.mode !== "broadcast" && packet.mode !== "silent")) return null;
+  return packet.mode;
+}
+function sensorLineOfSight(from: FlightState["position"], to: FlightState["position"], sector: FlightSector): boolean {
+  const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
+  const lengthSquared = dx * dx + dy * dy + dz * dz;
+  if (lengthSquared < 1) return true;
+  const blocked = (body: { position: FlightState["position"]; radius: number }) => {
+    const px = body.position.x - from.x, py = body.position.y - from.y, pz = body.position.z - from.z;
+    const t = Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / lengthSquared));
+    if (t < 0.01 || t > 0.99) return false;
+    const x = from.x + dx * t - body.position.x;
+    const y = from.y + dy * t - body.position.y;
+    const z = from.z + dz * t - body.position.z;
+    return x * x + y * y + z * z <= body.radius * body.radius;
+  };
+  if (sector.rocks.some(blocked)) return false;
+  if (sector.planet && blocked(sector.planet)) return false;
+  return true;
+}
 const neutral = (): FlightInput => ({ ...NEUTRAL_FLIGHT_INPUT, brake: true });
 function send(socket: WebSocket | null, value: unknown) {
   if (socket?.readyState !== WebSocket.OPEN) return;
@@ -190,9 +219,44 @@ export function createSectorRuntime(options: Options) {
         progress: own.progress, settlement: own.settlement,
         ...(own.scoutResult ? { scoutResult: own.scoutResult } : {}),
         ...(own.scoutResultStatus ? { scoutResultStatus: own.scoutResultStatus } : {}),
+        ...(own.factionContact ? { factionContact: own.factionContact } : {}),
       };
       send(own.socket, snapshot);
     }
+  }
+  function updateFactionContact(room: Room, pilot: Pilot, input: FlightInput): FactionContactDecision | undefined {
+    if (!room.scoutEncounter || room.mission.id !== "pale-beacons" || !room.scoutFaction) return undefined;
+    const actorFaction = room.scoutFaction === "ussf" ? "accord" : "ussf";
+    const delta = {
+      x: pilot.flight.drone.position.x - pilot.flight.position.x,
+      y: pilot.flight.drone.position.y - pilot.flight.position.y,
+      z: pilot.flight.drone.position.z - pilot.flight.position.z,
+    };
+    const distanceMeters = vectorLength(delta);
+    const previous = pilot.factionContact;
+    const warningTicks = previous && (previous.stage === "warning" || previous.stage === "challenging")
+      ? Math.max(0, room.tick - previous.enteredAtTick)
+      : 0;
+    const decision = decideFactionContact({
+      actorFaction,
+      pilotFaction: SHIPS[pilot.shipId].faction,
+      territory: "contested",
+      transponder: pilot.transponder,
+      distanceMeters,
+      sensorRangeMeters: 2100,
+      speedMetersPerSecond: vectorLength(pilot.flight.velocity),
+      speedLimitMetersPerSecond: SHIPS[pilot.shipId].maxSpeed * 2.5,
+      lineOfSight: sensorLineOfSight(pilot.flight.position, pilot.flight.drone.position, room.flightSector),
+      weaponsHot: input.fire || input.missile,
+      targeting: input.lock || pilot.flight.lock > 0.05,
+      recentHostileAction: pilot.lastHostileActionTick !== undefined &&
+        room.tick - pilot.lastHostileActionTick <= 300,
+      warningTicks,
+      tick: room.tick,
+    });
+    return previous?.stage === decision.stage
+      ? { ...decision, enteredAtTick: previous.enteredAtTick }
+      : decision;
   }
   function releaseJoinReservation(userId: string, socket: WebSocket) {
     loading.delete(socket);
@@ -370,6 +434,7 @@ export function createSectorRuntime(options: Options) {
         pilot = {
           userId, slot, shipId, socket, ready: false, flight: createFlight(shipId, mission.sector),
           input: neutral(), seq: -1, lastInput: now, disconnectedAt: null,
+          transponder: "broadcast", transponderChangedAt: null,
           activeTicks: 0, acceptedInputs: 0, progress,
           settlement: { status: "not_started", reason: "complete_server_mission_to_record_discovery" },
           proof: null, settling: null, nextRetry: 0, attempts: 0,
@@ -399,6 +464,19 @@ export function createSectorRuntime(options: Options) {
     if (packet.type === "sector_ready") {
       if (Object.keys(packet).length !== 2 || typeof packet.ready !== "boolean" || room.phase !== "lobby") { error("invalid_sector_ready"); return; }
       pilot.ready = packet.ready; publish(room); publishOperationState(room); return;
+    }
+    if (packet.type === "sector_transponder") {
+      const mode = parseSectorTransponder(packet);
+      if (!mode || room.mission.id !== "pale-beacons" || room.phase !== "active") {
+        error("invalid_sector_transponder"); return;
+      }
+      if (mode === pilot.transponder) { publish(room); return; }
+      if (pilot.transponderChangedAt !== null && now - pilot.transponderChangedAt < 1000) {
+        error("sector_transponder_rate_limited"); return;
+      }
+      pilot.transponder = mode;
+      pilot.transponderChangedAt = now;
+      publish(room); return;
     }
     if (packet.type === "sector_launch") {
       if (Object.keys(packet).length !== 1 || room.phase !== "lobby" || pilot.slot !== room.hostSlot) { error("sector_host_required"); return; }
@@ -575,12 +653,17 @@ export function createSectorRuntime(options: Options) {
         const pointDefenseDisabled = room.operation?.view.subsystems.some(
           item => item.id === "point-defense" && item.disabled,
         ) === true;
-        room.flightSector.hostileFireDisabled =
+        const baseHostileFireDisabled =
           room.mission.sector.hostileFireDisabled === true || pointDefenseDisabled;
         const flightSector = room.flightSector;
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
           const input = now - pilot.lastInput < 350 ? pilot.input : idleInput;
+          pilot.factionContact = updateFactionContact(room, pilot, input);
+          const contactCanEngage = pilot.factionContact?.action === "intercept" ||
+            pilot.factionContact?.action === "request_reinforcements";
+          flightSector.hostileFireDisabled = baseHostileFireDisabled ||
+            (!!room.scoutEncounter && !contactCanEngage);
           if (now - pilot.lastInput < 350 &&
               (input.throttle > 0.05 || Math.abs(input.pitch) + Math.abs(input.yaw) + Math.abs(input.roll) > 0.05 || input.fire)) pilot.activeTicks++;
           const operationTarget = room.operation ? ironEclipseTarget(room.operation) : undefined;
@@ -601,6 +684,7 @@ export function createSectorRuntime(options: Options) {
               targetActorId: "scout-pale-beacons",
               hullDamage,
             });
+            pilot.lastHostileActionTick = room.tick;
           }
           if (room.operation) {
             const playerDamage = Math.max(0, room.droneHull - pilot.flight.drone.hull);
@@ -619,6 +703,7 @@ export function createSectorRuntime(options: Options) {
           } else {
             room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
           }
+          pilot.factionContact = updateFactionContact(room, pilot, input);
         }
         // Synchronize the shared objective for all pilots at the same authoritative tick.
         for (const pilot of room.pilots) {

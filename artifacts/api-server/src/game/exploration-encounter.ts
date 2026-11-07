@@ -2,7 +2,111 @@ import { createHash } from "node:crypto";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 export const EXPLORATION_CONTRACT = "orbital-exploration-v1" as const;
-type Faction = "ussf" | "accord";
+export type Faction = "ussf" | "accord";
+export type FactionTerritory = Faction | "neutral" | "contested";
+export type PilotTransponder = "broadcast" | "silent";
+export type ContactStage =
+  | "unaware" | "investigating" | "shadowing" | "challenging"
+  | "warning" | "intercepting" | "reinforcements";
+export type ContactAction = "none" | "scan" | "shadow" | "challenge" | "warn" | "intercept" | "request_reinforcements";
+export type FactionContactDecision = {
+  actorFaction: Faction;
+  stage: ContactStage;
+  action: ContactAction;
+  reason: "no_sensor_contact" | "passive_contact" | "transponder_silent" |
+    "restricted_territory" | "high_speed" | "targeting" | "weapons_hot" |
+    "warning_ignored" | "hostile_damage" | "close_approach";
+  territory: FactionTerritory;
+  transponder: PilotTransponder;
+  distanceMeters: number;
+  sensorRangeMeters: number;
+  speedMetersPerSecond: number;
+  lineOfSight: boolean;
+  weaponsHot: boolean;
+  targeting: boolean;
+  enteredAtTick: number;
+};
+export type FactionContactObservation = {
+  actorFaction: Faction;
+  pilotFaction: Faction;
+  territory: FactionTerritory;
+  transponder: PilotTransponder;
+  distanceMeters: number;
+  sensorRangeMeters: number;
+  speedMetersPerSecond: number;
+  speedLimitMetersPerSecond: number;
+  lineOfSight: boolean;
+  weaponsHot: boolean;
+  targeting: boolean;
+  recentHostileAction: boolean;
+  warningTicks: number;
+  tick: number;
+};
+
+/** Deterministic faction response policy; caller supplies server-derived state only. */
+export function decideFactionContact(input: FactionContactObservation): FactionContactDecision {
+  if (!["ussf", "accord"].includes(input.actorFaction) ||
+      !["ussf", "accord"].includes(input.pilotFaction) ||
+      input.actorFaction === input.pilotFaction ||
+      !["ussf", "accord", "neutral", "contested"].includes(input.territory) ||
+      !["broadcast", "silent"].includes(input.transponder) ||
+      ![input.distanceMeters, input.sensorRangeMeters, input.speedMetersPerSecond,
+        input.speedLimitMetersPerSecond, input.warningTicks, input.tick].every(Number.isFinite) ||
+      input.distanceMeters < 0 || input.sensorRangeMeters <= 0 ||
+      input.speedMetersPerSecond < 0 || input.speedLimitMetersPerSecond <= 0 ||
+      input.warningTicks < 0 || input.tick < 0 ||
+      typeof input.lineOfSight !== "boolean" || typeof input.weaponsHot !== "boolean" ||
+      typeof input.targeting !== "boolean" || typeof input.recentHostileAction !== "boolean") {
+    throw new Error("Invalid faction contact observation.");
+  }
+  const detected = input.lineOfSight && input.distanceMeters <= input.sensorRangeMeters;
+  let stage: ContactStage = "unaware";
+  let action: ContactAction = "none";
+  let reason: FactionContactDecision["reason"] = "no_sensor_contact";
+  if (detected) {
+    const incursion = input.territory === input.actorFaction;
+    const highSpeed = input.speedMetersPerSecond >= input.speedLimitMetersPerSecond * 0.72;
+    if (input.recentHostileAction) {
+      stage = "reinforcements"; action = "request_reinforcements"; reason = "hostile_damage";
+    } else if (input.actorFaction === "ussf") {
+      if (input.transponder === "silent" && input.distanceMeters <= input.sensorRangeMeters * 0.85) {
+        stage = input.warningTicks >= 180 ? "intercepting" : "challenging";
+        action = input.warningTicks >= 180 ? "intercept" : "challenge";
+        reason = input.warningTicks >= 180 ? "warning_ignored" : "transponder_silent";
+      } else if (input.weaponsHot || input.targeting || highSpeed || incursion) {
+        const ignored = input.warningTicks >= 180;
+        stage = ignored ? "intercepting" : "warning";
+        action = ignored ? "intercept" : "warn";
+        reason = incursion ? "restricted_territory"
+          : input.weaponsHot ? "weapons_hot" : input.targeting ? "targeting" : "high_speed";
+      } else if (input.distanceMeters <= 450) {
+        stage = "challenging"; action = "challenge"; reason = "close_approach";
+      } else {
+        stage = "investigating"; action = "scan"; reason = "passive_contact";
+      }
+    } else if (input.weaponsHot || input.targeting || highSpeed || incursion) {
+      stage = "intercepting"; action = "intercept";
+      reason = incursion ? "restricted_territory"
+        : input.weaponsHot ? "weapons_hot" : input.targeting ? "targeting" : "high_speed";
+    } else if (input.transponder === "silent") {
+      stage = input.distanceMeters <= input.sensorRangeMeters * 0.65 ? "intercepting" : "shadowing";
+      action = stage === "intercepting" ? "intercept" : "shadow";
+      reason = "transponder_silent";
+    } else if (input.distanceMeters <= 450) {
+      stage = "intercepting"; action = "intercept"; reason = "close_approach";
+    } else {
+      stage = "investigating"; action = "scan"; reason = "passive_contact";
+    }
+  }
+  return {
+    actorFaction: input.actorFaction, stage, action, reason, territory: input.territory,
+    transponder: input.transponder, distanceMeters: Math.round(input.distanceMeters),
+    sensorRangeMeters: Math.round(input.sensorRangeMeters),
+    speedMetersPerSecond: Math.round(input.speedMetersPerSecond),
+    lineOfSight: input.lineOfSight, weaponsHot: input.weaponsHot,
+    targeting: input.targeting, enteredAtTick: input.tick,
+  };
+}
 export type ExplorationActor = {
   id: string;
   faction: Faction;

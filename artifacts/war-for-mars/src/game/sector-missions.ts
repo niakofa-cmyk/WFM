@@ -62,6 +62,22 @@ export type SectorScoutResult = {
   rewardableNpcKills: number;
   fingerprint: string;
 };
+export type SectorFactionContact = {
+  actorFaction: "ussf" | "accord";
+  stage: "unaware" | "investigating" | "shadowing" | "challenging" | "warning" | "intercepting" | "reinforcements";
+  action: "none" | "scan" | "shadow" | "challenge" | "warn" | "intercept" | "request_reinforcements";
+  reason: "no_sensor_contact" | "passive_contact" | "transponder_silent" | "restricted_territory" |
+    "high_speed" | "targeting" | "weapons_hot" | "warning_ignored" | "hostile_damage" | "close_approach";
+  territory: "ussf" | "accord" | "neutral" | "contested";
+  transponder: "broadcast" | "silent";
+  distanceMeters: number;
+  sensorRangeMeters: number;
+  speedMetersPerSecond: number;
+  lineOfSight: boolean;
+  weaponsHot: boolean;
+  targeting: boolean;
+  enteredAtTick: number;
+};
 export const IRON_ECLIPSE_SUBSYSTEMS = [
   { id: "point-defense", label: "POINT DEFENSE", maxHull: 120, offset: { x: -26, y: 9, z: 12 } },
   { id: "shield-array", label: "SHIELD ARRAY", maxHull: 140, offset: { x: 20, y: 13, z: -4 } },
@@ -124,6 +140,7 @@ export type SectorCommandRequest =
   | { type: "sector_command"; order: "attack" }
   | { type: "sector_command"; order: "defend" | "escort"; targetSlot: number }
   | { type: "sector_command"; order: "regroup" };
+export type SectorTransponderRequest = { type: "sector_transponder"; mode: "broadcast" | "silent" };
 export type IronEclipseCommandRequest =
   | { type: "iron_eclipse_order"; order: IronEclipseOrder }
   | { type: "iron_eclipse_target"; target: IronEclipseSubsystemId };
@@ -138,6 +155,8 @@ export type SectorSnapshot = {
   /** This pilot's own result only; no other account IDs or private room data. */
   scoutResult?: SectorScoutResult;
   scoutResultStatus?: "pending" | "recorded" | "unavailable";
+  /** Private server-derived contact state for this pilot; never a public event listing. */
+  factionContact?: SectorFactionContact;
   simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;
@@ -152,6 +171,7 @@ export type SectorClientPacket =
   | { type: "sector_launch" }
   | { type: "sector_input"; seq: number; input: FlightInput }
   | { type: "sector_ping"; nonce: number }
+  | SectorTransponderRequest
   | SectorCommandRequest
   | IronEclipseCommandRequest
   | { type: "sector_retry" };

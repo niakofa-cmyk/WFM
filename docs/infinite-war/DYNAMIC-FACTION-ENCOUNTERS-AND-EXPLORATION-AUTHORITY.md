@@ -138,21 +138,50 @@ are implemented; see
 [Primary boot and encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
 for the exact scope, rollback entries and remaining activation gates.
 
+## First faction-response slice
+
+Pale Beacons now runs a bounded, private contact director inside its existing
+Orbital V2 sector room. The server derives range and asteroid/planet line of
+sight from flight state, uses the assigned opposing faction and the sector's
+contested-frontier classification, calculates speed against the server-owned
+hull limit, reads validated lock/weapon inputs, and stores the pilot's
+transponder mode on the authenticated seat. A strict rate-limited transponder
+command can switch between broadcast and silent; clients cannot submit contact
+stages, outcomes, territory or threat values.
+
+USSF contacts investigate and challenge first, then issue a warning before
+intercepting persistent threats. Accord contacts investigate, shadow silent
+contacts at range and intercept close, fast, targeted or weapons-hot approaches.
+Actual server-applied damage escalates either side to a reinforcement request.
+The existing NPC missile behavior stays suppressed until a server-classified
+intercept or reinforcement request; a warning is not an attack. Contact state is
+returned only to that pilot in the sector socket snapshot. It is deliberately
+absent from the public world-operation directory and event stream.
+
+This is not yet a roaming patrol/fleet director. Pale Beacons uses one contested
+sector and a fixed sensor radius; a reinforcement request is recorded and shown
+but does not spawn additional ships. No reputation/world consequence or reward
+policy is added; scout results remain zero-credit and existing private,
+AI-fill, Wing and local-training reward rules are unchanged. Orbital V2 remains
+opt-in and the V1 rollback path is intact.
+
 Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
-operations, and a read-only Wing spectator path. It does not yet implement a
-server-authoritative roaming encounter director, shared nearby NPC fleets, a
-persistent faction encounter world, or live reward settlement for open-world PvE
-encounters. The new transactional settlement adapter is disabled and is not yet
-connected to a roaming authoritative runtime. Do not use local procedural scenery or local scan records as a
-substitute for those capabilities.
+operations, a read-only Wing spectator path, and the bounded Pale Beacons
+faction-response slice above. It does not yet implement a server-authoritative
+roaming encounter director, shared nearby NPC fleets, a persistent faction
+encounter world, or live reward settlement for open-world PvE encounters. The new
+transactional settlement adapter is disabled and is not yet connected to a
+roaming authoritative runtime. Do not use local procedural scenery or local
+scan records as a substitute for those capabilities.
 
 ## Implementation order
 
 1. Define versioned server encounter, actor, visibility, join/spectate, and result
    contracts on top of the existing account/world/operation systems.
-2. Build a deterministic faction/territory director with bounded encounter
-   states, predictable resource limits, and server-owned actor orders.
+2. Extend the bounded Pale Beacons response policy into a deterministic
+   faction/territory director with server-owned actor orders and predictable
+   resource limits.
 3. Add authenticated multiplayer exploration instances and reconcile the local
    Orbital flight adapter with server snapshots.
 4. Add idempotent encounter kill attribution, exploration rewards, and validated

@@ -25,7 +25,7 @@ import {
   type LocalPerformanceSummary,
 } from "./local-performance";
 import { LocalPerformanceReport } from "./LocalPerformanceReport";
-import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorMission, SectorSnapshot, SectorTacticalCommand } from "./sector-missions";
+import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorFactionContact, SectorMission, SectorSnapshot, SectorTacticalCommand, SectorTransponderRequest } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
 import { useLeaveWorldOperationInstance } from "@workspace/api-client-react";
@@ -44,7 +44,7 @@ export type ExpeditionTransport = {
   snapshotRef: MutableRefObject<SectorSnapshot | null>;
   latencyRef: MutableRefObject<number | null>;
   sendInput: (input: FlightInput) => void;
-  sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => boolean;
+  sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest) => boolean;
   notice: string;
   mission: SectorMission;
   connection: "connected" | "reconnecting" | "lost";
@@ -72,6 +72,7 @@ type Hud = {
   flare: number; incoming: number; camera: "chase" | "cockpit";
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
   tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
+  factionContact: SectorFactionContact | null;
   operation: IronEclipseSnapshot | null;
 };
 
@@ -844,6 +845,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           vectorDriftAvailable: !netMode || snapNow?.capabilities?.vectorDrift === true,
           drifting: inp.drift === true,
           tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
+          factionContact: snapNow?.factionContact ?? null,
           command: snapNow?.command ?? null,
           operation: ironEclipse ? snapNow?.operation ?? null : null,
           crew: snapNow ? snapNow.pilots.map(p => ({ slot: p.slot, shipId: p.shipId, connected: p.connected, hull: p.flight.hull, own: p.slot === snapNow.ownSlot, host: p.slot === snapNow.hostSlot, stage: p.flight.stage })) : [],
@@ -964,7 +966,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               className="pointer-events-none absolute left-0 top-0 -ml-8 -mt-6 w-16 text-center font-hud text-[10px] tracking-[0.2em] opacity-0" />
           ))}
           {hud ? <FlightHud hud={hud} shipId={shipId}
-            droneMax={hud.operation?.subsystems.find(item => item.id === hud.operation?.target)?.maxHull ?? expedition?.mission.sector.droneHull ?? 60} /> : null}
+            droneMax={hud.operation?.subsystems.find(item => item.id === hud.operation?.target)?.maxHull ?? expedition?.mission.sector.droneHull ?? 60}
+            onTransponder={mode => expedition?.sendCommand({ type: "sector_transponder", mode }) ?? false}
+            transponderDisabled={expedition?.connection !== "connected"} /> : null}
           {net && hud ? <CrewStrip crew={hud.crew} mission={expedition!.mission.title} command={hud.command} /> : null}
           {net && !ironEclipse && hud?.tacticalCommandsAvailable && hud.crew.some(c => c.own && c.host) ? (
             <SquadOrders crew={hud.crew} command={hud.command} notice={expedition!.notice}
@@ -1227,7 +1231,11 @@ function CrewStrip({ crew, mission, command }: { crew: CrewRow[]; mission: strin
   );
 }
 
-function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneMax: number }) {
+function FlightHud({ hud, shipId, droneMax, onTransponder, transponderDisabled }: {
+  hud: Hud; shipId: ShipId; droneMax: number;
+  onTransponder: (mode: SectorTransponderRequest["mode"]) => boolean;
+  transponderDisabled: boolean;
+}) {
   const pal = FACTION_PALETTE[SHIPS[shipId].faction];
   const t = Math.floor(hud.elapsed);
   return (
@@ -1258,6 +1266,27 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
             {combatLockCue({ targetActive: false, canAcquire: false, lockHeld: false, lock: hud.lock })}
           </p>
         )}
+        {hud.factionContact ? (
+          <div className="pointer-events-auto mt-1 flex items-center justify-between gap-2 border-t border-bone/15 pt-1 font-hud text-[8px] tracking-[0.14em]" data-testid="status-faction-contact">
+            <span className={hud.factionContact.action === "intercept" || hud.factionContact.action === "request_reinforcements" ? "text-[#ff7a5c]" : "text-solar"}>
+              {hud.factionContact.action === "none" ? "NO SENSOR CONTACT"
+                : hud.factionContact.action === "scan" ? "SCOUT INVESTIGATING"
+                : hud.factionContact.action === "shadow" ? "ACCORD SCOUT SHADOWING"
+                : hud.factionContact.action === "challenge" ? "IFF CHALLENGE"
+                : hud.factionContact.action === "warn" ? "WARNING ISSUED"
+                : hud.factionContact.action === "intercept" ? "INTERCEPTING"
+                : "REINFORCEMENTS REQUESTED"}
+            </span>
+            <button type="button" disabled={transponderDisabled}
+              aria-label={hud.factionContact.transponder === "broadcast" ? "Silence identification transponder" : "Broadcast identification transponder"}
+              aria-pressed={hud.factionContact.transponder === "broadcast"}
+              data-testid="button-transponder-toggle"
+              onClick={() => onTransponder(hud.factionContact!.transponder === "broadcast" ? "silent" : "broadcast")}
+              className="min-h-7 border border-solar/50 px-2 text-solar disabled:opacity-40">
+              IFF {hud.factionContact.transponder === "broadcast" ? "TX" : "DARK"}
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="absolute left-3 top-2 space-y-1">
         <Bar label="HULL" value={hud.hull} color={hud.hull < 30 ? "#ff7a5c" : "#e6e1d6"} testId="status-hull" />

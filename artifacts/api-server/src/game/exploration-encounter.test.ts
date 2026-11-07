@@ -2,9 +2,52 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import {
-  ExplorationEncounter, readExplorationReceipt,
+  decideFactionContact, ExplorationEncounter, readExplorationReceipt,
   type ExplorationEncounterSpec, type ExplorationReceipt,
 } from "./exploration-encounter";
+
+const contact = (overrides: Partial<Parameters<typeof decideFactionContact>[0]> = {}) =>
+  decideFactionContact({
+    actorFaction: "ussf", pilotFaction: "accord", territory: "contested",
+    transponder: "broadcast", distanceMeters: 1000, sensorRangeMeters: 2100,
+    speedMetersPerSecond: 0, speedLimitMetersPerSecond: 60,
+    lineOfSight: true, weaponsHot: false, targeting: false,
+    recentHostileAction: false, warningTicks: 0, tick: 10,
+    ...overrides,
+  });
+
+test("USSF patrol investigates, challenges, warns, then intercepts or requests support from server state", () => {
+  assert.equal(contact().action, "scan");
+  assert.equal(contact({ transponder: "silent" }).action, "challenge");
+  assert.equal(contact({ transponder: "silent", warningTicks: 180 }).action, "intercept");
+  assert.equal(contact({ weaponsHot: true }).action, "warn");
+  assert.equal(contact({ weaponsHot: true, warningTicks: 180 }).action, "intercept");
+  assert.equal(contact({ territory: "ussf" }).reason, "restricted_territory");
+  assert.equal(contact({ recentHostileAction: true }).action, "request_reinforcements");
+  assert.equal(contact({ lineOfSight: false }).stage, "unaware");
+  assert.equal(contact({ distanceMeters: 2200 }).action, "none");
+});
+
+test("Accord patrol shadows silent contacts and intercepts high-threat approaches symmetrically", () => {
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf" }).action, "scan");
+  assert.equal(contact({
+    actorFaction: "accord", pilotFaction: "ussf", transponder: "silent", distanceMeters: 1600,
+  }).action, "shadow");
+  assert.equal(contact({
+    actorFaction: "accord", pilotFaction: "ussf", transponder: "silent", distanceMeters: 1200,
+  }).action, "intercept");
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf", weaponsHot: true }).action, "intercept");
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf", targeting: true }).action, "intercept");
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf", speedMetersPerSecond: 45 }).action, "intercept");
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf", territory: "accord" }).reason, "restricted_territory");
+  assert.equal(contact({ actorFaction: "accord", pilotFaction: "ussf", recentHostileAction: true }).action, "request_reinforcements");
+});
+
+test("faction contact rules reject impossible or malformed server observations", () => {
+  assert.throws(() => contact({ actorFaction: "ussf", pilotFaction: "ussf" }), /Invalid/);
+  assert.throws(() => contact({ speedMetersPerSecond: Number.NaN }), /Invalid/);
+  assert.throws(() => contact({ transponder: "forged" as "silent" }), /Invalid/);
+});
 
 export function encounterSpec(encounterId = "encounter-test"): ExplorationEncounterSpec {
   return {

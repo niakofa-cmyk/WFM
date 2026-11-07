@@ -3,7 +3,7 @@ import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
   SECTOR_PROTOCOL_VERSION, sectorMission,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
-  type IronEclipseSnapshot, type SectorProtocolVersion, type SectorScoutResult,
+  type IronEclipseSnapshot, type SectorFactionContact, type SectorProtocolVersion, type SectorScoutResult,
 } from "./sector-missions";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
@@ -125,6 +125,29 @@ function validScoutResult(value: unknown): value is SectorScoutResult {
     result.rewardableNpcKills! <= result.kills! &&
     typeof result.fingerprint === "string" && /^[0-9a-f]{64}$/.test(result.fingerprint);
 }
+function validFactionContact(value: unknown): value is SectorFactionContact {
+  if (!value || typeof value !== "object") return false;
+  const contact = value as Partial<SectorFactionContact>;
+  const stages = ["unaware", "investigating", "shadowing", "challenging", "warning", "intercepting", "reinforcements"];
+  const actions = ["none", "scan", "shadow", "challenge", "warn", "intercept", "request_reinforcements"];
+  const reasons = ["no_sensor_contact", "passive_contact", "transponder_silent", "restricted_territory",
+    "high_speed", "targeting", "weapons_hot", "warning_ignored", "hostile_damage", "close_approach"];
+  const keys = ["actorFaction", "stage", "action", "reason", "territory", "transponder",
+    "distanceMeters", "sensorRangeMeters", "speedMetersPerSecond", "lineOfSight",
+    "weaponsHot", "targeting", "enteredAtTick"];
+  return Object.keys(contact).length === keys.length && keys.every(key => Object.hasOwn(contact, key)) &&
+    (contact.actorFaction === "ussf" || contact.actorFaction === "accord") &&
+    stages.includes(contact.stage as string) && actions.includes(contact.action as string) &&
+    reasons.includes(contact.reason as string) &&
+    ["ussf", "accord", "neutral", "contested"].includes(contact.territory as string) &&
+    (contact.transponder === "broadcast" || contact.transponder === "silent") &&
+    Number.isSafeInteger(contact.distanceMeters) && (contact.distanceMeters ?? -1) >= 0 &&
+    Number.isSafeInteger(contact.sensorRangeMeters) && (contact.sensorRangeMeters ?? 0) > 0 &&
+    Number.isSafeInteger(contact.speedMetersPerSecond) && (contact.speedMetersPerSecond ?? -1) >= 0 &&
+    typeof contact.lineOfSight === "boolean" && typeof contact.weaponsHot === "boolean" &&
+    typeof contact.targeting === "boolean" &&
+    Number.isSafeInteger(contact.enteredAtTick) && (contact.enteredAtTick ?? -1) >= 0;
+}
 
 /** Structural validation of the server's typed snapshot. Rejects anything else. */
 export function parseSectorSnapshot(
@@ -149,6 +172,15 @@ export function parseSectorSnapshot(
        !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus as string))) return null;
   if (p.scoutResultStatus !== undefined &&
       (p.scoutResult === undefined || !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus))) return null;
+  if (p.factionContact !== undefined) {
+    const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
+    if (p.missionId !== "pale-beacons" || expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+        !validFactionContact(p.factionContact) || !ownPilot ||
+        p.factionContact.actorFaction === SHIPS[ownPilot.shipId].faction ||
+        p.factionContact.enteredAtTick > (p.tick ?? -1) ||
+        (p.factionContact.stage === "unaware" && p.factionContact.action !== "none") ||
+        (!p.factionContact.lineOfSight && p.factionContact.stage !== "unaware")) return null;
+  }
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&

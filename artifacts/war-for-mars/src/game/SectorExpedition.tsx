@@ -12,7 +12,7 @@ import { RoundTripProbe } from "./flight-performance";
 import type { FlightInput } from "./flight-sector";
 import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION, sectorMission,
-  type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
+  type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTransponderRequest,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
@@ -295,10 +295,12 @@ function ExpeditionClient() {
   const transport = useMemo<ExpeditionTransport>(() => ({
     snapshotRef, latencyRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
-    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => {
+    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest) => {
       const current = snapshotRef.current;
       if (current?.phase !== "active") return false;
-      if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
+      if (command.type === "sector_transponder") {
+        if (current.missionId !== "pale-beacons") return false;
+      } else if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
         if (current.missionId !== "iron-eclipse" || !current.operation || current.ownSlot !== current.hostSlot) return false;
       } else if (current.capabilities?.tacticalCommands !== true) return false;
       setNotice("");

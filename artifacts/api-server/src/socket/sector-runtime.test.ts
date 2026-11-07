@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
+import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput, parseSectorTransponder } from "./sector-runtime";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 import {
   ORBITAL_RUNTIME_ID, ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_ORBITAL_PROTOCOL_VERSION,
@@ -59,6 +59,8 @@ test("3D inputs exclude forged coordinates, results, identities, unknown buttons
     { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
     { ...NEUTRAL_FLIGHT_INPUT, strafe: 2 },
     { ...NEUTRAL_FLIGHT_INPUT, vertical: Number.NaN },
+    { ...NEUTRAL_FLIGHT_INPUT, factionContact: { stage: "reinforcements" } },
+    { ...NEUTRAL_FLIGHT_INPUT, transponder: "silent" },
   ]) assert.equal(parseSectorInput(value), null);
 });
 test("server sector wrapper defaults to the same deterministic Orbital flight used by local Rust Disc", () => {
@@ -201,6 +203,71 @@ test("Pale Beacons scout results come from Orbital server hull damage and persis
   assert.equal(saved[0]!.result.fingerprint, result.fingerprint);
   assert.equal(proofs.length, 1);
   assert.equal(proofs[0]!.scoutResult?.kills, 1);
+  await runtime.close();
+});
+test("Pale Beacons contact actions use server-verified inputs and gate hostile fire by faction response", async () => {
+  const publicListings: unknown[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    publishOperation: async state => { publicListings.push(state); },
+    physics: (state, input, seconds, sector) => {
+      if (state.elapsed === 0) {
+        state.stage = "drone";
+        state.droneCooldown = 0;
+      }
+      stepFlight(state, input, seconds, sector, ORBITAL_RUNTIME_ID);
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: 2, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", join, 0);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_launch",
+  }, 2);
+  for (let time = 17; time <= 119; time += 17) runtime.advance(time);
+  assert.equal(pilot.latest().factionContact?.actorFaction, "accord");
+  assert.equal(pilot.latest().factionContact?.action, "scan");
+  assert.equal(pilot.latest().pilots[0]!.flight.projectiles.some(projectile => projectile.hostile), false);
+
+  assert.equal(parseSectorTransponder({ type: "sector_transponder", mode: "silent" }), "silent");
+  assert.equal(parseSectorTransponder({ type: "sector_transponder", mode: "silent", action: "kill" }), null);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "silent",
+  }, 120);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "reinforcements",
+  }, 121);
+  assert.equal(pilot.packets.at(-1).reason, "invalid_sector_transponder");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "broadcast",
+  }, 122);
+  assert.equal(pilot.packets.at(-1).reason, "sector_transponder_rate_limited");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_input", seq: 0,
+    input: { ...NEUTRAL_FLIGHT_INPUT, fire: true, factionContact: { action: "reinforcements" } } as never,
+  }, 123);
+  assert.equal(pilot.packets.at(-1).reason, "invalid_sector_input");
+  for (let time = 136; time <= 238; time += 17) runtime.advance(time);
+  assert.equal(pilot.latest().factionContact?.action, "shadow");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 239);
+  for (let time = 255; time <= 357; time += 17) runtime.advance(time);
+
+  const contact = pilot.latest().factionContact;
+  assert.equal(contact?.transponder, "silent");
+  assert.equal(contact?.action, "intercept");
+  assert.equal(contact?.weaponsHot, true);
+  assert.equal(pilot.latest().pilots[0]!.flight.projectiles.some(projectile => projectile.hostile), true,
+    "the Accord scout only retaliates after the server classifies an intercept");
+  assert.deepEqual(publicListings, [], "private Pale Beacons contacts never enter the public operation directory");
   await runtime.close();
 });
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {
