@@ -196,7 +196,54 @@ export function buildOrbitalNativeShipGeometry(shipId: ShipId, factionColor: Rgb
     addCylinder(offset, -.04, 1.12, 1.1, .11 + (Math.abs(offset) < .2 ? .025 : 0), dark, accent, addTriangle, addQuad);
   }
   for (const [x, z] of spec.hardpoints) {
-    for (const sign of [-1, 1]) addBox(x * sign, -.09, z, .13, .12, .52, accent, addTriangle, addQuad);
+    for (const sign of [-1, 1]) {
+      // The hardpoint pod is now modeled as an armored launcher with a recessed
+      // bay and a forward rail, rather than a single featureless block.
+      addBox(x * sign, -.09, z, .13, .12, .52, accent, addTriangle, addQuad);
+      addBox(x * sign, -.165, z - .035, .075, .035, .36, dark, addTriangle, addQuad);
+      addTriangle(
+        [x * sign - .045, -.187, z - .19],
+        [x * sign + .045, -.187, z - .19],
+        [x * sign, -.187, z - .3],
+        accent,
+      );
+    }
+  }
+
+  // Distinct armor segmentation breaks up the continuous fuselage shading.
+  // These shallow plates follow each hull's section widths, so they reinforce
+  // the existing silhouettes without changing collision or simulation data.
+  for (let row = 1; row < spec.sections.length - 1; row++) {
+    const [z, width, height] = spec.sections[row]!;
+    const previousZ = spec.sections[row - 1]![0];
+    const nextZ = spec.sections[row + 1]![0];
+    const panelDepth = Math.min(.42, (nextZ - previousZ) * .2);
+    for (const sign of [-1, 1]) {
+      addBox(sign * width * .68, height * .72, z, width * .25, .035, panelDepth,
+        row % 2 === 0 ? accent : dark, addTriangle, addQuad);
+      addBox(sign * width * .88, -.01, z, .035, height * .52, panelDepth * .78,
+        dark, addTriangle, addQuad);
+    }
+  }
+
+  // Reinforced landing/docking struts and belly rails give each hull a readable
+  // lower profile in hangar inspection and close-range approach scenes.
+  const landingSpan = Math.max(.22, spec.sections[2]![1] * .78);
+  for (const sign of [-1, 1]) {
+    addBox(sign * landingSpan, -.24, .52, .07, .3, .09, dark, addTriangle, addQuad);
+    addBox(sign * landingSpan, -.4, .65, .2, .045, .22, accent, addTriangle, addQuad);
+  }
+  addBox(0, -.17, .92, .08, .14, .34, dark, addTriangle, addQuad);
+
+  // A small angular shoulder marking supplies a faction-color break while
+  // remaining part of the lightweight vertex-color mesh.
+  for (const sign of [-1, 1]) {
+    addTriangle(
+      [sign * .22, .082, -.72],
+      [sign * .58, .082, -.42],
+      [sign * .3, .082, -.34],
+      accent,
+    );
   }
 
   if (spec.sensor) {

@@ -5,6 +5,8 @@ import type { OnlineSnapshot } from "./Arena";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { CinderRingArtwork } from "./CinderRingArtwork";
 import { privateRoomDockAccess } from "./private-room-dock";
+import { createOrbitalNativeSpectatorRenderer, type NativeSpectatorState } from "./orbital-native-spectator-renderer";
+import type { ShipId } from "./ships";
 
 type Props = {
   operations?: OperationDirectoryResponse;
@@ -25,7 +27,10 @@ type Props = {
 const WING_RELAY_ID = "cinder-ring-wing-relay-5v5";
 const MATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type SpectatorContact = { x: number; z: number; team: 0 | 1; health: number; alive: boolean };
+type SpectatorContact = {
+  x: number; z: number; yaw: number; shipId: ShipId;
+  team: 0 | 1; health: number; alive: boolean;
+};
 type SpectatorState = {
   contacts: SpectatorContact[];
   relays: Array<{ x: number; z: number; owner: -1 | 0 | 1; progress: number }>;
@@ -42,6 +47,8 @@ function anonymousState(snapshot: OnlineSnapshot): SpectatorState | null {
     return [{
       x: ship.x,
       z: ship.z,
+      yaw: ship.yaw,
+      shipId: ship.ship,
       team: index < 1 + match.allies.length ? 0 : 1,
       health: ship.hullMax > 0 ? Math.max(0, Math.min(1, ship.hull / ship.hullMax)) : 0,
       alive: Boolean(ship.alive),
@@ -432,6 +439,7 @@ function TacticalSnapshot({ state }: { state: SpectatorState }) {
   const coordinate = (value: number) => 50 + (Math.max(-1, Math.min(1, value / 78)) * 42);
   return (
     <div className="mt-4 grid gap-4 border border-bone/10 bg-void/70 p-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+      <NativeBattleViewport state={state} />
       <svg role="img" aria-label="Anonymous live match map showing team contacts and relays" viewBox="0 0 100 100" className="mx-auto aspect-square w-full max-w-[25rem]">
         <circle cx="50" cy="50" r="46" fill="#090b10" stroke="#e0a15a" strokeOpacity=".55" />
         <circle cx="50" cy="50" r="31" fill="none" stroke="#e6e1d6" strokeOpacity=".12" />
@@ -483,6 +491,56 @@ function TacticalSnapshot({ state }: { state: SpectatorState }) {
           {state.over ? <p className="mt-3 border-t border-alert/30 pt-3 font-hud text-xs tracking-widest text-alert">SERVER MATCH COMPLETE</p> : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function NativeBattleViewport({ state }: { state: NativeSpectatorState }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const latestStateRef = useRef(state);
+  const [unavailable, setUnavailable] = useState(false);
+  latestStateRef.current = state;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let renderer: ReturnType<typeof createOrbitalNativeSpectatorRenderer>;
+    try {
+      renderer = createOrbitalNativeSpectatorRenderer(canvas);
+    } catch {
+      setUnavailable(true);
+      return;
+    }
+    let frame = 0;
+    const draw = () => {
+      renderer.render(latestStateRef.current);
+      frame = window.requestAnimationFrame(draw);
+    };
+    draw();
+    return () => {
+      window.cancelAnimationFrame(frame);
+      renderer.dispose();
+    };
+  }, []);
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-hud text-[10px] tracking-[0.18em] text-spectral">ORBITAL NATIVE / LIVE 3D CONTACTS</p>
+        <span className="text-[9px] tracking-widest text-muted">ANONYMOUS · READ ONLY</span>
+      </div>
+      {unavailable ? (
+        <p role="status" className="border border-bone/10 bg-void px-3 py-6 text-center text-xs text-muted">
+          Native 3D spectator rendering is unavailable in this browser. The live tactical map remains available below.
+        </p>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label="Live anonymous 3D view of the server-authoritative asteroid match"
+          className="block h-52 w-full border border-spectral/20 bg-[#05080d] sm:h-64"
+        />
+      )}
     </div>
   );
 }
