@@ -79,6 +79,12 @@ export type SectorFactionContact = {
   targeting: boolean;
   enteredAtTick: number;
 };
+export type SectorEvidencePickup = {
+  id: string;
+  title: string;
+  position: Vector3;
+  state: "available" | "recovering" | "recovered" | "unavailable";
+};
 export const IRON_ECLIPSE_SUBSYSTEMS = [
   { id: "point-defense", label: "POINT DEFENSE", maxHull: 120, offset: { x: -26, y: 9, z: 12 } },
   { id: "shield-array", label: "SHIELD ARRAY", maxHull: 140, offset: { x: 20, y: 13, z: -4 } },
@@ -106,7 +112,7 @@ export const SECTOR_MISSIONS: readonly SectorMission[] = [
   },
   {
     id: "pale-beacons", title: "Pale Beacons · Unknown Signal", prerequisite: "mars-approach",
-    description: "Trace an unclassified signal and confront a server-run opposing scout. Its confirmed destruction tally is recovered to your pilot record after extraction.",
+    description: "Track a server-run opposing patrol along a changing route. Search for two optional physical signal records, then destroy the patrol and extract.",
     sector: {
       ...RUST_DISC_SECTOR, id: "pale-beacons-v1", radius: 3000, planet: SECTOR_MARS,
       relay: { x: 850, y: 270, z: -900 }, extraction: { x: 1050, y: 350, z: -1350 },
@@ -142,6 +148,7 @@ export type SectorCommandRequest =
   | { type: "sector_command"; order: "defend" | "escort"; targetSlot: number }
   | { type: "sector_command"; order: "regroup" };
 export type SectorTransponderRequest = { type: "sector_transponder"; mode: "broadcast" | "silent" };
+export type SectorEvidenceRecoveryRequest = { type: "sector_recover_evidence" };
 export type IronEclipseCommandRequest =
   | { type: "iron_eclipse_order"; order: IronEclipseOrder }
   | { type: "iron_eclipse_target"; target: IronEclipseSubsystemId };
@@ -158,6 +165,8 @@ export type SectorSnapshot = {
   scoutResultStatus?: "pending" | "recorded" | "unavailable";
   /** Private server-derived contact state for this pilot; never a public event listing. */
   factionContact?: SectorFactionContact;
+  /** Server-positioned story evidence; recovery state is private to this account. */
+  evidence?: SectorEvidencePickup[];
   simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;
@@ -173,6 +182,7 @@ export type SectorClientPacket =
   | { type: "sector_input"; seq: number; input: FlightInput }
   | { type: "sector_ping"; nonce: number }
   | SectorTransponderRequest
+  | SectorEvidenceRecoveryRequest
   | SectorCommandRequest
   | IronEclipseCommandRequest
   | { type: "sector_retry" };

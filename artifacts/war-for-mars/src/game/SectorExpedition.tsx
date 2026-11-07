@@ -13,6 +13,7 @@ import type { FlightInput } from "./flight-sector";
 import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION, sectorMission,
   type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTransponderRequest,
+  type SectorEvidenceRecoveryRequest,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
@@ -295,11 +296,13 @@ function ExpeditionClient() {
   const transport = useMemo<ExpeditionTransport>(() => ({
     snapshotRef, latencyRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
-    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest) => {
+    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest | SectorEvidenceRecoveryRequest) => {
       const current = snapshotRef.current;
       if (current?.phase !== "active") return false;
       if (command.type === "sector_transponder") {
         if (current.missionId !== "pale-beacons") return false;
+      } else if (command.type === "sector_recover_evidence") {
+        if (current.missionId !== "pale-beacons" || current.version !== SECTOR_ORBITAL_PROTOCOL_VERSION) return false;
       } else if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
         if (current.missionId !== "iron-eclipse" || !current.operation || current.ownSlot !== current.hostSlot) return false;
       } else if (current.capabilities?.tacticalCommands !== true) return false;
@@ -459,7 +462,7 @@ function Select(props: {
               <span>For rooms you create at Cinder Ring, list anonymous operation status publicly. Room codes and pilot identities stay private.</span>
             </label>
           ) : null}
-          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Pale Beacons pays 12 credits per confirmed hostile scout destroyed after extraction; interrupted runs pay nothing.</p>
+          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. In Orbital V2, track the roaming patrol and recover the receiver history and Earth relay packet in flight. A completed run pays 12 credits per confirmed hostile hull; interrupted runs pay nothing.</p>
         </div>
         <ScoutResultHistory results={props.scoutResults} loading={props.scoutResultsLoading} unavailable={props.scoutResultsUnavailable} />
       </CommandPanel>

@@ -13,7 +13,7 @@ import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
   type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId, type SectorProtocolVersion,
-  type SectorScoutResult,
+  type SectorScoutResult, type SectorEvidencePickup,
   SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
@@ -37,6 +37,10 @@ type Pilot = {
   factionContact?: FactionContactDecision; lastHostileActionTick?: number;
   scoutResult?: SectorScoutResult;
   scoutResultStatus?: "pending" | "recorded" | "unavailable";
+  evidenceRecovered: Set<string>;
+  evidenceRecovering: Set<string>;
+  evidenceUnavailable: Set<string>;
+  evidenceActionAt: number | null;
 };
 type Room = {
   code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
@@ -49,6 +53,7 @@ type Room = {
   scoutEncounter?: ExplorationEncounter;
   scoutReceipt?: ExplorationReceipt;
   scoutPersisting?: Promise<void> | null;
+  scoutPosition: FlightState["position"];
 };
 export type SectorOperationPresence = {
   instanceId: string;
@@ -62,6 +67,11 @@ type Options = {
   settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
   recordScoutResults?: (entries: readonly { userId: string; result: SectorScoutResult }[]) => Promise<void>;
   settleScoutEncounter?: (receipt: ExplorationReceipt) => Promise<ExplorationSettlement>;
+  recoverNarrativeEvidence?: (
+    userId: string,
+    evidenceId: string,
+    encounterId: string,
+  ) => Promise<"recovered" | "duplicate">;
   isAtCinderRing?: (userId: string) => Promise<boolean>;
   publishOperation?: (state: SectorOperationPresence) => Promise<void>;
   /** Selected by deployment configuration, never by a client-supplied field. */
@@ -77,6 +87,40 @@ const idleInput: FlightInput = { ...NEUTRAL_FLIGHT_INPUT, brake: true };
 const copyPosition = (target: FlightState["drone"]["position"], source: FlightState["drone"]["position"]) => {
   target.x = source.x; target.y = source.y; target.z = source.z;
 };
+const PALE_BEACON_EVIDENCE = [
+  { id: "pale-beacon-record", title: "PALE BEACON RECEIVER HISTORY", position: { x: 620, y: 210, z: -740 } },
+  { id: "earth-first-response", title: "EARTH RELAY PACKET", position: { x: 1260, y: 390, z: -1510 } },
+] as const;
+const PALE_BEACON_PATROL_ROUTE = [
+  { x: 950, y: 300, z: -1150 },
+  { x: 1370, y: 360, z: -900 },
+  { x: 1300, y: 470, z: -500 },
+  { x: 820, y: 410, z: -430 },
+  { x: 560, y: 300, z: -760 },
+] as const;
+const PATROL_LEG_TICKS = 900;
+const EVIDENCE_RECOVERY_RADIUS_METERS = 55;
+
+export function roamingPatrolPosition(tick: number): FlightState["position"] {
+  const routeLength = PALE_BEACON_PATROL_ROUTE.length;
+  const routeTicks = routeLength * PATROL_LEG_TICKS;
+  const routeTick = ((Math.max(0, Math.floor(tick)) % routeTicks) + routeTicks) % routeTicks;
+  const leg = Math.floor(routeTick / PATROL_LEG_TICKS);
+  const fraction = (routeTick - leg * PATROL_LEG_TICKS) / PATROL_LEG_TICKS;
+  const from = PALE_BEACON_PATROL_ROUTE[leg]!;
+  const to = PALE_BEACON_PATROL_ROUTE[(leg + 1) % routeLength]!;
+  return {
+    x: from.x + (to.x - from.x) * fraction,
+    y: from.y + (to.y - from.y) * fraction,
+    z: from.z + (to.z - from.z) * fraction,
+  };
+}
+
+export function parseSectorEvidenceRecovery(value: unknown): boolean {
+  return !!value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).length === 1 &&
+    (value as Record<string, unknown>).type === "sector_recover_evidence";
+}
 export function parseSectorInput(value: unknown): FlightInput | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
@@ -222,6 +266,16 @@ export function createSectorRuntime(options: Options) {
         ...(own.scoutResult ? { scoutResult: own.scoutResult } : {}),
         ...(own.scoutResultStatus ? { scoutResultStatus: own.scoutResultStatus } : {}),
         ...(own.factionContact ? { factionContact: own.factionContact } : {}),
+        ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION && room.mission.id === "pale-beacons"
+          ? { evidence: PALE_BEACON_EVIDENCE.map((record): SectorEvidencePickup => ({
+              ...record,
+              position: { ...record.position },
+              state: own.evidenceRecovered.has(record.id) ? "recovered"
+                : own.evidenceRecovering.has(record.id) ? "recovering"
+                  : own.evidenceUnavailable.has(record.id) || !options.recoverNarrativeEvidence
+                    ? "unavailable" : "available",
+            })) }
+          : {}),
       };
       send(own.socket, snapshot);
     }
@@ -427,6 +481,7 @@ export function createSectorRuntime(options: Options) {
           operation: mission.id === "iron-eclipse" ? createIronEclipseState(mission.sector) : null,
           scoutFaction: SHIPS[packet.shipId as ShipId].faction,
           scoutPersisting: null,
+          scoutPosition: { ...(mission.sector.drone ?? mission.sector.relay) },
           // Keep a per-room mutable wrapper so the hot simulation loop does
           // not allocate a replacement sector object for every pilot/tick.
           flightSector: { ...mission.sector },
@@ -453,6 +508,8 @@ export function createSectorRuntime(options: Options) {
           input: neutral(), seq: -1, lastInput: now, disconnectedAt: null,
           transponder: "broadcast", transponderChangedAt: null,
           activeTicks: 0, acceptedInputs: 0, progress,
+          evidenceRecovered: new Set(), evidenceRecovering: new Set(), evidenceUnavailable: new Set(),
+          evidenceActionAt: null,
           settlement: { status: "not_started", reason: "complete_server_mission_to_record_discovery" },
           proof: null, settling: null, nextRetry: 0, attempts: 0,
         };
@@ -495,6 +552,57 @@ export function createSectorRuntime(options: Options) {
       pilot.transponderChangedAt = now;
       publish(room); return;
     }
+    if (packet.type === "sector_recover_evidence") {
+      if (!parseSectorEvidenceRecovery(packet) || room.mission.id !== "pale-beacons" ||
+          protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || room.phase !== "active" || !room.scoutEncounter) {
+        error("invalid_sector_evidence_recovery"); return;
+      }
+      if (pilot.evidenceActionAt !== null && now - pilot.evidenceActionAt < 900) {
+        error("sector_evidence_rate_limited"); return;
+      }
+      pilot.evidenceActionAt = now;
+      const nearest = PALE_BEACON_EVIDENCE
+        .filter((record) => !pilot.evidenceRecovered.has(record.id) && !pilot.evidenceRecovering.has(record.id))
+        .map((record) => ({
+          record,
+          distance: vectorLength({
+            x: pilot.flight.position.x - record.position.x,
+            y: pilot.flight.position.y - record.position.y,
+            z: pilot.flight.position.z - record.position.z,
+          }),
+        }))
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (!nearest || nearest.distance > EVIDENCE_RECOVERY_RADIUS_METERS ||
+          !sensorLineOfSight(pilot.flight.position, nearest.record.position, room.flightSector)) {
+        error("evidence_not_in_recovery_range"); return;
+      }
+      if (!options.recoverNarrativeEvidence) {
+        pilot.evidenceUnavailable.add(nearest.record.id);
+        publish(room);
+        error("evidence_archive_unavailable"); return;
+      }
+      pilot.evidenceUnavailable.delete(nearest.record.id);
+      pilot.evidenceRecovering.add(nearest.record.id);
+      publish(room);
+      void options.recoverNarrativeEvidence(pilot.userId, nearest.record.id, room.matchId)
+        .then((result) => {
+          if (result === "recovered" || result === "duplicate") {
+            pilot.evidenceRecovered.add(nearest.record.id);
+          } else {
+            pilot.evidenceUnavailable.add(nearest.record.id);
+            error("evidence_archive_unavailable");
+          }
+        })
+        .catch(() => {
+          pilot.evidenceUnavailable.add(nearest.record.id);
+          error("evidence_archive_unavailable");
+        })
+        .finally(() => {
+          pilot.evidenceRecovering.delete(nearest.record.id);
+          publish(room);
+        });
+      return;
+    }
     if (packet.type === "sector_launch") {
       if (Object.keys(packet).length !== 1 || room.phase !== "lobby" || pilot.slot !== room.hostSlot) { error("sector_host_required"); return; }
       if (!room.pilots.every(p => p.socket?.readyState === WebSocket.OPEN && p.ready)) { error("sector_all_pilots_ready_required"); return; }
@@ -526,7 +634,7 @@ export function createSectorRuntime(options: Options) {
             },
           ],
           // This first integration persists only the kill/assist result. No
-          // credit amount or live reward policy is activated in this slice.
+          // client-authored result is accepted; all rewards settle server-side.
           rewardPolicy: {
             id: "pale-beacon-npc-bounty-v1",
             creditsPerNpcKill: 12,
@@ -534,6 +642,7 @@ export function createSectorRuntime(options: Options) {
             maxCreditsPerEncounter: 24,
           },
         });
+        room.scoutPosition = roamingPatrolPosition(0);
       }
       room.phase = "active"; publish(room); publishOperationState(room); return;
     }
@@ -667,6 +776,7 @@ export function createSectorRuntime(options: Options) {
           advanceIronEclipse(room.operation, SECTOR_STEP, host?.flight.position ?? room.mission.sector.relay, room.mission.sector.relay);
           room.droneHull = ironEclipseTarget(room.operation)?.hull ?? 0;
         }
+        if (room.scoutEncounter) room.scoutPosition = roamingPatrolPosition(room.tick);
         const pointDefenseDisabled = room.operation?.view.subsystems.some(
           item => item.id === "point-defense" && item.disabled,
         ) === true;
@@ -676,6 +786,7 @@ export function createSectorRuntime(options: Options) {
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
           const input = now - pilot.lastInput < 350 ? pilot.input : idleInput;
+          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
           pilot.factionContact = updateFactionContact(room, pilot, input);
           const contactCanEngage = pilot.factionContact?.action === "intercept" ||
             pilot.factionContact?.action === "request_reinforcements";
@@ -689,6 +800,7 @@ export function createSectorRuntime(options: Options) {
             copyPosition(pilot.flight.drone.position, targetPosition);
             if (pointDefenseDisabled) removeHostileProjectilesInPlace(pilot.flight.projectiles);
           }
+          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
           pilot.flight.drone.hull = room.droneHull;
           const hullBefore = pilot.flight.hull;
           physics(pilot.flight, input, SECTOR_STEP, flightSector);
@@ -725,6 +837,7 @@ export function createSectorRuntime(options: Options) {
         // Synchronize the shared objective for all pilots at the same authoritative tick.
         for (const pilot of room.pilots) {
           pilot.flight.drone.hull = room.droneHull;
+          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
           if (room.operation) {
             const targetPosition = ironEclipseTarget(room.operation)?.position ?? room.operation.view.capitalPosition;
             copyPosition(pilot.flight.drone.position, targetPosition);

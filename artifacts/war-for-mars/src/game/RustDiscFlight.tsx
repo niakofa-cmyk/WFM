@@ -25,7 +25,11 @@ import {
   type LocalPerformanceSummary,
 } from "./local-performance";
 import { LocalPerformanceReport } from "./LocalPerformanceReport";
-import type { IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder, SectorCommandRequest, SectorFactionContact, SectorMission, SectorSnapshot, SectorTacticalCommand, SectorTransponderRequest } from "./sector-missions";
+import type {
+  IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder,
+  SectorCommandRequest, SectorEvidencePickup, SectorEvidenceRecoveryRequest, SectorFactionContact,
+  SectorMission, SectorSnapshot, SectorTacticalCommand, SectorTransponderRequest,
+} from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
 import { useLeaveWorldOperationInstance } from "@workspace/api-client-react";
@@ -44,7 +48,7 @@ export type ExpeditionTransport = {
   snapshotRef: MutableRefObject<SectorSnapshot | null>;
   latencyRef: MutableRefObject<number | null>;
   sendInput: (input: FlightInput) => void;
-  sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest) => boolean;
+  sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest | SectorEvidenceRecoveryRequest) => boolean;
   notice: string;
   mission: SectorMission;
   connection: "connected" | "reconnecting" | "lost";
@@ -73,6 +77,7 @@ type Hud = {
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
   tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
   factionContact: SectorFactionContact | null;
+  evidence: Array<SectorEvidencePickup & { distanceMeters: number }>;
   operation: IronEclipseSnapshot | null;
 };
 
@@ -225,6 +230,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
   const pilotMarkerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const markerRef = useRef<HTMLDivElement>(null);
   const droneMarkerRef = useRef<HTMLDivElement>(null);
+  const evidenceMarkerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const inputRef = useRef<FlightControlFrame>(neutralFlightControls(0.35));
   const pulseRef = useRef({ missile: false, countermeasure: false });
   const pausedRef = useRef(false);
@@ -714,7 +720,9 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
       }
       if (steps === MAX_CATCHUP) acc = 0;
 
-      if (mapOpenRef.current && mapCanvasRef.current) drawFlightMap(mapCanvasRef.current, state, sector);
+      if (mapOpenRef.current && mapCanvasRef.current) {
+        drawFlightMap(mapCanvasRef.current, state, sector, expeditionRef.current?.snapshotRef.current?.evidence ?? []);
+      }
 
       // Visual sync
       if (!netMode) projectiles = state.projectiles;
@@ -808,6 +816,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
               : obj.label;
       place(markerRef.current, obj.position, state.stage !== "complete" && state.stage !== "destroyed");
       place(droneMarkerRef.current, d, state.stage === "drone" && state.drone.hull > 0);
+      const evidenceSites = snapNow?.evidence ?? [];
+      for (let i = 0; i < evidenceMarkerRefs.current.length; i++) {
+        const site = evidenceSites[i];
+        place(evidenceMarkerRefs.current[i] ?? null, site?.position ?? state.position,
+          !!site && site.state !== "recovered" && site.state !== "unavailable");
+      }
       let mi = 0;
       for (const [slot, o] of others) {
         const el = pilotMarkerRefs.current[mi++]; if (!el) continue;
@@ -827,11 +841,19 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         const targetDy = targetPosition.y - state.position.y;
         const targetDz = targetPosition.z - state.position.z;
         const targetMaxHull = selectedSubsystem?.maxHull ?? expeditionRef.current?.mission.sector.droneHull ?? RUST_DISC_SECTOR.droneHull ?? 60;
+        const evidence = (snapNow?.evidence ?? []).map((site) => ({
+          ...site,
+          distanceMeters: vectorLength({
+            x: site.position.x - state.position.x,
+            y: site.position.y - state.position.y,
+            z: site.position.z - state.position.z,
+          }),
+        }));
         setHud({
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
           lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           target: targetActive ? {
-            name: selectedSubsystem?.label ?? (expeditionRef.current?.mission.id === "pale-beacons" ? "OPPOSING SCOUT" : "TRAINING DRONE"),
+            name: selectedSubsystem?.label ?? (expeditionRef.current?.mission.id === "pale-beacons" ? "ROAMING PATROL LEAD" : "TRAINING DRONE"),
             affiliation: selectedSubsystem ? "HOSTILE CAPITAL" : "HOSTILE CONTACT",
             distance: Math.sqrt(targetDx * targetDx + targetDy * targetDy + targetDz * targetDz),
             hull: selectedSubsystem?.hull ?? state.drone.hull,
@@ -847,6 +869,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
           factionContact: snapNow?.factionContact ?? null,
           command: snapNow?.command ?? null,
+          evidence,
           operation: ironEclipse ? snapNow?.operation ?? null : null,
           crew: snapNow ? snapNow.pilots.map(p => ({ slot: p.slot, shipId: p.shipId, connected: p.connected, hull: p.flight.hull, own: p.slot === snapNow.ownSlot, host: p.slot === snapNow.hostSlot, stage: p.flight.stage })) : [],
         });
@@ -961,6 +984,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           <div ref={droneMarkerRef} className="pointer-events-none absolute left-0 top-0 h-0 w-0 opacity-0">
             <div className="absolute left-0 top-0 h-10 w-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#ff7a5c]" style={{ transform: `translate(-50%,-50%) rotate(${45 * (1 - (hud?.lock ?? 0))}deg)` }} />
           </div>
+          {(hud?.evidence ?? []).map((site, index) => (
+            <div key={site.id} ref={(element) => { evidenceMarkerRefs.current[index] = element; }}
+              className="pointer-events-none absolute left-0 top-0 h-0 w-0 opacity-0" data-testid={`marker-evidence-${site.id}`}>
+              <EvidenceMarker title={site.title} distance={site.distanceMeters} state={site.state} />
+            </div>
+          ))}
           {Array.from({ length: 7 }, (_, i) => (
             <div key={i} ref={el => { pilotMarkerRefs.current[i] = el; }} data-testid={`marker-pilot-${i}`}
               className="pointer-events-none absolute left-0 top-0 -ml-8 -mt-6 w-16 text-center font-hud text-[10px] tracking-[0.2em] opacity-0" />
@@ -1007,6 +1036,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
             missileReady={Boolean(hud?.target && hud.lock >= 1 && hud.missiles > 0)} missiles={hud?.missiles ?? 0} incoming={hud?.incoming ?? 0}
             onPause={() => setPausedBoth(true)} onCamera={toggleCam} onMap={() => setMapOpen(true)} throttle={hud?.throttle ?? 0.35}
             vectorDriftAvailable={hud?.vectorDriftAvailable ?? false} />
+          {net && hud?.evidence.length ? (
+            <EvidenceRecoveryControl
+              evidence={hud.evidence}
+              disabled={paused || expedition!.connection !== "connected"}
+              onRecover={() => expedition!.sendCommand({ type: "sector_recover_evidence" })}
+            />
+          ) : null}
           {mapOpen && hud ? (
             <div className="pilot-map-backdrop absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rust Disc tactical map">
               <div className="pilot-map-panel">
@@ -1017,11 +1053,12 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
                   </div>
                   <PilotActionButton icon="pause" label="Close sector map" testId="button-close-tactical-map" onActivate={() => setMapOpen(false)} />
                 </div>
-                <canvas ref={mapCanvasRef} width={320} height={320} className="pilot-map-canvas" aria-label="Sector map showing your ship, rocks, relay, extraction, and active hostile" />
+                <canvas ref={mapCanvasRef} width={320} height={320} className="pilot-map-canvas" aria-label="Sector map showing your ship, rocks, relay, extraction, hostile patrol, and recoverable evidence" />
                 <div className="pilot-map-legend font-hud text-[10px] tracking-widest">
                   <span><i className="pilot-map-key pilot-map-friendly" /> PILOT</span>
                   <span><i className="pilot-map-key pilot-map-hostile" /> ACTIVE HOSTILE</span>
                   <span><i className="pilot-map-key pilot-map-objective" /> MISSION</span>
+                  <span><i className="pilot-map-key pilot-map-evidence" /> RECOVERABLE INTEL</span>
                 </div>
                 <p className="mt-2 text-center font-hud text-[9px] tracking-widest text-muted">MAP OPEN · FLIGHT SIMULATION CONTINUES</p>
               </div>
@@ -1271,7 +1308,7 @@ function FlightHud({ hud, shipId, droneMax, onTransponder, transponderDisabled }
             <span className={hud.factionContact.action === "intercept" || hud.factionContact.action === "request_reinforcements" ? "text-[#ff7a5c]" : "text-solar"}>
               {hud.factionContact.action === "none" ? "NO SENSOR CONTACT"
                 : hud.factionContact.action === "scan" ? "SCOUT INVESTIGATING"
-                : hud.factionContact.action === "shadow" ? "ACCORD SCOUT SHADOWING"
+                : hud.factionContact.action === "shadow" ? `${hud.factionContact.actorFaction.toUpperCase()} PATROL SHADOWING`
                 : hud.factionContact.action === "challenge" ? "IFF CHALLENGE"
                 : hud.factionContact.action === "warn" ? "WARNING ISSUED"
                 : hud.factionContact.action === "intercept" ? "INTERCEPTING"
@@ -1308,7 +1345,12 @@ function FlightHud({ hud, shipId, droneMax, onTransponder, transponderDisabled }
   );
 }
 
-function drawFlightMap(canvas: HTMLCanvasElement, state: FlightState, sector: FlightSector) {
+function drawFlightMap(
+  canvas: HTMLCanvasElement,
+  state: FlightState,
+  sector: FlightSector,
+  evidence: readonly SectorEvidencePickup[] = [],
+) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const size = Math.min(canvas.width, canvas.height);
@@ -1348,6 +1390,9 @@ function drawFlightMap(canvas: HTMLCanvasElement, state: FlightState, sector: Fl
   marker(sector.relay, "#55d7ef", "square");
   marker(sector.extraction, "#e0a15a", "square");
   if (state.stage === "drone" && state.drone.hull > 0) marker(state.drone.position, "#ff7a5c", "circle");
+  for (const site of evidence) {
+    if (site.state !== "recovered" && site.state !== "unavailable") marker(site.position, "#b9a4ff", "square");
+  }
   ctx.save();
   ctx.rotate(Math.atan2(
     2 * (state.orientation.w * state.orientation.y + state.orientation.x * state.orientation.z),
@@ -1552,6 +1597,55 @@ function ObjectiveMarker({ label, distance }: { label: string; distance: number 
       <div className="h-5 w-5 rotate-45 border-2 border-solar" />
       <span className="mt-1 whitespace-nowrap font-hud text-[10px] tracking-[0.2em] text-solar">{label ? `${Math.round(distance)}M` : ""}</span>
     </div>
+  );
+}
+
+function EvidenceMarker({ title, distance, state }: {
+  title: string; distance: number; state: SectorEvidencePickup["state"];
+}) {
+  return (
+    <div className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+      <div className={`h-5 w-5 rotate-45 border-2 ${state === "recovering" ? "border-solar" : "border-[#b9a4ff]"}`} />
+      <span className="mt-1 whitespace-nowrap border border-[#b9a4ff]/50 bg-[#080b12]/85 px-1.5 py-0.5 font-hud text-[8px] tracking-[0.14em] text-[#d4c8ff]">
+        {title} · {Math.round(distance)}M
+      </span>
+    </div>
+  );
+}
+
+function EvidenceRecoveryControl({ evidence, disabled, onRecover }: {
+  evidence: Array<SectorEvidencePickup & { distanceMeters: number }>;
+  disabled: boolean;
+  onRecover: () => boolean;
+}) {
+  const next = [...evidence]
+    .filter((site) => site.state !== "recovered")
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)[0];
+  return (
+    <section className="pointer-events-auto absolute bottom-[calc(env(safe-area-inset-bottom)+7.4rem)] left-1/2 z-10 w-[min(21rem,calc(100vw-7rem))] -translate-x-1/2 border border-[#b9a4ff]/45 bg-[#080b12]/90 p-2 shadow-lg"
+      data-testid="panel-evidence-recovery" aria-live="polite">
+      <p className="font-hud text-[9px] tracking-[0.2em] text-[#d4c8ff]">IN-FLIGHT EVIDENCE</p>
+      {!next ? (
+        <p className="mt-1 text-xs text-solar">ALL SIGNAL RECORDS SECURED</p>
+      ) : (
+        <>
+          <p className="mt-1 truncate text-[10px] tracking-wider text-bone">{next.title}</p>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="font-hud text-[9px] tracking-widest text-muted">
+              {next.state === "recovering" ? "ARCHIVING…" :
+                next.state === "unavailable" ? (next.distanceMeters <= 55 ? "ARCHIVE LINK · RETRY AVAILABLE" : `${Math.round(next.distanceMeters)}M · CLOSE IN`) :
+                  next.distanceMeters <= 55 ? "RECOVERY RANGE" : `${Math.round(next.distanceMeters)}M · CLOSE IN`}
+            </span>
+            <button type="button" disabled={disabled ||
+              (next.state !== "available" && next.state !== "unavailable") || next.distanceMeters > 55}
+              onClick={onRecover} data-testid="button-recover-evidence"
+              className="min-h-9 border border-[#b9a4ff]/70 bg-[#b9a4ff]/15 px-3 font-hud text-[9px] tracking-[0.16em] text-[#eeeaff] disabled:cursor-not-allowed disabled:opacity-40">
+              {next.state === "unavailable" ? "RETRY" : "RECOVER"}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

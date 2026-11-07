@@ -12,10 +12,21 @@ the compatibility protocol.
 
 The existing server simulation remains the authority for hull damage. After
 each physics step, the sector runtime records only damage actually applied to
-the shared scout hull. The exploration contract attributes the final hostile
-hull transition as a kill, records prior contributors as assists, and binds
-the result to the server roster, runtime, policy and event fingerprint.
+the shared patrol hull. The opposing patrol lead moves on a deterministic
+server-owned waypoint loop in the Pale Beacons sector; every pilot receives the
+same current actor position. The exploration contract attributes the final
+hostile hull transition as a kill, records prior contributors as assists, and
+binds the result to the server roster, runtime, policy and event fingerprint.
 Client packets cannot submit damage, kill counts, result objects or credits.
+
+The V2 flight also contains two physical story evidence sites: the beacon
+receiver history and the Earth relay packet. The HUD provides projected markers
+and a recovery action; the tactical map marks each unrecovered site. The action
+contains no client-selected record ID. The server selects the nearest record
+and requires the pilot to be within 55 meters with line of sight before writing
+the stable narrative discovery. A pickup is persisted immediately,
+account-scoped and idempotent, and awards no credits. Campaign claim-based
+discoveries remain compatible with the same records.
 
 After a verified extraction, the server settles a 12-credit bounty for each
 confirmed eligible NPC kill, capped at 24 credits per encounter. There is no
@@ -35,6 +46,12 @@ server-confirmed award.
 - Settlement is connected only to the existing V2 Orbital sector path. This
   code-level implementation has not been deployed or verified on staging or
   Production.
+- The roaming path is one NPC patrol lead in one active Pale Beacons room. It is
+  not a persistent open-universe patrol director, multi-ship formation, or
+  cross-sector encounter.
+- Physical recovery covers only the two Pale Beacons records. Other campaign
+  records still use the existing verified-claim path; no faction-wide
+  knowledge, extra reward, or global consequence is granted by a pickup.
 - Result history survives page reloads and graceful server shutdown once its
   ledger write succeeds. An active flight is **not** resumed after an abrupt
   process crash; its live movement, projectiles and inputs are not checkpointed.
@@ -51,7 +68,8 @@ server-confirmed award.
 ## Verification to require before widening
 
 The unit suite must exercise the Orbital V2 handshake, opposing-faction room
-admission, kill/assist attribution from server physics, atomic bounded credit
+admission, moving patrol snapshots, nearby-only evidence recovery, account
+isolation, kill/assist attribution from server physics, atomic bounded credit
 settlement, aborted-run zero payout, idempotent result storage, and authenticated
 owner-only reads. Before enabling V2 for players, deploy matching
 client/API/socket revisions to isolated staging and verify two authenticated

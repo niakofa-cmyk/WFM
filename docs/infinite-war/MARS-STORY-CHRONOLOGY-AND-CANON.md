@@ -84,12 +84,16 @@ The story-map placement does not change the current operation contract:
 
 ## Playable evidence and persistent state
 
-The API server awards story evidence only while settling a completed, verified
-campaign claim. The claim transaction writes stable evidence IDs to the
-player's existing world-discovery ledger and records an idempotent
-`world_exploration` progression event. Replaying the same claim cannot duplicate
-the reward or evidence. Cage's first verified result is retained as that
-player's branch; a later replay does not rewrite the historical record.
+The campaign path still awards story evidence while settling a completed,
+verified campaign claim. In addition, Orbital V2 Pale Beacons flight now lets
+pilots physically recover two records: the Pale Beacon receiver history and the
+Earth relay packet. The server chooses the record from the authenticated
+pilot's position, range, and line of sight; the client cannot submit an
+evidence ID or position. Recovery writes the same stable ID to the existing
+world-discovery ledger and an idempotent zero-credit `world_exploration` event.
+Repeated pickup or a prior campaign discovery cannot duplicate the archive
+record. Cage's first verified result is retained as that player's branch; a
+later replay does not rewrite the historical record.
 
 The authenticated world response returns only records that this player has
 recovered. It includes a synopsis, source, knowledge classification, dialogue
@@ -145,8 +149,10 @@ later, contested Cage transfer. The prior line claiming Dusk chose the Cage
 route to expose the signal has been removed. The co-op chain, Iron Eclipse
 entry/access, and all battle/reward semantics remain separate.
 
-Not yet implemented: in-world scanning interactions that recover each record,
-global or faction-shared knowledge, live NPC/AI consequences, a physical
-cinematic sequence, and additional routes beyond the current campaign
-operations. The archive is a server-verified narrative scene/transcript, not a
-rendered video cutscene or proof of those future systems.
+Implemented in-world recovery is currently limited to two optional records in
+Pale Beacons. Other Contact, Beacon, Warden, and Cage records retain their
+verified campaign-claim path until their routes gain their own server-placed
+interactions. The recovery is per account; it does not create faction-wide
+knowledge, global NPC consequences, or a physical cinematic. The archive is a
+server-verified narrative scene/transcript, not a rendered video cutscene or
+proof of those future systems.

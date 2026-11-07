@@ -22,6 +22,7 @@
 .pilot-map-legend{display:flex;justify-content:center;gap:1rem;color:#b6b1a9}
 .pilot-map-legend span{display:flex;align-items:center;gap:.35rem}
 .pilot-map-key{display:inline-block;width:8px;height:8px}
+.pilot-map-key.pilot-map-evidence{background:#b9a4ff;transform:rotate(45deg)}
 .pilot-map-friendly{background:#e0a15a}
 .pilot-map-hostile{background:#c45c48}
 .pilot-map-objective{background:#8d877c}

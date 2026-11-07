@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput, parseSectorTransponder } from "./sector-runtime";
+import {
+  createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorEvidenceRecovery,
+  parseSectorInput, parseSectorTransponder, roamingPatrolPosition,
+} from "./sector-runtime";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 import {
   ORBITAL_RUNTIME_ID, ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_ORBITAL_PROTOCOL_VERSION,
@@ -22,6 +25,14 @@ function socket() {
   };
   return { ws: fake as unknown as WebSocket, packets, latest: () => packets.filter(p => p.type === "sector_snapshot").at(-1) as SectorSnapshot };
 }
+test("Orbital patrol route is deterministic and evidence recovery packets carry no client-selected record", () => {
+  assert.deepEqual(roamingPatrolPosition(0), { x: 950, y: 300, z: -1150 });
+  assert.deepEqual(roamingPatrolPosition(4500), roamingPatrolPosition(0));
+  assert.notDeepEqual(roamingPatrolPosition(450), roamingPatrolPosition(0));
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence" }), true);
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", evidenceId: "first-witness-trace" }), false);
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", position: { x: 0, y: 0, z: 0 } }), false);
+});
 test("new sector feature fails closed in Production and rejects ambiguous declarations", () => {
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production" }), false);
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production", WFM_SECTOR_FLIGHT_ENABLED: "TRUE" }), false);
@@ -219,6 +230,77 @@ test("Pale Beacons scout results come from Orbital server hull damage and persis
   assert.equal(proofs[0]!.scoutResult?.kills, 1);
   await runtime.close();
 });
+
+test("Orbital Pale Beacons moves its patrol and recovers only server-selected nearby evidence", async () => {
+  const recovered: Array<{ userId: string; evidenceId: string; encounterId: string }> = [];
+  let pilotPosition = { x: 0, y: 0, z: 0 };
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    recoverNarrativeEvidence: async (userId, evidenceId, encounterId) => {
+      recovered.push({ userId, evidenceId, encounterId });
+      return "recovered";
+    },
+    physics: (state, _input, seconds) => {
+      state.position = { ...pilotPosition };
+      state.elapsed += seconds;
+      state.stage = "drone";
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: SECTOR_ORBITAL_PROTOCOL_VERSION, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", join, 0);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_launch",
+  }, 2);
+
+  runtime.advance(120);
+  const firstPatrolPosition = pilot.latest().pilots[0]!.flight.drone.position;
+  runtime.advance(240);
+  const secondPatrolPosition = pilot.latest().pilots[0]!.flight.drone.position;
+  assert.notDeepEqual(secondPatrolPosition, firstPatrolPosition, "the server snapshot follows the moving patrol");
+
+  const sites = pilot.latest().evidence;
+  assert.equal(sites?.length, 2);
+  assert.deepEqual(sites?.map(site => site.id), ["pale-beacon-record", "earth-first-response"]);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 241);
+  assert.equal(pilot.packets.at(-1)?.reason, "evidence_not_in_recovery_range");
+  assert.equal(recovered.length, 0, "a distant request cannot recover or settle a record");
+  pilotPosition = { ...sites![0]!.position };
+  runtime.advance(1200);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence", evidenceId: "first-witness-trace",
+  }, 1201);
+  assert.equal(pilot.packets.at(-1)?.reason, "invalid_sector_evidence_recovery",
+    "the client cannot select or forge the narrative record id");
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 1202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["pale-beacon-record"]);
+  assert.equal(pilot.latest().evidence?.[0]?.state, "recovered");
+
+  pilotPosition = { ...sites![1]!.position };
+  runtime.advance(2200);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 2300);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["pale-beacon-record", "earth-first-response"]);
+  assert.equal(recovered[0]?.userId, "evidence-pilot");
+  assert.equal(recovered[0]?.encounterId, recovered[1]?.encounterId);
+  assert.deepEqual(pilot.latest().evidence?.map(site => site.state), ["recovered", "recovered"]);
+  await runtime.close();
+});
+
 test("Pale Beacons contact actions use server-verified inputs and gate hostile fire by faction response", async () => {
   const publicListings: unknown[] = [];
   const runtime = createSectorRuntime({

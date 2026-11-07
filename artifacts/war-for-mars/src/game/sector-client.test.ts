@@ -78,10 +78,23 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     territory: "contested", transponder: "broadcast", distanceMeters: 1500, sensorRangeMeters: 2100,
     speedMetersPerSecond: 0, lineOfSight: true, weaponsHot: false, targeting: false, enteredAtTick: 3,
   };
+  const evidence = [
+    { id: "pale-beacon-record", title: "PALE BEACON RECEIVER HISTORY", position: { x: 620, y: 210, z: -740 }, state: "available" },
+    { id: "earth-first-response", title: "EARTH RELAY PACKET", position: { x: 1260, y: 390, z: -1510 }, state: "available" },
+  ];
   const paleBeaconsSnapshot = {
-    ...orbitalSnapshot, missionId: "pale-beacons", phase: "active", factionContact,
+    ...orbitalSnapshot, missionId: "pale-beacons", phase: "active", factionContact, evidence,
   };
   assert.ok(parseSectorSnapshot(paleBeaconsSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot,
+    evidence: [{ ...evidence[0]!, id: "first-witness-trace" }, evidence[1]],
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the server only exposes the two Pale Beacons recovery sites");
+  assert.equal(parseSectorSnapshot({
+    ...orbitalSnapshot, missionId: "rust-disc", evidence,
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "evidence contacts cannot be injected into another mission");
+  assert.equal(parseSectorSnapshot({ ...snap, missionId: "pale-beacons", evidence }, 1), null,
+    "compatibility snapshots cannot inject Orbital evidence sites");
   assert.equal(parseSectorSnapshot({
     ...paleBeaconsSnapshot, factionContact: { ...factionContact, actorFaction: "ussf" },
   }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the opposing contact cannot claim the player's faction");

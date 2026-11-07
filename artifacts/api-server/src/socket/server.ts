@@ -128,6 +128,11 @@ export async function startWingSocketServer(
     settleScoutEncounter?: (
       receipt: import("../game/exploration-encounter").ExplorationReceipt,
     ) => Promise<import("../game/exploration-settlement").ExplorationSettlement>;
+    recoverNarrativeEvidence?: (
+      userId: string,
+      evidenceId: string,
+      encounterId: string,
+    ) => Promise<"recovered" | "duplicate">;
     isAtCinderRing?: (userId: string) => Promise<boolean>;
     publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     publishCompetitiveMatch?: (state: {
@@ -156,6 +161,7 @@ export async function startWingSocketServer(
     settle: options.settleSectorDiscovery,
     recordScoutResults: options.recordScoutResults,
     settleScoutEncounter: options.settleScoutEncounter,
+    recoverNarrativeEvidence: options.recoverNarrativeEvidence,
     isAtCinderRing: options.isAtCinderRing,
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,

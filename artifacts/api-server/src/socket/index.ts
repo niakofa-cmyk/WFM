@@ -53,6 +53,9 @@ const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL
 const explorationRewards = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/exploration-rewards")
   : undefined;
+const storyEvidence = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+  ? await import("../game/story-evidence")
+  : undefined;
 const operationNetwork = (enableSectorFlight || competitiveQueueEnabled) && Boolean(process.env.DATABASE_URL)
   ? await import("../game/operation-network")
   : undefined;
@@ -96,6 +99,10 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   settleScoutEncounter: explorationRewards &&
     sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
       ? (receipt) => explorationRewards.settleCompletedExploration(receipt, true)
+      : undefined,
+  recoverNarrativeEvidence: storyEvidence &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? storyEvidence.recoverNarrativeEvidence
       : undefined,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
   publishSectorOperation,

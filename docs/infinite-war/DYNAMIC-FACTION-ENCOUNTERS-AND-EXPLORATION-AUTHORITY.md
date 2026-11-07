@@ -138,16 +138,31 @@ are implemented; see
 [Primary boot and encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
 for the exact scope, rollback entries and remaining activation gates.
 
-## First faction-response slice
+## First roaming patrol and evidence-recovery slice
 
-Pale Beacons now runs a bounded, private contact director inside its existing
-Orbital V2 sector room. The server derives range and asteroid/planet line of
-sight from flight state, uses the assigned opposing faction and the sector's
-contested-frontier classification, calculates speed against the server-owned
-hull limit, reads validated lock/weapon inputs, and stores the pilot's
-transponder mode on the authenticated seat. A strict rate-limited transponder
-command can switch between broadcast and silent; clients cannot submit contact
-stages, outcomes, territory or threat values.
+Pale Beacons now runs one bounded opposing patrol lead inside its existing
+Orbital V2 sector room. The server moves the actor along a deterministic
+waypoint loop and publishes its current position through the authenticated
+flight snapshot. This is a single moving NPC contact in one co-op sector, not a
+multi-ship fleet or a persistent, sector-spanning patrol director.
+
+The same route exposes two physical evidence sites: the Pale Beacon receiver
+history and the Earth relay packet. The HUD and tactical map show their
+server-provided positions and per-pilot recovery state. The recovery request
+contains no evidence ID or coordinates. The server selects the nearest
+unrecovered site, verifies active V2 Pale Beacons flight, a 55-meter range and
+line of sight, then writes the stable narrative discovery through an
+idempotent account-scoped database transaction. A pickup is private to that
+pilot and awards no credits. Existing campaign evidence claims remain
+compatible and may already have recorded the same stable discovery.
+
+The existing contact director remains active: the server derives range and
+asteroid/planet line of sight from flight state, uses the assigned opposing
+faction and contested-frontier classification, calculates speed against the
+server-owned hull limit, reads validated lock/weapon inputs, and stores the
+pilot's transponder mode on the authenticated seat. Clients cannot submit
+contact stages, outcomes, territory, threat values, pickup IDs or pickup
+positions.
 
 USSF contacts investigate and challenge first, then issue a warning before
 intercepting persistent threats. Accord contacts investigate, shadow silent
@@ -158,35 +173,36 @@ intercept or reinforcement request; a warning is not an attack. Contact state is
 returned only to that pilot in the sector socket snapshot. It is deliberately
 absent from the public world-operation directory and event stream.
 
-This is not yet a roaming patrol/fleet director. Pale Beacons uses one contested
-sector and a fixed sensor radius; a reinforcement request is recorded and shown
-but does not spawn additional ships. No reputation/world consequence or reward
-policy is added; scout results remain zero-credit and existing private,
-AI-fill, Wing and local-training reward rules are unchanged. Orbital V2 remains
-opt-in and the V1 rollback path is intact.
+The patrol follows a fixed server-authored path in one contested sector; it is
+not yet a universe-wide encounter director, and reinforcement requests do not
+spawn additional ships. The existing server settlement pays 12 credits per
+confirmed eligible NPC kill after successful extraction (capped at 24 per
+encounter); evidence recovery itself has no reward. No faction-wide knowledge
+or global NPC consequence is written. Private, AI-fill, Wing and local-training
+reward rules are unchanged. Orbital V2 remains opt-in and the V1 rollback path
+is intact.
 
 Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
 operations, a read-only Wing spectator path, and the bounded Pale Beacons
-faction-response slice above. It does not yet implement a server-authoritative
-roaming encounter director, shared nearby NPC fleets, a persistent faction
-encounter world, or live reward settlement for open-world PvE encounters. The new
-transactional settlement adapter is disabled and is not yet connected to a
-roaming authoritative runtime. Do not use local procedural scenery or local
-scan records as a substitute for those capabilities.
+patrol and evidence slice above. It does not yet implement shared free-flight
+NPC fleets, persistent encounters across sectors, a world-wide faction
+simulation, or an open-universe patrol/event director. Do not use local
+procedural scenery or client-side scan records as a substitute for those
+capabilities.
 
 ## Implementation order
 
-1. Define versioned server encounter, actor, visibility, join/spectate, and result
-   contracts on top of the existing account/world/operation systems.
-2. Extend the bounded Pale Beacons response policy into a deterministic
-   faction/territory director with server-owned actor orders and predictable
-   resource limits.
-3. Add authenticated multiplayer exploration instances and reconcile the local
-   Orbital flight adapter with server snapshots.
-4. Add idempotent encounter kill attribution, exploration rewards, and validated
-   world consequences without changing existing Wing/private/AI-fill policies.
-5. Surface actual event discovery at stations and sectors; add safe spectator and
-   admission paths; prove both factions and multiple players on staging.
+1. **Implemented for one path:** versioned Orbital V2 Pale Beacons encounter,
+   moving NPC position, private snapshots, result settlement and account-scoped
+   evidence recovery.
+2. Extend the single patrol into bounded multi-actor patrols, persistent routes,
+   and server-owned faction objectives with predictable resource limits.
+3. Expand authenticated multiplayer exploration beyond the existing co-op
+   sector room; do not treat the local streamed sandbox as shared authority.
+4. Add validated world consequences at account or faction scope only after their
+   ownership and isolation rules are defined; preserve existing reward gates.
+5. Surface active events at physical destinations, add safe spectator/admission
+   paths, and prove both factions and multiple devices on staging before rollout.
 6. Validate mobile frame cost, reconnect behavior, privacy, anti-replay, and
    production safety before widening encounter scale.

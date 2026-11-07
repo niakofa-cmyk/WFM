@@ -4,6 +4,7 @@ import {
   SECTOR_PROTOCOL_VERSION, sectorMission,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
   type IronEclipseSnapshot, type SectorFactionContact, type SectorProtocolVersion, type SectorScoutResult,
+  type SectorEvidencePickup,
 } from "./sector-missions";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
@@ -149,6 +150,25 @@ function validFactionContact(value: unknown): value is SectorFactionContact {
     typeof contact.targeting === "boolean" &&
     Number.isSafeInteger(contact.enteredAtTick) && (contact.enteredAtTick ?? -1) >= 0;
 }
+function validEvidence(value: unknown): value is SectorEvidencePickup[] {
+  if (!Array.isArray(value) || value.length !== 2) return false;
+  const ids = new Set<string>();
+  return value.every((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+    const item = raw as Partial<SectorEvidencePickup>;
+    const keys = ["id", "title", "position", "state"];
+    const position = item.position as Record<string, unknown> | undefined;
+    const valid = Object.keys(item).length === keys.length && keys.every(key => Object.hasOwn(item, key)) &&
+      (item.id === "pale-beacon-record" || item.id === "earth-first-response") &&
+      !ids.has(item.id) &&
+      typeof item.title === "string" && item.title.length > 0 && item.title.length <= 80 &&
+      !!position && ["x", "y", "z"].every(key => typeof position[key] === "number" &&
+        Number.isFinite(position[key]) && Math.abs(position[key] as number) <= 10_000) &&
+      ["available", "recovering", "recovered", "unavailable"].includes(item.state as string);
+    if (valid) ids.add(item.id!);
+    return valid;
+  });
+}
 
 /** Structural validation of the server's typed snapshot. Rejects anything else. */
 export function parseSectorSnapshot(
@@ -182,6 +202,9 @@ export function parseSectorSnapshot(
         (p.factionContact.stage === "unaware" && p.factionContact.action !== "none") ||
         (!p.factionContact.lineOfSight && p.factionContact.stage !== "unaware")) return null;
   }
+  if (p.evidence !== undefined &&
+      (p.missionId !== "pale-beacons" || expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+       !validEvidence(p.evidence))) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&
