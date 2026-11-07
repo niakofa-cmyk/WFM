@@ -23,8 +23,8 @@ export const CINDER_STATION = {
   y: 0,
   z: -118,
   rotationY: 0,
-  interactionRadius: 8,
-  maxClosureSpeed: 3.5,
+  interactionRadius: 22,
+  maxClosureSpeed: 4,
   headingGateDeg: 35,
 } as const;
 

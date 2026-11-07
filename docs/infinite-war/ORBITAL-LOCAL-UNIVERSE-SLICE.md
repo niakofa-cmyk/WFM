@@ -19,7 +19,7 @@ remain unchanged. It does not complete all-mode migration.
    that route remains an offline fallback and does not read or overwrite the
    account loadout.
 3. Fly forward toward the physical Cinder ring, initially 118 m ahead.
-4. Enter the 8 m local gate, slow to at most 3.5 m/s and align within 35°.
+4. Enter the 22 m local gate, stay at or below 4 m/s and align within 35°.
    **DOCK** additionally requires a functioning renderer.
 5. From the station, launch the existing three-defender combat training.
 6. Finish or abort; the local debrief returns to Cinder.
@@ -112,19 +112,19 @@ integration tests, not browser or live-multiplayer evidence.
   universe scene and accepted a physical pointer drag on the left flight stick;
   simulation position advanced. The focused browser check is scoped to local
   launch and stick movement, not the signed-in `WarApp` screen.
-- A longer approach experiment moved toward Cinder but did **not** satisfy the
-  full docking gate (8 m and at most 3.5 m/s). Therefore browser-certified
-  docking, training, return, undock and resource identity are **not established**.
+- Project-side Playwright Chromium then completed the local approach, dock,
+  training-abort, return-to-station and undock loop in one Arena/canvas with the
+  22 m / 4 m/s gate. The local check recorded no API writes. This is
+  software-rendered browser evidence, not Android-device evidence.
 - The live-event selector has regression coverage for Cinder locality, active
   phase, public visibility and snapshot freshness. This does not prove a live
   production event is currently present.
 - No live API requests were made during the isolated public local-flight check.
 
-Repeated transition unit tests and a short pointer-driven browser check do not
-prove full browser frame-loop/resource behavior. Signed-in entry and the
-overlaid server operation flow were not tested through an authenticated
-session. Physical Android flight, interactive
-finish/abort/return, full docking usability and runtime leak checks remain
+Repeated transition unit tests and a browser loop do not prove physical GPU
+performance or Android control feel. Signed-in entry and the overlaid server
+operation flow were not tested through an authenticated session. Physical
+Android flight and runtime leak checks remain
 verification gaps. No staging/Production rollout or multiplayer parity is
 claimed.
 

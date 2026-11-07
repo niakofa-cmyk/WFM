@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { lazy, Suspense, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "./components/error-boundary";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./game/ships";
 import { unlockAudio } from "./game/audio";
@@ -74,4 +75,13 @@ function CombatLab() {
     <footer className="lab-rules uv-rules"><b>FLIGHT</b><span>W/S thrust · A/D yaw · I/K pitch · Q/E roll · Z/X slide · C/V lift</span><b>COMBAT</b><span>Space fire · R cycle targets · M guided missile</span><b>ASSISTS</b><span>Shift boost · B brake · G inertia · H aim assist · P pause</span></footer>
   </div>;
 }
-createRoot(document.getElementById("root")!).render(<ErrorBoundary><CombatLab /></ErrorBoundary>);
+const offlineQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 0, staleTime: 3_000 }, mutations: { retry: false } },
+});
+createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary>
+    <QueryClientProvider client={offlineQueryClient}>
+      <CombatLab />
+    </QueryClientProvider>
+  </ErrorBoundary>,
+);

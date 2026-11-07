@@ -71,6 +71,21 @@ test("Cinder admission requires physical proximity, low speed, heading, and rend
   assert.equal(transitionUniverse(before, { ...event, rendererReady: true }).phase, "docked");
 });
 
+test("Cinder docking is available through the 22 m approach radius, but not beyond it", () => {
+  const craft = atStation();
+  craft.z = CINDER_STATION.z + CINDER_STATION.interactionRadius;
+  assert.equal(evaluateCinderDock(craft).distance, 22);
+  craft.space!.vz = 3.6;
+  assert.equal(evaluateCinderDock(craft).eligible, true);
+
+  craft.z += 0.01;
+  assert.equal(evaluateCinderDock(craft).reason, "range");
+
+  craft.z = CINDER_STATION.z + CINDER_STATION.interactionRadius;
+  craft.space!.vz = CINDER_STATION.maxClosureSpeed + 0.1;
+  assert.equal(evaluateCinderDock(craft).reason, "closure");
+});
+
 test("invalid spatial telemetry never passes the local gate", () => {
   for (const invalid of [NaN, Infinity, -Infinity]) {
     for (const field of ["x", "z"] as const) {

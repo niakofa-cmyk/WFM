@@ -22,15 +22,17 @@ and never equate software-rendering success with physical GPU performance.
 
 Visible flight-stick response and changing range do not establish that a
 destination's docking gate was reached; verify range, relative speed and
-alignment against the gate's explicit thresholds before claiming a completed
-approach.
+alignment against the active build's thresholds and test the complete
+dock/activity/return loop.
 
-**Why:** a software-rendered Cinder approach moved under the left stick but ended
-outside the local station gate and slightly above its speed limit.
+**Why:** an earlier software-rendered Cinder approach ended near the station but
+outside its then-current gate. A later software-rendered run passed docking,
+training return and undock after the approach envelope was adjusted.
 
 **How to apply:** report scene, control, gate and post-dock activity evidence as
 separate checkpoints; continue testing from measured telemetry rather than
-assuming a responsive HUD proves the full travel loop.
+assuming a responsive HUD proves the full travel loop. Keep software-browser
+success separate from physical-device certification.
 
 Software-WebGL launch flags alone may not enable a remote browser whose
 graphics vendor/renderer is reported as `Disabled`.

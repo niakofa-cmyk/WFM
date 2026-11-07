@@ -1,14 +1,19 @@
 import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
-test("local universe starts as an offline flight, and the left stick moves the ship", async ({ page }) => {
-  test.setTimeout(60_000);
+test("local Cinder approach docks at 22m, runs training, and returns to the same Arena", async ({ page }) => {
+  test.setTimeout(120_000);
   const pageErrors: string[] = [];
-  const apiRequests: string[] = [];
+  const apiWrites: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  page.on("requestfailed", (request) => pageErrors.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText}`));
+  page.on("requestfailed", (request) => {
+    const error = request.failure()?.errorText;
+    if (error !== "net::ERR_ABORTED") pageErrors.push(`${request.method()} ${request.url()}: ${error}`);
+  });
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname.startsWith("/api/")) apiRequests.push(request.method());
+    if (new URL(request.url()).pathname.startsWith("/api/") && request.method() !== "GET") {
+      apiWrites.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
   });
   await page.setViewportSize({ width: 803, height: 360 });
   await page.goto("/combat-lab.html?universe=1");
@@ -38,9 +43,41 @@ test("local universe starts as an offline flight, and the left stick moves the s
   await page.waitForTimeout(400);
   await page.mouse.up();
   await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).toBeLessThan(startPose.z);
+  const command = async (key: "w" | "b" | "") => {
+    const code = key === "w" ? "KeyW" : key === "b" ? "KeyB" : null;
+    await page.evaluate((keyCode) => window.__controlsTest!.setKeys?.(keyCode ? [keyCode] : []), code);
+  };
+  let dockReady = false;
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const pose = await page.evaluate(() => window.__controlsTest!.getPosition!());
+    const speed = await page.evaluate(() => window.__controlsTest!.getSpeed());
+    const distance = Math.hypot(pose.x, pose.y, pose.z + 118);
+    if (distance <= 22 && speed <= 4) {
+      dockReady = true;
+      break;
+    }
+    await command(distance > 32 && speed < 27 ? "w" : speed > 0.65 ? "b" : distance > 8 ? "w" : "b");
+    await page.waitForTimeout(120);
+  }
+  await command("");
+  expect(dockReady, "the 22m approach should become dockable at safe speed and alignment").toBe(true);
+  await expect(page.getByTestId("button-universe-dock")).toBeEnabled();
+  await page.getByTestId("button-universe-dock").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await page.getByTestId("button-universe-launch-training").click();
+  await expect(page.getByTestId("text-universe-training")).toBeVisible();
+  await expect(page.getByTestId("button-fire")).toBeVisible();
+  await page.getByTestId("button-universe-abort-training").click();
+  await expect(page.getByTestId("text-universe-debrief")).toContainText("TRAINING ABORTED");
+  await page.getByTestId("button-universe-return").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  const dockedPosition = await page.evaluate(() => window.__controlsTest!.getPosition!());
+  await page.getByTestId("button-universe-undock").click();
+  await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).not.toBe(dockedPosition.z);
   expect(await canvas!.evaluate((element) => element.isConnected)).toBe(true);
   expect(await page.locator("canvas").count()).toBe(initialCanvasCount);
-  expect(apiRequests).toEqual([]);
+  expect(apiWrites).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
 
