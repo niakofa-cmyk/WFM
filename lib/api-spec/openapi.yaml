@@ -314,6 +314,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationDirectoryResponse"
+  /world/exploration/results:
+    get:
+      operationId: getWorldExplorationResults
+      tags: [progression]
+      summary: Recover the authenticated pilot's confirmed scout encounter results
+      description: Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Latest confirmed scout results owned by the authenticated pilot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldExplorationResults"
+        "401":
+          description: Authentication required
   /world/presence/heartbeat:
     post:
       operationId: heartbeatWorldPresence
@@ -1088,6 +1105,37 @@ components:
         title: { type: string }
         creditsDelta: { type: integer }
         createdAt: { type: string, format: date-time }
+    WorldExplorationResults:
+      type: object
+      additionalProperties: false
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/WorldScoutEncounterResult" }
+    WorldScoutEncounterResult:
+      type: object
+      additionalProperties: false
+      required: [encounterId, missionId, sectorId, runtime, policyId, outcome, finalTick, objectiveCompleted, kills, assists, destroyedActorIds, rewardableNpcKills, fingerprint, recordedAt]
+      properties:
+        encounterId: { type: string, format: uuid }
+        missionId: { type: string, enum: [pale-beacons] }
+        sectorId: { type: string, minLength: 1, maxLength: 128 }
+        runtime: { type: string, minLength: 1, maxLength: 64 }
+        policyId: { type: string, minLength: 1, maxLength: 128 }
+        outcome: { type: string, enum: [completed, aborted] }
+        finalTick: { type: integer, minimum: 0 }
+        objectiveCompleted: { type: boolean }
+        kills: { type: integer, minimum: 0 }
+        assists: { type: integer, minimum: 0 }
+        destroyedActorIds:
+          type: array
+          maxItems: 128
+          items: { type: string, minLength: 1, maxLength: 128 }
+        rewardableNpcKills: { type: integer, minimum: 0 }
+        fingerprint: { type: string, pattern: "^[0-9a-f]{64}$" }
+        recordedAt: { type: string, format: date-time }
     WorldServiceInput:
       type: object
       additionalProperties: false

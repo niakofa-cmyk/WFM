@@ -40,6 +40,7 @@ import type {
   StrikeClaimResult,
   StrikeRun,
   StrikeStartInput,
+  WorldExplorationResults,
   WorldExploreInput,
   WorldQuestActionInput,
   WorldQuestActionResult,
@@ -1306,6 +1307,84 @@ export function useGetWorldOperations<TData = Awaited<ReturnType<typeof getWorld
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWorldOperationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWorldExplorationResultsUrl = () => {
+
+
+
+
+  return `/api/world/exploration/results`
+}
+
+/**
+ * Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+export const getWorldExplorationResults = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldExplorationResults> => {
+
+  return customFetch<WorldExplorationResults>(getGetWorldExplorationResultsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldExplorationResultsQueryKey = () => {
+    return [
+    `/api/world/exploration/results`
+    ] as const;
+    }
+
+
+export const getGetWorldExplorationResultsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldExplorationResults>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldExplorationResultsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldExplorationResults>>> = ({ signal }) => getWorldExplorationResults({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldExplorationResultsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldExplorationResults>>>
+export type GetWorldExplorationResultsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+
+export function useGetWorldExplorationResults<TData = Awaited<ReturnType<typeof getWorldExplorationResults>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldExplorationResultsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

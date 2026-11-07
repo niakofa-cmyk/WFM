@@ -3,6 +3,7 @@ import { WebSocket } from "ws";
 import {
   isOrbitalSectorSimulationContract,
   orbitalRuntimeForSectorProtocol,
+  ORBITAL_RUNTIME_ID,
   ORBITAL_SECTOR_SIMULATION_CONTRACT,
   SECTOR_ORBITAL_PROTOCOL_VERSION,
 } from "@workspace/orbital-sim";
@@ -12,9 +13,11 @@ import {
   sectorMission, SECTOR_STEP, type SectorMission, type SectorProgress,
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
   type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId, type SectorProtocolVersion,
+  type SectorScoutResult,
   SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
+import { ExplorationEncounter, readExplorationReceipt, type ExplorationReceipt } from "../game/exploration-encounter";
 import {
   absorbWingDamage, advanceIronEclipse, completeIronEclipse, createIronEclipseState,
   damageIronEclipseTarget, ironEclipseSnapshot, ironEclipseTarget, markIronEclipseCapitalEngaged,
@@ -26,6 +29,8 @@ type Pilot = {
   flight: FlightState; input: FlightInput; seq: number; lastInput: number; disconnectedAt: number | null;
   activeTicks: number; acceptedInputs: number; progress: SectorProgress; settlement: SectorSettlement;
   proof: CompletedSectorMission | null; settling: Promise<void> | null; nextRetry: number; attempts: number;
+  scoutResult?: SectorScoutResult;
+  scoutResultStatus?: "pending" | "recorded" | "unavailable";
 };
 type Room = {
   code: string; matchId: string; mission: SectorMission; pilots: Pilot[]; hostSlot: number;
@@ -34,6 +39,10 @@ type Room = {
   command: SectorTacticalCommand | null; commandAt: number | null;
   operation: IronEclipseState | null;
   flightSector: FlightSector;
+  scoutFaction?: "ussf" | "accord";
+  scoutEncounter?: ExplorationEncounter;
+  scoutReceipt?: ExplorationReceipt;
+  scoutPersisting?: Promise<void> | null;
 };
 export type SectorOperationPresence = {
   instanceId: string;
@@ -45,6 +54,7 @@ export type SectorOperationPresence = {
 type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
   settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+  recordScoutResults?: (entries: readonly { userId: string; result: SectorScoutResult }[]) => Promise<void>;
   isAtCinderRing?: (userId: string) => Promise<boolean>;
   publishOperation?: (state: SectorOperationPresence) => Promise<void>;
   /** Selected by deployment configuration, never by a client-supplied field. */
@@ -178,6 +188,8 @@ export function createSectorRuntime(options: Options) {
           ready: pilot.ready, flight: pilot.flight,
         })),
         progress: own.progress, settlement: own.settlement,
+        ...(own.scoutResult ? { scoutResult: own.scoutResult } : {}),
+        ...(own.scoutResultStatus ? { scoutResultStatus: own.scoutResultStatus } : {}),
       };
       send(own.socket, snapshot);
     }
@@ -212,6 +224,62 @@ export function createSectorRuntime(options: Options) {
     })();
     await pilot.settling;
   }
+  function finalizeScoutEncounter(
+    room: Room,
+    outcome: "completed" | "aborted",
+    objectiveCompleted: boolean,
+  ): void {
+    if (!room.scoutEncounter) return;
+    if (!room.scoutReceipt) {
+      room.scoutReceipt = room.scoutEncounter.finalize(room.tick, outcome, objectiveCompleted);
+    }
+    const result = readExplorationReceipt(room.scoutReceipt);
+    for (const pilot of room.pilots) {
+      const pilotResult = result.pilots.find((entry) => entry.playerId === pilot.userId);
+      if (!pilotResult) continue;
+      pilot.scoutResult = {
+        encounterId: result.encounterId,
+        missionId: "pale-beacons",
+        sectorId: result.sectorId,
+        runtime: result.runtime,
+        policyId: result.policyId,
+        outcome: result.outcome,
+        finalTick: result.finalTick,
+        objectiveCompleted: result.objectiveCompleted,
+        kills: pilotResult.kills,
+        assists: pilotResult.assists,
+        destroyedActorIds: [...pilotResult.destroyedActorIds],
+        rewardableNpcKills: pilotResult.rewardableNpcKills,
+        fingerprint: result.fingerprint,
+      };
+      pilot.scoutResultStatus = "pending";
+    }
+  }
+  async function persistScoutResults(room: Room): Promise<void> {
+    if (!room.scoutReceipt) return;
+    if (room.scoutPersisting) return room.scoutPersisting;
+    const entries = room.pilots.flatMap((pilot) =>
+      pilot.scoutResult ? [{ userId: pilot.userId, result: pilot.scoutResult }] : []);
+    if (!entries.length) return;
+    if (!options.recordScoutResults) {
+      for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "unavailable";
+      publish(room);
+      return;
+    }
+    for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "pending";
+    room.scoutPersisting = (async () => {
+      try {
+        await options.recordScoutResults!(entries);
+        for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "recorded";
+      } catch {
+        for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "unavailable";
+      } finally {
+        room.scoutPersisting = null;
+        publish(room);
+      }
+    })();
+    await room.scoutPersisting;
+  }
   async function handle(socket: WebSocket, userId: string, missionId: string, code: string, packet: Record<string, unknown>, now = Date.now()) {
     const error = (reason: string) => send(socket, { type: "error", reason });
     if (closed) { error("server_restart"); return; }
@@ -230,6 +298,9 @@ export function createSectorRuntime(options: Options) {
       const mission = sectorMission(missionId);
       if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||
           typeof packet.shipId !== "string" || !Object.hasOwn(SHIPS, packet.shipId)) { error("invalid_sector_join"); return; }
+      if (mission.id === "pale-beacons" && protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION) {
+        error("scout_requires_orbital_runtime"); return;
+      }
       const existingOtherRoom = [...rooms.values()].some(candidate =>
         candidate.code !== code && candidate.pilots.some(pilot => pilot.userId === userId));
       if (existingOtherRoom) { error("sector_session_exists"); return; }
@@ -246,6 +317,10 @@ export function createSectorRuntime(options: Options) {
       if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
       let room = rooms.get(code);
       if (room && room.mission.id !== mission.id) { error("sector_mission_mismatch"); return; }
+      if (room && mission.id === "pale-beacons" &&
+          SHIPS[packet.shipId as ShipId].faction !== room.scoutFaction) {
+        error("scout_faction_mismatch"); return;
+      }
       const publicOperationRequested = mission.id === "rust-disc" &&
         (room ? room.publicListing : packet.publicListing === true);
       if (publicOperationRequested) {
@@ -269,6 +344,8 @@ export function createSectorRuntime(options: Options) {
           tick: 0, droneHull: mission.sector.droneHull ?? 60, touched: now,
           command: null, commandAt: null,
           operation: mission.id === "iron-eclipse" ? createIronEclipseState(mission.sector) : null,
+          scoutFaction: SHIPS[packet.shipId as ShipId].faction,
+          scoutPersisting: null,
           // Keep a per-room mutable wrapper so the hot simulation loop does
           // not allocate a replacement sector object for every pilot/tick.
           flightSector: { ...mission.sector },
@@ -326,6 +403,43 @@ export function createSectorRuntime(options: Options) {
     if (packet.type === "sector_launch") {
       if (Object.keys(packet).length !== 1 || room.phase !== "lobby" || pilot.slot !== room.hostSlot) { error("sector_host_required"); return; }
       if (!room.pilots.every(p => p.socket?.readyState === WebSocket.OPEN && p.ready)) { error("sector_all_pilots_ready_required"); return; }
+      if (room.mission.id === "pale-beacons") {
+        if (protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+            room.pilots.some((candidate) => SHIPS[candidate.shipId].faction !== room.scoutFaction)) {
+          error("scout_faction_or_runtime_mismatch"); return;
+        }
+        const playerFaction = room.scoutFaction!;
+        const scoutFaction = playerFaction === "ussf" ? "accord" : "ussf";
+        room.scoutEncounter = new ExplorationEncounter({
+          encounterId: room.matchId,
+          sectorId: room.mission.sector.id,
+          runtime: ORBITAL_RUNTIME_ID,
+          authority: "server",
+          mode: "universe-exploration",
+          actors: [
+            ...room.pilots.map((candidate) => ({
+              id: `pilot-${candidate.slot}`,
+              faction: SHIPS[candidate.shipId].faction,
+              hull: 100,
+              playerId: candidate.userId,
+            })),
+            {
+              id: "scout-pale-beacons",
+              faction: scoutFaction,
+              hull: room.droneHull,
+              rewardEligible: true,
+            },
+          ],
+          // This first integration persists only the kill/assist result. No
+          // credit amount or live reward policy is activated in this slice.
+          rewardPolicy: {
+            id: "scout-result-only-v1",
+            creditsPerNpcKill: 0,
+            completionCredits: 0,
+            maxCreditsPerEncounter: 0,
+          },
+        });
+      }
       room.phase = "active"; publish(room); publishOperationState(room); return;
     }
     if (packet.type === "sector_input") {
@@ -405,8 +519,10 @@ export function createSectorRuntime(options: Options) {
       return;
     }
     if (packet.type === "sector_retry" && Object.keys(packet).length === 1) {
-      if (now < pilot.nextRetry) { error("sector_retry_later"); return; }
-      void settle(room, pilot, now); return;
+      if (now < pilot.nextRetry && !pilot.scoutResult) { error("sector_retry_later"); return; }
+      if (pilot.proof) void settle(room, pilot, now);
+      if (room.scoutReceipt) void persistScoutResults(room);
+      return;
     }
     error("unknown_sector_message");
   }
@@ -425,6 +541,8 @@ export function createSectorRuntime(options: Options) {
     if (room.phase === "lobby") {
       room.pilots = room.pilots.filter(p => p !== pilot);
       room.hostSlot = room.pilots[0]?.slot ?? 0;
+      const newHost = room.pilots.find((candidate) => candidate.slot === room.hostSlot);
+      if (newHost && room.mission.id === "pale-beacons") room.scoutFaction = SHIPS[newHost.shipId].faction;
     }
     room.touched = now; publish(room); publishOperationState(room);
   }
@@ -439,7 +557,15 @@ export function createSectorRuntime(options: Options) {
       for (const room of rooms.values()) {
         if (room.phase !== "active") continue;
         room.tick++;
-        if (room.tick > 900 / SECTOR_STEP) { room.phase = "interrupted"; continue; }
+        if (room.tick > 900 / SECTOR_STEP) {
+          room.phase = "interrupted";
+          if (room.scoutEncounter) {
+            finalizeScoutEncounter(room, "aborted", false);
+            void persistScoutResults(room);
+          }
+          publishOperationState(room);
+          continue;
+        }
         if (room.operation) {
           if (room.pilots.some(p => p.flight.discoveries > 0)) markIronEclipseCapitalEngaged(room.operation);
           const host = room.pilots.find(p => p.slot === room.hostSlot);
@@ -466,6 +592,16 @@ export function createSectorRuntime(options: Options) {
           pilot.flight.drone.hull = room.droneHull;
           const hullBefore = pilot.flight.hull;
           physics(pilot.flight, input, SECTOR_STEP, flightSector);
+          if (room.scoutEncounter && room.droneHull > pilot.flight.drone.hull) {
+            const hullDamage = room.droneHull - pilot.flight.drone.hull;
+            room.scoutEncounter.recordDamage({
+              eventId: `tick-${room.tick}-pilot-${pilot.slot}`,
+              tick: room.tick,
+              attackerActorId: `pilot-${pilot.slot}`,
+              targetActorId: "scout-pale-beacons",
+              hullDamage,
+            });
+          }
           if (room.operation) {
             const playerDamage = Math.max(0, room.droneHull - pilot.flight.drone.hull);
             if (playerDamage > 0) damageIronEclipseTarget(room.operation, playerDamage);
@@ -483,16 +619,6 @@ export function createSectorRuntime(options: Options) {
           } else {
             room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
           }
-          if (pilot.flight.stage === "complete" && !pilot.proof && pilot.settlement.status === "not_started") {
-            const proof: CompletedSectorMission = Object.freeze({
-              matchId: room.matchId, userId: pilot.userId, missionId: room.mission.id, rulesVersion: 1,
-              status: "completed", elapsed: pilot.flight.elapsed, activeTicks: pilot.activeTicks,
-              acceptedInputs: pilot.acceptedInputs, discoveries: pilot.flight.discoveries,
-              droneHull: room.droneHull, stage: "complete", connectedAtEnd: true,
-            });
-            if (validSectorCompletion(proof)) { pilot.proof = proof; void settle(room, pilot, now); }
-            else pilot.settlement = { status: "not_eligible", reason: "verified_participation_required" };
-          }
         }
         // Synchronize the shared objective for all pilots at the same authoritative tick.
         for (const pilot of room.pilots) {
@@ -504,11 +630,33 @@ export function createSectorRuntime(options: Options) {
         }
         if (room.pilots.every(p => ["complete", "destroyed"].includes(p.flight.stage) ||
             (p.disconnectedAt !== null && now - p.disconnectedAt > 5000))) {
+          let succeeded: boolean;
           if (room.operation) {
-            const succeeded = room.pilots.some(p => p.flight.stage === "complete");
+            succeeded = room.pilots.some(p => p.flight.stage === "complete");
             completeIronEclipse(room.operation, succeeded);
             room.phase = succeeded ? "complete" : "failed";
-          } else room.phase = "complete";
+          } else {
+            succeeded = room.pilots.some(p => p.flight.stage === "complete") &&
+              (room.mission.id !== "pale-beacons" || room.droneHull <= 0);
+            room.phase = succeeded ? "complete" : "failed";
+          }
+          if (room.scoutEncounter) {
+            finalizeScoutEncounter(room, succeeded ? "completed" : "aborted", succeeded);
+            void persistScoutResults(room);
+          }
+          for (const completedPilot of room.pilots) {
+            if (completedPilot.flight.stage !== "complete" || completedPilot.proof ||
+                completedPilot.settlement.status !== "not_started") continue;
+            const proof: CompletedSectorMission = Object.freeze({
+              matchId: room.matchId, userId: completedPilot.userId, missionId: room.mission.id, rulesVersion: 1,
+              status: "completed", elapsed: completedPilot.flight.elapsed, activeTicks: completedPilot.activeTicks,
+              acceptedInputs: completedPilot.acceptedInputs, discoveries: completedPilot.flight.discoveries,
+              droneHull: room.droneHull, stage: "complete", connectedAtEnd: completedPilot.socket?.readyState === WebSocket.OPEN,
+              ...(completedPilot.scoutResult ? { scoutResult: completedPilot.scoutResult } : {}),
+            });
+            if (validSectorCompletion(proof)) { completedPilot.proof = proof; void settle(room, completedPilot, now); }
+            else completedPilot.settlement = { status: "not_eligible", reason: "verified_participation_required" };
+          }
           publishOperationState(room);
         }
       }
@@ -538,6 +686,12 @@ export function createSectorRuntime(options: Options) {
       const pending: Promise<void>[] = [];
       for (const room of rooms.values()) {
         if (room.phase === "active" || room.phase === "lobby") room.phase = "interrupted";
+          if (room.scoutEncounter && !room.scoutReceipt) {
+            finalizeScoutEncounter(room, "aborted", false);
+            pending.push(persistScoutResults(room));
+          } else if (room.scoutPersisting) {
+            pending.push(room.scoutPersisting);
+          }
         publish(room); publishOperationState(room);
         for (const pilot of room.pilots) {
           if (pilot.settling) pending.push(pilot.settling);

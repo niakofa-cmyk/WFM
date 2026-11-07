@@ -46,6 +46,22 @@ export type SectorMission = {
   id: SectorMissionId; title: string; description: string; prerequisite: SectorMissionId | null;
   sector: FlightSector;
 };
+/** Read-only pilot projection of a server-finalized exploratory scout encounter. */
+export type SectorScoutResult = {
+  encounterId: string;
+  missionId: "pale-beacons";
+  sectorId: string;
+  runtime: string;
+  policyId: string;
+  outcome: "completed" | "aborted";
+  finalTick: number;
+  objectiveCompleted: boolean;
+  kills: number;
+  assists: number;
+  destroyedActorIds: string[];
+  rewardableNpcKills: number;
+  fingerprint: string;
+};
 export const IRON_ECLIPSE_SUBSYSTEMS = [
   { id: "point-defense", label: "POINT DEFENSE", maxHull: 120, offset: { x: -26, y: 9, z: 12 } },
   { id: "shield-array", label: "SHIELD ARRAY", maxHull: 140, offset: { x: 20, y: 13, z: -4 } },
@@ -73,7 +89,7 @@ export const SECTOR_MISSIONS: readonly SectorMission[] = [
   },
   {
     id: "pale-beacons", title: "Pale Beacons · Unknown Signal", prerequisite: "mars-approach",
-    description: "Trace an unclassified signal beyond the orbital network, clear the signal guardian and bring the discovery home.",
+    description: "Trace an unclassified signal and confront a server-run opposing scout. Its confirmed destruction tally is recovered to your pilot record after extraction.",
     sector: {
       ...RUST_DISC_SECTOR, id: "pale-beacons-v1", radius: 3000, planet: SECTOR_MARS,
       relay: { x: 850, y: 270, z: -900 }, extraction: { x: 1050, y: 350, z: -1350 },
@@ -119,6 +135,9 @@ export type SectorSnapshot = {
   phase: "lobby" | "active" | "complete" | "interrupted" | "failed"; tick: number;
   ownSlot: number; hostSlot: number; pilots: SectorPilotSnapshot[];
   progress: SectorProgress; settlement: SectorSettlement;
+  /** This pilot's own result only; no other account IDs or private room data. */
+  scoutResult?: SectorScoutResult;
+  scoutResultStatus?: "pending" | "recorded" | "unavailable";
   simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;

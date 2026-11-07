@@ -88,6 +88,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   sectorProtocolVersion: sectorWireProtocolVersion,
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
+  recordScoutResults: sectorProgression?.saveSectorScoutResults,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
   publishSectorOperation,
   publishCompetitiveMatch,

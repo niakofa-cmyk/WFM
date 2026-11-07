@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import {
+  GetWorldExplorationResultsResponse,
   GetWorldOperationsResponse,
   LeaveWorldOperationInstanceParams,
   RegisterWorldOperationInstanceBody,
@@ -9,6 +10,7 @@ import {
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
 import { OperationError, operationCoordinator } from "../game/operation-network";
 import { logger } from "../lib/logger";
+import { getRecentSectorScoutResults } from "../game/sector-progression";
 
 function storeUnavailable(res: import("express").Response, error: unknown, action: string): void {
   logger.error(
@@ -27,6 +29,15 @@ export function createWorldOperationsRouter(
   eventIntervalMs = 15_000,
 ): IRouter {
   const router: IRouter = Router();
+  router.get("/world/exploration/results", requirePlayerAuth, async (req, res): Promise<void> => {
+    res.setHeader("Cache-Control", "private, no-store");
+    try {
+      const results = await getRecentSectorScoutResults(playerIdFromRequest(req));
+      res.json(GetWorldExplorationResultsResponse.parse({ results }));
+    } catch (error) {
+      storeUnavailable(res, error, "scout result history");
+    }
+  });
   router.get("/world/operations", async (_req, res, next) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=10");

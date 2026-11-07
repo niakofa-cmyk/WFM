@@ -129,6 +129,80 @@ test("Orbital protocol handshake pins the server session to the canonical simula
   assert.deepEqual(final.simulation, ORBITAL_SECTOR_SIMULATION_CONTRACT);
   await runtime.close();
 });
+
+test("Pale Beacons scout results come from Orbital server hull damage and persist for the authenticated pilot", async () => {
+  const oldProtocol = createSectorRuntime({});
+  const oldClient = socket();
+  await oldProtocol.handle(oldClient.ws, "scout-pilot", "pale-beacons", "scout-old-room", {
+    type: "sector_join", version: 1, shipId: "glide",
+  }, 0);
+  assert.equal(oldClient.packets.at(-1).reason, "scout_requires_orbital_runtime");
+  await oldProtocol.close();
+
+  const saved: Array<{ userId: string; result: import("../game/sector-missions").SectorScoutResult }> = [];
+  const proofs: CompletedSectorMission[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    settle: async (proof) => {
+      proofs.push(proof);
+      return { progress: { completed: ["mars-approach", "pale-beacons"], persistenceAvailable: true }, replayed: false };
+    },
+    recordScoutResults: async (entries) => { saved.push(...entries); },
+    physics: (state, input, seconds) => {
+      if (state.stage === "complete" || state.stage === "destroyed") return;
+      state.elapsed += seconds;
+      state.discoveries = 1;
+      if (state.drone.hull > 0) state.stage = "drone";
+      if (input.fire && state.drone.hull > 0) {
+        state.drone.hull = Math.max(0, state.drone.hull - 48);
+        state.hits++;
+      }
+      if (state.drone.hull <= 0) state.stage = state.elapsed >= 5 ? "complete" : "extract";
+    },
+  });
+  const pilot = socket(), wrongFaction = socket();
+  const join = {
+    type: "sector_join", version: 2, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", join, 0);
+  await runtime.handle(wrongFaction.ws, "other-pilot", "pale-beacons", "scout-room", {
+    ...join, shipId: "mandjet",
+  }, 1);
+  assert.equal(wrongFaction.packets.at(-1).reason, "scout_faction_mismatch");
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+    type: "sector_ready", ready: true,
+  }, 2);
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+    type: "sector_launch",
+  }, 3);
+  let seq = 0, nextInputAt = 0;
+  for (let now = 17; now <= 6_100; now += 17) {
+    if (now >= nextInputAt) {
+      await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+        type: "sector_input", seq: seq++,
+        input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, fire: now < 300 },
+      }, now);
+      nextInputAt = now + 100;
+    }
+    runtime.advance(now);
+  }
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const result = pilot.latest().scoutResult;
+  assert.ok(result);
+  assert.equal(result.outcome, "completed");
+  assert.equal(result.kills, 1);
+  assert.equal(result.assists, 0);
+  assert.deepEqual(result.destroyedActorIds, ["scout-pale-beacons"]);
+  assert.equal(pilot.latest().scoutResultStatus, "recorded");
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0]!.userId, "scout-pilot");
+  assert.equal(saved[0]!.result.fingerprint, result.fingerprint);
+  assert.equal(proofs.length, 1);
+  assert.equal(proofs[0]!.scoutResult?.kills, 1);
+  await runtime.close();
+});
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {
   const runtime = createSectorRuntime({});
   const pilot = socket();

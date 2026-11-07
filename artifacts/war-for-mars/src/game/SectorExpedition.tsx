@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/react";
 import { Link } from "wouter";
+import { getGetWorldExplorationResultsQueryKey, useGetWorldExplorationResults, type WorldScoutEncounterResult } from "@workspace/api-client-react";
 import { CommandBackdrop, CommandPanel, PanelLabel } from "./CommandArt";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
@@ -88,6 +89,14 @@ function ExpeditionClient() {
   const [connection, setConnection] = useState<Connection>("connected");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const scoutResultsQuery = useGetWorldExplorationResults({
+    query: {
+      enabled: view === "select",
+      queryKey: getGetWorldExplorationResultsQueryKey(),
+      staleTime: 0,
+      refetchInterval: view === "select" ? 30_000 : false,
+    },
+  });
 
   const socketRef = useRef<WebSocket | null>(null);
   const snapshotRef = useRef<SectorSnapshot | null>(null);
@@ -319,6 +328,9 @@ function ExpeditionClient() {
 
         {view === "select" ? (
           <Select missionId={missionId} setMissionId={setMissionId} progress={progress} shipId={shipId} setShipId={setShipId}
+            scoutResults={scoutResultsQuery.data?.results ?? []}
+            scoutResultsLoading={scoutResultsQuery.isLoading}
+            scoutResultsUnavailable={scoutResultsQuery.isError}
             code={codeInput} setCode={setCodeInput} publicListing={publicListing} setPublicListing={setPublicListing}
             onCreate={() => start(codeInput && isValidRoomCode(normalizeRoomCode(codeInput)) ? codeInput : generateRoomCode(), true)} onJoin={() => start(codeInput, false)} />
         ) : null}
@@ -363,6 +375,7 @@ const LOCK_LABEL: Record<MissionLock, string> = { open: "OPEN", locked: "LOCKED"
 
 function Select(props: {
   missionId: SectorMissionId; setMissionId: (m: SectorMissionId) => void; progress: SectorProgress | null;
+  scoutResults: WorldScoutEncounterResult[]; scoutResultsLoading: boolean; scoutResultsUnavailable: boolean;
   shipId: ShipId; setShipId: (s: ShipId) => void; code: string; setCode: (c: string) => void;
   publicListing: boolean; setPublicListing: (value: boolean) => void; onCreate: () => void; onJoin: () => void;
 }) {
@@ -385,14 +398,15 @@ function Select(props: {
           {SECTOR_MISSIONS.map(m => {
             const st = missionLockState(m, props.progress);
             const on = m.id === props.missionId;
+            const scoutUnavailable = m.id === "pale-beacons" && PROTOCOL_VERSION !== SECTOR_ORBITAL_PROTOCOL_VERSION;
             return (
               <li key={m.id} className="relative">
                 <span aria-hidden="true" className={`absolute -left-6 top-5 h-[19px] w-[19px] rotate-45 border-2 ${st === "complete" ? "border-solar bg-solar" : st === "locked" ? "border-bone/30 bg-void" : "border-spectral bg-void"}`} />
-                <button type="button" disabled={st === "locked"} onClick={() => props.setMissionId(m.id)} aria-pressed={on} data-testid={`button-mission-${m.id}`}
+                <button type="button" disabled={st === "locked" || scoutUnavailable} onClick={() => props.setMissionId(m.id)} aria-pressed={on} data-testid={`button-mission-${m.id}`}
                   className={`w-full border p-4 text-left transition-transform active:scale-[0.99] disabled:opacity-45 ${on ? "border-solar bg-solar/10" : "border-bone/15 bg-void/60"}`}>
                   <span className="flex items-baseline justify-between gap-2">
                    <span className="font-hud text-xs tracking-[0.25em] text-muted">{m.id === "iron-eclipse" ? "OPERATION" : "SECTOR"} {String(missionNumber(m.id)).padStart(2, "0")}</span>
-                    <span className={`font-hud text-[10px] tracking-[0.2em] ${st === "complete" ? "text-solar" : st === "locked" ? "text-[#ff7a5c]" : "text-spectral"}`}>{LOCK_LABEL[st]}</span>
+                    <span className={`font-hud text-[10px] tracking-[0.2em] ${scoutUnavailable ? "text-muted" : st === "complete" ? "text-solar" : st === "locked" ? "text-[#ff7a5c]" : "text-spectral"}`}>{scoutUnavailable ? "ORBITAL V2 REQUIRED" : LOCK_LABEL[st]}</span>
                   </span>
                   <span className="mt-1 block font-hud text-2xl leading-none">{m.title.toUpperCase()}</span>
                   <span className="mt-1 block text-sm text-bone/75">{m.description}</span>
@@ -445,8 +459,38 @@ function Select(props: {
           ) : null}
           <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Expeditions award 0 credits; they record discoveries and unlocks only.</p>
         </div>
+        <ScoutResultHistory results={props.scoutResults} loading={props.scoutResultsLoading} unavailable={props.scoutResultsUnavailable} />
       </CommandPanel>
     </div>
+  );
+}
+
+function ScoutResultHistory({ results, loading, unavailable }: {
+  results: WorldScoutEncounterResult[];
+  loading: boolean;
+  unavailable: boolean;
+}) {
+  return (
+    <aside className="mt-5 border-t border-bone/10 pt-4" data-testid="panel-scout-result-history">
+      <PanelLabel>RECOVERED SCOUT LOGS · PILOT PRIVATE</PanelLabel>
+      <p className="mt-1 text-xs text-muted">Server-confirmed kills and assists. This first scout slice records results only; it grants no credits.</p>
+      {loading ? <p className="mt-3 font-hud text-xs tracking-widest text-muted" role="status">CHECKING ARCHIVE…</p> : null}
+      {unavailable ? <p className="mt-3 text-xs text-[#ff7a5c]" role="status">RESULT ARCHIVE UNAVAILABLE · NOTHING NEW WAS CLAIMED.</p> : null}
+      {!loading && !unavailable && results.length === 0 ? <p className="mt-3 text-xs text-muted">NO CONFIRMED SCOUT ENCOUNTERS YET.</p> : null}
+      {results.length > 0 ? (
+        <ul className="mt-3 divide-y divide-bone/10">
+          {results.slice(0, 5).map((result) => (
+            <li key={result.encounterId} className="flex flex-wrap items-center justify-between gap-2 py-2" data-testid="row-scout-result">
+              <span>
+                <span className="block font-hud text-xs tracking-wider text-bone">{result.outcome === "completed" ? "SCOUT CONTACT · CONFIRMED" : "SCOUT CONTACT · INTERRUPTED"}</span>
+                <time className="block text-[10px] text-muted" dateTime={result.recordedAt}>{new Date(result.recordedAt).toLocaleString()}</time>
+              </span>
+              <span className="font-hud text-xs tracking-wider text-solar">{result.kills} K · {result.assists} A</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </aside>
   );
 }
 
@@ -556,6 +600,10 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
     ["CREDITS", "0 CR"],
     ["NEXT SECTOR", mission.id === "iron-eclipse" ? "STANDALONE OPERATION"
       : next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
+    ...(snap.scoutResult ? [
+      ["CONFIRMED SCOUT KILLS", String(snap.scoutResult.kills)] as [string, ReactNode],
+      ["CONFIRMED SCOUT ASSISTS", String(snap.scoutResult.assists)] as [string, ReactNode],
+    ] : []),
     ...operationRows,
   ];
   const resultTitle = snap.phase === "failed" ? "OPERATION FAILED" : won ? "SECTOR CLEARED" : "INTERRUPTED";
@@ -570,8 +618,15 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
         <p className="font-hud text-sm tracking-[0.25em]">RECORD · {label}{snap.settlement.replayed ? " · ALREADY SAVED" : ""}</p>
         <p className="text-sm text-bone/80">{snap.settlement.reason || line}</p>
       </div>
+      {snap.scoutResult ? (
+        <div className={`mt-3 border-l-2 px-3 py-2 ${snap.scoutResultStatus === "recorded" ? "border-solar bg-solar/10" : snap.scoutResultStatus === "unavailable" ? "border-[#ff7a5c] bg-[#ff7a5c]/10" : "border-spectral bg-spectral/10"}`} data-testid="status-scout-result">
+          <p className="font-hud text-sm tracking-[0.2em]">SERVER RESULT · {snap.scoutResultStatus?.toUpperCase() ?? "PENDING"}</p>
+          <p className="text-sm text-bone/80">{snap.scoutResult.outcome === "completed" ? "Confirmed scout tally saved to your private pilot log." : "The run was interrupted; its confirmed partial tally is recorded without rewards."} No credits were issued.</p>
+        </div>
+      ) : null}
       <div className="mt-5 grid gap-2 sm:grid-cols-3">
-        {snap.settlement.status === "unavailable" || snap.settlement.status === "pending" ? (
+        {snap.settlement.status === "unavailable" || snap.settlement.status === "pending" ||
+          snap.scoutResultStatus === "unavailable" || snap.scoutResultStatus === "pending" ? (
           <button type="button" onClick={onRetry} data-testid="button-settlement-retry" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">RETRY RECORD</button>
         ) : null}
         <button type="button" onClick={onNewRoom} data-testid="button-new-room" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">NEW ROOM</button>

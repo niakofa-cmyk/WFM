@@ -830,7 +830,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
           lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           target: targetActive ? {
-            name: selectedSubsystem?.label ?? "TRAINING DRONE",
+            name: selectedSubsystem?.label ?? (expeditionRef.current?.mission.id === "pale-beacons" ? "OPPOSING SCOUT" : "TRAINING DRONE"),
             affiliation: selectedSubsystem ? "HOSTILE CAPITAL" : "HOSTILE CONTACT",
             distance: Math.sqrt(targetDx * targetDx + targetDy * targetDy + targetDz * targetDz),
             hull: selectedSubsystem?.hull ?? state.drone.hull,
@@ -1235,7 +1235,7 @@ function FlightHud({ hud, shipId, droneMax }: { hud: Hud; shipId: ShipId; droneM
       <div className="absolute left-1/2 top-2 -translate-x-1/2 text-center">
         <p className="text-[10px] tracking-[0.3em] text-muted">{STAGE_LABEL[hud.stage]} · {String(Math.floor(t / 60)).padStart(2, "0")}:{String(t % 60).padStart(2, "0")}</p>
         <p className="mt-0.5 text-xs tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
-        {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">DRONE {Math.round(hud.droneHull)} / {droneMax}</p> : null}
+        {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">{hud.target?.name ?? "DRONE"} {Math.round(hud.droneHull)} / {droneMax}</p> : null}
         {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-[10px] tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
       </div>
       <div className="pointer-events-none absolute left-1/2 top-[3.8rem] z-[4] w-56 -translate-x-1/2 text-center" data-testid="panel-combat-target">

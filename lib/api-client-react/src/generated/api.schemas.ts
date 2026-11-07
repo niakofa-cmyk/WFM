@@ -1369,6 +1369,65 @@ export interface WorldQuestActionResult {
   replayed: boolean;
 }
 
+export type WorldScoutEncounterResultMissionId = typeof WorldScoutEncounterResultMissionId[keyof typeof WorldScoutEncounterResultMissionId];
+
+
+export const WorldScoutEncounterResultMissionId = {
+  'pale-beacons': 'pale-beacons',
+} as const;
+
+export type WorldScoutEncounterResultOutcome = typeof WorldScoutEncounterResultOutcome[keyof typeof WorldScoutEncounterResultOutcome];
+
+
+export const WorldScoutEncounterResultOutcome = {
+  completed: 'completed',
+  aborted: 'aborted',
+} as const;
+
+export interface WorldScoutEncounterResult {
+  encounterId: string;
+  missionId: WorldScoutEncounterResultMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  sectorId: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  runtime: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  policyId: string;
+  outcome: WorldScoutEncounterResultOutcome;
+  /** @minimum 0 */
+  finalTick: number;
+  objectiveCompleted: boolean;
+  /** @minimum 0 */
+  kills: number;
+  /** @minimum 0 */
+  assists: number;
+  /**
+     * @maxItems 128
+     * @items.minLength 1
+     * @items.maxLength 128
+     */
+  destroyedActorIds: string[];
+  /** @minimum 0 */
+  rewardableNpcKills: number;
+  /** @pattern ^[0-9a-f]{64}$ */
+  fingerprint: string;
+  recordedAt: string;
+}
+
+export interface WorldExplorationResults {
+  /** @maxItems 10 */
+  results: WorldScoutEncounterResult[];
+}
+
 export interface WorldServiceInput {
   idempotencyKey: string;
   serviceId: string;

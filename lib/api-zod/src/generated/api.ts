@@ -1261,6 +1261,53 @@ export const GetWorldOperationsResponse = zod.object({
 
 
 /**
+ * Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+export const getWorldExplorationResultsResponseResultsItemSectorIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRuntimeMax = 64;
+
+export const getWorldExplorationResultsResponseResultsItemPolicyIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemFinalTickMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemAssistsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemFingerprintRegExp = new RegExp('^[0-9a-f]{64}$');
+export const getWorldExplorationResultsResponseResultsMax = 10;
+
+
+
+export const GetWorldExplorationResultsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "encounterId": zod.string().uuid(),
+  "missionId": zod.enum(['pale-beacons']),
+  "sectorId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemSectorIdMax),
+  "runtime": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemRuntimeMax),
+  "policyId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPolicyIdMax),
+  "outcome": zod.enum(['completed', 'aborted']),
+  "finalTick": zod.number().int().min(getWorldExplorationResultsResponseResultsItemFinalTickMin),
+  "objectiveCompleted": zod.boolean(),
+  "kills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemKillsMin),
+  "assists": zod.number().int().min(getWorldExplorationResultsResponseResultsItemAssistsMin),
+  "destroyedActorIds": zod.array(zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax)).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax),
+  "rewardableNpcKills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin),
+  "fingerprint": zod.string().regex(getWorldExplorationResultsResponseResultsItemFingerprintRegExp),
+  "recordedAt": zod.coerce.date()
+})).max(getWorldExplorationResultsResponseResultsMax)
+})
+
+
+/**
  * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
  * @summary Refresh the signed-in pilot's universe presence
  */

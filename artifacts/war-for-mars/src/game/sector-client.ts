@@ -3,8 +3,9 @@ import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
   SECTOR_PROTOCOL_VERSION, sectorMission,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
-  type IronEclipseSnapshot, type SectorProtocolVersion,
+  type IronEclipseSnapshot, type SectorProtocolVersion, type SectorScoutResult,
 } from "./sector-missions";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
 
 /** Client-only helpers for the cooperative sector expedition. No storage, no logging. */
@@ -103,6 +104,27 @@ function validIronEclipseSnapshot(value: unknown): value is IronEclipseSnapshot 
     ["pending", "complete", "missed"].includes(op.objectives.shieldArray) &&
     ["pending", "complete", "missed"].includes(op.objectives.wingSurvival);
 }
+function validScoutResult(value: unknown): value is SectorScoutResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<SectorScoutResult>;
+  return result.missionId === "pale-beacons" &&
+    typeof result.encounterId === "string" && /^[0-9a-f-]{36}$/i.test(result.encounterId) &&
+    typeof result.sectorId === "string" && result.sectorId.length > 0 && result.sectorId.length <= 128 &&
+    result.sectorId === "pale-beacons-v1" &&
+    result.runtime === ORBITAL_RUNTIME_ID &&
+    result.policyId === "scout-result-only-v1" &&
+    ["completed", "aborted"].includes(result.outcome as string) &&
+    Number.isSafeInteger(result.finalTick) && (result.finalTick ?? -1) >= 0 &&
+    typeof result.objectiveCompleted === "boolean" &&
+    Number.isSafeInteger(result.kills) && (result.kills ?? -1) >= 0 &&
+    Number.isSafeInteger(result.assists) && (result.assists ?? -1) >= 0 &&
+    Number.isSafeInteger(result.rewardableNpcKills) && (result.rewardableNpcKills ?? -1) >= 0 &&
+    Array.isArray(result.destroyedActorIds) && result.destroyedActorIds.length <= 128 &&
+    result.destroyedActorIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 128) &&
+    result.kills === result.destroyedActorIds.length &&
+    result.rewardableNpcKills! <= result.kills! &&
+    typeof result.fingerprint === "string" && /^[0-9a-f]{64}$/.test(result.fingerprint);
+}
 
 /** Structural validation of the server's typed snapshot. Rejects anything else. */
 export function parseSectorSnapshot(
@@ -122,6 +144,11 @@ export function parseSectorSnapshot(
   if (!sectorMission(p.missionId) || typeof p.roomCode !== "string") return null;
   if (!["lobby", "active", "complete", "interrupted", "failed"].includes(p.phase as string)) return null;
   if (!Array.isArray(p.pilots) || p.pilots.length > SECTOR_MAX_PILOTS) return null;
+  if (p.scoutResult !== undefined &&
+      (!validScoutResult(p.scoutResult) || p.missionId !== "pale-beacons" ||
+       !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus as string))) return null;
+  if (p.scoutResultStatus !== undefined &&
+      (p.scoutResult === undefined || !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus))) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&

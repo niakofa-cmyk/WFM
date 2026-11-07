@@ -102,6 +102,8 @@ test("public directory and SSE publish read-only snapshots; registration require
     });
     assert.equal(anonymousHeartbeat.status, 401);
     assert.equal(heartbeatCalls, 0);
+    const anonymousResults = await fetch(`http://127.0.0.1:${address.port}/api/world/exploration/results`);
+    assert.equal(anonymousResults.status, 401, "result history is never public");
 
     const controller = new AbortController();
     const stream = await fetch(`${baseUrl}/events`, { signal: controller.signal });
@@ -123,6 +125,12 @@ test("public directory and SSE publish read-only snapshots; registration require
     assert.equal(body.authorization.allowed, true);
     assert.equal(body.authorization.assignment.seat, 0);
     assert.equal(registerCalls, 1);
+    const scoutResults = await fetch(`http://127.0.0.1:${address.port}/api/world/exploration/results`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(scoutResults.status, 200);
+    assert.match(scoutResults.headers.get("cache-control") ?? "", /private, no-store/);
+    assert.deepEqual(await scoutResults.json(), { results: [] });
 
     const heartbeat = await fetch(`http://127.0.0.1:${address.port}/api/world/presence/heartbeat`, {
       method: "POST",

@@ -117,3 +117,20 @@ network runtime, physical-phone controls, or live PostgreSQL contention.
   intended Development-instance membership was not independently confirmed.
 - No staging/Production rollout, live reward activation or physical-device
   certification was performed.
+
+## First connected scout result slice
+
+Pale Beacons now adapts its existing server-run Orbital target into the first
+faction-opposed scout encounter. V2-only admission pins this work to Orbital;
+mixed-faction parties are rejected. The server derives kill/assist events from
+actual shared-target hull deltas after authoritative physics. A private,
+owner-scoped results endpoint and selector history recover each pilot's
+server-recorded result. Completed results and graceful-shutdown partial tallies
+use the existing progression ledger without changing credits or profile
+revision. See `SCOUT-ENCOUNTER-RESULTS-SLICE.md`.
+
+This remains a result-only rollout: the scout policy awards zero credits and
+the previously built settlement adapter stays disabled. A graceful shutdown
+can save an aborted tally, but a sudden process crash does not resume an active
+flight or recover movement/projectile state. V2 remains behind its existing
+paired-deployment opt-in; no staging or Production configuration was changed.
