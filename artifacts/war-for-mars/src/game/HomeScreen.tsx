@@ -39,7 +39,7 @@ type HomeProps = {
   refitLabel: string;
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
-  onGalaxy: () => void;
+  onEnterUniverse: () => void;
   onLocalUniverse?: () => void;
   onJoinCompetitiveQueue: () => void;
   onJoinCasualAiQueue: () => void;
@@ -183,7 +183,7 @@ function MainMenu(props: HomeProps & {
   onOpenArmory: (tab: "fleet" | "loadout") => void;
   onOpenSettings: (tab: "controls" | "audio" | "account") => void;
 }) {
-  const { onAction, onGalaxy, ship, faction, cleared } = props;
+  const { onAction, onEnterUniverse, ship, faction, cleared } = props;
   const openArmory = props.onOpenArmory;
   const openSettings = props.onOpenSettings;
   const def = SHIPS[ship];
@@ -216,11 +216,11 @@ function MainMenu(props: HomeProps & {
           <HangarShip ship={ship} faction={faction} />
           <section className="wfm-universe-gateway wfm-universe-gateway--overlay wfm-rise-3" aria-label="Enter the Infinite Universe">
             <div className="wfm-universe-gateway__orbit" aria-hidden="true" />
-            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">PHOBOS COMMAND · ALL DESTINATIONS</p>
-          <button type="button" onClick={onGalaxy} data-testid="button-enter-universe" aria-label="Enter the connected universe" className="wfm-universe-gateway__button">
+            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">ORBITAL UNIVERSE · FLIGHT / COMBAT / OPERATIONS</p>
+          <button type="button" onClick={onEnterUniverse} data-testid="button-enter-universe" aria-label="Enter the Orbital universe runtime" className="wfm-universe-gateway__button">
               <span><small>ENTER THE</small><b>UNIVERSE</b></span><span aria-hidden="true" className="wfm-universe-gateway__arrow">»</span>
             </button>
-            <p className="font-hud text-[9px] tracking-[0.22em] text-muted">ONE ENTRY · INFINITE POSSIBILITIES</p>
+            <p className="font-hud text-[9px] tracking-[0.22em] text-muted">ONE ENTRY · THE GAME RUNS INSIDE ORBITAL</p>
           </section>
           <div className="absolute bottom-3 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
         </div>

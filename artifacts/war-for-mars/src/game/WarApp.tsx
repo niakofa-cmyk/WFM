@@ -162,7 +162,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   }, [userId]);
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
-  const [localUniverseOpen, setLocalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
+  const [orbitalUniverseOpen, setOrbitalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
   const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
@@ -1153,7 +1153,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     );
   }
 
-  if (localUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession) {
+  if (orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession) {
     return (
       <>
         <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>
@@ -1463,7 +1463,12 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
-        onGalaxy={() => setGalaxyOpen(true)}
+        onEnterUniverse={() => {
+          unlockAudio();
+          setGalaxyOpen(false);
+          setUniverseServicesOpen(false);
+          setOrbitalUniverseOpen(true);
+        }}
         onLocalUniverse={() => {
           setUniverseServicesOpen(false);
           setLocalUniverseOpen(true);

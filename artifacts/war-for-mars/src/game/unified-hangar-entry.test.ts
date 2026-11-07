@@ -7,11 +7,17 @@ const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
 test("hangar exposes one prominent connected-universe gateway", () => {
   assert.equal((home.match(/data-testid="button-enter-universe"/g) ?? []).length, 1);
-  assert.match(home, /onClick=\{onGalaxy\} data-testid="button-enter-universe"/);
+  assert.match(home, /onClick=\{onEnterUniverse\} data-testid="button-enter-universe"/);
+  assert.match(home, /THE GAME RUNS INSIDE ORBITAL/);
   assert.doesNotMatch(home, /data-testid="button-open-galaxy"|PERSISTENT GALAXY/);
 });
 
-test("local Orbital flight is secondary no-reward practice, not the main gateway", () => {
+test("hangar gateway mounts Orbital flight directly; local practice remains a separate secondary option", () => {
+  const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
+  assert.match(app, /onEnterUniverse=\{\(\) => \{[\s\S]*?setGalaxyOpen\(false\);[\s\S]*?setOrbitalUniverseOpen\(true\);/);
+  assert.match(app, /if \(orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession\)/);
+  assert.match(app, /modeId=\{UNIVERSE_MODE_ID\}[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.doesNotMatch(app, /onEnterUniverse=\{\(\) => setGalaxyOpen\(true\)\}/);
   const training = home.indexOf('data-testid="details-flight-systems"');
   const localFlight = home.indexOf('data-testid="button-home-local-universe"');
   const gateway = home.indexOf('data-testid="button-enter-universe"');
