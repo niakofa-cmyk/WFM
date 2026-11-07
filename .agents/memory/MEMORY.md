@@ -43,7 +43,7 @@
 - [Engine selection](wfm-engine-selection.md) — Orbital owns the final renderer; keep the current Three.js implementation only until verified replacement and rollback gates pass.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
 - [Canonical engine migration](orbital-canonical-gameplay.md) — Orbital owns final rendering and gameplay; migrate Three.js out only after renderer parity and device gates pass.
-- [Orbital-native spectator boundary](orbital-native-spectator-boundary.md) — 3D asteroid spectator renders only anonymous server snapshots; not continuous universe traffic or full renderer migration.
+- [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — regional AI routes project into 3D; nearby human presence stays aggregate, and shared human flight remains separate.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
 - [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep current multiplayer contracts until chunking, binary transport, and recovery changes pass measured compatibility gates.

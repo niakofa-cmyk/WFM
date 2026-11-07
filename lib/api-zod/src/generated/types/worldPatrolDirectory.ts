@@ -7,6 +7,7 @@
  */
 import type { WorldPatrolDirectorySimulationLayer } from './worldPatrolDirectorySimulationLayer';
 import type { WorldPatrolFleet } from './worldPatrolFleet';
+import type { WorldPatrolTrafficContact } from './worldPatrolTrafficContact';
 
 export interface WorldPatrolDirectory {
   generatedAt: Date;
@@ -18,4 +19,6 @@ export interface WorldPatrolDirectory {
   simulationLayer: WorldPatrolDirectorySimulationLayer;
   /** @maxItems 128 */
   patrols: WorldPatrolFleet[];
+  /** @maxItems 512 */
+  traffic: WorldPatrolTrafficContact[];
 }

@@ -305,8 +305,8 @@ paths:
     get:
       operationId: getWorldPatrols
       tags: [progression]
-      summary: Get server-owned patrol formations at the authenticated pilot's region
-      description: Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
+      summary: Get server-owned patrols and traffic near the authenticated pilot
+      description: Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
       security:
         - ClerkSession: []
       responses:
@@ -1005,9 +1005,22 @@ components:
           maxItems: 4
           items: { $ref: "#/components/schemas/WorldPatrolShip" }
         lastMovedAt: { type: string, format: date-time }
+    WorldPatrolTrafficContact:
+      type: object
+      required: [contactId, faction, hullId, locationId, position, velocity, yaw]
+      properties:
+        contactId: { type: string, minLength: 1, maxLength: 220 }
+        faction: { type: string, enum: [ussf, accord] }
+        hullId:
+          type: string
+          enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide]
+        locationId: { type: string, minLength: 1, maxLength: 100 }
+        position: { $ref: "#/components/schemas/UniverseVector3" }
+        velocity: { $ref: "#/components/schemas/UniverseVector3" }
+        yaw: { type: number, minimum: -6.284, maximum: 6.284 }
     WorldPatrolDirectory:
       type: object
-      required: [generatedAt, currentLocationId, simulationLayer, patrols]
+      required: [generatedAt, currentLocationId, simulationLayer, patrols, traffic]
       properties:
         generatedAt: { type: string, format: date-time }
         currentLocationId: { type: string, minLength: 1, maxLength: 100 }
@@ -1016,6 +1029,10 @@ components:
           type: array
           maxItems: 128
           items: { $ref: "#/components/schemas/WorldPatrolFleet" }
+        traffic:
+          type: array
+          maxItems: 512
+          items: { $ref: "#/components/schemas/WorldPatrolTrafficContact" }
     WorldLocation:
       type: object
       required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]

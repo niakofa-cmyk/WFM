@@ -42,6 +42,7 @@ test("public directory and SSE publish read-only snapshots; registration require
     generatedAt: now,
     currentLocationId: "phobos-yard",
     simulationLayer: "strategic",
+    traffic: [],
     patrols: [{
       id: "strategic-patrol-v1:phobos-yard:ussf:0",
       callsign: "USSF-3F21",

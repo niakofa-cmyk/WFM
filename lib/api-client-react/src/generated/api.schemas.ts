@@ -1256,6 +1256,50 @@ export interface WorldPatrolFleet {
   lastMovedAt: string;
 }
 
+export type WorldPatrolTrafficContactFaction = typeof WorldPatrolTrafficContactFaction[keyof typeof WorldPatrolTrafficContactFaction];
+
+
+export const WorldPatrolTrafficContactFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolTrafficContactHullId = typeof WorldPatrolTrafficContactHullId[keyof typeof WorldPatrolTrafficContactHullId];
+
+
+export const WorldPatrolTrafficContactHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolTrafficContact {
+  /**
+     * @minLength 1
+     * @maxLength 220
+     */
+  contactId: string;
+  faction: WorldPatrolTrafficContactFaction;
+  hullId: WorldPatrolTrafficContactHullId;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  position: UniverseVector3;
+  velocity: UniverseVector3;
+  /**
+     * @minimum -6.284
+     * @maximum 6.284
+     */
+  yaw: number;
+}
+
 export type WorldPatrolDirectorySimulationLayer = typeof WorldPatrolDirectorySimulationLayer[keyof typeof WorldPatrolDirectorySimulationLayer];
 
 
@@ -1273,6 +1317,8 @@ export interface WorldPatrolDirectory {
   simulationLayer: WorldPatrolDirectorySimulationLayer;
   /** @maxItems 128 */
   patrols: WorldPatrolFleet[];
+  /** @maxItems 512 */
+  traffic: WorldPatrolTrafficContact[];
 }
 
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];

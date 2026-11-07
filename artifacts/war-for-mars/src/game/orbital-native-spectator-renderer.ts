@@ -9,9 +9,13 @@ export type NativeSpectatorContact = {
   team: 0 | 1;
   alive: boolean;
   health: number;
+  velocity?: { x: number; y: number; z: number };
 };
 
-export type NativeSpectatorState = { contacts: NativeSpectatorContact[] };
+export type NativeSpectatorState = {
+  contacts: NativeSpectatorContact[];
+  receivedAt?: number;
+};
 
 export type NativeSpectatorRenderer = {
   render(state: NativeSpectatorState): void;
@@ -192,6 +196,9 @@ export function createOrbitalNativeSpectatorRenderer(
       const projection = perspective(Math.PI / 3, width / height, 0.1, 600);
       const view = lookAt([0, 150, 178], [0, 0, 0]);
       const viewProjection = multiply(projection, view);
+      const elapsed = state.receivedAt === undefined
+        ? 0
+        : Math.min(5, Math.max(0, (Date.now() - state.receivedAt) / 1000));
       for (const contact of state.contacts) {
         if (!contact.alive || !Number.isFinite(contact.x) || !Number.isFinite(contact.z) ||
             !Number.isFinite(contact.yaw) || !Number.isFinite(contact.health)) continue;
@@ -201,7 +208,12 @@ export function createOrbitalNativeSpectatorRenderer(
         gl.enableVertexAttribArray(color);
         gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 24, 0);
         gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 24, 12);
-        gl.uniformMatrix4fv(mvp, false, multiply(viewProjection, shipTransform(contact)));
+        const interpolated = {
+          ...contact,
+          x: contact.x + (contact.velocity?.x ?? 0) * elapsed,
+          z: contact.z + (contact.velocity?.z ?? 0) * elapsed,
+        };
+        gl.uniformMatrix4fv(mvp, false, multiply(viewProjection, shipTransform(interpolated)));
         gl.drawArrays(gl.TRIANGLES, 0, geometry.length / 6);
       }
     },

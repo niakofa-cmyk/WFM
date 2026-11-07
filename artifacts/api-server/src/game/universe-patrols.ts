@@ -6,8 +6,8 @@ import {
 } from "@workspace/db";
 import type { WorldPatrolDirectory } from "@workspace/api-zod";
 import type { PatrolFaction, PersistentPatrolShip } from "@workspace/db";
-import { advancePatrol, createSeededPatrols } from "./universe-patrol-rules";
-import { WORLD_PATROL_SECTOR_NETWORK } from "./world";
+import { advancePatrol, createSeededPatrols, projectPatrolTraffic } from "./universe-patrol-rules";
+import { WORLD_LOCATION_COORDINATES, WORLD_PATROL_SECTOR_NETWORK } from "./world";
 
 const ENCOUNTER_LEASE_MS = 20 * 60_000;
 const ACTOR_SHIP_PREFIX = "patrol-ship:";
@@ -241,11 +241,26 @@ export async function getUniversePatrolDirectory(
     .sort((left, right) =>
       left.faction.localeCompare(right.faction) || left.callsign.localeCompare(right.callsign),
     );
+  const traffic = currentRows
+    .filter((patrol) => visibleSet.has(patrol.currentLocationId) && patrol.shipRoster.length > 0)
+    .sort((left, right) =>
+      left.currentLocationId.localeCompare(right.currentLocationId) ||
+      left.faction.localeCompare(right.faction) ||
+      left.patrolId.localeCompare(right.patrolId),
+    )
+    .flatMap((patrol) => projectPatrolTraffic(
+      patrol,
+      world.currentLocation,
+      WORLD_LOCATION_COORDINATES,
+      now,
+    ))
+    .slice(0, 512);
 
   return {
     generatedAt: now,
     currentLocationId: world.currentLocation,
     simulationLayer: "strategic",
     patrols,
+    traffic,
   };
 }

@@ -111,6 +111,10 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
   },
 ];
 
+/** Public chart coordinates reused by the server's bounded patrol scene projection. */
+export const WORLD_LOCATION_COORDINATES: Readonly<Record<string, { x: number; y: number }>> =
+  Object.freeze(Object.fromEntries(LOCATIONS.map(({ id, x, y }) => [id, { x, y }])));
+
 const ROUTES: Record<string, RouteDefinition[]> = {
   "phobos-yard": [{ destinationId: "rust-disc", costCredits: 8 }, { destinationId: "outer-fringe", costCredits: 20 }],
   "outer-fringe": [{ destinationId: "phobos-yard", costCredits: 20 }, { destinationId: "deep-nebula", costCredits: 35 }],

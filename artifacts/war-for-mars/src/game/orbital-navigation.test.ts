@@ -113,7 +113,16 @@ test("connected entry stays within authenticated account shell while offline fli
   assert.match(app, /isLoaded && isSignedIn/);
   assert.match(app, /key=\{`\$\{userId\}:\$\{universe\}:\$\{orbital\}`\}/);
   assert.match(lab, /const HUB = `\$\{BASE\}\/universe`/);
-  assert.doesNotMatch(lab, /useGetWorld|ClerkProvider|fetch\(/);
+  assert.doesNotMatch(lab, /ClerkProvider|fetch\(/);
+  assert.match(lab, /useGetWorldPatrols/);
+  assert.match(lab, /Boolean\(userId && !standalone && mode === "entry"/);
   assert.match(galaxy, /navigationDestinations.find[\s\S]*?\.canTravel/);
   assert.match(galaxy, /if \(!current\?\.canOpen \|\| !operation \|\| directoryUnavailable\) return/);
+});
+
+test("regional patrol traffic refreshes by location and pauses safely in background", () => {
+  const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
+  assert.match(galaxy, /refetchInterval: 5_000/);
+  assert.match(galaxy, /refetchIntervalInBackground: false/);
+  assert.match(galaxy, /queryKey: \[\.\.\.getGetWorldPatrolsQueryKey\(\), world\?\.currentLocation\]/);
 });

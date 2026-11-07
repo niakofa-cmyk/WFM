@@ -2,7 +2,7 @@ import type { FlightSector, FlightState } from "./flight-sector";
 import { rotate } from "@workspace/orbital-sim";
 import { CINDER_STATION } from "./orbital-universe-session";
 import { buildOrbitalNativeShipGeometry } from "./orbital-native-ship-geometry";
-import type { ShipId } from "./ships";
+import { SHIPS, type ShipId } from "./ships";
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -59,8 +59,19 @@ type RendererOptions = {
   shipId: ShipId;
   factionColor: [number, number, number];
 };
+export type OrbitalNativeTrafficContact = {
+  contactId: string;
+  faction: "ussf" | "accord";
+  hullId: ShipId;
+  locationId: string;
+  position: Vec3;
+  velocity: Vec3;
+  yaw: number;
+};
+type BufferedTrafficContact = OrbitalNativeTrafficContact & { receivedAt: number };
 export type OrbitalNativeFlightRenderer = {
   render(state: FlightState): void;
+  setTraffic(contacts: readonly OrbitalNativeTrafficContact[]): void;
   dispose(): void;
 };
 
@@ -249,6 +260,9 @@ export function createOrbitalNativeFlightRenderer({
   const shipGeometry = buildOrbitalNativeShipGeometry(shipId, factionColor);
   const droneGeometry = buildOrbitalNativeShipGeometry("shakuna", [1,.28,.16]);
   const stationGeometry = nativeStationGeometry();
+  const trafficBuffers = new Map<string, WebGLBuffer>();
+  const trafficGeometries = new Map<string, Float32Array>();
+  let traffic: BufferedTrafficContact[] = [];
 
   try {
     vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
@@ -381,8 +395,52 @@ export function createOrbitalNativeFlightRenderer({
       gl.vertexAttribPointer(tint, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
       gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     };
+    const getTrafficBuffer = (contact: OrbitalNativeTrafficContact): { buffer: WebGLBuffer; geometry: Float32Array } => {
+      const key = `${contact.faction}:${contact.hullId}`;
+      let buffer = trafficBuffers.get(key);
+      let geometry = trafficGeometries.get(key);
+      if (!buffer || !geometry) {
+        buffer = gl.createBuffer() ?? undefined;
+        if (!buffer) throw new Error("Orbital renderer could not allocate a patrol hull buffer.");
+        const color: [number, number, number] = contact.faction === "ussf"
+          ? [0.34, 0.76, 1]
+          : [1, 0.62, 0.26];
+        geometry = buildOrbitalNativeShipGeometry(contact.hullId, color);
+        trafficBuffers.set(key, buffer);
+        trafficGeometries.set(key, geometry);
+        buffers.push(buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, geometry, gl.STATIC_DRAW);
+      }
+      return { buffer, geometry };
+    };
 
     return {
+      setTraffic(contacts) {
+        traffic = contacts.flatMap((contact) => {
+          if (!contact || typeof contact.contactId !== "string" || contact.contactId.length > 220 ||
+              !["ussf", "accord"].includes(contact.faction) ||
+              !Object.hasOwn(SHIPS, contact.hullId) ||
+              typeof contact.locationId !== "string" || contact.locationId.length > 100 ||
+              ![
+                contact.position?.x, contact.position?.y, contact.position?.z,
+                contact.velocity?.x, contact.velocity?.y, contact.velocity?.z, contact.yaw,
+              ].every(Number.isFinite) ||
+              Math.abs(contact.position.x) > 120 || Math.abs(contact.position.y) > 40 ||
+              Math.abs(contact.position.z) > 120 || Math.abs(contact.velocity.x) > 1 ||
+              Math.abs(contact.velocity.y) > 1 || Math.abs(contact.velocity.z) > 1) return [];
+          return [{
+            contactId: contact.contactId,
+            faction: contact.faction,
+            hullId: contact.hullId,
+            locationId: contact.locationId,
+            position: { ...contact.position },
+            velocity: { ...contact.velocity },
+            yaw: contact.yaw,
+            receivedAt: performance.now(),
+          }];
+        }).slice(0, 64);
+      },
       render(state) {
         if (disposed) return;
         resize();
@@ -426,6 +484,18 @@ export function createOrbitalNativeFlightRenderer({
         // The target is the live simulation drone, not a HUD-only marker.
         if (state.drone.hull > 0) {
           drawLitGeometry(droneBuffer, droneGeometry.length / 6, state.drone.position, [0,0,0,1], viewProjection, .9);
+        }
+        for (const contact of traffic) {
+          const { buffer, geometry } = getTrafficBuffer(contact);
+          const halfYaw = contact.yaw / 2;
+          const orientation: Quaternion = [0, Math.sin(halfYaw), 0, Math.cos(halfYaw)];
+          const elapsed = Math.min(5, Math.max(0, (performance.now() - contact.receivedAt) / 1000));
+          const position = {
+            x: contact.position.x + contact.velocity.x * elapsed,
+            y: contact.position.y + contact.velocity.y * elapsed,
+            z: contact.position.z + contact.velocity.z * elapsed,
+          };
+          drawLitGeometry(buffer, geometry.length / 6, position, orientation, viewProjection, .86);
         }
         drawLitGeometry(shipBuffer, shipGeometry.length / 6, state.position, orientation, viewProjection, .86);
 

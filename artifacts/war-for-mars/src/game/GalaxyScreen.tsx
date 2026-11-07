@@ -87,7 +87,7 @@ export function GalaxyScreen({
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
   const operationsQuery = useGetWorldOperations({
     query: {
-      refetchInterval: operationStreamState === "live" ? false : 30000,
+      refetchInterval: operationStreamState === "live" ? 15000 : 30000,
       queryKey: getGetWorldOperationsQueryKey(),
     },
   });
@@ -102,7 +102,8 @@ export function GalaxyScreen({
   const patrolsQuery = useGetWorldPatrols({
     query: {
       enabled: Boolean(userId && world && !snapshot.cached),
-      refetchInterval: 30_000,
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
       queryKey: [...getGetWorldPatrolsQueryKey(), world?.currentLocation],
     },
   });
@@ -351,6 +352,9 @@ export function GalaxyScreen({
           directory={patrolsQuery.data}
           currentLocationId={world.currentLocation}
           currentLocationName={currentLocation?.name}
+          nearbyPilotCount={operationDirectory?.presence?.find(
+            (entry) => entry.locationId === world.currentLocation,
+          )?.activePilots ?? 0}
           pilotFaction={faction}
           shipId={shipId}
           canLaunchEncounter={canLaunchUniversePatrol}

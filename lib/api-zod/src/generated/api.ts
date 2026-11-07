@@ -1219,6 +1219,33 @@ export const getWorldPatrolsResponsePatrolsItemShipsMax = 4;
 
 export const getWorldPatrolsResponsePatrolsMax = 128;
 
+export const getWorldPatrolsResponseTrafficItemContactIdMax = 220;
+
+export const getWorldPatrolsResponseTrafficItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponseTrafficItemPositionXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemYawMin = -6.284;
+export const getWorldPatrolsResponseTrafficItemYawMax = 6.284;
+
+export const getWorldPatrolsResponseTrafficMax = 512;
+
 
 
 export const GetWorldPatrolsResponse = zod.object({
@@ -1239,7 +1266,24 @@ export const GetWorldPatrolsResponse = zod.object({
   "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax)
 })).min(getWorldPatrolsResponsePatrolsItemShipsMin).max(getWorldPatrolsResponsePatrolsItemShipsMax),
   "lastMovedAt": zod.coerce.date()
-})).max(getWorldPatrolsResponsePatrolsMax)
+})).max(getWorldPatrolsResponsePatrolsMax),
+  "traffic": zod.array(zod.object({
+  "contactId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemContactIdMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemLocationIdMax),
+  "position": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemPositionXMin).max(getWorldPatrolsResponseTrafficItemPositionXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemPositionYMin).max(getWorldPatrolsResponseTrafficItemPositionYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemPositionZMin).max(getWorldPatrolsResponseTrafficItemPositionZMax)
+}),
+  "velocity": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityXMin).max(getWorldPatrolsResponseTrafficItemVelocityXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityYMin).max(getWorldPatrolsResponseTrafficItemVelocityYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityZMin).max(getWorldPatrolsResponseTrafficItemVelocityZMax)
+}),
+  "yaw": zod.number().min(getWorldPatrolsResponseTrafficItemYawMin).max(getWorldPatrolsResponseTrafficItemYawMax)
+})).max(getWorldPatrolsResponseTrafficMax)
 })
 
 

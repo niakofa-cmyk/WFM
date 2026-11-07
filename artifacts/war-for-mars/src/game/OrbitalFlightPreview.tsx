@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { PilotFlightStick } from "./PilotFlightStick";
 import { clearInput, createBus, pulseVectorManeuver, setCircularRollControl, type Bus } from "./input";
 import {
@@ -138,6 +139,7 @@ export function OrbitalFlightPreview({
   shipId,
   faction,
   servicesHref,
+  traffic = [],
   trainingReturnSnapshot,
   onTrainingReturnConsumed,
   onLaunchTraining,
@@ -145,6 +147,7 @@ export function OrbitalFlightPreview({
   shipId: ShipId;
   faction: Faction;
   servicesHref: string;
+  traffic?: WorldPatrolDirectory["traffic"];
   trainingReturnSnapshot: FlightState | null;
   onTrainingReturnConsumed: () => void;
   onLaunchTraining: (snapshot: FlightState) => void;
@@ -261,6 +264,7 @@ export function OrbitalFlightPreview({
         factionColor: faction === "ussf" ? [0.34, 0.76, 1] : [1, 0.62, 0.26],
       });
       rendererRef.current = renderer;
+      renderer.setTraffic(traffic);
       setStatus(resumedFlight
         ? "Returned from local training · restored the same docked Cinder flight · no rewards."
         : `Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
@@ -348,6 +352,10 @@ export function OrbitalFlightPreview({
     };
   }, [enabled, faction, shipId, run]);
 
+  useEffect(() => {
+    rendererRef.current?.setTraffic(traffic);
+  }, [traffic]);
+
   const dockAtStation = () => {
     const flight = flightRef.current;
     if (!flight || !rendererRef.current || !evaluateNativeCinderDock(flight).eligible) return;
@@ -373,7 +381,10 @@ export function OrbitalFlightPreview({
       <div className="uv-renderer-proof__heading">
         <div>
           <b>ORBITAL FLIGHT PREVIEW</b>
-          <small>Shared fixed-step flight sim · Cinder asteroid field · local / no rewards</small>
+          <small>
+            Shared fixed-step flight sim · Cinder asteroid field · local / no rewards
+            {traffic.length > 0 ? ` · ${traffic.length} server patrol contacts · visual only` : ""}
+          </small>
         </div>
         <button type="button" data-testid="button-orbital-preview-toggle" onClick={() => {
           if (enabled) {

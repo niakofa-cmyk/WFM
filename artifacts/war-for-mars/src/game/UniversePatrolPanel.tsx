@@ -1,6 +1,7 @@
 import React from "react";
 import type { WorldPatrolDirectory, WorldLocation } from "@workspace/api-client-react";
 import type { Faction, ShipId } from "./ships";
+import { OrbitalUniverseTrafficScene } from "./OrbitalUniverseTrafficScene";
 
 const OBJECTIVE_LABELS: Record<string, string> = {
   recon: "Recon patrol",
@@ -13,6 +14,7 @@ type Props = {
   directory?: WorldPatrolDirectory;
   currentLocationId: string;
   currentLocationName?: string;
+  nearbyPilotCount?: number;
   pilotFaction: Faction;
   shipId: ShipId;
   canLaunchEncounter: boolean;
@@ -26,6 +28,7 @@ export function UniversePatrolPanel({
   directory,
   currentLocationId,
   currentLocationName,
+  nearbyPilotCount = 0,
   pilotFaction,
   shipId,
   canLaunchEncounter,
@@ -53,6 +56,13 @@ export function UniversePatrolPanel({
           Persistent USSF and Accord AI patrols—not live human matches—move between connected regions. Intercept the opposing faction for a server-authoritative Orbital flight encounter. Credits and shared fleet losses settle only from verified combat results.
         </p>
       </header>
+
+      {directory && currentSnapshot ? (
+        <OrbitalUniverseTrafficScene
+          traffic={directory.traffic}
+          nearbyPilotCount={nearbyPilotCount}
+        />
+      ) : null}
 
       {loading && !directory ? (
         <p role="status" className="p-4 text-sm text-muted">Synchronizing patrol records…</p>

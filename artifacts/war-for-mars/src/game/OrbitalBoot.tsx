@@ -1,4 +1,11 @@
 import { lazy, Suspense, useState } from "react";
+import { useAuth } from "@clerk/react";
+import {
+  getGetWorldPatrolsQueryKey,
+  getGetWorldQueryKey,
+  useGetWorld,
+  useGetWorldPatrols,
+} from "@workspace/api-client-react";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import { unlockAudio } from "./audio";
@@ -18,6 +25,7 @@ const HUB = `${BASE}/universe`;
 
 /** Shared primary boot and compatibility Lab entry; one flight implementation. */
 export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
+  const { userId } = useAuth();
   const [faction, setFaction] = useState<Faction>("ussf");
   const [ship, setShip] = useState<ShipId>("duskbreaker");
   const [mode, setMode] = useState<Mode>(() => new URLSearchParams(window.location.search).get("universe") === "1" ? "universe" : "entry");
@@ -25,6 +33,24 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
   const [summary, setSummary] = useState("");
   const [trainingReturnSnapshot, setTrainingReturnSnapshot] = useState<FlightState | null>(null);
   const [destId, setDestId] = useState("mars-orbit");
+  const worldQuery = useGetWorld({
+    query: {
+      enabled: Boolean(userId && !standalone && mode === "entry"),
+      refetchInterval: 15_000,
+      queryKey: getGetWorldQueryKey(),
+    },
+  });
+  const patrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && !standalone && mode === "entry" && worldQuery.data),
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
+      queryKey: [...getGetWorldPatrolsQueryKey(), worldQuery.data?.currentLocation],
+    },
+  });
+  const localTraffic = !standalone && worldQuery.data?.currentLocation === "cinder-asteroid"
+    ? patrolsQuery.data?.traffic ?? []
+    : [];
   const dest = DESTINATIONS.find((d) => d.id === destId) ?? DESTINATIONS[0];
   const startLocation = dest.id === "cinder-ring" ? "cinder-ring" : "mars-orbit";
   const loading = (text: string) => <main role="status" className="lab-loading">{text}</main>;
@@ -57,6 +83,7 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
           shipId={ship}
           faction={faction}
           servicesHref={HUB}
+          traffic={localTraffic}
           trainingReturnSnapshot={trainingReturnSnapshot}
           onTrainingReturnConsumed={() => setTrainingReturnSnapshot(null)}
           onLaunchTraining={(snapshot) => {

@@ -132,3 +132,76 @@ export function advancePatrol<T extends PatrolMovementState>(
     updatedAt: now,
   };
 }
+
+export type PatrolTrafficCoordinates = Readonly<Record<string, { x: number; y: number }>>;
+export type PatrolTrafficContact = {
+  contactId: string;
+  faction: PatrolFaction;
+  hullId: PersistentPatrolShip["hullId"];
+  locationId: string;
+  position: { x: number; y: number; z: number };
+  velocity: { x: number; y: number; z: number };
+  yaw: number;
+};
+export type PatrolTrafficSource = Pick<
+  GeneratedPatrol,
+  "patrolId" | "currentLocationId" | "faction" | "shipRoster" | "route" | "routeIndex" | "lastMovedAt"
+>;
+
+/**
+ * Project a persisted strategic route into a small, anonymous local 3D scene.
+ * Pose is derived from server route timestamps, so polling clients observe the
+ * same moving fleet without adding another simulation or storing client poses.
+ */
+export function projectPatrolTraffic(
+  patrol: PatrolTrafficSource,
+  anchorLocationId: string,
+  coordinates: PatrolTrafficCoordinates,
+  now: Date,
+): PatrolTrafficContact[] {
+  if (patrol.route.length < 2 || patrol.shipRoster.length === 0) return [];
+  const start = coordinates[patrol.currentLocationId];
+  const anchor = coordinates[anchorLocationId];
+  const nextLocationId = patrol.route[(patrol.routeIndex + 1) % patrol.route.length];
+  const destination = nextLocationId ? coordinates[nextLocationId] : undefined;
+  if (!start || !anchor || !destination ||
+      ![start.x, start.y, anchor.x, anchor.y, destination.x, destination.y].every(Number.isFinite)) return [];
+
+  const elapsed = Math.max(0, now.getTime() - patrol.lastMovedAt.getTime());
+  const progress = Math.max(0, Math.min(1, elapsed / PATROL_WAYPOINT_INTERVAL_MS));
+  const dx = destination.x - start.x;
+  const dz = destination.y - start.y;
+  const length = Math.hypot(dx, dz) || 1;
+  const forwardX = dx / length;
+  const forwardZ = dz / length;
+  const rightX = forwardZ;
+  const rightZ = -forwardX;
+  const scale = 0.52;
+  const fleetX = (start.x + dx * progress - anchor.x) * scale;
+  const fleetZ = (start.y + dz * progress - anchor.y) * scale;
+  const intervalSeconds = PATROL_WAYPOINT_INTERVAL_MS / 1000;
+  const velocity = {
+    x: dx * scale / intervalSeconds,
+    y: 0,
+    z: dz * scale / intervalSeconds,
+  };
+  const yaw = Math.atan2(-forwardX, -forwardZ);
+
+  return patrol.shipRoster.slice(0, 4).map((ship, index) => {
+    const side = (index % 2 === 0 ? -1 : 1) * 2.3;
+    const aft = Math.floor(index / 2) * 2.8;
+    return {
+      contactId: `${patrol.patrolId}:contact:${index + 1}`,
+      faction: patrol.faction,
+      hullId: ship.hullId,
+      locationId: patrol.currentLocationId,
+      position: {
+        x: fleetX + rightX * side - forwardX * aft,
+        y: 1.8 + Math.floor(index / 2) * 0.8,
+        z: fleetZ + rightZ * side - forwardZ * aft,
+      },
+      velocity,
+      yaw,
+    };
+  });
+}

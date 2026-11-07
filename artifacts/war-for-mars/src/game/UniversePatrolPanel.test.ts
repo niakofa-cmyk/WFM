@@ -14,6 +14,15 @@ const directory: WorldPatrolDirectory = {
   generatedAt: new Date("2026-11-07T12:00:00.000Z"),
   currentLocationId: "phobos-yard",
   simulationLayer: "strategic",
+  traffic: [{
+    contactId: "patrol-contact-1",
+    faction: "ussf",
+    hullId: "glide",
+    locationId: "phobos-yard",
+    position: { x: 1, y: 2, z: -3 },
+    velocity: { x: 0.1, y: 0, z: 0 },
+    yaw: 0.2,
+  }],
   patrols: [{
     id: "strategic-patrol-v1:phobos-yard:ussf:0",
     callsign: "USSF-3F21",
@@ -34,6 +43,7 @@ test("patrol panel presents a server-reported fleet route without claiming live 
     directory,
     currentLocationId: "phobos-yard",
     currentLocationName: "Phobos Yard",
+    nearbyPilotCount: 2,
     pilotFaction: "accord",
     shipId: "mandjet",
     canLaunchEncounter: true,
@@ -49,6 +59,8 @@ test("patrol panel presents a server-reported fleet route without claiming live 
   assert.match(html, /not live human matches/);
   assert.match(html, /button-intercept-universe-patrol/);
   assert.match(html, /mission=universe-patrol/);
+  assert.match(html, /ORBITAL REGION TRAFFIC/);
+  assert.match(html, /2 PILOTS IN REGION · ANONYMOUS COUNT/);
 });
 
 test("patrol panel does not show a stale region snapshot as current", () => {

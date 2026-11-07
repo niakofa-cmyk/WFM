@@ -36,7 +36,10 @@ test("local universe entry keeps flight lazy and blocks planned destination laun
   assert.match(source, /const CinderRingDockingApproach = lazy\(/);
   assert.match(source, /if \(dest.status === "planned"\) return/);
   assert.match(source, /<button[^>]*disabled[^>]*data-testid="button-destination-unavailable"/);
-  assert.doesNotMatch(source, /fetch\(|new WebSocket|@workspace\/api-client-react/);
+  assert.doesNotMatch(source, /fetch\(|new WebSocket/);
+  assert.match(source, /useGetWorldPatrols/);
+  assert.match(source, /enabled: Boolean\(userId && !standalone && mode === "entry" && worldQuery\.data\)/);
+  assert.match(source, /traffic=\{localTraffic\}/);
 });
 
 test("local faction briefing reflects the actual opposing training side without inventing a world", () => {

@@ -3,8 +3,8 @@ name: Orbital-native spectator boundary
 description: Scope and authority boundary for the native 3D asteroid match spectator.
 ---
 
-The asteroid's native 3D match spectator is a read-only presentation of the existing server-owned anonymous match snapshot. It does not create continuous universe traffic, control a match, identify players, or change rewards.
+The native renderer has two distinct read-only uses: the asteroid spectator presents the existing server-owned anonymous match snapshot, while the universe view renders bounded regional AI patrol poses projected from persisted route timestamps. Neither path controls a match or changes rewards.
 
-**Why:** The live match already has authoritative state and a privacy-safe spectator projection; a second simulation would risk divergence and expose unnecessary player data.
+**Why:** The server already owns combat and strategic patrol movement. Client-side interpolation is presentation only; publishing exact human flight coordinates would exceed the established destination-count privacy contract.
 
-**How to apply:** Render only validated snapshots and anonymous contact data. Keep human match authority on the server. Do not claim continuous open-universe traffic or a complete Orbital-only renderer migration until those separate systems pass their own parity and device gates.
+**How to apply:** Render server-validated patrol projections and anonymous match snapshots only. Nearby human presence remains a region count, not fabricated individual ship positions. Keep combat authority on the server. Do not claim continuous shared human flight or a complete Orbital-only renderer migration until those separate systems pass their own parity and device gates.
