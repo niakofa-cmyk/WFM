@@ -31,3 +31,32 @@ test("hangar command layout requires landscape and presents faction choice", () 
   assert.match(styles, /@media \(orientation: landscape\) and \(max-height: 560px\)/);
   assert.match(styles, /@media \(orientation: portrait\)/);
 });
+
+test("command destinations remain available on home, fleet, and settings screens", () => {
+  assert.match(home, /state === "MAIN_MENU" \|\| state === "ARMORY" \|\| state === "SETTINGS"/);
+  assert.match(home, /<CommandBottomNavigation state=\{state\}/);
+  for (const destination of ["home", "profile", "fleet", "operations", "multiplayer", "settings"]) {
+    assert.match(home, new RegExp(`data-testid="nav-command-${destination}"`));
+  }
+  assert.doesNotMatch(home, /data-testid="nav-command-universe"/);
+});
+
+test("settings tabs expose only working controls, audio, and account functions", () => {
+  for (const tab of ["controls", "audio", "account"]) {
+    assert.match(home, new RegExp(`tab-settings-${tab}`));
+    assert.match(home, new RegExp(`settings-panel-${tab}`));
+  }
+  assert.match(home, /onClick=\{props\.onAudioMute\}/);
+  assert.match(home, /props\.onScheme\("arc"\)/);
+  assert.match(home, /props\.onGyro/);
+  assert.doesNotMatch(home, /DISPLAY BRIGHTNESS SLIDER|HUD SCALE SLIDER|MUSIC VOLUME SLIDER/);
+});
+
+test("fleet and loadout navigation open distinct armory tabs", () => {
+  assert.match(home, /data-testid="button-hangar-fleet"/);
+  assert.match(home, /data-testid="button-hangar-loadout"/);
+  assert.match(home, /data-testid="tab-armory-fleet"/);
+  assert.match(home, /data-testid="tab-armory-loadout"/);
+  assert.match(home, /onOpenArmory\("loadout"\)/);
+  assert.match(home, /data-testid="panel-armory-loadout"/);
+});

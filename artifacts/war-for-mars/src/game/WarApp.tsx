@@ -22,7 +22,7 @@ import {
   type Save,
 } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
-import { sfxUi, unlockAudio } from "./audio";
+import { isMuted, setMuted, sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
@@ -129,6 +129,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   });
   const [leaderboardSaving, setLeaderboardSaving] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
+  const [audioMuted, setAudioMuted] = useState(false);
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -600,7 +601,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   useEffect(() => {
     let cancelled = false;
     const device = loadDevicePreferences();
-    setSave((previous) => ({ ...previous, ...device }));
+    setAudioMuted(device.audioMuted === true);
+    setMuted(device.audioMuted === true);
+    setSave((previous) => ({ ...previous, gyro: device.gyro, drilled: device.drilled }));
     setProfileStatus("loading");
     setProfileError("");
     void loadServerProfile()
@@ -701,8 +704,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
 
   useEffect(() => {
-    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
-  }, [save.gyro, save.drilled, ready]);
+    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled, audioMuted });
+  }, [save.gyro, save.drilled, audioMuted, ready]);
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
@@ -1445,6 +1448,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         ship={save.ship}
         scheme={save.scheme}
         gyro={save.gyro}
+        audioMuted={audioMuted}
         refit={save.refit}
         credits={save.credits}
         tech={save.tech}
@@ -1495,6 +1499,11 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
             return;
           }
           void armGyro().then((ok) => setSave((prev) => ({ ...prev, gyro: ok })));
+        }}
+        onAudioMute={() => {
+          const next = !isMuted();
+          setMuted(next);
+          setAudioMuted(next);
         }}
         onTech={(id: TechId) =>
           setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
