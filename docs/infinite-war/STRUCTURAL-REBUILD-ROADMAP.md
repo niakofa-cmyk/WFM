@@ -160,3 +160,14 @@ The detailed owner-directed implementation prompt, including the function invent
 The prior stages A–H remain useful as integration categories, but this owner clarification changes the runtime destination and adds explicit world-scale architecture. Do not interpret “inside the Lab” as an iframe or as permission to discard the existing game infrastructure. Reuse the Lab's Three.js/Vite foundation and migrate verified systems one at a time.
 
 **Current status:** this is a saved architectural direction and implementation directive, not proof that the runtime has already been rebuilt. The current code still has distinct local Lab, Rust Disc, co-op, campaign, and Wing paths until the phases above are implemented and verified.
+
+
+## Mars routes redesigned as live geography and adventures
+
+The route redesign is specified in
+[MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md](./MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md).
+Treat Rust Disc, Mars Approach, Pale Beacons, Night-side, Dust Lane, Mars Signal, Phobos Yard, Outer Fringe, Deep Nebula and Iron Eclipse as regions, travel corridors, points of interest and operation frameworks inside the same streamed Mars/universe runtime.
+
+The first spatial proof should be a continuous day-side → night-side → day-side Mars circumnavigation with authoritative Mars rotation/time, coordinate-frame conversions, streamed sector handoff, one physical point of interest, one dynamic event and no player-state discontinuity. Multiplayer claims require at least two authenticated pilots sharing the same authoritative sector and consistent event state.
+
+Keep Three.js as the renderer. Extract/adapt useful capabilities from any separate universe prototype, but retire only its duplicate app/runtime after parity, device performance, multiplayer, resource-disposal and rollback gates pass.
