@@ -125,6 +125,9 @@ export async function startWingSocketServer(
       userId: string;
       result: import("../game/sector-missions").SectorScoutResult;
     }[]) => Promise<void>;
+    settleScoutEncounter?: (
+      receipt: import("../game/exploration-encounter").ExplorationReceipt,
+    ) => Promise<import("../game/exploration-settlement").ExplorationSettlement>;
     isAtCinderRing?: (userId: string) => Promise<boolean>;
     publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     publishCompetitiveMatch?: (state: {
@@ -152,6 +155,7 @@ export async function startWingSocketServer(
     loadProgress: options.loadSectorProgress,
     settle: options.settleSectorDiscovery,
     recordScoutResults: options.recordScoutResults,
+    settleScoutEncounter: options.settleScoutEncounter,
     isAtCinderRing: options.isAtCinderRing,
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,

@@ -1144,7 +1144,7 @@ components:
     WorldScoutEncounterResult:
       type: object
       additionalProperties: false
-      required: [encounterId, missionId, sectorId, runtime, policyId, outcome, finalTick, objectiveCompleted, kills, assists, destroyedActorIds, rewardableNpcKills, fingerprint, recordedAt]
+      required: [encounterId, missionId, sectorId, runtime, policyId, outcome, finalTick, objectiveCompleted, kills, assists, destroyedActorIds, rewardableNpcKills, creditsAwarded, fingerprint, recordedAt]
       properties:
         encounterId: { type: string, format: uuid }
         missionId: { type: string, enum: [pale-beacons] }
@@ -1161,6 +1161,7 @@ components:
           maxItems: 128
           items: { type: string, minLength: 1, maxLength: 128 }
         rewardableNpcKills: { type: integer, minimum: 0 }
+        creditsAwarded: { type: integer, minimum: 0 }
         fingerprint: { type: string, pattern: "^[0-9a-f]{64}$" }
         recordedAt: { type: string, format: date-time }
     WorldServiceInput:

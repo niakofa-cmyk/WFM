@@ -1338,6 +1338,8 @@ export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax =
 
 export const getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin = 0;
 
+export const getWorldExplorationResultsResponseResultsItemCreditsAwardedMin = 0;
+
 export const getWorldExplorationResultsResponseResultsItemFingerprintRegExp = new RegExp('^[0-9a-f]{64}$');
 export const getWorldExplorationResultsResponseResultsMax = 10;
 
@@ -1357,6 +1359,7 @@ export const GetWorldExplorationResultsResponse = zod.object({
   "assists": zod.number().int().min(getWorldExplorationResultsResponseResultsItemAssistsMin),
   "destroyedActorIds": zod.array(zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax)).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax),
   "rewardableNpcKills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin),
+  "creditsAwarded": zod.number().int().min(getWorldExplorationResultsResponseResultsItemCreditsAwardedMin),
   "fingerprint": zod.string().regex(getWorldExplorationResultsResponseResultsItemFingerprintRegExp),
   "recordedAt": zod.coerce.date()
 })).max(getWorldExplorationResultsResponseResultsMax)

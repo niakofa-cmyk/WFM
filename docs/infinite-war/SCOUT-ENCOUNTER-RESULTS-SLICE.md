@@ -17,19 +17,24 @@ hull transition as a kill, records prior contributors as assists, and binds
 the result to the server roster, runtime, policy and event fingerprint.
 Client packets cannot submit damage, kill counts, result objects or credits.
 
-At terminal completion, the server records each pilot's own result in the
-existing `progression_events` ledger. A graceful server shutdown or a timed
-operation interruption stores an aborted partial tally. Result rows are
-idempotent and write no currency or account revision. An authenticated
-read-only endpoint returns at most ten results for the signed-in pilot only;
-the expedition selector shows this recovered history, and the debrief displays
-the server-confirmed kills and assists.
+After a verified extraction, the server settles a 12-credit bounty for each
+confirmed eligible NPC kill, capped at 24 credits per encounter. There is no
+completion bonus, and assists do not yet receive a currency share. Credits,
+account revision, reward ledger, and each pilot's private result row are written
+in one transaction. A graceful shutdown or timed interruption stores the
+server-confirmed partial tally without credits. An authenticated read-only
+endpoint returns at most ten results for the signed-in pilot only; the selector
+shows recovered kills, assists, and settled credits, and the debrief shows the
+server-confirmed award.
 
 ## Explicit boundaries
 
-- The current scout policy is `scout-result-only-v1`; credits per kill and
-  completion are zero. The settlement capability remains disabled. No live
-  exploration payout was activated.
+- The current policy is `pale-beacon-npc-bounty-v1`: 12 credits per confirmed
+  hostile NPC kill, capped at 24 per completed encounter; completion and assist
+  bonuses are zero.
+- Settlement is connected only to the existing V2 Orbital sector path. This
+  code-level implementation has not been deployed or verified on staging or
+  Production.
 - Result history survives page reloads and graceful server shutdown once its
   ledger write succeeds. An active flight is **not** resumed after an abrupt
   process crash; its live movement, projectiles and inputs are not checkpointed.
@@ -40,15 +45,16 @@ the server-confirmed kills and assists.
   reinforcement, retreat, PvP awards and active-event spectating remain future
   work.
 - This change adds no database schema and no client write endpoint. Existing
-  progression, Wing rewards, private rooms and local no-reward flight remain
-  separate.
+  campaign claims, Wing rewards, private rooms, AI-fill matches, and local
+  no-reward flight remain separate.
 
 ## Verification to require before widening
 
 The unit suite must exercise the Orbital V2 handshake, opposing-faction room
-admission, kill/assist attribution from server physics, idempotent result
-storage, authenticated owner-only reads, and zero wallet changes. Before
-enabling V2 for players, deploy matching client/API/socket revisions to
-isolated staging and verify two authenticated devices through damage,
-reconnect, results recovery and PostgreSQL persistence. Do not infer Production
-readiness from local tests.
+admission, kill/assist attribution from server physics, atomic bounded credit
+settlement, aborted-run zero payout, idempotent result storage, and authenticated
+owner-only reads. Before enabling V2 for players, deploy matching
+client/API/socket revisions to isolated staging and verify two authenticated
+devices through damage, extraction, reward settlement, reconnect, results
+recovery and PostgreSQL persistence. Do not infer Production readiness from
+local tests.

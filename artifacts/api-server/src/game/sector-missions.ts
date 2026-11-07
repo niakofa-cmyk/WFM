@@ -60,6 +60,7 @@ export type SectorScoutResult = {
   assists: number;
   destroyedActorIds: string[];
   rewardableNpcKills: number;
+  creditsAwarded: number;
   fingerprint: string;
 };
 export type SectorFactionContact = {

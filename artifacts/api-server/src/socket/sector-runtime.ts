@@ -21,6 +21,7 @@ import {
   decideFactionContact, ExplorationEncounter, readExplorationReceipt,
   type ExplorationReceipt, type FactionContactDecision, type PilotTransponder,
 } from "../game/exploration-encounter";
+import type { ExplorationSettlement } from "../game/exploration-settlement";
 import {
   absorbWingDamage, advanceIronEclipse, completeIronEclipse, createIronEclipseState,
   damageIronEclipseTarget, ironEclipseSnapshot, ironEclipseTarget, markIronEclipseCapitalEngaged,
@@ -60,6 +61,7 @@ type Options = {
   loadProgress?: (userId: string) => Promise<SectorProgress>;
   settle?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
   recordScoutResults?: (entries: readonly { userId: string; result: SectorScoutResult }[]) => Promise<void>;
+  settleScoutEncounter?: (receipt: ExplorationReceipt) => Promise<ExplorationSettlement>;
   isAtCinderRing?: (userId: string) => Promise<boolean>;
   publishOperation?: (state: SectorOperationPresence) => Promise<void>;
   /** Selected by deployment configuration, never by a client-supplied field. */
@@ -314,6 +316,7 @@ export function createSectorRuntime(options: Options) {
         assists: pilotResult.assists,
         destroyedActorIds: [...pilotResult.destroyedActorIds],
         rewardableNpcKills: pilotResult.rewardableNpcKills,
+        creditsAwarded: 0,
         fingerprint: result.fingerprint,
       };
       pilot.scoutResultStatus = "pending";
@@ -325,7 +328,8 @@ export function createSectorRuntime(options: Options) {
     const entries = room.pilots.flatMap((pilot) =>
       pilot.scoutResult ? [{ userId: pilot.userId, result: pilot.scoutResult }] : []);
     if (!entries.length) return;
-    if (!options.recordScoutResults) {
+    const completed = readExplorationReceipt(room.scoutReceipt).outcome === "completed";
+    if (completed ? !options.settleScoutEncounter : !options.recordScoutResults) {
       for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "unavailable";
       publish(room);
       return;
@@ -333,7 +337,20 @@ export function createSectorRuntime(options: Options) {
     for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "pending";
     room.scoutPersisting = (async () => {
       try {
-        await options.recordScoutResults!(entries);
+        if (completed) {
+          const settlement = await options.settleScoutEncounter!(room.scoutReceipt!);
+          if (settlement.status !== "settled" && settlement.status !== "duplicate") {
+            throw new Error("completed_scout_reward_not_settled");
+          }
+          for (const pilot of room.pilots) {
+            if (!pilot.scoutResult) continue;
+            const award = settlement.awards.find((entry) => entry.playerId === pilot.userId);
+            if (!award) throw new Error("completed_scout_award_missing");
+            pilot.scoutResult.creditsAwarded = award.credits;
+          }
+        } else {
+          await options.recordScoutResults!(entries);
+        }
         for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "recorded";
       } catch {
         for (const pilot of room.pilots) if (pilot.scoutResult) pilot.scoutResultStatus = "unavailable";
@@ -511,10 +528,10 @@ export function createSectorRuntime(options: Options) {
           // This first integration persists only the kill/assist result. No
           // credit amount or live reward policy is activated in this slice.
           rewardPolicy: {
-            id: "scout-result-only-v1",
-            creditsPerNpcKill: 0,
+            id: "pale-beacon-npc-bounty-v1",
+            creditsPerNpcKill: 12,
             completionCredits: 0,
-            maxCreditsPerEncounter: 0,
+            maxCreditsPerEncounter: 24,
           },
         });
       }

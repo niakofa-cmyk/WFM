@@ -1485,6 +1485,8 @@ export interface WorldScoutEncounterResult {
   destroyedActorIds: string[];
   /** @minimum 0 */
   rewardableNpcKills: number;
+  /** @minimum 0 */
+  creditsAwarded: number;
   /** @pattern ^[0-9a-f]{64}$ */
   fingerprint: string;
   recordedAt: string;

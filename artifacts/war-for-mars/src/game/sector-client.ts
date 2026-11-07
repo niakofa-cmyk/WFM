@@ -112,13 +112,14 @@ function validScoutResult(value: unknown): value is SectorScoutResult {
     typeof result.sectorId === "string" && result.sectorId.length > 0 && result.sectorId.length <= 128 &&
     result.sectorId === "pale-beacons-v1" &&
     result.runtime === ORBITAL_RUNTIME_ID &&
-    result.policyId === "scout-result-only-v1" &&
+    ["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId ?? "") &&
     ["completed", "aborted"].includes(result.outcome as string) &&
     Number.isSafeInteger(result.finalTick) && (result.finalTick ?? -1) >= 0 &&
     typeof result.objectiveCompleted === "boolean" &&
     Number.isSafeInteger(result.kills) && (result.kills ?? -1) >= 0 &&
     Number.isSafeInteger(result.assists) && (result.assists ?? -1) >= 0 &&
     Number.isSafeInteger(result.rewardableNpcKills) && (result.rewardableNpcKills ?? -1) >= 0 &&
+    Number.isSafeInteger(result.creditsAwarded) && (result.creditsAwarded ?? -1) >= 0 &&
     Array.isArray(result.destroyedActorIds) && result.destroyedActorIds.length <= 128 &&
     result.destroyedActorIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 128) &&
     result.kills === result.destroyedActorIds.length &&

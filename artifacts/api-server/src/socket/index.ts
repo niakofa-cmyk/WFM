@@ -4,6 +4,7 @@ import { createClerkSessionVerifier } from "./clerk-session-verifier";
 import { resolveClerkIssuer } from "./clerk-issuer-policy";
 import { getSocketFeatureReadiness } from "./reward-config";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
+import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "../game/sector-missions";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -49,6 +50,9 @@ const enableSectorFlight = sectorFlightEnabled(process.env);
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
+const explorationRewards = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+  ? await import("../game/exploration-rewards")
+  : undefined;
 const operationNetwork = (enableSectorFlight || competitiveQueueEnabled) && Boolean(process.env.DATABASE_URL)
   ? await import("../game/operation-network")
   : undefined;
@@ -89,6 +93,10 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,
   recordScoutResults: sectorProgression?.saveSectorScoutResults,
+  settleScoutEncounter: explorationRewards &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? (receipt) => explorationRewards.settleCompletedExploration(receipt, true)
+      : undefined,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
   publishSectorOperation,
   publishCompetitiveMatch,

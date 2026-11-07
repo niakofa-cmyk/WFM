@@ -459,7 +459,7 @@ function Select(props: {
               <span>For rooms you create at Cinder Ring, list anonymous operation status publicly. Room codes and pilot identities stay private.</span>
             </label>
           ) : null}
-          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Expeditions award 0 credits; they record discoveries and unlocks only.</p>
+          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Pale Beacons pays 12 credits per confirmed hostile scout destroyed after extraction; interrupted runs pay nothing.</p>
         </div>
         <ScoutResultHistory results={props.scoutResults} loading={props.scoutResultsLoading} unavailable={props.scoutResultsUnavailable} />
       </CommandPanel>
@@ -475,7 +475,7 @@ function ScoutResultHistory({ results, loading, unavailable }: {
   return (
     <aside className="mt-5 border-t border-bone/10 pt-4" data-testid="panel-scout-result-history">
       <PanelLabel>RECOVERED SCOUT LOGS · PILOT PRIVATE</PanelLabel>
-      <p className="mt-1 text-xs text-muted">Server-confirmed kills and assists. This first scout slice records results only; it grants no credits.</p>
+      <p className="mt-1 text-xs text-muted">Server-confirmed kills, assists, and any settled scout bounty. Interrupted runs never receive credits.</p>
       {loading ? <p className="mt-3 font-hud text-xs tracking-widest text-muted" role="status">CHECKING ARCHIVE…</p> : null}
       {unavailable ? <p className="mt-3 text-xs text-[#ff7a5c]" role="status">RESULT ARCHIVE UNAVAILABLE · NOTHING NEW WAS CLAIMED.</p> : null}
       {!loading && !unavailable && results.length === 0 ? <p className="mt-3 text-xs text-muted">NO CONFIRMED SCOUT ENCOUNTERS YET.</p> : null}
@@ -487,7 +487,7 @@ function ScoutResultHistory({ results, loading, unavailable }: {
                 <span className="block font-hud text-xs tracking-wider text-bone">{result.outcome === "completed" ? "SCOUT CONTACT · CONFIRMED" : "SCOUT CONTACT · INTERRUPTED"}</span>
                 <time className="block text-[10px] text-muted" dateTime={result.recordedAt}>{new Date(result.recordedAt).toLocaleString()}</time>
               </span>
-              <span className="font-hud text-xs tracking-wider text-solar">{result.kills} K · {result.assists} A</span>
+              <span className="font-hud text-xs tracking-wider text-solar">{result.kills} K · {result.assists} A · +{result.creditsAwarded} CR</span>
             </li>
           ))}
         </ul>
@@ -599,7 +599,7 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
     ["WING", `${snap.pilots.length} PILOT${snap.pilots.length === 1 ? "" : "S"}`],
     ["YOUR HULL", own ? `${Math.round(own.flight.hull)}% · ${SHIPS[own.shipId].name.toUpperCase()}` : "-"],
     ["DISCOVERIES", String(own?.flight.discoveries ?? 0)],
-    ["CREDITS", "0 CR"],
+    ["CREDITS", `${snap.scoutResult?.creditsAwarded ?? 0} CR`],
     ["NEXT SECTOR", mission.id === "iron-eclipse" ? "STANDALONE OPERATION"
       : next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
     ...(snap.scoutResult ? [
@@ -623,7 +623,9 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
       {snap.scoutResult ? (
         <div className={`mt-3 border-l-2 px-3 py-2 ${snap.scoutResultStatus === "recorded" ? "border-solar bg-solar/10" : snap.scoutResultStatus === "unavailable" ? "border-[#ff7a5c] bg-[#ff7a5c]/10" : "border-spectral bg-spectral/10"}`} data-testid="status-scout-result">
           <p className="font-hud text-sm tracking-[0.2em]">SERVER RESULT · {snap.scoutResultStatus?.toUpperCase() ?? "PENDING"}</p>
-          <p className="text-sm text-bone/80">{snap.scoutResult.outcome === "completed" ? "Confirmed scout tally saved to your private pilot log." : "The run was interrupted; its confirmed partial tally is recorded without rewards."} No credits were issued.</p>
+          <p className="text-sm text-bone/80">{snap.scoutResult.outcome === "completed"
+            ? `Confirmed scout tally and ${snap.scoutResult.creditsAwarded} CR bounty saved to your private pilot log.`
+            : "The run was interrupted; its confirmed partial tally is recorded without rewards."}</p>
         </div>
       ) : null}
       <div className="mt-5 grid gap-2 sm:grid-cols-3">

@@ -143,6 +143,7 @@ test("Pale Beacons scout results come from Orbital server hull damage and persis
 
   const saved: Array<{ userId: string; result: import("../game/sector-missions").SectorScoutResult }> = [];
   const proofs: CompletedSectorMission[] = [];
+  const settlements: string[] = [];
   const runtime = createSectorRuntime({
     protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
     loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
@@ -151,6 +152,19 @@ test("Pale Beacons scout results come from Orbital server hull damage and persis
       return { progress: { completed: ["mars-approach", "pale-beacons"], persistenceAvailable: true }, replayed: false };
     },
     recordScoutResults: async (entries) => { saved.push(...entries); },
+    settleScoutEncounter: async (receipt) => {
+      const { readExplorationReceipt } = await import("../game/exploration-encounter");
+      const result = readExplorationReceipt(receipt);
+      settlements.push(result.encounterId);
+      return {
+        status: "settled",
+        awards: result.pilots.map((entry) => ({
+          ...entry,
+          balanceAfter: 90 + entry.credits,
+          revision: 1,
+        })),
+      };
+    },
     physics: (state, input, seconds) => {
       if (state.stage === "complete" || state.stage === "destroyed") return;
       state.elapsed += seconds;
@@ -195,12 +209,12 @@ test("Pale Beacons scout results come from Orbital server hull damage and persis
   assert.ok(result);
   assert.equal(result.outcome, "completed");
   assert.equal(result.kills, 1);
+  assert.equal(result.creditsAwarded, 12);
   assert.equal(result.assists, 0);
   assert.deepEqual(result.destroyedActorIds, ["scout-pale-beacons"]);
   assert.equal(pilot.latest().scoutResultStatus, "recorded");
-  assert.equal(saved.length, 1);
-  assert.equal(saved[0]!.userId, "scout-pilot");
-  assert.equal(saved[0]!.result.fingerprint, result.fingerprint);
+  assert.deepEqual(settlements, [result.encounterId]);
+  assert.equal(saved.length, 0, "completed results are persisted atomically with their bounty");
   assert.equal(proofs.length, 1);
   assert.equal(proofs[0]!.scoutResult?.kills, 1);
   await runtime.close();

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, like } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { db, playerProgressTable, playerWorldStateTable, progressionEventsTable, worldDiscoveriesTable } from "@workspace/db";
 import { lockedPlayerRows } from "./world";
 import { SECTOR_MISSIONS, sectorMission, type SectorProgress, type SectorScoutResult } from "./sector-missions";
@@ -20,6 +20,7 @@ function sameScoutResult(value: Record<string, unknown>, result: SectorScoutResu
     value.kills === result.kills &&
     value.assists === result.assists &&
     value.rewardableNpcKills === result.rewardableNpcKills &&
+    value.creditsAwarded === result.creditsAwarded &&
     value.fingerprint === result.fingerprint &&
     Array.isArray(value.destroyedActorIds) &&
     JSON.stringify([...value.destroyedActorIds].sort()) === JSON.stringify([...result.destroyedActorIds].sort());
@@ -76,17 +77,15 @@ export async function settleSectorDiscovery(result: CompletedSectorMission) {
   });
 }
 
-/** Save a terminal scout tally without changing credits or account revisions. */
+/** Save an aborted partial tally; completed encounters must use atomic reward settlement. */
 export async function saveSectorScoutResults(entries: readonly { userId: string; result: SectorScoutResult }[]): Promise<void> {
   if (!entries.length || entries.length > 8) throw new Error("invalid_sector_scout_results");
   const encounterId = entries[0]!.result.encounterId;
   if (!/^[0-9a-f-]{36}$/i.test(encounterId) ||
       entries.some(({ userId, result }) => !userId || result.encounterId !== encounterId ||
         result.missionId !== "pale-beacons" || !/^[0-9a-f]{64}$/.test(result.fingerprint) ||
-        result.sectorId !== "pale-beacons-v1" || result.policyId !== "scout-result-only-v1" ||
-        !["completed", "aborted"].includes(result.outcome) ||
-        (result.outcome === "completed" && result.objectiveCompleted !== true) ||
-        (result.outcome === "aborted" && result.objectiveCompleted !== false) ||
+        result.sectorId !== "pale-beacons-v1" || result.policyId !== "pale-beacon-npc-bounty-v1" ||
+        result.outcome !== "aborted" || result.objectiveCompleted !== false || result.creditsAwarded !== 0 ||
         !Number.isSafeInteger(result.finalTick) || result.finalTick < 0 ||
         !Number.isSafeInteger(result.kills) || result.kills < 0 ||
         !Number.isSafeInteger(result.assists) || result.assists < 0 ||
@@ -136,12 +135,24 @@ export async function saveSectorScoutResults(entries: readonly { userId: string;
 
 export async function getRecentSectorScoutResults(userId: string): Promise<Array<SectorScoutResult & { recordedAt: string }>> {
   const rows = await db.select({
+    idempotencyKey: progressionEventsTable.idempotencyKey,
     result: progressionEventsTable.result,
     recordedAt: progressionEventsTable.createdAt,
   }).from(progressionEventsTable)
-    .where(and(eq(progressionEventsTable.userId, userId), like(progressionEventsTable.idempotencyKey, "sector-scout-result:%")))
-    .orderBy(desc(progressionEventsTable.createdAt)).limit(10);
-  return rows.flatMap(({ result, recordedAt }) => {
+    .where(and(
+      eq(progressionEventsTable.userId, userId),
+      or(
+        like(progressionEventsTable.idempotencyKey, "sector-scout-result:%"),
+        like(progressionEventsTable.idempotencyKey, "sector-scout-reward:%"),
+      ),
+    ))
+    .orderBy(desc(progressionEventsTable.createdAt)).limit(20);
+  const byEncounter = new Map<string, SectorScoutResult & { recordedAt: string }>();
+  for (const { idempotencyKey, result, recordedAt } of rows) {
+    const creditsAwarded =
+      result.creditsAwarded === undefined && result.policyId === "scout-result-only-v1"
+        ? 0
+        : result.creditsAwarded;
     if (result.mode !== "orbital-scout-result-v1" || result.action !== "server_scout_result" ||
         result.missionId !== "pale-beacons" || typeof result.encounterId !== "string" ||
         typeof result.sectorId !== "string" || typeof result.runtime !== "string" ||
@@ -151,12 +162,23 @@ export async function getRecentSectorScoutResults(userId: string): Promise<Array
         !Number.isSafeInteger(result.kills) || Number(result.kills) < 0 ||
         !Number.isSafeInteger(result.assists) || Number(result.assists) < 0 ||
         !Number.isSafeInteger(result.rewardableNpcKills) || Number(result.rewardableNpcKills) < 0 ||
+        !Number.isSafeInteger(creditsAwarded) || Number(creditsAwarded) < 0 ||
         !Array.isArray(result.destroyedActorIds) || result.destroyedActorIds.length > 128 ||
         result.destroyedActorIds.some((id) => typeof id !== "string" || !id || id.length > 128) ||
         Number(result.kills) !== result.destroyedActorIds.length ||
         Number(result.rewardableNpcKills) > Number(result.kills) ||
-        typeof result.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(result.fingerprint)) return [];
+         typeof result.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(result.fingerprint) ||
+         typeof result.policyId !== "string" ||
+         !["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId)) return [];
     const { action: _action, mode: _mode, ...safeResult } = result;
-    return [{ ...safeResult, recordedAt: recordedAt.toISOString() } as SectorScoutResult & { recordedAt: string }];
-  });
+    const entry = {
+      ...safeResult,
+      creditsAwarded: Number(creditsAwarded),
+      recordedAt: recordedAt.toISOString(),
+    } as SectorScoutResult & { recordedAt: string };
+    const existing = byEncounter.get(entry.encounterId);
+    const isRewardRecord = idempotencyKey.startsWith("sector-scout-reward:");
+    if (!existing || isRewardRecord) byEncounter.set(entry.encounterId, entry);
+  }
+  return [...byEncounter.values()].sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt)).slice(0, 10);
 }

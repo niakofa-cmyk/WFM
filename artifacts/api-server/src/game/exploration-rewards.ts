@@ -46,6 +46,32 @@ const databaseStore: ExplorationRewardStore = {
             finalTick: result.finalTick, outcome: result.outcome, objectiveCompleted: result.objectiveCompleted,
             fingerprint: result.fingerprint, award },
         });
+        await tx.insert(progressionEventsTable).values({
+          userId: playerId,
+          idempotencyKey: `sector-scout-reward:${result.encounterId}`,
+          kind: "world_exploration",
+          amount: 0,
+          balanceBefore: award.balanceAfter,
+          balanceAfter: award.balanceAfter,
+          result: {
+            action: "server_scout_result",
+            mode: "orbital-scout-result-v1",
+            encounterId: result.encounterId,
+            missionId: "pale-beacons",
+            sectorId: result.sectorId,
+            runtime: result.runtime,
+            policyId: result.policyId,
+            outcome: result.outcome,
+            finalTick: result.finalTick,
+            objectiveCompleted: result.objectiveCompleted,
+            kills: award.kills,
+            assists: award.assists,
+            destroyedActorIds: award.destroyedActorIds,
+            rewardableNpcKills: award.rewardableNpcKills,
+            creditsAwarded: award.credits,
+            fingerprint: result.fingerprint,
+          },
+        });
       },
     });
   }),

@@ -17,13 +17,14 @@ export function validSectorCompletion(result: CompletedSectorMission): boolean {
     scout.encounterId === result.matchId &&
     scout.sectorId === sectorMission("pale-beacons")?.sector.id &&
     scout.runtime === ORBITAL_RUNTIME_ID &&
-    scout.policyId === "scout-result-only-v1" &&
+    scout.policyId === "pale-beacon-npc-bounty-v1" &&
     scout.outcome === "completed" &&
     scout.objectiveCompleted === true &&
     Number.isSafeInteger(scout.finalTick) && scout.finalTick >= 0 &&
     Number.isSafeInteger(scout.kills) && scout.kills >= 0 &&
     Number.isSafeInteger(scout.assists) && scout.assists >= 0 &&
     Number.isSafeInteger(scout.rewardableNpcKills) && scout.rewardableNpcKills >= 0 &&
+    Number.isSafeInteger(scout.creditsAwarded) && scout.creditsAwarded >= 0 &&
     Array.isArray(scout.destroyedActorIds) &&
     scout.kills === scout.destroyedActorIds.length &&
     scout.rewardableNpcKills <= scout.kills &&
