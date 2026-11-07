@@ -23,6 +23,21 @@ paths. A shared Orbital package or runtime label is not proof of full migration.
 Use the audit's mode-by-mode matrix for the next implementation; do not start
 another isolated universe prototype before rebuilding the primary entry/runtime.
 
+## Dynamic faction encounters and exploration rewards
+
+The user's latest correction establishes that **authenticated multiplayer
+exploration is a reward-capable, server-authoritative game mode**. The no-reward
+rule applies to the offline local Orbital sandbox, private Wing rooms, and
+AI-fill Wing matches—not to all exploration. The current local sector prototype
+must remain no-reward, but its scope is not the target universe policy.
+
+Use
+[`DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md`](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md)
+as the foundation for the encounter director, faction patrols, event discovery,
+spectating, server-confirmed enemy-hull tallies, and separate exploration reward
+policy. Server validation, idempotent settlement, private-room boundaries, and
+the current Wing reward gates remain mandatory.
+
 ## Current connected-universe redesign direction — 2026-11-06
 
 The owner has now explicitly authorized starting the visual redesign and

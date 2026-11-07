@@ -10,6 +10,9 @@ This now includes **deterministic streamed local sectors** in the same offline,
 no-reward session. The address can grow without a world-edge clamp while the
 flight simulation remains in a small local frame. Sector position is still
 session-only: this is not account-persistent or shared multiplayer space.
+This is a sandbox boundary only; authenticated multiplayer exploration is
+intended to use server-owned encounters and validated rewards as described in
+the [dynamic faction encounter direction](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
 Current Wing/co-op services and saved locations remain unchanged. It does not
 complete all-mode migration.
 

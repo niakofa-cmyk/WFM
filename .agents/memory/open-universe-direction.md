@@ -50,3 +50,18 @@ navigation; derive locations from saved world state, expire leases quickly, and
 stop updates when an operation starts. Keep discovery/event feeds read-only.
 Do not claim shared continuous 3D flight or nearby ship positions until those
 systems are actually implemented and verified.
+
+**Correction:** authenticated multiplayer exploration is intended to be
+server-authoritative and reward-capable, including confirmed enemy-hull tallies.
+The no-reward rule belongs to the offline local sandbox and remains separate
+from the shared universe.
+
+**Why:** the user explicitly corrected the earlier overbroad no-reward
+interpretation and made dynamic faction encounters and rewarded exploration a
+foundational rebuild requirement.
+
+**How to apply:** use
+`docs/infinite-war/DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md`.
+Validate encounter state, ship destruction, reward eligibility, and world
+consequences on the server with idempotent settlement. Do not alter existing
+Wing, private-room, AI-fill, or local-sandbox reward rules by implication.

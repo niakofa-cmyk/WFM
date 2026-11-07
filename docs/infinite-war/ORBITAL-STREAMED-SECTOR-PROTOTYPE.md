@@ -25,6 +25,11 @@ state. Cinder docking remains at its fixed sector address and uses its current
 
 - Local sector addresses and anomaly scans disappear when the local session ends.
 - No sector position or scan is written to the account or server.
+- This no-reward behavior is specific to the offline local sandbox. It is not
+  the product rule for authenticated multiplayer exploration. The intended
+  universe includes server-authoritative faction encounters, validated
+  destruction tallies, and eligible exploration/combat rewards; see
+  [Dynamic Faction Encounters](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
 - This does not publish shared nearby ships, faction patrols, scheduled cosmic
   events, live battle geometry, or persistent anomaly outcomes.
 - Existing operation directories, match admission, co-op authority and Wing

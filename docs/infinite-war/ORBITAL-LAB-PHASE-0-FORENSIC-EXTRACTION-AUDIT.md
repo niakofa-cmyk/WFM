@@ -23,6 +23,10 @@ The account game still has its own `WarApp` shell and route state; Rust Disc,
 co-op, Iron Eclipse, campaign, competitive Wing, and Galaxy services retain
 distinct operation and authority paths.
 
+The local Orbital universe's no-reward rule is limited to that offline sandbox.
+The target authenticated universe is reward-capable and server-authoritative;
+see the [dynamic encounter and exploration direction](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
+
 The correct rebuild is therefore not “add more universe scenery beside the
 Lab.” It is to turn the Orbital foundation into the primary game entry and
 runtime, then migrate each mode through an explicit adapter while preserving its
