@@ -8,7 +8,7 @@ import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
 import { CommandBackdrop, FactionMark } from "./CommandArt";
 import { Link, useLocation } from "wouter";
-import { sectorMission } from "./sector-missions";
+import { sectorMission, type SectorMissionId } from "./sector-missions";
 import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled, sectorClientProtocolVersion } from "./sector-client";
 import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "./sector-missions";
@@ -42,6 +42,10 @@ type Props = {
   competitiveQueueAvailable: boolean;
   competitiveQueueing: boolean;
   presenceHeartbeat?: boolean;
+  onLaunchCampaign?: () => void;
+  campaignLaunching?: boolean;
+  campaignStatus?: string;
+  onLaunchExpedition?: (missionId: SectorMissionId) => void;
 };
 
 const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
@@ -71,6 +75,10 @@ export function GalaxyScreen({
   competitiveQueueAvailable,
   competitiveQueueing,
   presenceHeartbeat = true,
+  onLaunchCampaign,
+  campaignLaunching = false,
+  campaignStatus = "",
+  onLaunchExpedition,
 }: Props) {
   const { getToken, userId } = useAuth();
   const [, setLocation] = useLocation();
@@ -545,11 +553,18 @@ export function GalaxyScreen({
                           </div>
                         )}
                         {operation.experience === "cooperative" && showSectorExpedition && atSite ? (
-                          <Link href="/expedition?mission=rust-disc" data-testid={`link-coop-${operation.id}`}
-                            onClick={() => setPresenceActive(false)}
-                            className="mt-3 flex min-h-11 items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
-                            OPEN RUST DISC CO-OP AT CINDER RING
-                          </Link>
+                          onLaunchExpedition ? (
+                            <button type="button" data-testid={`button-coop-${operation.id}`} onClick={() => { setPresenceActive(false); onLaunchExpedition("rust-disc"); }}
+                              className="mt-3 flex min-h-11 w-full items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
+                              OPEN RUST DISC CO-OP AT CINDER RING
+                            </button>
+                          ) : (
+                            <Link href="/expedition?mission=rust-disc" data-testid={`link-coop-${operation.id}`}
+                              onClick={() => setPresenceActive(false)}
+                              className="mt-3 flex min-h-11 items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
+                              OPEN RUST DISC CO-OP AT CINDER RING
+                            </Link>
+                          )
                         ) : operation.experience === "cooperative" && route ? (
                           <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
                             {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
@@ -673,6 +688,16 @@ export function GalaxyScreen({
                   Accept at Phobos Yard. Claim only at the recorded objective location.
                 </p>
               </div>
+              {onLaunchCampaign ? (
+                <div className="border-b border-bone/10 p-4">
+                  <p className="font-hud text-[10px] tracking-[0.18em] text-solar">CAMPAIGN · SERVER-AUTHORIZED SORTIE</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">Launch the next sortie without leaving the Orbital universe. The server still selects and verifies campaign progress.</p>
+                  {campaignStatus ? <p role="alert" className="mt-2 text-xs text-alert">{campaignStatus}</p> : null}
+                  <button type="button" data-testid="button-launch-campaign-in-universe" disabled={campaignLaunching} onClick={onLaunchCampaign} className="mt-3 min-h-11 w-full bg-solar px-4 font-hud text-xs tracking-widest text-void disabled:opacity-50">
+                    {campaignLaunching ? "AUTHORIZING SORTIE…" : "LAUNCH NEXT AUTHORIZED SORTIE"}
+                  </button>
+                </div>
+              ) : null}
               {quests.length === 0 ? (
                 <p className="p-4 text-sm text-muted">No contracts are currently available.</p>
               ) : (
@@ -757,13 +782,20 @@ export function GalaxyScreen({
                 </ul>
               )}
               {showSectorExpedition && nextStoryMission ? (
-                <Link
-                  href={`/expedition?mission=${encodeURIComponent(nextStoryMission.id)}`}
-                  data-testid="link-discovery-expedition"
-                  className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest"
-                >
-                  {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
-                </Link>
+                onLaunchExpedition ? (
+                  <button type="button" data-testid="button-discovery-expedition" onClick={() => onLaunchExpedition(nextStoryMission.id)}
+                    className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 w-full justify-center px-3 font-hud text-[11px] tracking-widest">
+                    {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
+                  </button>
+                ) : (
+                  <Link
+                    href={`/expedition?mission=${encodeURIComponent(nextStoryMission.id)}`}
+                    data-testid="link-discovery-expedition"
+                    className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest"
+                  >
+                    {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
+                  </Link>
+                )
               ) : null}
             </section>
           </aside>

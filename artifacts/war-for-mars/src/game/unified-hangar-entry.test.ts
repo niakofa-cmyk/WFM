@@ -14,7 +14,10 @@ test("hangar exposes one prominent connected-universe gateway", () => {
 
 test("hangar gateway mounts Orbital flight directly; local practice remains a separate secondary option", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
-  assert.match(app, /onEnterUniverse=\{\(\) => \{[\s\S]*?setGalaxyOpen\(false\);[\s\S]*?setOrbitalUniverseOpen\(true\);/);
+  assert.match(app, /onEnterUniverse=\{\(\) => \{ unlockAudio\(\); void enterOrbitalUniverse\(\); \}\}/);
+  assert.match(app, /const enterOrbitalUniverse = async \(\) =>/);
+  assert.match(app, /setOrbitalUniverseOpen\(true\)/);
+  assert.match(app, /onLocalUniverse=\{\(\) => \{[\s\S]*?setOrbitalStartLocation\("mars-orbit"\)/);
   assert.match(app, /if \(orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession\)/);
   assert.match(app, /modeId=\{UNIVERSE_MODE_ID\}[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.doesNotMatch(app, /onEnterUniverse=\{\(\) => setGalaxyOpen\(true\)\}/);

@@ -49,12 +49,15 @@ import { useDurableAction } from "./useDurableAction";
 import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
 import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
-import { UNIVERSE_MODE_ID } from "./orbital-universe-session";
+import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe-session";
+import type { SectorMissionId } from "./sector-missions";
+import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
 import { enterOrbitalOnAccountBoot } from "./wfm-boot";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
+const SectorExpedition = lazy(() => import("./SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
 
 const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
 const competitiveQueueAvailable =
@@ -163,7 +166,28 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
   const [orbitalUniverseOpen, setOrbitalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
+  const [orbitalStartLocation, setOrbitalStartLocation] = useState<UniverseStartLocation | null>(userId ? null : "mars-orbit");
+  const [universeEntryError, setUniverseEntryError] = useState("");
   const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
+  const [universeExpeditionMission, setUniverseExpeditionMission] = useState<SectorMissionId | null>(null);
+  const returnToOrbitalAfterOperationRef = useRef(false);
+  useEffect(() => {
+    if (!userId) {
+      setOrbitalStartLocation("mars-orbit");
+      return;
+    }
+    if (!orbitalUniverseOpen || !narrativeWorld.data) return;
+    const startLocation = orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation);
+    if (!startLocation) {
+      setUniverseEntryError(
+        `The server-verified location ${narrativeWorld.data.currentLocation} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+      );
+      setOrbitalUniverseOpen(false);
+      return;
+    }
+    setUniverseEntryError("");
+    setOrbitalStartLocation(startLocation);
+  }, [userId, orbitalUniverseOpen, narrativeWorld.data?.currentLocation]);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -193,6 +217,10 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     setCasualAiQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
+    if (returnToOrbitalAfterOperationRef.current) {
+      returnToOrbitalAfterOperationRef.current = false;
+      void enterOrbitalUniverse();
+    }
   };
 
   const beginOnline = (socket: WebSocket, packet: Record<string, unknown>, roomId: string) => {
@@ -841,20 +869,56 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     }
   };
 
-  const start = async () => {
-    if (shell === MenuState.LOADING || startingRun) return;
+  const enterOrbitalUniverse = async () => {
+    setUniverseEntryError("");
+    if (!userId) {
+      setOrbitalStartLocation("mars-orbit");
+      setGalaxyOpen(false);
+      setUniverseServicesOpen(false);
+      setUniverseExpeditionMission(null);
+      setOrbitalUniverseOpen(true);
+      return true;
+    }
+    try {
+      const world = (await narrativeWorld.refetch()).data;
+      const startLocation = orbitalStartForVerifiedWorldLocation(world?.currentLocation);
+      if (!startLocation) {
+        setUniverseEntryError(
+          `The server-verified location ${world?.currentLocation ?? "could not be confirmed"} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+        );
+        return false;
+      }
+      setOrbitalStartLocation(startLocation);
+      setGalaxyOpen(false);
+      setUniverseServicesOpen(false);
+      setUniverseExpeditionMission(null);
+      setOrbitalUniverseOpen(true);
+      return true;
+    } catch {
+      setUniverseEntryError("Could not verify your server-owned universe location. Retry before entering flight.");
+      return false;
+    }
+  };
+
+  const start = async (): Promise<boolean> => {
+    if (shell === MenuState.LOADING || startingRun) return false;
     if (pendingClaim) {
       setCampaignError("Verify the pending sortie before starting another run.");
-      return;
+      return false;
     }
     unlockAudio();
     setResult(null);
     setPhase("brief");
     setCampaignError("");
+    if (returnToOrbitalAfterOperationRef.current && offlineMode && !activeRun) {
+      setCampaignError("A server-authorized campaign launch needs an online account session. No offline sortie was started.");
+      return false;
+    }
     if (offlineMode && !activeRun) {
       setShell(MenuState.LOADING);
-      return;
+      return true;
     }
+    setStartingRun(true);
     try {
       const selection: StrikeStartInput = {
         shipId: save.ship,
@@ -871,9 +935,15 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       setOfflineMode(false);
       setPendingClaim(null);
       setClaimError("");
+      if (returnToOrbitalAfterOperationRef.current) {
+        setUniverseServicesOpen(false);
+        setOrbitalUniverseOpen(false);
+      }
       setShell(MenuState.LOADING);
+      return true;
     } catch (error) {
       setCampaignError(error instanceof Error ? error.message : "The yard could not authorize this sortie.");
+      return false;
     } finally {
       setStartingRun(false);
     }
@@ -1147,9 +1217,28 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
           setOnlineLobby(null);
           setOnlineStatus("Left lobby.");
           setOfflineAvailable(false);
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
       />
+    );
+  }
+
+  if (orbitalUniverseOpen && userId && !orbitalStartLocation) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-bone" data-testid="panel-orbital-location-sync">
+        <p className="font-hud text-xs tracking-[0.2em] text-solar">ORBITAL POSITION CHECK</p>
+        <h1 className="font-hud text-3xl">VERIFYING FLIGHT ENTRY</h1>
+        <p role="status" className="max-w-lg text-center text-sm text-muted">
+          {universeEntryError || "Waiting for the account service to confirm your server-owned universe location."}
+        </p>
+        <button type="button" onClick={() => void enterOrbitalUniverse()} className="min-h-11 bg-solar px-5 font-hud text-xs tracking-widest text-void">RETRY LOCATION SYNC</button>
+        <button type="button" onClick={() => setOrbitalUniverseOpen(false)} className="min-h-11 border border-bone/25 px-5 font-hud text-xs tracking-widest">RETURN TO COMMAND</button>
+      </main>
     );
   }
 
@@ -1159,7 +1248,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>
           <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
             <Arena
-              key={`local-universe-${userId ?? "guest"}-${save.ship}-${save.faction}`}
+              key={`orbital-universe-${userId ?? "guest"}-${save.ship}-${save.faction}-${orbitalStartLocation ?? "unverified"}`}
               modeId={UNIVERSE_MODE_ID}
               runtime={ORBITAL_RUNTIME_ID}
               shipId={save.ship}
@@ -1179,6 +1268,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
               onDrill={() => {}}
               localUniverse={{
                 servicesHref: "/universe",
+                startLocation: orbitalStartLocation ?? "mars-orbit",
                 servicesOpen: universeServicesOpen,
                 onExit: () => {
                   setUniverseServicesOpen(false);
@@ -1196,8 +1286,23 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         {universeServicesOpen ? (
           <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
             <Suspense fallback={<ModuleLoading label="CONNECTING TO ACCOUNT OPERATIONS…" />}>
+              {universeExpeditionMission ? (
+                <SectorExpedition
+                  key={`universe-expedition-${universeExpeditionMission}`}
+                  embedded
+                  initialMissionId={universeExpeditionMission}
+                  initialShipId={save.ship}
+                  onReturnToUniverse={() => {
+                    setUniverseExpeditionMission(null);
+                    setUniverseServicesOpen(false);
+                  }}
+                />
+              ) : (
               <GalaxyScreen
-                onBack={() => setUniverseServicesOpen(false)}
+                onBack={() => {
+                  setUniverseServicesOpen(false);
+                  void narrativeWorld.refetch();
+                }}
                 credits={save.credits}
                 onCredits={syncCredits}
                 shipId={save.ship}
@@ -1207,6 +1312,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 onCreatePrivateRoom={() => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);
+                  returnToOrbitalAfterOperationRef.current = true;
                   const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
                   setRoomCode(generated);
                   joinOnline(generated);
@@ -1214,18 +1320,32 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 onJoinPrivateRoom={(code) => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);
+                  returnToOrbitalAfterOperationRef.current = true;
                   joinOnline(code);
                 }}
                 onlineStatus={onlineStatus}
                 onJoinCompetitiveQueue={() => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);
+                  returnToOrbitalAfterOperationRef.current = true;
                   joinOnline("", "competitive");
                 }}
                 competitiveQueueAvailable={competitiveQueueAvailable}
                 competitiveQueueing={competitiveQueueing}
                 presenceHeartbeat={false}
+                onLaunchCampaign={() => {
+                  returnToOrbitalAfterOperationRef.current = true;
+                  void start().then((launched) => {
+                    if (!launched) {
+                      returnToOrbitalAfterOperationRef.current = false;
+                    }
+                  });
+                }}
+                campaignLaunching={startingRun}
+                campaignStatus={campaignError}
+                onLaunchExpedition={(missionId) => setUniverseExpeditionMission(missionId)}
               />
+              )}
             </Suspense>
           </div>
         ) : null}
@@ -1294,7 +1414,12 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
           setOfflineAvailable(true);
           setResult(null);
           setPhase("brief");
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
         online={onlineSession ?? undefined}
       />
@@ -1402,10 +1527,16 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
           className="h-12 border border-bone/30 font-hud text-lg tracking-widest text-bone"
           onClick={() => {
             setPhase("brief");
-            setShell(MenuState.HANGAR);
+            if (returnToOrbitalAfterOperationRef.current) {
+              returnToOrbitalAfterOperationRef.current = false;
+              setShell(MenuState.MAIN_MENU);
+              void enterOrbitalUniverse();
+            } else {
+              setShell(MenuState.HANGAR);
+            }
           }}
         >
-          Hangar
+          {returnToOrbitalAfterOperationRef.current ? "Return to Universe" : "Hangar"}
         </button>
       </main>
     );
@@ -1463,14 +1594,13 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
-        onEnterUniverse={() => {
-          unlockAudio();
-          setGalaxyOpen(false);
-          setUniverseServicesOpen(false);
-          setOrbitalUniverseOpen(true);
-        }}
+        onEnterUniverse={() => { unlockAudio(); void enterOrbitalUniverse(); }}
+        universeEntryError={universeEntryError}
         onLocalUniverse={() => {
+          setOrbitalStartLocation("mars-orbit");
+          setUniverseEntryError("");
           setUniverseServicesOpen(false);
+          setUniverseExpeditionMission(null);
           setOrbitalUniverseOpen(true);
         }}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}

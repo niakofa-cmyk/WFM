@@ -40,21 +40,27 @@ const HANDSHAKE_TIMEOUT_MS = 8000;
 type View = "select" | "connecting" | "lobby" | "flight" | "debrief" | "error";
 type Session = { missionId: SectorMissionId; room: string; shipId: ShipId; publicListing: boolean };
 type Connection = ExpeditionTransport["connection"];
+type SectorExpeditionProps = {
+  embedded?: boolean;
+  initialMissionId?: SectorMissionId;
+  initialShipId?: ShipId;
+  onReturnToUniverse?: () => void;
+};
 
-export function SectorExpedition() {
-  if (!ENABLED) return <Gate title="EXPEDITIONS OFFLINE" body="Cooperative sector expeditions are not enabled on this deployment yet. The local Rust Disc trainer is still open." />;
-  return <SignedInGate />;
+export function SectorExpedition(props: SectorExpeditionProps = {}) {
+  if (!ENABLED) return <Gate title="EXPEDITIONS OFFLINE" body="Cooperative sector expeditions are not enabled on this deployment yet. The local Rust Disc trainer is still open." embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  return <SignedInGate {...props} />;
 }
 export default SectorExpedition;
 
-function SignedInGate() {
+function SignedInGate(props: SectorExpeditionProps) {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <Gate title="CHECKING PILOT ID" body="Confirming your sign-in before any expedition link opens." loading />;
-  if (!isSignedIn) return <Gate title="SIGN IN TO FLY TOGETHER" body="Expeditions are server-run and record discoveries to your pilot account, so they need a signed-in pilot. The local trainer needs no account." signIn />;
-  return <ExpeditionClient />;
+  if (!isLoaded) return <Gate title="CHECKING PILOT ID" body="Confirming your sign-in before any expedition link opens." loading embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  if (!isSignedIn) return <Gate title="SIGN IN TO FLY TOGETHER" body="Expeditions are server-run and record discoveries to your pilot account, so they need a signed-in pilot. The local trainer needs no account." signIn embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  return <ExpeditionClient {...props} />;
 }
 
-function Gate({ title, body, signIn, loading }: { title: string; body: string; signIn?: boolean; loading?: boolean }) {
+function Gate({ title, body, signIn, loading, embedded, onReturn }: { title: string; body: string; signIn?: boolean; loading?: boolean; embedded?: boolean; onReturn?: () => void }) {
   return (
     <main className="relative flex min-h-[100dvh] items-center justify-center bg-void px-4 text-bone" data-testid="screen-expedition-gate">
       <CommandBackdrop />
@@ -63,9 +69,10 @@ function Gate({ title, body, signIn, loading }: { title: string; body: string; s
         <h1 className="mt-2 font-hud text-4xl leading-none">{title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-bone/85" role={loading ? "status" : undefined}>{body}</p>
         <div className="mt-5 flex flex-col gap-2">
-          {signIn ? <Link href="/sign-in" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">SIGN IN</Link> : null}
-          {!loading ? <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">LOCAL TRAINER · OFFLINE</Link> : null}
-          {!loading ? <Link href="/" className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">COMMAND</Link> : null}
+          {signIn && !embedded ? <Link href="/sign-in" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">SIGN IN</Link> : null}
+          {onReturn ? <button type="button" onClick={onReturn} className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">RETURN TO ORBIT</button> : null}
+          {!loading && !embedded ? <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">LOCAL TRAINER · OFFLINE</Link> : null}
+          {!loading && !embedded ? <Link href="/" className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">COMMAND</Link> : null}
         </div>
       </CommandPanel>
     </main>
@@ -74,15 +81,16 @@ function Gate({ title, body, signIn, loading }: { title: string; body: string; s
 
 // ---------------------------------------------------------------------------
 
-function ExpeditionClient() {
+function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, onReturnToUniverse }: SectorExpeditionProps) {
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
   const [view, setView] = useState<View>("select");
   const expeditionSearch = typeof window !== "undefined" ? window.location.search : "";
-  const [missionId, setMissionId] = useState<SectorMissionId>(() => parseExpeditionMission(expeditionSearch) ?? "rust-disc");
+  const [missionId, setMissionId] = useState<SectorMissionId>(() => initialMissionId ?? parseExpeditionMission(expeditionSearch) ?? "rust-disc");
   const [shipId, setShipId] = useState<ShipId>(() => {
+    if (initialShipId) return initialShipId;
     const requested = new URLSearchParams(expeditionSearch).get("ship");
     return requested && Object.hasOwn(SHIPS, requested) ? requested as ShipId : "glide";
   });
@@ -284,6 +292,10 @@ function ExpeditionClient() {
     snapshotRef.current = null; joinedRef.current = false; sessionRef.current = null;
     setSnapshot(null); setView("select"); setConnection("connected"); setNotice("");
   };
+  const returnToUniverse = () => {
+    leave();
+    onReturnToUniverse?.();
+  };
   const newRoom = () => { const keepMission = snapshot?.missionId ?? missionId; setMissionId(keepMission); leave(); setCodeInput(generateRoomCode()); };
 
   const sendInputRef = useRef((input: FlightInput) => {
@@ -326,10 +338,12 @@ function ExpeditionClient() {
       <CommandBackdrop dense />
       <div className="wfm-safe relative mx-auto max-w-6xl px-4 pb-12 pt-6 sm:px-8">
         <header className="flex flex-wrap items-center gap-3 border-b border-bone/10 pb-3 pr-12">
-          <Link href="/" className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">COMMAND</Link>
-          <span className="text-bone/30">/</span>
+          {embedded ? (
+            <button type="button" onClick={returnToUniverse} className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">RETURN TO ORBIT</button>
+          ) : <Link href="/" className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">COMMAND</Link>}
+          {!embedded ? <span className="text-bone/30">/</span> : null}
           <p className="font-hud text-xs tracking-[0.25em] text-solar">SECTOR EXPEDITION · CO-OP 1-8 · SERVER-RUN</p>
-          <Link href="/flight" className="ml-auto font-hud text-[11px] tracking-[0.2em] text-muted hover:text-bone">LOCAL TRAINER</Link>
+          {!embedded ? <Link href="/flight" className="ml-auto font-hud text-[11px] tracking-[0.2em] text-muted hover:text-bone">LOCAL TRAINER</Link> : null}
         </header>
 
         {notice ? <p role="alert" className="mt-4 border-l-2 border-[#ff7a5c] bg-[#ff7a5c]/10 px-3 py-2 text-sm">{notice}</p> : null}

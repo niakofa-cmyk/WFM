@@ -40,6 +40,7 @@ type HomeProps = {
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
   onEnterUniverse: () => void;
+  universeEntryError: string;
   onLocalUniverse?: () => void;
   onJoinCompetitiveQueue: () => void;
   onJoinCasualAiQueue: () => void;
@@ -221,6 +222,7 @@ function MainMenu(props: HomeProps & {
               <span><small>ENTER THE</small><b>UNIVERSE</b></span><span aria-hidden="true" className="wfm-universe-gateway__arrow">»</span>
             </button>
             <p className="font-hud text-[9px] tracking-[0.22em] text-muted">ONE ENTRY · THE GAME RUNS INSIDE ORBITAL</p>
+            {props.universeEntryError ? <p role="alert" data-testid="status-universe-entry-error" className="mt-1 max-w-md text-xs text-alert">{props.universeEntryError}</p> : null}
           </section>
           <div className="absolute bottom-3 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
         </div>
