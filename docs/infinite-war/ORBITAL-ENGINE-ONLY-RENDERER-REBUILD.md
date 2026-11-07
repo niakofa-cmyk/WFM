@@ -122,37 +122,41 @@ without providing an Orbital renderer in their place.
 ## First build slice
 
 The route/adventure atlas and bounded local universe are still useful product
-work, but they do not complete the renderer migration. The next engine slice
-should deliver a narrow Orbital-native renderer proof against the existing
-simulation package and demonstrate its lifecycle in a test scene before
-porting the entire Arena. In parallel, keep the Mars route atlas honest about
+work, but they do not complete the renderer migration. A first connected
+Orbital-native flight slice now runs against the existing simulation package.
+The next engine slice should bring station approach and docking into that native
+scene before porting the entire Arena. In parallel, keep the Mars route atlas honest about
 which routes are local, compatibility-only, or planned; do not claim a
 circumnavigating or shared planetary world until its coordinate, streaming, and
 authority gates pass.
 
-### Initial proof delivered
+### Connected local flight slice delivered
 
-The current branch now contains two bounded foundations:
+The current branch now contains these bounded foundations:
 
 - `lib/orbital-sim/src/planetary-world.ts` defines deterministic Mars rotation,
   planet-fixed/inertial coordinate conversions, and direct day/night exposure.
   It is pure math; callers in a shared universe must still use server-owned
   world time and Sun direction.
-- `OrbitalMarsRendererProof.tsx` is an opt-in native WebGL2 preview of a
-  rotating, procedurally shaded Mars sphere with a deterministic, low-poly,
-  instanced asteroid field. It owns one local renderer loop, resizes for device
-  pixel ratio, handles context loss, and releases buffers and programs on close.
-  Its accelerated clock and static local debris are presentation-only.
+- `OrbitalFlightPreview.tsx` uses the existing two-stick pilot UI and keyboard
+  actions to drive `createFlight` / `stepFlight` in the shared Orbital sector
+  simulation. It is explicitly local and no-reward.
+- `orbital-native-flight-renderer.ts` draws the resulting ship pose, target,
+  projectiles, and the same Cinder-sector rock coordinates used by collision,
+  with rocks batched as instances. Camera pose follows the simulated craft.
+- `orbital-flight-preview-input.ts` adapts the existing pilot bus to local
+  sector input, including continuous thumb-circle roll. It does not change a
+  network input or reward contract.
+- The native renderer owns its WebGL2 resources and resize lifecycle; the
+  preview fixed-steps the shared simulation and clears held input on blur and
+  app backgrounding.
 
-This is **not** an Orbital flight renderer migration: there is no controllable
-craft, camera navigation, streamed terrain, physics, multiplayer, persistent
-location, or server-owned time in this preview. The primary Arena and its
-Three.js compatibility rendering remain intact as a rollback path. These
-foundations do not change the Night-side Station's planned/not-live status.
-
-The next gates are to put a craft and camera under the existing deterministic
-flight state, then prove orbit/planet traversal and resource limits before
-replacing any current renderer path.
+This is the first connected flight-renderer migration slice, **not** a
+replacement for the primary Arena. It does not yet migrate station docking,
+the full combat scene, streamed planetary travel, authenticated multiplayer,
+or persistent universe state. The primary Arena, server authority, and existing
+Three.js compatibility renderer remain intact as rollback paths. The Night-side
+Station remains planned/not-live.
 
 Related maintained references:
 

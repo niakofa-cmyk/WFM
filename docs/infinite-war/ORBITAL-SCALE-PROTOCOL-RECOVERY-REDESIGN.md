@@ -100,15 +100,16 @@ progression.
 ### 6. Port useful 3D presentation techniques into Orbital
 
 The fifth source proposes a second Three.js runtime. That conflicts with the
-owner's Orbital-only engine decision. Its transferable ideas are now applied
-inside the existing native WebGL2 proof: the presentation loop reads the Mars
-time model without writing gameplay state; a seeded, local-only debris field is
-submitted as one instanced draw; asteroid geometry is deliberately low
-resolution; and all added GPU buffers are disposed with the renderer.
+owner's Orbital-only engine decision. Its transferable ideas are applied inside
+the native WebGL2 flight slice: low-poly sector rocks are instanced from the
+same coordinates used by local Orbital collision; camera and ship presentation
+read the shared fixed-step flight state; and GPU buffers are released when the
+preview closes. The native preview uses the existing pilot bus and does not
+change network input or server result contracts.
 
-This remains a bounded renderer proof. It does not replace Arena, read an
-authoritative flight snapshot, add a controllable ship, or establish streaming
-and culling budgets. Those are separate engine integration gates.
+This remains a bounded, local-only migration slice. It does not replace Arena,
+grant rewards, provide server authority, migrate docking, or establish
+planet-scale streaming and culling budgets. Those are separate engine gates.
 
 ## Implemented from this review
 
@@ -117,8 +118,11 @@ and culling budgets. Those are separate engine integration gates.
   relative offsets and safe-range rejection.
 - Added conversion from Mars surface points to chunk-addressed Orbital
   positions.
-- Extended the Orbital-native renderer proof with deterministic low-poly
-  asteroid instances in one draw call and explicit instance-resource teardown.
+- Connected a native WebGL2 flight preview to the shared Orbital sector sim,
+  current dual-thumb input, camera, target, projectiles, and collision-matched
+  instanced asteroid geometry.
+- Added an offline input adapter for held target lock and live circle-roll
+  control without widening the server/Wing protocol.
 - Added API-server tests for positive/negative boundary crossings, large chunk
   indices, nearby precision, Mars conversion, invalid inputs and seeded
   repeatability.

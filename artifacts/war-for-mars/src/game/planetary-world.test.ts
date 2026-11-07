@@ -50,17 +50,24 @@ test("planetary coordinates reject impossible or non-finite inputs", () => {
   assert.throws(() => marsSolarExposure({ latitudeDegrees: 0, longitudeDegrees: 0 }, 0, { x: 0, y: 0, z: 0 }), RangeError);
 });
 
-test("renderer proof uses native WebGL2 and remains an opt-in preview rather than claiming flight migration", () => {
-  const source = readFileSync(new URL("./OrbitalMarsRendererProof.tsx", import.meta.url), "utf8");
-  assert.match(source, /getContext\("webgl2"/);
-  assert.match(source, /requestAnimationFrame/);
-  assert.match(source, /ResizeObserver/);
-  assert.match(source, /drawElementsInstanced/);
-  assert.match(source, /createAsteroidInstances/);
-  assert.match(source, /asteroidGeometry = createSphere\(8, 12\)/);
-  assert.match(source, /deleteBuffer/);
-  assert.match(source, /deleteBuffer\(instanceBuffer\)/);
-  assert.doesNotMatch(source, /from ["']three["']/);
-  assert.match(source, /not simulation-driven flight, streamed terrain, multiplayer state/);
-  assert.match(source, /CLOSE PREVIEW/);
+test("native preview renders the shared Orbital sector state with collision-matched instanced rocks", () => {
+  const renderer = readFileSync(new URL("./orbital-native-flight-renderer.ts", import.meta.url), "utf8");
+  const component = readFileSync(new URL("./OrbitalFlightPreview.tsx", import.meta.url), "utf8");
+  const input = readFileSync(new URL("./orbital-flight-preview-input.ts", import.meta.url), "utf8");
+  assert.match(renderer, /getContext\("webgl2"/);
+  assert.match(renderer, /drawElementsInstanced/);
+  assert.match(renderer, /sector\.rocks/);
+  assert.match(renderer, /state\.position/);
+  assert.match(renderer, /state\.orientation/);
+  assert.match(renderer, /state\.projectiles/);
+  assert.match(renderer, /ResizeObserver/);
+  assert.match(renderer, /deleteBuffer/);
+  assert.doesNotMatch(renderer, /from ["']three["']/);
+  assert.match(component, /createFlight\(shipId, CINDER_ASTEROID_SECTOR\)/);
+  assert.match(component, /stepFlight\(flight, input, FIXED_STEP, CINDER_ASTEROID_SECTOR\)/);
+  assert.match(component, /no rewards/);
+  assert.match(component, /PilotFlightStick/);
+  assert.match(component, /EXIT FLIGHT/);
+  assert.match(input, /toSectorFlightInput/);
+  assert.match(input, /barrel-roll-control/);
 });

@@ -4,7 +4,7 @@ import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import { unlockAudio } from "./audio";
 import { OrbitalChart } from "./OrbitalChart";
 import { MarsAdventureAtlas } from "./MarsAdventureAtlas";
-import { OrbitalMarsRendererProof } from "./OrbitalMarsRendererProof";
+import { OrbitalFlightPreview } from "./OrbitalFlightPreview";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
 import "./combat-lab.css";
 import "./orbital-universe.css";
@@ -50,7 +50,7 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
       <section className="uv-map" aria-label="Orbital chart">
         <OrbitalChart selected={destId} onSelect={setDestId} />
         <p className="uv-map__hint">Arrow keys or tap to select a destination</p>
-        <OrbitalMarsRendererProof />
+        <OrbitalFlightPreview shipId={ship} faction={faction} />
       </section>
       <section className="uv-brief" aria-live="polite" key={dest.id}>
         <p className={`uv-status uv-status--${dest.status}`} data-testid="status-destination">{STATUS_LABEL[dest.status]}</p>
