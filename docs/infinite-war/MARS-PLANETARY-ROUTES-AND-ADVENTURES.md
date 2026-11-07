@@ -121,6 +121,12 @@ the displayed Mars is not a rotating, traversable planet. Local sector
 generation does not create persistent geography, faction actors, live
 multiplayer, or rewards.
 
+The rebuild now has a tested pure-math Mars rotation/coordinate/solar-exposure
+module and an opt-in WebGL2 globe preview. They demonstrate the planetary frame
+and day/night calculation only; the preview clock is local and accelerated.
+They do not add planet traversal, terrain streaming, persistent location, live
+encounters, or multiplayer authority. Night-side Station remains planned.
+
 The current primary boot therefore provides an honest starting point, not the
 finished world. The next implementation increments should be:
 

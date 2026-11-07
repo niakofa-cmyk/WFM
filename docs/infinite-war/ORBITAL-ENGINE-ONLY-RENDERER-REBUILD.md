@@ -125,6 +125,29 @@ which routes are local, compatibility-only, or planned; do not claim a
 circumnavigating or shared planetary world until its coordinate, streaming, and
 authority gates pass.
 
+### Initial proof delivered
+
+The current branch now contains two bounded foundations:
+
+- `lib/orbital-sim/src/planetary-world.ts` defines deterministic Mars rotation,
+  planet-fixed/inertial coordinate conversions, and direct day/night exposure.
+  It is pure math; callers in a shared universe must still use server-owned
+  world time and Sun direction.
+- `OrbitalMarsRendererProof.tsx` is an opt-in native WebGL2 preview of a
+  rotating, procedurally shaded Mars sphere. It owns one local renderer loop,
+  resizes for device pixel ratio, handles context loss, and releases buffers
+  and programs on close. Its accelerated clock is presentation-only.
+
+This is **not** an Orbital flight renderer migration: there is no controllable
+craft, camera navigation, streamed terrain, physics, multiplayer, persistent
+location, or server-owned time in this preview. The primary Arena and its
+Three.js compatibility rendering remain intact as a rollback path. These
+foundations do not change the Night-side Station's planned/not-live status.
+
+The next gates are to put a craft and camera under the existing deterministic
+flight state, then prove orbit/planet traversal and resource limits before
+replacing any current renderer path.
+
 Related maintained references:
 
 - [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md)

@@ -55,3 +55,19 @@ WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
 [userenv.production]
 # Production API and socket services are published with the frontend on Replit.
 VITE_API_BASE_URL = ""
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 20981
+externalPort = 3000
+
+[[ports]]
+localPort = 21474
+externalPort = 80
