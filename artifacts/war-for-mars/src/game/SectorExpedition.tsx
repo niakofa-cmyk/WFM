@@ -82,7 +82,10 @@ function ExpeditionClient() {
   const [view, setView] = useState<View>("select");
   const expeditionSearch = typeof window !== "undefined" ? window.location.search : "";
   const [missionId, setMissionId] = useState<SectorMissionId>(() => parseExpeditionMission(expeditionSearch) ?? "rust-disc");
-  const [shipId, setShipId] = useState<ShipId>("glide");
+  const [shipId, setShipId] = useState<ShipId>(() => {
+    const requested = new URLSearchParams(expeditionSearch).get("ship");
+    return requested && Object.hasOwn(SHIPS, requested) ? requested as ShipId : "glide";
+  });
   const [codeInput, setCodeInput] = useState("");
   const [publicListing, setPublicListing] = useState(false);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
@@ -300,7 +303,7 @@ function ExpeditionClient() {
       const current = snapshotRef.current;
       if (current?.phase !== "active") return false;
       if (command.type === "sector_transponder") {
-        if (current.missionId !== "pale-beacons") return false;
+        if (current.missionId !== "pale-beacons" && current.missionId !== "universe-patrol") return false;
       } else if (command.type === "sector_recover_evidence") {
         if (current.missionId !== "pale-beacons" || current.version !== SECTOR_ORBITAL_PROTOCOL_VERSION) return false;
       } else if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
@@ -403,7 +406,9 @@ function Select(props: {
           {SECTOR_MISSIONS.map(m => {
             const st = missionLockState(m, props.progress);
             const on = m.id === props.missionId;
-            const scoutUnavailable = m.id === "pale-beacons" && PROTOCOL_VERSION !== SECTOR_ORBITAL_PROTOCOL_VERSION;
+            const scoutUnavailable =
+              (m.id === "pale-beacons" || m.id === "universe-patrol") &&
+              PROTOCOL_VERSION !== SECTOR_ORBITAL_PROTOCOL_VERSION;
             return (
               <li key={m.id} className="relative">
                 <span aria-hidden="true" className={`absolute -left-6 top-5 h-[19px] w-[19px] rotate-45 border-2 ${st === "complete" ? "border-solar bg-solar" : st === "locked" ? "border-bone/30 bg-void" : "border-spectral bg-void"}`} />
@@ -538,6 +543,23 @@ function Lobby({ snap, connection, onReady, onLaunch, onLeave }: {
             </ol>
           </div>
         ) : null}
+        {mission.id === "universe-patrol" && snap.hostileFleet ? (
+          <div className="mt-4 border-l-2 border-[#ff7a5c] bg-[#ff7a5c]/[0.06] px-3 py-2" data-testid="brief-universe-patrol">
+            <p className="font-hud text-[10px] tracking-[0.24em] text-[#ff7a5c]">
+              SERVER-CONFIRMED {snap.hostileFleet.faction.toUpperCase()} CONTACT · {snap.hostileFleet.callsign}
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2 text-xs text-bone/75">
+              {snap.hostileFleet.ships.map((ship) => (
+                <li key={ship.actorId} data-testid={`enemy-ship-${ship.actorId}`}>
+                  {ship.callsign} · {SHIPS[ship.shipId].name} · {Math.round(ship.hull)}/{ship.maxHull} HULL
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[10px] text-muted">
+              All crew must be at the same saved universe location and fly the same faction. Destroyed patrol ships persist as shared fleet losses.
+            </p>
+          </div>
+        ) : null}
         <button type="button" onClick={copy} data-testid="button-copy-code" className="mt-5 block w-full border border-dashed border-solar/60 bg-solar/5 px-4 py-3 text-left">
           <span className="block font-hud text-[10px] tracking-[0.3em] text-muted">INVITATION CODE · TAP TO COPY</span>
           <span className="block font-hud text-4xl tracking-[0.15em] text-solar" data-testid="text-room-code">{snap.roomCode}</span>
@@ -606,8 +628,10 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
     ["NEXT SECTOR", mission.id === "iron-eclipse" ? "STANDALONE OPERATION"
       : next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
     ...(snap.scoutResult ? [
-      ["CONFIRMED SCOUT KILLS", String(snap.scoutResult.kills)] as [string, ReactNode],
-      ["CONFIRMED SCOUT ASSISTS", String(snap.scoutResult.assists)] as [string, ReactNode],
+      [snap.scoutResult.missionId === "universe-patrol" ? "HOSTILE SHIPS DESTROYED" : "CONFIRMED SCOUT KILLS",
+        String(snap.scoutResult.kills)] as [string, ReactNode],
+      [snap.scoutResult.missionId === "universe-patrol" ? "HOSTILE SHIP ASSISTS" : "CONFIRMED SCOUT ASSISTS",
+        String(snap.scoutResult.assists)] as [string, ReactNode],
     ] : []),
     ...operationRows,
   ];

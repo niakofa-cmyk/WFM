@@ -124,10 +124,16 @@ export type ExplorationPolicy = {
 };
 export type ExplorationEncounterSpec = {
   encounterId: string;
+  missionId?: "pale-beacons" | "universe-patrol";
   sectorId: string;
   runtime: typeof ORBITAL_RUNTIME_ID;
   authority: "server";
   mode: "universe-exploration";
+  patrol?: {
+    patrolId: string;
+    locationId: string;
+    faction: "ussf" | "accord";
+  };
   actors: readonly ExplorationActor[];
   rewardPolicy: ExplorationPolicy;
 };
@@ -149,10 +155,16 @@ export type ExplorationPilotResult = {
 export type ExplorationResult = {
   version: typeof EXPLORATION_CONTRACT;
   encounterId: string;
+  missionId: "pale-beacons" | "universe-patrol";
   sectorId: string;
   runtime: typeof ORBITAL_RUNTIME_ID;
   policyId: string;
   rewardPolicy: Readonly<ExplorationPolicy>;
+  patrol?: Readonly<{
+    patrolId: string;
+    locationId: string;
+    faction: "ussf" | "accord";
+  }>;
   fingerprint: string;
   outcome: "completed" | "aborted";
   finalTick: number;
@@ -210,8 +222,22 @@ export class ExplorationEncounter {
 
   constructor(spec: ExplorationEncounterSpec) {
     id(spec.encounterId); id(spec.sectorId); id(spec.rewardPolicy.id);
+    if (spec.missionId !== undefined && !["pale-beacons", "universe-patrol"].includes(spec.missionId)) {
+      throw new Error("Unsupported exploration mission.");
+    }
     if (spec.authority !== "server" || spec.mode !== "universe-exploration" || spec.runtime !== ORBITAL_RUNTIME_ID) {
       throw new Error("Unsupported exploration authority, mode or runtime.");
+    }
+    if (spec.patrol) {
+      id(spec.patrol.patrolId);
+      id(spec.patrol.locationId);
+      if (!["ussf", "accord"].includes(spec.patrol.faction) ||
+          spec.actors.some((actor) => actor.rewardEligible === true && actor.faction !== spec.patrol!.faction) ||
+          spec.actors.some((actor) => actor.playerId && actor.faction === spec.patrol!.faction)) {
+        throw new Error("Invalid opposing patrol encounter.");
+      }
+    } else if (spec.missionId === "universe-patrol") {
+      throw new Error("Universe patrol mission requires a persistent patrol.");
     }
     for (const value of [spec.rewardPolicy.creditsPerNpcKill, spec.rewardPolicy.completionCredits, spec.rewardPolicy.maxCreditsPerEncounter]) integer(value);
     if (spec.actors.length < 2 || spec.actors.length > 128) throw new Error("Invalid exploration roster size.");
@@ -296,8 +322,10 @@ export class ExplorationEncounter {
     });
     const content = {
       version: EXPLORATION_CONTRACT, encounterId: this.spec.encounterId,
+      missionId: this.spec.missionId ?? "pale-beacons",
       sectorId: this.spec.sectorId, runtime: this.spec.runtime, policyId: policy.id,
       rewardPolicy: Object.freeze({ ...policy }),
+      ...(this.spec.patrol ? { patrol: Object.freeze({ ...this.spec.patrol }) } : {}),
       outcome, finalTick, objectiveCompleted, pilots: Object.freeze(pilots),
     };
     const result = Object.freeze({ ...content, fingerprint: hash([this.chain, content]) });

@@ -34,6 +34,9 @@ test("patrol panel presents a server-reported fleet route without claiming live 
     directory,
     currentLocationId: "phobos-yard",
     currentLocationName: "Phobos Yard",
+    pilotFaction: "accord",
+    shipId: "mandjet",
+    canLaunchEncounter: true,
     locations,
     loading: false,
     unavailable: false,
@@ -44,6 +47,8 @@ test("patrol panel presents a server-reported fleet route without claiming live 
   assert.match(html, /Duskbreaker/);
   assert.match(html, /Phobos Yard → Rust Disc/);
   assert.match(html, /not live human matches/);
+  assert.match(html, /button-intercept-universe-patrol/);
+  assert.match(html, /mission=universe-patrol/);
 });
 
 test("patrol panel does not show a stale region snapshot as current", () => {
@@ -51,6 +56,9 @@ test("patrol panel does not show a stale region snapshot as current", () => {
     directory,
     currentLocationId: "rust-disc",
     currentLocationName: "Rust Disc",
+    pilotFaction: "accord",
+    shipId: "mandjet",
+    canLaunchEncounter: true,
     locations,
     loading: false,
     unavailable: false,

@@ -10,7 +10,8 @@ import { CommandBackdrop, FactionMark } from "./CommandArt";
 import { Link, useLocation } from "wouter";
 import { sectorMission } from "./sector-missions";
 import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
-import { expeditionFeatureEnabled } from "./sector-client";
+import { expeditionFeatureEnabled, sectorClientProtocolVersion } from "./sector-client";
+import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "./sector-missions";
 import { AsteroidArenaHub } from "./AsteroidArenaHub";
 import { useWorldOperationEvents } from "./world-operation-events";
 import { CinderRingArtwork } from "./CinderRingArtwork";
@@ -74,6 +75,14 @@ export function GalaxyScreen({
   const { getToken, userId } = useAuth();
   const [, setLocation] = useLocation();
   const [presenceActive, setPresenceActive] = useState(true);
+  const canLaunchUniversePatrol =
+    expeditionFeatureEnabled({
+      DEV: import.meta.env.DEV,
+      VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+    }) &&
+    sectorClientProtocolVersion({
+      VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
+    }) === SECTOR_ORBITAL_PROTOCOL_VERSION;
   const operationStreamState = useWorldOperationEvents();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
   const operationsQuery = useGetWorldOperations({
@@ -342,6 +351,9 @@ export function GalaxyScreen({
           directory={patrolsQuery.data}
           currentLocationId={world.currentLocation}
           currentLocationName={currentLocation?.name}
+          pilotFaction={faction}
+          shipId={shipId}
+          canLaunchEncounter={canLaunchUniversePatrol}
           locations={locations}
           loading={patrolsQuery.isLoading}
           unavailable={patrolsQuery.isError || patrolsQuery.fetchStatus === "paused"}

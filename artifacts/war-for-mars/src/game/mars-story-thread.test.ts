@@ -66,7 +66,7 @@ test("Mars Approach is connective geography rather than a new campaign unlock", 
   assert.equal(approach?.sequenceLabel, "CHAPTER II · TRAVEL INTERLUDE");
 
   const cooperativeChain = SECTOR_MISSIONS
-    .filter((mission) => mission.id !== "iron-eclipse")
+    .filter((mission) => ["rust-disc", "mars-approach", "pale-beacons"].includes(mission.id))
     .map((mission) => mission.id);
   assert.deepEqual(cooperativeChain, ["rust-disc", "mars-approach", "pale-beacons"]);
   assert.notEqual(

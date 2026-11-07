@@ -5,7 +5,14 @@ import {
   type SectorProtocolVersion,
   type SectorSimulationContract,
 } from "@workspace/orbital-sim";
-import { RUST_DISC_SECTOR, type FlightSector, type FlightState, type FlightInput, type Vector3 } from "./flight-sector";
+import {
+  CINDER_ASTEROID_SECTOR,
+  RUST_DISC_SECTOR,
+  type FlightSector,
+  type FlightState,
+  type FlightInput,
+  type Vector3,
+} from "./flight-sector";
 import type { ShipId } from "./ships";
 
 export {
@@ -17,7 +24,7 @@ export type { SectorProtocolVersion, SectorSimulationContract } from "@workspace
 export const SECTOR_PROTOCOL_VERSION = SECTOR_COMPAT_PROTOCOL_VERSION;
 export const SECTOR_STEP = 1 / 60;
 export const SECTOR_MARS = { position: { x: 0, y: -700, z: -1800 }, radius: 600 };
-export type SectorMissionId = "rust-disc" | "mars-approach" | "pale-beacons" | "iron-eclipse";
+export type SectorMissionId = "rust-disc" | "mars-approach" | "pale-beacons" | "iron-eclipse" | "universe-patrol";
 export type IronEclipseSubsystemId = "point-defense" | "shield-array" | "reactor";
 export type IronEclipseOrder = "attack" | "defend" | "escort" | "regroup";
 export type IronEclipsePhase = "engage" | "capital" | "extract" | "complete" | "failed";
@@ -49,7 +56,7 @@ export type SectorMission = {
 /** Read-only pilot projection of a server-finalized exploratory scout encounter. */
 export type SectorScoutResult = {
   encounterId: string;
-  missionId: "pale-beacons";
+  missionId: "pale-beacons" | "universe-patrol";
   sectorId: string;
   runtime: string;
   policyId: string;
@@ -61,7 +68,26 @@ export type SectorScoutResult = {
   destroyedActorIds: string[];
   rewardableNpcKills: number;
   creditsAwarded: number;
+  patrolId?: string;
+  patrolLocationId?: string;
+  opposingFaction?: "ussf" | "accord";
   fingerprint: string;
+};
+export type SectorHostileFleetShip = {
+  actorId: string;
+  shipId: ShipId;
+  callsign: string;
+  position: Vector3;
+  hull: number;
+  maxHull: number;
+  destroyed: boolean;
+};
+export type SectorHostileFleetSnapshot = {
+  patrolId: string;
+  callsign: string;
+  locationId: string;
+  faction: "ussf" | "accord";
+  ships: SectorHostileFleetShip[];
 };
 export type SectorFactionContact = {
   actorFaction: "ussf" | "accord";
@@ -128,6 +154,19 @@ export const SECTOR_MISSIONS: readonly SectorMission[] = [
       drone: { x: 0, y: 70, z: -460 }, droneHull: 120,
     },
   },
+  {
+    id: "universe-patrol", title: "Opposing Patrol · Intercept",
+    prerequisite: null,
+    description: "Intercept the server-owned opposing fleet at your saved universe location, disable its ships, and extract.",
+    sector: {
+      ...CINDER_ASTEROID_SECTOR,
+      id: "universe-patrol-contact-v1",
+      radius: 3000,
+      planet: SECTOR_MARS,
+      relay: { x: 250, y: 120, z: -400 },
+      extraction: { x: -260, y: 120, z: -860 },
+    },
+  },
 ];
 export function sectorMission(id: unknown): SectorMission | undefined {
   return SECTOR_MISSIONS.find(mission => mission.id === id);
@@ -167,6 +206,8 @@ export type SectorSnapshot = {
   factionContact?: SectorFactionContact;
   /** Server-positioned story evidence; recovery state is private to this account. */
   evidence?: SectorEvidencePickup[];
+  /** Server-authoritative hostile formation for the current universe patrol instance. */
+  hostileFleet?: SectorHostileFleetSnapshot;
   simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;

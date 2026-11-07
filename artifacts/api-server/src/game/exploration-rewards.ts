@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, playerProgressTable, progressionEventsTable } from "@workspace/db";
 import { EXPLORATION_CONTRACT, type ExplorationReceipt } from "./exploration-encounter";
 import { settleExplorationWithStore, type ExplorationLedgerRecord, type ExplorationRewardStore } from "./exploration-settlement";
+import { applyUniversePatrolOutcomeInTransaction } from "./universe-patrols";
 
 // Reuse the existing world-exploration ledger kind. Namespaced keys and result
 // mode isolate this contract from travel/discovery and from Wing rewards.
@@ -31,6 +32,9 @@ const databaseStore: ExplorationRewardStore = {
         if (award.playerId !== playerId || !Number.isSafeInteger(award.balanceAfter) || !Number.isSafeInteger(award.revision)) throw new Error("Invalid exploration ledger award.");
         return { version: EXPLORATION_CONTRACT, fingerprint: result.fingerprint, award };
       },
+      applyPatrolOutcome: async (patrolId, encounterId, destroyedActorIds) => {
+        await applyUniversePatrolOutcomeInTransaction(tx, { patrolId, encounterId, destroyedActorIds });
+      },
       writeResult: async (playerId, key, result, award) => {
         const profile = locked.get(playerId);
         if (!profile || award.balanceAfter !== profile.credits + award.credits || award.revision !== profile.revision + 1) throw new Error("Exploration profile lock required.");
@@ -42,8 +46,10 @@ const databaseStore: ExplorationRewardStore = {
           userId: playerId, idempotencyKey: key, kind: "world_exploration",
           amount: award.credits, balanceBefore: profile.credits, balanceAfter: award.balanceAfter,
           result: { mode: EXPLORATION_CONTRACT, encounterId: result.encounterId, sectorId: result.sectorId,
+            missionId: result.missionId,
             runtime: result.runtime, policyId: result.policyId, rewardPolicy: result.rewardPolicy,
             finalTick: result.finalTick, outcome: result.outcome, objectiveCompleted: result.objectiveCompleted,
+            ...(result.patrol ? { patrol: result.patrol } : {}),
             fingerprint: result.fingerprint, award },
         });
         await tx.insert(progressionEventsTable).values({
@@ -57,7 +63,7 @@ const databaseStore: ExplorationRewardStore = {
             action: "server_scout_result",
             mode: "orbital-scout-result-v1",
             encounterId: result.encounterId,
-            missionId: "pale-beacons",
+            missionId: result.missionId,
             sectorId: result.sectorId,
             runtime: result.runtime,
             policyId: result.policyId,
@@ -69,6 +75,11 @@ const databaseStore: ExplorationRewardStore = {
             destroyedActorIds: award.destroyedActorIds,
             rewardableNpcKills: award.rewardableNpcKills,
             creditsAwarded: award.credits,
+            ...(result.patrol ? {
+              patrolId: result.patrol.patrolId,
+              patrolLocationId: result.patrol.locationId,
+              opposingFaction: result.patrol.faction,
+            } : {}),
             fingerprint: result.fingerprint,
           },
         });

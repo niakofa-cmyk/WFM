@@ -36,7 +36,7 @@
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
 - [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve the original eight identities and evolve their hulls into distinct faction-specific 3D silhouettes before fleet expansion.
 - [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
-- [Open-universe direction](open-universe-direction.md) — authenticated exploration must be server-authoritative and reward-capable; keep the offline sandbox no-reward.
+- [Open-universe direction](open-universe-direction.md) — chosen faction sets opposing patrols; server owns kills, shared fleet losses, and completed-extraction rewards.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
 - [Three.js mobile loading](threejs-mobile-loading.md) — while migrating, defer the temporary renderer behind a narrow adapter; never pass its full namespace through UI state.

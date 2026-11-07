@@ -108,12 +108,19 @@ function validIronEclipseSnapshot(value: unknown): value is IronEclipseSnapshot 
 function validScoutResult(value: unknown): value is SectorScoutResult {
   if (!value || typeof value !== "object") return false;
   const result = value as Partial<SectorScoutResult>;
-  return result.missionId === "pale-beacons" &&
+  const isUniversePatrol = result.missionId === "universe-patrol";
+  return (result.missionId === "pale-beacons" || isUniversePatrol) &&
     typeof result.encounterId === "string" && /^[0-9a-f-]{36}$/i.test(result.encounterId) &&
     typeof result.sectorId === "string" && result.sectorId.length > 0 && result.sectorId.length <= 128 &&
-    result.sectorId === "pale-beacons-v1" &&
+    result.sectorId === (isUniversePatrol ? "universe-patrol-contact-v1" : "pale-beacons-v1") &&
     result.runtime === ORBITAL_RUNTIME_ID &&
-    ["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId ?? "") &&
+    (isUniversePatrol
+      ? result.policyId === "universe-patrol-bounty-v1" &&
+        typeof result.patrolId === "string" && result.patrolId.length > 0 && result.patrolId.length <= 128 &&
+        typeof result.patrolLocationId === "string" && result.patrolLocationId.length > 0 && result.patrolLocationId.length <= 128 &&
+        ["ussf", "accord"].includes(result.opposingFaction ?? "")
+      : ["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId ?? "") &&
+        result.patrolId === undefined && result.patrolLocationId === undefined && result.opposingFaction === undefined) &&
     ["completed", "aborted"].includes(result.outcome as string) &&
     Number.isSafeInteger(result.finalTick) && (result.finalTick ?? -1) >= 0 &&
     typeof result.objectiveCompleted === "boolean" &&
@@ -126,6 +133,38 @@ function validScoutResult(value: unknown): value is SectorScoutResult {
     result.kills === result.destroyedActorIds.length &&
     result.rewardableNpcKills! <= result.kills! &&
     typeof result.fingerprint === "string" && /^[0-9a-f]{64}$/.test(result.fingerprint);
+}
+function validHostileFleet(value: unknown, ownShipId: ShipId): value is NonNullable<SectorSnapshot["hostileFleet"]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const fleet = value as Partial<NonNullable<SectorSnapshot["hostileFleet"]>>;
+  if (Object.keys(fleet).length !== 5 ||
+      !["patrolId", "callsign", "locationId", "faction", "ships"].every(key => Object.hasOwn(fleet, key)) ||
+      typeof fleet.patrolId !== "string" || fleet.patrolId.length < 1 || fleet.patrolId.length > 128 ||
+      typeof fleet.callsign !== "string" || fleet.callsign.length < 1 || fleet.callsign.length > 64 ||
+      typeof fleet.locationId !== "string" || fleet.locationId.length < 1 || fleet.locationId.length > 128 ||
+      !["ussf", "accord"].includes(fleet.faction ?? "") ||
+      fleet.faction === SHIPS[ownShipId].faction ||
+      !Array.isArray(fleet.ships) || fleet.ships.length < 1 || fleet.ships.length > 4) return false;
+  const actorIds = new Set<string>();
+  return fleet.ships.every(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+    const ship = raw as Record<string, unknown>;
+    const position = ship.position as Record<string, unknown> | undefined;
+    const valid = Object.keys(ship).length === 7 &&
+      ["actorId", "shipId", "callsign", "position", "hull", "maxHull", "destroyed"].every(key => Object.hasOwn(ship, key)) &&
+      typeof ship.actorId === "string" && ship.actorId.startsWith("patrol-ship:") &&
+      ship.actorId.length <= 128 && !actorIds.has(ship.actorId) &&
+      isShipId(ship.shipId) && SHIPS[ship.shipId].faction === fleet.faction &&
+      typeof ship.callsign === "string" && ship.callsign.length > 0 && ship.callsign.length <= 64 &&
+      !!position && ["x", "y", "z"].every(key => typeof position[key] === "number" &&
+        Number.isFinite(position[key]) && Math.abs(position[key] as number) <= 10_000) &&
+      typeof ship.hull === "number" && Number.isFinite(ship.hull) && ship.hull >= 0 &&
+      typeof ship.maxHull === "number" && Number.isFinite(ship.maxHull) && ship.maxHull > 0 &&
+      ship.hull <= ship.maxHull && typeof ship.destroyed === "boolean" &&
+      ship.destroyed === (ship.hull === 0);
+    if (valid) actorIds.add(ship.actorId as string);
+    return valid;
+  });
 }
 function validFactionContact(value: unknown): value is SectorFactionContact {
   if (!value || typeof value !== "object") return false;
@@ -189,13 +228,15 @@ export function parseSectorSnapshot(
   if (!["lobby", "active", "complete", "interrupted", "failed"].includes(p.phase as string)) return null;
   if (!Array.isArray(p.pilots) || p.pilots.length > SECTOR_MAX_PILOTS) return null;
   if (p.scoutResult !== undefined &&
-      (!validScoutResult(p.scoutResult) || p.missionId !== "pale-beacons" ||
+      (!validScoutResult(p.scoutResult) || typeof p.missionId !== "string" ||
+        !["pale-beacons", "universe-patrol"].includes(p.missionId) ||
        !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus as string))) return null;
   if (p.scoutResultStatus !== undefined &&
       (p.scoutResult === undefined || !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus))) return null;
   if (p.factionContact !== undefined) {
     const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
-    if (p.missionId !== "pale-beacons" || expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+    if (typeof p.missionId !== "string" || !["pale-beacons", "universe-patrol"].includes(p.missionId) ||
+        expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
         !validFactionContact(p.factionContact) || !ownPilot ||
         p.factionContact.actorFaction === SHIPS[ownPilot.shipId].faction ||
         p.factionContact.enteredAtTick > (p.tick ?? -1) ||
@@ -205,6 +246,11 @@ export function parseSectorSnapshot(
   if (p.evidence !== undefined &&
       (p.missionId !== "pale-beacons" || expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
        !validEvidence(p.evidence))) return null;
+  if (p.missionId === "universe-patrol") {
+    const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
+    if (expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || !ownPilot ||
+        !validHostileFleet(p.hostileFleet, ownPilot.shipId)) return null;
+  } else if (p.hostileFleet !== undefined) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&

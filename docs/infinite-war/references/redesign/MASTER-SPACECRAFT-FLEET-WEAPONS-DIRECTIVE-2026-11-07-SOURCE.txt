@@ -1,0 +1,1025 @@
+# WAR FOR MARS: INFINITE WAR
+# ORBITAL COMBAT LAB
+## MASTER SPACECRAFT, MILITARY FLEET, MISSILE ARCHITECTURE AND TACTICAL WARFARE DEVELOPMENT DIRECTIVE
+
+**Repository:** https://github.com/niakofa-cmyk/WFM
+
+**Primary engine:** Orbital Combat Lab
+
+**Project:** Infinite Extended Open Universe
+
+**Primary factions:** United States Space Force (USSF) and Accord.
+
+**Mission:** Expand the existing eight-spacecraft roster into two complete, asymmetric military fleets with specialized spacecraft, distinct visual construction, individual weapon systems, hull-specific special abilities, advanced missile architecture, coordinated fleet formations, and intelligent combat behavior.
+
+You are the principal spacecraft architect, senior game developer, 3D vehicle systems engineer, weapons simulation engineer, AI tactical warfare developer, multiplayer simulation engineer, and technical director.
+
+Your task is to transform the existing WFM spacecraft system into a sophisticated military spacecraft and fleet ecosystem.
+
+Do not simply add additional ship names or change existing damage values.
+
+Build complete spacecraft with distinctive construction, functional systems, specialized weapon configurations, tactical capabilities, and meaningful roles within their respective factions.
+
+All gameplay must operate through the canonical Orbital Combat Lab architecture and its approved server-authoritative adapters.
+
+---
+
+# 1. BEGIN WITH A FORENSIC SHIP AUDIT
+
+Inspect the actual current repository before implementing changes.
+
+At minimum inspect:
+
+- `artifacts/war-for-mars/src/game/ships.ts`
+- `artifacts/api-server/src/game/ships.ts`
+- `artifacts/war-for-mars/src/game/orbital-visuals.ts`
+- `artifacts/war-for-mars/src/game/ShipIllustration.tsx`
+- `artifacts/war-for-mars/src/game/HangarShip.tsx`
+- `artifacts/war-for-mars/src/game/Arena.tsx`
+- `artifacts/war-for-mars/src/game/sim.ts`
+- `artifacts/war-for-mars/src/game/orbital-sim.ts`
+- `artifacts/war-for-mars/src/game/orbital-weapons.ts`
+- `artifacts/api-server/src/game/orbital-sim.ts`
+- `artifacts/api-server/src/game/orbital-weapons.ts`
+- `artifacts/api-server/src/game/orbital-flight.ts`
+- `lib/orbital-sim/src/flight.ts`
+- `lib/orbital-sim/src/weapons.ts`
+- Existing hangar, fleet, loadout, weapon, campaign, multiplayer and balance tests.
+
+Identify every consumer of the current ship definitions.
+
+The browser and server must not develop incompatible ship identities or combat values.
+
+Produce a forensic matrix for every existing ship containing:
+
+1. Ship identity.
+2. Faction.
+3. Ship class.
+4. Intended tactical role.
+5. Current movement characteristics.
+6. Acceleration and speed.
+7. Rotational handling.
+8. Shield and hull.
+9. Armor and damage behavior.
+10. Primary weapon.
+11. Firing interval.
+12. Damage per projectile.
+13. Projectile speed.
+14. Current missile behavior.
+15. Special ability.
+16. Ability cooldown.
+17. Actual implementation status.
+18. Current 3D construction.
+19. Visual strengths.
+20. Visual shortcomings.
+21. Missing capabilities.
+22. Recommended upgrades.
+
+Distinguish implemented behavior from descriptions, labels, visual effects, and unconnected UI controls.
+
+Do not report a feature as implemented merely because a ship definition contains its name.
+
+# 2. PRESERVE THE ORIGINAL EIGHT SHIPS
+
+Retain the identities, names, faction assignments, and recognizable characteristics of:
+
+## ACCORD
+
+- Mandjet — Vanguard.
+- Shakuna — Hunter.
+- Sundara — Striker.
+- Tripura — Support.
+
+## USSF
+
+- Duskbreaker — Striker.
+- Sentinel-G — Support.
+- Splitter Ring — Hunter.
+- Glide Knife — Raider.
+
+Preserve their established gameplay identities.
+
+Improve their mechanics and graphics without replacing the established character of the ships.
+
+The first milestone must fully integrate these eight existing spacecraft into Orbital before expanding the roster.
+
+# 3. EXPAND THE PLAYABLE FLEETS
+
+The strategic target is eight playable spacecraft per faction.
+
+Preserve the existing four ships and add four specialized ships to each faction.
+
+## USSF EXPANSION
+
+### Wasp — Advanced Interceptor
+
+Role:
+- Air-superiority-style space interception.
+- Extreme rotational agility.
+- High acceleration.
+- High-speed pursuit.
+- Rapid target acquisition.
+- Short-range interceptor missiles.
+
+Special ability:
+- Vector Pursuit: temporarily improves rotational response and controlled lateral thrust.
+
+### Valiant — Multirole Fighter
+
+Role:
+- Balanced fighter.
+- Primary cannon and guided missile combat.
+- Escort and patrol.
+- Versatile mission capability.
+
+Special ability:
+- Adaptive Fire Control: switches between precision fire and a controlled rapid-fire pattern.
+
+### Aegis — Missile-Defense Escort
+
+Role:
+- Protect friendly spacecraft.
+- Detect incoming guided weapons.
+- Deploy defensive interceptor projectiles.
+- Defend capital ships and carriers.
+
+Special ability:
+- Aegis Intercept Grid: temporarily improves nearby allied missile interception and defensive tracking.
+
+### Bastion — Heavy Assault Gunship
+
+Role:
+- Heavy weapons.
+- Anti-capital attacks.
+- High armor.
+- Reduced rotational agility.
+- Strong forward attack.
+
+Special ability:
+- Siege Configuration: temporarily deploys heavy weapon systems with reduced mobility.
+
+## ACCORD EXPANSION
+
+### Apep — Stealth Hunter
+
+Role:
+- Concealment.
+- Reconnaissance.
+- Ambush.
+- Target acquisition.
+- Precision attack.
+
+Special ability:
+- Void Veil: temporary sensor suppression and cloaking with a limited attack window.
+
+### Sekhmet — Heavy Siege Gunship
+
+Role:
+- Heavy energy cannons.
+- Capital-ship damage.
+- Armor penetration.
+- High forward attack power.
+
+Special ability:
+- Solar Cataclysm: charges and releases a concentrated forward energy weapon.
+
+### Garuda — Swarm Interceptor
+
+Role:
+- Extreme speed.
+- Multi-target pursuit.
+- Coordinated interception.
+- High maneuverability.
+
+Special ability:
+- Phantom Swarm: launches coordinated autonomous attack drones with bounded targeting and duration.
+
+### Vajra — Tactical Warfare Support
+
+Role:
+- Electronic warfare.
+- Energy disruption.
+- Shield interference.
+- Fleet coordination.
+
+Special ability:
+- Thunder Veil: emits a controlled disruption field that degrades hostile targeting and selected weapon systems.
+
+These are proposed design identities. Validate their distinctiveness against existing content before adopting final names and implementation.
+
+# 4. CREATE A COMPLETE MILITARY VESSEL HIERARCHY
+
+Do not stop at fighter spacecraft.
+
+Build a larger AI-controlled military vessel system.
+
+Create distinct classes:
+
+1. Interceptors.
+2. Fighters.
+3. Multirole spacecraft.
+4. Stealth reconnaissance craft.
+5. Bombers.
+6. Heavy gunships.
+7. Electronic-warfare vessels.
+8. Missile-defense escorts.
+9. Frigates.
+10. Destroyers.
+11. Cruisers.
+12. Fleet carriers.
+13. Battleships.
+14. Dreadnoughts.
+15. Logistics and repair vessels.
+16. Reconnaissance and command vessels.
+
+Implement the appropriate classes for both factions.
+
+Capital ships must be substantially different from fighters.
+
+They require:
+
+- Larger spatial dimensions.
+- Multiple weapon batteries.
+- Subsystems.
+- Armor sections.
+- Shield generators.
+- Engines.
+- Bridge or command systems.
+- Hangars.
+- Fighter deployment.
+- Missile defense.
+- Tactical command behavior.
+- Damage states.
+- Destruction states.
+- Strategic objectives.
+
+Some capital ships may become playable in future, but their initial implementation should prioritize credible AI-controlled fleet operations.
+
+Do not create capital ships as oversized fighter models with increased hull values.
+
+# 5. REDESIGN THE 3D SPACECRAFT CONSTRUCTION SYSTEM
+
+Upgrade the current procedural spacecraft construction.
+
+Every ship must have a distinctive silhouette that is recognizable without its name or faction colors.
+
+Use a shared technical construction framework but ship-specific geometry.
+
+Required construction systems:
+
+- Main fuselage.
+- Cockpit or command structure.
+- Wing and structural configuration.
+- Armor panels.
+- Weapon hardpoints.
+- Missile launch bays.
+- Sensor arrays.
+- Communication equipment.
+- Engine architecture.
+- Thruster placement.
+- Exhaust systems.
+- Heat radiators where appropriate.
+- Shield emitters.
+- Defensive equipment.
+- Landing or docking geometry.
+- Faction markings.
+- Identification lighting.
+
+Create different visual construction languages.
+
+USSF:
+- Industrial military architecture.
+- Modular construction.
+- Armored surfaces.
+- Distinct wing and engine configurations.
+- Practical weapon mounts.
+- Military insignia.
+- Tactical identification lights.
+- Advanced sensor and communications systems.
+
+Accord:
+- Distinctive unconventional architecture.
+- Bronze, gold, dark metal and energy-driven structures.
+- Ring and radial designs where appropriate.
+- Unusual propulsion.
+- Energy conduits.
+- Exotic weapon emitters.
+- Distinctive silhouette and lighting.
+
+Avoid giving every ship the same base fuselage with minor geometry changes.
+
+Build genuinely different hull architectures.
+
+## Ship graphics requirements
+
+Implement:
+
+- High-detail hangar inspection.
+- Full 3D rotation.
+- Close-up weapon inspection.
+- Engine inspection.
+- Animated weapon systems.
+- Animated special abilities.
+- Faction-specific lighting.
+- Damage states.
+- Hull damage and missing components where supported.
+- Shield effects.
+- Engine effects.
+- Weapon firing effects.
+- Missile launch effects.
+- Docking and launch sequences.
+
+Use appropriate LOD and material complexity for mobile.
+
+Do not sacrifice gameplay performance to display unnecessary polygon detail.
+
+Keep hangar previews separate from the canonical gameplay simulation.
+
+# 6. BUILD A MODULAR WEAPON ARCHITECTURE
+
+Create a weapon-definition and weapon-execution system.
+
+Weapons should be defined by reusable data-driven configurations.
+
+Each weapon should specify:
+
+- Stable weapon identifier.
+- Weapon category.
+- Compatible ship classes.
+- Hardpoint requirements.
+- Damage characteristics.
+- Projectile speed.
+- Effective range.
+- Fire rate.
+- Cooldown.
+- Ammunition.
+- Energy consumption.
+- Heat generation.
+- Projectile lifetime.
+- Guidance behavior.
+- Blast radius.
+- Armor interaction.
+- Shield interaction.
+- Countermeasure susceptibility.
+- Visual and audio effects.
+- Server-authoritative validation.
+
+## PRIMARY WEAPONS
+
+Implement differentiated primary weapon families:
+
+- Kinetic cannons.
+- Rotary autocannons.
+- Plasma repeaters.
+- Heavy plasma cannons.
+- Laser weapons.
+- Beam weapons.
+- Electromagnetic railguns.
+- Charged energy weapons.
+- Scatter weapons.
+- Heavy anti-capital batteries.
+
+## SECONDARY WEAPONS
+
+Implement:
+
+- Guided missiles.
+- Dumbfire rockets.
+- Heavy torpedoes.
+- Interceptor missiles.
+- EMP missiles.
+- Swarm missiles.
+- Anti-capital missiles.
+- Precision strike missiles.
+- Area-denial payloads.
+
+Different ship classes should have different weapon capacity and compatibility.
+
+A fighter should not carry the same weapon inventory as a bomber or destroyer.
+
+# 7. DEVELOP AN ADVANCED MISSILE SYSTEM
+
+This is a major priority.
+
+Create distinct missile families with actual guidance and combat behavior.
+
+## Missile types
+
+### Heat-seeking missile
+
+Tracks an eligible heat signature.
+
+### Active sensor missile
+
+Uses its own sensor guidance after launch.
+
+### Semi-active missile
+
+Requires continued targeting or illumination.
+
+### Dumbfire rocket
+
+No target lock. Depends on pilot accuracy.
+
+### Heavy torpedo
+
+Slower, more powerful, intended for capital ships.
+
+### EMP missile
+
+Disrupts selected electronic systems and sensors.
+
+### Swarm missile
+
+Splits into multiple bounded submunitions.
+
+### Interceptor missile
+
+Designed to engage incoming missiles or hostile drones.
+
+### Stealth missile
+
+Has reduced detection characteristics but appropriate balance limitations.
+
+Each missile must have:
+
+- Launch acceleration.
+- Maximum velocity.
+- Turn rate.
+- Guidance authority.
+- Fuel or lifetime.
+- Lock requirements.
+- Arming distance.
+- Detonation radius.
+- Damage profile.
+- Target compatibility.
+- Countermeasure susceptibility.
+- Collision rules.
+- Visual trail.
+- Explosion behavior.
+
+Implement target tracking using actual spatial positions and movement.
+
+Do not allow instant-turning missiles or impossible homing.
+
+Missile behavior must be deterministic and authoritative in competitive environments.
+
+# 8. IMPLEMENT COUNTERMEASURES AND MISSILE DEFENSE
+
+Create a comprehensive defensive architecture.
+
+Implement:
+
+- Heat flares.
+- Chaff.
+- Sensor decoys.
+- Electronic countermeasures.
+- Missile warning.
+- Target-lock disruption.
+- Defensive interceptor missiles.
+- Point-defense weapons.
+- Shield interception.
+- Emergency evasive assistance.
+
+Countermeasures must not be cosmetic.
+
+A missile should have an actual guidance state.
+
+A flare should create an eligible alternate heat target.
+
+Chaff should affect appropriate sensor guidance.
+
+Electronic warfare should interfere only with systems it can logically affect.
+
+Point defense should detect and attempt to intercept incoming projectiles within defined limits.
+
+The player must be able to combine evasive flight maneuvers with defensive countermeasures.
+
+Do not give the player automatic invulnerability.
+
+# 9. WIRE ALL EIGHT EXISTING SPECIAL ABILITIES INTO ORBITAL
+
+Before implementing the new ships, resolve the existing hull-specific ability integration gap.
+
+Audit the `step()` dispatch and `stepOrbital()` execution path.
+
+The current legacy `triggerUlt()` implementation must not be assumed to work for spatial Orbital craft.
+
+Migrate every ability into a canonical Orbital ability controller.
+
+The system must execute actual gameplay state changes.
+
+## Existing abilities
+
+Mandjet — Solar Flare.
+
+Shakuna — Wing Dive.
+
+Sundara — Vortex Camouflage.
+
+Tripura — Trinity Shift.
+
+Duskbreaker — Quantum Lock.
+
+Sentinel-G — Proximity Ward.
+
+Splitter Ring — Ring Split.
+
+Glide Knife — Skip Reentry.
+
+For each ability, define:
+
+- Activation command.
+- Eligibility.
+- Cooldown.
+- Energy or ammunition cost.
+- Duration.
+- Effective range.
+- Target selection.
+- Damage or defensive effects.
+- Interruption.
+- Visual effects.
+- Audio effects.
+- Multiplayer authority.
+- Completion and reset.
+
+Preserve the original identity of every ability while adapting its effects to full 3D spatial flight.
+
+Do not implement an ability solely as a visual effect.
+
+# 10. NEW SHIP SPECIAL ABILITIES
+
+Implement the eight new ship abilities using the same canonical architecture.
+
+Each ability should be unique and mechanically meaningful.
+
+Support:
+
+- Active abilities.
+- Passive characteristics.
+- Defensive abilities.
+- Tactical support abilities.
+- Area effects.
+- Target-specific effects.
+- Fleet-wide support where appropriate.
+
+Do not let two ships perform the same ability under different names.
+
+A special ability must meaningfully influence combat decisions.
+
+# 11. CREATE A REAL SHIP LOADOUT SYSTEM
+
+Each spacecraft should support appropriate weapon and equipment configurations.
+
+Create ship-specific hardpoints.
+
+Potential equipment slots:
+
+- Primary weapon.
+- Secondary weapon.
+- Missile launcher.
+- Defensive equipment.
+- Sensor equipment.
+- Utility equipment.
+- Special subsystem.
+
+Allow players to configure eligible weapon combinations.
+
+Maintain compatibility with the existing saved ship and progression systems.
+
+Do not allow impossible equipment combinations.
+
+Do not permit client-controlled damage, ammunition or cooldown values.
+
+Provide a clear hangar loadout inspection interface.
+
+# 12. CREATE FLEET AI AND FORMATION WARFARE
+
+Build a Fleet Tactical Director.
+
+The fleet director must coordinate multiple spacecraft using roles, targets, objectives, formations and tactical state.
+
+Implement:
+
+- Fighter screening.
+- Escort.
+- Interception.
+- Reconnaissance.
+- Bomber attack runs.
+- Missile coordination.
+- Capital-ship defense.
+- Reinforcement.
+- Withdrawal.
+- Formation regrouping.
+- Tactical target prioritization.
+
+## Required formations
+
+### Spearhead
+
+Concentrated forward assault.
+
+### Pincer
+
+Multiple groups attack from different directions.
+
+### Hammer and Anvil
+
+Fast fighters draw enemies into a heavy-weapon attack zone.
+
+### Defensive Screen
+
+Escort spacecraft protect a capital ship.
+
+### Bomber Corridor
+
+Bombers approach a designated target using coordinated attack paths.
+
+### Swarm
+
+Interceptors coordinate multiple attack vectors.
+
+### Missile Saturation
+
+Multiple launch platforms coordinate staggered missile attacks.
+
+### Leapfrog Retreat
+
+One group withdraws while another provides cover.
+
+### Carrier Launch
+
+Carriers deploy fighters into coordinated roles.
+
+### Capital Broadside
+
+Heavy vessels align multiple weapon batteries toward a selected target.
+
+Formations must adapt to combat conditions.
+
+They must not be static position offsets.
+
+# 13. ADVANCED FLEET MANEUVERS
+
+Implement tactical group maneuvers.
+
+Examples:
+
+- Coordinated attack turn.
+- Multi-axis interception.
+- Defensive rotation.
+- Escort screen rotation.
+- High-speed pursuit.
+- Ambush convergence.
+- Evasive fleet dispersion.
+- Missile evasion spread.
+- Capital-ship repositioning.
+- Reinforcement entry.
+- Withdrawal under cover.
+
+Fleet maneuvers must consider:
+
+- Ship role.
+- Ship speed.
+- Ship maneuverability.
+- Formation spacing.
+- Nearby obstacles.
+- Enemy positions.
+- Threat level.
+- Weapons availability.
+- Friendly vessel health.
+- Mission objectives.
+
+A capital ship must not maneuver like a fighter.
+
+A bomber formation must not maneuver like an interceptor squadron.
+
+# 14. AUTONOMOUS FLEET OPERATIONS IN THE OPEN UNIVERSE
+
+Integrate the fleet system into the Infinite War universe.
+
+USSF and Accord fleets must exist as autonomous world actors.
+
+They should:
+
+- Patrol.
+- Escort.
+- Intercept.
+- Reconnoiter.
+- Transport.
+- Attack installations.
+- Defend stations.
+- Reinforce allied fleets.
+- Respond to distress signals.
+- Investigate anomalies.
+- Engage opposing fleets.
+- Withdraw after damage.
+- Regroup and rearm.
+
+Create multiple simulation detail levels.
+
+Nearby combat receives detailed simulation.
+
+Distant fleets use strategic simulation.
+
+Do not run full fighter physics for every distant ship.
+
+Maintain consistent world state across sector streaming and player reconnection.
+
+# 15. CAPITAL SHIP COMBAT SYSTEM
+
+Capital vessels need actual subsystem combat.
+
+Implement:
+
+- Shield generators.
+- Main engines.
+- Secondary engines.
+- Weapon batteries.
+- Missile launchers.
+- Point-defense arrays.
+- Sensor systems.
+- Command bridge.
+- Hangar systems.
+- Repair systems.
+- Power systems.
+
+Subsystem damage must produce actual effects.
+
+Examples:
+
+- Destroyed engine: reduced maneuverability.
+- Destroyed shield generator: weaker defense.
+- Damaged sensor array: reduced targeting.
+- Destroyed missile bay: loss of that launcher.
+- Damaged hangar: reduced fighter deployment.
+- Damaged command system: reduced coordination.
+
+Make capital battles multi-stage encounters rather than a single large health bar.
+
+# 16. MULTIPLAYER AND SERVER AUTHORITY
+
+All competitive and cooperative outcomes must remain server-authoritative.
+
+Keep client and server simulation behavior consistent.
+
+The server validates:
+
+- Weapon selection.
+- Ammunition.
+- Missile launches.
+- Lock completion.
+- Special abilities.
+- Cooldowns.
+- Energy.
+- Damage.
+- Countermeasures.
+- Formation orders.
+- Ship compatibility.
+- Capital-ship subsystem state.
+
+Use typed and versioned input contracts.
+
+Preserve existing authentication, matchmaking, account progression, economy, rewards and session security.
+
+Do not change live Wing's established competitive control or reward contracts without a coordinated client/server migration and tests.
+
+Keep offline training and competitive rewards properly separated.
+
+# 17. SHIP BALANCE AND COMPETITIVE DESIGN
+
+Do not make every new spacecraft stronger than the existing fleet.
+
+Each ship needs meaningful strengths and weaknesses.
+
+Establish a balance matrix for:
+
+- Speed.
+- Acceleration.
+- Rotation.
+- Hull.
+- Shields.
+- Armor.
+- Weapon DPS.
+- Burst damage.
+- Missile capability.
+- Defensive capability.
+- Special ability.
+- Energy efficiency.
+- Heat.
+- Tactical role.
+
+Run repeatable seeded simulation cohorts.
+
+Test symmetrical lock and damage policies.
+
+Do not treat scripted 1v1 scores as proof of human 5v5 balance.
+
+Normalize progression bonuses in competitive environments.
+
+Do not allow purchased or earned upgrades to create unfair online damage advantages.
+
+# 18. GRAPHICS AND PERFORMANCE
+
+Implement mobile-conscious rendering.
+
+Support:
+
+- Distinct spacecraft geometry.
+- Efficient materials.
+- Level of detail.
+- Instancing where appropriate.
+- Weapon effects.
+- Missile trails.
+- Explosion effects.
+- Shield effects.
+- Damage effects.
+- Capital-ship scale.
+- Hangar inspection.
+- Performance budgets.
+
+Measure actual draw calls, triangles, memory and frame timing.
+
+Preserve the existing Orbital rendering architecture.
+
+Do not create a separate gameplay runtime.
+
+Use Three.js as a rendering technology owned by the appropriate engine layer.
+
+# 19. REQUIRED TESTS
+
+Add automated tests for every ship and weapon.
+
+## Ship tests
+
+- All sixteen playable ship IDs exist.
+- Correct faction assignment.
+- Correct ship classes.
+- Distinct handling.
+- Weapon compatibility.
+- Special ability compatibility.
+- Valid hull and shield configurations.
+- Browser/server definition parity.
+
+## Weapon tests
+
+- Correct fire interval.
+- Damage calculation.
+- Projectile velocity.
+- Collision.
+- Range.
+- Ammunition.
+- Cooldown.
+- Armor interaction.
+- Shield interaction.
+
+## Missile tests
+
+- Acquisition.
+- Lock completion.
+- Launch.
+- Guidance.
+- Fuel/lifetime.
+- Collision.
+- Detonation.
+- Countermeasures.
+- Interception.
+- Multiplayer validation.
+
+## Ability tests
+
+- Each of the sixteen ship abilities.
+- Cooldown.
+- Energy consumption.
+- Valid targets.
+- Invalid targets.
+- Duration.
+- Interruption.
+- Server authority.
+- Correct visual and gameplay outcome.
+
+## Fleet tests
+
+- Formation assembly.
+- Formation maintenance.
+- Target selection.
+- Fighter escort.
+- Bomber attack.
+- Missile coordination.
+- Capital defense.
+- Reinforcement.
+- Withdrawal.
+- Reconnection and persistence.
+
+# 20. REQUIRED PLAYABLE DEMONSTRATIONS
+
+Demonstrate:
+
+1. All eight original spacecraft in Orbital.
+2. All eight new spacecraft in Orbital.
+3. Each ship's distinct 3D model.
+4. Each ship's primary weapon.
+5. Each ship's missile configuration.
+6. Every existing hull-specific special ability.
+7. Every new hull-specific special ability.
+8. A coordinated USSF fighter squadron.
+9. A coordinated Accord fighter squadron.
+10. A USSF carrier deploying fighters.
+11. An Accord capital fleet defending an installation.
+12. A missile saturation attack.
+13. A defensive screen protecting a capital ship.
+14. A coordinated bomber attack.
+15. A capital-ship subsystem battle.
+16. A complete fleet engagement involving both factions.
+17. Mobile landscape performance and control testing.
+18. Multiplayer synchronization and server-authoritative combat.
+
+Show actual simulation and gameplay behavior, not just menu previews or animated models.
+
+# 21. IMPLEMENTATION PHASES
+
+Phase A — Forensic ship and weapon audit.
+
+Phase B — Canonical Orbital integration of the existing eight ships.
+
+Phase C — Existing eight special abilities.
+
+Phase D — Weapon and missile architecture.
+
+Phase E — Countermeasures and defensive systems.
+
+Phase F — Distinct 3D model reconstruction.
+
+Phase G — Four additional USSF ships.
+
+Phase H — Four additional Accord ships.
+
+Phase I — Fleet AI and formations.
+
+Phase J — Capital vessels and subsystem combat.
+
+Phase K — Multiplayer authority and balance.
+
+Phase L — Mobile performance, testing and certification.
+
+Complete each phase with passing tests and a demonstrable playable result before expanding its scope.
+
+# 22. ACCEPTANCE CRITERIA
+
+A feature may only be marked IMPLEMENTED AND VERIFIED when its actual runtime behavior has been tested.
+
+Use these statuses:
+
+- IMPLEMENTED AND VERIFIED.
+- IMPLEMENTED BUT NOT FULLY VERIFIED.
+- PARTIALLY IMPLEMENTED.
+- NOT IMPLEMENTED.
+- BLOCKED.
+
+Provide evidence for each ship, weapon, missile, ability, formation and capital system.
+
+Provide:
+
+- Commit hashes.
+- Changed source paths.
+- Automated test results.
+- Browser gameplay results.
+- Multiplayer results.
+- Rendering evidence.
+- Mobile evidence.
+- Known limitations.
+- Remaining architectural gaps.
+
+Do not claim physical-device certification without physical-device testing.
+
+Do not claim production deployment from successful builds or staging-only evidence.
+
+Do not merge or deploy without the established release gates.
+
+# FINAL DIRECTIVE
+
+Build two genuinely different military spacecraft civilizations.
+
+The USSF must feel like an advanced, disciplined military space force.
+
+The Accord must feel like a powerful, unconventional and technologically distinct opposing civilization.
+
+Their spacecraft must have individual identities, actual weapon systems, meaningful tactical abilities, recognizable visual construction and specialized combat roles.
+
+Their fleets must be able to patrol, coordinate, attack, defend, reinforce and wage large-scale battles across the Infinite War universe.
+
+A player must be able to fly an interceptor, attack a bomber, defend a carrier, intercept missiles, fight a destroyer, or participate in a large fleet engagement.
+
+Make the ship selection meaningful.
+
+Make weapon selection meaningful.
+
+Make special abilities meaningful.
+
+Make fleet formations meaningful.
+
+Make the battlefield dynamic.
+
+**Do not merely increase the number of spacecraft. Build the military fleets, weapon architecture, autonomous fleet intelligence and tactical warfare systems that make War for Mars: Infinite War feel like a living interstellar war.**
+
+Everything must be integrated into Orbital Combat Lab, tested, and demonstrated as one coherent game.

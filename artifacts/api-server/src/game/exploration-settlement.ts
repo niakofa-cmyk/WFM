@@ -13,6 +13,11 @@ export interface ExplorationRewardTransaction {
   /** Must lock all existing profiles in sorted order for the whole transaction. */
   lockProfiles(playerIds: string[]): Promise<Map<string, { credits: number; revision: number }>>;
   findResult(playerId: string, key: string): Promise<ExplorationLedgerRecord | null>;
+  applyPatrolOutcome?(
+    patrolId: string,
+    encounterId: string,
+    destroyedActorIds: readonly string[],
+  ): Promise<void>;
   writeResult(playerId: string, key: string, result: Readonly<ExplorationResult>, award: ExplorationAward): Promise<void>;
 }
 export interface ExplorationRewardStore {
@@ -59,6 +64,11 @@ export async function settleExplorationWithStore(
     if (previous.length > 0) {
       if (previous.length !== players.length) throw new Error("Partial exploration settlement requires reconciliation.");
       return { status: "duplicate", awards: previous };
+    }
+    if (result.patrol) {
+      if (!tx.applyPatrolOutcome) throw new Error("Persistent patrol settlement is unavailable.");
+      const destroyedActorIds = [...new Set(result.pilots.flatMap((pilot) => pilot.destroyedActorIds))].sort();
+      await tx.applyPatrolOutcome(result.patrol.patrolId, result.encounterId, destroyedActorIds);
     }
     const awards: ExplorationAward[] = [];
     for (const pilot of result.pilots) {

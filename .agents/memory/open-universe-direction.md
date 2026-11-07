@@ -14,14 +14,15 @@ references are retained unchanged in `attached_assets/` and linked from
 **Why:** the owner asked to retain and implement this vision rather than
 merely enlarge planar maps or decorate menus.
 
-**How to apply:** build a playable bounded Rust Disc slice before expanding
-sectors or considering an engine replacement. Preserve the working Three.js
-client, existing room infrastructure and account/progression contracts unless
-evidence justifies replacement. Treat source architecture/canon claims as
-proposals to check, not proof. Do not represent a local no-reward flight trainer
-as an authoritative multiplayer upgrade, persistent discovery or Production
-certification. Competitive promotion requires shared verified physics and
-versioned networking; client-only completion never authorizes rewards.
+**How to apply:** keep Orbital as the intended sole game engine/runtime and do
+not expand a separate Three.js universe. The current renderer is transitional;
+do not claim the Orbital-only renderer migration is complete until verified.
+Preserve existing room infrastructure and account/progression contracts. Treat
+source architecture/canon claims as proposals to check, not proof. Do not
+represent a local no-reward flight trainer as authoritative multiplayer
+progression or Production certification. Competitive promotion requires shared
+verified physics and versioned networking; client-only completion never
+authorizes rewards.
 
 **Additional direction:** grow a small connected universe slice with stable
 destinations and real server-backed operation discovery before adding broad
@@ -65,3 +66,17 @@ foundational rebuild requirement.
 Validate encounter state, ship destruction, reward eligibility, and world
 consequences on the server with idempotent settlement. Do not alter existing
 Wing, private-room, AI-fill, or local-sandbox reward rules by implication.
+
+**Owner clarification:** the pilot's selected faction determines the opposing
+roaming patrol faction; server-confirmed destroyed patrol ships must change the
+shared universe roster, while only completed extraction earns the bounded
+exploration bounty.
+
+**Why:** the owner explicitly wants exploration itself to be authoritative,
+combat-capable, reward-capable, and consequential across the open universe.
+
+**How to apply:** resolve patrol and player location from authenticated saved
+world state, reserve a fleet for one encounter, attribute damage and assists
+from server simulation, and settle casualties/rewards idempotently. Aborted
+encounters must not pay credits. Do not infer human players or a seamless
+continuous-world battle from a strategic AI patrol.

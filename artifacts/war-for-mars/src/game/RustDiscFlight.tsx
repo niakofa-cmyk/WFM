@@ -542,8 +542,10 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
     const ownPilot = () => { const sn = expeditionRef.current?.snapshotRef.current; return sn?.pilots.find(p => p.slot === sn.ownSlot); };
     let state: FlightState = netMode ? (ownPilot()?.flight ?? createFlight(shipId, sector)) : createFlight(shipId);
     const others = new Map<number, { group: THREE_TYPES.Group; shipId: ShipId; engines: THREE_TYPES.Object3D }>();
+    const hostileFleetGroups = new Map<string, { group: THREE_TYPES.Group; shipId: ShipId; engines: THREE_TYPES.Object3D }>();
     const remoteProjectiles: FlightState["projectiles"] = [];
     const seenPilots = new Set<number>();
+    const seenHostileFleet = new Set<string>();
     const seenWing = new Set<string>();
     let projectiles = state.projectiles;
     let inputTimer: number | undefined;
@@ -650,6 +652,33 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           o.engines.visible = p.connected;
         }
         for (const [slot, o] of others) if (!seenPilots.has(slot)) { scene.remove(o.group); others.delete(slot); }
+        seenHostileFleet.clear();
+        for (const hostile of snap?.hostileFleet?.ships ?? []) {
+          seenHostileFleet.add(hostile.actorId);
+          let target = hostileFleetGroups.get(hostile.actorId);
+          if (!target || target.shipId !== hostile.shipId) {
+            if (target) scene.remove(target.group);
+            const group = buildHull(THREE, hostile.shipId, track);
+            group.scale.setScalar(1.5);
+            scene.add(group);
+            target = { group, shipId: hostile.shipId, engines: group.getObjectByName("engines")! };
+            hostileFleetGroups.set(hostile.actorId, target);
+          }
+          target.group.visible = true;
+          target.group.position.lerp(
+            tmpV.set(hostile.position.x, hostile.position.y, hostile.position.z),
+            blend,
+          );
+          target.group.rotation.y = Math.atan2(-hostile.position.x, -hostile.position.z);
+          target.group.scale.setScalar(hostile.destroyed ? 1.1 : 1.5);
+          target.engines.visible = !hostile.destroyed;
+        }
+        for (const [actorId, target] of hostileFleetGroups) {
+          if (!seenHostileFleet.has(actorId)) {
+            scene.remove(target.group);
+            hostileFleetGroups.delete(actorId);
+          }
+        }
         projectiles = remoteProjectiles;
       } else if (pausedRef.current || ended) {
         acc = 0;
@@ -756,7 +785,8 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
 
       const d = state.drone.position;
       drone.position.set(d.x, d.y, d.z);
-      drone.visible = state.drone.hull > 0;
+      drone.visible = state.drone.hull > 0 &&
+        expeditionRef.current?.snapshotRef.current?.hostileFleet === undefined;
       drone.rotation.y += reducedMotion.current ? 0 : 0.01;
       droneRing.rotation.x = state.elapsed * 1.3;
       droneMat.emissiveIntensity = state.stage === "drone" ? 0.6 + 0.3 * Math.sin(state.elapsed * 6) : 0.15;
@@ -836,11 +866,23 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
         const dx = obj.position.x - state.position.x, dy = obj.position.y - state.position.y, dz = obj.position.z - state.position.z;
         const selectedSubsystem = authoritativeOperation?.subsystems.find(item => item.id === authoritativeOperation.target);
         const targetActive = state.stage === "drone" && state.drone.hull > 0;
+        const hostileTarget = (snapNow?.hostileFleet?.ships ?? [])
+          .filter((ship) => !ship.destroyed)
+          .map((ship) => ({
+            ship,
+            distance: vectorLength({
+              x: ship.position.x - state.drone.position.x,
+              y: ship.position.y - state.drone.position.y,
+              z: ship.position.z - state.drone.position.z,
+            }),
+          }))
+          .sort((a, b) => a.distance - b.distance)[0]?.ship;
         const targetPosition = selectedSubsystem?.position ?? state.drone.position;
         const targetDx = targetPosition.x - state.position.x;
         const targetDy = targetPosition.y - state.position.y;
         const targetDz = targetPosition.z - state.position.z;
-        const targetMaxHull = selectedSubsystem?.maxHull ?? expeditionRef.current?.mission.sector.droneHull ?? RUST_DISC_SECTOR.droneHull ?? 60;
+        const targetMaxHull = selectedSubsystem?.maxHull ?? hostileTarget?.maxHull ??
+          expeditionRef.current?.mission.sector.droneHull ?? RUST_DISC_SECTOR.droneHull ?? 60;
         const evidence = (snapNow?.evidence ?? []).map((site) => ({
           ...site,
           distanceMeters: vectorLength({
@@ -853,10 +895,13 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           speed: sp, throttle: inp.throttle, hull: state.hull, energy: state.energy, missiles: state.missiles,
           lock: state.lock, objective: objectiveLabel, distance: Math.sqrt(dx * dx + dy * dy + dz * dz), stage: state.stage,
           target: targetActive ? {
-            name: selectedSubsystem?.label ?? (expeditionRef.current?.mission.id === "pale-beacons" ? "ROAMING PATROL LEAD" : "TRAINING DRONE"),
-            affiliation: selectedSubsystem ? "HOSTILE CAPITAL" : "HOSTILE CONTACT",
+            name: selectedSubsystem?.label ?? hostileTarget?.callsign ??
+              (expeditionRef.current?.mission.id === "pale-beacons" ? "ROAMING PATROL LEAD" : "TRAINING DRONE"),
+            affiliation: selectedSubsystem ? "HOSTILE CAPITAL" : hostileTarget
+              ? `${snapNow?.hostileFleet?.faction.toUpperCase()} PATROL`
+              : "HOSTILE CONTACT",
             distance: Math.sqrt(targetDx * targetDx + targetDy * targetDy + targetDz * targetDz),
-            hull: selectedSubsystem?.hull ?? state.drone.hull,
+            hull: selectedSubsystem?.hull ?? hostileTarget?.hull ?? state.drone.hull,
             maxHull: targetMaxHull,
             lockable: canLock(state, sector),
             lockHeld: inp.lock,
@@ -1280,7 +1325,7 @@ function FlightHud({ hud, shipId, droneMax, onTransponder, transponderDisabled }
       <div className="absolute left-1/2 top-2 -translate-x-1/2 text-center">
         <p className="text-[10px] tracking-[0.3em] text-muted">{STAGE_LABEL[hud.stage]} · {String(Math.floor(t / 60)).padStart(2, "0")}:{String(t % 60).padStart(2, "0")}</p>
         <p className="mt-0.5 text-xs tracking-[0.15em]" data-testid="text-objective">{hud.objective.toUpperCase()} · {Math.round(hud.distance)}M</p>
-        {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">{hud.target?.name ?? "DRONE"} {Math.round(hud.droneHull)} / {droneMax}</p> : null}
+      {hud.stage === "drone" ? <p className="text-[9px] tracking-[0.2em] text-[#ff7a5c]">{hud.target?.name ?? "DRONE"} {Math.round(hud.droneHull)} / {hud.target?.maxHull ?? droneMax}</p> : null}
         {hud.incoming > 0 ? <p className="mt-1 animate-pulse text-[10px] tracking-[0.3em] text-[#ff7a5c]" data-testid="status-incoming">INCOMING {hud.incoming}</p> : null}
       </div>
       <div className="pointer-events-none absolute left-1/2 top-[3.8rem] z-[4] w-56 -translate-x-1/2 text-center" data-testid="panel-combat-target">

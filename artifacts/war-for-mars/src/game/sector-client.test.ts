@@ -101,6 +101,31 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
   assert.equal(parseSectorSnapshot({
     ...paleBeaconsSnapshot, factionContact: { ...factionContact, enteredAtTick: 4 },
   }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "contact state cannot claim a future server tick");
+  const universePatrolSnapshot = {
+    ...orbitalSnapshot,
+    missionId: "universe-patrol",
+    phase: "lobby",
+    hostileFleet: {
+      patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
+      callsign: "ASHEN SPEAR",
+      locationId: "mars-orbit",
+      faction: "accord",
+      ships: [{
+        actorId: "patrol-ship:strategic-patrol-v1:mars-orbit:accord:0:ship:0",
+        shipId: "mandjet",
+        callsign: "ASHEN-1",
+        position: { x: 20, y: 140, z: -500 },
+        hull: 110,
+        maxHull: 110,
+        destroyed: false,
+      }],
+    },
+  };
+  assert.ok(parseSectorSnapshot(universePatrolSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    hostileFleet: { ...universePatrolSnapshot.hostileFleet, faction: "ussf" },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the contact must oppose the selected hull's faction");
   assert.equal(parseSectorSnapshot({ ...snap, factionContact }, 1), null,
     "compatibility snapshots cannot inject Orbital faction decisions");
   assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true, tacticalCommands: true } }));

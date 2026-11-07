@@ -11,4 +11,5 @@ export type WorldScoutEncounterResultMissionId = typeof WorldScoutEncounterResul
 
 export const WorldScoutEncounterResultMissionId = {
   'pale-beacons': 'pale-beacons',
+  'universe-patrol': 'universe-patrol',
 } as const;

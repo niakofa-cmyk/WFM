@@ -4,6 +4,7 @@ import { db, playerProgressTable, playerWorldStateTable, progressionEventsTable,
 import { lockedPlayerRows } from "./world";
 import { SECTOR_MISSIONS, sectorMission, type SectorProgress, type SectorScoutResult } from "./sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "./sector-completion";
+import { applyUniversePatrolOutcomeInTransaction } from "./universe-patrols";
 
 const discoveryId = (id: string) => `flight:${id}`;
 function sameScoutResult(value: Record<string, unknown>, result: SectorScoutResult): boolean {
@@ -12,6 +13,9 @@ function sameScoutResult(value: Record<string, unknown>, result: SectorScoutResu
     value.encounterId === result.encounterId &&
     value.missionId === result.missionId &&
     value.sectorId === result.sectorId &&
+    value.patrolId === result.patrolId &&
+    value.patrolLocationId === result.patrolLocationId &&
+    value.opposingFaction === result.opposingFaction &&
     value.runtime === result.runtime &&
     value.policyId === result.policyId &&
     value.outcome === result.outcome &&
@@ -81,11 +85,22 @@ export async function settleSectorDiscovery(result: CompletedSectorMission) {
 export async function saveSectorScoutResults(entries: readonly { userId: string; result: SectorScoutResult }[]): Promise<void> {
   if (!entries.length || entries.length > 8) throw new Error("invalid_sector_scout_results");
   const encounterId = entries[0]!.result.encounterId;
+  const firstResult = entries[0]!.result;
+  const isUniversePatrol = firstResult.missionId === "universe-patrol";
+  const expectedPolicy = isUniversePatrol ? "universe-patrol-bounty-v1" : "pale-beacon-npc-bounty-v1";
+  const expectedSector = isUniversePatrol ? "universe-patrol-contact-v1" : "pale-beacons-v1";
   if (!/^[0-9a-f-]{36}$/i.test(encounterId) ||
       entries.some(({ userId, result }) => !userId || result.encounterId !== encounterId ||
-        result.missionId !== "pale-beacons" || !/^[0-9a-f]{64}$/.test(result.fingerprint) ||
-        result.sectorId !== "pale-beacons-v1" || result.policyId !== "pale-beacon-npc-bounty-v1" ||
+        !["pale-beacons", "universe-patrol"].includes(result.missionId) ||
+        result.missionId !== firstResult.missionId ||
+        !/^[0-9a-f]{64}$/.test(result.fingerprint) ||
+        result.sectorId !== expectedSector || result.policyId !== expectedPolicy ||
         result.outcome !== "aborted" || result.objectiveCompleted !== false || result.creditsAwarded !== 0 ||
+        (isUniversePatrol && (typeof result.patrolId !== "string" || result.patrolId.length > 128 ||
+          typeof result.patrolLocationId !== "string" || result.patrolLocationId.length > 128 ||
+          !["ussf", "accord"].includes(String(result.opposingFaction)))) ||
+        (!isUniversePatrol && (result.patrolId !== undefined ||
+          result.patrolLocationId !== undefined || result.opposingFaction !== undefined)) ||
         !Number.isSafeInteger(result.finalTick) || result.finalTick < 0 ||
         !Number.isSafeInteger(result.kills) || result.kills < 0 ||
         !Number.isSafeInteger(result.assists) || result.assists < 0 ||
@@ -97,9 +112,11 @@ export async function saveSectorScoutResults(entries: readonly { userId: string;
   }
   const first = entries[0]!.result;
   if (entries.some(({ result }) => result.fingerprint !== first.fingerprint ||
-      result.sectorId !== first.sectorId || result.runtime !== first.runtime ||
+      result.missionId !== first.missionId || result.sectorId !== first.sectorId || result.runtime !== first.runtime ||
       result.policyId !== first.policyId || result.outcome !== first.outcome ||
-      result.finalTick !== first.finalTick || result.objectiveCompleted !== first.objectiveCompleted)) {
+      result.finalTick !== first.finalTick || result.objectiveCompleted !== first.objectiveCompleted ||
+      result.patrolId !== first.patrolId || result.patrolLocationId !== first.patrolLocationId ||
+      result.opposingFaction !== first.opposingFaction)) {
     throw new Error("conflicting_sector_scout_results");
   }
   const uniqueUsers = new Set(entries.map(({ userId }) => userId));
@@ -111,16 +128,34 @@ export async function saveSectorScoutResults(entries: readonly { userId: string;
       .orderBy(asc(playerProgressTable.userId)).for("update");
     const found = new Set(locked.map(({ userId }) => userId));
     if (userIds.some((id) => !found.has(id))) throw new Error("sector_scout_profile_missing");
-    for (const { userId, result } of [...entries].sort((a, b) => a.userId.localeCompare(b.userId))) {
-      const key = `sector-scout-result:${encounterId}`;
-      const record = { action: "server_scout_result", mode: "orbital-scout-result-v1", ...result };
-      const [previous] = await tx.select({ result: progressionEventsTable.result })
-        .from(progressionEventsTable)
-        .where(and(eq(progressionEventsTable.userId, userId), eq(progressionEventsTable.idempotencyKey, key)));
-      if (previous) {
-        if (!sameScoutResult(previous.result, result)) throw new Error("sector_scout_result_conflict");
-        continue;
+    const key = `sector-scout-result:${encounterId}`;
+    const priorRows = await tx.select({
+      userId: progressionEventsTable.userId,
+      result: progressionEventsTable.result,
+    }).from(progressionEventsTable).where(and(
+      inArray(progressionEventsTable.userId, userIds),
+      eq(progressionEventsTable.idempotencyKey, key),
+    ));
+    if (priorRows.length > 0) {
+      if (priorRows.length !== entries.length || priorRows.some(({ userId, result }) => {
+        const entry = entries.find((candidate) => candidate.userId === userId);
+        return !entry || !sameScoutResult(result, entry.result);
+      })) throw new Error("sector_scout_result_conflict");
+      return;
+    }
+    if (isUniversePatrol) {
+      const destroyedActorIds = [...new Set(entries.flatMap(({ result }) => result.destroyedActorIds))].sort();
+      if (destroyedActorIds.some((actorId) => !actorId.startsWith("patrol-ship:"))) {
+        throw new Error("invalid_universe_patrol_casualty");
       }
+      await applyUniversePatrolOutcomeInTransaction(tx, {
+        patrolId: firstResult.patrolId!,
+        encounterId,
+        destroyedActorIds,
+      });
+    }
+    for (const { userId, result } of [...entries].sort((a, b) => a.userId.localeCompare(b.userId))) {
+      const record = { action: "server_scout_result", mode: "orbital-scout-result-v1", ...result };
       const [profile] = await tx.select({ credits: playerProgressTable.credits })
         .from(playerProgressTable).where(eq(playerProgressTable.userId, userId)).limit(1);
       if (!profile) throw new Error("sector_scout_profile_missing");
@@ -154,7 +189,7 @@ export async function getRecentSectorScoutResults(userId: string): Promise<Array
         ? 0
         : result.creditsAwarded;
     if (result.mode !== "orbital-scout-result-v1" || result.action !== "server_scout_result" ||
-        result.missionId !== "pale-beacons" || typeof result.encounterId !== "string" ||
+        !["pale-beacons", "universe-patrol"].includes(String(result.missionId)) || typeof result.encounterId !== "string" ||
         typeof result.sectorId !== "string" || typeof result.runtime !== "string" ||
         typeof result.policyId !== "string" || !["completed", "aborted"].includes(String(result.outcome)) ||
         !Number.isSafeInteger(result.finalTick) || Number(result.finalTick) < 0 ||
@@ -169,7 +204,7 @@ export async function getRecentSectorScoutResults(userId: string): Promise<Array
         Number(result.rewardableNpcKills) > Number(result.kills) ||
          typeof result.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(result.fingerprint) ||
          typeof result.policyId !== "string" ||
-         !["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId)) return [];
+          !["scout-result-only-v1", "pale-beacon-npc-bounty-v1", "universe-patrol-bounty-v1"].includes(result.policyId)) return [];
     const { action: _action, mode: _mode, ...safeResult } = result;
     const entry = {
       ...safeResult,

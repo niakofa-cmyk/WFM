@@ -1,5 +1,6 @@
 import React from "react";
 import type { WorldPatrolDirectory, WorldLocation } from "@workspace/api-client-react";
+import type { Faction, ShipId } from "./ships";
 
 const OBJECTIVE_LABELS: Record<string, string> = {
   recon: "Recon patrol",
@@ -12,6 +13,9 @@ type Props = {
   directory?: WorldPatrolDirectory;
   currentLocationId: string;
   currentLocationName?: string;
+  pilotFaction: Faction;
+  shipId: ShipId;
+  canLaunchEncounter: boolean;
   locations: Pick<WorldLocation, "id" | "name">[];
   loading: boolean;
   unavailable: boolean;
@@ -22,6 +26,9 @@ export function UniversePatrolPanel({
   directory,
   currentLocationId,
   currentLocationName,
+  pilotFaction,
+  shipId,
+  canLaunchEncounter,
   locations,
   loading,
   unavailable,
@@ -29,6 +36,9 @@ export function UniversePatrolPanel({
 }: Props) {
   const locationNames = new Map(locations.map((location) => [location.id, location.name]));
   const currentSnapshot = directory?.currentLocationId === currentLocationId;
+  const launchablePatrolId = directory?.patrols
+    .filter((patrol) => patrol.faction !== pilotFaction && patrol.ships.length > 0)
+    .sort((left, right) => left.id.localeCompare(right.id))[0]?.id;
 
   return (
     <section data-testid="panel-universe-patrols" className="mt-5 border border-spectral/35 bg-panel/75">
@@ -40,7 +50,7 @@ export function UniversePatrolPanel({
           Patrol formations · {currentLocationName ?? "Current sector"}
         </h2>
         <p className="mt-2 text-xs leading-relaxed text-muted">
-          Persistent USSF and Accord patrols move between connected regions. These are server-owned AI fleets, not live human matches; this strategic view does not claim a nearby 3D encounter or award combat rewards.
+          Persistent USSF and Accord AI patrols—not live human matches—move between connected regions. Intercept the opposing faction for a server-authoritative Orbital flight encounter. Credits and shared fleet losses settle only from verified combat results.
         </p>
       </header>
 
@@ -82,7 +92,7 @@ export function UniversePatrolPanel({
                   </p>
                 </div>
                 <span className="border border-bone/20 px-2 py-1 font-hud text-[9px] tracking-widest text-muted">
-                  STRATEGIC ROUTE
+                  {patrol.faction === pilotFaction ? "FRIENDLY ROUTE" : "OPPOSING CONTACT"}
                 </span>
               </div>
               <p className="mt-3 text-xs leading-relaxed text-muted">
@@ -95,10 +105,25 @@ export function UniversePatrolPanel({
                   </li>
                 ))}
               </ul>
+              {patrol.id === launchablePatrolId ? (
+                canLaunchEncounter ? (
+                  <a
+                    href={`/expedition?mission=universe-patrol&ship=${encodeURIComponent(shipId)}`}
+                    data-testid="button-intercept-universe-patrol"
+                    className="mt-4 inline-flex min-h-11 items-center justify-center border border-solar bg-solar px-4 font-hud text-[10px] tracking-widest text-void"
+                  >
+                    INTERCEPT PATROL IN ORBITAL FLIGHT
+                  </a>
+                ) : (
+                  <p className="mt-4 text-[10px] tracking-wide text-muted">
+                    Orbital multiplayer flight is unavailable in this client configuration.
+                  </p>
+                )
+              ) : null}
             </article>
           ))}
           <p className="px-4 py-3 text-[10px] tracking-wide text-muted">
-            Route positions advance in the persistent strategic layer. Encounter detection, 3D flight combat, kill attribution, and settlement remain separate server-authoritative systems.
+            Route positions persist in the strategic layer. The intercept link resolves the opposing roster and current region on the server; it does not accept a client-selected target or location.
           </p>
         </div>
       )}

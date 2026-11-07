@@ -1544,6 +1544,7 @@ export type WorldScoutEncounterResultMissionId = typeof WorldScoutEncounterResul
 
 export const WorldScoutEncounterResultMissionId = {
   'pale-beacons': 'pale-beacons',
+  'universe-patrol': 'universe-patrol',
 } as const;
 
 export type WorldScoutEncounterResultOutcome = typeof WorldScoutEncounterResultOutcome[keyof typeof WorldScoutEncounterResultOutcome];
@@ -1552,6 +1553,14 @@ export type WorldScoutEncounterResultOutcome = typeof WorldScoutEncounterResultO
 export const WorldScoutEncounterResultOutcome = {
   completed: 'completed',
   aborted: 'aborted',
+} as const;
+
+export type WorldScoutEncounterResultOpposingFaction = typeof WorldScoutEncounterResultOpposingFaction[keyof typeof WorldScoutEncounterResultOpposingFaction];
+
+
+export const WorldScoutEncounterResultOpposingFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
 } as const;
 
 export interface WorldScoutEncounterResult {
@@ -1590,6 +1599,17 @@ export interface WorldScoutEncounterResult {
   rewardableNpcKills: number;
   /** @minimum 0 */
   creditsAwarded: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolLocationId?: string;
+  opposingFaction?: WorldScoutEncounterResultOpposingFaction;
   /** @pattern ^[0-9a-f]{64}$ */
   fingerprint: string;
   recordedAt: string;

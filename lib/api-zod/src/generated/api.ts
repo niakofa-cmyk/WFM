@@ -1392,6 +1392,10 @@ export const getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin 
 
 export const getWorldExplorationResultsResponseResultsItemCreditsAwardedMin = 0;
 
+export const getWorldExplorationResultsResponseResultsItemPatrolIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax = 128;
+
 export const getWorldExplorationResultsResponseResultsItemFingerprintRegExp = new RegExp('^[0-9a-f]{64}$');
 export const getWorldExplorationResultsResponseResultsMax = 10;
 
@@ -1400,7 +1404,7 @@ export const getWorldExplorationResultsResponseResultsMax = 10;
 export const GetWorldExplorationResultsResponse = zod.object({
   "results": zod.array(zod.object({
   "encounterId": zod.string().uuid(),
-  "missionId": zod.enum(['pale-beacons']),
+  "missionId": zod.enum(['pale-beacons', 'universe-patrol']),
   "sectorId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemSectorIdMax),
   "runtime": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemRuntimeMax),
   "policyId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPolicyIdMax),
@@ -1412,6 +1416,9 @@ export const GetWorldExplorationResultsResponse = zod.object({
   "destroyedActorIds": zod.array(zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax)).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax),
   "rewardableNpcKills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin),
   "creditsAwarded": zod.number().int().min(getWorldExplorationResultsResponseResultsItemCreditsAwardedMin),
+  "patrolId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolIdMax).optional(),
+  "patrolLocationId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax).optional(),
+  "opposingFaction": zod.enum(['ussf', 'accord']).optional(),
   "fingerprint": zod.string().regex(getWorldExplorationResultsResponseResultsItemFingerprintRegExp),
   "recordedAt": zod.coerce.date()
 })).max(getWorldExplorationResultsResponseResultsMax)

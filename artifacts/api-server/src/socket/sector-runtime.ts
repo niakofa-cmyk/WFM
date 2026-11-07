@@ -14,6 +14,7 @@ import {
   type SectorCommandRequest, type SectorSnapshot, type SectorSettlement, type SectorTacticalCommand,
   type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId, type SectorProtocolVersion,
   type SectorScoutResult, type SectorEvidencePickup,
+  type SectorHostileFleetShip, type SectorHostileFleetSnapshot,
   SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
@@ -22,6 +23,10 @@ import {
   type ExplorationReceipt, type FactionContactDecision, type PilotTransponder,
 } from "../game/exploration-encounter";
 import type { ExplorationSettlement } from "../game/exploration-settlement";
+import {
+  patrolShipActorId,
+  type UniversePatrolEncounter,
+} from "../game/universe-patrols";
 import {
   absorbWingDamage, advanceIronEclipse, completeIronEclipse, createIronEclipseState,
   damageIronEclipseTarget, ironEclipseSnapshot, ironEclipseTarget, markIronEclipseCapitalEngaged,
@@ -54,6 +59,8 @@ type Room = {
   scoutReceipt?: ExplorationReceipt;
   scoutPersisting?: Promise<void> | null;
   scoutPosition: FlightState["position"];
+  universePatrol?: UniversePatrolEncounter;
+  patrolFleet?: SectorHostileFleetShip[];
 };
 export type SectorOperationPresence = {
   instanceId: string;
@@ -73,6 +80,13 @@ type Options = {
     encounterId: string,
   ) => Promise<"recovered" | "duplicate">;
   isAtCinderRing?: (userId: string) => Promise<boolean>;
+  resolveUniversePatrol?: (userId: string, faction: "ussf" | "accord") => Promise<UniversePatrolEncounter | null>;
+  reserveUniversePatrol?: (
+    userIds: readonly string[],
+    faction: "ussf" | "accord",
+    contact: Pick<UniversePatrolEncounter, "patrolId" | "locationId" | "faction">,
+    encounterId: string,
+  ) => Promise<UniversePatrolEncounter | null>;
   publishOperation?: (state: SectorOperationPresence) => Promise<void>;
   /** Selected by deployment configuration, never by a client-supplied field. */
   protocolVersion?: SectorProtocolVersion;
@@ -100,6 +114,56 @@ const PALE_BEACON_PATROL_ROUTE = [
 ] as const;
 const PATROL_LEG_TICKS = 900;
 const EVIDENCE_RECOVERY_RADIUS_METERS = 55;
+const UNIVERSE_PATROL_ROUTE = [
+  { x: 20, y: 150, z: -530 },
+  { x: 300, y: 200, z: -590 },
+  { x: 370, y: 270, z: -850 },
+  { x: 60, y: 310, z: -1030 },
+  { x: -230, y: 180, z: -820 },
+] as const;
+
+function universePatrolPosition(tick: number, slot: number): FlightState["position"] {
+  const routeTicks = UNIVERSE_PATROL_ROUTE.length * PATROL_LEG_TICKS;
+  const routeTick = ((Math.max(0, Math.floor(tick)) % routeTicks) + routeTicks) % routeTicks;
+  const leg = Math.floor(routeTick / PATROL_LEG_TICKS);
+  const fraction = (routeTick - leg * PATROL_LEG_TICKS) / PATROL_LEG_TICKS;
+  const from = UNIVERSE_PATROL_ROUTE[leg]!;
+  const to = UNIVERSE_PATROL_ROUTE[(leg + 1) % UNIVERSE_PATROL_ROUTE.length]!;
+  const angle = tick / 120 + slot * (Math.PI * 2 / 5);
+  return {
+    x: from.x + (to.x - from.x) * fraction + Math.cos(angle) * (30 + slot * 7),
+    y: from.y + (to.y - from.y) * fraction + Math.sin(angle * 0.7) * 18 + slot * 7,
+    z: from.z + (to.z - from.z) * fraction + Math.sin(angle) * (34 + slot * 6),
+  };
+}
+
+function buildPatrolFleet(contact: UniversePatrolEncounter, tick = 0): SectorHostileFleetShip[] {
+  return contact.ships.slice(0, 4).map((ship, slot) => ({
+    actorId: patrolShipActorId(ship.id),
+    shipId: ship.hullId,
+    callsign: ship.callsign,
+    position: universePatrolPosition(tick, slot),
+    hull: SHIPS[ship.hullId].hull,
+    maxHull: SHIPS[ship.hullId].hull,
+    destroyed: false,
+  }));
+}
+
+function nearestLivingPatrolShip(
+  room: Room,
+  position: FlightState["position"],
+): SectorHostileFleetShip | undefined {
+  return room.patrolFleet?.filter((ship) => !ship.destroyed && ship.hull > 0)
+    .map((ship) => ({
+      ship,
+      distance: vectorLength({
+        x: position.x - ship.position.x,
+        y: position.y - ship.position.y,
+        z: position.z - ship.position.z,
+      }),
+    }))
+    .sort((a, b) => a.distance - b.distance || a.ship.actorId.localeCompare(b.ship.actorId))[0]?.ship;
+}
 
 export function roamingPatrolPosition(tick: number): FlightState["position"] {
   const routeLength = PALE_BEACON_PATROL_ROUTE.length;
@@ -266,6 +330,17 @@ export function createSectorRuntime(options: Options) {
         ...(own.scoutResult ? { scoutResult: own.scoutResult } : {}),
         ...(own.scoutResultStatus ? { scoutResultStatus: own.scoutResultStatus } : {}),
         ...(own.factionContact ? { factionContact: own.factionContact } : {}),
+        ...(room.mission.id === "universe-patrol" && room.universePatrol && room.patrolFleet
+          ? {
+              hostileFleet: {
+                patrolId: room.universePatrol.patrolId,
+                callsign: room.universePatrol.callsign,
+                locationId: room.universePatrol.locationId,
+                faction: room.universePatrol.faction,
+                ships: room.patrolFleet.map((ship) => ({ ...ship, position: { ...ship.position } })),
+              } satisfies SectorHostileFleetSnapshot,
+            }
+          : {}),
         ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION && room.mission.id === "pale-beacons"
           ? { evidence: PALE_BEACON_EVIDENCE.map((record): SectorEvidencePickup => ({
               ...record,
@@ -281,7 +356,9 @@ export function createSectorRuntime(options: Options) {
     }
   }
   function updateFactionContact(room: Room, pilot: Pilot, input: FlightInput): FactionContactDecision | undefined {
-    if (!room.scoutEncounter || room.mission.id !== "pale-beacons" || !room.scoutFaction) return undefined;
+    if (!room.scoutEncounter ||
+        !["pale-beacons", "universe-patrol"].includes(room.mission.id) ||
+        !room.scoutFaction) return undefined;
     const actorFaction = room.scoutFaction === "ussf" ? "accord" : "ussf";
     const delta = {
       x: pilot.flight.drone.position.x - pilot.flight.position.x,
@@ -359,7 +436,7 @@ export function createSectorRuntime(options: Options) {
       if (!pilotResult) continue;
       pilot.scoutResult = {
         encounterId: result.encounterId,
-        missionId: "pale-beacons",
+        missionId: result.missionId,
         sectorId: result.sectorId,
         runtime: result.runtime,
         policyId: result.policyId,
@@ -371,6 +448,11 @@ export function createSectorRuntime(options: Options) {
         destroyedActorIds: [...pilotResult.destroyedActorIds],
         rewardableNpcKills: pilotResult.rewardableNpcKills,
         creditsAwarded: 0,
+        ...(result.patrol ? {
+          patrolId: result.patrol.patrolId,
+          patrolLocationId: result.patrol.locationId,
+          opposingFaction: result.patrol.faction,
+        } : {}),
         fingerprint: result.fingerprint,
       };
       pilot.scoutResultStatus = "pending";
@@ -433,7 +515,8 @@ export function createSectorRuntime(options: Options) {
       const mission = sectorMission(missionId);
       if (!mission || !/^[a-z0-9][a-z0-9-]{5,23}$/i.test(code) ||
           typeof packet.shipId !== "string" || !Object.hasOwn(SHIPS, packet.shipId)) { error("invalid_sector_join"); return; }
-      if (mission.id === "pale-beacons" && protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION) {
+      if ((mission.id === "pale-beacons" || mission.id === "universe-patrol") &&
+          protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION) {
         error("scout_requires_orbital_runtime"); return;
       }
       const existingOtherRoom = [...rooms.values()].some(candidate =>
@@ -451,8 +534,19 @@ export function createSectorRuntime(options: Options) {
       if (closed || socket.readyState !== WebSocket.OPEN) return;
       if (mission.prerequisite && !progress.completed.includes(mission.prerequisite)) { error("sector_mission_locked"); return; }
       let room = rooms.get(code);
+      let universePatrol = room?.universePatrol ?? null;
+      if (mission.id === "universe-patrol") {
+        const faction = SHIPS[packet.shipId as ShipId].faction;
+        if (room && faction !== room.scoutFaction) { error("scout_faction_mismatch"); return; }
+        if (!room) {
+          if (!options.resolveUniversePatrol) { error("universe_patrol_unavailable"); return; }
+          try { universePatrol = await options.resolveUniversePatrol(userId, faction); }
+          catch { error("universe_patrol_unavailable"); return; }
+          if (!universePatrol) { error("no_opposing_patrol_at_location"); return; }
+        }
+      }
       if (room && room.mission.id !== mission.id) { error("sector_mission_mismatch"); return; }
-      if (room && mission.id === "pale-beacons" &&
+      if (room && (mission.id === "pale-beacons" || mission.id === "universe-patrol") &&
           SHIPS[packet.shipId as ShipId].faction !== room.scoutFaction) {
         error("scout_faction_mismatch"); return;
       }
@@ -482,6 +576,10 @@ export function createSectorRuntime(options: Options) {
           scoutFaction: SHIPS[packet.shipId as ShipId].faction,
           scoutPersisting: null,
           scoutPosition: { ...(mission.sector.drone ?? mission.sector.relay) },
+          ...(universePatrol ? { universePatrol } : {}),
+          ...(mission.id === "universe-patrol" && universePatrol
+            ? { patrolFleet: buildPatrolFleet(universePatrol) }
+            : {}),
           // Keep a per-room mutable wrapper so the hot simulation loop does
           // not allocate a replacement sector object for every pilot/tick.
           flightSector: { ...mission.sector },
@@ -541,7 +639,7 @@ export function createSectorRuntime(options: Options) {
     }
     if (packet.type === "sector_transponder") {
       const mode = parseSectorTransponder(packet);
-      if (!mode || room.mission.id !== "pale-beacons" || room.phase !== "active") {
+      if (!mode || !["pale-beacons", "universe-patrol"].includes(room.mission.id) || room.phase !== "active") {
         error("invalid_sector_transponder"); return;
       }
       if (mode === pilot.transponder) { publish(room); return; }
@@ -643,6 +741,63 @@ export function createSectorRuntime(options: Options) {
           },
         });
         room.scoutPosition = roamingPatrolPosition(0);
+      }
+      if (room.mission.id === "universe-patrol") {
+        if (protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || !room.universePatrol ||
+            !options.reserveUniversePatrol ||
+            room.pilots.some((candidate) => SHIPS[candidate.shipId].faction !== room.scoutFaction)) {
+          error("scout_faction_or_runtime_mismatch"); return;
+        }
+        let reserved: UniversePatrolEncounter | null;
+        try {
+          reserved = await options.reserveUniversePatrol(
+            room.pilots.map((candidate) => candidate.userId),
+            room.scoutFaction!,
+            room.universePatrol,
+            room.matchId,
+          );
+        } catch {
+          error("universe_patrol_reservation_failed"); return;
+        }
+        if (!reserved) { error("universe_patrol_unavailable_or_location_mismatch"); return; }
+        room.universePatrol = reserved;
+        room.patrolFleet = buildPatrolFleet(reserved);
+        room.droneHull = room.patrolFleet.reduce((sum, ship) => sum + ship.hull, 0);
+        room.scoutPosition = { ...(room.patrolFleet[0]?.position ?? room.mission.sector.drone!) };
+        const opposingFaction = reserved.faction;
+        room.scoutEncounter = new ExplorationEncounter({
+          encounterId: room.matchId,
+          missionId: "universe-patrol",
+          sectorId: room.mission.sector.id,
+          runtime: ORBITAL_RUNTIME_ID,
+          authority: "server",
+          mode: "universe-exploration",
+          patrol: {
+            patrolId: reserved.patrolId,
+            locationId: reserved.locationId,
+            faction: opposingFaction,
+          },
+          actors: [
+            ...room.pilots.map((candidate) => ({
+              id: `pilot-${candidate.slot}`,
+              faction: SHIPS[candidate.shipId].faction,
+              hull: 100,
+              playerId: candidate.userId,
+            })),
+            ...room.patrolFleet.map((ship) => ({
+              id: ship.actorId,
+              faction: opposingFaction,
+              hull: ship.hull,
+              rewardEligible: true,
+            })),
+          ],
+          rewardPolicy: {
+            id: "universe-patrol-bounty-v1",
+            creditsPerNpcKill: 12,
+            completionCredits: 0,
+            maxCreditsPerEncounter: 48,
+          },
+        });
       }
       room.phase = "active"; publish(room); publishOperationState(room); return;
     }
@@ -746,7 +901,9 @@ export function createSectorRuntime(options: Options) {
       room.pilots = room.pilots.filter(p => p !== pilot);
       room.hostSlot = room.pilots[0]?.slot ?? 0;
       const newHost = room.pilots.find((candidate) => candidate.slot === room.hostSlot);
-      if (newHost && room.mission.id === "pale-beacons") room.scoutFaction = SHIPS[newHost.shipId].faction;
+      if (newHost && ["pale-beacons", "universe-patrol"].includes(room.mission.id)) {
+        room.scoutFaction = SHIPS[newHost.shipId].faction;
+      }
     }
     room.touched = now; publish(room); publishOperationState(room);
   }
@@ -776,7 +933,19 @@ export function createSectorRuntime(options: Options) {
           advanceIronEclipse(room.operation, SECTOR_STEP, host?.flight.position ?? room.mission.sector.relay, room.mission.sector.relay);
           room.droneHull = ironEclipseTarget(room.operation)?.hull ?? 0;
         }
-        if (room.scoutEncounter) room.scoutPosition = roamingPatrolPosition(room.tick);
+        if (room.mission.id === "universe-patrol" && room.patrolFleet) {
+          room.patrolFleet.forEach((ship, slot) => {
+            if (!ship.destroyed) ship.position = universePatrolPosition(room.tick, slot);
+          });
+          room.droneHull = room.patrolFleet.reduce(
+            (sum, ship) => sum + (ship.destroyed ? 0 : ship.hull),
+            0,
+          );
+          const lead = room.patrolFleet.find((ship) => !ship.destroyed);
+          if (lead) room.scoutPosition = { ...lead.position };
+        } else if (room.scoutEncounter) {
+          room.scoutPosition = roamingPatrolPosition(room.tick);
+        }
         const pointDefenseDisabled = room.operation?.view.subsystems.some(
           item => item.id === "point-defense" && item.disabled,
         ) === true;
@@ -786,7 +955,12 @@ export function createSectorRuntime(options: Options) {
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
           const input = now - pilot.lastInput < 350 ? pilot.input : idleInput;
-          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
+          const patrolTarget = room.mission.id === "universe-patrol"
+            ? nearestLivingPatrolShip(room, pilot.flight.position)
+            : undefined;
+          if (room.scoutEncounter) {
+            copyPosition(pilot.flight.drone.position, patrolTarget?.position ?? room.scoutPosition);
+          }
           pilot.factionContact = updateFactionContact(room, pilot, input);
           const contactCanEngage = pilot.factionContact?.action === "intercept" ||
             pilot.factionContact?.action === "request_reinforcements";
@@ -800,20 +974,33 @@ export function createSectorRuntime(options: Options) {
             copyPosition(pilot.flight.drone.position, targetPosition);
             if (pointDefenseDisabled) removeHostileProjectilesInPlace(pilot.flight.projectiles);
           }
-          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
-          pilot.flight.drone.hull = room.droneHull;
+          if (room.scoutEncounter) {
+            copyPosition(pilot.flight.drone.position, patrolTarget?.position ?? room.scoutPosition);
+          }
+          const targetHullBefore = patrolTarget?.hull ?? room.droneHull;
+          pilot.flight.drone.hull = room.mission.id === "universe-patrol"
+            ? (patrolTarget?.hull ?? 0)
+            : room.droneHull;
           const hullBefore = pilot.flight.hull;
           physics(pilot.flight, input, SECTOR_STEP, flightSector);
-          if (room.scoutEncounter && room.droneHull > pilot.flight.drone.hull) {
-            const hullDamage = room.droneHull - pilot.flight.drone.hull;
+          if (room.scoutEncounter && targetHullBefore > pilot.flight.drone.hull) {
+            const hullDamage = targetHullBefore - pilot.flight.drone.hull;
             room.scoutEncounter.recordDamage({
               eventId: `tick-${room.tick}-pilot-${pilot.slot}`,
               tick: room.tick,
               attackerActorId: `pilot-${pilot.slot}`,
-              targetActorId: "scout-pale-beacons",
+              targetActorId: patrolTarget?.actorId ?? "scout-pale-beacons",
               hullDamage,
             });
             pilot.lastHostileActionTick = room.tick;
+            if (patrolTarget) {
+              patrolTarget.hull = Math.max(0, pilot.flight.drone.hull);
+              patrolTarget.destroyed = patrolTarget.hull === 0;
+              room.droneHull = room.patrolFleet!.reduce(
+                (sum, ship) => sum + (ship.destroyed ? 0 : ship.hull),
+                0,
+              );
+            }
           }
           if (room.operation) {
             const playerDamage = Math.max(0, room.droneHull - pilot.flight.drone.hull);
@@ -829,15 +1016,33 @@ export function createSectorRuntime(options: Options) {
                 pilot.flight.stage = room.operation.view.phase === "extract" ? "extract" : pilot.flight.discoveries > 0 ? "drone" : "relay";
               }
             }
-          } else {
+          } else if (room.mission.id !== "universe-patrol") {
             room.droneHull = Math.min(room.droneHull, pilot.flight.drone.hull);
+          }
+          if (room.mission.id === "universe-patrol") {
+            const remaining = room.patrolFleet?.filter((ship) => !ship.destroyed && ship.hull > 0) ?? [];
+            if (remaining.length === 0) {
+              room.droneHull = 0;
+              for (const candidate of room.pilots) {
+                if (!["complete", "destroyed"].includes(candidate.flight.stage)) candidate.flight.stage = "extract";
+              }
+            } else if (pilot.flight.stage === "extract" || pilot.flight.stage === "complete") {
+              pilot.flight.stage = "drone";
+            }
           }
           pilot.factionContact = updateFactionContact(room, pilot, input);
         }
         // Synchronize the shared objective for all pilots at the same authoritative tick.
         for (const pilot of room.pilots) {
-          pilot.flight.drone.hull = room.droneHull;
-          if (room.scoutEncounter) copyPosition(pilot.flight.drone.position, room.scoutPosition);
+          const patrolTarget = room.mission.id === "universe-patrol"
+            ? nearestLivingPatrolShip(room, pilot.flight.position)
+            : undefined;
+          pilot.flight.drone.hull = room.mission.id === "universe-patrol"
+            ? (patrolTarget?.hull ?? 0)
+            : room.droneHull;
+          if (room.scoutEncounter) {
+            copyPosition(pilot.flight.drone.position, patrolTarget?.position ?? room.scoutPosition);
+          }
           if (room.operation) {
             const targetPosition = ironEclipseTarget(room.operation)?.position ?? room.operation.view.capitalPosition;
             copyPosition(pilot.flight.drone.position, targetPosition);
@@ -852,7 +1057,7 @@ export function createSectorRuntime(options: Options) {
             room.phase = succeeded ? "complete" : "failed";
           } else {
             succeeded = room.pilots.some(p => p.flight.stage === "complete") &&
-              (room.mission.id !== "pale-beacons" || room.droneHull <= 0);
+              (!["pale-beacons", "universe-patrol"].includes(room.mission.id) || room.droneHull <= 0);
             room.phase = succeeded ? "complete" : "failed";
           }
           if (room.scoutEncounter) {

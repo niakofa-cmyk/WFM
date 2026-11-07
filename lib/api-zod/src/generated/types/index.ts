@@ -122,6 +122,7 @@ export * from './worldQuestStatus';
 export * from './worldRoute';
 export * from './worldScoutEncounterResult';
 export * from './worldScoutEncounterResultMissionId';
+export * from './worldScoutEncounterResultOpposingFaction';
 export * from './worldScoutEncounterResultOutcome';
 export * from './worldServiceInput';
 export * from './worldServiceResult';

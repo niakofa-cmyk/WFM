@@ -134,6 +134,16 @@ export async function startWingSocketServer(
       encounterId: string,
     ) => Promise<"recovered" | "duplicate">;
     isAtCinderRing?: (userId: string) => Promise<boolean>;
+    resolveUniversePatrol?: (
+      userId: string,
+      faction: "ussf" | "accord",
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
+    reserveUniversePatrol?: (
+      userIds: readonly string[],
+      faction: "ussf" | "accord",
+      contact: Pick<import("../game/universe-patrols").UniversePatrolEncounter, "patrolId" | "locationId" | "faction">,
+      encounterId: string,
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
     publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     publishCompetitiveMatch?: (state: {
       matchId: string;
@@ -163,6 +173,8 @@ export async function startWingSocketServer(
     settleScoutEncounter: options.settleScoutEncounter,
     recoverNarrativeEvidence: options.recoverNarrativeEvidence,
     isAtCinderRing: options.isAtCinderRing,
+    resolveUniversePatrol: options.resolveUniversePatrol,
+    reserveUniversePatrol: options.reserveUniversePatrol,
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,
   });

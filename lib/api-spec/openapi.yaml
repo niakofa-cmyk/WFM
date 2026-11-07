@@ -1207,7 +1207,7 @@ components:
       required: [encounterId, missionId, sectorId, runtime, policyId, outcome, finalTick, objectiveCompleted, kills, assists, destroyedActorIds, rewardableNpcKills, creditsAwarded, fingerprint, recordedAt]
       properties:
         encounterId: { type: string, format: uuid }
-        missionId: { type: string, enum: [pale-beacons] }
+        missionId: { type: string, enum: [pale-beacons, universe-patrol] }
         sectorId: { type: string, minLength: 1, maxLength: 128 }
         runtime: { type: string, minLength: 1, maxLength: 64 }
         policyId: { type: string, minLength: 1, maxLength: 128 }
@@ -1222,6 +1222,9 @@ components:
           items: { type: string, minLength: 1, maxLength: 128 }
         rewardableNpcKills: { type: integer, minimum: 0 }
         creditsAwarded: { type: integer, minimum: 0 }
+        patrolId: { type: string, minLength: 1, maxLength: 128 }
+        patrolLocationId: { type: string, minLength: 1, maxLength: 128 }
+        opposingFaction: { type: string, enum: [ussf, accord] }
         fingerprint: { type: string, pattern: "^[0-9a-f]{64}$" }
         recordedAt: { type: string, format: date-time }
     WorldServiceInput:

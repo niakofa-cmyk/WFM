@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { WorldScoutEncounterResultMissionId } from './worldScoutEncounterResultMissionId';
+import type { WorldScoutEncounterResultOpposingFaction } from './worldScoutEncounterResultOpposingFaction';
 import type { WorldScoutEncounterResultOutcome } from './worldScoutEncounterResultOutcome';
 
 export interface WorldScoutEncounterResult {
@@ -44,6 +45,17 @@ export interface WorldScoutEncounterResult {
   rewardableNpcKills: number;
   /** @minimum 0 */
   creditsAwarded: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolLocationId?: string;
+  opposingFaction?: WorldScoutEncounterResultOpposingFaction;
   /** @pattern ^[0-9a-f]{64}$ */
   fingerprint: string;
   recordedAt: Date;

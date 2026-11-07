@@ -15,6 +15,7 @@ import { validSectorCompletion } from "../game/sector-completion";
 import type { SectorProgress, SectorSnapshot } from "../game/sector-missions";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readExplorationReceipt } from "../game/exploration-encounter";
 
 function socket() {
   const packets: any[] = [];
@@ -32,6 +33,92 @@ test("Orbital patrol route is deterministic and evidence recovery packets carry 
   assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence" }), true);
   assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", evidenceId: "first-witness-trace" }), false);
   assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", position: { x: 0, y: 0, z: 0 } }), false);
+});
+test("universe patrols resolve as visible opposing fleets and settle server-attributed casualties", async () => {
+  const contact = {
+    patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
+    locationId: "mars-orbit",
+    faction: "accord" as const,
+    callsign: "ASHEN SPEAR",
+    route: ["mars-orbit", "cinder-asteroid"],
+    revision: 0,
+    ships: [{
+      id: "strategic-patrol-v1:mars-orbit:accord:0:ship:0",
+      hullId: "mandjet" as const,
+      name: "Mandjet",
+      callsign: "ASHEN-1",
+    }],
+  };
+  let reservedPilots: readonly string[] = [];
+  const settledResults: ReturnType<typeof readExplorationReceipt>[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: [], persistenceAvailable: true }),
+    resolveUniversePatrol: async (_userId, faction) => faction === "ussf" ? contact : null,
+    reserveUniversePatrol: async (userIds, faction, requested) => {
+      reservedPilots = userIds;
+      assert.equal(faction, "ussf");
+      assert.equal(requested.patrolId, contact.patrolId);
+      return contact;
+    },
+    physics: (state, input, _seconds, sector) => {
+      if (input.fire) {
+        state.stage = "drone";
+        state.drone.hull = 0;
+      } else if (state.stage === "extract") {
+        state.position = { ...(sector?.extraction ?? RUST_DISC_SECTOR.extraction) };
+        state.stage = "complete";
+      }
+    },
+    settleScoutEncounter: async (receipt) => {
+      const result = readExplorationReceipt(receipt);
+      settledResults.push(result);
+      return {
+        status: "settled",
+        awards: result.pilots.map((pilot) => ({
+          ...pilot,
+          balanceAfter: pilot.credits,
+          revision: 1,
+        })),
+      };
+    },
+  });
+  const host = socket();
+  const room = "universe-patrol-room";
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_join",
+    version: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  }, 0);
+  assert.equal(host.latest().hostileFleet?.faction, "accord");
+  assert.equal(host.latest().hostileFleet?.ships[0]?.shipId, "mandjet");
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room,
+    { type: "sector_ready", ready: true }, 1);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room,
+    { type: "sector_launch" }, 2);
+  assert.deepEqual(reservedPilots, ["patrol-pilot"]);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 3);
+  runtime.advance(0);
+  runtime.advance(17);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 1, input: NEUTRAL_FLIGHT_INPUT,
+  }, 20);
+  runtime.advance(34);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.equal(host.latest().phase, "complete");
+  assert.equal(host.latest().scoutResult?.missionId, "universe-patrol");
+  assert.equal(host.latest().scoutResult?.kills, 1);
+  assert.equal(host.latest().scoutResult?.creditsAwarded, 12);
+  assert.equal(host.latest().scoutResultStatus, "recorded");
+  assert.equal(settledResults[0]?.patrol?.patrolId, contact.patrolId);
+  assert.deepEqual(settledResults[0]?.pilots[0]?.destroyedActorIds, [
+    `patrol-ship:${contact.ships[0]!.id}`,
+  ]);
+  await runtime.close();
 });
 test("new sector feature fails closed in Production and rejects ambiguous declarations", () => {
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production" }), false);

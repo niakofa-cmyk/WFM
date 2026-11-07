@@ -5,6 +5,10 @@ import { resolveClerkIssuer } from "./clerk-issuer-policy";
 import { getSocketFeatureReadiness } from "./reward-config";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "../game/sector-missions";
+import {
+  reserveUniversePatrolEncounter,
+  resolveUniversePatrolEncounter,
+} from "../game/universe-patrols";
 
 const rawPort = process.env.PORT;
 if (!rawPort) throw new Error("PORT environment variable is required.");
@@ -105,6 +109,14 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
       ? storyEvidence.recoverNarrativeEvidence
       : undefined,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
+  resolveUniversePatrol: sectorProgression && explorationRewards &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? resolveUniversePatrolEncounter
+      : undefined,
+  reserveUniversePatrol: sectorProgression && explorationRewards &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? reserveUniversePatrolEncounter
+      : undefined,
   publishSectorOperation,
   publishCompetitiveMatch,
 });
