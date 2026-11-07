@@ -1182,7 +1182,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 servicesOpen: universeServicesOpen,
                 onExit: () => {
                   setUniverseServicesOpen(false);
-                  setLocalUniverseOpen(false);
+                  setOrbitalUniverseOpen(false);
                 },
                 onOpenOperations: () => setUniverseServicesOpen(true),
               }}
@@ -1206,20 +1206,20 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 onRoomCode={setRoomCode}
                 onCreatePrivateRoom={() => {
                   setUniverseServicesOpen(false);
-                  setLocalUniverseOpen(false);
+                  setOrbitalUniverseOpen(false);
                   const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
                   setRoomCode(generated);
                   joinOnline(generated);
                 }}
                 onJoinPrivateRoom={(code) => {
                   setUniverseServicesOpen(false);
-                  setLocalUniverseOpen(false);
+                  setOrbitalUniverseOpen(false);
                   joinOnline(code);
                 }}
                 onlineStatus={onlineStatus}
                 onJoinCompetitiveQueue={() => {
                   setUniverseServicesOpen(false);
-                  setLocalUniverseOpen(false);
+                  setOrbitalUniverseOpen(false);
                   joinOnline("", "competitive");
                 }}
                 competitiveQueueAvailable={competitiveQueueAvailable}
@@ -1471,7 +1471,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         }}
         onLocalUniverse={() => {
           setUniverseServicesOpen(false);
-          setLocalUniverseOpen(true);
+          setOrbitalUniverseOpen(true);
         }}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}

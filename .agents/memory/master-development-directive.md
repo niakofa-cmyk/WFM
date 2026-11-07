@@ -9,6 +9,13 @@ Orbital left as an optional offline `COMBAT TRAINING` link. Training becomes
 one activity within the main game. A chart redesign or account-universe link
 does not satisfy this rebuild.
 
+The landscape hangar is the command deck. Its single **ENTER UNIVERSE** action
+must install the pilot directly into Orbital's active universe runtime, not open
+the Galaxy/operations directory as a separate destination. Campaign, exploration,
+combat, and multiplayer are intended to run as activities within that universe.
+The current direct handoff is only an entry-flow change; it does not certify that
+every existing runtime has already been consolidated.
+
 **Why:** the user explicitly corrected the execution boundary and asked to save
 it in the rebuild/redesign files.
 
