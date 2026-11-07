@@ -132,3 +132,42 @@ This advances one bounded campaign slice, not the complete Stage C–D journey.
 Automated client/server replay and reward-claim checks are not staging, phone, or
 Production verification. Do not promote the change until its exact staging
 revision passes the appropriate authenticated campaign and reward checks.
+
+
+## Owner clarification — the Orbital Lab is being rebuilt into the actual game
+
+The owner clarified that the complete universe and game must run **inside the Orbital Combat Lab-derived runtime**. It is not enough to consolidate menus, embed the old universe application, or keep Lab as a standalone arena. The Lab's end-to-end lifecycle and functions are the starting foundation to be deconstructed, generalized, and rebuilt as WFM's primary runtime.
+
+The intended first release is a Mars-centered navigable theater. Mars is the central stage and starting strategic hub; expansion proceeds to moons, stations, asteroid regions, other planets, star systems, galaxies, anomalies, dimensions, and distinct universes. Each destination must be an actual spatial/gameplay location with travel, encounters, operations, and meaningful persistence—not decorative map content.
+
+The detailed owner-directed implementation prompt, including the function inventory, target architecture, anomaly framework, source-system migration map, mobile controls, phases, acceptance gates, and definition of done, is maintained in
+[ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md](./ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md).
+
+### Updated rebuild sequence
+
+| Phase | Goal |
+| --- | --- |
+| 0 | Function-by-function Lab audit; inventory all legacy systems, contracts, tests, and rollback paths |
+| 1 | Transform Lab boot/lifecycle into the primary WFM shell: hangar → Mars universe → operation → debrief → return |
+| 2 | Unify Rust Disc pilot controls, flight physics, Orbital Lab combat, targeting, weapons, damage, and AI |
+| 3 | Build Mars surface/orbit and local system as real streamed, navigable spaces |
+| 4 | Migrate campaign, co-op, Iron Eclipse, and Wing into one operation lifecycle while preserving distinct authority/reward rules |
+| 5 | Connect persistent faction conflict, economy, discoveries, and world consequences |
+| 6 | Expand to additional planets and solar-system destinations |
+| 7 | Expand to star systems, galaxies, anomalies, dimensions, and other universes |
+| 8 | Scale fleet warfare and live cosmic events after capacity and integrity gates |
+
+The prior stages A–H remain useful as integration categories, but this owner clarification changes the runtime destination and adds explicit world-scale architecture. Do not interpret “inside the Lab” as an iframe or as permission to discard the existing game infrastructure. Reuse the Lab's Three.js/Vite foundation and migrate verified systems one at a time.
+
+**Current status:** this is a saved architectural direction and implementation directive, not proof that the runtime has already been rebuilt. The current code still has distinct local Lab, Rust Disc, co-op, campaign, and Wing paths until the phases above are implemented and verified.
+
+
+## Mars routes redesigned as live geography and adventures
+
+The route redesign is specified in
+[MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md](./MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md).
+Treat Rust Disc, Mars Approach, Pale Beacons, Night-side, Dust Lane, Mars Signal, Phobos Yard, Outer Fringe, Deep Nebula and Iron Eclipse as regions, travel corridors, points of interest and operation frameworks inside the same streamed Mars/universe runtime.
+
+The first spatial proof should be a continuous day-side → night-side → day-side Mars circumnavigation with authoritative Mars rotation/time, coordinate-frame conversions, streamed sector handoff, one physical point of interest, one dynamic event and no player-state discontinuity. Multiplayer claims require at least two authenticated pilots sharing the same authoritative sector and consistent event state.
+
+Keep Three.js as the renderer. Extract/adapt useful capabilities from any separate universe prototype, but retire only its duplicate app/runtime after parity, device performance, multiplayer, resource-disposal and rollback gates pass.
