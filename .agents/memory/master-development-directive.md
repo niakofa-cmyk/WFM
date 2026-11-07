@@ -55,6 +55,21 @@ and supplied a directive explicitly resolving the older multiple-engine wording.
 `docs/infinite-war/engine/MASTER-ENGINE-ARCHITECTURE.md`; extract verified
 capabilities, preserve distinctive mechanics and authority, and never call a
 visual/menu redesign an engine migration.
+
+**Latest rebuild sequence:** Orbital Combat Lab must be rebuilt as the actual
+WAR FOR MARS game engine, not remain a separate training product with a universe
+layer around it. Phase 0 maps the real boot, subsystem lifecycle, mode imports,
+simulation versions, renderers, and authority before the next feature prototype.
+
+**Why:** the user supplied a new rebuild direction and explicitly asked to save
+it as the redesign reference; it makes the forensic extraction audit the first
+engineering step.
+
+**How to apply:** follow
+`docs/infinite-war/references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt` and
+`docs/infinite-war/ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`. Build the
+primary Orbital boot and migrate modes incrementally, retaining working
+server-owned identity, mission, multiplayer, and reward systems until verified.
 Keep normalized pilot intent distinct from versioned replay/network commands:
 unsupported capabilities must remain omitted, not merely set to false.
 **Why:** consolidating input must not silently widen older accepted contracts.
