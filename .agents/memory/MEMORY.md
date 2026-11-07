@@ -37,9 +37,9 @@
 - [Open-universe direction](open-universe-direction.md) — authenticated exploration must be server-authoritative and reward-capable; keep the offline sandbox no-reward.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
-- [Three.js mobile loading](threejs-mobile-loading.md) — defer the renderer behind a narrow named-export adapter; never pass the full Three.js namespace through UI state.
-- [Engine selection](wfm-engine-selection.md) — keep custom Three.js; test Needle as an authoring/runtime candidate, with simulation and backend authority independent.
+- [Three.js mobile loading](threejs-mobile-loading.md) — while migrating, defer the temporary renderer behind a narrow adapter; never pass its full namespace through UI state.
+- [Engine selection](wfm-engine-selection.md) — Orbital owns the final renderer; keep the current Three.js implementation only until verified replacement and rollback gates pass.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
-- [Canonical engine migration](orbital-canonical-gameplay.md) — one Orbital main engine with distinct mode adapters; keep existing runtimes until parity and authority gates pass.
+- [Canonical engine migration](orbital-canonical-gameplay.md) — Orbital owns final rendering and gameplay; migrate Three.js out only after renderer parity and device gates pass.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.

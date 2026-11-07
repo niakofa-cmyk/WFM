@@ -135,9 +135,12 @@ parity and acceptance pass.
 
 ## Required integration policy
 
-1. Treat the existing custom Three.js/Vite game as the production runtime.
-   Needle remains an authoring/research candidate; do not add a second runtime
-   without an evaluated, measured migration decision.
+1. Make Orbital Engine the sole final game and rendering runtime. Treat current
+   Three.js rendering as temporary migration infrastructure, not the target.
+   Study its useful techniques and rebuild them in Orbital; do not remove its
+   current implementation until the Orbital replacement passes parity,
+   performance, and rollback gates. See
+   [the renderer migration directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 2. Migrate every mode toward the canonical orbital combat foundation; do not
    assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session

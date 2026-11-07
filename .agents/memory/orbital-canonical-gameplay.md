@@ -17,28 +17,26 @@ maintained roadmap and asteroid-hub contract for current implementation.
 The newest controlling source and its one-main-engine precedence are recorded
 in [master development directive](master-development-directive.md).
 
-**Rule:** The latest master directive supersedes the earlier permanent
-multiple-engine direction: one main Orbital engine supports distinct
-experiences through adapters. Existing runtimes remain explicit compatibility
-paths until migration is verified. The Three.js/Vite layer owns navigation, destination
-presentation, and local approach scenes; it is not the multiplayer combat
-engine. Orbital Combat Lab is a simulation foundation and validation environment
-that may be integrated per mode after proof. Preserve Rust Disc, Arcade Skirmish,
-and Wing as independent playable/authoritative experiences until each proposed
-migration passes gameplay, network, reward, and rollback checks. Retain existing
-identity, matchmaking, economy, progression, and reward services.
+**Rule:** One Orbital engine must own the finished game's rendering and gameplay
+runtime, with specialist experiences connected through adapters. Three.js is a
+reference for techniques only, not a library to ship in the finished game. The
+current repository still uses it for rendering and has no complete Orbital-native
+renderer, so remove it only after a replacement passes feature, performance,
+authority, and rollback gates. Preserve existing identity, matchmaking, economy,
+progression, reward services, and working compatibility paths during migration.
 
-**Why:** the owner's newest master directive explicitly makes Orbital the primary
-foundation without allowing a reckless rewrite or removal of working systems.
-Cinder Ring remains the physical competition hub, and current combat runtimes
-continue executing their battles until each replacement passes proof.
+**Why:** the owner explicitly corrected the renderer decision: the game's scale
+requires one Orbital rendering and simulation foundation, while repository
+inspection shows that Three.js currently supplies the only working 3D renderer.
+The migration must honor the target without breaking the current game prematurely.
 
-**How to apply:** use explicit operation definitions/adapters to connect
-destination, discovery, and launch to the correct existing runtime. The Cinder
-Ring approach is local/no-reward and cannot authorize a queue or create an
-operation. Migrate a combat runtime only one mode at a time, version changed
-network/replay contracts, and change client/API/socket authority together.
-Retain Wing's server-owned competitive and reward gates.
+**How to apply:** follow
+`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md` for the audited
+current state and renderer removal gates. Build an Orbital-owned renderer proof,
+then migrate and test one surface/mode at a time. Use explicit operation
+adapters; version network/replay contracts and change client/API/socket
+authority together. The local Cinder approach cannot authorize a queue or create
+an operation. Retain Wing's server-owned competitive and reward gates.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc

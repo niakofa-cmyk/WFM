@@ -90,11 +90,12 @@ sector operations still use their existing authority and compatibility wrappers.
 The latest owner direction forbids retaining the old Rust Disc flight scene as
 the new game's rendering runtime. This means migrate reusable flight controls,
 camera behavior, scene/environment techniques, spatial precision and
-performance practices—not embed or relabel the old scene. It does **not** by
-itself require deleting Three.js: the supplied forensic evaluation explicitly
-allows Three.js as a low-level graphics dependency if Orbital owns the renderer
-integration, scene lifecycle, camera and gameplay. Replacing the graphics library
-is a separate benchmarked decision.
+performance practices—not embed or relabel the old scene. The owner has since
+clarified that Three.js is a reference source only and must not be shipped by
+the finished game. That supersedes the earlier forensic evaluation below that
+allowed it as a low-level dependency. The current Three.js renderer is temporary
+until an Orbital-native replacement passes the
+[renderer migration gates](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 
 Current source evidence:
 

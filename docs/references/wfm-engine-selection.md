@@ -13,19 +13,18 @@ This guide reconciles their recommendations with the current WFM repository; it
 does not claim that a Needle prototype or physical-device certification has
 happened.
 
-**Current implementation:** continue the custom Three.js + React/Vite client
-and WFM TypeScript simulation. Keep direct Three.js rendering; React Three
-Fiber is optional only if a measured change simplifies the existing integration.
-Custom six-degree-of-freedom flight and combat remain WFM-owned. Keep the current
-backend authoritative for multiplayer and progression.
+**Current implementation (historical):** this guide originally recommended
+continuing direct Three.js rendering. The owner has since clarified that Orbital
+Engine must be the sole finished-game engine and rendering foundation. Three.js
+is a source of techniques only, not a production dependency in the final game.
+The current repository still relies on Three.js for its renderer, so migrate
+that implementation in stages rather than removing it before an Orbital-native
+replacement exists. See
+`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md`.
 
-**Leading visual-authoring experiment:** Needle Engine is the first candidate to
-prototype because the documents identify its Unity/Blender workflows, Three.js
-foundation, and scene-authoring potential. Treat it as an optional renderer and
-content-pipeline experiment—not as the combat simulation, multiplayer authority,
-or an approved full migration. The earlier Unity recommendation remains relevant
-if native iOS/Android distribution becomes the dominant requirement; evaluate
-that against the same benchmark rather than starting multiple migrations.
+**Current direction:** do not add Needle or another renderer/runtime as a second
+engine. Historical assessment follows and may inform authoring workflow research,
+but it does not supersede the Orbital-only renderer directive.
 
 Do not add Rogue Engine, Hology, X3JS, React Three Fiber, Rapier, or a second
 engine framework to Production code just because a document mentions it. Test

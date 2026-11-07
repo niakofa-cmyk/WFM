@@ -89,10 +89,12 @@ and ordered migration proof gates are in
 
 The evolving Orbital foundation connects Rust Disc, Iron Eclipse, Route to
 Mars, Arcade, Campaign, co-op, and Wing through versioned, tested operation
-adapters while preserving specialist experiences and temporary rollback. Do not transplant the
-legacy Rust Disc flight scene. Three.js may remain only as a low-level renderer
-dependency if the Orbital presentation layer owns scene, camera, renderer and
-gameplay-loop lifecycle; removing Three.js itself requires a separate benchmark.
+adapters while preserving specialist experiences and temporary rollback. Do not
+transplant the legacy Rust Disc flight scene. The owner's latest correction
+requires Orbital Engine to own the finished game's renderer and gameplay; use
+Three.js only as a source of techniques, not as a shipped dependency. Current
+Three.js presentation remains until an Orbital-native renderer passes parity,
+performance, and rollback gates.
 
 **Why:** the newest owner directive explicitly designates Orbital Combat as the
 main engine and calls for extraction of verified systems, not a visual-only
@@ -100,8 +102,8 @@ rebuild. It also requires mobile controls, deterministic simulation, server
 authority, compatibility, and rollback during migration.
 
 **How to apply:** use the source-backed extraction matrix before broad rewrites.
-Keep the custom Three.js/Vite renderer, but move mode gameplay toward the shared
-Orbital simulation through explicit adapters. Preserve Clerk identity, Wing
+Build and verify an Orbital-owned renderer, then migrate one visual/mode surface
+at a time before removing Three.js. Preserve Clerk identity, Wing
 matchmaking/rewards, co-op progression, campaign claims, and account data.
 Integrate one versioned slice at a time; keep training no-reward; do not claim
 mobile performance, live ten-human orbital combat, or full mode migration without

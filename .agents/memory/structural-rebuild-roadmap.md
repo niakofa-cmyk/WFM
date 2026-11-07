@@ -25,9 +25,10 @@ keeping their existing runtimes until migration and rollback gates pass.
 It explicitly warns against another parallel runtime or discarding verified
 systems before replacements and rollback are proven.
 
-**How to apply:** retain the custom Three.js/Vite universe presentation and
-existing Clerk, Wing, co-op, campaign, economy, and progression contracts. Keep
-the mode-specific combat engine explicit behind each operation entry point.
+**How to apply:** migrate the temporary Three.js/Vite presentation into the
+Orbital-owned renderer, preserving existing Clerk, Wing, co-op, campaign,
+economy, and progression contracts. Keep mode-specific behavior explicit behind
+each operation entry point.
 Treat the menu-to-mission-to-debrief-to-progression loop as incomplete until
 verified end-to-end. Keep local trainers/approaches no-reward; keep multiplayer
 outcomes and progression server-authoritative; distinguish code, tests, staging,

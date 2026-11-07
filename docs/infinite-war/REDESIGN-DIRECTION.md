@@ -131,8 +131,9 @@ Redesign `/combat-lab.html` in the existing artifact, not a new game foundation.
 5. Show future station/anomaly destinations as planned. Selection can explain
    their intended purpose, but cannot fabricate an available operation,
    participants, a countdown, a simulated live battle or an active event.
-6. Keep Arena, Three.js and the station approach out of the initial static
-   import graph. Respect reduced motion and phone layouts.
+6. Keep the active 3D renderer and station approach out of the initial static
+   import graph during the migration. The final Orbital runtime must not ship
+   Three.js; respect reduced motion and phone layouts.
 
 This slice is an implemented entry redesign and local gameplay connection.
 It is **not** a claim of persistent infinite exploration, full engine migration,

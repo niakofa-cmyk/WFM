@@ -40,11 +40,13 @@ camera tracking, spatial transforms, environment composition, culling/LOD,
 large-distance precision, and mobile frame pacing—into the Orbital-owned
 presentation lifecycle.
 
-The direction does not require deleting the Three.js library itself. The latest
-forensic reference allows Three.js to remain a low-level graphics dependency if
-Orbital owns renderer integration, scene/camera lifecycle, and the gameplay loop.
-Replacing Three.js is a separate renderer decision that needs a measured,
-equivalent-device benchmark.
+That earlier forensic assessment allowed Three.js to remain a low-level
+dependency. The owner has since corrected the target: Orbital Engine must own
+the finished renderer and gameplay, and Three.js is a source of techniques only.
+The existing renderer remains temporarily because no complete Orbital-native
+renderer is present in the inspected source. See the
+[current renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md)
+for the staged replacement and removal gates.
 
 The game-mode registry now tracks `simulation` and `presentation` separately.
 In particular, `rust-disc-local` is simulation-canonical but still reports
