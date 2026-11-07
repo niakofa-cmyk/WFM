@@ -1,5 +1,6 @@
 - [Master development directive](master-development-directive.md) — run the playable universe inside Orbital, not beside a training link; preserve authority and verified migration.
 - [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
+- [Unified hangar entry](unified-hangar-entry.md) — landscape-first hangar, saved USSF/Accord choice, one universe gateway, and Orbital-native ship inspection.
 - [Infinite War blueprint](infinite-war-blueprint.md) — Story connects exploration, routes, combat, and validated consequences; the universe remains the battlefield.
 - [WFM storyline foundation](storyline-foundation.md) — Dusk’s Mars seizure, Accord capture, Earth’s response, and the slowly revealed First Witness ground the connected narrative.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.

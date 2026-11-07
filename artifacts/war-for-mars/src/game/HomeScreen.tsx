@@ -69,7 +69,7 @@ export function HomeScreen(props: HomeProps) {
       className="relative min-h-dvh overflow-x-hidden bg-void text-bone"
     >
       <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} faction={commandState ? props.faction : undefined} />
-      <div className="wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10">
+      <div className={`wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10 ${commandState ? "wfm-command-shell" : ""}`}>
         {commandState ? (
           <CommandTopBar {...props} />
         ) : (
@@ -152,24 +152,45 @@ function MainMenu(props: HomeProps) {
   const def = SHIPS[ship];
   const brief = campaignBriefing(cleared);
   return (
-    <main className="wfm-hangar-content flex-1 py-4 sm:py-6">
-      <section className="wfm-hangar-hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
+    <>
+    <main className="wfm-hangar-content wfm-unified-hangar flex-1 py-4 sm:py-6">
+      <section className="wfm-warline wfm-rise-2" aria-label="Choose your faction">
+        <button type="button" data-testid="button-select-faction-ussf" aria-pressed={faction === "ussf"} disabled={props.loadoutSaving}
+          onClick={() => props.onFaction("ussf")} className={faction === "ussf" ? "wfm-warline__faction is-active" : "wfm-warline__faction"}>
+          <FactionMark faction="ussf" className="h-8 w-8" /><span><b>USSF</b><small>UNITED SPACE STRATEGIC FORCES</small></span>
+        </button>
+        <span className="wfm-warline__versus">VS</span>
+        <button type="button" data-testid="button-select-faction-accord" aria-pressed={faction === "accord"} disabled={props.loadoutSaving}
+          onClick={() => props.onFaction("accord")} className={faction === "accord" ? "wfm-warline__faction is-active" : "wfm-warline__faction"}>
+          <FactionMark faction="accord" className="h-8 w-8" /><span><b>ACCORD</b><small>DHARMA AND MA’AT</small></span>
+        </button>
+        <p>THE INFINITE WAR CONTINUES</p>
+      </section>
+      <section className="wfm-hangar-hero wfm-unified-hangar__hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
         <div className="wfm-hangar-scene">
           <div className="wfm-hangar-art" aria-hidden="true" />
           <div className="absolute left-4 top-4 z-10">
-            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS YARD / BAY 04</PanelLabel>
-            <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">HANGAR DECK · READY STATUS</p>
+            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS MILITARY YARD</PanelLabel>
+            <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">COMMAND DECK · FLIGHT STATUS READY</p>
           </div>
           <div className="absolute right-4 top-4 z-10 hidden text-right font-hud text-[10px] tracking-[0.2em] text-muted sm:block">
             <p>ORBITAL DOCKING CLAMP</p><p className="mt-1 text-solar">● SECURE</p>
           </div>
           <HangarShip ship={ship} faction={faction} />
-          <div className="absolute bottom-4 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
+          <section className="wfm-universe-gateway wfm-universe-gateway--overlay wfm-rise-3" aria-label="Enter the Infinite Universe">
+            <div className="wfm-universe-gateway__orbit" aria-hidden="true" />
+            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">PHOBOS COMMAND · ALL DESTINATIONS</p>
+            <button type="button" onClick={onGalaxy} data-testid="button-enter-universe" className="wfm-universe-gateway__button">
+              <span><small>ENTER THE</small><b>UNIVERSE</b></span><span aria-hidden="true" className="wfm-universe-gateway__arrow">»</span>
+            </button>
+            <p className="font-hud text-[9px] tracking-[0.22em] text-muted">ONE ENTRY · INFINITE POSSIBILITIES</p>
+          </section>
+          <div className="absolute bottom-3 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
         </div>
-        <div className="wfm-hangar-identity">
+        <div className="wfm-hangar-identity wfm-unified-hangar__identity">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SAVED HULL · {FACTION_NAME[faction]}</PanelLabel>
+              <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>COMMANDER’S ACTIVE AIRFRAME · {FACTION_NAME[faction]}</PanelLabel>
               <h1 id="hangar-title" data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-[0.06em] sm:text-5xl">{def.name.toUpperCase()}</h1>
               <p className={`mt-2 font-hud text-xs tracking-[0.2em] ${faction === "accord" ? "text-solar" : "text-spectral"}`}>{def.role.toUpperCase()} · ULT {def.ultShort}</p>
             </div>
@@ -195,8 +216,29 @@ function MainMenu(props: HomeProps) {
         </div>
       </section>
 
+      <nav className="wfm-hangar-command-rail wfm-rise-3" aria-label="Hangar command systems">
+        <button type="button" onClick={() => onAction("ARMORY")} data-testid="button-hangar-fleet" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">⌁</span><span><b>FLEET</b><small>Manage ships</small></span>
+        </button>
+        <a href="#hangar-operations" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">◎</span><span><b>OPERATIONS</b><small>Campaign briefing</small></span>
+        </a>
+        <a href="#hangar-wing" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">◇</span><span><b>MULTIPLAYER</b><small>Wing command</small></span>
+        </a>
+        <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">⚙</span><span><b>SETTINGS</b><small>Controls · display</small></span>
+        </button>
+      </nav>
+
+      <section className="wfm-hangar-preview-strip" aria-label="What awaits in the universe">
+        <article><span aria-hidden="true">01</span><b>INFINITE WAR</b><small>Operations and faction battles</small></article>
+        <article><span aria-hidden="true">02</span><b>EXPLORE</b><small>Stations, routes, and discoveries</small></article>
+        <article><span aria-hidden="true">03</span><b>BUILD & COMMAND</b><small>Expand and refit your fleet</small></article>
+      </section>
+
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.72fr)]">
-        <section aria-label="Operations" className="wfm-rise flex flex-col gap-3">
+        <section id="hangar-operations" aria-label="Operations" className="wfm-rise flex flex-col gap-3 scroll-mt-4">
           <div className="flex items-end justify-between border-b border-bone/15 pb-2">
             <div><PanelLabel>PRIMARY OPERATION · PHOBOS THEATER</PanelLabel><p className="mt-1 font-hud text-2xl tracking-wider">STORY CAMPAIGN</p></div>
             <span className="font-hud text-xs tracking-widest text-muted">{brief.completed}/{brief.total} CLEARED</span>
@@ -214,17 +256,6 @@ function MainMenu(props: HomeProps) {
               DEPLOY NEXT SORTIE
             </button>
           </div>
-          {props.onLocalUniverse ? (
-            <button type="button" onClick={props.onLocalUniverse} data-testid="button-home-local-universe" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-solar px-4 text-left">
-              <span className="font-hud tracking-widest text-solar">ENTER ORBITAL UNIVERSE · LOCAL</span>
-              <span className="text-xs text-muted">Your saved {SHIPS[props.ship].name} · bounded offline flight · no rewards</span>
-            </button>
-          ) : (
-            <a href="/combat-lab.html?universe=1" data-testid="link-home-local-universe" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
-              <span className="font-hud tracking-widest text-solar">ENTER ORBITAL UNIVERSE · LOCAL</span>
-              <span className="text-xs text-muted">Bounded offline Orbital flight · dock at Cinder Ring for training · no rewards</span>
-            </a>
-          )}
           {EXPEDITION_ENABLED ? (
             <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
               <span className="font-hud tracking-widest text-spectral">SECTOR OPERATIONS · CO-OP</span>
@@ -241,6 +272,17 @@ function MainMenu(props: HomeProps) {
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
             </summary>
             <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
+              {props.onLocalUniverse ? (
+                <button type="button" onClick={props.onLocalUniverse} data-testid="button-home-local-universe" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4 text-left">
+                  <span className="font-hud tracking-widest text-solar">LOCAL FLIGHT TEST · ORBITAL</span>
+                  <span className="text-xs text-muted">Offline practice only · no account rewards</span>
+                </button>
+              ) : (
+                <a href="/combat-lab.html?universe=1" data-testid="link-home-local-universe" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
+                  <span className="font-hud tracking-widest text-solar">LOCAL FLIGHT TEST · ORBITAL</span>
+                  <span className="text-xs text-muted">Offline practice only · no account rewards</span>
+                </a>
+              )}
               <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
                 <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
                 <span className="text-xs text-muted">Canonical local combat training · no rewards</span>
@@ -254,13 +296,6 @@ function MainMenu(props: HomeProps) {
         </section>
 
         <div className="flex flex-col gap-4">
-          <CommandPanel className="wfm-rise-3 p-4" data-testid="panel-universe-navigation">
-            <PanelLabel>UNIVERSE · STRATEGIC ACCESS</PanelLabel>
-            <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary mt-3 min-h-14 w-full flex-col items-start justify-center gap-0 px-3">
-              <span className="font-hud text-lg tracking-widest text-solar">PERSISTENT GALAXY</span>
-              <span className="text-xs text-muted">World event · locations · side operations</span>
-            </button>
-          </CommandPanel>
           <OnlineWing {...props} />
           <nav aria-label="Hangar services" className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
@@ -275,7 +310,14 @@ function MainMenu(props: HomeProps) {
           </nav>
         </div>
       </div>
+
     </main>
+    <div className="wfm-landscape-lock" role="status" aria-live="polite" data-testid="landscape-required">
+      <span className="wfm-landscape-lock__device" aria-hidden="true" />
+      <b>LANDSCAPE REQUIRED</b>
+      <span>ROTATE YOUR DEVICE TO OPEN THE COMMAND HANGAR</span>
+    </div>
+    </>
   );
 }
 
