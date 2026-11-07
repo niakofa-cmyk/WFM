@@ -216,12 +216,12 @@ function MainMenu(props: HomeProps) {
           </div>
           {props.onLocalUniverse ? (
             <button type="button" onClick={props.onLocalUniverse} data-testid="button-home-local-universe" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-solar px-4 text-left">
-              <span className="font-hud tracking-widest text-solar">FLY THE MARS SECTOR · LOCAL</span>
+              <span className="font-hud tracking-widest text-solar">ENTER ORBITAL UNIVERSE · LOCAL</span>
               <span className="text-xs text-muted">Your saved {SHIPS[props.ship].name} · bounded offline flight · no rewards</span>
             </button>
           ) : (
             <a href="/combat-lab.html?universe=1" data-testid="link-home-local-universe" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
-              <span className="font-hud tracking-widest text-solar">FLY THE MARS SECTOR · LOCAL</span>
+              <span className="font-hud tracking-widest text-solar">ENTER ORBITAL UNIVERSE · LOCAL</span>
               <span className="text-xs text-muted">Bounded offline Orbital flight · dock at Cinder Ring for training · no rewards</span>
             </a>
           )}

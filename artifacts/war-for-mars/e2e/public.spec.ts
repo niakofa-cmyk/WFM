@@ -16,6 +16,28 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
     }
   });
   await page.setViewportSize({ width: 803, height: 360 });
+  await page.addInitScript(() => {
+    const pending = new Set<number>();
+    const requestNative = window.requestAnimationFrame.bind(window);
+    const cancelNative = window.cancelAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => {
+      let id = 0;
+      id = requestNative((time) => {
+        pending.delete(id);
+        callback(time);
+      });
+      pending.add(id);
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      pending.delete(id);
+      cancelNative(id);
+    };
+    Object.defineProperty(window, "__wfmActiveAnimationFrames", {
+      configurable: true,
+      get: () => pending.size,
+    });
+  });
   await page.goto("/combat-lab.html?universe=1");
   await expect(page.getByTestId("arena-stage")).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId("text-universe-scope")).toContainText("LOCAL · OFFLINE · NO REWARDS");
@@ -24,6 +46,10 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
   await expect(page.getByTestId("button-missile")).toHaveCount(0);
   const runtimeReady = await page.evaluate(() => typeof window.__controlsTest?.getPosition === "function");
   expect(runtimeReady, "a real Orbital/WebGL runtime must initialize before flight can be tested").toBe(true);
+  const activeAnimationFrames = () => page.evaluate(
+    () => (window as Window & { __wfmActiveAnimationFrames?: number }).__wfmActiveAnimationFrames ?? -1,
+  );
+  await expect.poll(activeAnimationFrames).toBe(1);
 
   const canvas = await page.locator("canvas").first().elementHandle();
   expect(canvas).not.toBeNull();
@@ -48,7 +74,7 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
     await page.evaluate((keyCode) => window.__controlsTest!.setKeys?.(keyCode ? [keyCode] : []), code);
   };
   let dockReady = false;
-  for (let attempt = 0; attempt < 120; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     const pose = await page.evaluate(() => window.__controlsTest!.getPosition!());
     const speed = await page.evaluate(() => window.__controlsTest!.getSpeed());
     const distance = Math.hypot(pose.x, pose.y, pose.z + 118);
@@ -56,7 +82,8 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
       dockReady = true;
       break;
     }
-    await command(distance > 32 && speed < 27 ? "w" : speed > 0.65 ? "b" : distance > 8 ? "w" : "b");
+    const nextKey = distance > 22 ? "w" : speed > 4 ? "b" : "";
+    await command(nextKey);
     await page.waitForTimeout(120);
   }
   await command("");
@@ -72,11 +99,36 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
   await page.getByTestId("button-universe-return").click();
   await expect(page.getByTestId("text-universe-docked")).toBeVisible();
   await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    await page.getByTestId("button-universe-launch-training").click();
+    await expect(page.getByTestId("text-universe-training")).toBeVisible();
+    await page.getByTestId("button-universe-abort-training").click();
+    await expect(page.getByTestId("text-universe-debrief")).toContainText("TRAINING ABORTED");
+    await page.getByTestId("button-universe-return").click();
+    await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+    expect(await page.locator("canvas").count()).toBe(initialCanvasCount);
+    expect(await activeAnimationFrames()).toBe(1);
+  }
   const dockedPosition = await page.evaluate(() => window.__controlsTest!.getPosition!());
   await page.getByTestId("button-universe-undock").click();
   await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).not.toBe(dockedPosition.z);
   expect(await canvas!.evaluate((element) => element.isConnected)).toBe(true);
   expect(await page.locator("canvas").count()).toBe(initialCanvasCount);
+
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    await page.getByTestId("button-universe-exit").click();
+    await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+    await expect.poll(activeAnimationFrames).toBe(0);
+    await expect(page.locator("canvas")).toHaveCount(0);
+    await page.getByTestId("button-launch-local-universe").click();
+    await expect(page.getByTestId("arena-stage")).toBeVisible();
+    await expect.poll(activeAnimationFrames).toBe(1);
+    await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  }
+  await page.getByTestId("button-universe-exit").click();
+  await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+  await expect.poll(activeAnimationFrames).toBe(0);
+  await expect(page.locator("canvas")).toHaveCount(0);
   expect(apiWrites).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
@@ -85,9 +137,28 @@ test("primary boot opens Orbital and preserves the command rollback entry", asyn
   await page.goto("/");
   await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
   await expect(page.getByTestId("button-launch-local-universe")).toBeVisible();
+  await expect(page.getByTestId("button-launch-combat-lab")).toHaveCount(0);
+  await expect(page.getByTestId("button-launch-cinder-approach")).toHaveCount(0);
   await expect(page.getByTestId("link-compatibility-command")).toHaveAttribute("href", "/command");
   await page.goto("/?boot=compatibility");
   await expect(page.getByRole("link", { name: "TRY SOLO FLIGHT" })).toBeVisible();
+});
+
+test("the Cinder destination enters the same Orbital universe flight runtime", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 803, height: 360 });
+  await page.goto("/");
+  await page.getByTestId("button-destination-cinder-ring").click();
+  await expect(page.getByTestId("button-launch-local-universe")).toContainText("APPROACH CINDER");
+  await page.getByTestId("button-launch-local-universe").click();
+  await expect(page.getByTestId("arena-stage")).toHaveAttribute("data-mode-id", "orbital-universe-local");
+  await expect(page.getByTestId("universe-exploration-hud")).toBeVisible();
+  await expect(page.getByTestId("button-universe-dock")).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => {
+    const position = window.__controlsTest!.getPosition!();
+    return Math.hypot(position.x, position.y, position.z + 118);
+  })).toBeCloseTo(44, 0);
+  await expect(page.getByTestId("button-universe-launch-training")).toHaveCount(0);
 });
 
 test("compatibility landing page explains the game and offers a solo flight", async ({ page }) => {
@@ -261,7 +332,7 @@ test("empty Wing leaderboard explains its reward eligibility requirement", async
       body: JSON.stringify({ entries: [] }),
     }),
   );
-  await page.goto("/");
+  await page.goto("/command");
 
   await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
   await expect(page.getByTestId("public-wing-leaderboard")).toContainText(

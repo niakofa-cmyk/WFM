@@ -18,13 +18,18 @@ complete all-mode migration.
 
 ## Player path
 
-1. A signed-in pilot starts **FLY THE MARS SECTOR · LOCAL** from the existing
-   Home screen. This enters the same `WarApp`/`Arena` tree and uses the saved
-   faction, hull, control scheme, gyro preference and refit level.
-2. A public/standalone pilot can still open `/combat-lab.html?universe=1`;
-   that route remains an offline fallback and does not read or overwrite the
-   account loadout.
-3. Fly forward toward the physical Cinder ring, initially 118 m ahead.
+1. The default `/` boot is Orbital. An authenticated pilot enters the same
+   `WarApp`/`Arena` tree and uses the saved faction, hull, control scheme, gyro
+   preference and refit level. The Home compatibility path labels its local
+   entry **ENTER ORBITAL UNIVERSE · LOCAL**.
+2. A public/standalone pilot can open `/combat-lab.html?universe=1`; it enters
+   the same offline Arena flight without reading or overwriting an account
+   loadout. The main Orbital boot's Mars and Cinder selections both enter this
+   same universe runtime; selecting Cinder begins 44 m outside the physical
+   gate. The standalone Lab menu still exposes its old arena and docking scenes
+   as explicit compatibility paths.
+3. From Mars Orbit, fly forward toward the physical Cinder ring, initially
+   118 m ahead; from a Cinder chart entry, approach from its 44 m capture path.
 4. Enter the 22 m local gate, stay at or below 4 m/s and align within 35°.
    **DOCK** additionally requires a functioning renderer.
 5. From the station, launch the existing three-defender combat training.
@@ -48,6 +53,7 @@ loses the local session.
 | Responsibility | Actual owner |
 |---|---|
 | Mode/authority contract | `orbital-universe-local` in shared `GameModeDefinition` |
+| Primary route selection | `OrbitalBoot`; destination selection changes the start point, not the engine |
 | Active scene, renderer, input bus, camera, fixed-step animation driver | Existing `Arena` |
 | Exploration flight | Shared `normalizeFlightControls` / `integrateSpatialFlight` |
 | Exploration coordinates | Arbitrary-precision sector address, 512 m local frame, streamed 3×3×3 neighborhood; Mars and Cinder retain stable origin coordinates |
@@ -131,14 +137,18 @@ integration tests, not browser or live-multiplayer evidence.
 - The live-event selector has regression coverage for Cinder locality, active
   phase, public visibility and snapshot freshness. This does not prove a live
   production event is currently present.
+- The browser lifecycle check now repeats station training/return and
+  universe-exit/re-entry cycles. It samples pending animation-frame callbacks
+  and canvas counts to detect a second driver or retained Arena canvases; source
+  cleanup also disposes the one WebGL renderer. This is browser evidence, not a
+  physical-GPU leak or mobile performance certification.
 - No live API requests were made during the isolated public local-flight check.
 
-Repeated transition unit tests and a browser loop do not prove physical GPU
-performance or Android control feel. Signed-in entry and the overlaid server
-operation flow were not tested through an authenticated session. Physical
-Android sector-transition/performance checks and runtime leak checks remain
-verification gaps. No staging/Production rollout or multiplayer parity is
-claimed.
+Repeated transition unit tests and a software-rendered browser loop do not prove
+physical GPU performance or Android control feel. Signed-in entry and the
+overlaid server operation flow were not tested through an authenticated session.
+Physical Android sector-transition/performance checks remain verification gaps.
+No staging/Production rollout or multiplayer parity is claimed.
 
 ## Next boundary
 

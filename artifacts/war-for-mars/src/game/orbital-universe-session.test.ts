@@ -9,7 +9,7 @@ import { SHIPS } from "./ships";
 import {
   CINDER_STATION, UNIVERSE_MODE_ID,
   capturePilotPose, cinderStationTransform, createUniverseSession, evaluateCinderDock,
-  placeAtSpawn, restorePilotPose, transitionUniverse, universeFrozen,
+  placeAtCinderApproach, placeAtSpawn, placeAtUniverseStart, restorePilotPose, transitionUniverse, universeFrozen,
 } from "./orbital-universe-session";
 import { ORIGIN_SECTOR, universeSectorColliders } from "./universe-sectors";
 
@@ -55,6 +55,22 @@ test("spawn has a real spatial pose and cannot remotely dock", () => {
   const visual = cinderStationTransform();
   assert.equal(visual.position.z, CINDER_STATION.z);
   assert.equal(visual.position.x, CINDER_STATION.x);
+});
+
+test("Mars and Cinder chart entries start in the same universe at physical flight positions", () => {
+  const mars = localMatch().player;
+  placeAtUniverseStart(mars, "mars-orbit");
+  assert.deepEqual({ x: mars.x, y: mars.space!.y, z: mars.z }, { x: 0, y: 0, z: 0 });
+  assert.equal(evaluateCinderDock(mars).reason, "range");
+
+  const cinder = localMatch().player;
+  placeAtCinderApproach(cinder);
+  const gate = evaluateCinderDock(cinder);
+  assert.equal(gate.distance, 44);
+  assert.equal(gate.closure, 0);
+  assert.equal(gate.headingDeg, 0);
+  assert.equal(gate.eligible, false);
+  assert.equal(gate.reason, "range");
 });
 
 test("Cinder admission requires physical proximity, low speed, heading, and renderer", () => {

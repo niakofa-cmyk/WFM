@@ -43,8 +43,9 @@ import {
   cinderStationTransform,
   createUniverseSession,
   evaluateCinderDock,
-  placeAtSpawn,
+  placeAtUniverseStart,
   universeFrozen,
+  type UniverseStartLocation,
   type DockEvaluation,
   type UniverseSession,
 } from "./orbital-universe-session";
@@ -144,6 +145,7 @@ type ArenaProps = {
   localUniverse?: {
     onExit: () => void;
     servicesHref: string;
+    startLocation?: UniverseStartLocation;
     servicesOpen?: boolean;
     onOpenOperations?: () => void;
   };
@@ -667,7 +669,7 @@ export function Arena({
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
     if (localUniverse) {
       universeTemplateRef.current = copyMatch(matchRef.current);
-      placeAtSpawn(matchRef.current.player);
+      placeAtUniverseStart(matchRef.current.player, localUniverse.startLocation);
     }
   }
   const dispatchUniverse = (event: LocalUniverseCommand) => {

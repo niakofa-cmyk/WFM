@@ -126,7 +126,10 @@ network/reconnect and performance claims require their own tests.
 
 **Partially implemented, not a complete runtime rebuild.** The first bounded
 local universe slice now runs exploration, physical station docking, training
-and retained-state return within one existing Arena lifecycle. See
+and retained-state return within one existing Arena lifecycle. The default boot
+routes both Mars and Cinder selections into that runtime; standalone training
+and docking scenes remain explicit compatibility options rather than parallel
+primary paths. See
 [the slice evidence and limitations](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
 The historical separation table above describes the audited starting point.
 Legacy entry paths remain compatibility access. Browser end-to-end flight

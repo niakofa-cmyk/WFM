@@ -9,6 +9,7 @@ import { ORIGIN_SECTOR, type UniverseSectorAddress, positionInCurrentSector } fr
  */
 
 export const UNIVERSE_MODE_ID = "orbital-universe-local" as const;
+export type UniverseStartLocation = "mars-orbit" | "cinder-ring";
 export type UniversePhase = "exploration" | "docked" | "training" | "debrief";
 
 /** Arena renders crafts at world y = 0.9 + flight y. */
@@ -74,7 +75,7 @@ export function restorePilotPose(craft: PoseCraft, pose: PilotPose) {
   craft.space = { ...pose.space, q: [...pose.space.q] as OrbitalFlight["q"] };
 }
 
-/** Place the pilot at the bounded-sector spawn, facing the Cinder Ring, at rest. */
+/** Place the pilot at Mars Orbit, facing the Cinder Ring, at rest. */
 export function placeAtSpawn(craft: PoseCraft) {
   if (!craft.space) throw new Error("Universe spawn requires spatial flight state.");
   const half = UNIVERSE_SPAWN.yaw / 2;
@@ -82,6 +83,17 @@ export function placeAtSpawn(craft: PoseCraft) {
   craft.pitch = 0; craft.speed = 0; craft.steer = 0;
   craft.space.y = UNIVERSE_SPAWN.y; craft.space.vx = 0; craft.space.vy = 0; craft.space.vz = 0;
   craft.space.q = [0, Math.sin(half), 0, Math.cos(half)];
+}
+
+/** Starts the same universe flight 44m outside Cinder's physical capture gate. */
+export function placeAtCinderApproach(craft: PoseCraft) {
+  placeAtSpawn(craft);
+  craft.z = CINDER_STATION.z + CINDER_STATION.interactionRadius * 2;
+}
+
+export function placeAtUniverseStart(craft: PoseCraft, location: UniverseStartLocation = "mars-orbit") {
+  if (location === "cinder-ring") placeAtCinderApproach(craft);
+  else placeAtSpawn(craft);
 }
 
 export type DockReason = "ready" | "range" | "closure" | "heading" | "inactive";
