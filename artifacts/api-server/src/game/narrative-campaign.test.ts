@@ -67,3 +67,21 @@ test("the emergency packet, pre-war beacon, Warden, Cage, and Witness clues form
   assert.ok(byId.get("cage-recorder-signal")?.requires.includes("prisoner-transfer-manifest"));
   assert.ok(byId.get("buried-memory-archive")?.requires.includes("cage-recorder-signal"));
 });
+
+
+test("Cage terminal outcomes preserve the canonical capture history", () => {
+  const cage = NARRATIVE_OPERATIONS.find((item) => item.id === "cage");
+  assert.ok(cage?.outcomes);
+  assert.deepEqual(
+    cage.outcomes.map((outcome) => outcome.custodyState).sort(),
+    ["accord", "contested", "ussf"],
+  );
+  for (const outcome of cage.outcomes) {
+    assert.ok(outcome.canonicalFactsPreserved.includes(
+      "Dusk was captured by the Accord after the expedition was destroyed.",
+    ));
+    assert.ok(outcome.canonicalFactsPreserved.includes(
+      "The Cage operation is a later prisoner transfer.",
+    ));
+  }
+});
