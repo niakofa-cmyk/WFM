@@ -3,7 +3,8 @@ import test from "node:test";
 import { createBus, readInput } from "./input";
 import { prepareOrbital } from "./orbital-sim";
 import { createMatch, step, type StepInput } from "./sim";
-import { advanceLocalUniverseFlight, transitionLocalUniverse } from "./orbital-universe-runtime";
+import { advanceLocalUniverseFlight, evaluateLocalAnomalyScan, transitionLocalUniverse } from "./orbital-universe-runtime";
+import { universeSectorContents } from "./universe-sectors";
 import {
   capturePilotPose, CINDER_STATION, createUniverseSession, evaluateCinderDock,
   placeAtSpawn, type UniverseSession,
@@ -50,14 +51,59 @@ test("exploration uses actual canonical controls without stepping clock, AI, or 
   const enemies = structuredClone(match.enemies);
   const bus = createBus("arc");
   bus.orbital = true; bus.leftStickFlight = true; bus.leftY = -.4;
+  const session = createUniverseSession();
   for (let frame = 0; frame < 120; frame++) {
-    advanceLocalUniverseFlight(match, createUniverseSession(), { ...readInput(bus), fire: true, missile: true, ult: true, lock: true }, 1 / 60);
+    advanceLocalUniverseFlight(match, session, { ...readInput(bus), fire: true, missile: true, ult: true, lock: true }, 1 / 60);
   }
   assert.ok(match.player.z < -1);
   assert.equal(match.time, 0);
   assert.equal(match.over, null);
   assert.deepEqual(match.enemies, enemies);
   assert.equal(match.bullets.length, 0);
+  assert.equal(match.kills, 0);
+});
+
+test("sector crossing rebases only position and keeps the same continuous flight state", () => {
+  const { match } = setup();
+  const session = createUniverseSession();
+  match.player.x = 255.95;
+  match.player.space!.vx = 60;
+  const orientation = [...match.player.space!.q];
+  const velocityBefore = match.player.space!.vx;
+  const nextSector = advanceLocalUniverseFlight(match, session, idle, 1 / 60);
+  assert.deepEqual(nextSector, { x: "1", y: "0", z: "0" });
+  assert.ok(match.player.x < 0, "local coordinates must rebase into the new sector");
+  assert.ok(match.player.space!.vx > 0, "velocity direction must survive sector entry");
+  assert.ok(match.player.space!.vx < velocityBefore, "ordinary flight damping still applies");
+  assert.deepEqual(match.player.space!.q, orientation, "sector travel must not rotate the ship");
+});
+
+test("local anomaly scan requires a real nearby signal and records no combat reward", () => {
+  const { match, template } = setup();
+  let address = { x: "1", y: "0", z: "0" };
+  let contents = universeSectorContents(address);
+  for (let x = 1; x <= 100 && !contents.anomaly; x++) {
+    address = { x: String(x), y: "0", z: "0" };
+    contents = universeSectorContents(address);
+  }
+  assert.ok(contents.anomaly, "the deterministic sector generator should provide a scannable anomaly");
+  const session = { ...createUniverseSession(), sectorAddress: address };
+  match.player.x = contents.anomaly.x;
+  match.player.z = contents.anomaly.z;
+  match.player.space!.y = contents.anomaly.y;
+  match.player.space!.vx = 0;
+  match.player.space!.vy = 0;
+  match.player.space!.vz = 0;
+
+  const scan = evaluateLocalAnomalyScan(match, session);
+  assert.equal(scan?.ready, true);
+  match.player.space!.vx = 4.1;
+  assert.equal(evaluateLocalAnomalyScan(match, session)?.ready, false);
+  match.player.space!.vx = 0;
+  const scanned = transitionLocalUniverse(match, template, session, { type: "scan-anomaly" });
+  assert.notEqual(scanned, session);
+  assert.deepEqual(scanned.scannedAnomalies, [scan!.id]);
+  assert.equal(scanned.phase, "exploration");
   assert.equal(match.kills, 0);
 });
 

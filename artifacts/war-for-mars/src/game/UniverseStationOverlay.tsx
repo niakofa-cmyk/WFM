@@ -1,9 +1,13 @@
 import { CINDER_STATION, type DockEvaluation, type UniverseSession } from "./orbital-universe-session";
 import { CinderRingOperationPreview } from "./CinderRingOperationPreview";
+import { isOriginSector, sectorAddressKey, universeSectorContents } from "./universe-sectors";
+import type { LocalAnomalyScan } from "./orbital-universe-runtime";
 
 type Props = {
   session: UniverseSession;
   dock: DockEvaluation | null;
+  anomalyScan: LocalAnomalyScan | null;
+  onScanAnomaly: () => void;
   rendererReady: boolean;
   graphicsError: string | null;
   servicesHref: string;
@@ -27,9 +31,16 @@ const REASON: Record<DockEvaluation["reason"], string> = {
 const panel = "pointer-events-auto border border-bone/15 bg-void/85 backdrop-blur-sm";
 const btn = "min-h-11 px-4 font-hud tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 
+function formatCinderDistance(distance: number) {
+  if (distance >= 1_000_000_000) return "CINDER RING · DISTANT SECTOR";
+  if (distance >= 1_000_000) return `${(distance / 1_000_000).toFixed(1)} M KM`;
+  if (distance >= 10_000) return `${(distance / 1_000).toFixed(1)} KM`;
+  return `${Math.round(distance)} M`;
+}
+
 /** HUD + station panels for the local Orbital universe. Presentation only; Arena owns all state effects. */
 export function UniverseStationOverlay(p: Props) {
-  const { session, dock } = p;
+  const { session, dock, anomalyScan } = p;
   const scope = "LOCAL · OFFLINE · NO REWARDS";
 
   if (p.graphicsError) {
@@ -46,18 +57,25 @@ export function UniverseStationOverlay(p: Props) {
 
   if (session.phase === "exploration") {
     const ready = Boolean(dock?.eligible) && p.rendererReady;
+    const origin = isOriginSector(session.sectorAddress);
+    const contents = universeSectorContents(session.sectorAddress);
     return (
       <div className="pointer-events-none absolute inset-0 z-30" data-testid="universe-exploration-hud" data-universe-phase="exploration">
         <div className="absolute inset-x-0 top-2 flex justify-center px-3">
           <div className={`${panel} pointer-events-auto flex w-full max-w-[20rem] items-center gap-2 px-2 py-1`}>
             <div className="min-w-0 flex-1">
-              <p className="font-hud text-[11px] tracking-widest text-solar">CINDER RING</p>
+              <p className="font-hud text-[11px] tracking-widest text-solar">{dock && dock.distance < 256 ? "CINDER RING" : "FRONTIER SECTOR"}</p>
               <p className="font-hud text-[9px] text-muted" data-testid="text-universe-scope">{scope}</p>
+              <p className="truncate font-hud text-[9px] tracking-wider text-bone/70" data-testid="text-universe-sector" title={contents.name}>
+                {sectorAddressKey(session.sectorAddress)} · {origin ? "MARS ORBIT" : contents.name}
+              </p>
               <p className="font-hud text-xs tracking-wider text-bone/80" data-testid="text-dock-telemetry">
-                {dock ? `${Math.round(dock.distance)} M · ${dock.closure.toFixed(1)}/${CINDER_STATION.maxClosureSpeed} M/S · ${Math.round(dock.headingDeg)}°` : "ACQUIRING"}
+                {dock ? `${formatCinderDistance(dock.distance)} · ${dock.closure.toFixed(1)}/${CINDER_STATION.maxClosureSpeed} M/S · ${Math.round(dock.headingDeg)}°` : "ACQUIRING"}
               </p>
               <p className={`font-hud text-[11px] tracking-widest ${ready ? "text-solar" : "text-bone/60"}`} data-testid="status-dock-gate">
-                {p.rendererReady ? (dock ? REASON[dock.reason] : "ACQUIRING") : "RENDERER STARTING"}
+                {p.rendererReady
+                  ? (dock ? (dock.distance > 1_000_000 ? "RETURN TO CINDER RING SECTOR" : REASON[dock.reason]) : "ACQUIRING")
+                  : "RENDERER STARTING"}
               </p>
             </div>
             <button type="button" data-testid="button-universe-dock" disabled={!ready} onClick={p.onDock}
@@ -69,6 +87,26 @@ export function UniverseStationOverlay(p: Props) {
         {dock && dock.distance <= 90 ? (
           <div className="absolute left-3 top-24 w-[min(18rem,calc(100vw-1.5rem))]">
             <CinderRingOperationPreview />
+          </div>
+        ) : null}
+        {anomalyScan && anomalyScan.distance <= 220 ? (
+          <div className="pointer-events-auto absolute right-3 top-24 w-[min(17rem,calc(100vw-1.5rem))] border border-cyan-300/35 bg-void/90 p-3 backdrop-blur-sm" data-testid="universe-anomaly-signal">
+            <p className="font-hud text-[10px] tracking-[0.2em] text-cyan-300">ANOMALY SIGNAL · LOCAL</p>
+            <p className="mt-1 truncate font-hud text-[10px] text-bone/75">{anomalyScan.label}</p>
+            <p className="mt-1 font-hud text-xs tracking-wider text-bone">{Math.round(anomalyScan.distance)} M · NO REWARDS</p>
+            {anomalyScan.logFull ? (
+              <p className="mt-2 font-hud text-[10px] tracking-widest text-alert" data-testid="status-anomaly-scanned">LOCAL DISCOVERY LOG FULL</p>
+            ) : anomalyScan.scanned ? (
+              <p className="mt-2 font-hud text-[10px] tracking-widest text-solar" data-testid="status-anomaly-scanned">SIGNATURE LOGGED · THIS SESSION</p>
+            ) : (
+              <>
+                <p className="mt-1 font-hud text-[9px] tracking-widest text-muted">
+                  {anomalyScan.ready ? "SCAN WINDOW OPEN" : anomalyScan.distance > 24 ? "CLOSE TO 24 M" : "REDUCE SPEED TO 4 M/S"}
+                </p>
+                <button type="button" data-testid="button-universe-scan-anomaly" disabled={!anomalyScan.ready} onClick={p.onScanAnomaly}
+                  className={`${btn} mt-2 w-full border border-cyan-300/50 text-cyan-300`}>SCAN SIGNATURE</button>
+              </>
+            )}
           </div>
         ) : null}
       </div>

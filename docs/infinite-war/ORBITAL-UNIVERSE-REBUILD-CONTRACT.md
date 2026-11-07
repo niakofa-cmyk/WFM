@@ -130,8 +130,8 @@ and retained-state return within one existing Arena lifecycle. See
 [the slice evidence and limitations](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
 The historical separation table above describes the audited starting point.
 Legacy entry paths remain compatibility access. Browser end-to-end flight
-certification, connected authority, unlimited exploration and all-mode migration
-are not established by this increment.
+certification, connected authority, account-persistent unlimited exploration,
+interstellar travel and all-mode migration are not established by this increment.
 
 Related maintained documents:
 

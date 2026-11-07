@@ -632,21 +632,25 @@ function planetTexture() {
 }
 
 export function addOrbitalEnvironment(scene: THREE.Scene) {
+  const systemFrame = new THREE.Group();
+  systemFrame.name = "mars-local-system";
+  const background = new THREE.Group();
+  background.name = "orbital-starfield";
   const texture = planetTexture();
   const bump = texture.clone();
   bump.colorSpace = THREE.NoColorSpace;
   bump.needsUpdate = true;
   const mars = new THREE.Mesh(new THREE.SphereGeometry(65, 80, 48), new THREE.MeshStandardMaterial({ map: texture, bumpMap: bump, bumpScale: .6, roughness: .96, metalness: 0 }));
   mars.position.set(-100, 21, -200); mars.rotation.z = .3;
-  scene.add(mars);
+  systemFrame.add(mars);
   const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(66.3, 64, 40), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
     vertexShader: `varying vec3 n; varying vec3 v; void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}`,
     fragmentShader: `varying vec3 n;varying vec3 v;void main(){float f=pow(1.-abs(dot(normalize(n),normalize(v))),3.);gl_FragColor=vec4(.65,.22,.08,f*.6);}`,
   }));
-  atmosphere.position.copy(mars.position); scene.add(atmosphere);
+  atmosphere.position.copy(mars.position); systemFrame.add(atmosphere);
   const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 24), new THREE.MeshStandardMaterial({ color: 0x77716d, roughness: 1 }));
-  moon.position.set(100, 50, -210); scene.add(moon);
+  moon.position.set(100, 50, -210); systemFrame.add(moon);
   const dust = new THREE.BufferGeometry();
   const positions = new Float32Array(1800 * 3);
   for (let i = 0; i < 1800; i++) {
@@ -654,7 +658,7 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
     positions.set([Math.cos(a) * radius * 410, y * 410, Math.sin(a) * radius * 410], i * 3);
   }
   dust.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  scene.add(new THREE.Points(dust, new THREE.PointsMaterial({ color: 0xc0d4e1, size: .45, sizeAttenuation: true })));
+  background.add(new THREE.Points(dust, new THREE.PointsMaterial({ color: 0xc0d4e1, size: .45, sizeAttenuation: true })));
   const station = new THREE.Group();
   const silver = new THREE.MeshStandardMaterial({ color: 0x68717a, metalness: .8, roughness: .45 });
   for (let i = 0; i < 3; i++) {
@@ -667,9 +671,10 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
     module.position.set(Math.sin(a) * 11, Math.cos(a) * 11, 0); module.rotation.z = -a;
     station.add(module);
   }
-  station.position.set(65, 17, -110); station.rotation.y = -.4; scene.add(station);
+  station.position.set(65, 17, -110); station.rotation.y = -.4; systemFrame.add(station);
   station.name = "cinder-ring-station";
-  return { textures: [texture, bump], station };
+  scene.add(systemFrame, background);
+  return { textures: [texture, bump], station, systemFrame, background };
 }
 
 export function orbitalRock(radius: number, seed: number) {

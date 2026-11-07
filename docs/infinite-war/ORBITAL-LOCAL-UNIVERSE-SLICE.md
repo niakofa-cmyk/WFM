@@ -6,9 +6,12 @@ The first runtime rebuild increment executes exploration, docking, training and
 return inside the existing Orbital `Arena` instance. It is not another
 Three.js universe application or a link-only chart redesign.
 
-This is a **bounded, offline, no-reward, session-only sector**, not persistent
-or shared multiplayer space. Current Wing/co-op services and saved locations
-remain unchanged. It does not complete all-mode migration.
+This now includes **deterministic streamed local sectors** in the same offline,
+no-reward session. The address can grow without a world-edge clamp while the
+flight simulation remains in a small local frame. Sector position is still
+session-only: this is not account-persistent or shared multiplayer space.
+Current Wing/co-op services and saved locations remain unchanged. It does not
+complete all-mode migration.
 
 ## Player path
 
@@ -44,7 +47,7 @@ loses the local session.
 | Mode/authority contract | `orbital-universe-local` in shared `GameModeDefinition` |
 | Active scene, renderer, input bus, camera, fixed-step animation driver | Existing `Arena` |
 | Exploration flight | Shared `normalizeFlightControls` / `integrateSpatialFlight` |
-| Exploration bounds | Explicit 200 m local radius and Mars collision sphere |
+| Exploration coordinates | Arbitrary-precision sector address, 512 m local frame, streamed 3×3×3 neighborhood; Mars and Cinder retain stable origin coordinates |
 | Station gate and retained pose | Pure `orbital-universe-session.ts` helpers |
 | Training | Existing prepared Orbital match and normal `step` rules |
 | Panels | `UniverseStationOverlay`, no simulation or renderer |
@@ -116,6 +119,12 @@ integration tests, not browser or live-multiplayer evidence.
   training-abort, return-to-station and undock loop in one Arena/canvas with the
   22 m / 4 m/s gate. The local check recorded no API writes. This is
   software-rendered browser evidence, not Android-device evidence.
+- The owner confirmed that the 22 m approach worked correctly. The device and
+  runtime for that confirmation were not specified.
+- Deterministic address, rebasing, nearby-sector generation, shared visual/
+  collision content, stable Cinder coordinates and a no-reward local anomaly
+  scan are covered by unit/integration tests. No claim of persistent discovery
+  or server-shared anomaly state is made.
 - The live-event selector has regression coverage for Cinder locality, active
   phase, public visibility and snapshot freshness. This does not prove a live
   production event is currently present.
@@ -124,14 +133,14 @@ integration tests, not browser or live-multiplayer evidence.
 Repeated transition unit tests and a browser loop do not prove physical GPU
 performance or Android control feel. Signed-in entry and the overlaid server
 operation flow were not tested through an authenticated session. Physical
-Android flight and runtime leak checks remain
+Android sector-transition/performance checks and runtime leak checks remain
 verification gaps. No staging/Production rollout or multiplayer parity is
 claimed.
 
 ## Next boundary
 
-Validate docking and the repeated activity-return loop on a real phone, including
-saved-profile entry and return. Then integrate the existing authoritative
-discovery, travel and operation-admission contracts through explicit adapters.
-Streaming, shared flight, anomalies and live competition observation require
-separate implementation and evidence.
+Next connect stable sector addresses to account-owned saved-world state and
+server-approved travel without making local free flight a location authority.
+Then add planetary reference frames, orbital/atmospheric transitions, shared
+nearby presence, scheduled server-backed anomaly events, and validated operation
+entry. Verify those online flows independently from this offline sector stream.

@@ -59,6 +59,16 @@ the server, and publish only match status and anonymized spectator state. Never
 infer a live match from a catalog entry or change Wing reward rules through
 this directory.
 
+**Owner-reported verification:** The user confirmed that the local Cinder
+approach worked correctly at 22 m; the device and runtime were not specified.
+
+**Why:** this confirms the corrected local approach behavior, but does not
+establish Android, staging, persistent-location or multiplayer verification.
+
+**How to apply:** retain the 22 m local docking approach as a user-confirmed
+behavior while keeping platform and authority claims limited to separately
+verified evidence.
+
 **Why:** application code and catalog definitions do not create live operations;
 the server must register each session and publish only its actual lifecycle.
 

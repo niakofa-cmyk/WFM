@@ -7,10 +7,11 @@ import { prepareOrbital } from "./orbital-sim";
 import { createMatch } from "./sim";
 import { SHIPS } from "./ships";
 import {
-  CINDER_STATION, UNIVERSE_BOUNDARY_RADIUS, UNIVERSE_COLLIDERS, UNIVERSE_MODE_ID,
+  CINDER_STATION, UNIVERSE_MODE_ID,
   capturePilotPose, cinderStationTransform, createUniverseSession, evaluateCinderDock,
   placeAtSpawn, restorePilotPose, transitionUniverse, universeFrozen,
 } from "./orbital-universe-session";
+import { ORIGIN_SECTOR, universeSectorColliders } from "./universe-sectors";
 
 function localMatch() {
   return prepareOrbital(createMatch("duskbreaker", "ussf", 0, "practice", {
@@ -39,7 +40,7 @@ test("local universe declares canonical Arena ownership with no network or rewar
   assert.equal(runtime.authority, "local");
   assert.equal(runtime.rewardEligibility, "none");
   assert.equal(definition.presentation.lifecycleOwner, "Arena");
-  assert.ok(definition.rules.includes("bounded-local-sector"));
+  assert.ok(definition.rules.includes("streamed-local-sectors"));
   assert.ok(definition.rules.includes("no-server-location-authority"));
 });
 
@@ -174,7 +175,7 @@ test("canonical left thumb drives signed translation and right thumb rolls the r
     setCircularRollControl(bus, .8, 1000);
     const controls = normalizeFlightControls(readInput(bus, 1001));
     for (let tick = 0; tick < 20; tick++) {
-      integrateSpatialFlight(craft, controls, 1 / 60, 1, UNIVERSE_COLLIDERS, SHIPS[craft.ship], { boundaryRadius: UNIVERSE_BOUNDARY_RADIUS });
+      integrateSpatialFlight(craft, controls, 1 / 60, 1, universeSectorColliders(ORIGIN_SECTOR), SHIPS[craft.ship], { boundaryRadius: null });
     }
     assert.ok(craft.z * direction > 0, "signed throttle must move the hull");
     assert.notEqual(craft.space!.q[2], 0, "direct roll must rotate the real spatial state");

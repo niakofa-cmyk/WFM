@@ -59,7 +59,7 @@ export const GAME_MODE_DEFINITIONS = [
     players: { min: 1, max: 1, minimumHumans: 1 },
     ai: "mission",
     objectives: ["explore-local-sector", "approach-cinder", "station-training", "return-to-universe"],
-    rules: ["offline", "no-rewards", "bounded-local-sector", "fixed-step-orbital-rules", "no-server-location-authority"],
+    rules: ["offline", "no-rewards", "streamed-local-sectors", "fixed-step-orbital-rules", "no-server-location-authority"],
     rewardEligibility: "none",
     authority: "local",
     simulation: {

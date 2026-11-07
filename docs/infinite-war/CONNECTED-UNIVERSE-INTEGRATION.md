@@ -65,7 +65,9 @@ not continuous infinite flight or a completed universe simulation.
 
 ## What still must be built
 
-Continuous sector traversal, floating-origin/streaming ownership in canonical
-Orbital, persistent faction patrols and encounter decisions, meaningful anomaly
-physics/travel, and the complete launch/explore/fight/join/return acceptance
+The local Orbital flight now rebases through deterministic, addressable sector
+cells and streams a nearby procedural asteroid/anomaly neighborhood. This is
+still offline and session-only. Account-persistent sector ownership, shared
+nearby presence, planetary reference frames, faction patrol decisions, anomaly
+travel/physics and the complete launch/explore/fight/join/return acceptance
 journey remain incomplete. Server-approved route travel is not free flight.

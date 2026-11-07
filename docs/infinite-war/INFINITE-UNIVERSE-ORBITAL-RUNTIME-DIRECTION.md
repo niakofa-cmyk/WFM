@@ -55,15 +55,15 @@ already been extracted.
 | Other campaign sorties | `Arena` with pinned `surface-v1` or configured runtime | Compatibility runtime. Preserve run IDs, objective replay, story state and idempotent claims. |
 | Live Wing 5v5 / private / AI-fill | Authenticated Wing socket, matchmaking and `surface-v1` combat; Orbital Arena rejects live rooms | Not migrated. Keep competitive ten-human and reward gates; private and AI-fill remain no-reward. |
 | Universe / Galaxy navigation | `GalaxyScreen`, world-operation directory and operation registration | Navigation and discovery only; not continuous 3D travel or shared flight. |
-| Fleet warfare / persistent universe expansion | No complete runtime path yet | Planned. Do not count future scope as shipped. |
+| Fleet warfare / persistent universe expansion | Offline local Orbital flight now streams deterministic sector neighborhoods. It does not persist or share those sectors. | Account-persistent/shared space, planetary reference frames, distant star systems and fleet warfare remain unimplemented. |
 
-The current local Rust Disc scene shows Mars as a rendered body but also uses a
-bounded training sector (the default radius is 460; Cinder Ring is 900). The
-Orbital simulation can disable its local boundary, but a boundary-free local
-coordinate does not by itself provide a planet reference frame, floating origin,
-streamed systems, persistence or multiplayer universe. This checkout does not
-yet prove continuous surface-to-orbit-to-interstellar travel. Never describe a
-visual planet backdrop, large number, or sector transition as that proof.
+The local Rust Disc compatibility scene remains bounded. The Orbital local
+universe now rebases its small physics coordinates into deterministic
+512-metre sector addresses and streams a 3×3×3 neighborhood. This is still an
+offline session, not server persistence or multiplayer authority. Sector travel
+does not yet provide planetary reference frames, atmosphere/orbit handoffs,
+light-year-scale system transitions or persistent discovery. Never describe a
+visual backdrop or sector transition alone as proof of those systems.
 
 ## Shared mode contract and runtime bootstrap
 

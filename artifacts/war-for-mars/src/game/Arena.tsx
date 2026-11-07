@@ -24,6 +24,8 @@ import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
+import { buildUniverseSectorNeighborhood, disposeUniverseSectorNeighborhood, setOriginSystemFrame } from "./universe-sector-visuals";
+import { sectorAddressKey, UNIVERSE_SECTOR_EDGE } from "./universe-sectors";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
@@ -46,7 +48,7 @@ import {
   type DockEvaluation,
   type UniverseSession,
 } from "./orbital-universe-session";
-import { advanceLocalUniverseFlight, transitionLocalUniverse, type LocalUniverseCommand } from "./orbital-universe-runtime";
+import { advanceLocalUniverseFlight, evaluateLocalAnomalyScan, transitionLocalUniverse, type LocalAnomalyScan, type LocalUniverseCommand } from "./orbital-universe-runtime";
 import { UniverseStationOverlay } from "./UniverseStationOverlay";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
@@ -560,6 +562,8 @@ export function Arena({
     return universeRef.current;
   });
   const [dockState, setDockState] = useState<DockEvaluation | null>(null);
+  const [anomalyScan, setAnomalyScan] = useState<LocalAnomalyScan | null>(null);
+  const anomalyScanKeyRef = useRef("");
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
   const universeExitRef = useRef(localUniverse?.onExit);
@@ -679,6 +683,8 @@ export function Arena({
     setMapOpen(false);
     setCountermeasureVisible(false);
     countermeasureVisibleRef.current = false;
+    setAnomalyScan(null);
+    anomalyScanKeyRef.current = "";
     universeRef.current = next;
     setUniverse(next);
   };
@@ -1011,6 +1017,21 @@ export function Arena({
       gate.name = "cinder-dock-gate";
       orbitalAssets.station.add(gate);
     }
+    let sectorNeighborhood: THREE.Group | null = null;
+    let activeSectorKey = "";
+    const updateUniverseSector = (address: UniverseSession["sectorAddress"]) => {
+      const key = sectorAddressKey(address);
+      if (key === activeSectorKey) return;
+      if (sectorNeighborhood) {
+        scene.remove(sectorNeighborhood);
+        disposeUniverseSectorNeighborhood(sectorNeighborhood);
+      }
+      sectorNeighborhood = buildUniverseSectorNeighborhood(address);
+      scene.add(sectorNeighborhood);
+      if (orbitalAssets) setOriginSystemFrame(orbitalAssets.systemFrame, address, UNIVERSE_SECTOR_EDGE);
+      activeSectorKey = key;
+    };
+    if (localUniverse) updateUniverseSector(universeRef.current?.sectorAddress ?? { x: "0", y: "0", z: "0" });
     const makeShip = orbital ? buildOrbitalShip : buildShip;
     if (orbital) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1470,16 +1491,28 @@ export function Arena({
         let steps = 0;
         const pilot = match.player;
         while (acc >= FIXED && steps < 5 && pilot.space) {
-          advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED);
+          const nextSector = advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED);
+          if (nextSector) {
+            const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
+            universeRef.current = nextSession;
+            setUniverse(nextSession);
+            updateUniverseSector(nextSector);
+          }
           acc -= FIXED;
           steps += 1;
         }
         if (universePhase === "exploration") {
-          const dock = evaluateCinderDock(pilot);
+          const dock = evaluateCinderDock(pilot, universeRef.current!.sectorAddress);
           const key = `${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
           if (key !== lastDockKey) {
             lastDockKey = key;
             setDockState(dock);
+          }
+          const scan = evaluateLocalAnomalyScan(match, universeRef.current!);
+          const scanKey = scan ? `${scan.id}:${Math.floor(scan.distance)}:${scan.scanned}:${scan.ready}` : "none";
+          if (scanKey !== anomalyScanKeyRef.current) {
+            anomalyScanKeyRef.current = scanKey;
+            setAnomalyScan(scan);
           }
         }
         match.fx.length = 0;
@@ -2207,6 +2240,7 @@ export function Arena({
       mats.add(debrisMaterial);
       geos.forEach((geo) => geo.dispose());
       mats.forEach((mat) => mat.dispose());
+      if (sectorNeighborhood) disposeUniverseSectorNeighborhood(sectorNeighborhood);
       theaterTextures.dispose();
       orbitalAssets?.textures.forEach((texture) => texture.dispose());
       damageControllers.forEach((controller) => controller.dispose());
@@ -2257,6 +2291,8 @@ export function Arena({
         <UniverseStationOverlay
           session={universe}
           dock={dockState}
+          anomalyScan={anomalyScan}
+          onScanAnomaly={() => dispatchUniverse({ type: "scan-anomaly" })}
           rendererReady={glReady && !glError}
           graphicsError={glError}
           servicesHref={localUniverse.servicesHref}
