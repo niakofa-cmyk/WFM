@@ -4,6 +4,7 @@ import { clearInput, createBus, pulseVectorManeuver, setCircularRollControl, typ
 import { CINDER_ASTEROID_SECTOR, createFlight, flightObjective, stepFlight, type FlightState } from "./flight-sector";
 import { readOrbitalPreviewInput } from "./orbital-flight-preview-input";
 import { createOrbitalNativeFlightRenderer, type OrbitalNativeFlightRenderer } from "./orbital-native-flight-renderer";
+import { evaluateNativeCinderDock } from "./orbital-native-docking";
 import { type Faction, type ShipId } from "./ships";
 
 const FIXED_STEP = 1 / 30;
@@ -23,10 +24,15 @@ type HudState = {
   stage: string;
   range: number;
   objective: string;
+  dockReason: string;
+  dockSpeed: number;
+  dockHeading: number;
+  canDock: boolean;
 };
 
 function readHud(state: FlightState): HudState {
   const objective = flightObjective(state, CINDER_ASTEROID_SECTOR);
+  const dock = evaluateNativeCinderDock(state);
   return {
     speed: Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z),
     energy: state.energy,
@@ -35,14 +41,22 @@ function readHud(state: FlightState): HudState {
     lock: state.lock,
     hits: state.hits,
     stage: state.stage.toUpperCase(),
-    range: Math.hypot(
-      objective.position.x - state.position.x,
-      objective.position.y - state.position.y,
-      objective.position.z - state.position.z,
-    ),
+    range: dock.distance,
     objective: objective.label,
+    dockReason: dock.reason,
+    dockSpeed: dock.speed,
+    dockHeading: dock.headingDeg,
+    canDock: dock.eligible,
   };
 }
+
+const DOCK_COPY: Record<HudState["dockReason"], string> = {
+  ready: "CAPTURE WINDOW READY · DOCK TO ENTER",
+  range: "APPROACH WITHIN 22 M",
+  closure: "REDUCE CLOSURE SPEED TO 4 M/S OR LESS",
+  heading: "ALIGN YOUR NOSE WITH THE STATION",
+  inactive: "FLIGHT INACTIVE",
+};
 
 function holdControl(bus: Bus, key: string, held: boolean) {
   if (held) bus.keys.add(key);
@@ -89,14 +103,18 @@ function HoldButton({ bus, control, label, testId, accent = false }: {
 export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; faction: Faction }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const busRef = useRef<Bus | null>(null);
+  const flightRef = useRef<FlightState | null>(null);
+  const rendererRef = useRef<OrbitalNativeFlightRenderer | null>(null);
   const pausedRef = useRef(false);
+  const dockedRef = useRef(false);
   const [enabled, setEnabled] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [docked, setDocked] = useState(false);
   const [run, setRun] = useState(0);
   const [status, setStatus] = useState("Native renderer idle · no GPU resources allocated.");
   const [hud, setHud] = useState<HudState>({
     speed: 0, energy: 100, hull: 100, missiles: 3, lock: 0, hits: 0, stage: "RELAY", range: 0,
-    objective: "Investigate damaged relay",
+    objective: "Investigate damaged relay", dockReason: "range", dockSpeed: 0, dockHeading: 180, canDock: false,
   });
 
   if (!busRef.current) {
@@ -119,9 +137,12 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
     controls.orbital = true;
     controls.leftStickFlight = true;
     pausedRef.current = false;
+    dockedRef.current = false;
     setPaused(false);
+    setDocked(false);
 
     let flight = createFlight(shipId, CINDER_ASTEROID_SECTOR);
+    flightRef.current = flight;
     let renderer: OrbitalNativeFlightRenderer | null = null;
     let raf = 0;
     let previous = 0;
@@ -132,8 +153,10 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
       renderer = createOrbitalNativeFlightRenderer({
         canvas,
         sector: CINDER_ASTEROID_SECTOR,
+        shipId,
         factionColor: faction === "ussf" ? [0.34, 0.76, 1] : [1, 0.62, 0.26],
       });
+      rendererRef.current = renderer;
       setStatus(`Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
     } catch (error) {
       setStatus(`Flight preview unavailable: ${error instanceof Error ? error.message : "renderer initialization failed"}`);
@@ -168,7 +191,7 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
       if (!previous) previous = now;
       const frameSeconds = Math.min(Math.max(0, (now - previous) / 1000), 0.1);
       previous = now;
-      if (!pausedRef.current) {
+      if (!pausedRef.current && !dockedRef.current) {
         accumulator = Math.min(accumulator + frameSeconds, FIXED_STEP * 4);
         let steps = 0;
         while (accumulator >= FIXED_STEP && steps < 4) {
@@ -196,9 +219,32 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
       window.removeEventListener("blur", resetControls);
       document.removeEventListener("visibilitychange", onVisibility);
       clearInput(controls);
+      flightRef.current = null;
+      rendererRef.current = null;
+      dockedRef.current = false;
       renderer?.dispose();
     };
   }, [enabled, faction, shipId, run]);
+
+  const dockAtStation = () => {
+    const flight = flightRef.current;
+    if (!flight || !rendererRef.current || !evaluateNativeCinderDock(flight).eligible) return;
+    clearInput(bus);
+    flight.velocity.x = 0;
+    flight.velocity.y = 0;
+    flight.velocity.z = 0;
+    dockedRef.current = true;
+    setDocked(true);
+    setHud(readHud(flight));
+    setStatus("Docking complete · local Cinder Ring station · no account changes or rewards.");
+  };
+  const undockFromStation = () => {
+    if (!dockedRef.current) return;
+    clearInput(bus);
+    dockedRef.current = false;
+    setDocked(false);
+    setStatus("Undocked · continuing the same local Cinder sector flight.");
+  };
 
   return (
     <section className="uv-renderer-proof" aria-label="Orbital local flight preview">
@@ -207,7 +253,7 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
           <b>ORBITAL FLIGHT PREVIEW</b>
           <small>Shared fixed-step flight sim · Cinder asteroid field · local / no rewards</small>
         </div>
-        <button type="button" data-testid="button-orbital-preview-toggle" onClick={() => setEnabled((value) => !value)}>
+        <button type="button" data-testid="button-orbital-preview-toggle" onClick={() => { setEnabled((value) => !value); setDocked(false); }}>
           {enabled ? "EXIT FLIGHT" : "ENTER FLIGHT"}
         </button>
       </div>
@@ -225,6 +271,19 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
           </div>
           <canvas ref={canvasRef} className="uv-renderer-proof__canvas" aria-label="Orbital flight scene with player ship and Cinder asteroids" />
           <p className="uv-renderer-proof__status" data-testid="status-orbital-preview" role="status">{status}</p>
+          <div className={`uv-dock-panel${docked ? " uv-dock-panel--docked" : ""}`} data-testid="orbital-cinder-dock-state" aria-live="polite">
+            <div>
+              <b>{docked ? "DOCKED · CINDER RING" : "CINDER RING · DOCK APPROACH"}</b>
+              <small>
+                {docked
+                  ? "Station entry is local only. Online location and operation access remain server-validated."
+                  : `${DOCK_COPY[hud.dockReason]} · ${Math.round(hud.range)} M · ${hud.dockSpeed.toFixed(1)} M/S · ${Math.round(hud.dockHeading)}°`}
+              </small>
+            </div>
+            {docked
+              ? <button type="button" data-testid="button-orbital-preview-undock" onClick={undockFromStation}>UNDOCK</button>
+              : <button type="button" data-testid="button-orbital-preview-dock" disabled={!hud.canDock} onClick={dockAtStation}>DOCK</button>}
+          </div>
           <div className="uv-flight-control-deck">
             <div className="uv-flight-stick-wrap">
               <PilotFlightStick
@@ -259,7 +318,7 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
             </div>
           </div>
           <div className="uv-flight-preview-footer">
-            <button type="button" className="uv-renderer-proof__clock" data-testid="button-orbital-preview-pause" onClick={() => setPaused((value) => !value)}>
+            <button type="button" className="uv-renderer-proof__clock" data-testid="button-orbital-preview-pause" disabled={docked} onClick={() => setPaused((value) => !value)}>
               {paused ? "RESUME FLIGHT" : "PAUSE FLIGHT"}
             </button>
             <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-restart" onClick={() => setRun((value) => value + 1)}>

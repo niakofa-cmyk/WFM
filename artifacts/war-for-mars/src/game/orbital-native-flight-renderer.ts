@@ -1,5 +1,8 @@
 import type { FlightSector, FlightState } from "./flight-sector";
 import { rotate } from "@workspace/orbital-sim";
+import { CINDER_STATION } from "./orbital-universe-session";
+import { buildOrbitalNativeShipGeometry } from "./orbital-native-ship-geometry";
+import type { ShipId } from "./ships";
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
@@ -48,22 +51,14 @@ void main() {
   }
 }`;
 
-const FIGHTER_VERTICES = new Float32Array([
-   0, 0.06, -3.6,  -0.52, 0, -0.15,   0.52, 0, -0.15,
-   0, 0.06, -3.6,   0.52, 0, -0.15,   0, -0.2, 0.9,
-  -0.52, 0, -0.15, -3.2, 0, 0.8,      -0.55, 0, 0.55,
-  -0.55, 0, 0.55,  -3.2, 0, 0.8,       0, 0, 1.5,
-   0.52, 0, -0.15,   0.55, 0, 0.55,     3.2, 0, 0.8,
-   0.55, 0, 0.55,   0, 0, 1.5,          3.2, 0, 0.8,
-  -0.55, 0, 0.55,   0, 0, 1.5,          0, -0.2, 0.9,
-   0.55, 0, 0.55,   0, -0.2, 0.9,       0, 0, 1.5,
-   0, 0.06, -3.6,   0, 0.1, 0.35,       0.52, 0, -0.15,
-   0, 0.06, -3.6,  -0.52, 0, -0.15,     0, 0.1, 0.35,
-]);
-
 type Vec3 = { x: number; y: number; z: number };
 type Quaternion = [number, number, number, number];
-type RendererOptions = { canvas: HTMLCanvasElement; sector: FlightSector; factionColor: [number, number, number] };
+type RendererOptions = {
+  canvas: HTMLCanvasElement;
+  sector: FlightSector;
+  shipId: ShipId;
+  factionColor: [number, number, number];
+};
 export type OrbitalNativeFlightRenderer = {
   render(state: FlightState): void;
   dispose(): void;
@@ -178,9 +173,65 @@ function asteroidInstances(sector: FlightSector): Float32Array {
   return data;
 }
 
+function nativeStationGeometry(): Float32Array {
+  const vertices: number[] = [];
+  const addTriangle = (a: readonly number[], b: readonly number[], c: readonly number[], color: readonly number[]) => {
+    for (const point of [a,b,c]) vertices.push(point[0]!,point[1]!,point[2]!,color[0]!,color[1]!,color[2]!);
+  };
+  const addQuad = (a: readonly number[], b: readonly number[], c: readonly number[], d: readonly number[], color: readonly number[]) => {
+    addTriangle(a,b,c,color); addTriangle(a,c,d,color);
+  };
+  const torus = (major: number, tube: number, z: number, color: readonly number[], segments: number) => {
+    for (let i = 0; i < segments; i++) {
+      const u0 = i * Math.PI * 2 / segments, u1 = (i + 1) * Math.PI * 2 / segments;
+      for (let j = 0; j < 6; j++) {
+        const v0 = j * Math.PI / 3, v1 = (j + 1) * Math.PI / 3;
+        const point = (u: number, v: number) => [
+          (major + tube * Math.cos(v)) * Math.cos(u),
+          (major + tube * Math.cos(v)) * Math.sin(u),
+          z + tube * Math.sin(v),
+        ];
+        addQuad(point(u0,v0),point(u1,v0),point(u1,v1),point(u0,v1),color);
+      }
+    }
+  };
+  const beam = (angle: number, color: readonly number[]) => {
+    const ux = Math.cos(angle), uy = Math.sin(angle), px = -uy * .48, py = ux * .48;
+    const inner = 6.5, outer = 19.2, depth = .62;
+    const a = [ux*inner+px,uy*inner+py,-depth], b = [ux*outer+px,uy*outer+py,-depth];
+    const c = [ux*outer-px,uy*outer-py,-depth], d = [ux*inner-px,uy*inner-py,-depth];
+    const e = [a[0]!,a[1]!,depth], f = [b[0]!,b[1]!,depth];
+    const g = [c[0]!,c[1]!,depth], h = [d[0]!,d[1]!,depth];
+    addQuad(a,b,c,d,color); addQuad(f,e,h,g,color); addQuad(e,a,d,h,color);
+    addQuad(b,f,g,c,color); addQuad(d,c,g,h,color); addQuad(e,f,b,a,color);
+  };
+  torus(18.1, 1.05, 0, [.42,.52,.58], 64);
+  torus(6.1, .42, .52, [1,.67,.31], 48);
+  torus(4.45, .18, .7, [.32,.95,.98], 40);
+  for (let index = 0; index < 8; index++) {
+    beam(index * Math.PI / 4, index % 2 ? [.25,.39,.45] : [.45,.56,.61]);
+  }
+  const mastBase: readonly number[] = [0,.2,7];
+  const mastTop: readonly number[] = [0,5.4,8.5];
+  const beacon = [1,.72,.35] as const;
+  const beaconSideA: readonly number[] = [-.32,4.7,8.15];
+  const beaconSideB: readonly number[] = [.32,4.7,8.15];
+  const beaconSideC: readonly number[] = [0,4.7,8.78];
+  addTriangle(mastBase,beaconSideA,beaconSideB,[.4,.52,.56]);
+  addTriangle(mastBase,beaconSideB,beaconSideC,[.4,.52,.56]);
+  addTriangle(mastBase,beaconSideC,beaconSideA,[.4,.52,.56]);
+  addTriangle(beaconSideA,beaconSideC,mastTop,beacon);
+  addTriangle(beaconSideC,beaconSideB,mastTop,beacon);
+  addTriangle(beaconSideB,beaconSideA,mastTop,beacon);
+  addTriangle(mastTop,[0,6.3,8.5],[.65,5.4,8.5],[.32,.95,.98]);
+  addTriangle(mastTop,[0,6.3,8.5],[-.65,5.4,8.5],[.32,.95,.98]);
+  return new Float32Array(vertices);
+}
+
 export function createOrbitalNativeFlightRenderer({
   canvas,
   sector,
+  shipId,
   factionColor,
 }: RendererOptions): OrbitalNativeFlightRenderer {
   const gl = canvas.getContext("webgl2", { alpha: false, antialias: true, powerPreference: "low-power" });
@@ -195,6 +246,9 @@ export function createOrbitalNativeFlightRenderer({
   const sphere = createSphere();
   const instances = asteroidInstances(sector);
   const projectileInstances = new Float32Array(2048 * 7);
+  const shipGeometry = buildOrbitalNativeShipGeometry(shipId, factionColor);
+  const droneGeometry = buildOrbitalNativeShipGeometry("shakuna", [1,.28,.16]);
+  const stationGeometry = nativeStationGeometry();
 
   try {
     vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
@@ -216,11 +270,13 @@ export function createOrbitalNativeFlightRenderer({
     const indexBuffer = gl.createBuffer();
     const instanceBuffer = gl.createBuffer();
     const shipBuffer = gl.createBuffer();
+    const droneBuffer = gl.createBuffer();
+    const stationBuffer = gl.createBuffer();
     const projectileBuffer = gl.createBuffer();
-    if (!positionBuffer || !indexBuffer || !instanceBuffer || !shipBuffer || !projectileBuffer) {
+    if (!positionBuffer || !indexBuffer || !instanceBuffer || !shipBuffer || !droneBuffer || !stationBuffer || !projectileBuffer) {
       throw new Error("Orbital renderer could not allocate scene buffers.");
     }
-    buffers.push(positionBuffer, indexBuffer, instanceBuffer, shipBuffer, projectileBuffer);
+    buffers.push(positionBuffer, indexBuffer, instanceBuffer, shipBuffer, droneBuffer, stationBuffer, projectileBuffer);
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, sphere.positions, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -228,7 +284,11 @@ export function createOrbitalNativeFlightRenderer({
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, instances, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, shipBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, FIGHTER_VERTICES, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, shipGeometry, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, droneBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, droneGeometry, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, stationBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, stationGeometry, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, projectileBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, 2048 * 7 * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
 
@@ -303,13 +363,23 @@ export function createOrbitalNativeFlightRenderer({
       gl.vertexAttrib1f(scale, 1);
       gl.vertexAttrib3f(tint, 1, 1, 1);
     };
-    const drawShip = (modelPosition: Vec3, orientation: Quaternion, color: [number, number, number], viewProjection: Float32Array, size: number) => {
+    const drawLitGeometry = (
+      buffer: WebGLBuffer,
+      vertexCount: number,
+      modelPosition: Vec3,
+      orientation: Quaternion,
+      viewProjection: Float32Array,
+      size: number,
+    ) => {
       const model = transformMatrix(modelPosition, orientation, size);
       setModel(model, 1, viewProjection);
-      gl.vertexAttrib3f(tint, color[0], color[1], color[2]);
-      gl.bindBuffer(gl.ARRAY_BUFFER, shipBuffer);
-      gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, FIGHTER_VERTICES.length / 3);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      const stride = 6 * Float32Array.BYTES_PER_ELEMENT;
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(tint);
+      gl.vertexAttribPointer(tint, 3, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+      gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     };
 
     return {
@@ -342,11 +412,22 @@ export function createOrbitalNativeFlightRenderer({
         gl.drawElementsInstanced(gl.TRIANGLES, sphere.indices.length, gl.UNSIGNED_SHORT, 0, instances.length / 7);
         clearInstanceAttributes();
 
+        // Static Cinder Ring geometry is placed at the same simulation position
+        // used by the native approach gate; it is a scene landmark, not a collider.
+        drawLitGeometry(
+          stationBuffer,
+          stationGeometry.length / 6,
+          CINDER_STATION,
+          [0,0,0,1],
+          viewProjection,
+          1,
+        );
+
         // The target is the live simulation drone, not a HUD-only marker.
         if (state.drone.hull > 0) {
-          drawShip(state.drone.position, [0, 0, 0, 1], [1, 0.30, 0.20], viewProjection, 2.4);
+          drawLitGeometry(droneBuffer, droneGeometry.length / 6, state.drone.position, [0,0,0,1], viewProjection, .9);
         }
-        drawShip(state.position, orientation, factionColor, viewProjection, 0.62);
+        drawLitGeometry(shipBuffer, shipGeometry.length / 6, state.position, orientation, viewProjection, .86);
 
         if (state.projectiles.length) {
           const count = Math.min(state.projectiles.length, projectileInstances.length / 7);

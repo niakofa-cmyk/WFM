@@ -152,11 +152,18 @@ The current branch now contains these bounded foundations:
   app backgrounding.
 
 This is the first connected flight-renderer migration slice, **not** a
-replacement for the primary Arena. It does not yet migrate station docking,
-the full combat scene, streamed planetary travel, authenticated multiplayer,
-or persistent universe state. The primary Arena, server authority, and existing
-Three.js compatibility renderer remain intact as rollback paths. The Night-side
-Station remains planned/not-live.
+replacement for the primary Arena. It now includes a visual Cinder Ring station
+and local approach/dock/undock gate at the established 22 m range, 4 m/s
+closure-speed limit, and 35-degree heading tolerance. The native renderer also
+builds distinct lightweight silhouettes for all sixteen selectable ship IDs.
+These are presentation-only; they do not change collision or combat authority.
+It does not yet migrate the full combat scene, streamed planetary travel,
+authenticated multiplayer, or persistent universe state. The primary Arena,
+server authority, and existing Three.js compatibility renderer remain intact as
+rollback paths. The Night-side Station remains planned/not-live.
+
+The main-renderer retirement checklist and current evidence status are tracked
+in [Orbital native renderer parity gate](ORBITAL-NATIVE-RENDERER-PARITY-GATE.md).
 
 Related maintained references:
 
