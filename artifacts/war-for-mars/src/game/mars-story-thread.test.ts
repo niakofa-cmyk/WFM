@@ -4,7 +4,21 @@ import test from "node:test";
 import { SORTIES } from "./campaign";
 import { MARS_ADVENTURES } from "./mars-adventure-network";
 import { SECTOR_MISSIONS } from "./sector-missions";
-import { MARS_STORY_THREAD } from "./mars-story-thread";
+import { MARS_STORY_FOUNDATION, MARS_STORY_THREAD } from "./mars-story-thread";
+
+test("story foundation keeps Dusk's Mars-seizure premise and mystery layers connected", () => {
+  assert.match(MARS_STORY_FOUNDATION.premise, /Eon Dusk builds a private expedition to claim Mars/i);
+  assert.match(MARS_STORY_FOUNDATION.premise, /Accord destroys his fleet and captures him/i);
+  assert.match(MARS_STORY_FOUNDATION.mystery, /The First Witness and the signal/i);
+  assert.deepEqual(
+    MARS_STORY_FOUNDATION.truths.map(({ label }) => label),
+    ["PUBLIC ACCOUNT", "POWER NETWORKS", "THE UNKNOWN"],
+  );
+
+  const component = readFileSync(new URL("./MarsAdventureAtlas.tsx", import.meta.url), "utf8");
+  assert.match(component, /FOUNDATIONAL STORY · OWNER-DIRECTED/);
+  assert.match(component, /The current engine migration is tracked separately/);
+});
 
 test("story thread preserves authored campaign IDs and maps them to Mars geography", () => {
   assert.deepEqual(

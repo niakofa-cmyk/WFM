@@ -106,6 +106,11 @@ The player should enter one universe, belong to one faction, command one ship,
 progress through one connected journey, and participate in validated
 operations whose consequences are visible in that universe.
 
+The owner-directed human catalyst and the First Witness mystery are recorded in
+[WAR FOR MARS Storyline Foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md).
+Build the campaign and living-world activities as connected ways to encounter
+that story, not as unrelated missions.
+
 ## Earlier canonical runtime target — historical
 
 The owner's complete **Master Orbital Engine Consolidation Directive** is

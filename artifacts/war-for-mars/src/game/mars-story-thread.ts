@@ -13,6 +13,28 @@ export type MarsStoryBeat = {
   connection: string;
 };
 
+export const MARS_STORY_FOUNDATION = {
+  heading: "The man who wanted Mars",
+  premise:
+    "Eon Dusk builds a private expedition to claim Mars. The Accord destroys his fleet and captures him; a transmission carries that news to Earth and ignites a conflict shaped by competing human powers.",
+  mystery:
+    "The First Witness and the signal connect the war to a history neither faction fully understands. Their relationship is revealed gradually through evidence and play.",
+  truths: [
+    {
+      label: "PUBLIC ACCOUNT",
+      text: "A human expedition is lost, its leader is captured, and Earth demands a response.",
+    },
+    {
+      label: "POWER NETWORKS",
+      text: "Dusk tried to seize Mars; allies and institutions hold different information and pursue competing aims.",
+    },
+    {
+      label: "THE UNKNOWN",
+      text: "Mars, the Accord, the signal, and The First Witness point beyond the war's immediate cause.",
+    },
+  ],
+} as const;
+
 export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
   {
     id: "contact",

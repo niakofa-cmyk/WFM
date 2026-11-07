@@ -32,6 +32,15 @@ events, not a stack of disconnected mission selections.
 
 ## Storyline and route reconciliation
 
+The owner-directed
+[storyline foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md) now establishes
+Eon Dusk's attempted seizure of Mars, the Accord's destruction of his
+expedition and capture of Dusk, the transmission that precipitates Earth's
+response, and The First Witness as a deeper mystery to reveal gradually. This
+is narrative direction, not proof that every event is already represented in
+the campaign code. The Cage transport's exact custody transfer and escort
+context remain unresolved.
+
 Current client code still has distinct catalogs: `campaign.ts` owns Contact →
 Beacon → Warden → Cage and recovered intel; `sector-missions.ts` owns Rust Disc
 → Mars Approach → Pale Beacons plus independent Iron Eclipse; and
@@ -57,15 +66,20 @@ implemented by the atlas/thread display.
 
 ## Reconcile the engine terminology
 
-Orbital is the **primary, evolving flight and combat foundation** of Infinite
-War. One universe and shared account/operation contracts do not mean forcing
+Orbital Combat Engine is the **exclusive target game engine, renderer, and
+runtime** of Infinite War. The repository still contains Three.js-based
+rendering, so the target is not a completed migration. One universe and shared
+account/operation contracts do not mean forcing
 every existing experience into one giant server process or identical physics.
 Different modes keep their objectives and specialized adapters; existing
 Rust Disc, sector, campaign and Wing runtimes stay playable while a versioned
-Orbital replacement is proven. A specialized side experience may continue when
-consolidation would destroy its mechanics or break authority. It must not
-become a *new*, incompatible universe, identity, progression or reward owner.
-No legacy deletion or network protocol switch is authorized by saving these
+Orbital replacement is proven. Current Three.js paths are compatibility
+implementations only and must be retired after their Orbital replacements pass
+parity, performance, authority, and rollback gates; Three.js is not the final
+renderer. A specialized side experience may continue behind an adapter when
+consolidation would destroy its mechanics or break authority. It must not become
+a *new*, incompatible universe, identity, progression or reward owner. No
+legacy deletion or network protocol switch is authorized by saving these
 documents alone.
 
 The preserved sources describe a future live observer watching actual matches.

@@ -1,5 +1,5 @@
 import { MARS_ADVENTURES, MARS_ADVENTURE_STATE_LABEL } from "./mars-adventure-network";
-import { MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
+import { MARS_STORY_FOUNDATION, MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
 
 export function MarsAdventureAtlas() {
   const adventureById = new Map(MARS_ADVENTURES.map((adventure) => [adventure.id, adventure]));
@@ -13,6 +13,26 @@ export function MarsAdventureAtlas() {
       <p className="uv-routes__intro">
         Routes are travel guidance; adventures become live only when their gameplay and authority are connected.
       </p>
+      <section className="uv-story-foundation" aria-label="Foundational storyline">
+        <header>
+          <b>FOUNDATIONAL STORY · OWNER-DIRECTED</b>
+          <small>WAR FOR MARS: THE INFINITE WAR</small>
+        </header>
+        <h3>{MARS_STORY_FOUNDATION.heading}</h3>
+        <p>{MARS_STORY_FOUNDATION.premise}</p>
+        <div className="uv-story-foundation__truths">
+          {MARS_STORY_FOUNDATION.truths.map((truth) => (
+            <article key={truth.label}>
+              <b>{truth.label}</b>
+              <p>{truth.text}</p>
+            </article>
+          ))}
+        </div>
+        <p className="uv-story-foundation__mystery">{MARS_STORY_FOUNDATION.mystery}</p>
+        <small className="uv-story-foundation__boundary">
+          Story foundation, not an operation result. The current engine migration is tracked separately.
+        </small>
+      </section>
       <section className="uv-story-thread" aria-label="Connected Mars storyline">
         <header className="uv-story-thread__header">
           <b>CONNECTED STORY THREAD</b>

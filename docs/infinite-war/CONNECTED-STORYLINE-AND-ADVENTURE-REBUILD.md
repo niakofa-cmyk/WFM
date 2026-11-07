@@ -8,6 +8,15 @@ must give players reasons to travel, investigate, fight, escort, defend, form
 alliances, and affect a larger conflict across Mars and eventually the wider
 universe.
 
+The owner-directed foundational premise is maintained in
+[WAR FOR MARS Storyline Foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md), with
+the full source preserved in
+[`references/redesign/`](references/redesign/Pasted-Absolutely-This-is-the-original-premise-we-should-build_1794063278746.txt).
+Eon Dusk's attempt to claim Mars and the First Witness mystery provide the
+human catalyst and deeper cosmological thread. Apply that premise without
+overwriting established operation identities or disguising proposed lore as
+implemented canon.
+
 The [Orbital Universe Rebuild Contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)
 remains authoritative for the engine, boot, simulation, migration, and
 authority boundaries. This document governs how story, geography, routes,
@@ -85,6 +94,12 @@ records the source-backed resolution in detail. The main story-facing order is:
 This is an authored narrative sequence layered over the universe, not a new
 mission-lock chain. Chapter labels do not change the current four-sortie
 campaign gates or the separate cooperative discoveries.
+
+The foundation adds the prehistory: Dusk's private Mars-seizure expedition is
+destroyed by the Accord, Dusk is captured, and a transmission to Earth triggers
+the response that becomes the USSF–Accord war. The exact later custody transfer
+and Cage transport context remain open continuity questions. See the story
+foundation and chronology rather than inventing an explanation in route UI.
 
 | Story order | Location or route | Narrative purpose | Current implementation boundary |
 |---|---|---|---|
@@ -238,7 +253,8 @@ Acceptance requires:
 
 The `mars-story-thread.ts` data and atlas section present Contact → Mars
 Approach interlude → Beacon → Warden → Cage → proposed Iron Eclipse → future
-Beyond the Signal. The atlas derives implementation status from
+Beyond the Signal and now show the foundational premise with its three layers
+of truth. The atlas derives implementation status from
 `mars-adventure-network.ts`; this thread is **navigation context only**. It has
 no launch action, account write, operation authority, live-event claim, or
 reward capability. It adds no progression gate and does not change the separate

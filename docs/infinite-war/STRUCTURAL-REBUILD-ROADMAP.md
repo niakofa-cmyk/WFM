@@ -40,8 +40,11 @@ authority adapters, not one monolithic multiplayer server. See the
 and checkpoints below are historical where they conflict with this directive.
 For the updated renderer relationship and the new Mars route/adventure model,
 see [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md):
-keep Three.js as a renderer if the Orbital runtime owns it; do not preserve a
-duplicate universe game or remove a renderer without parity and benchmark proof.
+Orbital owns the final renderer and runtime; Three.js is a technique/reference
+source only, not a renderer to retain under Orbital. Do not preserve a duplicate
+universe game or remove existing compatibility rendering without parity and
+benchmark proof. See the controlling
+[Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
@@ -75,6 +78,8 @@ unbounded count of live ships or a literally infinite galaxy.
 
 The current narrative relationship and next story-graph gates are recorded in
 [Connected Storyline and Adventure Rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md).
+The owner-directed Dusk/Accord premise and the First Witness mystery are
+maintained in [WAR FOR MARS Storyline Foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md).
 The canonical working order and explicit lore gaps are in
 [Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md).
 Do not collapse the existing Contact/Beacon/Warden/Cage campaign and the
