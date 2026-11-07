@@ -79,3 +79,14 @@ It requires a function-by-function extraction and rebuild of the Lab lifecycle, 
 Mars is the first fully authored theater and narrative center. The architecture expands through planets, star systems, galaxies, anomalies, dimensions, and other universes using hierarchical coordinates, streamed bounded sectors, origin rebasing, and server-authoritative shared operations. “Infinite” means an expandable, meaningful universe—not infinite simultaneous simulation.
 
 Preserve existing Three.js/Vite rendering and verified Clerk, Wing, co-op, campaign, world, economy, and progression contracts. Migrate each into the unified runtime through versioned, tested vertical slices. This clarification does not authorize deleting working systems, bypassing authority boundaries, or promoting to Production. The new directive defines the target; runtime implementation remains unverified until its acceptance gates pass.
+
+
+## Mars routes become live planetary adventures
+
+The owner has clarified that existing Mars routes must be reimagined as live, explorable geography and multiplayer adventure corridors inside the canonical WFM runtime—not retained only as separate bounded mission levels or strategic map links.
+
+The implementation specification is
+[MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md](./MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md).
+It defines Mars coordinate frames and rotation, day/night continuity, a route-authoring schema, live multiplayer events, and the reimagined Rust Disc, Mars Approach, Pale Beacons, Night-side, Dust Lane, Mars Signal, Phobos Yard, Outer Fringe, Deep Nebula and Iron Eclipse experiences.
+
+**Three.js policy:** retain Three.js as the WFM renderer. If a separate Three.js universe prototype exists, extract and adapt its useful rendering, planetary, navigation, lighting, streaming and camera capabilities into the canonical runtime. Retire only the duplicate playable runtime and duplicate state/simulation ownership after feature parity, device performance, multiplayer and rollback tests pass. Do not delete Three.js itself.
