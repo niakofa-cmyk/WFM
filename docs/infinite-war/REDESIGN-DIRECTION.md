@@ -186,6 +186,19 @@ Private/AI-fill restrictions and competitive reward gates remain unchanged.
 
 ## Additional Infinite Open Universe directive: requirement mapping
 
+The latest Mars-route and engine clarification is maintained in
+[Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md).
+The latest engine correction is maintained in the
+[Orbital Engine-only renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md):
+the finished game must use Orbital Engine for both gameplay and rendering, with
+Three.js serving only as a source of techniques, not a shipped runtime library.
+The repository does not yet have an Orbital-native renderer, so removal is gated
+on implementing and verifying its replacement. The route model defines routes
+as navigation guidance and adventures as authority-backed gameplay contracts.
+The primary Orbital boot now includes an atlas with separate local,
+compatibility, and planned states; this is catalog/UI groundwork, not a
+planetary or multiplayer migration.
+
 The subsequent [connected-universe integration](CONNECTED-UNIVERSE-INTEGRATION.md)
 joins the shared chart to real account world state and operation discovery at
 `/universe`, with explicit paid-travel confirmation and handoffs to existing

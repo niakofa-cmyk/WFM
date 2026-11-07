@@ -3,6 +3,7 @@ import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import { unlockAudio } from "./audio";
 import { OrbitalChart } from "./OrbitalChart";
+import { MarsAdventureAtlas } from "./MarsAdventureAtlas";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
 import "./combat-lab.css";
 import "./orbital-universe.css";
@@ -56,6 +57,7 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
         <p className="uv-copy">{dest.summary}</p>
         <p className="uv-copy" data-testid="text-faction-brief">{localFactionBrief(faction, dest.status)}</p>
         <ul className="uv-detail">{dest.detail.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+        <MarsAdventureAtlas />
         <fieldset className="uv-loadout" disabled={dest.status === "planned"}>
           <legend>PILOT LOADOUT</legend>
           <div className="lab-factions">{(["ussf", "accord"] as const).map((value) => <button key={value} type="button" data-testid={`button-faction-${value}`} aria-pressed={faction === value} onClick={() => { setFaction(value); setShip(ROSTER[value][0]); }}>{value.toUpperCase()}</button>)}</div>

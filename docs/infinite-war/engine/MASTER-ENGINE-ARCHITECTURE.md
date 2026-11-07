@@ -21,7 +21,11 @@ experiences need not share identical physics parameters or objectives.
 Section 16 requires engine consolidation before appearance redesign. Existing
 Rust Disc, Wing, account records, issued replays and multiplayer safeguards stay
 operational until replacement paths pass compatibility and rollback gates.
-Three.js remains a renderer dependency, not the combat authority.
+The owner has since clarified that Three.js is not part of the final runtime:
+Orbital Engine must own rendering and gameplay. Three.js is reference material
+for techniques only. The repository's current Three.js renderer is a temporary
+implementation until Orbital's replacement passes the
+[renderer migration gates](../ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 
 ## Actual architecture, source audited 2026-11-06
 
@@ -48,6 +52,8 @@ Touch / keyboard / controller device handling
   `artifacts/war-for-mars/src/game/flight-control.ts` is only a compatibility
   re-export. Arena and the sector adapter share pilot-axis conversion.
 - `Arena` and `RustDiscFlight` still own separate Three.js lifecycles.
+- `@workspace/orbital-sim` is a simulation/rules package, not a complete
+  Orbital-native renderer; the final architecture is not implemented yet.
 - Client/API `orbital-sim.ts` and `orbital-abilities.ts` remain separate
   orchestration implementations. Shared primitives do not prove the entire
   combat loop has been consolidated.

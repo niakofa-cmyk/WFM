@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
+import { MARS_ADVENTURES, MARS_ADVENTURE_STATE_LABEL } from "./mars-adventure-network";
 
 test("universe entry offers only the two existing local flight experiences", () => {
   assert.deepEqual(
@@ -45,4 +46,28 @@ test("local faction briefing reflects the actual opposing training side without 
   assert.match(localFactionBrief("accord", "approach"), /no patrols, territory or station allegiance/);
   assert.match(localFactionBrief("ussf", "planned"), /no effect here/);
   assert.match(localFactionBrief("accord", "planned"), /no effect here/);
+});
+
+test("Mars route atlas preserves unique IDs and labels local, compatibility, and planned state separately", () => {
+  assert.equal(new Set(MARS_ADVENTURES.map(({ id }) => id)).size, MARS_ADVENTURES.length);
+  assert.equal(MARS_ADVENTURES.length, 11);
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "cinder-ring" && state === "orbital-local"));
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "rust-disc" && state === "compatibility"));
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "night-side-station" && state === "planned"));
+  assert.notEqual(MARS_ADVENTURE_STATE_LABEL["orbital-local"], MARS_ADVENTURE_STATE_LABEL.compatibility);
+  assert.notEqual(MARS_ADVENTURE_STATE_LABEL.compatibility, MARS_ADVENTURE_STATE_LABEL.planned);
+  for (const adventure of MARS_ADVENTURES) {
+    assert.ok(adventure.concept.length > 0);
+    assert.ok(adventure.currentEvidence.length > 0);
+    assert.ok(adventure.nextGate.length > 0);
+  }
+});
+
+test("route atlas is informational and does not claim live events or launch compatibility routes through local flight", () => {
+  const component = readFileSync(new URL("./MarsAdventureAtlas.tsx", import.meta.url), "utf8");
+  const boot = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
+  assert.match(component, /Routes are travel guidance; adventures become live only when their gameplay and authority are connected/);
+  assert.match(boot, /<MarsAdventureAtlas \/>/);
+  assert.match(boot, /if \(dest.status === "planned"\) return/);
+  assert.doesNotMatch(component, /fetch\(|new WebSocket|onClick=/);
 });

@@ -38,6 +38,10 @@ authority adapters, not one monolithic multiplayer server. See the
 [current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
 [mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
 and checkpoints below are historical where they conflict with this directive.
+For the updated renderer relationship and the new Mars route/adventure model,
+see [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md):
+keep Three.js as a renderer if the Orbital runtime owns it; do not preserve a
+duplicate universe game or remove a renderer without parity and benchmark proof.
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
@@ -71,10 +75,12 @@ unbounded count of live ships or a literally infinite galaxy.
 
 ## Preserve before replacing
 
-- Keep the custom Three.js/Vite runtime as the initial foundation. Needle remains
-  a research/authoring candidate, not a second production runtime. The Three.js
-  universe is the navigation/presentation layer; it is not itself a multiplayer
-  combat engine.
+- The final game uses Orbital Engine as its single gameplay and rendering
+  foundation. The current Three.js implementation is a temporary renderer to
+  migrate away from, not a permanent universe layer. Study its proven
+  presentation techniques and reimplement them in Orbital; remove the package
+  only after renderer parity, target-device performance, and rollback gates pass.
+  See [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 - Re-engineer Orbital Combat Lab into the main playable universe runtime,
   retaining training as an internal activity and validation profile. Consolidate
   simulation/render/input ownership without flattening different mode rules;
