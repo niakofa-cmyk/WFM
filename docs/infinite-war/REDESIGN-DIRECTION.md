@@ -41,6 +41,24 @@ specialist experiences, and true server-backed battle visibility. The later
 multiplayer-architecture upload repeats the already archived source verbatim;
 neither copy certifies live spectator gameplay.
 
+## Owner direction · 2026-11-07 — story is a thread through the world
+
+The five new storyline, route, and implementation sources are preserved
+byte-for-byte under [the reference archive](references/). Their maintained
+reconciliation and current-code findings are in
+[Master Directive Reconciliation](MASTER-DIRECTIVE-RECONCILIATION.md).
+The resulting [connected-storyline and adventure rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md)
+is the working direction for tying campaign beats to physical routes and
+operations.
+
+The campaign must not become a menu of disconnected missions. Contact, Beacon,
+Warden, and Cage remain the existing story spine; Mars Approach is proposed as
+connective geography, not an assumed new campaign unlock. Iron Eclipse remains
+a separate operation until its chronology is reconciled. Route display is still
+informational: the atlas does not create operation authority, persistence,
+multiplayer events, or rewards. This direction is consistent with Orbital as
+the main game runtime and with existing server authority.
+
 This direction permits a bounded visual redesign now; the earlier
 engine-consolidation-before-appearance deferral does not prohibit this work.
 It does not certify that engine consolidation has finished.

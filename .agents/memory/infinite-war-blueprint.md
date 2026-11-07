@@ -22,6 +22,23 @@ direction. Exploration, real-time combat, competitive warfare, cooperative
 operations, and persistent faction conflict should become one coherent
 experience rather than disconnected modes.
 
+### Story continuity across the universe
+
+**Rule:** Treat the storyline as a connected thread through places, discoveries,
+operations, and validated consequences—not as disconnected missions that only
+share an engine. It should give players reasons to explore, discover, travel,
+fight, escort, defend, build alliances, and influence events across Mars and
+later the wider universe.
+
+**Why:** the user explicitly clarified that narrative purpose and continuity
+must connect the game's activities across the world.
+
+**How to apply:** preserve established story identities, distinguish authored
+campaign beats from travel corridors and repeatable events, and keep chronology
+proposals separate from confirmed canon. Use
+`docs/infinite-war/CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md` as the current
+implementation direction.
+
 The blueprint's proposed end state includes targetable combat with distinct
 faction and ship capabilities; server-validated damage and destruction;
 5v5 warfronts entered from shared sectors; later tournaments and larger

@@ -73,6 +73,12 @@ unrelated menu commands.
 The target is an authored, expandable universe with bounded simulations, not an
 unbounded count of live ships or a literally infinite galaxy.
 
+The current narrative relationship and next story-graph gates are recorded in
+[Connected Storyline and Adventure Rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md).
+Do not collapse the existing Contact/Beacon/Warden/Cage campaign and the
+Rust Disc/Mars Approach/Pale Beacons sector progression into one unlock chain
+until the shared story, route, and operation identities are reconciled.
+
 ## Preserve before replacing
 
 - The final game uses Orbital Engine as its single gameplay and rendering

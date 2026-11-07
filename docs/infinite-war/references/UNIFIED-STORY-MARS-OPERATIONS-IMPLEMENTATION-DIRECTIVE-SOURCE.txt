@@ -1,0 +1,86 @@
+# WAR FOR MARS: INFINITE WAR
+## Implementation Directive — Unified Story, Mars Routes, Military Commands and Operations
+
+### Objective
+
+Transform the existing campaign, cooperative sector missions, route system and tactical command implementation into one coherent, persistent, multiplayer universe powered exclusively by the Orbital Combat Engine.
+
+This is not a new game beside the current game. The Orbital runtime is the game. All campaign, exploration, fleet operations, cooperative missions, competitive engagements and persistent-world activities must ultimately run through that same engine and world.
+
+### Non-negotiable architecture
+
+1. Orbital Combat Engine exclusively owns game rendering, simulation, physics, flight, combat, world coordinates, camera, effects and streaming.
+2. React remains the interface layer for menus, HUD, briefings, hangar, maps and account experiences.
+3. The API remains authoritative for identity, operation permissions, multiplayer state, persistence and rewards.
+4. Create one shared mission, route, operation and command contract. Do not maintain separate client and server copies.
+5. Do not introduce a Three.js renderer or parallel game runtime. Extract useful techniques from reference systems and implement them natively in Orbital.
+6. Preserve existing functionality until its replacement has demonstrated parity and passed its acceptance tests.
+
+### Story requirements
+
+- Audit existing campaign, dispatches, recovered intelligence, factions, mission descriptions and all available original owner-provided narrative documents.
+- Preserve the central mystery involving the Rust Disc, Pale Beacons, Warden, Eon Dusk, the Cage and the signal beneath Mars.
+- Establish one canonical chronology and connect Iron Eclipse to the larger war.
+- Distinguish established canon from proposed narrative additions.
+- Make campaign chapters, optional investigations and repeatable operations part of one connected universe.
+- Do not discard original owner source material or silently overwrite existing narrative.
+
+### World and route requirements
+
+- Create shared contracts for world positions, bodies, regions, routes, POIs, events and world time.
+- Make Mars a continuous navigable theater with day/night continuity.
+- Support orbital corridors, stations, Phobos and Deimos destinations, and future planetary and interplanetary expansion.
+- Keep routes advisory rather than restrictive.
+- Implement coordinate transforms, streaming handoffs, world persistence and multiplayer interest management.
+- Mark unimplemented world layers explicitly; do not advertise unsupported landing, atmospheric or surface gameplay as complete.
+
+### Mission and operation requirements
+
+- Replace disconnected mission-specific logic with reusable operation definitions and instances.
+- Support patrol, reconnaissance, escort, convoy defense, interception, rescue, station recovery, suppression, capital assault, anomaly investigation and salvage.
+- Model operation phases, objectives, contingencies, extraction and debrief.
+- Model moving convoy assets and their physical state.
+- Connect operation outcomes to authoritative progression and persistent world consequences.
+
+### Command requirements
+
+- Implement strategic, fleet, squadron, wing and tactical authority levels.
+- Preserve Attack, Defend, Escort and Regroup.
+- Add Hold Position, Intercept, Cover, Suppress, Disengage, Recon and Salvage as supported by actual AI behavior.
+- Validate issuer permissions, target validity, operation state and command expiry on the server.
+- Commands must change authoritative AI and unit behavior. HUD-only command acknowledgements do not count.
+
+### First vertical slice
+
+Implement Operation NIGHTFALL: The Mars Night-side Corridor.
+
+The complete journey must include briefing, launch, actual world navigation, day/night transition, dynamic event, multiplayer wing coordination, authoritative orders, objective completion, extraction, debrief, persistence and reconnect verification.
+
+### Required deliverables
+
+1. Canonical story bible and chronology.
+2. Continuity and source-document audit.
+3. Unified mission and operation catalog.
+4. Shared route, world and coordinate contracts.
+5. Mars navigation and POI specification.
+6. Military command hierarchy and protocol.
+7. Server-authoritative operation lifecycle.
+8. AI command execution and validation tests.
+9. Persistent world-event and progression integration.
+10. NIGHTFALL vertical slice and end-to-end test evidence.
+11. Orbital-native implementation and migration plan.
+12. Staging verification report with known limitations.
+
+### Execution rules
+
+- Work from the current staging branch.
+- Inspect actual files and existing interfaces before changing architecture.
+- Prefer small, reviewable PRs with explicit scope.
+- Run relevant tests, type checks, builds and multiplayer integration tests.
+- Do not silently remove legacy implementations.
+- Do not modify Production data, credentials, Railway configuration or deployments without explicit authorization.
+- Do not claim a feature is implemented until source inspection and runtime tests demonstrate it.
+
+### Definition of done
+
+The player can enter the same persistent Orbital universe, receive a coherent military operation, navigate the real world, coordinate with other pilots, issue effective orders, complete objectives, extract, reconnect and observe validated consequences in the world. The experience must be one game, one runtime and one connected universe.

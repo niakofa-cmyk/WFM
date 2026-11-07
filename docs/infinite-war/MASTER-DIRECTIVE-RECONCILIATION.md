@@ -15,6 +15,13 @@ One multiplayer-architecture document is a resend of the already saved source;
 the recommendation includes the engine-consolidation directive verbatim, with
 additional commentary. None is evidence that described features already run.
 
+The later five storyline/route sources were also read in full and copied
+byte-for-byte into `references/`. Their current-code reconciliation is now
+maintained in the [connected-storyline and adventure rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md).
+They reinforce the same Orbital/server-authority boundaries while adding the
+requirement that narrative progression be a thread through locations and
+events, not a stack of disconnected mission selections.
+
 | Supplied source | Role in the redesign |
 |---|---|
 | [Engine consolidation directive](references/redesign/MASTER-ENGINE-CONSOLIDATION-DIRECTIVE-SOURCE.txt) | Primary Orbital flight/combat foundation; extract verified legacy capabilities, no broad rewrite |
@@ -22,6 +29,27 @@ additional commentary. None is evidence that described features already run.
 | [Asteroid competition hub](references/redesign/ASTEROID-COMPETITION-HUB-SOURCE.txt) | Physical competition destination, not a decorative map or its own match authority |
 | [Multiplayer universe architecture resend](references/redesign/MULTIPLAYER-UNIVERSE-ARCHITECTURE-RESUBMITTED-SOURCE.txt) | Byte-identical to the [existing archive](references/redesign/MULTIPLAYER-UNIVERSE-ARCHITECTURE-SOURCE.txt); preserves source provenance, not a second network implementation |
 | [Orbital Operations Network directive](references/redesign/ORBITAL-OPERATIONS-NETWORK-DIRECTIVE-SOURCE.txt) | Universe locations, authorized operation lifecycles and observer-safe discovery; not permission to invent live opponents |
+
+## Storyline and route reconciliation
+
+Current client code still has distinct catalogs: `campaign.ts` owns Contact →
+Beacon → Warden → Cage and recovered intel; `sector-missions.ts` owns Rust Disc
+→ Mars Approach → Pale Beacons plus independent Iron Eclipse; and
+`sector-navigation.ts` advances only its recorded sector-discovery chain. The
+route atlas is informational and separately marks local, compatibility, and
+planned locations. These are useful foundations, not a unified story graph.
+
+The new connected-storyline slice links those existing identities to Mars
+locations for navigation context. Mars Approach is a travel bridge, not a new
+campaign gate. Iron Eclipse keeps its operation identity while its narrative
+chronology is reconciled. The atlas adds no launch, event, unlock, multiplayer,
+reward, or persistence authority.
+
+**Next architecture gate:** resolve story chronology and stable route/operation
+identities before consolidating catalogs. Then migrate one bounded operation
+through the shared contract. Operation NIGHTFALL is the first complete
+continuous-Mars journey acceptance target in the source documents; it is not
+implemented by the atlas/thread display.
 
 ## Reconcile the engine terminology
 
