@@ -1,5 +1,10 @@
 # Infinite War forensic inventory
 
+> Historical inventory snapshot. Use the current
+> [Orbital Lab Phase 0 extraction audit](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md)
+> for the latest source-level mode/runtime map. This file's branch and release
+> context below are not the current checkout or deployment identity.
+
 **Scope:** code currently checked out on
 `integration/infinite-war-orbital-combat`. This is a source/test audit, not a
 live Railway, Production, or physical-device audit. Classification describes

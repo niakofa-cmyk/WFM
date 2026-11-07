@@ -1,5 +1,28 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
+## Latest rebuild direction — Phase 0 before more prototypes
+
+The user's latest controlling rebuild reference is preserved verbatim at
+[`references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt`](references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt).
+It clarifies that Orbital Combat Lab must be dismantled and reorganized into the
+actual WAR FOR MARS: INFINITE WAR engine—not remain a separate training product
+with a universe added around it.
+
+The required next order begins with the Phase 0 extraction audit, then makes the
+Orbital foundation the primary WFM boot/runtime, migrates Rust Disc while
+preserving its pilot experience, builds the Mars planetary theatre, migrates
+authoritative multiplayer operations, and only then expands to larger
+destinations. The current source-level audit is
+[`ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md).
+It does not claim that runtime migration, staging proof, or device verification
+has occurred.
+
+The audit found that the Combat Lab still has a separate standalone boot and
+that several modes retain distinct launch, renderer, objective, or authority
+paths. A shared Orbital package or runtime label is not proof of full migration.
+Use the audit's mode-by-mode matrix for the next implementation; do not start
+another isolated universe prototype before rebuilding the primary entry/runtime.
+
 ## Current connected-universe redesign direction — 2026-11-06
 
 The owner has now explicitly authorized starting the visual redesign and

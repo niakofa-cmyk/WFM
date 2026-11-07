@@ -1,9 +1,25 @@
 # WAR FOR MARS: THE INFINITE WAR — structural rebuild roadmap
 
+## Phase 0 extraction audit
+
+The latest user-provided rebuild direction requires the complete extraction
+audit before more isolated prototypes. The current source-level audit is
+[`ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md).
+It maps boot/runtime ownership, simulation imports, renderer lifecycle,
+controls, authority, and real mode launch paths. Source inventory is complete;
+automated path-contract tests and authenticated staging reconciliation remain
+open proof gates.
+
+The full user source is preserved at
+[`references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt`](references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt).
+Its priority is to make Orbital the actual WFM game engine, preserve working
+authority services during migration, and execute mode migrations in sequence.
+
 ## First local runtime slice
 
-The bounded Orbital universe now has one Arena-owned exploration, physical
-Cinder docking, training/debrief and retained-flight return loop.
+The offline Orbital universe now has one Arena-owned exploration, deterministic
+streamed local sectors, physical Cinder docking, training/debrief and
+retained-flight return loop.
 See [implementation and evidence](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
 Interactive browser certification is blocked by the test browser's unavailable
 WebGL context; do not mark the full rebuild or online migration complete.

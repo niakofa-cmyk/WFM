@@ -63,7 +63,7 @@ function CombatLab() {
         </fieldset>
 
         <button data-testid="button-launch-local-universe" className="uv-launch" onClick={() => { unlockAudio(); setSummary(""); setRun((r) => r + 1); setMode("universe"); }}>FLY LOCAL MARS SECTOR</button>
-        <p className="uv-map__hint" data-testid="text-local-universe-scope">Bounded offline sector · fly to Cinder Ring, dock, train, return · no rewards, not multiplayer</p>
+        <p className="uv-map__hint" data-testid="text-local-universe-scope">Procedural local sectors · session-only · no account travel, rewards, or multiplayer</p>
         {dest.status === "training" ? <button data-testid="button-launch-combat-lab" className="uv-launch" onClick={launch}>LAUNCH TRAINING</button>
           : dest.status === "approach" ? <button data-testid="button-launch-cinder-approach" className="uv-launch uv-launch--approach" onClick={launch}>BEGIN LOCAL APPROACH</button>
           : <button className="uv-launch" disabled data-testid="button-destination-unavailable">NOT YET CHARTED</button>}
