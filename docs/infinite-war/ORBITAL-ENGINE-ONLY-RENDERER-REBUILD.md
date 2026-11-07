@@ -157,6 +157,12 @@ and local approach/dock/undock gate at the established 22 m range, 4 m/s
 closure-speed limit, and 35-degree heading tolerance. The native renderer also
 builds distinct lightweight silhouettes for all sixteen selectable ship IDs.
 These are presentation-only; they do not change collision or combat authority.
+Docking exposes a station activity console: local training currently hands off
+to the established compatibility Arena, then restores the exact native docked
+flight snapshot on return. This is a temporary compatibility bridge, not a
+native combat migration. The server-services link remains server-owned and does
+not treat local docking as an authenticated location.
+
 It does not yet migrate the full combat scene, streamed planetary travel,
 authenticated multiplayer, or persistent universe state. The primary Arena,
 server authority, and existing Three.js compatibility renderer remain intact as

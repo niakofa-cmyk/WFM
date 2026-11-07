@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createFlight, CINDER_ASTEROID_SECTOR, NEUTRAL_FLIGHT_INPUT, stepFlight } from "./flight-sector";
-import { evaluateNativeCinderDock, NATIVE_CINDER_DOCK_LIMITS } from "./orbital-native-docking";
+import {
+  evaluateNativeCinderDock,
+  NATIVE_CINDER_DOCK_LIMITS,
+  restoreDockedFlightSnapshot,
+  snapshotDockedFlightForTraining,
+} from "./orbital-native-docking";
 
 function atApproach(distance = NATIVE_CINDER_DOCK_LIMITS.range) {
   const flight = createFlight("duskbreaker");
@@ -52,4 +57,54 @@ test("destroyed or non-finite native flight cannot dock", () => {
   const invalid = atApproach();
   invalid.position.x = Number.NaN;
   assert.equal(evaluateNativeCinderDock(invalid).reason, "inactive");
+});
+
+test("only a docked flight can be handed to training, and its complete local state is copied", () => {
+  const flight = atApproach();
+  flight.velocity = { x: 0, y: 0, z: 0 };
+  flight.drone.position = { x: 12, y: 45, z: -500 };
+  flight.projectiles.push({
+    id: 7,
+    position: { x: 1, y: 2, z: 3 },
+    velocity: { x: 4, y: 5, z: 6 },
+    ttl: .4,
+    hostile: false,
+    guided: false,
+  });
+
+  const snapshot = snapshotDockedFlightForTraining(flight);
+  assert.ok(snapshot);
+  assert.notEqual(snapshot.position, flight.position);
+  assert.notEqual(snapshot.drone.position, flight.drone.position);
+  assert.notEqual(snapshot.projectiles[0], flight.projectiles[0]);
+  assert.deepEqual(snapshot.position, flight.position);
+  assert.deepEqual(snapshot.projectiles, flight.projectiles);
+
+  flight.position.z = 0;
+  flight.drone.position.x = 900;
+  flight.projectiles[0]!.position.x = 900;
+  assert.equal(snapshot.position.z, -96);
+  assert.equal(snapshot.drone.position.x, 12);
+  assert.equal(snapshot.projectiles[0]!.position.x, 1);
+});
+
+test("training return restores the same docked flight only for its selected hull", () => {
+  const flight = atApproach();
+  flight.velocity = { x: 0, y: 0, z: 0 };
+  flight.energy = 41;
+  flight.hull = 73;
+  const snapshot = snapshotDockedFlightForTraining(flight);
+  assert.ok(snapshot);
+
+  const restored = restoreDockedFlightSnapshot(snapshot, "duskbreaker");
+  assert.ok(restored);
+  assert.notEqual(restored, snapshot);
+  assert.deepEqual(restored.position, snapshot.position);
+  assert.equal(restored.energy, 41);
+  assert.equal(restored.hull, 73);
+  assert.equal(evaluateNativeCinderDock(restored).eligible, true);
+  assert.equal(restoreDockedFlightSnapshot(snapshot, "mandjet"), null);
+
+  const undocked = { ...snapshot, position: { x: 0, y: 0, z: 0 } };
+  assert.equal(restoreDockedFlightSnapshot(undocked, "duskbreaker"), null);
 });

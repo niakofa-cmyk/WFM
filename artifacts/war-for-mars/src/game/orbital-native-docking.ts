@@ -1,5 +1,6 @@
 import { sectorFlightForward, type SectorFlightState } from "@workspace/orbital-sim";
 import { CINDER_STATION } from "./orbital-universe-session";
+import type { FlightState } from "./flight-sector";
 import type { ShipId } from "./ships";
 
 export type NativeDockReason = "ready" | "range" | "closure" | "heading" | "inactive";
@@ -52,4 +53,38 @@ export function evaluateNativeCinderDock(
     : speed > NATIVE_CINDER_DOCK_LIMITS.maxSpeed ? "closure"
       : headingDeg > NATIVE_CINDER_DOCK_LIMITS.maxHeadingDeg ? "heading" : "ready";
   return { eligible: reason === "ready", reason, distance, speed, headingDeg };
+}
+
+/** Detach a docked flight before handing control to a separate activity route. */
+export function snapshotDockedFlightForTraining(state: FlightState): FlightState | null {
+  if (!evaluateNativeCinderDock(state).eligible) return null;
+  return {
+    ...state,
+    position: { ...state.position },
+    velocity: { ...state.velocity },
+    orientation: { ...state.orientation },
+    drone: { ...state.drone, position: { ...state.drone.position } },
+    projectiles: state.projectiles.map((projectile) => ({
+      ...projectile,
+      position: { ...projectile.position },
+      velocity: { ...projectile.velocity },
+    })),
+  };
+}
+
+/** Re-copy on restoration so a later sortie cannot mutate the saved return pose. */
+export function restoreDockedFlightSnapshot(snapshot: FlightState, selectedShipId: ShipId): FlightState | null {
+  if (snapshot.shipId !== selectedShipId || !evaluateNativeCinderDock(snapshot).eligible) return null;
+  return {
+    ...snapshot,
+    position: { ...snapshot.position },
+    velocity: { ...snapshot.velocity },
+    orientation: { ...snapshot.orientation },
+    drone: { ...snapshot.drone, position: { ...snapshot.drone.position } },
+    projectiles: snapshot.projectiles.map((projectile) => ({
+      ...projectile,
+      position: { ...projectile.position },
+      velocity: { ...projectile.velocity },
+    })),
+  };
 }

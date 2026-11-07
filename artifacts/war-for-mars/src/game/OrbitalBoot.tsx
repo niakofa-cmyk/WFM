@@ -6,6 +6,7 @@ import { OrbitalChart } from "./OrbitalChart";
 import { MarsAdventureAtlas } from "./MarsAdventureAtlas";
 import { OrbitalFlightPreview } from "./OrbitalFlightPreview";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
+import type { FlightState } from "./flight-sector";
 import "./combat-lab.css";
 import "./orbital-universe.css";
 
@@ -22,6 +23,7 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
   const [mode, setMode] = useState<Mode>(() => new URLSearchParams(window.location.search).get("universe") === "1" ? "universe" : "entry");
   const [run, setRun] = useState(0);
   const [summary, setSummary] = useState("");
+  const [trainingReturnSnapshot, setTrainingReturnSnapshot] = useState<FlightState | null>(null);
   const [destId, setDestId] = useState("mars-orbit");
   const dest = DESTINATIONS.find((d) => d.id === destId) ?? DESTINATIONS[0];
   const startLocation = dest.id === "cinder-ring" ? "cinder-ring" : "mars-orbit";
@@ -35,6 +37,7 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
     if (dest.status === "planned") return;
     unlockAudio();
     setSummary("");
+    setTrainingReturnSnapshot(null);
     setRun((value) => value + 1);
     // The primary game enters the same spatial universe for every destination.
     // The separate Lab/approach scenes remain only as explicit standalone rollback paths.
@@ -48,9 +51,21 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
     </header>
     <main className="uv-grid">
       <section className="uv-map" aria-label="Orbital chart">
-        <OrbitalChart selected={destId} onSelect={setDestId} />
+        <OrbitalChart selected={destId} onSelect={(next) => { setDestId(next); setTrainingReturnSnapshot(null); }} />
         <p className="uv-map__hint">Arrow keys or tap to select a destination</p>
-        <OrbitalFlightPreview shipId={ship} faction={faction} />
+        <OrbitalFlightPreview
+          shipId={ship}
+          faction={faction}
+          servicesHref={HUB}
+          trainingReturnSnapshot={trainingReturnSnapshot}
+          onTrainingReturnConsumed={() => setTrainingReturnSnapshot(null)}
+          onLaunchTraining={(snapshot) => {
+            setTrainingReturnSnapshot(snapshot);
+            setSummary("");
+            setRun((value) => value + 1);
+            setMode("arena");
+          }}
+        />
       </section>
       <section className="uv-brief" aria-live="polite" key={dest.id}>
         <p className={`uv-status uv-status--${dest.status}`} data-testid="status-destination">{STATUS_LABEL[dest.status]}</p>
@@ -62,11 +77,11 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
         <MarsAdventureAtlas />
         <fieldset className="uv-loadout" disabled={dest.status === "planned"}>
           <legend>PILOT LOADOUT</legend>
-          <div className="lab-factions">{(["ussf", "accord"] as const).map((value) => <button key={value} type="button" data-testid={`button-faction-${value}`} aria-pressed={faction === value} onClick={() => { setFaction(value); setShip(ROSTER[value][0]); }}>{value.toUpperCase()}</button>)}</div>
-          <label className="lab-ship-label">AIRFRAME<select data-testid="select-ship" value={ship} onChange={(event) => setShip(event.target.value as ShipId)}>{ROSTER[faction].map((id) => <option key={id} value={id}>{SHIPS[id].name} · {SHIPS[id].role}</option>)}</select></label>
+          <div className="lab-factions">{(["ussf", "accord"] as const).map((value) => <button key={value} type="button" data-testid={`button-faction-${value}`} aria-pressed={faction === value} onClick={() => { setFaction(value); setShip(ROSTER[value][0]); setTrainingReturnSnapshot(null); }}>{value.toUpperCase()}</button>)}</div>
+          <label className="lab-ship-label">AIRFRAME<select data-testid="select-ship" value={ship} onChange={(event) => { setShip(event.target.value as ShipId); setTrainingReturnSnapshot(null); }}>{ROSTER[faction].map((id) => <option key={id} value={id}>{SHIPS[id].name} · {SHIPS[id].role}</option>)}</select></label>
         </fieldset>
         <button data-testid="button-launch-local-universe" className="uv-launch" disabled={dest.status === "planned"}
-          onClick={() => { unlockAudio(); setSummary(""); setRun((value) => value + 1); setMode("universe"); }}>
+          onClick={() => { unlockAudio(); setSummary(""); setTrainingReturnSnapshot(null); setRun((value) => value + 1); setMode("universe"); }}>
           {dest.id === "cinder-ring" ? "APPROACH CINDER · ORBITAL UNIVERSE" : "ENTER MARS ORBIT · ORBITAL UNIVERSE"}
         </button>
         <p className="uv-map__hint" data-testid="text-local-universe-scope">Current flight profile: session-only sandbox, no rewards or shared ships. Authenticated universe encounters and rewards require server authority.</p>

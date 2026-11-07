@@ -4,7 +4,11 @@ import { clearInput, createBus, pulseVectorManeuver, setCircularRollControl, typ
 import { CINDER_ASTEROID_SECTOR, createFlight, flightObjective, stepFlight, type FlightState } from "./flight-sector";
 import { readOrbitalPreviewInput } from "./orbital-flight-preview-input";
 import { createOrbitalNativeFlightRenderer, type OrbitalNativeFlightRenderer } from "./orbital-native-flight-renderer";
-import { evaluateNativeCinderDock } from "./orbital-native-docking";
+import {
+  evaluateNativeCinderDock,
+  restoreDockedFlightSnapshot,
+  snapshotDockedFlightForTraining,
+} from "./orbital-native-docking";
 import { type Faction, type ShipId } from "./ships";
 
 const FIXED_STEP = 1 / 30;
@@ -100,13 +104,28 @@ function HoldButton({ bus, control, label, testId, accent = false }: {
 }
 
 /** Local no-reward flight slice: shared Orbital sim, native WebGL2, and current pilot controls. */
-export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; faction: Faction }) {
+export function OrbitalFlightPreview({
+  shipId,
+  faction,
+  servicesHref,
+  trainingReturnSnapshot,
+  onTrainingReturnConsumed,
+  onLaunchTraining,
+}: {
+  shipId: ShipId;
+  faction: Faction;
+  servicesHref: string;
+  trainingReturnSnapshot: FlightState | null;
+  onTrainingReturnConsumed: () => void;
+  onLaunchTraining: (snapshot: FlightState) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const busRef = useRef<Bus | null>(null);
   const flightRef = useRef<FlightState | null>(null);
   const rendererRef = useRef<OrbitalNativeFlightRenderer | null>(null);
   const pausedRef = useRef(false);
   const dockedRef = useRef(false);
+  const pendingResumeSnapshotRef = useRef<FlightState | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [paused, setPaused] = useState(false);
   const [docked, setDocked] = useState(false);
@@ -126,6 +145,21 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
   const bus = busRef.current;
   pausedRef.current = paused;
 
+  const enterFlight = () => {
+    pendingResumeSnapshotRef.current = trainingReturnSnapshot
+      ? restoreDockedFlightSnapshot(trainingReturnSnapshot, shipId)
+      : null;
+    if (trainingReturnSnapshot) onTrainingReturnConsumed();
+    setEnabled(true);
+  };
+  const launchTraining = () => {
+    const flight = flightRef.current;
+    const snapshot = flight && dockedRef.current ? snapshotDockedFlightForTraining(flight) : null;
+    if (!snapshot) return;
+    clearInput(bus);
+    onLaunchTraining(snapshot);
+  };
+
   useEffect(() => {
     if (!enabled) return;
     const canvas = canvasRef.current;
@@ -137,11 +171,13 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
     controls.orbital = true;
     controls.leftStickFlight = true;
     pausedRef.current = false;
-    dockedRef.current = false;
+    const resumedFlight = pendingResumeSnapshotRef.current;
+    pendingResumeSnapshotRef.current = null;
+    dockedRef.current = resumedFlight !== null;
     setPaused(false);
-    setDocked(false);
+    setDocked(resumedFlight !== null);
 
-    let flight = createFlight(shipId, CINDER_ASTEROID_SECTOR);
+    let flight = resumedFlight ?? createFlight(shipId, CINDER_ASTEROID_SECTOR);
     flightRef.current = flight;
     let renderer: OrbitalNativeFlightRenderer | null = null;
     let raf = 0;
@@ -157,7 +193,9 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
         factionColor: faction === "ussf" ? [0.34, 0.76, 1] : [1, 0.62, 0.26],
       });
       rendererRef.current = renderer;
-      setStatus(`Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
+      setStatus(resumedFlight
+        ? "Returned from local training · restored the same docked Cinder flight · no rewards."
+        : `Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
     } catch (error) {
       setStatus(`Flight preview unavailable: ${error instanceof Error ? error.message : "renderer initialization failed"}`);
       return;
@@ -253,7 +291,14 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
           <b>ORBITAL FLIGHT PREVIEW</b>
           <small>Shared fixed-step flight sim · Cinder asteroid field · local / no rewards</small>
         </div>
-        <button type="button" data-testid="button-orbital-preview-toggle" onClick={() => { setEnabled((value) => !value); setDocked(false); }}>
+        <button type="button" data-testid="button-orbital-preview-toggle" onClick={() => {
+          if (enabled) {
+            setEnabled(false);
+            setDocked(false);
+          } else {
+            enterFlight();
+          }
+        }}>
           {enabled ? "EXIT FLIGHT" : "ENTER FLIGHT"}
         </button>
       </div>
@@ -284,6 +329,21 @@ export function OrbitalFlightPreview({ shipId, faction }: { shipId: ShipId; fact
               ? <button type="button" data-testid="button-orbital-preview-undock" onClick={undockFromStation}>UNDOCK</button>
               : <button type="button" data-testid="button-orbital-preview-dock" disabled={!hud.canDock} onClick={dockAtStation}>DOCK</button>}
           </div>
+          {docked ? (
+            <section className="uv-station-console" aria-label="Cinder Ring station activities" data-testid="orbital-station-console">
+              <div>
+                <b>STATION ACTIVITY CONSOLE</b>
+                <p>Launch a local, no-reward combat training sortie. It currently uses the compatibility Arena as a rollback path, then restores this exact docked flight.</p>
+              </div>
+              <button type="button" data-testid="button-cinder-local-training" onClick={launchTraining}>
+                LOCAL TRAINING · COMPATIBILITY
+              </button>
+              <a href={servicesHref} data-testid="link-cinder-account-operations">
+                OPEN SERVER OPERATIONS
+                <small>Sign-in and server-side location checks apply. This local dock grants no access or rewards.</small>
+              </a>
+            </section>
+          ) : null}
           <div className="uv-flight-control-deck">
             <div className="uv-flight-stick-wrap">
               <PilotFlightStick
