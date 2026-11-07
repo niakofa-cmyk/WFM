@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { PilotFlightStick } from "./PilotFlightStick";
 import { clearInput, createBus, pulseVectorManeuver, setCircularRollControl, type Bus } from "./input";
-import { CINDER_ASTEROID_SECTOR, createFlight, flightObjective, stepFlight, type FlightState } from "./flight-sector";
+import {
+  CINDER_ASTEROID_SECTOR,
+  createFlight,
+  flightObjective,
+  stepFlight,
+  type FlightSector,
+  type FlightState,
+} from "./flight-sector";
 import { readOrbitalPreviewInput } from "./orbital-flight-preview-input";
 import { createOrbitalNativeFlightRenderer, type OrbitalNativeFlightRenderer } from "./orbital-native-flight-renderer";
 import {
@@ -9,6 +16,11 @@ import {
   restoreDockedFlightSnapshot,
   snapshotDockedFlightForTraining,
 } from "./orbital-native-docking";
+import {
+  createNativeCinderSkirmish,
+  createNativeCinderStationMooring,
+  NATIVE_CINDER_SKIRMISH_WORLD,
+} from "./orbital-native-combat";
 import { type Faction, type ShipId } from "./ships";
 
 const FIXED_STEP = 1 / 30;
@@ -32,25 +44,43 @@ type HudState = {
   dockSpeed: number;
   dockHeading: number;
   canDock: boolean;
+  targetHull: number | null;
+  missileReady: boolean;
 };
 
-function readHud(state: FlightState): HudState {
-  const objective = flightObjective(state, CINDER_ASTEROID_SECTOR);
+type SortieDebrief = {
+  outcome: "complete" | "destroyed";
+  hull: number;
+  hits: number;
+  collisions: number;
+  elapsed: number;
+};
+
+function readHud(state: FlightState, sector: FlightSector = CINDER_ASTEROID_SECTOR): HudState {
+  const objective = flightObjective(state, sector);
   const dock = evaluateNativeCinderDock(state);
   return {
     speed: Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z),
     energy: state.energy,
     hull: state.hull,
     missiles: state.missiles,
-    lock: state.lock,
+    lock: state.lock * 100,
     hits: state.hits,
     stage: state.stage.toUpperCase(),
     range: dock.distance,
-    objective: objective.label,
+    objective: state.stage === "complete"
+      ? "Cinder sortie complete"
+      : state.stage === "destroyed"
+        ? "Pilot craft destroyed"
+        : objective.label,
     dockReason: dock.reason,
     dockSpeed: dock.speed,
     dockHeading: dock.headingDeg,
     canDock: dock.eligible,
+    targetHull: state.stage === "drone"
+      ? Math.max(0, Math.min(100, (state.drone.hull / (sector.droneHull ?? 60)) * 100))
+      : null,
+    missileReady: state.stage === "drone" && state.lock >= 1 && state.missiles > 0,
   };
 }
 
@@ -122,18 +152,23 @@ export function OrbitalFlightPreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const busRef = useRef<Bus | null>(null);
   const flightRef = useRef<FlightState | null>(null);
+  const sectorRef = useRef<FlightSector>(CINDER_ASTEROID_SECTOR);
   const rendererRef = useRef<OrbitalNativeFlightRenderer | null>(null);
   const pausedRef = useRef(false);
   const dockedRef = useRef(false);
   const pendingResumeSnapshotRef = useRef<FlightState | null>(null);
+  const terminalStageRef = useRef<FlightState["stage"] | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [paused, setPaused] = useState(false);
   const [docked, setDocked] = useState(false);
+  const [debrief, setDebrief] = useState<SortieDebrief | null>(null);
   const [run, setRun] = useState(0);
   const [status, setStatus] = useState("Native renderer idle · no GPU resources allocated.");
   const [hud, setHud] = useState<HudState>({
     speed: 0, energy: 100, hull: 100, missiles: 3, lock: 0, hits: 0, stage: "RELAY", range: 0,
     objective: "Investigate damaged relay", dockReason: "range", dockSpeed: 0, dockHeading: 180, canDock: false,
+    targetHull: null,
+    missileReady: false,
   });
 
   if (!busRef.current) {
@@ -159,6 +194,36 @@ export function OrbitalFlightPreview({
     clearInput(bus);
     onLaunchTraining(snapshot);
   };
+  const launchNativeSkirmish = () => {
+    const currentFlight = flightRef.current;
+    if (!currentFlight || !rendererRef.current || !dockedRef.current
+      || !evaluateNativeCinderDock(currentFlight).eligible) return;
+    clearInput(bus);
+    const sortie = createNativeCinderSkirmish(shipId);
+    sectorRef.current = NATIVE_CINDER_SKIRMISH_WORLD;
+    flightRef.current = sortie;
+    terminalStageRef.current = null;
+    pausedRef.current = false;
+    dockedRef.current = false;
+    setDebrief(null);
+    setPaused(false);
+    setDocked(false);
+    setHud(readHud(sortie, NATIVE_CINDER_SKIRMISH_WORLD));
+    setStatus("Native Cinder skirmish launched · Orbital sector combat · local / no rewards.");
+  };
+  const recoverAtStation = () => {
+    if (!debrief || !rendererRef.current) return;
+    clearInput(bus);
+    const moored = createNativeCinderStationMooring(shipId);
+    sectorRef.current = CINDER_ASTEROID_SECTOR;
+    flightRef.current = moored;
+    pausedRef.current = false;
+    dockedRef.current = true;
+    setPaused(false);
+    setDocked(true);
+    setHud(readHud(moored, CINDER_ASTEROID_SECTOR));
+    setStatus("Local debrief recovery at Cinder Ring · no server location or reward was written.");
+  };
 
   useEffect(() => {
     if (!enabled) return;
@@ -173,6 +238,9 @@ export function OrbitalFlightPreview({
     pausedRef.current = false;
     const resumedFlight = pendingResumeSnapshotRef.current;
     pendingResumeSnapshotRef.current = null;
+    sectorRef.current = CINDER_ASTEROID_SECTOR;
+    terminalStageRef.current = null;
+    setDebrief(null);
     dockedRef.current = resumedFlight !== null;
     setPaused(false);
     setDocked(resumedFlight !== null);
@@ -234,16 +302,32 @@ export function OrbitalFlightPreview({
         let steps = 0;
         while (accumulator >= FIXED_STEP && steps < 4) {
           const input = readOrbitalPreviewInput(controls);
-          stepFlight(flight, input, FIXED_STEP, CINDER_ASTEROID_SECTOR);
+          const activeFlight = flightRef.current;
+          if (!activeFlight) break;
+          const activeSector = sectorRef.current;
+          stepFlight(activeFlight, input, FIXED_STEP, activeSector);
           accumulator -= FIXED_STEP;
           steps++;
+          if ((activeFlight.stage === "complete" || activeFlight.stage === "destroyed")
+            && terminalStageRef.current !== activeFlight.stage) {
+            terminalStageRef.current = activeFlight.stage;
+            setDebrief({
+              outcome: activeFlight.stage,
+              hull: activeFlight.hull,
+              hits: activeFlight.hits,
+              collisions: activeFlight.collisions,
+              elapsed: activeFlight.elapsed,
+            });
+          }
         }
       } else {
         accumulator = 0;
       }
-      renderer.render(flight);
+      const activeFlight = flightRef.current;
+      if (!activeFlight) return;
+      renderer.render(activeFlight);
       if (now - lastHud > 120) {
-        setHud(readHud(flight));
+        setHud(readHud(activeFlight, sectorRef.current));
         lastHud = now;
       }
     };
@@ -311,6 +395,7 @@ export function OrbitalFlightPreview({
             <span>MISSILES <b>{hud.missiles}</b></span>
             <span>LOCK <b>{Math.round(hud.lock)}%</b></span>
             <span>RANGE <b>{Math.round(hud.range)} M</b></span>
+            {hud.targetHull !== null ? <span>TARGET <b>{Math.round(hud.targetHull)}% HULL</b></span> : null}
             <span>OBJECTIVE <b>{hud.objective.toUpperCase()}</b></span>
             <span>PHASE <b>{hud.stage}</b></span>
           </div>
@@ -333,15 +418,31 @@ export function OrbitalFlightPreview({
             <section className="uv-station-console" aria-label="Cinder Ring station activities" data-testid="orbital-station-console">
               <div>
                 <b>STATION ACTIVITY CONSOLE</b>
-                <p>Launch a local, no-reward combat training sortie. It currently uses the compatibility Arena as a rollback path, then restores this exact docked flight.</p>
+                <p>Launch a native Cinder skirmish in the Orbital sector simulation, or use the legacy Arena fallback. Both are local and no-reward.</p>
               </div>
+              <button type="button" data-testid="button-cinder-native-skirmish" onClick={launchNativeSkirmish}>
+                LAUNCH NATIVE CINDER SKIRMISH
+              </button>
               <button type="button" data-testid="button-cinder-local-training" onClick={launchTraining}>
-                LOCAL TRAINING · COMPATIBILITY
+                ARENA FALLBACK · COMPATIBILITY
               </button>
               <a href={servicesHref} data-testid="link-cinder-account-operations">
                 OPEN SERVER OPERATIONS
                 <small>Sign-in and server-side location checks apply. This local dock grants no access or rewards.</small>
               </a>
+            </section>
+          ) : null}
+          {debrief ? (
+            <section className="uv-sortie-debrief" aria-label="Local sortie debrief" data-testid="orbital-native-debrief" role="status">
+              <div>
+                <b>CINDER SORTIE · {debrief.outcome === "complete" ? "COMPLETE" : "CRAFT LOST"}</b>
+                <small>HITS {debrief.hits} · COLLISIONS {debrief.collisions} · HULL {Math.round(debrief.hull)}% · {Math.floor(debrief.elapsed)} SEC · NO REWARDS</small>
+              </div>
+              {!docked ? (
+                <button type="button" data-testid="button-cinder-debrief-recover" onClick={recoverAtStation}>
+                  RECOVER AT STATION · LOCAL RESET
+                </button>
+              ) : null}
             </section>
           ) : null}
           <div className="uv-flight-control-deck">
@@ -362,8 +463,11 @@ export function OrbitalFlightPreview({
               <HoldButton bus={bus} control="KeyR" label="LOCK" testId="button-orbital-preview-lock" />
               <HoldButton bus={bus} control="Space" label="FIRE" testId="button-orbital-preview-fire" accent />
               <HoldButton bus={bus} control="KeyB" label="BRAKE" testId="button-orbital-preview-brake" />
-              <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-missile" onClick={() => { bus.missilePulse = true; }}>MISSILE</button>
+              <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-missile" disabled={!hud.missileReady}
+                aria-label={hud.missileReady ? "Fire guided missile" : "Missile requires full target lock"}
+                onClick={() => { bus.missilePulse = true; }}>MISSILE</button>
               <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-countermeasure" onClick={() => { bus.countermeasurePulse = true; }}>FLARE</button>
+              <small className="uv-flight-action-hint" data-testid="text-orbital-preview-weapon-help">HOLD LOCK TO 100% BEFORE MISSILE · FLARE CLEARS GUIDED FIRE</small>
             </div>
             <div className="uv-flight-stick-wrap">
               <small>AIM · PITCH / LIVE ROLL</small>
@@ -381,7 +485,12 @@ export function OrbitalFlightPreview({
             <button type="button" className="uv-renderer-proof__clock" data-testid="button-orbital-preview-pause" disabled={docked} onClick={() => setPaused((value) => !value)}>
               {paused ? "RESUME FLIGHT" : "PAUSE FLIGHT"}
             </button>
-            <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-restart" onClick={() => setRun((value) => value + 1)}>
+            <button type="button" className="uv-flight-action" data-testid="button-orbital-preview-restart" onClick={() => {
+              sectorRef.current = CINDER_ASTEROID_SECTOR;
+              terminalStageRef.current = null;
+              setDebrief(null);
+              setRun((value) => value + 1);
+            }}>
               RESTART SORTIE
             </button>
             <p className="uv-renderer-proof__scope">

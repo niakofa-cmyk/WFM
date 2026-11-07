@@ -67,7 +67,8 @@ test("native preview renders the shared Orbital sector state with collision-matc
   assert.match(renderer, /deleteBuffer/);
   assert.doesNotMatch(renderer, /from ["']three["']/);
   assert.match(component, /createFlight\(shipId, CINDER_ASTEROID_SECTOR\)/);
-  assert.match(component, /stepFlight\(flight, input, FIXED_STEP, CINDER_ASTEROID_SECTOR\)/);
+  assert.match(component, /const activeSector = sectorRef\.current;\s*stepFlight\(activeFlight, input, FIXED_STEP, activeSector\)/);
+  assert.match(component, /sectorRef\.current = NATIVE_CINDER_SKIRMISH_WORLD/);
   assert.match(component, /evaluateNativeCinderDock/);
   assert.match(component, /button-orbital-preview-dock/);
   assert.match(component, /button-orbital-preview-undock/);

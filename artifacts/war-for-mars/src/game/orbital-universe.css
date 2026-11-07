@@ -109,12 +109,20 @@
 .uv-station-console a{flex-direction:column;gap:4px;border-color:#5fd4cf55;background:#0c1d20;color:var(--teal)}
 .uv-station-console a small{font:500 8px/1.4 "Spline Sans Mono",monospace;color:var(--dim);letter-spacing:0}
 .uv-station-console button:focus-visible,.uv-station-console a:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+.uv-sortie-debrief{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0;padding:10px;border:1px solid #f09a4c88;background:#1c1612}
+.uv-sortie-debrief div{display:grid;gap:5px}
+.uv-sortie-debrief b{font:600 10px "Chakra Petch",sans-serif;letter-spacing:.12em;color:var(--ember)}
+.uv-sortie-debrief small{font:500 8px/1.5 "Spline Sans Mono",monospace;color:var(--dim)}
+.uv-sortie-debrief button{min-height:38px;padding:7px 10px;border:1px solid var(--ember);background:#291d12;color:var(--ember);font:600 8px "Spline Sans Mono",monospace;letter-spacing:.07em}
+.uv-sortie-debrief button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 .uv-flight-control-deck{display:grid;grid-template-columns:minmax(112px,1fr) minmax(150px,1fr) minmax(112px,1fr);align-items:center;gap:10px;margin:12px 0}
 .uv-flight-stick-wrap{display:flex;flex-direction:column;align-items:center;gap:5px}
 .uv-flight-stick-wrap small{font:500 8px "Spline Sans Mono",monospace;letter-spacing:.08em;color:var(--dim);text-align:center}
 .uv-flight-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .uv-flight-action{min-height:42px;border:1px solid #c3b79e66;background:#101a1e;color:var(--sand);font:600 9px "Spline Sans Mono",monospace;letter-spacing:.08em;touch-action:none;cursor:pointer}
 .uv-flight-action--accent{border-color:#f09a4c;background:#d87535;color:#101114}
+.uv-flight-action:disabled{border-color:#474b4b;background:#14191b;color:#777d7b;cursor:not-allowed;opacity:.72}
+.uv-flight-action-hint{grid-column:1/-1;color:var(--dim);font:500 7px/1.5 "Spline Sans Mono",monospace;letter-spacing:.04em;text-align:center}
 .uv-flight-action:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .uv-flight-preview-footer{display:flex;align-items:flex-start;gap:10px;margin-top:8px}
 .uv-flight-preview-footer .uv-renderer-proof__scope{flex:1}
@@ -128,5 +136,5 @@
 @media(max-width:820px){.uv-node--mars .uv-node__label{top:50%;transform:translate(-50%,-50%);background:#0a0f14aa;padding:3px 5px}}
 @media(max-height:560px) and (orientation:landscape){.uv-top{padding-top:10px}.uv-title{font-size:28px}.uv-grid{grid-template-columns:1fr 1fr;padding-top:8px}.uv-chart{max-height:calc(100dvh - 110px);width:auto}.uv-dest{font-size:30px}}
 @media(max-width:480px){.uv-routes summary{align-items:flex-start;flex-direction:column;gap:3px}.uv-routes summary:after{position:absolute;right:12px}.uv-routes__state{max-width:45%;font-size:7px}}
-@media(max-width:560px){.uv-renderer-proof{padding:9px}.uv-renderer-proof__heading{align-items:flex-start}.uv-renderer-proof__heading small{max-width:210px}.uv-dock-panel{align-items:flex-start}.uv-dock-panel small{max-width:250px}.uv-station-console{grid-template-columns:1fr}.uv-station-console>div{grid-column:auto}.uv-flight-control-deck{grid-template-columns:1fr 1fr;gap:8px}.uv-flight-action-grid{grid-column:1/-1;grid-row:1;grid-template-columns:repeat(3,minmax(0,1fr))}.uv-flight-stick-wrap{grid-row:2}.uv-flight-hud{grid-template-columns:repeat(2,minmax(0,1fr))}.uv-flight-preview-footer{flex-direction:column}}
+@media(max-width:560px){.uv-renderer-proof{padding:9px}.uv-renderer-proof__heading{align-items:flex-start}.uv-renderer-proof__heading small{max-width:210px}.uv-dock-panel{align-items:flex-start}.uv-dock-panel small{max-width:250px}.uv-station-console{grid-template-columns:1fr}.uv-station-console>div{grid-column:auto}.uv-sortie-debrief{align-items:flex-start;flex-direction:column}.uv-flight-control-deck{grid-template-columns:1fr 1fr;gap:8px}.uv-flight-action-grid{grid-column:1/-1;grid-row:1;grid-template-columns:repeat(3,minmax(0,1fr))}.uv-flight-stick-wrap{grid-row:2}.uv-flight-hud{grid-template-columns:repeat(2,minmax(0,1fr))}.uv-flight-preview-footer{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.uv *,.uv{animation:none!important;transition:none!important}}

@@ -22,12 +22,13 @@ This iteration advances three migration items:
 3. A fail-closed code and test gate records the conditions required before the
    compatibility renderer may be retired. A single preview or successful build
    cannot satisfy those conditions.
-4. Docking exposes a local activity console. Its training action temporarily
-   enters the existing Orbital Combat Lab Arena as a clearly labeled
-   compatibility route; on completion, the native preview restores the exact
-   docked flight snapshot, including hull, energy, mission stage, and position.
-   The station's account-services link opens the existing server-owned hub and
-   does not submit local presence or grant location, queue, or reward authority.
+4. Docking exposes a local activity console with a native Cinder skirmish: a
+   targetable training drone, hostile guided fire, lock/fire/missile/countermeasure
+   input, extraction, and a no-reward debrief all run through the shared Orbital
+   sector simulation and native renderer. The existing Arena remains a clearly
+   labeled fallback; its return restores the exact docked flight snapshot. The
+   station's account-services link does not submit local presence or grant
+   location, queue, or reward authority.
 
 The native station is currently visual geometry and an interaction envelope;
 it is not a collidable station mesh. The hull models are a lightweight native
@@ -63,9 +64,9 @@ the completed migration evidence.
 
 - The local preview's dock and hull state do not save player location or grant
   queue entry, multiplayer authority, kill credit, or rewards.
-- The station training action is a compatibility handoff, not proof that the
-  new native renderer owns combat. Keep the Arena route until the combat,
-  transition, mobile, performance, and rollback gates are independently met.
+- The native Cinder skirmish is a bounded single-drone encounter, not proof of
+  full Arena combat parity. Keep the Arena fallback until fleet combat,
+  objectives, transitions, mobile, performance, and rollback gates are met.
 - Keep multiplayer movement, encounters, damage, and settlement under their
   current server-owned contracts.
 - Do not remove Three.js, `Arena`, or any rollback route as part of a preview

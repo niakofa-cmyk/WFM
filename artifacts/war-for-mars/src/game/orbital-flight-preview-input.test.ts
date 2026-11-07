@@ -29,6 +29,17 @@ test("native preview maps dual-stick and keyboard movement into the shared secto
   assert.ok(Number.isFinite(input.pitch));
 });
 
+test("missile pulse is passed through while full held target lock remains active", () => {
+  const bus = previewBus();
+  bus.keys.add("KeyR");
+  bus.missilePulse = true;
+
+  const input = readOrbitalPreviewInput(bus);
+  assert.equal(input.lock, true);
+  assert.equal(input.missile, true);
+  assert.equal(bus.missilePulse, false);
+});
+
 test("live circle-roll intent reaches local Orbital flight without changing a wire contract", () => {
   const bus = previewBus();
   setCircularRollControl(bus, 0.72, 1000, 120);
