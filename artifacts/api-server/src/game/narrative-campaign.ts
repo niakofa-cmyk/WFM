@@ -53,6 +53,14 @@ export type WorldConsequence = Readonly<{
   persistence: "per_player" | "faction_threshold" | "server_world_state";
 }>;
 
+export type NarrativeOperationOutcome = Readonly<{
+  id: string;
+  terminalCondition: string;
+  description: string;
+  custodyState?: "accord" | "ussf" | "contested";
+  canonicalFactsPreserved: readonly string[];
+}>;
+
 export type NarrativeOperation = Readonly<{
   id: string;
   chapterId: string;
@@ -69,6 +77,7 @@ export type NarrativeOperation = Readonly<{
   successEvidenceIds: readonly string[];
   scenes: readonly NarrativeScene[];
   consequenceIds: readonly string[];
+  outcomes?: readonly NarrativeOperationOutcome[];
 }>;
 
 export type NarrativeChapter = Readonly<{
@@ -230,7 +239,7 @@ export const NARRATIVE_OPERATIONS = [
     id: "departure-window",
     chapterId: "secret-expedition",
     title: "Departure Window",
-    locationId: "earth-orbit",
+    locationId: "phobos-yard",
     runtimeRefs: {},
     factionAccess: "archive",
     gameplay: ["historical simulation", "flight telemetry reconstruction", "escort a data capsule"],
@@ -351,6 +360,11 @@ export const NARRATIVE_OPERATIONS = [
     primaryObjective: "USSF: intercept the Accord transfer and secure Dusk. Accord: protect the prisoner and complete the transfer.",
     optionalObjectives: ["Recover the custody manifest", "Preserve the transport's signal recorder", "Prevent civilian convoy losses"],
     successEvidenceIds: ["prisoner-transfer-manifest", "cage-recorder-signal"],
+    outcomes: [
+      { id: "ussf-secures-transport", terminalCondition: "USSF boarding team verifies custody and secures the transport", description: "Dusk enters temporary USSF custody pending a later authored campaign decision.", custodyState: "ussf", canonicalFactsPreserved: ["Dusk was captured by the Accord after the expedition was destroyed.", "The Cage operation is a later prisoner transfer."] },
+      { id: "accord-completes-transfer", terminalCondition: "Accord transport reaches the secure transfer boundary", description: "Accord custody continues and the prisoner transfer is completed.", custodyState: "accord", canonicalFactsPreserved: ["Dusk was captured by the Accord after the expedition was destroyed.", "The Cage operation is a later prisoner transfer."] },
+      { id: "contested-transport-escapes", terminalCondition: "Transport escapes damaged or is disabled without verified boarding", description: "Custody remains unresolved at operation end; both factions retain partial records.", custodyState: "contested", canonicalFactsPreserved: ["Dusk was captured by the Accord after the expedition was destroyed.", "The Cage operation is a later prisoner transfer."] },
+    ],
     scenes: [{
       id: "cage-ussf-brief",
       presentation: "briefing",
