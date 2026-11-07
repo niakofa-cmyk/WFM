@@ -30,7 +30,7 @@ labels describe story order; they do not add progression requirements.
 
 | Order | Story beat | Established facts | Status and boundary |
 |---|---|---|---|
-| Prelude | Dusk's expedition, capture, Earth transmission, and the older signal | The owner-directed foundation establishes that Dusk secretly launches to seize Mars; the Accord destroys his expedition, captures him as its only known survivor, and a transmission reports his capture to Earth, precipitating the USSF–Accord conflict. The signal predates that front; Pale Beacon receivers received it for years; a Warden erasure order also predates the front. | The expedition/capture/transmission are foundational story direction, now integrated with campaign context. The signal's origin, age, sender, the Warden order's author, and the exact political chain that mobilizes Earth remain unknown. |
+| Prelude | Dusk's attempted seizure, capture, Earth transmission, and the older signal | The owner-directed foundation establishes Dusk as a scandal-enriched billionaire who manipulates a powerful inner circle, assembles a private force with USSF and technology-network support, and secretly attempts to take Mars. The Accord destroys his fleet; Dusk is its only known survivor and is captured. A transmission reports the capture to Earth before the fleet is destroyed, triggering the political and military crisis that escalates into the USSF–Accord conflict. The signal predates that front; Pale Beacon receivers received it for years; a Warden erasure order also predates the front. | The capture/transmission premise is owner-directed story canon. The wider government and public do not know Dusk's true objective at launch; senior insiders knowingly enable it. The public account, exact insider network, and crisis response remain to be authored. The signal's origin, age, sender, and the Warden order's author remain unknown. |
 | I | **Contact — Rust Disc** | The opening campaign sortie breaks the defending wing; the surviving relay decodes a route key. The recovered record says the signal is more than a distress call. | Existing campaign ID `contact`. The co-op Rust Disc operation uses the same place and evidence theme but remains a separate server operation. |
 | II | **Mars Arrival — Mars Approach** | The route key gives the player a reason to travel into the Mars theater. | A geographic transition between the opening contact and the beacon investigation in the story-facing map. It is not a campaign sortie or a mandatory campaign unlock. The existing co-op Mars Approach orbital survey remains in its separate Rust Disc → Mars Approach → Pale Beacons progression and does not imply surface landing. |
 | III | **Pale Beacon Conspiracy — Beacon** | The campaign secures two of three beacons. The recovered record says the chain received the same signal for years and someone kept its receivers dark so neither fleet would hear it. | Existing campaign ID `beacon`. The co-op `pale-beacons` operation is a distinct server-run scout encounter at the related location; its completion is not the campaign's beacon result. The person or faction that suppressed the receivers is unknown. |
@@ -81,12 +81,17 @@ The story-map placement does not change the current operation contract:
 
 ## Canon rules for future writing
 
-1. Preserve the owner-directed foundational premise: Dusk intends to seize Mars;
-   the Accord destroys his expedition and captures him; a transmission reports
-   his capture to Earth and precipitates the conflict. Preserve the recovered
-   facts: the signal predates the front; the beacons received it for years; the
-   Warden's erasure order predates the front; Dusk chose the Cage route to
-   publicize the signal; the signal repeats from below Mars.
+1. Preserve the owner-directed foundational premise: Dusk is a scandal-enriched
+   billionaire and political manipulator who uses fear for humanity's survival
+   to justify a private attempt to seize Mars, enabled by powerful insiders.
+   The Accord destroys his expedition and captures him as its only known
+   survivor; a transmission reports his capture to Earth before the fleet is
+   destroyed and precipitates the conflict. Dusk is not a serving military
+   commander or willing truth-teller. Preserve the recovered facts: the signal
+   predates the front; the beacons received it for years; the Warden's erasure
+   order predates the front; Dusk chose the Cage route to publicize the signal;
+   the signal repeats from below Mars. Do not assume the Mars seizure was
+   originally motivated by the Witness.
 2. Do not claim who originated the signal, suppressed the beacons, or issued the
    Warden order. Do not invent the details of Dusk's later custody transfer or
    Cage escort beyond the new foundational premise and existing mission brief.
@@ -103,7 +108,8 @@ The story-map placement does not change the current operation contract:
 
 ## Implementation record
 
-The client story thread now presents the working chapter order, labels Mars
+The client story thread presents Dusk's owner-directed origin and the three
+layers of knowledge, alongside the working chapter order. It labels Mars
 Approach as a travel interlude, marks Iron Eclipse's Chapter VI position as
 proposed, and labels Beyond the Signal as a future arc. It remains an
 informational view. It does not start or settle operations and does not alter

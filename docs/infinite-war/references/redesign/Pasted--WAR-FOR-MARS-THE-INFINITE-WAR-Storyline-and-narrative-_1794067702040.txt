@@ -1,0 +1,1142 @@
+# WAR FOR MARS: THE INFINITE WAR — Storyline and narrative evaluation
+
+I reviewed the current `staging` branch, the original concepts preserved in `attached_assets`, the campaign source, the Infinite War blueprint, the combat and multiplayer documentation, and the newer Orbital-universe documentation in PR #15.
+
+My conclusion is that WAR FOR MARS already has the beginnings of a genuinely compelling science-fiction epic, but it does not yet have a fully developed epic storyline. It has a central mystery, competing civilizations, a sequence of military encounters, and the beginnings of a much larger universe. What it needs now is a unifying mythology, deeper characters, a coherent historical timeline, a carefully constructed revelation, and a narrative architecture that makes the story inseparable from the gameplay.
+
+I would not throw away the story you have created. I would elevate it.
+
+## 1. What the repository actually contains
+
+Story foundation found
+
+Canon incomplete
+
+Repository: niakofa-cmyk/WFM
+
+| Repository location                                           | What it contributes                                                     |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `artifacts/war-for-mars/src/game/campaign.ts`                 | Contact, Beacon, Warden and Cage; dispatches and recovered intelligence |
+| `artifacts/war-for-mars/src/game/sector-missions.ts`          | Rust Disc, Mars Approach, Pale Beacons and Iron Eclipse                 |
+| `docs/references/wfm-infinite-war-blueprint.md`               | The universe-as-battlefield principle and long-term game vision         |
+| `docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md`             | Unified player journey and staged game development                      |
+| `docs/combat-evolution-roadmap.md`                            | Combat, AI wing orders, Iron Eclipse and campaign integration           |
+| `docs/infinite-war/ARCHITECTURE-ASSESSMENT.md`                | Current separation between game systems and intended architecture       |
+| `docs/player-journey-direction.md`                            | The intended player experience and faction introduction                 |
+| `docs/infinite-war/ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md` | The proposed transformation into one expanding universe runtime         |
+| `docs/infinite-war/MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md` | The proposed Mars planetary route and adventure network                 |
+
+### The strongest existing story idea
+
+The current campaign contains a particularly powerful sequence:
+
+1. The Accord discovers a voice buried in the Rust Disc relay lattice.
+2. The surviving relay reveals a route key.
+3. Three Pale Beacons are revealed to be part of a much older listening network.
+4. A Warden suppresses the night-side relay network.
+5. The Warden's recorder reveals that someone ordered the destruction of a transport and its cargo.
+6. The Cage carries Eon Dusk through the Dust Lane.
+7. The final recorder reveals that the signal originates beneath Mars.
+8. The signal predates the USSF–Accord conflict.
+
+That is an excellent narrative foundation.
+
+There is an important line in the existing recovered intelligence:
+
+> The first signal is not a distress call. It is a route key.
+
+That idea deserves to become one of the defining mysteries of the entire franchise.
+
+It means the war everyone thinks they are fighting may be taking place inside a much older story.
+
+### What is missing
+
+The current storyline does not adequately establish:
+
+- What originally brought humanity to Mars.
+- Why the USSF and Accord are fighting.
+- What the Accord of Dharma and Ma'at actually believes.
+- Who Eon Dusk is, beyond being a captured figure.
+- Why the Warden was ordered to erase the evidence.
+- Who issued an order that predates the war.
+- What the signal actually represents.
+- What lies beneath Mars.
+- Why the discoveries matter beyond the next mission.
+- How the events on Mars connect to the wider universe.
+
+The dialogue is also mostly mission briefing text. We need character voices, conversations, transmissions, arguments, interrogations, discoveries, betrayals, and revelations.
+
+## 2. An important documentation discovery
+
+The newer PR #15 is particularly relevant. It introduces two valuable documents:
+
+- `ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md`
+- `MARS-LIVE-ROUTES-AND-ADVENTURE-NETWORK.md`
+
+They are substantial improvements to the universe and route architecture. They correctly recognize that Mars must become a continuous, explorable theater and that routes should contain discoveries, encounters, alternate approaches, and persistent activity.
+
+However, they are engineering and world-design documents, not a complete story bible. They do not establish the full history, mythology, character arcs, dialogue, or narrative chronology needed for an epic campaign.
+
+There are also two matters that must be resolved:
+
+1. The master-plan files referenced by the documentation are not actually present in the current staging tree. The blueprint references a 772-line owner-supplied master plan and a later complete development directive, but those referenced files return 404 and are absent from the tree. Other original conceptual notes are present. Those missing sources must be recovered before declaring the original creative material fully audited.
+2. PR #15 repeatedly specifies Three.js as the renderer. That conflicts with your clarified direction that Orbital Combat Engine is the exclusive main game engine and runtime. This must be corrected before the documentation becomes authoritative. The current code still contains Three.js implementation, so the desired Orbital-only architecture is a target, not a verified completed migration.
+
+Repository baseline inspected: staging `3663e144938ba931cccaa624004814ab0fd65ff1`. PR #15: open draft, documentation-only, head `6434e0aafe35bc4413fd169ddad12b136893901d`. Main remains at `3ecff671fdadaa041599d3c3b475b83bc810ec36`.
+
+# 3. My creative direction: make the war about the fate of life and civilization
+
+I want to establish a much more ambitious premise.
+
+The war for Mars is not ultimately about Mars. It is about whether a civilization has the right to possess the future of life.
+
+The USSF believes humanity must survive, expand, organize its defenses, and control the technologies necessary to protect its existence.
+
+The Accord believes survival without balance, responsibility, and reciprocity will reproduce the very conditions that destroyed earlier civilizations.
+
+Both are convinced they are protecting the future.
+
+Both have committed terrible acts in the name of that future.
+
+And both are missing something.
+
+Beneath Mars lies evidence that humanity is not the first civilization to face this question.
+
+The signal is not simply a distress call, an ancient weapon, or a convenient portal to another galaxy. It is the beginning of a mystery about memory, existence, consciousness, civilization, and the responsibility that comes with discovering something greater than oneself.
+
+This is where we can give WAR FOR MARS a philosophical and emotional identity that extends beyond ordinary space-combat fiction.
+
+We can explore themes found in theology, cosmology, African oral history, Indigenous relationships to land and ancestry, and the philosophical questions raised by modern science—without claiming that different living traditions are interchangeable or using sacred traditions as decorative science-fiction props.
+
+The game should ask profound questions, but the player should experience those questions through decisions, exploration, characters, discoveries, and consequences.
+
+# 4. The proposed master story bible
+
+The following is my proposed canonical foundation for the next version of the game. Existing story elements are preserved; new lore is explicitly identified as proposed canon rather than pretending it already exists in the repository.
+
+# WAR FOR MARS: THE INFINITE WAR
+
+## THE FIRST WITNESS
+
+### Master Story Bible — Proposed Canon v0.1
+
+**Genre:** Epic science-fiction, space warfare, mystery, exploration, political drama, cosmic mythology.
+
+**Setting:** A near-future humanity expanding beyond Earth into a contested Martian civilization and, eventually, an immense network of inhabited and unexplored worlds.
+
+**Central premise:**
+
+Humanity has reached Mars. Two powerful civilizations are preparing for a war that could determine the future of the solar system.
+
+But beneath the red planet, something has been listening.
+
+Something whose history began before humanity named the stars.
+
+Something that remembers civilizations humanity has never encountered.
+
+And something that neither side fully understands.
+
+The war for Mars is about to become the first chapter of a much greater story.
+
+---
+
+# PART I — THE COSMOLOGY
+
+## 1. Before the war
+
+Before humanity established its first permanent settlements on Mars, it believed the universe was a vast physical frontier: planets, stars, radiation, gravity, matter, energy and time.
+
+Humanity understood that it was part of a much larger cosmos, but it did not understand how much of that cosmos remained unknown.
+
+Its instruments could observe distant stars. Its probes could study planets. Its spacecraft could travel between worlds.
+
+Yet there remained an unanswered question:
+
+**What happens to a civilization after it disappears?**
+
+Humanity assumed that civilizations leave ruins, artifacts, geological evidence and perhaps signals.
+
+It did not imagine that some forms of memory might endure in ways its instruments could not yet recognize.
+
+## 2. The Witness Phenomenon
+
+Proposed central mythology:
+
+The Witness is the name humanity eventually gives to an extraordinary phenomenon discovered beneath Mars.
+
+It appears through recurring patterns of energy, information and resonance embedded in an ancient planetary structure.
+
+The phenomenon does not initially communicate through spoken language.
+
+It communicates through patterns.
+
+The patterns contain information about environments, planetary histories, biological development, catastrophic events and the rise and disappearance of civilizations.
+
+Its origin is unknown.
+
+Some researchers believe it is an artificial archive created by an extinct civilization.
+
+Others believe it is a naturally occurring information structure that developed over immense periods of time.
+
+Others believe it represents something that human science has not yet developed the language to describe.
+
+The Accord interprets it through a philosophy of continuity, responsibility and balance.
+
+The USSF initially interprets it as an extraordinary strategic intelligence resource.
+
+Neither interpretation is complete.
+
+**The Witness is not a weapon waiting to be activated. It is evidence that the universe contains a history much greater than humanity's own.**
+
+## 3. The First Witness
+
+The first recovered transmission is eventually identified as a fragment of a much larger record.
+
+It contains three recurring elements:
+
+- The birth of worlds.
+- The memory of civilizations.
+- The consequences of imbalance.
+
+The first recovered message is incomplete.
+
+It does not identify a creator, god, civilization or controlling intelligence.
+
+It asks a question through a sequence of symbols that human researchers initially translate differently:
+
+**"When a world remembers, who has the right to speak for it?"**
+
+This becomes the philosophical question at the center of the entire saga.
+
+---
+
+# PART II — THE TWO CIVILIZATIONS
+
+## 4. The United States Space Force — USSF
+
+**Faction identity: Blue**
+
+The USSF is a major military and scientific power responsible for defending humanity's expanding presence beyond Earth.
+
+Its doctrine is built around survival, security, preparedness, technological advancement and the preservation of human civilization.
+
+Its leaders believe that humanity cannot survive the dangers of an expanding universe without organized defense and strategic control.
+
+The USSF is not inherently evil.
+
+Its officers include people who have sacrificed everything to protect civilians, maintain supply corridors, rescue stranded settlements and prevent catastrophic conflict.
+
+But its institutions have a dangerous weakness:
+
+The belief that anything sufficiently important to civilization may become a matter of national security.
+
+The Witness threatens that belief because it may be something that cannot ethically or safely be possessed by any one government.
+
+### USSF internal divisions
+
+**The Expansionists**
+
+Believe humanity must secure Mars, establish strategic infrastructure and expand before unknown threats emerge.
+
+**The Guardians**
+
+Believe military power exists to protect people, not to govern them.
+
+**The Continuity Directorate**
+
+A highly restricted legacy authority associated with the prewar emergency security system. Its existence and authority are concealed from most serving personnel.
+
+Its historical records become central to the Warden mystery.
+
+---
+
+## 5. The Accord of Dharma and Ma'at
+
+**Faction identity: Warm amber / solar**
+
+The Accord is a coalition of independent settlements, scientific communities, cultural institutions, and political movements united by the belief that civilization must develop in relationship with the worlds it inhabits.
+
+Its name deliberately evokes two distinct philosophical and religious traditions: Dharma and Ma'at.
+
+For the fictional Accord, these are sources of inspiration for a new political philosophy concerned with duty, balance, truth, responsibility and the order of communal life.
+
+The game must not present the traditions themselves as identical or reduce them to a single religious doctrine.
+
+The Accord's central belief is:
+
+**A civilization does not own the world that sustains it. It inherits a responsibility toward that world.**
+
+The Accord opposes unrestricted military control of Mars and fears that the USSF will turn the Witness into a strategic monopoly.
+
+But the Accord is not morally flawless.
+
+Its leaders disagree about whether the Witness should be revealed, protected, studied, or left untouched.
+
+Some believe its discovery should unite humanity.
+
+Others believe humanity has not yet demonstrated the maturity to approach it.
+
+### Accord internal divisions
+
+**The Stewards**
+
+Believe in protection, restraint, scientific responsibility and shared knowledge.
+
+**The Ascendants**
+
+Believe the Witness could enable humanity to transcend its existing limitations.
+
+**The Veilkeepers**
+
+Believe certain discoveries must remain hidden until their consequences are understood.
+
+These internal divisions make the Accord a real civilization rather than a single enemy faction.
+
+---
+
+# PART III — THE CENTRAL CHARACTERS
+
+## 6. Eon Dusk — The Man Who Heard the Signal
+
+Eon Dusk is an expedition commander, explorer and former military figure whose fleet disappeared during an investigation of the Martian relay network.
+
+His expedition was destroyed.
+
+His surviving personnel were scattered.
+
+Dusk became a prisoner of the Accord.
+
+But he was not captured because he lost the ability to fight.
+
+He allowed himself to be taken because he possessed evidence that neither civilization could safely bury.
+
+He discovered that the signal was being deliberately suppressed.
+
+He also discovered that the Warden had been operating under instructions that predated the current war.
+
+Dusk's greatest fear is not death.
+
+It is that humanity will turn the Witness into another instrument of domination.
+
+His defining line:
+
+**"I did not surrender to the Accord. I surrendered to the truth. They simply happened to be the ones holding the cell."**
+
+## 7. Commander Mara Venn — The USSF Perspective
+
+Mara Venn is a decorated USSF commander entrusted with protecting the Mars orbital theater.
+
+She believes in discipline, defense and the duty to protect human lives.
+
+She initially regards Dusk as an unstable intelligence asset and the Accord as a strategic adversary.
+
+As the campaign progresses, she discovers that the military institution she serves has concealed information from its own personnel.
+
+Her conflict is not whether she loves humanity.
+
+It is whether protecting humanity sometimes requires disobeying the institutions that claim to represent it.
+
+## 8. Wing Marshal Tarek Sol — The Accord Perspective
+
+Tarek Sol is an Accord military leader and strategist.
+
+He is not interested in conquering Earth or destroying the USSF.
+
+He believes Mars must not become a permanent military possession.
+
+He has seen settlements destroyed by decisions made far away from the people who live with their consequences.
+
+He is willing to fight fiercely, but he fears that the Accord could become the very empire it was created to resist.
+
+His defining line:
+
+**"A world is not free because its flag has changed. A world is free when its people are no longer afraid of the hand above them."**
+
+## 9. Dr. Nadiya Sen — The Scientist
+
+Nadiya Sen is a planetary geologist and signal researcher who helps translate the first recovered Witness fragments.
+
+She becomes the intellectual bridge between the factions.
+
+Her work reveals that the signal is not a conventional transmission traveling from one transmitter to another.
+
+It behaves as a distributed pattern.
+
+Its fragments appear in several seemingly unrelated locations.
+
+She warns both factions that destroying one relay may alter the information available at another.
+
+She is the first character to suggest that Mars is not the source of the entire phenomenon.
+
+It may only be the first place humanity has learned to listen.
+
+## 10. WARDEN-0 — The Silent Authority
+
+The Warden is an advanced autonomous military vessel or command intelligence associated with a classified prewar continuity mandate.
+
+Its mission is to prevent the Witness from being exposed.
+
+It does not describe itself as an enemy.
+
+It does not recognize the USSF–Accord conflict as the highest authority in its command structure.
+
+Its orders are older than the recognized war.
+
+Its defining transmission:
+
+**"Current belligerent status is irrelevant. Continuity mandate remains in force. Evidence suppression authorized."**
+
+The Warden should become one of the game's most memorable recurring threats.
+
+It is not merely a boss ship. It is a military system whose purpose and command origin must be uncovered.
+
+---
+
+# PART IV — THE MASTER CHRONOLOGY
+
+## 11. Era One — The Expansion
+
+Humanity establishes permanent infrastructure on Mars.
+
+Scientific installations, orbital stations, mining settlements, transport networks and defensive systems expand.
+
+The first political disagreements emerge over ownership, autonomy, resource allocation and military jurisdiction.
+
+## 12. Era Two — The Division
+
+The USSF becomes the principal military authority responsible for protecting strategic human interests in the Martian theater.
+
+The Accord develops as a coalition of communities seeking a different political future for Mars.
+
+Tensions increase.
+
+The two civilizations disagree over who has the right to govern Mars and control its expanding infrastructure.
+
+## 13. Era Three — The Dusk Expedition
+
+Eon Dusk leads an expedition to investigate unusual signals discovered in the Rust Disc relay network.
+
+The expedition disappears.
+
+A second investigation discovers evidence that the original signal predates the present political conflict.
+
+Dusk's fleet is destroyed.
+
+Dusk survives.
+
+## 14. Era Four — The Silent Orders
+
+The Warden receives an order to erase the transport, its cargo and all records associated with the route.
+
+The order is traced to an authority older than the current war.
+
+Neither the USSF nor the Accord can initially explain who authorized it.
+
+The existence of the Witness becomes the most dangerous secret in the Martian theater.
+
+## 15. Era Five — The Infinite War
+
+The player enters the conflict.
+
+The first campaign begins with the Rust Disc relay recovery.
+
+As the player advances, the war becomes progressively larger and more complicated.
+
+The discovery beneath Mars eventually changes humanity's understanding of the universe.
+
+---
+
+# PART V — THE MAIN CAMPAIGN
+
+## PROLOGUE — ASHES OF THE EXPEDITION
+
+**Location:** Phobos Yard and the Rust Disc approach.
+
+The player enters the game during an escalating military crisis.
+
+A missing expedition has left an abandoned relay network, damaged ships and conflicting intelligence reports.
+
+The USSF and Accord both claim the other side is responsible.
+
+The player's first orders are simple:
+
+Recover the relay.
+
+Identify the hostile force.
+
+Bring back whatever survived.
+
+But the relay contains a signal neither faction recognizes.
+
+**Opening narration:**
+
+"Every civilization believes it is the first to stand at the edge of the unknown.
+
+Every generation believes the future begins with them.
+
+But sometimes, before the first ship arrives, before the first flag is planted, before the first war is declared...
+
+Someone has already left a message."
+
+## CHAPTER I — CONTACT: THE RUST DISC
+
+**Primary operation:** Contact.
+
+The player is deployed to the Rust Disc.
+
+A hostile wing is protecting the damaged relay.
+
+The player must break the defending wing, recover the route key and escape before the relay goes silent.
+
+### Gameplay
+
+- Six-axis spacecraft combat.
+- Target acquisition and missile locks.
+- Relay discovery.
+- Wing coordination.
+- Salvage and flight-recorder recovery.
+- Extraction.
+
+### Story revelation
+
+The relay was not broadcasting a distress call.
+
+It was repeating a sequence of coordinates.
+
+The sequence contains an orbital route that does not appear on any current Martian navigation chart.
+
+**Recovered transmission:**
+
+"Do not follow the light.
+
+Follow the silence between the lights."
+
+## CHAPTER II — THE RED THRESHOLD: MARS APPROACH
+
+**Primary operation:** Mars Approach.
+
+The player enters the Martian orbital theater.
+
+The planet is no longer simply a background object. It is a world with orbital traffic, defense platforms, stations, patrol routes and competing military interests.
+
+The player investigates the route key.
+
+### Gameplay
+
+- Orbital reconnaissance.
+- Navigation beacon calibration.
+- Debris-field flight.
+- Patrol interception.
+- Transport escort.
+- Docking and station interactions when implemented.
+
+### Story revelation
+
+The route key identifies three Pale Beacons.
+
+They are not conventional navigation markers.
+
+They are receivers.
+
+Someone has been listening for something.
+
+## CHAPTER III — THE THREE VOICES: PALE BEACONS
+
+**Primary operation:** Beacon.
+
+The player must locate and activate the three beacons.
+
+The first two provide partial signal fragments.
+
+The third reveals a disturbing fact:
+
+The signal was received long before the current conflict began.
+
+### Gameplay
+
+- Signal triangulation.
+- Sensor operations.
+- Beacon repair.
+- Reconnaissance.
+- Optional research objectives.
+- Defensive combat.
+- Dynamic signal encounters.
+
+### Story revelation
+
+The signal contains multiple layers of information.
+
+One layer describes a planetary environment that resembles ancient Mars.
+
+Another appears to describe the collapse of a civilization.
+
+The third layer cannot yet be translated.
+
+Dr. Sen warns:
+
+"These are not instructions.
+
+They are memories."
+
+## CHAPTER IV — THE DARK HEMISPHERE: WARDEN
+
+**Primary operation:** Warden.
+
+The player follows the signal toward the Martian night side.
+
+The orbital network has gone dark.
+
+A Warden vessel is suppressing the remaining communications infrastructure.
+
+The player must locate it, survive its defensive systems and recover its flight recorder.
+
+### Gameplay
+
+- Day-side to night-side planetary travel.
+- Sensor and thermal identification.
+- Night navigation.
+- Communications blackout.
+- Capital-grade target engagement.
+- Optional subsystem disabling and intelligence recovery.
+
+### Story revelation
+
+The Warden's order was issued before the USSF–Accord war.
+
+It was not a battlefield command.
+
+It was a continuity directive.
+
+The Warden was instructed to erase the Cage and every record of its cargo.
+
+The identity of the authority behind the order remains unknown.
+
+## CHAPTER V — THE CAGE: EON DUSK
+
+**Primary operation:** Cage.
+
+The player discovers a transport moving through the Dust Lane.
+
+Eon Dusk is aboard.
+
+The convoy's transponder identifies it as a military transfer, but its navigation record is incomplete.
+
+The two factions disagree about what must happen.
+
+- The USSF mission is to secure the transport and prevent the evidence from falling into hostile hands.
+- The Accord mission is to intercept the transport and prevent Dusk from disappearing into a classified detention system.
+
+The same underlying event can be experienced from different faction perspectives.
+
+### Gameplay
+
+- Moving convoy interception.
+- Escort and counter-escort.
+- Debris navigation.
+- Formation flying.
+- Transport subsystem damage.
+- Rescue and extraction.
+- Branching mission decisions.
+
+### Story revelation
+
+Dusk explains that he deliberately chose the route.
+
+He knew the Warden would respond.
+
+He believed that bringing the transport into a contested corridor would force the signal into the open.
+
+**Dusk dialogue:**
+
+"You think the war brought you here.
+
+It did not.
+
+The war was already waiting here.
+
+I only found the door."
+
+The Cage recorder contains the first unmistakable reference to a structure beneath Mars.
+
+## CHAPTER VI — IRON ECLIPSE: THE FLEET THAT WOULD NOT DIE
+
+**Primary operation:** Iron Eclipse.
+
+A major military fleet operation erupts in Martian orbit.
+
+A capital ship is attempting to destroy the remaining relay network.
+
+The player commands or joins a wing assigned to penetrate its defenses.
+
+The mission is not simply to destroy a large ship.
+
+The player must understand why the vessel is attacking the relay system and what it is protecting.
+
+### Gameplay
+
+- Multi-stage fleet engagement.
+- AI wing orders.
+- Capital-ship subsystem targeting.
+- Point-defense suppression.
+- Shield-array disabling.
+- Reactor assault.
+- Allied fleet protection.
+- Extraction under pressure.
+
+### Story revelation
+
+The Warden and the capital ship are linked to the same old continuity mandate.
+
+The conflict is no longer simply USSF against Accord.
+
+The player discovers that the two factions have been reacting to events they do not fully understand.
+
+The final intelligence record identifies a location beneath the Martian surface.
+
+## CHAPTER VII — BELOW THE SIGNAL
+
+**Primary operation:** The Witness Vault.
+
+This chapter becomes available after the player combines the Rust Disc, Pale Beacon, Warden and Cage discoveries.
+
+The player follows the signal to a hidden structure beneath Mars.
+
+Surface access, subterranean traversal and planetary landing must only appear as playable missions once those environments have actually been built.
+
+### Gameplay
+
+- Multi-stage exploration.
+- Environmental hazards.
+- Reconnaissance.
+- Defensive encounters.
+- Signal reconstruction.
+- Research decisions.
+- Optional recovery of lost expedition records.
+
+### Story revelation
+
+The Witness is not a weapon.
+
+It is a record of a much older history.
+
+Its fragments describe worlds that developed, flourished, collapsed and disappeared.
+
+Some appear to have experienced catastrophic environmental change.
+
+Others disappeared through conflict.
+
+Others left behind evidence of cooperation and recovery.
+
+The Witness does not tell humanity what to do.
+
+It shows humanity what has happened before.
+
+## CHAPTER VIII — THE FIRST HORIZON
+
+**Primary operation:** Beyond the Signal.
+
+The final Martian discovery reveals that the Witness phenomenon is not unique to Mars.
+
+The route key identifies other distant locations.
+
+One signal points toward a region beyond the established solar navigation network.
+
+The player must decide whether the discovery should be:
+
+- Released to both civilizations.
+- Placed under a shared scientific protection agreement.
+- Secured by the player's faction.
+- Temporarily concealed until the consequences are understood.
+
+The final chapter should not end the entire war.
+
+It should resolve the first great mystery while revealing a universe that is far larger than either civilization imagined.
+
+**Final transmission:**
+
+"You have spent your lives fighting over a world.
+
+You have not yet learned how to listen to one.
+
+The stars are not empty.
+
+And the story has only begun."
+
+---
+
+# PART VI — THE LARGER SAGA
+
+## 16. The Solar Expansion
+
+Mars is the beginning, not the end.
+
+The next narrative arc expands into:
+
+- Phobos and Deimos.
+- Earth's orbital infrastructure.
+- The asteroid belts.
+- Other planetary systems.
+- Abandoned research installations.
+- Unknown civilizations.
+- Deep-space anomalies.
+
+Each destination must have its own history, culture, physical environment, political interests and gameplay purpose.
+
+## 17. The Interstellar Frontier
+
+The Witness fragments reveal that multiple star systems contain related phenomena.
+
+The player encounters civilizations with histories that do not fit humanity's assumptions.
+
+Some have developed through cooperation.
+
+Others through isolation.
+
+Others have survived by abandoning the very technologies humanity considers essential.
+
+The story moves from a conflict between two human factions to a much wider examination of how civilizations encounter one another.
+
+## 18. The Dimensional Question
+
+Only after the interstellar story has been established should the game begin exploring dimensional fractures, alternate realities and unfamiliar physical laws.
+
+These should not be random portals used to create disconnected maps.
+
+Every new reality must reveal something meaningful about the universe, its history or the consequences of civilization.
+
+The infinite universe is not simply more locations.
+
+It is more possibilities, more histories and more difficult questions.
+
+---
+
+# PART VII — THE THEMATIC FOUNDATION
+
+The entire franchise should return to five questions:
+
+1. **Memory:** What does a civilization owe to the generations that came before it?
+2. **Power:** Does possessing knowledge give anyone the right to control it?
+3. **Balance:** Can technological advancement exist without destroying the systems that sustain life?
+4. **Freedom:** Is security worth surrendering the ability to choose?
+5. **Existence:** What does it mean to be a conscious civilization in a universe much older than oneself?
+
+These themes should appear in missions, characters, faction politics, discoveries and player decisions.
+
+The story should not preach one answer.
+
+It should give players the experience of wrestling with the questions themselves.
+
+---
+
+# PART VIII — THE NARRATIVE PROMISE
+
+WAR FOR MARS: THE INFINITE WAR is the story of humanity's first great struggle beyond Earth.
+
+It begins with two civilizations fighting over Mars.
+
+It becomes a mystery about a forgotten history.
+
+It grows into an exploration of worlds and civilizations.
+
+And ultimately, it becomes a question about the place of humanity in the universe.
+
+\*\*The war begins on Mars.
+
+The truth begins beneath it.
+
+The universe begins beyond it.\*\*
+
+# 5. How the story must become playable
+
+A story of this scale cannot depend on long cinematic sequences and dialogue alone. The world must tell the story through what the player can do.
+
+I recommend five interconnected narrative systems.
+
+[StickJam | Star Citizen Interactive Joystick Visualizer & Keybinding Customizer](https://images.openai.com/static-rsc-4/9VnIb8lxLzutwknFh0tqPjAxxypMwXPMwzNj_mjHHctI7QoYgalswnnUljIOZwV5DQRCoXwrycFC2bxXSFDAycmJHg7e7tr6sU21r9HioIKGlU5AkJwSqWXkr7MoCSqJug8LtP7Z64p73vUqtRaOAVrxorzDZ1Elpkg3_Exit4g?purpose=inline)
+
+1\. Living military intelligence
+
+Briefings change as the player discovers information. A mission can begin as a routine escort and evolve into an investigation, rescue, interception or fleet engagement.
+
+[This anime storyboard doesn't exist: a graphic novel written and illustrated by GPT4 — LessWrong](https://images.openai.com/static-rsc-4/YDNeuPjgApQ4XrR5pH5urE7-SD5w66MLVNgi_QtPbxWt4vOsx67xJB63qu7Cw9u_A8jUHgVhrRtEs9DHbxRQeM7KDoVf3CZwdvZ2q5yB519ORl8o9slOIVOGItT2lzi-lQrs52sesGRUEAUs2YkFyy_-rGiHVtu_dlB383EkhxQ?purpose=inline)
+
+2\. The memory and discovery system
+
+Recordings, flight logs, ancient structures, environmental evidence and conversations assemble the larger mystery. Discoveries should unlock actual narrative and gameplay.
+
+[Star Citizen Alpha 4.6 Incoming: RSI Hermes, PTU Economy Tweaks, and the New 2026 Patch Rhythm | Elyxir](https://images.openai.com/static-rsc-4/cqn7DyaSDc9J9z712Ms_qMznqGHmnoCpKFCxBkhTYrjTYtDUufoYVqLXv9FD56q6qEySNithx6ksXk6KGa8ZJ13U27ST1xvzujIgyU5DpqJz09LmBEzcZ6xCrARMcaENPJ1VbzusUVFDDyauFly2dvr19gCb7tXFREKebtS-k9c?purpose=inline)
+
+3\. Dynamic operations
+
+The player encounters distress calls, moving convoys, patrols, blockades, capital ships, salvage opportunities and other players during exploration. Not every activity needs to be a campaign mission.
+
+[Atera's Robin - Your Autonomous AI IT Technician](https://images.openai.com/static-rsc-4/AVZMoL5RyQVDVAMoBOZWkB2K7XES-xmIwAWQ16K2SPteHM1JDBA58mnw4fzP1AwDV6aXsnlG080IBT9mh6AxIAbvRtWldbprHs0fVzaC2nd1nxXhLH-8OVjzfRtkHfYUMv5T9FV8ZBk1Xirlu1lD1oBvTC8ejmEhJhDsWu-Gu6c?purpose=inline)
+
+4\. Faction consequences
+
+Decisions influence faction standing, station availability, supply conditions, mission opportunities and relationships. Consequences must be validated by the authoritative game services.
+
+[Designing "Prometheus"](https://images.openai.com/static-rsc-4/NB2K6tWkBhQh2qXE3bQmv8GB4wLIh4cm1Z0PmZQnG1-_1o7De1qiMAgk8dMELoJ_axA7ENSaTGon5hH9KCrXWQgBLoRe6bH4HCH2TrWLt1Uy97NgN1qpAMUwYmp2pYh0eak-E7MBtMcVT6_lkyZ9Kik5hclW1Do77TnTIWqLNN4?purpose=inline)
+
+5\. A persistent universe narrative
+
+The universe continues to change through scheduled events, player discoveries and validated operations. Players who join later should be able to understand its history and participate in its ongoing story.
+
+## 6. The dialogue must have a recognizable literary identity
+
+I would develop three distinct narrative voices.
+
+- The military voice: concise, disciplined, consequential. Orders and tactical communication should sound like professionals operating under pressure.
+- The human voice: emotional, intimate, conflicted. Conversations should reveal fear, ambition, sacrifice, loyalty, grief and hope.
+- The cosmic voice: sparse, poetic, mysterious. The Witness should not sound like a human character delivering exposition. Its messages should be interpreted through fragments, patterns, silence and discoveries.
+
+Here is a sample of the tone I would establish for the first major cinematic sequence.
+
+# WAR FOR MARS: THE INFINITE WAR
+
+## Opening Cinematic — The Signal
+
+**[BLACK SCREEN]**
+
+A faint transmission.
+
+Static.
+
+A low-frequency vibration.
+
+**UNKNOWN TRANSMISSION:**
+
+"...before the first light..."
+
+Silence.
+
+**NARRATOR:**
+
+Before humanity crossed the darkness, it looked toward the heavens and called them distant.
+
+It named the stars.
+
+Measured their light.
+
+Divided the worlds into maps and borders.
+
+It believed that discovery meant arrival.
+
+But the universe was never waiting to be discovered.
+
+It was waiting to be understood.
+
+**[VISUAL: EARTH — ORBITAL INFRASTRUCTURE]**
+
+Humanity had reached beyond its birthplace.
+
+Its machines crossed the void.
+
+Its settlements rose beneath unfamiliar skies.
+
+And on Mars, two civilizations began to imagine two different futures.
+
+**[VISUAL: USSF BLUE FLEET]**
+
+The United States Space Force defended the expanding human frontier.
+
+To its commanders, survival demanded strength.
+
+To surrender control was to invite destruction.
+
+**[VISUAL: ACCORD AMBER FLEET]**
+
+The Accord of Dharma and Ma'at demanded another order.
+
+A civilization could not call itself advanced while treating the worlds that sustained it as possessions.
+
+Neither side believed it was the aggressor.
+
+Both believed history would vindicate them.
+
+**[VISUAL: MARS — ORBITAL VIEW]**
+
+Then came the disappearance of the Dusk Expedition.
+
+A relay fell silent.
+
+Three beacons began transmitting.
+
+And beneath the red planet, something answered.
+
+**[CUT TO PHOBOS YARD — MILITARY BRIEFING]**
+
+COMMANDER VENN:
+
+"Pilot, we have a missing expedition, a compromised relay, and an unidentified signal. I want the relay recovered and the sector secured. Nothing leaves this theater without authorization."
+
+DR. SEN:
+
+"Commander, there is something you need to understand. The signal is not coming from the relay."
+
+COMMANDER VENN:
+
+"Then where is it coming from?"
+
+DR. SEN:
+
+"That is the problem. The relay is receiving it. It is not transmitting it."
+
+**[VISUAL: RUST DISC — DEBRIS FIELD]**
+
+PILOT WING COMMUNICATION:
+
+"Contact. Multiple hostiles. They're protecting the relay."
+
+COMMANDER VENN:
+
+"All wings, weapons free. Recover the recorder. Do not lose the signal."
+
+**[VISUAL: THE FIRST BEACON ACTIVATES]**
+
+UNKNOWN TRANSMISSION:
+
+"...the world remembers..."
+
+**[CUT TO BLACK]**
+
+**TITLE:**
+
+WAR FOR MARS
+
+**THE INFINITE WAR**
+
+*The universe is the battlefield. The truth is the frontier.*
+
+The dialogue should be written for performance, not just reading. That means different voice actors, distinct delivery, interruption, environmental audio, radio distortion, emotional pacing and meaningful silence.
+
+And the game should not explain every mystery immediately. Let the player earn understanding.
+
+# 7. What I would change in the existing missions
+
+| Existing mission | New narrative identity                            | What must become playable                                                                        |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Contact          | The first breach in the official history          | Recover the relay and survive a contested intelligence operation                                 |
+| Beacon           | Three pieces of an older message                  | Triangulation, investigation, signal interpretation and combat alternatives                      |
+| Warden           | The discovery of an order older than the war      | Track, engage, disable or investigate the Warden                                                 |
+| Cage             | Eon Dusk's deliberate attempt to expose the truth | Actual convoy pursuit, escort, interception and rescue branches                                  |
+| Iron Eclipse     | The battle over control of the Witness network    | Multi-stage fleet battle with meaningful subsystem and strategic objectives                      |
+| Mars Approach    | The player's entry into the central theater       | Navigable Mars orbital geography and live activity                                               |
+| Night-side       | The first major planetary mystery                 | Day/night travel, communications failure, station recovery and discovery                         |
+| Below the Signal | The campaign's first great revelation             | Exploration and investigation of the Martian source, once the necessary world environments exist |
+
+One especially important improvement: the Cage should become the first truly branching narrative mission. A player serving the USSF and a player serving the Accord should experience the same historical event from different operational perspectives. Their decisions should influence who survives, what evidence is recovered, and which characters trust them.
+
+# 8. The cultural and philosophical foundation
+
+I want to make one point particularly clear.
+
+The Accord's name gives us an opportunity to explore profound ideas. But Dharma and Ma'at should not be treated as interchangeable religious symbols or simplified into generic "ancient wisdom."
+
+The same care applies to African griot traditions and Indigenous knowledge.
+
+We can build an extraordinary fictional tradition of memory-keepers, navigators, historians and oral witnesses.
+
+For example, Phobos Yard could contain a House of Remembrance: an institution that preserves the histories of communities displaced by expansion, the names of lost pilots, the testimony of survivors, and the stories of worlds whose histories have been erased.
+
+A character trained in a specific Mandé jali tradition could inspire a respectful, carefully researched approach to oral history, genealogy, music, praise poetry and the responsibilities of preserving communal memory. Indigenous perspectives could inform distinct relationships between land, ancestry, stewardship and intergenerational responsibility, with appropriate cultural consultation.
+
+These should be distinct, living traditions—not a fictional melting pot that treats all Indigenous or African cultures as one.
+
+The narrative payoff is powerful:
+
+When the Witness is discovered, humanity already has traditions that understand why memory matters. The new discovery challenges those traditions, but does not replace them.
+
+This makes the game culturally richer and philosophically more interesting than simply inventing an ancient alien civilization that explains everything.
+
+# 9. The engineering and narrative integration plan
+
+The story bible should become the source of truth for every mission, briefing, route, character and dialogue sequence.
+
+I recommend these future documentation modules:
+
+| Proposed document               | Responsibility                                                     |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `STORY-BIBLE.md`                | Canonical universe history, cosmology, factions and themes         |
+| `MASTER-CHRONOLOGY.md`          | Complete timeline, historical events and campaign chronology       |
+| `CHARACTER-DOSSIERS.md`         | Characters, motivations, relationships, secrets and arcs           |
+| `FACTION-LORE.md`               | USSF, Accord and internal political divisions                      |
+| `THE-WITNESS-MYTHOLOGY.md`      | Signal origins, evidence, interpretations and mysteries            |
+| `CAMPAIGN-CHAPTERS.md`          | Campaign chapters, mission order and branching                     |
+| `DIALOGUE-SCRIPT.md`            | Cinematics, radio communication, conversations and voice direction |
+| `MISSION-NARRATIVE-MATRIX.md`   | Mission objectives mapped to story revelations and gameplay        |
+| `WORLD-LORE-CATALOG.md`         | Planets, stations, civilizations, anomalies and historical records |
+| `NARRATIVE-CONTINUITY-RULES.md` | Rules preventing contradictions and broken story progression       |
+
+These must be connected to actual game data, not simply stored as documents that the game never reads.
+
+A mission definition should eventually reference:
+
+```
+type NarrativeOperation = {
+  id: string;
+  chapterId: string;
+  canonicalTimelineId: string;
+
+  locationId: string;
+  operationType: string;
+
+  briefingId: string;
+  dialogueSceneIds: string[];
+  characterIds: string[];
+
+  primaryObjectiveIds: string[];
+  optionalObjectiveIds: string[];
+
+  discoveryIds: string[];
+  branchingDecisionIds: string[];
+  consequenceIds: string[];
+
+  prerequisiteOperationIds: string[];
+};
+```
+
+The game should be able to determine what the player knows, which dialogue is appropriate, what missions have become available, and which historical events have already occurred.
+
+The Orbital Combat Engine must host the actual gameplay. The narrative system provides the context and progression around that gameplay. It must not create a separate game runtime.
+
+## 10. My recommended development order
+
+1. Approve the story foundation. Establish the Witness, the history of Mars, the factions, the central characters and the main mystery.
+2. Recover the missing original master-plan documents. Preserve all owner-provided creative material before writing the definitive canon.
+3. Resolve the engine documentation conflict. Update PR #15 to reflect Orbital as the exclusive game engine and remove the contradictory Three.js runtime direction.
+4. Build the chronology and character dossiers. Resolve the existing Dusk, Cage, Warden and Iron Eclipse continuity issues.
+5. Rebuild Contact, Beacon, Warden and Cage as connected narrative operations.
+6. Integrate Iron Eclipse into the larger war timeline.
+7. Create the dialogue and cinematic production pipeline.
+8. Connect discoveries, faction decisions, missions and persistent consequences.
+9. Build the Mars-to-wider-universe transition.
+10. Expand into new systems only when they have a narrative reason to exist.
+
+The first complete story-driven vertical slice should be Contact through the first Beacon revelation. It must take the player from briefing to flight, combat, discovery, dialogue, debrief and persistent campaign progression.
+
+## 11. The final creative judgment
+
+I believe the strongest opportunity is to make WAR FOR MARS a story about the history of existence as experienced through the decisions of people caught in an expanding war.
+
+The battles should be extraordinary. The spacecraft should be memorable. The universe should feel enormous. The discoveries should continually change what the player believes is possible.
+
+But the story needs something deeper than a succession of bigger enemies and bigger weapons.
+
+It needs a mystery that matters.
+
+It needs civilizations with competing truths.
+
+It needs characters who can be loved, questioned, disagreed with and remembered.
+
+It needs consequences that players can see in the world.
+
+And it needs a central idea powerful enough to sustain years of new worlds, campaigns, operations and discoveries.
+
+My proposed defining line for the franchise is:
+
+"Every world has a history. Every civilization leaves a memory. And every war decides what the future will remember."
+
+That is the foundation I would build upon.
+
+The next step should be a formal Story Bible and Narrative Continuity PR, developed against the current WFM source and the Orbital universe directive. It should not change gameplay code or Production systems yet. Its purpose is to establish the canon that every future mission, command, route, cinematic, character and dialogue sequence must follow.

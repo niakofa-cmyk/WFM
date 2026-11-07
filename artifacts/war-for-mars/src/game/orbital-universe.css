@@ -71,10 +71,19 @@
 .uv-story-foundation>header small,.uv-story-foundation__boundary{color:var(--dim);font:400 7px/1.5 "Spline Sans Mono",monospace}
 .uv-story-foundation h3{margin:9px 0 5px;color:var(--sand);font:600 15px "Chakra Petch",sans-serif;letter-spacing:.04em}
 .uv-story-foundation>p,.uv-story-foundation__truths p{margin:0;color:#cbbfa9;font-size:9px;line-height:1.55}
+.uv-story-foundation>.uv-story-foundation__dusk{margin-top:7px;padding:7px;border-left:2px solid var(--ember);background:#090d1080;color:#e0d4bf}
 .uv-story-foundation__truths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0}
 .uv-story-foundation__truths article{padding:8px;border:1px solid #ead9bf20;background:#090d10a8}
 .uv-story-foundation__truths article>b{display:block;margin-bottom:4px;color:var(--teal);font:600 7px "Spline Sans Mono",monospace;letter-spacing:.06em}
 .uv-story-foundation__mystery{padding-top:8px;border-top:1px solid #ead9bf20}
+.uv-story-foundation__cast{margin-top:9px;padding-top:8px;border-top:1px solid #ead9bf20}
+.uv-story-foundation__cast>header{display:flex;justify-content:space-between;gap:8px;color:var(--teal);font:600 7px "Spline Sans Mono",monospace;letter-spacing:.06em}
+.uv-story-foundation__cast>header small{color:var(--dim);font-weight:400;text-align:right}
+.uv-story-foundation__cast ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:7px 0 0;padding:0;list-style:none}
+.uv-story-foundation__cast li{padding:7px;border:1px solid #ead9bf20;background:#090d1080}
+.uv-story-foundation__cast li>b{display:block;color:var(--sand);font:600 9px "Chakra Petch",sans-serif}
+.uv-story-foundation__cast li>small{display:block;margin-top:2px;color:var(--ember);font:400 7px/1.4 "Spline Sans Mono",monospace}
+.uv-story-foundation__cast li>p{margin-top:5px;font-size:8px}
 .uv-story-foundation__boundary{display:block;margin-top:8px}
 .uv-story-thread{margin:0 10px 12px;padding:10px;border:1px solid #e7a65b35;background:linear-gradient(135deg,#141719dd,#0a1114dd)}
 .uv-story-thread__header{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--sand);font:600 10px "Chakra Petch",sans-serif;letter-spacing:.1em}
@@ -161,6 +170,6 @@
 @media(max-width:820px){.uv-node--mars .uv-node__label{top:50%;transform:translate(-50%,-50%);background:#0a0f14aa;padding:3px 5px}}
 @media(max-height:560px) and (orientation:landscape){.uv-top{padding-top:10px}.uv-title{font-size:28px}.uv-grid{grid-template-columns:1fr 1fr;padding-top:8px}.uv-chart{max-height:calc(100dvh - 110px);width:auto}.uv-dest{font-size:30px}}
 @media(max-width:480px){.uv-routes summary{align-items:flex-start;flex-direction:column;gap:3px}.uv-routes summary:after{position:absolute;right:12px}.uv-routes__state{max-width:45%;font-size:7px}.uv-story-thread__header{align-items:flex-start;flex-direction:column}.uv-story-thread__header small{text-align:left}.uv-story-thread__list li{grid-template-columns:minmax(74px,.32fr) minmax(0,1fr);gap:6px}}
-@media(max-width:480px){.uv-story-foundation>header{align-items:flex-start;flex-direction:column}.uv-story-foundation__truths{grid-template-columns:1fr}}
+@media(max-width:480px){.uv-story-foundation>header{align-items:flex-start;flex-direction:column}.uv-story-foundation__truths,.uv-story-foundation__cast ul{grid-template-columns:1fr}.uv-story-foundation__cast>header{align-items:flex-start;flex-direction:column}.uv-story-foundation__cast>header small{text-align:left}}
 @media(max-width:560px){.uv-renderer-proof{padding:9px}.uv-renderer-proof__heading{align-items:flex-start}.uv-renderer-proof__heading small{max-width:210px}.uv-dock-panel{align-items:flex-start}.uv-dock-panel small{max-width:250px}.uv-station-console{grid-template-columns:1fr}.uv-station-console>div{grid-column:auto}.uv-sortie-debrief{align-items:flex-start;flex-direction:column}.uv-flight-control-deck{grid-template-columns:1fr 1fr;gap:8px}.uv-flight-action-grid{grid-column:1/-1;grid-row:1;grid-template-columns:repeat(3,minmax(0,1fr))}.uv-flight-stick-wrap{grid-row:2}.uv-flight-hud{grid-template-columns:repeat(2,minmax(0,1fr))}.uv-flight-preview-footer{flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.uv *,.uv{animation:none!important;transition:none!important}}

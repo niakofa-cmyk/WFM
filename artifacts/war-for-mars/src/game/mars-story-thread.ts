@@ -14,26 +14,51 @@ export type MarsStoryBeat = {
 };
 
 export const MARS_STORY_FOUNDATION = {
-  heading: "The man who wanted Mars",
+  heading: "The tycoon who tried to take Mars",
   premise:
-    "Eon Dusk builds a private expedition to claim Mars. The Accord destroys his fleet and captures him; a transmission carries that news to Earth and ignites a conflict shaped by competing human powers.",
+    "Scandal-enriched billionaire Eon Dusk manipulates powerful insiders and uses USSF support to assemble his own force for a secret Mars seizure. The Accord destroys his fleet; Dusk, its only known survivor, is captured. A transmission reaches Earth before the fleet is lost and reports his capture, igniting a crisis and the USSF–Accord war.",
+  dusk:
+    "Dusk is not a serving USSF commander or a willing truth-teller. He believes humanity faces an existential threat, but uses that fear to justify taking control of Mars. Senior insiders knowingly enable him; the wider government and public do not know the full purpose of the expedition.",
   mystery:
-    "The First Witness and the signal connect the war to a history neither faction fully understands. Their relationship is revealed gradually through evidence and play.",
+    "The First Witness and the signal deepen the story beyond Dusk's human-caused war. Their exact relationship to his invasion is unknown; reveal the older history gradually through evidence and play.",
   truths: [
     {
       label: "PUBLIC ACCOUNT",
-      text: "A human expedition is lost, its leader is captured, and Earth demands a response.",
+      text: "Earth receives word that Dusk and his Mars force are lost and that the Accord holds him. The public story about his mission is still to be authored.",
     },
     {
       label: "POWER NETWORKS",
-      text: "Dusk tried to seize Mars; allies and institutions hold different information and pursue competing aims.",
+      text: "A powerful inner circle knowingly enabled Dusk's private seizure attempt. Other officials, military personnel, backers, and loyalists have partial knowledge and competing motives.",
     },
     {
       label: "THE UNKNOWN",
-      text: "Mars, the Accord, the signal, and The First Witness point beyond the war's immediate cause.",
+      text: "The Accord, Mars, the signal, and The First Witness may point beyond the war's human cause. Do not assume the invasion was a Witness mission.",
     },
   ],
 } as const;
+
+export const MARS_STORY_CAST = [
+  {
+    name: "Mara Venn",
+    role: "USSF commander · proposed",
+    story: "A duty-bound commander confronts the gap between protecting people and obeying institutions that conceal the truth.",
+  },
+  {
+    name: "Tarek Sol",
+    role: "Accord wing marshal · proposed",
+    story: "A defender of Martian self-determination fears the Accord could become the empire it resists.",
+  },
+  {
+    name: "Nadiya Sen",
+    role: "Signal researcher · proposed",
+    story: "A scientist traces the signal as a distributed pattern whose fragments connect seemingly unrelated places.",
+  },
+  {
+    name: "WARDEN-0",
+    role: "Legacy command intelligence · proposed",
+    story: "A military system obeys a continuity order older than the USSF–Accord war.",
+  },
+] as const;
 
 export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
   {

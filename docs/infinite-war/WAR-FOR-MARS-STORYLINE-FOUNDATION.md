@@ -6,6 +6,12 @@ This is the owner-directed foundation for the game's central premise, principal
 human antagonist, Mars conflict, and long-form mystery. The full supplied
 storyline premise is preserved verbatim at
 [`references/redesign/Pasted-Absolutely-This-is-the-original-premise-we-should-build_1794063278746.txt`](references/redesign/Pasted-Absolutely-This-is-the-original-premise-we-should-build_1794063278746.txt).
+The three additional storyline sources are preserved verbatim in
+[`references/redesign/`](references/redesign/):
+
+- `Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-Storyline-and-narrative-_1794067702040.txt`
+- `Pasted-Now-this-is-great-work-and-we-can-use-this-and-add-this_1794067732631.txt`
+- `Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-THE-FIRST-WITNESS-Master_1794067798069.txt`
 
 This guide governs narrative meaning and continuity. The
 [Mars chronology](MARS-STORY-CHRONOLOGY-AND-CANON.md) records how the premise
@@ -26,52 +32,111 @@ rendering only after the existing Orbital migration gates pass.
 ## The premise
 
 Eon Dusk is the central human antagonist and the catalyst of the Mars war. He
-amasses extraordinary wealth and political influence, builds a private
-expeditionary force through military, corporate, aerospace, robotics, and
-autonomous-systems relationships, and secretly launches for Mars to claim
-control of the planet. His objective is control, not a peaceful research visit.
+amasses extraordinary wealth through scandalous means, builds political power
+until he can manipulate senior government figures and institutions, and becomes
+fixated on humanity's survival. He uses that fear to justify assembling his own
+militia and special-force expedition, with USSF resources and powerful private
+technology and business networks, then secretly launches to take control of
+Mars. He is not a serving USSF commander leading a sanctioned mission: the
+expedition is his attempted seizure, enabled by a compartmentalized circle of
+powerful insiders while the wider government and public do not know its true
+purpose.
 
 Mars is not unclaimed. Dusk's expedition encounters the Accord of Dharma and
 Ma’at, an established civilization with its own history, institutions, and
 reasons to defend the planet. The confrontation destroys Dusk's fleet and
 special force. Dusk is the only known survivor and is captured by the Accord.
-Before the expedition is lost, a transmission reaches Earth reporting his
-capture. The transmission triggers a political and military crisis; the USSF
-becomes the principal military instrument of an escalating conflict, while
-private backers, political actors, and Dusk loyalists pursue competing aims.
+Before the fleet is destroyed, a transmission reaches Earth reporting that Dusk
+has been captured. Dusk does not surrender voluntarily or arrange his capture
+as a truth-revealing gesture. The transmission triggers a political and military
+crisis; senior insiders, the wider government, private backers, Dusk loyalists,
+and the public have different knowledge and competing aims as the USSF–Accord
+war escalates.
 
-The United States government is not a single, fully informed character. Some
-people support Dusk, some seek to control his project, some exploit the crisis,
-and others do not know the operation's full purpose. Do not flatten those
-interests into one motive or attribute an action to an institution unless the
-story establishes it.
+The government is not a single, fully informed character. A powerful inner
+circle knows of and enables Dusk's attempt; other officials are compartmented,
+misled, or learn the truth only after the transmission. Some actors support
+Dusk, some seek to control his project, some exploit the crisis, and others
+oppose the seizure. Keep this distinction legible; do not flatten those
+interests into one motive or attribute an action to the whole institution unless
+the story establishes it.
 
-The central question remains deliberately difficult: did Dusk believe he was
-securing humanity's survival, manipulate that fear to justify domination, or
-both? His intelligence and conviction do not make him a misunderstood hero or
-voluntary truth-teller. His capture is the catalyst for the war, not proof that
-his motives were noble.
+The central question remains deliberately difficult: does Dusk sincerely
+believe humanity is near extinction, deliberately exploit that fear, or both?
+His intelligence and conviction do not make him a misunderstood hero or
+voluntary truth-teller. His stated fear is the rationale he uses for an
+imperial seizure; his capture is the catalyst for the war, not proof that his
+motives were noble.
 
 ## Three layers of truth
 
 Reveal the story through three overlapping perspectives. They are narrative
 layers, not three objectively complete accounts:
 
-1. **Public account:** Dusk is an American space pioneer captured by the Accord,
-   and Earth must respond to the loss of its expedition and leader.
-2. **What powerful actors know or want:** Dusk attempted to seize Mars; parts
-   of a political, military, financial, and technology network knew more than
-   the public and have conflicting interests in the war.
-3. **What remains unknown:** the Accord, Mars, and the signal are connected to
-   a history beyond either faction's present conflict. Evidence gradually
-   introduces **The First Witness** as the deeper mythic and cosmological
-   mystery; do not reveal its nature, origin, or answer prematurely.
+1. **Public account:** an American-led Mars expedition has been destroyed and
+   Dusk is a prisoner of the Accord. Earth receives a report of his capture;
+   what the public is told about the mission's purpose remains to be authored.
+2. **What powerful actors know or want:** Dusk tried to seize Mars, and a
+   powerful inner circle knowingly enabled his operation. Other officials,
+   military personnel, and the public hold incomplete or conflicting accounts.
+   The extent of complicity and the crisis response are story questions, not a
+   single government-wide motive.
+3. **What remains unknown:** the Accord, Mars, and the signal point toward a
+   history beyond either faction's present conflict. Evidence gradually
+   introduces **The First Witness** as a deeper cosmological mystery. Do not
+   assume Dusk's invasion was motivated by the Witness or reveal its nature,
+   origin, or answer prematurely.
 
 The first transmission may contain more than a report of Dusk's capture. The
 signal and The First Witness may connect the human war to something older, but
 the exact relationship is a mystery to discover through authored evidence,
 operations, characters, exploration, and consequential player choices—not
 exposition that resolves itself at the start.
+
+## Using the new storyline material
+
+The three newly supplied documents contribute useful long-range story direction:
+make the war matter beyond the next encounter; develop The First Witness as a
+slow-reveal cosmology; give both factions internal disagreements; use characters,
+dialogue, evidence, and consequences to connect the campaign; and expand from
+Mars into the wider universe only when locations and play support it. Those
+ideas are retained as development direction, not proof that the proposed
+chapters, characters, cinematics, or environments already exist.
+
+The draft's earlier portrayal of Dusk as a military expedition leader who
+chooses capture to expose the truth is superseded by the owner's clarified
+premise above. Do not reuse that characterization. Likewise, preserve the
+Accord as an established civilization with its own reasons to defend Mars; do
+not reduce it to a generic ancient-guardian force or collapse distinct living
+religious and cultural traditions into one fictional identity.
+
+The uploaded master story bible is a source reference, not wholesale approved
+canon. Its Witness phenomenon, thematic questions, character sketches, chapter
+ideas, and narrative systems can guide later writing when consistent with this
+foundation and repository facts. Keep each addition labeled as established,
+owner-directed, proposed, or unresolved until authored and verified.
+
+### Story elements retained as proposals
+
+- **The Witness:** use the signal as a slow-reveal record or phenomenon that
+  points to histories beyond Mars. Whether it is an archive, a natural process,
+  or something not yet understood remains open. It is not a weapon and is not
+  yet proven to be the cause of Dusk's invasion.
+- **Character lenses:** Mara Venn can carry the USSF duty-versus-institution
+  conflict; Tarek Sol can express the Accord's self-determination and the danger
+  of becoming an empire; Dr. Nadiya Sen can investigate the distributed signal;
+  and WARDEN-0 can embody an old continuity order. These are proposed roles,
+  not confirmed biographies or implemented dialogue.
+- **Themes:** memory, power, balance, freedom, and humanity's place in a much
+  older universe should surface through discoveries and consequences, not
+  explanatory speeches alone.
+- **Story delivery:** combine briefings, radio exchanges, recovered records,
+  exploration, dynamic encounters, character relationships, and meaningful
+  choices. Let optional activity add evidence without turning the open world
+  into a mandatory mission rail.
+- **Scale:** keep the Mars campaign as the first arc. Any later Solar,
+  interstellar, or dimensional expansion needs an authored narrative reason and
+  actual supported locations and gameplay.
 
 ## Factions, characters, and cultural care
 
@@ -147,8 +212,10 @@ separate.
 
 ## Implementation status
 
-The verbatim premise is archived and this foundation is now the story guide.
-The universe atlas presents its short premise summary and three layers of truth
+The source premise and three new story documents are archived verbatim. This
+foundation is the controlling story guide. The universe atlas now presents the
+wealth-and-power origin of Dusk's Mars seizure, the capture/transmission
+catalyst, three layers of knowledge, and the gradual First Witness mystery
 alongside the existing Mars story thread. That presentation is navigation and
 narrative context only; it does not add launch actions, account writes,
 operation authority, progression gates, or rewards.

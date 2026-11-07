@@ -4,12 +4,19 @@ import test from "node:test";
 import { SORTIES } from "./campaign";
 import { MARS_ADVENTURES } from "./mars-adventure-network";
 import { SECTOR_MISSIONS } from "./sector-missions";
-import { MARS_STORY_FOUNDATION, MARS_STORY_THREAD } from "./mars-story-thread";
+import { MARS_STORY_CAST, MARS_STORY_FOUNDATION, MARS_STORY_THREAD } from "./mars-story-thread";
 
 test("story foundation keeps Dusk's Mars-seizure premise and mystery layers connected", () => {
-  assert.match(MARS_STORY_FOUNDATION.premise, /Eon Dusk builds a private expedition to claim Mars/i);
-  assert.match(MARS_STORY_FOUNDATION.premise, /Accord destroys his fleet and captures him/i);
+  assert.match(MARS_STORY_FOUNDATION.premise, /Scandal-enriched billionaire Eon Dusk/i);
+  assert.match(MARS_STORY_FOUNDATION.premise, /secret Mars seizure/i);
+  assert.match(MARS_STORY_FOUNDATION.premise, /Accord destroys his fleet/i);
+  assert.match(MARS_STORY_FOUNDATION.dusk, /not a serving USSF commander or a willing truth-teller/i);
+  assert.match(MARS_STORY_FOUNDATION.dusk, /Senior insiders knowingly enable him/i);
+  assert.match(MARS_STORY_FOUNDATION.dusk, /wider government and public do not know the full purpose/i);
+  assert.match(MARS_STORY_FOUNDATION.mystery, /exact relationship to his invasion is unknown/i);
   assert.match(MARS_STORY_FOUNDATION.mystery, /The First Witness and the signal/i);
+  assert.deepEqual(MARS_STORY_CAST.map(({ name }) => name), ["Mara Venn", "Tarek Sol", "Nadiya Sen", "WARDEN-0"]);
+  assert.ok(MARS_STORY_CAST.every(({ role, story }) => /proposed/i.test(role) && story.length > 20));
   assert.deepEqual(
     MARS_STORY_FOUNDATION.truths.map(({ label }) => label),
     ["PUBLIC ACCOUNT", "POWER NETWORKS", "THE UNKNOWN"],
@@ -18,6 +25,9 @@ test("story foundation keeps Dusk's Mars-seizure premise and mystery layers conn
   const component = readFileSync(new URL("./MarsAdventureAtlas.tsx", import.meta.url), "utf8");
   assert.match(component, /FOUNDATIONAL STORY · OWNER-DIRECTED/);
   assert.match(component, /The current engine migration is tracked separately/);
+  assert.match(component, /MARS_STORY_FOUNDATION\.dusk/);
+  assert.match(component, /PROPOSED CHARACTER LENSES/);
+  assert.doesNotMatch(MARS_STORY_FOUNDATION.dusk, /surrendered to the truth/i);
 });
 
 test("story thread preserves authored campaign IDs and maps them to Mars geography", () => {

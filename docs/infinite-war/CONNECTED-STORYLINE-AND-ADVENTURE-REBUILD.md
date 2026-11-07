@@ -95,9 +95,12 @@ This is an authored narrative sequence layered over the universe, not a new
 mission-lock chain. Chapter labels do not change the current four-sortie
 campaign gates or the separate cooperative discoveries.
 
-The foundation adds the prehistory: Dusk's private Mars-seizure expedition is
-destroyed by the Accord, Dusk is captured, and a transmission to Earth triggers
-the response that becomes the USSF–Accord war. The exact later custody transfer
+The foundation adds the prehistory: scandal-enriched billionaire Eon Dusk
+manipulates a powerful inner circle, uses a private force with USSF support to
+attempt a Mars seizure, and is captured after the Accord destroys his fleet. A
+transmission to Earth reports his capture before the fleet is destroyed and
+triggers the crisis that becomes the USSF–Accord war. Dusk is not a serving
+military commander or a willing truth-teller. The exact later custody transfer
 and Cage transport context remain open continuity questions. See the story
 foundation and chronology rather than inventing an explanation in route UI.
 

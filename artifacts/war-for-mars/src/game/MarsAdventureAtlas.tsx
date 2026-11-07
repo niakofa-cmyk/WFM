@@ -1,5 +1,5 @@
 import { MARS_ADVENTURES, MARS_ADVENTURE_STATE_LABEL } from "./mars-adventure-network";
-import { MARS_STORY_FOUNDATION, MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
+import { MARS_STORY_CAST, MARS_STORY_FOUNDATION, MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
 
 export function MarsAdventureAtlas() {
   const adventureById = new Map(MARS_ADVENTURES.map((adventure) => [adventure.id, adventure]));
@@ -20,6 +20,7 @@ export function MarsAdventureAtlas() {
         </header>
         <h3>{MARS_STORY_FOUNDATION.heading}</h3>
         <p>{MARS_STORY_FOUNDATION.premise}</p>
+        <p className="uv-story-foundation__dusk">{MARS_STORY_FOUNDATION.dusk}</p>
         <div className="uv-story-foundation__truths">
           {MARS_STORY_FOUNDATION.truths.map((truth) => (
             <article key={truth.label}>
@@ -29,6 +30,21 @@ export function MarsAdventureAtlas() {
           ))}
         </div>
         <p className="uv-story-foundation__mystery">{MARS_STORY_FOUNDATION.mystery}</p>
+        <section className="uv-story-foundation__cast" aria-label="Proposed story character lenses">
+          <header>
+            <b>PROPOSED CHARACTER LENSES</b>
+            <small>STORY DIRECTION · NOT FINAL CHARACTER CANON</small>
+          </header>
+          <ul>
+            {MARS_STORY_CAST.map((character) => (
+              <li key={character.name}>
+                <b>{character.name}</b>
+                <small>{character.role}</small>
+                <p>{character.story}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
         <small className="uv-story-foundation__boundary">
           Story foundation, not an operation result. The current engine migration is tracked separately.
         </small>
