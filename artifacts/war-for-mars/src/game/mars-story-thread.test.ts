@@ -39,6 +39,13 @@ test("story thread preserves authored campaign IDs and maps them to Mars geograp
     .filter((beat) => beat.campaignSortieId)
     .map((beat) => beat.campaignSortieId);
   assert.deepEqual(campaignBeatIds, ["contact", "beacon", "warden", "cage"]);
+  const cage = MARS_STORY_THREAD.find((beat) => beat.id === "cage");
+  assert.match(cage?.title ?? "", /disputed transfer/i);
+  assert.match(cage?.purpose ?? "", /already captured by the Accord/i);
+  assert.doesNotMatch(
+    `${cage?.title} ${cage?.purpose} ${cage?.connection}`,
+    /Dusk chose the route|voluntary surrender/i,
+  );
   assert.deepEqual(
     SORTIES.map((sortie) => sortie.id),
     campaignBeatIds,

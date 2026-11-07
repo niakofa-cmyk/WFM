@@ -22,6 +22,7 @@ import { clampStanding, gateReason, requirements, routeFare, returnLane } from "
 import { adjustedFare, cargoCapacity, cargoUsed, installedUpgrades } from "./economy-rules";
 import { recentRejections } from "./economy-audit";
 import { worldEventRules } from "./world-event-rules";
+import { narrativeArchiveForDiscoveries } from "./campaign-narrative";
 
 type LocationDefinition = WorldState["locations"][number];
 type QuestDefinition = Omit<WorldState["quests"][number], "status">;
@@ -283,6 +284,7 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     routes,
     locations,
     discoveries: [...discoveredIds],
+    narrative: narrativeArchiveForDiscoveries(discoveries),
     quests,
   };
 }

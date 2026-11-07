@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/react";
+import { getGetWorldQueryKey, useGetWorld } from "@workspace/api-client-react";
 import type {
   StrikeResult,
   OnlineRoom,
@@ -32,7 +33,6 @@ import {
 } from "./progression-api";
 import {
   DISPATCHES,
-  RECOVERED_INTEL,
   SORTIES,
   sortieById,
   sortieUnlocked,
@@ -110,6 +110,9 @@ type LobbySession = {
 
 export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false }: { initialUniverseOpen?: boolean; initialOrbitalOpen?: boolean }) {
   const { getToken, userId } = useAuth();
+  const narrativeWorld = useGetWorld({
+    query: { enabled: Boolean(userId), queryKey: getGetWorldQueryKey() },
+  });
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
   const loadoutSaveInFlightRef = useRef(false);
@@ -145,7 +148,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     runId: string;
     inputs: StepInput[];
     preview: StrikeResult;
+    mission: StrikeRun["config"]["mission"];
   } | null>(null);
+  const [verifiedMission, setVerifiedMission] = useState<StrikeRun["config"]["mission"] | null>(null);
   const [claimError, setClaimError] = useState("");
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -617,6 +622,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 runId?: unknown;
                 inputs?: unknown;
                 preview?: unknown;
+                mission?: unknown;
               };
               if (
                 typeof pending.runId === "string" &&
@@ -625,8 +631,19 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 pending.preview &&
                 typeof pending.preview === "object"
               ) {
-                const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
+                const campaignMissions = ["skirmish", "contact", "beacon", "warden", "cage"] as const;
+                const mission = typeof pending.mission === "string" &&
+                  campaignMissions.includes(pending.mission as typeof campaignMissions[number])
+                  ? pending.mission as StrikeRun["config"]["mission"]
+                  : profile.mission;
+                const restored = {
+                  runId: pending.runId,
+                  inputs: pending.inputs as StepInput[],
+                  preview: pending.preview as StrikeResult,
+                  mission,
+                };
                 setPendingClaim(restored);
+                setVerifiedMission(mission);
                 setResult(restored.preview);
                 setPhase("debrief");
               }
@@ -876,9 +893,16 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     }
   };
 
-  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult, liveChecksums?: number[]) => {
-    const pending = { runId, inputs, preview };
+  const submitClaim = async (
+    runId: string,
+    inputs: StepInput[],
+    preview: StrikeResult,
+    liveChecksums?: number[],
+    claimedMission = activeRun?.runId === runId ? activeRun.config.mission : save.mission,
+  ) => {
+    const pending = { runId, inputs, preview, mission: claimedMission };
     setPendingClaim(pending);
+    setVerifiedMission(claimedMission);
     if (stagingRewardDiagnosticsEnabled) {
       const diagnosticWindow = window as StagingDiagnosticWindow;
       if (!diagnosticWindow.__wfmStagingRewardDiagnostic) {
@@ -946,6 +970,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       setSave((previous) =>
         saveFromProfile(grant.profile, { gyro: previous.gyro, drilled: previous.drilled }),
       );
+      setArchiveOpen(true);
+      void narrativeWorld.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The yard could not verify this sortie.";
       const status =
@@ -1282,8 +1308,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         : result.outcome === "win"
         ? goal === "extract"
           ? save.faction === "ussf"
-            ? "Cage away"
-            : "Cage stopped"
+            ? "USSF secures transfer"
+            : "Accord transfer completed"
           : goal === "ace"
           ? "Warden down"
           : goal === "beacons"
@@ -1291,11 +1317,11 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
             : "Disc held"
         : result.outcome === "loss"
           ? goal === "extract"
-            ? save.faction === "ussf"
-              ? "Cage lost"
-              : "Cage escaped"
+            ? "Cage escapes contested"
             : "Wing lost"
-          : "Split disc";
+          : goal === "extract"
+            ? "Cage escapes contested"
+            : "Split disc";
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
@@ -1313,12 +1339,46 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
             : `${ship.name} came back with ${result.kills} kills and ${result.relays} relays. The hangar logged ${gain} credits. ${cargoLine || "No crate in the hold."} ${advance}`}
         </p>
         <p className="font-hud text-2xl text-solar">{save.credits} CR</p>
+        {!pendingClaim && userId && narrativeWorld.data?.narrative.some((record) => record.missionId === save.mission) ? (
+          <section className="border border-solar/35 bg-panel/80 p-3" aria-label="Verified campaign scene">
+            <p className="font-hud text-[10px] tracking-[0.2em] text-solar">VERIFIED STORY SCENE</p>
+            <ol className="mt-2 grid gap-3">
+              {narrativeWorld.data.narrative
+                .filter((record) => record.missionId === verifiedMission)
+                .map((record) => (
+                  <li key={record.id} className="border-t border-bone/10 pt-2">
+                    <p className="font-hud text-[9px] tracking-widest text-muted">
+                      {record.chapter} · {record.source}
+                    </p>
+                    <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                    <div className="mt-2 border-l border-solar/40 pl-2">
+                      {record.transcript.map((line, index) => (
+                        <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                          <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                          {line.text}
+                        </p>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+            </ol>
+          </section>
+        ) : !pendingClaim && userId && narrativeWorld.isFetching ? (
+          <p role="status" className="text-xs text-muted">Syncing the verified story scene…</p>
+        ) : null}
         {pendingClaim ? (
           <button
             type="button"
             disabled={claimSubmitting}
             className="h-12 bg-solar font-hud text-lg tracking-widest text-void disabled:opacity-50"
-            onClick={() => void submitClaim(pendingClaim.runId, pendingClaim.inputs, pendingClaim.preview)}
+            onClick={() => void submitClaim(
+              pendingClaim.runId,
+              pendingClaim.inputs,
+              pendingClaim.preview,
+              undefined,
+              pendingClaim.mission,
+            )}
           >
             {claimSubmitting ? "VERIFYING…" : "RETRY VERIFICATION"}
           </button>
@@ -1552,23 +1612,48 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
           onClick={() => setArchiveOpen((open) => !open)}
         >
           <span className="font-hud text-sm tracking-widest text-solar">
-            RECOVERED FLIGHT RECORDERS · {save.cleared}/4
+            VERIFIED STORY ARCHIVE · {narrativeWorld.data?.narrative.length ?? "SYNC"}
           </span>
           <span className="text-muted">{archiveOpen ? "−" : "+"}</span>
         </button>
         {archiveOpen ? (
           <ol className="grid gap-2 px-3 pb-3">
-            {RECOVERED_INTEL.filter((record) => save.cleared >= record.need).length ? (
-              RECOVERED_INTEL.filter((record) => save.cleared >= record.need).map((record) => (
-                <li key={record.from} className="border-t border-bone/10 pt-2">
-                  <p className="font-hud text-xs tracking-widest text-solar">{record.from}</p>
+            {!userId ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Sign in to view your server-verified story archive.
+              </li>
+            ) : narrativeWorld.isPending ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Connecting to the authenticated campaign archive…
+              </li>
+            ) : narrativeWorld.isError ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                The server archive is unavailable. Local progress is not treated as verified story evidence.
+              </li>
+            ) : narrativeWorld.data?.narrative.length ? (
+              narrativeWorld.data.narrative.map((record) => (
+                <li key={record.id} className="border-t border-bone/10 pt-3">
+                  <p className="font-hud text-[10px] tracking-widest text-solar">
+                    {record.chapter} · {record.missionId.toUpperCase()}
+                  </p>
                   <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.text}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                  <div className="mt-2 border-l border-solar/40 pl-2" aria-label="Recovered story dialogue">
+                    {record.transcript.map((line, index) => (
+                      <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                        <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                        {line.text}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="mt-2 font-hud text-[9px] tracking-widest text-muted">
+                    {record.knowledgeLayer.toUpperCase()} · {record.source}
+                  </p>
                 </li>
               ))
             ) : (
               <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
-                No recordings recovered. Complete the Contact sortie to decode the first signal.
+                No server-verified story records yet. Win the Contact sortie to recover the first Rust Disc archive.
               </li>
             )}
           </ol>

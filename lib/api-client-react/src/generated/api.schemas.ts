@@ -1296,6 +1296,71 @@ export interface WorldRoute {
   available: boolean;
 }
 
+export type CampaignNarrativeRecordMissionId = typeof CampaignNarrativeRecordMissionId[keyof typeof CampaignNarrativeRecordMissionId];
+
+
+export const CampaignNarrativeRecordMissionId = {
+  contact: 'contact',
+  beacon: 'beacon',
+  warden: 'warden',
+  cage: 'cage',
+} as const;
+
+export type CampaignNarrativeRecordKnowledgeLayer = typeof CampaignNarrativeRecordKnowledgeLayer[keyof typeof CampaignNarrativeRecordKnowledgeLayer];
+
+
+export const CampaignNarrativeRecordKnowledgeLayer = {
+  public: 'public',
+  restricted: 'restricted',
+  classified: 'classified',
+  unresolved: 'unresolved',
+} as const;
+
+export interface CampaignNarrativeDialogueLine {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  speaker: string;
+  /**
+     * @minLength 1
+     * @maxLength 800
+     */
+  text: string;
+}
+
+export interface CampaignNarrativeRecord {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  chapter: string;
+  missionId: CampaignNarrativeRecordMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  source: string;
+  knowledgeLayer: CampaignNarrativeRecordKnowledgeLayer;
+  /**
+     * @minLength 1
+     * @maxLength 1200
+     */
+  synopsis: string;
+  transcript: CampaignNarrativeDialogueLine[];
+  discoveredAt: string;
+}
+
 export interface WorldState {
   /**
      * @minimum 1
@@ -1317,6 +1382,8 @@ export interface WorldState {
   routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
+  /** Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes. */
+  narrative: CampaignNarrativeRecord[];
   quests: WorldQuest[];
 }
 

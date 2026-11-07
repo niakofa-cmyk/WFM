@@ -100,18 +100,20 @@ manipulates a powerful inner circle, uses a private force with USSF support to
 attempt a Mars seizure, and is captured after the Accord destroys his fleet. A
 transmission to Earth reports his capture before the fleet is destroyed and
 triggers the crisis that becomes the USSF–Accord war. Dusk is not a serving
-military commander or a willing truth-teller. The exact later custody transfer
-and Cage transport context remain open continuity questions. See the story
-foundation and chronology rather than inventing an explanation in route UI.
+military commander or a willing truth-teller. Cage is a later transfer, not the
+initial capture. The existing USSF escort and Accord interception remain the
+mission setup; the authority and destination are disputed, and the verified
+result records one player-specific outcome. Dusk did not choose the Cage route
+to publicize the signal.
 
 | Story order | Location or route | Narrative purpose | Current implementation boundary |
 |---|---|---|---|
-| Prelude | Signal history predates the USSF–Accord front; the beacons received it for years; the Warden erasure order also predates that front. | Established by recovered campaign intel. The signal's source and the actors behind the blackout/order remain unknown. |
-| I · Contact | Rust Disc | Recover the relay route key and establish that the signal is more than a distress call. | Existing campaign `contact`; the co-op Rust Disc operation shares place/theme, not the same operation result. |
+| Prelude | Earth → Mars | Dusk's rise, the quiet mandate, the secret expedition, the Accord defense, Dusk's capture, and Earth's response establish why the USSF–Accord campaign begins. | Server-verified Contact and Beacon outcomes reveal account-specific evidence and dialogue. Exact insider identities and the signal's source remain unknown. |
+| I · Contact | Rust Disc | Recover the relay route key and fragments documenting Dusk's rise, the secret mandate, the expedition, the Accord's warning, and the capture report. | Existing campaign `contact`; evidence is granted only by a verified campaign win. The co-op Rust Disc operation shares place/theme, not the same result. |
 | II · Arrival | Mars Approach corridor | Move into the Mars theater and choose onward destinations. | Geographic travel interlude only. The existing co-op Mars Approach survey is separate and does not unlock the campaign's Beacon sortie. |
-| III · Beacon | Pale Beacons | Trace the signal and discover that someone kept the receivers dark. | Existing campaign `beacon`; the co-op `pale-beacons` scout operation and its server discovery remain separate. The suppressing actor is unknown. |
-| IV · Warden | Night-side Station / dark hemisphere | Investigate the blackout and recover the Warden's record. | Existing campaign `warden`. A full rotating night-side world is planned; the order's issuer is unknown. |
-| V · Cage | Dust Lane | Confront the transport carrying Eon Dusk and expose the deeper signal. | Existing campaign `cage`. The brief says USSF escorts it and the Accord must stop it; the exact custody-transfer history is unresolved. |
+| III · Beacon | Pale Beacons | Trace the signal, learn the beacons received it for years, and recover Earth's first public and sealed responses. | Existing campaign `beacon`; the co-op `pale-beacons` scout operation remains separate. The suppressing actor is unknown. |
+| IV · Warden | Night-side Station / dark hemisphere | Investigate the blackout and recover the prewar order naming the Cage, its cargo, and route. | Existing campaign `warden`; evidence is granted after a verified win. The order's issuer is unknown. |
+| V · Cage | Dust Lane | Resolve the later transfer carrying Dusk, who was captured during the earlier fleet destruction. | Existing campaign `cage`. Verified outcomes are USSF secures transfer, Accord completes transfer, or transport escapes contested. The chosen branch is per-player; it does not change global or faction-wide custody. |
 | VI · proposed · Iron Eclipse | Contested Mars orbit | Make the exposed signal consequential to the wider fleet conflict. | The latest owner outline places this operation after Cage. Its strategic trigger and aftermath remain proposed; the existing operation remains independent and no campaign gate is added. |
 | VII · future · Beyond the Signal | Subsurface mystery | Follow the recovered signal beneath Mars and into later discoveries. | A future narrative lead, not a playable operation or built subsurface region. |
 
@@ -120,6 +122,19 @@ the latest owner chapter outline. This gives the working story map a continuous
 place for the existing operation, while keeping the exact cause, command
 authority, and consequences visibly proposed. It remains separately enterable
 under its current operation contract and is not made a campaign prerequisite.
+
+### Narrative persistence implemented in this slice
+
+- Campaign claims, not client clear counts, authorize story evidence.
+- Stable evidence IDs are written in the same transaction as the verified
+  settlement and audited through an idempotent progression event.
+- The authenticated world response exposes only evidence recovered by the
+  requesting player; the campaign archive presents its source, knowledge layer,
+  synopsis, and dialogue transcript in the debrief and archive view.
+- A player's first Cage outcome is retained. Replaying Cage cannot rewrite the
+  player's earlier branch.
+- Existing co-op exploration, standalone Iron Eclipse, reward rules, and
+  faction-wide universe state are not merged into this personal story ledger.
 
 The seven-part outline is therefore reconciled as five existing campaign beats,
 one optional geographic interlude, a proposed fleet-operation placement, and a
@@ -254,12 +269,20 @@ Acceptance requires:
 
 ## Current implementation slice
 
-The `mars-story-thread.ts` data and atlas section present Contact → Mars
-Approach interlude → Beacon → Warden → Cage → proposed Iron Eclipse → future
-Beyond the Signal and now show the foundational premise with its three layers
-of truth. The atlas derives implementation status from
-`mars-adventure-network.ts`; this thread is **navigation context only**. It has
-no launch action, account write, operation authority, live-event claim, or
-reward capability. It adds no progression gate and does not change the separate
-sector operation prerequisites. This is intentional groundwork, not the shared
-server operation contract or the NIGHTFALL acceptance slice.
+The `mars-story-thread.ts` data and atlas section present Contact →
+Mars Approach interlude → Beacon → Warden → Cage → proposed Iron Eclipse → future
+Beyond the Signal and show the foundational premise with its three layers of
+truth. The atlas derives implementation status from
+`mars-adventure-network.ts`; this thread remains **navigation context only**.
+It adds no progression gate and does not change separate sector prerequisites.
+
+Separately, the API server now settles authenticated campaign narrative evidence
+with Contact, Beacon, Warden, and Cage results. Evidence is written to the
+existing per-player discovery and progression-event ledgers in the reward
+transaction; `GET /world` returns only that player's recovered records. The
+campaign debrief and archive render server-backed synopses and dialogue. Cage
+retains the player's first transfer outcome. These changes do not establish
+faction-wide state, live NPC reactions, evidence-scanning interactions, a
+rendered video cutscene, or the complete NIGHTFALL journey. The story evidence
+slice is implemented; the larger universe acceptance target remains future
+work.

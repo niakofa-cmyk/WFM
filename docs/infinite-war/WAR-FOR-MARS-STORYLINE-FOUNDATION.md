@@ -191,11 +191,11 @@ games.
 The owner-directed premise establishes that the Accord captured Dusk after the
 expedition was destroyed and that a transmission carried news of the capture to
 Earth. This adds the prehistory that explains why the USSF–Accord conflict
-exists. It does not by itself resolve the later Cage operation's exact custody
-transfer, transport route, or why its current brief describes a USSF escort
-while the Accord must stop the transport. Preserve that authored brief and mark
-the intervening continuity for reconciliation; do not invent a transfer or
-change a faction objective silently.
+exists. Cage is a later transfer, not Dusk's initial capture. Preserve the
+existing USSF escort and Accord interception setup; the legal authority,
+destination, and custody terms remain disputed, and each player's verified
+sortie result selects a local story branch. Dusk did not volunteer to expose the
+signal or choose the later Cage route.
 
 The established signal facts remain important: the signal predates the
 USSF–Accord front, the Pale Beacons received it for years, a Warden order to
@@ -216,9 +216,16 @@ The source premise and three new story documents are archived verbatim. This
 foundation is the controlling story guide. The universe atlas now presents the
 wealth-and-power origin of Dusk's Mars seizure, the capture/transmission
 catalyst, three layers of knowledge, and the gradual First Witness mystery
-alongside the existing Mars story thread. That presentation is navigation and
-narrative context only; it does not add launch actions, account writes,
-operation authority, progression gates, or rewards.
+alongside the existing Mars story thread.
+
+The server now awards narrative evidence from verified Contact, Beacon, Warden,
+and Cage claims and stores each player's discovered record and idempotent
+settlement event. The authenticated world response returns only that player's
+recovered dialogue and evidence. A Cage player's first verified outcome is
+retained as a local branch. This does not create a faction-wide outcome, global
+world mutation, NPC response, or multiplayer reward outside existing claim
+rules. The chronology and evidence map is documented in
+[Mars story chronology and canon](MARS-STORY-CHRONOLOGY-AND-CANON.md).
 
 The premise, factions, and mystery are **design direction**. Existing campaign
 content remains the implemented baseline unless a separately reviewed story
@@ -228,11 +235,9 @@ Three.js-based renderer paths have already been migrated.
 
 ## Next narrative work
 
-1. Reconcile the original expedition/capture/transmission with the Cage
-   transport brief without changing its existing faction objectives by
-   assumption.
-2. Build a source-backed story bible for Dusk's network, the Accord's motives,
-   USSF's internal disagreements, and the staged First Witness revelations.
-3. Connect the next bounded story slice to real route and operation identities,
-   then prove authority, replay, interruption, and consequence behavior before
-   calling it a live universe feature.
+1. Add in-world evidence interactions so players actively locate and recover
+   records instead of receiving every record from sortie settlement alone.
+2. Design a server-authoritative shared faction/world consequence contract;
+   per-player archives do not imply global knowledge or NPC behavior.
+3. Extend the story to new operations only when their route, runtime, authority,
+   and persistent consequence are implemented and verified.

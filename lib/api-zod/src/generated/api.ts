@@ -889,6 +889,20 @@ export const executeWorldServiceResponseWorldLocationsItemYMax = 100;
 export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMin = 0;
 export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMax = 4;
 
+export const executeWorldServiceResponseWorldNarrativeItemIdMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemChapterMax = 120;
+
+export const executeWorldServiceResponseWorldNarrativeItemTitleMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSourceMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax = 800;
+
 export const executeWorldServiceResponseWorldQuestsItemRequiredClearMin = 0;
 export const executeWorldServiceResponseWorldQuestsItemRequiredClearMax = 4;
 
@@ -982,6 +996,20 @@ export const ExecuteWorldServiceResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "title": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1034,6 +1062,20 @@ export const getWorldResponseLocationsItemYMax = 100;
 
 export const getWorldResponseLocationsItemUnlockAfterMin = 0;
 export const getWorldResponseLocationsItemUnlockAfterMax = 4;
+
+export const getWorldResponseNarrativeItemIdMax = 80;
+
+export const getWorldResponseNarrativeItemChapterMax = 120;
+
+export const getWorldResponseNarrativeItemTitleMax = 160;
+
+export const getWorldResponseNarrativeItemSourceMax = 160;
+
+export const getWorldResponseNarrativeItemSynopsisMax = 1200;
+
+export const getWorldResponseNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const getWorldResponseNarrativeItemTranscriptItemTextMax = 800;
 
 export const getWorldResponseQuestsItemRequiredClearMin = 0;
 export const getWorldResponseQuestsItemRequiredClearMax = 4;
@@ -1122,6 +1164,20 @@ export const GetWorldResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldResponseNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(getWorldResponseNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "title": zod.string().min(1).max(getWorldResponseNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(getWorldResponseNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(getWorldResponseNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1450,6 +1506,20 @@ export const travelWorldResponseWorldLocationsItemYMax = 100;
 export const travelWorldResponseWorldLocationsItemUnlockAfterMin = 0;
 export const travelWorldResponseWorldLocationsItemUnlockAfterMax = 4;
 
+export const travelWorldResponseWorldNarrativeItemIdMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemChapterMax = 120;
+
+export const travelWorldResponseWorldNarrativeItemTitleMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSourceMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemTextMax = 800;
+
 export const travelWorldResponseWorldQuestsItemRequiredClearMin = 0;
 export const travelWorldResponseWorldQuestsItemRequiredClearMax = 4;
 
@@ -1542,6 +1612,20 @@ export const TravelWorldResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "title": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1601,6 +1685,20 @@ export const exploreLocationResponseWorldLocationsItemYMax = 100;
 
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMin = 0;
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const exploreLocationResponseWorldNarrativeItemIdMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemChapterMax = 120;
+
+export const exploreLocationResponseWorldNarrativeItemTitleMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSourceMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const exploreLocationResponseWorldQuestsItemRequiredClearMin = 0;
 export const exploreLocationResponseWorldQuestsItemRequiredClearMax = 4;
@@ -1692,6 +1790,20 @@ export const ExploreLocationResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "title": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1751,6 +1863,20 @@ export const actOnWorldQuestResponseWorldLocationsItemYMax = 100;
 
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin = 0;
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const actOnWorldQuestResponseWorldNarrativeItemIdMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemChapterMax = 120;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTitleMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSourceMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMin = 0;
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMax = 4;
@@ -1844,6 +1970,20 @@ export const ActOnWorldQuestResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "title": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),

@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './campaignNarrativeDialogueLine';
+export * from './campaignNarrativeRecord';
+export * from './campaignNarrativeRecordKnowledgeLayer';
+export * from './campaignNarrativeRecordMissionId';
 export * from './controlSchemeInput';
 export * from './controlSchemeInputScheme';
 export * from './economyRejection';
