@@ -1,24 +1,27 @@
 # Orbital scale, multiplayer protocol, and recovery redesign
 
-This is the durable WFM rebuild review for the four owner-supplied references
-received November 7, 2026. Their original uploads remain in the workspace's
-`attached_assets/` area (excluded from Git); their filenames and reviewed scope
-are listed below. This tracked file records the project decisions and
+This is the durable WFM rebuild review for the five owner-supplied references
+received November 7, 2026. Verbatim copies are stored under
+[`references/redesign/`](references/redesign/); the original attachments also
+remain in the workspace. This tracked file records the project decisions and
 implementation derived from them. The sample code in the uploads is not copied
 into production without review.
 
 ## Source references
 
-1. `Pasted-To-scale-your-React-Orbital-Infinite-Extended-Open-Univ_1794047288316.txt`
+1. [Orbital scale and chunking source](references/redesign/Pasted-To-scale-your-React-Orbital-Infinite-Extended-Open-Univ_1794047288316.txt)
    — deterministic simulation boundaries, large-world chunks, render-loop
    isolation, local validation.
-2. `Pasted--Forensic-Evaluation-Architectural-Breakdown-Based-on-y_1794047320045.txt`
+2. [Forensic architecture source](references/redesign/Pasted--Forensic-Evaluation-Architectural-Breakdown-Based-on-y_1794047320045.txt)
    — architecture assessment, reconciliation, sector generation and React
    lifecycle separation.
-3. `Pasted--Multiplayer-Binary-Protocol-Sub-System-Refactor-To-fin_1794047378978.txt`
+3. [Multiplayer binary protocol source](references/redesign/Pasted--Multiplayer-Binary-Protocol-Sub-System-Refactor-To-fin_1794047378978.txt)
    — binary WebSocket snapshots, projectile collision, and orbital anchors.
-4. `Pasted--Local-Validation-Testing-Failure-Recovery-Suite-To-com_1794047463795.txt`
+4. [Validation and recovery source](references/redesign/Pasted--Local-Validation-Testing-Failure-Recovery-Suite-To-com_1794047463795.txt)
    — mock socket validation and proposed local match recovery.
+5. [Three-dimensional rendering pipeline source](references/redesign/Pasted-To-port-the-technical-features-and-visual-capabilities-_1794048558104.txt)
+   — simulation/presentation separation, instanced rendering, camera and
+   resource lifecycle.
 
 ## Decisions for the WFM rebuild
 
@@ -94,6 +97,19 @@ validation base. Add deterministic failure cases alongside the actual contract
 they exercise. Keep test artifacts in generated output, not memory or player
 progression.
 
+### 6. Port useful 3D presentation techniques into Orbital
+
+The fifth source proposes a second Three.js runtime. That conflicts with the
+owner's Orbital-only engine decision. Its transferable ideas are now applied
+inside the existing native WebGL2 proof: the presentation loop reads the Mars
+time model without writing gameplay state; a seeded, local-only debris field is
+submitted as one instanced draw; asteroid geometry is deliberately low
+resolution; and all added GPU buffers are disposed with the renderer.
+
+This remains a bounded renderer proof. It does not replace Arena, read an
+authoritative flight snapshot, add a controllable ship, or establish streaming
+and culling budgets. Those are separate engine integration gates.
+
 ## Implemented from this review
 
 - Added shared 3D chunk-addressed coordinates in `lib/orbital-sim`, including
@@ -101,6 +117,8 @@ progression.
   relative offsets and safe-range rejection.
 - Added conversion from Mars surface points to chunk-addressed Orbital
   positions.
+- Extended the Orbital-native renderer proof with deterministic low-poly
+  asteroid instances in one draw call and explicit instance-resource teardown.
 - Added API-server tests for positive/negative boundary crossings, large chunk
   indices, nearby precision, Mars conversion, invalid inputs and seeded
   repeatability.

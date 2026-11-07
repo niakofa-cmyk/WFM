@@ -55,8 +55,12 @@ test("renderer proof uses native WebGL2 and remains an opt-in preview rather tha
   assert.match(source, /getContext\("webgl2"/);
   assert.match(source, /requestAnimationFrame/);
   assert.match(source, /ResizeObserver/);
+  assert.match(source, /drawElementsInstanced/);
+  assert.match(source, /createAsteroidInstances/);
+  assert.match(source, /asteroidGeometry = createSphere\(8, 12\)/);
   assert.match(source, /deleteBuffer/);
+  assert.match(source, /deleteBuffer\(instanceBuffer\)/);
   assert.doesNotMatch(source, /from ["']three["']/);
-  assert.match(source, /not traversable flight, streamed terrain, multiplayer state/);
+  assert.match(source, /not simulation-driven flight, streamed terrain, multiplayer state/);
   assert.match(source, /CLOSE PREVIEW/);
 });

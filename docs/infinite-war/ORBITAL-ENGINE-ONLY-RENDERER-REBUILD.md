@@ -21,6 +21,11 @@ context; it is not the target architecture.
 
 The full owner-supplied comparison and recommendation is retained unchanged at
 [`attached_assets/Pasted--War-for-Mars-Orbital-Engine-vs-Three-js-Yes-My-recomme_1794031481638.txt`](../../attached_assets/Pasted--War-for-Mars-Orbital-Engine-vs-Three-js-Yes-My-recomme_1794031481638.txt).
+The later visual-pipeline proposal is preserved verbatim at
+[`references/redesign/Pasted-To-port-the-technical-features-and-visual-capabilities-_1794048558104.txt`](references/redesign/Pasted-To-port-the-technical-features-and-visual-capabilities-_1794048558104.txt).
+Its Three.js implementation is not adopted; its read-only rendering,
+instancing, local-coordinate and resource-lifecycle techniques are being ported
+into the Orbital-owned WebGL2 proof.
 The source explicitly distinguishes “large” from “too heavy”: its historical
 bundle numbers do not establish a current performance failure. The reason to
 move is one coherent, owned engine architecture, with performance decisions
@@ -134,9 +139,10 @@ The current branch now contains two bounded foundations:
   It is pure math; callers in a shared universe must still use server-owned
   world time and Sun direction.
 - `OrbitalMarsRendererProof.tsx` is an opt-in native WebGL2 preview of a
-  rotating, procedurally shaded Mars sphere. It owns one local renderer loop,
-  resizes for device pixel ratio, handles context loss, and releases buffers
-  and programs on close. Its accelerated clock is presentation-only.
+  rotating, procedurally shaded Mars sphere with a deterministic, low-poly,
+  instanced asteroid field. It owns one local renderer loop, resizes for device
+  pixel ratio, handles context loss, and releases buffers and programs on close.
+  Its accelerated clock and static local debris are presentation-only.
 
 This is **not** an Orbital flight renderer migration: there is no controllable
 craft, camera navigation, streamed terrain, physics, multiplayer, persistent

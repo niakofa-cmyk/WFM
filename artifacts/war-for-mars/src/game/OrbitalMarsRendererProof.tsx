@@ -7,26 +7,40 @@ import {
 
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
+in vec3 aOffset;
+in float aScale;
+in vec3 aTint;
 uniform float uRotation;
 uniform float uAspect;
 out vec3 vNormal;
+out vec3 vTint;
 void main() {
   float c = cos(uRotation);
   float s = sin(uRotation);
   vec3 rotated = vec3(c * aPosition.x + s * aPosition.z, aPosition.y, -s * aPosition.x + c * aPosition.z);
   vNormal = rotated;
-  gl_Position = vec4(rotated.x * 0.84 / uAspect, rotated.y * 0.84, rotated.z * 0.25, 1.0);
+  vTint = aTint;
+  vec3 localPosition = rotated * aScale + aOffset;
+  gl_Position = vec4(localPosition.x * 0.84 / uAspect, localPosition.y * 0.84, localPosition.z * 0.25, 1.0);
 }`;
 
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec3 vNormal;
+in vec3 vTint;
+uniform bool uIsAsteroid;
 out vec4 outColor;
 void main() {
   vec3 normal = normalize(vNormal);
+  float terrain = sin(normal.x * 19.0 + sin(normal.z * 11.0)) * sin(normal.y * 23.0 + normal.z * 7.0);
+  if (uIsAsteroid) {
+    float rockLight = 0.62 + 0.38 * max(dot(normal, normalize(vec3(-0.45, 0.7, 1.0))), 0.0);
+    vec3 rockColor = mix(vec3(0.20, 0.16, 0.14), vec3(0.68, 0.48, 0.33), 0.52 + terrain * 0.32);
+    outColor = vec4(rockColor * vTint * rockLight, 1.0);
+    return;
+  }
   float sun = dot(normal, normalize(vec3(1.0, 0.0, 0.0)));
   float dayMix = smoothstep(-0.12, 0.1, sun);
-  float terrain = sin(normal.x * 19.0 + sin(normal.z * 11.0)) * sin(normal.y * 23.0 + normal.z * 7.0);
   vec3 dayColor = mix(vec3(0.23, 0.055, 0.028), vec3(0.83, 0.27, 0.10), 0.58 + terrain * 0.18);
   vec3 nightColor = vec3(0.025, 0.022, 0.035) + vec3(0.09, 0.022, 0.012) * max(terrain, 0.0);
   vec3 color = mix(nightColor, dayColor, dayMix);
@@ -70,6 +84,30 @@ function createSphere(rows = 40, columns = 64) {
   return { positions: new Float32Array(positions), indices: new Uint16Array(indices) };
 }
 
+/** Stable, local-only debris layout; one instanced draw replaces per-rock calls. */
+function createAsteroidInstances(count = 72) {
+  const data = new Float32Array(count * 7);
+  let seed = 0x4d415253;
+  const random = () => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+    return seed / 0x1_0000_0000;
+  };
+  for (let i = 0; i < count; i++) {
+    const angle = random() * Math.PI * 2;
+    const radius = 1.02 + random() * 0.58;
+    const offset = i * 7;
+    data[offset] = Math.cos(angle) * radius;
+    data[offset + 1] = Math.sin(angle) * radius * 0.74;
+    data[offset + 2] = (random() - 0.5) * 0.55;
+    data[offset + 3] = 0.018 + random() * 0.04;
+    const shade = 0.72 + random() * 0.36;
+    data[offset + 4] = shade;
+    data[offset + 5] = shade * (0.94 + random() * 0.08);
+    data[offset + 6] = shade * (0.86 + random() * 0.12);
+  }
+  return data;
+}
+
 function formatSolTime(seconds: number) {
   const fraction = ((seconds % MARS_MEAN_SOLAR_DAY_SECONDS) + MARS_MEAN_SOLAR_DAY_SECONDS) % MARS_MEAN_SOLAR_DAY_SECONDS;
   const totalMinutes = Math.floor(fraction / MARS_MEAN_SOLAR_DAY_SECONDS * 24 * 60);
@@ -104,6 +142,9 @@ export function OrbitalMarsRendererProof() {
     let fragmentShader: WebGLShader | null = null;
     let vertexBuffer: WebGLBuffer | null = null;
     let indexBuffer: WebGLBuffer | null = null;
+    let asteroidVertexBuffer: WebGLBuffer | null = null;
+    let asteroidIndexBuffer: WebGLBuffer | null = null;
+    let instanceBuffer: WebGLBuffer | null = null;
     let raf = 0;
     let disposed = false;
     let previousFrame = 0;
@@ -111,6 +152,8 @@ export function OrbitalMarsRendererProof() {
     let resizeObserver: ResizeObserver | null = null;
     let contextLost: ((event: Event) => void) | null = null;
     const { positions, indices } = createSphere();
+    const asteroidGeometry = createSphere(8, 12);
+    const asteroidInstances = createAsteroidInstances();
     try {
       vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
       fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
@@ -128,19 +171,37 @@ export function OrbitalMarsRendererProof() {
       }
       vertexBuffer = gl.createBuffer();
       indexBuffer = gl.createBuffer();
-      if (!vertexBuffer || !indexBuffer) throw new Error("Orbital renderer could not allocate scene buffers.");
+      asteroidVertexBuffer = gl.createBuffer();
+      asteroidIndexBuffer = gl.createBuffer();
+      instanceBuffer = gl.createBuffer();
+      if (!vertexBuffer || !indexBuffer || !asteroidVertexBuffer || !asteroidIndexBuffer || !instanceBuffer) {
+        throw new Error("Orbital renderer could not allocate scene buffers.");
+      }
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, asteroidVertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, asteroidGeometry.positions, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, asteroidIndexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, asteroidGeometry.indices, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, asteroidInstances, gl.STATIC_DRAW);
       const positionLocation = gl.getAttribLocation(program, "aPosition");
+      const offsetLocation = gl.getAttribLocation(program, "aOffset");
+      const scaleLocation = gl.getAttribLocation(program, "aScale");
+      const tintLocation = gl.getAttribLocation(program, "aTint");
       const rotationLocation = gl.getUniformLocation(program, "uRotation");
       const aspectLocation = gl.getUniformLocation(program, "uAspect");
-      if (positionLocation < 0 || !rotationLocation || !aspectLocation) throw new Error("Orbital renderer shader inputs are incomplete.");
+      const asteroidLocation = gl.getUniformLocation(program, "uIsAsteroid");
+      if (positionLocation < 0 || offsetLocation < 0 || scaleLocation < 0 || tintLocation < 0 ||
+          !rotationLocation || !aspectLocation || !asteroidLocation) {
+        throw new Error("Orbital renderer shader inputs are incomplete.");
+      }
       gl.enable(gl.DEPTH_TEST);
       gl.enableVertexAttribArray(positionLocation);
       gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
-      setStatus("Orbital-owned WebGL2 renderer active · local preview only");
+      setStatus(`Orbital-owned WebGL2 renderer active · ${asteroidInstances.length / 7} instanced bodies · local preview only`);
 
       const resize = () => {
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -180,10 +241,43 @@ export function OrbitalMarsRendererProof() {
         gl.useProgram(program);
         gl.uniform1f(rotationLocation, marsRotationAngle(elapsedRef.current));
         gl.uniform1f(aspectLocation, canvas.width / Math.max(1, canvas.height));
+        gl.uniform1i(asteroidLocation, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.disableVertexAttribArray(offsetLocation);
+        gl.disableVertexAttribArray(scaleLocation);
+        gl.disableVertexAttribArray(tintLocation);
+        gl.vertexAttrib3f(offsetLocation, 0, 0, 0);
+        gl.vertexAttrib1f(scaleLocation, 1);
+        gl.vertexAttrib3f(tintLocation, 1, 1, 1);
         gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+        gl.uniform1f(rotationLocation, 0);
+        gl.uniform1i(asteroidLocation, 1);
+        gl.bindBuffer(gl.ARRAY_BUFFER, asteroidVertexBuffer);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, asteroidIndexBuffer);
+        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+        const stride = 7 * Float32Array.BYTES_PER_ELEMENT;
+        gl.enableVertexAttribArray(offsetLocation);
+        gl.vertexAttribPointer(offsetLocation, 3, gl.FLOAT, false, stride, 0);
+        gl.vertexAttribDivisor(offsetLocation, 1);
+        gl.enableVertexAttribArray(scaleLocation);
+        gl.vertexAttribPointer(scaleLocation, 1, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+        gl.vertexAttribDivisor(scaleLocation, 1);
+        gl.enableVertexAttribArray(tintLocation);
+        gl.vertexAttribPointer(tintLocation, 3, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+        gl.vertexAttribDivisor(tintLocation, 1);
+        gl.drawElementsInstanced(
+          gl.TRIANGLES,
+          asteroidGeometry.indices.length,
+          gl.UNSIGNED_SHORT,
+          0,
+          asteroidInstances.length / 7,
+        );
+        gl.vertexAttribDivisor(offsetLocation, 0);
+        gl.vertexAttribDivisor(scaleLocation, 0);
+        gl.vertexAttribDivisor(tintLocation, 0);
         raf = requestAnimationFrame(frame);
       };
       raf = requestAnimationFrame(frame);
@@ -195,6 +289,9 @@ export function OrbitalMarsRendererProof() {
         if (contextLost) canvas.removeEventListener("webglcontextlost", contextLost);
         if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
         if (indexBuffer) gl.deleteBuffer(indexBuffer);
+        if (asteroidVertexBuffer) gl.deleteBuffer(asteroidVertexBuffer);
+        if (asteroidIndexBuffer) gl.deleteBuffer(asteroidIndexBuffer);
+        if (instanceBuffer) gl.deleteBuffer(instanceBuffer);
         if (program) gl.deleteProgram(program);
       };
     } catch (error) {
@@ -206,6 +303,9 @@ export function OrbitalMarsRendererProof() {
       if (fragmentShader) gl.deleteShader(fragmentShader);
       if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
       if (indexBuffer) gl.deleteBuffer(indexBuffer);
+      if (asteroidVertexBuffer) gl.deleteBuffer(asteroidVertexBuffer);
+      if (asteroidIndexBuffer) gl.deleteBuffer(asteroidIndexBuffer);
+      if (instanceBuffer) gl.deleteBuffer(instanceBuffer);
       if (program) gl.deleteProgram(program);
       setStatus(`Renderer preview failed: ${error instanceof Error ? error.message : "unknown error"}`);
       return undefined;
@@ -254,7 +354,7 @@ export function OrbitalMarsRendererProof() {
             {running ? "PAUSE PREVIEW CLOCK" : "RUN PREVIEW CLOCK"}
           </button>
           <p className="uv-renderer-proof__scope">
-            Preview clock runs at 900× for demonstration. This proves only the isolated renderer lifecycle and planetary light model; it is not traversable flight, streamed terrain, multiplayer state, or a production replacement for the current Arena.
+            Preview clock runs at 900× for demonstration. The debris layout is deterministic and batched in one instanced GPU draw. This proves only the isolated renderer lifecycle and planetary light model; it is not simulation-driven flight, streamed terrain, multiplayer state, or a production replacement for the current Arena.
           </p>
         </>
       ) : <p className="uv-renderer-proof__status">{status}</p>}
