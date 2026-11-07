@@ -81,7 +81,16 @@ test("local Cinder approach docks at 22m, runs training, and returns to the same
   expect(pageErrors).toEqual([]);
 });
 
-test("landing page explains the game and offers a solo flight", async ({ page }) => {
+test("primary boot opens Orbital and preserves the command rollback entry", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+  await expect(page.getByTestId("button-launch-local-universe")).toBeVisible();
+  await expect(page.getByTestId("link-compatibility-command")).toHaveAttribute("href", "/command");
+  await page.goto("/?boot=compatibility");
+  await expect(page.getByRole("link", { name: "TRY SOLO FLIGHT" })).toBeVisible();
+});
+
+test("compatibility landing page explains the game and offers a solo flight", async ({ page }) => {
   await page.route("**/api/game/leaderboard", (route) =>
     route.fulfill({
       status: 200,
@@ -91,7 +100,7 @@ test("landing page explains the game and offers a solo flight", async ({ page })
       }),
     }),
   );
-  await page.goto("/");
+  await page.goto("/command");
 
   await expect(page.getByRole("heading", { name: /war for mars/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
@@ -105,7 +114,7 @@ test("landing page explains the game and offers a solo flight", async ({ page })
 });
 
 test("landing page presents the Orbital training entry without a separate Rust Disc command", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/command");
 
   const operations = page.getByTestId("details-public-operations");
   await expect(operations.locator("summary")).toContainText("TRAINING & CO-OP OPERATIONS");

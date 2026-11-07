@@ -70,6 +70,11 @@ engineering step.
 `docs/infinite-war/ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`. Build the
 primary Orbital boot and migrate modes incrementally, retaining working
 server-owned identity, mission, multiplayer, and reward systems until verified.
+Treat the Phase 0 inventory as a retained migration baseline; consult
+`docs/infinite-war/PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md` for the
+consolidation boundary and rollback/activation rules.
+**Why:** a shared primary entry does not certify shared authoritative simulation;
+retaining the baseline makes outstanding mode migrations explicit.
 Keep normalized pilot intent distinct from versioned replay/network commands:
 unsupported capabilities must remain omitted, not merely set to false.
 **Why:** consolidating input must not silently widen older accepted contracts.

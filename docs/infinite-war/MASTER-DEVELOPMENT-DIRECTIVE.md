@@ -25,6 +25,11 @@ another isolated universe prototype before rebuilding the primary entry/runtime.
 
 ## Dynamic faction encounters and exploration rewards
 
+The [primary Orbital boot and initial encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
+now provide the first consolidation slice. Follow that document's explicit
+rollback paths and authority activation gates; this does not certify all-mode
+migration or live roaming rewards.
+
 The user's latest correction establishes that **authenticated multiplayer
 exploration is a reward-capable, server-authoritative game mode**. The no-reward
 rule applies to the offline local Orbital sandbox, private Wing rooms, and

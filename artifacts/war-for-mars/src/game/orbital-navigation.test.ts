@@ -107,12 +107,12 @@ test("operation handoffs retain the competitive docking gate and existing specia
 
 test("connected entry stays within authenticated account shell while offline flight stays independent", () => {
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-  const lab = readFileSync(new URL("../combat-lab.tsx", import.meta.url), "utf8");
+  const lab = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
   const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
   assert.match(app, /path="\/universe"><AccountGameEntry universe/);
   assert.match(app, /isLoaded && isSignedIn/);
-  assert.match(app, /key=\{`\$\{userId\}:\$\{universe\}`\}/);
-  assert.match(lab, /BASE_URL\}universe/);
+  assert.match(app, /key=\{`\$\{userId\}:\$\{universe\}:\$\{orbital\}`\}/);
+  assert.match(lab, /const HUB = `\$\{BASE\}\/universe`/);
   assert.doesNotMatch(lab, /useGetWorld|ClerkProvider|fetch\(/);
   assert.match(galaxy, /navigationDestinations.find[\s\S]*?\.canTravel/);
   assert.match(galaxy, /if \(!current\?\.canOpen \|\| !operation \|\| directoryUnavailable\) return/);

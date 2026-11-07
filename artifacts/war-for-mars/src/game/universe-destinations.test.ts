@@ -30,7 +30,7 @@ test("charted destinations have unique identities and bounded map positions", ()
 });
 
 test("local universe entry keeps flight lazy and blocks planned destination launches", () => {
-  const source = readFileSync(new URL("../combat-lab.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
   assert.match(source, /const Arena = lazy\(/);
   assert.match(source, /const CinderRingDockingApproach = lazy\(/);
   assert.match(source, /if \(dest.status === "planned"\) return/);

@@ -50,6 +50,7 @@ import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./are
 import { createProfileSync } from "./profile-sync";
 import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { UNIVERSE_MODE_ID } from "./orbital-universe-session";
+import { enterOrbitalOnAccountBoot } from "./wfm-boot";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -107,7 +108,7 @@ type LobbySession = {
   ready: boolean;
 };
 
-export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: boolean }) {
+export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false }: { initialUniverseOpen?: boolean; initialOrbitalOpen?: boolean }) {
   const { getToken, userId } = useAuth();
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
@@ -155,7 +156,7 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
   }, [userId]);
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
-  const [localUniverseOpen, setLocalUniverseOpen] = useState(false);
+  const [localUniverseOpen, setLocalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
   const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
@@ -1123,7 +1124,7 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
     );
   }
 
-  if (localUniverseOpen) {
+  if (localUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession) {
     return (
       <>
         <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>

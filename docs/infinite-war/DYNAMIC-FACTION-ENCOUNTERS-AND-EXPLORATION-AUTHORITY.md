@@ -133,12 +133,18 @@ The full owner source is preserved at
 That source's dynamic encounter director and embedded multiplayer discovery
 sections are controlling product direction.
 
+The primary Orbital boot and initial server-internal encounter/result contract
+are implemented; see
+[Primary boot and encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
+for the exact scope, rollback entries and remaining activation gates.
+
 Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
 operations, and a read-only Wing spectator path. It does not yet implement a
 server-authoritative roaming encounter director, shared nearby NPC fleets, a
-persistent faction encounter world, or reward settlement for open-world PvE
-encounters. Do not use local procedural scenery or local scan records as a
+persistent faction encounter world, or live reward settlement for open-world PvE
+encounters. The new transactional settlement adapter is disabled and is not yet
+connected to a roaming authoritative runtime. Do not use local procedural scenery or local scan records as a
 substitute for those capabilities.
 
 ## Implementation order

@@ -17,6 +17,7 @@ const source = (file: string) => readFileSync(new URL(file, import.meta.url), "u
 test("current UI entry points retain their actual runtime and lifecycle owners", () => {
   const app = source("../App.tsx");
   const combatLab = source("../combat-lab.tsx");
+  const orbitalBoot = source("./OrbitalBoot.tsx");
   const warApp = source("./WarApp.tsx");
   const arena = source("./Arena.tsx");
   const rustDisc = source("./RustDiscFlight.tsx");
@@ -25,8 +26,9 @@ test("current UI entry points retain their actual runtime and lifecycle owners",
   assert.match(app, /<Route path="\/flight">[\s\S]*?<RustDiscFlight/);
   assert.match(app, /<Route path="\/expedition">[\s\S]*?<SectorExpedition/);
   assert.match(combatLab, /createRoot\(document\.getElementById\("root"\)!\)/);
-  assert.match(combatLab, /modeId="orbital-combat-lab" runtime=\{ORBITAL_RUNTIME_ID\}/);
-  assert.match(combatLab, /modeId="orbital-universe-local" runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.match(combatLab, /<OrbitalBoot standalone/);
+  assert.match(orbitalBoot, /modeId="orbital-combat-lab" runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.match(orbitalBoot, /modeId="orbital-universe-local" runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.ok(warApp.includes("modeId={UNIVERSE_MODE_ID}"));
   assert.match(warApp, /resolveArenaModeId\(runConfig, Boolean\(onlineSession\), offlineMode\)/);
   assert.match(arena, /new THREE\.WebGLRenderer/);

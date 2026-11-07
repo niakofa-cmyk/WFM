@@ -10,6 +10,7 @@ import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
 import { SORTIES } from "./game/campaign";
 import { expeditionFeatureEnabled } from "./game/sector-client";
+import { resolveWfmBoot } from "./game/wfm-boot";
 
 const expeditionEnabled = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -17,6 +18,7 @@ const expeditionEnabled = expeditionFeatureEnabled({
 });
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
+const OrbitalBoot = lazy(() => import("./game/OrbitalBoot").then((module) => ({ default: module.OrbitalBoot })));
 const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
 const SectorExpedition = lazy(() => import("./game/SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
 const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
@@ -194,13 +196,13 @@ function PublicLanding() {
   );
 }
 
-function SignedInGame({ universe = false }: { universe?: boolean }) {
+function SignedInGame({ universe = false, orbital = false }: { universe?: boolean; orbital?: boolean }) {
   const client = useQueryClient();
   useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
-        <WarApp initialUniverseOpen={universe} />
+        <WarApp initialUniverseOpen={universe} initialOrbitalOpen={orbital} />
       </Suspense>
       <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
@@ -210,11 +212,12 @@ function SignedInGame({ universe = false }: { universe?: boolean }) {
   );
 }
 
-function AccountGameEntry({ universe = false }: { universe?: boolean }) {
+function AccountGameEntry({ universe = false, primary = false }: { universe?: boolean; primary?: boolean }) {
   const { isLoaded, isSignedIn, userId } = useAuth();
   // Discovery and solo entry remain visible while hosted authentication loads.
   // Never mount account/progression hooks until the session is confirmed.
-  if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}`} universe={universe} />;
+  const orbital = primary && resolveWfmBoot(window.location.search, import.meta.env.VITE_WFM_ORBITAL_BOOT_ENABLED !== "false") === "orbital";
+  if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}:${orbital}`} universe={universe} orbital={orbital} />;
   if (universe) return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-void px-6 py-12 text-bone">
       <p className="font-hud text-xs tracking-widest text-solar">WAR FOR MARS / ORBITAL NAVIGATION</p>
@@ -226,6 +229,7 @@ function AccountGameEntry({ universe = false }: { universe?: boolean }) {
       <Link data-testid="link-universe-home" href="/" className="min-h-11 py-3 text-sm text-muted">BACK TO COMMAND</Link>
     </main>
   );
+  if (orbital) return <Suspense fallback={<main role="status" className="lab-loading">Initializing Orbital…</main>}><OrbitalBoot /></Suspense>;
   return <PublicLanding />;
 }
 
@@ -266,7 +270,8 @@ function Routes() {
     >
       <ApiAuthBridge />
       <Switch>
-        <Route path="/"><AccountGameEntry /></Route>
+        <Route path="/"><AccountGameEntry primary /></Route>
+        <Route path="/command"><AccountGameEntry /></Route>
         <Route path="/universe"><AccountGameEntry universe /></Route>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />

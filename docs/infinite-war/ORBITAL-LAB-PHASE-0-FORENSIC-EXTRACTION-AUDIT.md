@@ -1,5 +1,14 @@
 # Orbital Lab Phase 0 forensic extraction audit
 
+## Baseline status
+
+The source inventory below is the extraction baseline, not the latest boot
+inventory. The subsequent
+[primary Orbital boot and encounter contract slice](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
+shares the Lab's boot component with the main `/` application and retains the
+standalone page as an offline wrapper. The mode-specific simulation/authority
+migration gaps remain; do not infer all-mode consolidation from this boot work.
+
 ## Scope and evidence boundary
 
 This is a source-level audit of the current workspace checkout, not a claim about
