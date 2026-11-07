@@ -25,11 +25,17 @@ remain unchanged. It does not complete all-mode migration.
 6. Finish or abort; the local debrief returns to Cinder.
 7. Undock from the retained universe position, orientation and velocity.
 
-Account services are clearly marked **external**. Following that link leaves
-the local session. Docking does not grant server location, eligibility, a room
-seat, currency or rewards. Closing/reloading the page loses this unsaved session.
-Exiting the signed-in local flight returns to the existing Home/Hangar screen;
-the signed-in account's saved profile is neither modified nor awarded progress.
+The signed-in dock opens the existing account universe/operation screen above
+the local flight and pauses that flight. Closing the account screen returns to
+the same local position without publishing a presence heartbeat for that local
+position. Operation entry leaves the local scene only after its existing server
+registration authorizes an assignment. The standalone route remains an external
+handoff. Docking itself never changes server location, eligibility, room seat,
+currency or rewards.
+
+Exiting the signed-in local flight returns to Home/Hangar; the account's saved
+profile is neither modified nor awarded progress. Closing or reloading the page
+loses the local session.
 
 ## Runtime ownership and isolation
 
@@ -42,6 +48,8 @@ the signed-in account's saved profile is neither modified nor awarded progress.
 | Station gate and retained pose | Pure `orbital-universe-session.ts` helpers |
 | Training | Existing prepared Orbital match and normal `step` rules |
 | Panels | `UniverseStationOverlay`, no simulation or renderer |
+| Nearby competition signal | `CinderRingOperationPreview`, public directory + SSE only |
+| Account operations | Existing `GalaxyScreen` and server registration authorization |
 | Return | Reset activity match in place and restore a deep-copied flight pose |
 
 Training is a subordinate activity. Enter/exit transitions neither remount the
@@ -56,6 +64,11 @@ non-universe callers, combat replays, network protocols and reward gates retain
 their previous paths. Training consumes its isolated match resources; returning
 restores the retained exploration flight state rather than copying combat
 damage or ammunition into a saved account.
+
+Near Cinder, the preview shows only server-reported active public instances
+whose event and operation locations resolve to the Cinder asteroid. Snapshots
+older than two minutes are not presented as live. The preview shows no player
+identities and cannot create, join or reward a match.
 
 ## Verification
 
@@ -102,11 +115,15 @@ integration tests, not browser or live-multiplayer evidence.
 - A longer approach experiment moved toward Cinder but did **not** satisfy the
   full docking gate (8 m and at most 3.5 m/s). Therefore browser-certified
   docking, training, return, undock and resource identity are **not established**.
+- The live-event selector has regression coverage for Cinder locality, active
+  phase, public visibility and snapshot freshness. This does not prove a live
+  production event is currently present.
 - No live API requests were made during the isolated public local-flight check.
 
 Repeated transition unit tests and a short pointer-driven browser check do not
-prove full browser frame-loop/resource behavior. Signed-in entry was not tested
-through an authenticated session. Physical Android flight, interactive
+prove full browser frame-loop/resource behavior. Signed-in entry and the
+overlaid server operation flow were not tested through an authenticated
+session. Physical Android flight, interactive
 finish/abort/return, full docking usability and runtime leak checks remain
 verification gaps. No staging/Production rollout or multiplayer parity is
 claimed.

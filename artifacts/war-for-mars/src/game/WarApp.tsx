@@ -156,6 +156,7 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
   const durable = useDurableAction();
   const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
   const [localUniverseOpen, setLocalUniverseOpen] = useState(false);
+  const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -1124,36 +1125,81 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
 
   if (localUniverseOpen) {
     return (
-      <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
-        <Arena
-          key={`local-universe-${userId ?? "guest"}-${save.ship}-${save.faction}`}
-          modeId={UNIVERSE_MODE_ID}
-          runtime={ORBITAL_RUNTIME_ID}
-          shipId={save.ship}
-          faction={save.faction}
-          scheme={save.scheme}
-          refit={save.refit}
-          shieldMk2={save.shieldMk2 ?? false}
-          pace="practice"
-          goal="disc"
-          disc="rust"
-          allyCount={1}
-          foeCount={3}
-          objective="CINDER RING · LOCAL TRAINING"
-          tech={null}
-          gyro={save.gyro}
-          drilled
-          onDrill={() => {}}
-          localUniverse={{
-            servicesHref: "/universe",
-            onExit: () => setLocalUniverseOpen(false),
-          }}
-          onNetworkExit={() => {
-            throw new Error("The local Orbital universe must not open a network session.");
-          }}
-          onDone={() => {}}
-        />
-      </Suspense>
+      <>
+        <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>
+          <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
+            <Arena
+              key={`local-universe-${userId ?? "guest"}-${save.ship}-${save.faction}`}
+              modeId={UNIVERSE_MODE_ID}
+              runtime={ORBITAL_RUNTIME_ID}
+              shipId={save.ship}
+              faction={save.faction}
+              scheme={save.scheme}
+              refit={save.refit}
+              shieldMk2={save.shieldMk2 ?? false}
+              pace="practice"
+              goal="disc"
+              disc="rust"
+              allyCount={1}
+              foeCount={3}
+              objective="CINDER RING · LOCAL TRAINING"
+              tech={null}
+              gyro={save.gyro}
+              drilled
+              onDrill={() => {}}
+              localUniverse={{
+                servicesHref: "/universe",
+                servicesOpen: universeServicesOpen,
+                onExit: () => {
+                  setUniverseServicesOpen(false);
+                  setLocalUniverseOpen(false);
+                },
+                onOpenOperations: () => setUniverseServicesOpen(true),
+              }}
+              onNetworkExit={() => {
+                throw new Error("The local Orbital universe must not open a network session.");
+              }}
+              onDone={() => {}}
+            />
+          </Suspense>
+        </div>
+        {universeServicesOpen ? (
+          <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
+            <Suspense fallback={<ModuleLoading label="CONNECTING TO ACCOUNT OPERATIONS…" />}>
+              <GalaxyScreen
+                onBack={() => setUniverseServicesOpen(false)}
+                credits={save.credits}
+                onCredits={syncCredits}
+                shipId={save.ship}
+                faction={save.faction}
+                roomCode={roomCode}
+                onRoomCode={setRoomCode}
+                onCreatePrivateRoom={() => {
+                  setUniverseServicesOpen(false);
+                  setLocalUniverseOpen(false);
+                  const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
+                  setRoomCode(generated);
+                  joinOnline(generated);
+                }}
+                onJoinPrivateRoom={(code) => {
+                  setUniverseServicesOpen(false);
+                  setLocalUniverseOpen(false);
+                  joinOnline(code);
+                }}
+                onlineStatus={onlineStatus}
+                onJoinCompetitiveQueue={() => {
+                  setUniverseServicesOpen(false);
+                  setLocalUniverseOpen(false);
+                  joinOnline("", "competitive");
+                }}
+                competitiveQueueAvailable={competitiveQueueAvailable}
+                competitiveQueueing={competitiveQueueing}
+                presenceHeartbeat={false}
+              />
+            </Suspense>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -1353,7 +1399,10 @@ export function WarApp({ initialUniverseOpen = false }: { initialUniverseOpen?: 
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onGalaxy={() => setGalaxyOpen(true)}
-        onLocalUniverse={() => setLocalUniverseOpen(true)}
+        onLocalUniverse={() => {
+          setUniverseServicesOpen(false);
+          setLocalUniverseOpen(true);
+        }}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}

@@ -7,6 +7,24 @@ import {
 import type { OperationDirectoryResponse } from "@workspace/api-client-react";
 
 export type OperationEventLinkState = "connecting" | "live" | "reconnecting" | "unavailable";
+export type CinderLiveOperation = {
+  id: string;
+  title: string;
+  experience: string;
+  runtimeId: string;
+  currentPlayers: number;
+  capacity: number;
+};
+
+export function isOperationDirectoryFresh(
+  directory: OperationDirectoryResponse | undefined,
+  now = Date.now(),
+  maxAgeMs = 120_000,
+): boolean {
+  if (!directory) return false;
+  const generatedAt = Date.parse(directory.generatedAt);
+  return Number.isFinite(generatedAt) && generatedAt <= now + 10_000 && now - generatedAt <= maxAgeMs;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -73,6 +91,45 @@ export function parseOperationDirectorySnapshot(data: string): OperationDirector
   return validLocations && validOperations && validInstances && validEvents && validPresence
     ? value as unknown as OperationDirectoryResponse
     : null;
+}
+
+/** Project only server-published public events tied to a live Cinder Ring instance. */
+export function selectCinderLiveOperations(
+  directory: OperationDirectoryResponse | undefined,
+): CinderLiveOperation[] {
+  if (!directory) return [];
+  const cinderLocationIds = new Set(
+    directory.locations
+      .filter((location) => location.worldLocationId === "cinder-asteroid")
+      .map((location) => location.id),
+  );
+  const operations = new Map(directory.operations.map((operation) => [operation.id, operation]));
+  const instances = new Map(directory.instances.map((instance) => [instance.id, instance]));
+  const seen = new Set<string>();
+  return directory.events.flatMap((event) => {
+    if (event.status !== "active" || !event.operationInstanceId || !cinderLocationIds.has(event.locationId)) return [];
+    const instance = instances.get(event.operationInstanceId);
+    const operation = instance ? operations.get(instance.operationId) : undefined;
+    if (
+      !instance ||
+      !operation ||
+      instance.phase !== "active" ||
+      instance.visibility !== "public" ||
+      operation.visibility !== "public" ||
+      instance.locationId !== event.locationId ||
+      operation.locationId !== event.locationId ||
+      seen.has(instance.id)
+    ) return [];
+    seen.add(instance.id);
+    return [{
+      id: instance.id,
+      title: event.title,
+      experience: operation.experience,
+      runtimeId: instance.runtimeId,
+      currentPlayers: instance.currentPlayers,
+      capacity: instance.capacity,
+    }];
+  });
 }
 
 export function operationEventsUrl(apiBaseUrl: string | null | undefined, origin: string): string {

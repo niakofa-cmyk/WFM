@@ -39,6 +39,7 @@ type Props = {
   onJoinCompetitiveQueue: () => void;
   competitiveQueueAvailable: boolean;
   competitiveQueueing: boolean;
+  presenceHeartbeat?: boolean;
 };
 
 const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
@@ -67,6 +68,7 @@ export function GalaxyScreen({
   onJoinCompetitiveQueue,
   competitiveQueueAvailable,
   competitiveQueueing,
+  presenceHeartbeat = true,
 }: Props) {
   const { getToken, userId } = useAuth();
   const [, setLocation] = useLocation();
@@ -88,7 +90,7 @@ export function GalaxyScreen({
   const [cinderDockingPhase, setCinderDockingPhase] = useState<CinderRingDockingPhase>("entry");
   const world = snapshot.data;
   useEffect(() => {
-    if (!userId || !presenceActive) return;
+    if (!userId || !presenceActive || !presenceHeartbeat) return;
     let active = true;
     let inFlight = false;
     const sendHeartbeat = async () => {
@@ -116,7 +118,7 @@ export function GalaxyScreen({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [getToken, presenceActive, userId]);
+  }, [getToken, presenceActive, presenceHeartbeat, userId]);
   useEffect(() => {
     if (world?.currentLocation !== CINDER_RING_LOCATION_ID) {
       setCinderDockingPhase("entry");

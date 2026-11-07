@@ -139,7 +139,12 @@ type ArenaProps = {
    * Opt-in local Orbital universe profile: bounded offline exploration with a
    * physical Cinder Ring dock and a subordinate training activity. No rewards.
    */
-  localUniverse?: { onExit: () => void; servicesHref: string };
+  localUniverse?: {
+    onExit: () => void;
+    servicesHref: string;
+    servicesOpen?: boolean;
+    onOpenOperations?: () => void;
+  };
 };
 
 const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
@@ -692,6 +697,20 @@ export function Arena({
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   cameraModeRef.current = cameraMode;
   const pausedRef = useRef(false);
+  const localServicesPauseRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!localUniverse) return;
+    if (localUniverse.servicesOpen && localServicesPauseRef.current === null) {
+      localServicesPauseRef.current = pausedRef.current;
+      if (busRef.current) clearInput(busRef.current);
+      pausedRef.current = true;
+      setPaused(true);
+    } else if (!localUniverse.servicesOpen && localServicesPauseRef.current !== null) {
+      pausedRef.current = localServicesPauseRef.current;
+      setPaused(localServicesPauseRef.current);
+      localServicesPauseRef.current = null;
+    }
+  }, [localUniverse?.servicesOpen]);
   const dispatchUniverseRef = useRef(dispatchUniverse);
   dispatchUniverseRef.current = dispatchUniverse;
   const shakeRef = useRef(true);
@@ -2241,6 +2260,7 @@ export function Arena({
           rendererReady={glReady && !glError}
           graphicsError={glError}
           servicesHref={localUniverse.servicesHref}
+          onOpenOperations={localUniverse.onOpenOperations}
           onDock={() => {
             const pilot = matchRef.current?.player;
             if (!pilot || glError || !glReadyRef.current) return;
