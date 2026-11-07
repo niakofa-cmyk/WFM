@@ -1,3 +1,5 @@
+import { orbitalWorldPositionFromMeters, type OrbitalWorldPosition } from "./spatial-world";
+
 /**
  * Deterministic planetary coordinates and local lighting helpers.
  *
@@ -78,6 +80,15 @@ export function marsSurfacePosition(point: MarsSurfacePoint, rotationRadians = 0
   const normal = marsSurfaceNormal(point, rotationRadians);
   const radius = MARS_MEAN_RADIUS_METERS + point.altitudeMeters;
   return { x: normal.x * radius, y: normal.y * radius, z: normal.z * radius };
+}
+
+/** Chunk-addressed Mars position for large-world routing and nearby rendering. */
+export function marsSurfaceWorldPosition(
+  point: MarsSurfacePoint,
+  rotationRadians = 0,
+): OrbitalWorldPosition {
+  const position = marsSurfacePosition(point, rotationRadians);
+  return orbitalWorldPositionFromMeters(position.x, position.y, position.z);
 }
 
 /** Convert an inertial position back to planet-fixed latitude/longitude/altitude. */

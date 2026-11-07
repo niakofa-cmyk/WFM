@@ -71,6 +71,11 @@ The universe is not the authority for every combat instance. Authentication,
 eligibility, rooms, teams, damage, rewards and persistent outcomes retain their
 existing server owners. Navigation presentation cannot grant a seat or reward.
 
+The latest scale/protocol/recovery review is recorded in
+[Orbital scale, multiplayer protocol, and recovery redesign](ORBITAL-SCALE-PROTOCOL-RECOVERY-REDESIGN.md).
+It adds safe chunk-addressed world coordinates while explicitly preserving
+current server authority and versioned network contracts.
+
 ## Visual direction and saved references
 
 These are user-supplied **design references**, not original WFM art or proof of
