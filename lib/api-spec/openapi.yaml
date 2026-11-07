@@ -301,6 +301,25 @@ paths:
                 $ref: "#/components/schemas/WorldState"
         "401":
           description: Authentication required
+  /world/patrols:
+    get:
+      operationId: getWorldPatrols
+      tags: [progression]
+      summary: Get server-owned patrol formations at the authenticated pilot's region
+      description: Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Strategic patrol directory for the authenticated pilot's current location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldPatrolDirectory"
+        "401":
+          description: Authentication required
+        "503":
+          description: Persistent patrol state is temporarily unavailable
   /world/operations:
     get:
       operationId: getWorldOperations
@@ -956,6 +975,47 @@ components:
         presenceStatus:
           type: string
           enum: [available, unavailable]
+    WorldPatrolShip:
+      type: object
+      required: [id, hullId, name, callsign]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 160 }
+        hullId:
+          type: string
+          enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide]
+        name: { type: string, minLength: 1, maxLength: 80 }
+        callsign: { type: string, minLength: 1, maxLength: 16 }
+    WorldPatrolFleet:
+      type: object
+      required: [id, callsign, faction, objective, locationId, route, ships, lastMovedAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 180 }
+        callsign: { type: string, minLength: 1, maxLength: 40 }
+        faction: { type: string, enum: [ussf, accord] }
+        objective: { type: string, enum: [recon, route-security, escort, supply-screen] }
+        locationId: { type: string, minLength: 1, maxLength: 100 }
+        route:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items: { type: string, minLength: 1, maxLength: 100 }
+        ships:
+          type: array
+          minItems: 2
+          maxItems: 4
+          items: { $ref: "#/components/schemas/WorldPatrolShip" }
+        lastMovedAt: { type: string, format: date-time }
+    WorldPatrolDirectory:
+      type: object
+      required: [generatedAt, currentLocationId, simulationLayer, patrols]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        currentLocationId: { type: string, minLength: 1, maxLength: 100 }
+        simulationLayer: { type: string, enum: [strategic] }
+        patrols:
+          type: array
+          maxItems: 128
+          items: { $ref: "#/components/schemas/WorldPatrolFleet" }
     WorldLocation:
       type: object
       required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]

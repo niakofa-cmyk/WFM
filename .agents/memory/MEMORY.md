@@ -15,6 +15,7 @@
 - [Online Wing rewards](online-wing-rewards.md) — 10-human queue and reward enablement are separately gated; reward amounts, participation, daily cap, and ledger idempotency remain server-owned.
 - [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
 - [Railway service-scoped preflight](railway-service-scoped-preflight.md) — distinguish Railway metadata, API-service shells, and PostgreSQL access; Replit SQL cannot query Railway Postgres.
+- [Development schema push mismatch](development-schema-push-mismatch.md) — if Drizzle push fails introspection on an existing enum/text mismatch, avoid force-pushing unrelated schema changes.
 - [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
 - [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
 - [WFM Clerk E2E account isolation](clerk-e2e-account-isolation.md) — use only an existing WFM Development test account; verify the Clerk instance before provisioning users.

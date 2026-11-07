@@ -133,6 +133,11 @@ The full owner source is preserved at
 That source's dynamic encounter director and embedded multiplayer discovery
 sections are controlling product direction.
 
+The two additional owner references from November 7 are preserved verbatim at
+[`references/redesign/MASTER-AI-GAME-DEVELOPMENT-DIRECTIVE-2026-11-07-SOURCE.txt`](references/redesign/MASTER-AI-GAME-DEVELOPMENT-DIRECTIVE-2026-11-07-SOURCE.txt)
+and
+[`references/redesign/INFINITE-OPEN-UNIVERSE-2026-11-07-SOURCE.txt`](references/redesign/INFINITE-OPEN-UNIVERSE-2026-11-07-SOURCE.txt).
+
 The primary Orbital boot and initial server-internal encounter/result contract
 are implemented; see
 [Primary boot and encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
@@ -173,36 +178,51 @@ intercept or reinforcement request; a warning is not an attack. Contact state is
 returned only to that pilot in the sector socket snapshot. It is deliberately
 absent from the public world-operation directory and event stream.
 
-The patrol follows a fixed server-authored path in one contested sector; it is
-not yet a universe-wide encounter director, and reinforcement requests do not
-spawn additional ships. The existing server settlement pays 12 credits per
-confirmed eligible NPC kill after successful extraction (capped at 24 per
-encounter); evidence recovery itself has no reward. No faction-wide knowledge
-or global NPC consequence is written. Private, AI-fill, Wing and local-training
-reward rules are unchanged. Orbital V2 remains opt-in and the V1 rollback path
-is intact.
+The V2 Pale Beacons patrol remains a single moving actor in one contested
+co-op sector. Separately, a new strategic patrol director now persists
+deterministically seeded, two-to-four-ship USSF and Accord formations across
+the current named world route graph. It stores their roster and route position
+in `universe_patrols`, advances waypoints from saved timestamps with a
+revision-checked database update, and exposes only the authenticated pilot's
+server-recorded current region through `GET /world/patrols`. The Galaxy panel
+shows these strategic AI contacts and their routes; they are not live human
+matches or flight-level combat actors. See
+[Persistent multi-ship universe patrols](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
+for schema, scope, and acceptance boundaries.
+
+The strategic patrol implementation does not apply hull damage, resolve kills
+or assists, create faction-wide knowledge, or grant rewards. The existing
+server settlement pays 12 credits per confirmed eligible NPC kill after
+successful extraction (capped at 24 per encounter); evidence recovery itself
+has no reward. No faction-wide knowledge or global NPC consequence is written.
+Private, AI-fill, Wing and local-training reward rules are unchanged. Orbital
+V2 remains opt-in and the V1 rollback path is intact.
 
 Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
-operations, a read-only Wing spectator path, and the bounded Pale Beacons
-patrol and evidence slice above. It does not yet implement shared free-flight
-NPC fleets, persistent encounters across sectors, a world-wide faction
-simulation, or an open-universe patrol/event director. Do not use local
-procedural scenery or client-side scan records as a substitute for those
-capabilities.
+operations, a read-only Wing spectator path, the bounded Pale Beacons patrol
+and evidence slice, and a persistent strategic multi-ship patrol directory.
+It does not yet implement shared free-flight NPC combat, persistent combat
+encounters, a world-wide faction consequence simulation, or a complete
+spatially-authoritative encounter director. Do not use local procedural scenery
+or client-side scan records as a substitute for those capabilities.
 
 ## Implementation order
 
 1. **Implemented for one path:** versioned Orbital V2 Pale Beacons encounter,
    moving NPC position, private snapshots, result settlement and account-scoped
    evidence recovery.
-2. Extend the single patrol into bounded multi-actor patrols, persistent routes,
-   and server-owned faction objectives with predictable resource limits.
-3. Expand authenticated multiplayer exploration beyond the existing co-op
+2. **Implemented strategic foundation:** persistent multi-ship formations,
+   route movement, authenticated region reads, and Galaxy visibility. The
+   implementation and current limits are recorded in
+   `PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md`.
+3. Extend selected patrols into bounded Orbital flight encounters with
+   server-owned detection, movement, combat, and resolution.
+4. Expand authenticated multiplayer exploration beyond the existing co-op
    sector room; do not treat the local streamed sandbox as shared authority.
-4. Add validated world consequences at account or faction scope only after their
+5. Add validated world consequences at account or faction scope only after their
    ownership and isolation rules are defined; preserve existing reward gates.
-5. Surface active events at physical destinations, add safe spectator/admission
+6. Surface active events at physical destinations, add safe spectator/admission
    paths, and prove both factions and multiple devices on staging before rollout.
-6. Validate mobile frame cost, reconnect behavior, privacy, anti-replay, and
+7. Validate mobile frame cost, reconnect behavior, privacy, anti-replay, and
    production safety before widening encounter scale.

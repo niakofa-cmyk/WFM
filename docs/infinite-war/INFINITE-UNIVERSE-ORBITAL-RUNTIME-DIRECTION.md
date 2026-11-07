@@ -56,6 +56,7 @@ already been extracted.
 | Live Wing 5v5 / private / AI-fill | Authenticated Wing socket, matchmaking and `surface-v1` combat; Orbital Arena rejects live rooms | Not migrated. Keep competitive ten-human and reward gates; private and AI-fill remain no-reward. |
 | Universe / Galaxy navigation | `GalaxyScreen`, world-operation directory and operation registration | Navigation and discovery only; not continuous 3D travel or shared flight. |
 | Fleet warfare / persistent universe expansion | Offline local Orbital flight now streams deterministic sector neighborhoods. It does not persist or share those sectors. | Account-persistent/shared space, planetary reference frames, distant star systems and fleet warfare remain unimplemented. |
+| Strategic faction patrols | Persistent, deterministically seeded 2–4 ship formations for both factions now roam the current named world route graph; the authenticated Galaxy view shows server-confirmed strategic contacts. | This is not yet spatial flight, live combat, a full faction simulation, or an infinite generated sector network. See [persistent multi-ship patrols](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md). |
 
 The local Rust Disc compatibility scene remains bounded. The Orbital local
 universe now rebases its small physics coordinates into deterministic

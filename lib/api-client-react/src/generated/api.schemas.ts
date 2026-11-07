@@ -1172,6 +1172,109 @@ export interface OperationDirectoryResponse {
   presenceStatus?: OperationDirectoryResponsePresenceStatus;
 }
 
+export type WorldPatrolShipHullId = typeof WorldPatrolShipHullId[keyof typeof WorldPatrolShipHullId];
+
+
+export const WorldPatrolShipHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolShip {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  id: string;
+  hullId: WorldPatrolShipHullId;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 16
+     */
+  callsign: string;
+}
+
+export type WorldPatrolFleetFaction = typeof WorldPatrolFleetFaction[keyof typeof WorldPatrolFleetFaction];
+
+
+export const WorldPatrolFleetFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolFleetObjective = typeof WorldPatrolFleetObjective[keyof typeof WorldPatrolFleetObjective];
+
+
+export const WorldPatrolFleetObjective = {
+  recon: 'recon',
+  'route-security': 'route-security',
+  escort: 'escort',
+  'supply-screen': 'supply-screen',
+} as const;
+
+export interface WorldPatrolFleet {
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  callsign: string;
+  faction: WorldPatrolFleetFaction;
+  objective: WorldPatrolFleetObjective;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  /**
+     * @minItems 2
+     * @maxItems 3
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  route: string[];
+  /**
+     * @minItems 2
+     * @maxItems 4
+     */
+  ships: WorldPatrolShip[];
+  lastMovedAt: string;
+}
+
+export type WorldPatrolDirectorySimulationLayer = typeof WorldPatrolDirectorySimulationLayer[keyof typeof WorldPatrolDirectorySimulationLayer];
+
+
+export const WorldPatrolDirectorySimulationLayer = {
+  strategic: 'strategic',
+} as const;
+
+export interface WorldPatrolDirectory {
+  generatedAt: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  currentLocationId: string;
+  simulationLayer: WorldPatrolDirectorySimulationLayer;
+  /** @maxItems 128 */
+  patrols: WorldPatrolFleet[];
+}
+
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];
 
 

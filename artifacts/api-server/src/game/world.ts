@@ -138,6 +138,19 @@ const ROUTES: Record<string, RouteDefinition[]> = {
   "mars-signal": [{ destinationId: "dust-lane", costCredits: 26 }],
 };
 
+/**
+ * Strategic patrol routes mirror the server-owned travel graph. Keeping this
+ * derived from ROUTES prevents patrol AI from routing through unreachable
+ * locations or maintaining a second navigation map.
+ */
+export const WORLD_PATROL_SECTOR_NETWORK: Readonly<Record<string, readonly string[]>> =
+  Object.fromEntries(
+    Object.entries(ROUTES).map(([locationId, routes]) => [
+      locationId,
+      routes.map((route) => route.destinationId),
+    ]),
+  );
+
 const QUESTS: QuestDefinition[] = [
   {
     id: "rust-recording",

@@ -6,7 +6,7 @@ import test from "node:test";
 import express from "express";
 import { clerkMiddleware } from "@clerk/express";
 import { buildPublishableKey } from "@clerk/shared/keys";
-import type { OperationDirectoryResponse } from "@workspace/api-zod";
+import type { OperationDirectoryResponse, WorldPatrolDirectory } from "@workspace/api-zod";
 import { apiClerkOptions } from "../middlewares/clerk-auth-options";
 import { createWorldOperationsRouter } from "./world-operations";
 
@@ -36,6 +36,26 @@ test("public directory and SSE publish read-only snapshots; registration require
     presenceStatus: "available",
   };
   let heartbeatCalls = 0;
+  let requestedPatrolUserId = "";
+  let patrolReaderUnavailable = false;
+  const patrolDirectory: WorldPatrolDirectory = {
+    generatedAt: now,
+    currentLocationId: "phobos-yard",
+    simulationLayer: "strategic",
+    patrols: [{
+      id: "strategic-patrol-v1:phobos-yard:ussf:0",
+      callsign: "USSF-3F21",
+      faction: "ussf",
+      objective: "route-security",
+      locationId: "phobos-yard",
+      route: ["phobos-yard", "rust-disc"],
+      ships: [
+        { id: "u-1", hullId: "duskbreaker", name: "Duskbreaker", callsign: "U-101" },
+        { id: "u-2", hullId: "sentinel", name: "Sentinel-G", callsign: "U-102" },
+      ],
+      lastMovedAt: now,
+    }],
+  };
   const coordinator: Parameters<typeof createWorldOperationsRouter>[0] = {
     getDirectory: async () => directory,
     heartbeatPresence: async () => { heartbeatCalls++; },
@@ -71,7 +91,11 @@ test("public directory and SSE publish read-only snapshots; registration require
     jwtKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
   }));
   app.use(express.json());
-  app.use("/api", createWorldOperationsRouter(coordinator, 60_000));
+  app.use("/api", createWorldOperationsRouter(coordinator, 60_000, async (userId) => {
+    requestedPatrolUserId = userId;
+    if (patrolReaderUnavailable) throw new Error("internal database detail");
+    return patrolDirectory;
+  }));
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address() as AddressInfo;
@@ -104,6 +128,8 @@ test("public directory and SSE publish read-only snapshots; registration require
     assert.equal(heartbeatCalls, 0);
     const anonymousResults = await fetch(`http://127.0.0.1:${address.port}/api/world/exploration/results`);
     assert.equal(anonymousResults.status, 401, "result history is never public");
+    const anonymousPatrols = await fetch(`http://127.0.0.1:${address.port}/api/world/patrols`);
+    assert.equal(anonymousPatrols.status, 401, "patrol views require the authenticated player");
 
     const controller = new AbortController();
     const stream = await fetch(`${baseUrl}/events`, { signal: controller.signal });
@@ -131,6 +157,21 @@ test("public directory and SSE publish read-only snapshots; registration require
     assert.equal(scoutResults.status, 200);
     assert.match(scoutResults.headers.get("cache-control") ?? "", /private, no-store/);
     assert.deepEqual(await scoutResults.json(), { results: [] });
+
+    const patrolsResponse = await fetch(`http://127.0.0.1:${address.port}/api/world/patrols`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(patrolsResponse.status, 200);
+    assert.match(patrolsResponse.headers.get("cache-control") ?? "", /private, no-store/);
+    assert.deepEqual(await patrolsResponse.json(), JSON.parse(JSON.stringify(patrolDirectory)));
+    assert.equal(requestedPatrolUserId, "synthetic_operation_user");
+
+    patrolReaderUnavailable = true;
+    const unavailablePatrols = await fetch(`http://127.0.0.1:${address.port}/api/world/patrols`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(unavailablePatrols.status, 503);
+    assert.deepEqual(await unavailablePatrols.json(), { error: "operation_service_unavailable" });
 
     const heartbeat = await fetch(`http://127.0.0.1:${address.port}/api/world/presence/heartbeat`, {
       method: "POST",

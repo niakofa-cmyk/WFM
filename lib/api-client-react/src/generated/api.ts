@@ -42,6 +42,7 @@ import type {
   StrikeStartInput,
   WorldExplorationResults,
   WorldExploreInput,
+  WorldPatrolDirectory,
   WorldQuestActionInput,
   WorldQuestActionResult,
   WorldServiceInput,
@@ -1229,6 +1230,84 @@ export function useGetWorld<TData = Awaited<ReturnType<typeof getWorld>>, TError
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWorldQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWorldPatrolsUrl = () => {
+
+
+
+
+  return `/api/world/patrols`
+}
+
+/**
+ * Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrol formations at the authenticated pilot's region
+ */
+export const getWorldPatrols = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldPatrolDirectory> => {
+
+  return customFetch<WorldPatrolDirectory>(getGetWorldPatrolsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldPatrolsQueryKey = () => {
+    return [
+    `/api/world/patrols`
+    ] as const;
+    }
+
+
+export const getGetWorldPatrolsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldPatrols>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldPatrolsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldPatrols>>> = ({ signal }) => getWorldPatrols({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldPatrolsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldPatrols>>>
+export type GetWorldPatrolsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get server-owned patrol formations at the authenticated pilot's region
+ */
+
+export function useGetWorldPatrols<TData = Awaited<ReturnType<typeof getWorldPatrols>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldPatrolsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

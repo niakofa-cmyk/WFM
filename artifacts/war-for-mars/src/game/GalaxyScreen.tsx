@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
-import { getGetWorldOperationsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useRegisterWorldOperationInstance } from "@workspace/api-client-react";
+import { getGetWorldOperationsQueryKey, getGetWorldPatrolsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useGetWorldPatrols, useRegisterWorldOperationInstance } from "@workspace/api-client-react";
 import { heartbeatWorldPresence } from "@workspace/api-client-react";
 import type { OperationDirectoryResponse, WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import type { Faction, ShipId } from "./ships";
@@ -18,6 +18,7 @@ import { cinderRingEntrySurface, type CinderRingDockingPhase } from "./cinder-ri
 import { UniverseActivityFeed } from "./UniverseActivityFeed";
 import { ConnectedUniverseNavigation } from "./ConnectedUniverseNavigation";
 import { connectedDestinations, operationControlTarget } from "./orbital-navigation";
+import { UniversePatrolPanel } from "./UniversePatrolPanel";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const CinderRingDockingApproach = lazy(() =>
@@ -89,6 +90,13 @@ export function GalaxyScreen({
   const [operationError, setOperationError] = useState("");
   const [cinderDockingPhase, setCinderDockingPhase] = useState<CinderRingDockingPhase>("entry");
   const world = snapshot.data;
+  const patrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && world && !snapshot.cached),
+      refetchInterval: 30_000,
+      queryKey: [...getGetWorldPatrolsQueryKey(), world?.currentLocation],
+    },
+  });
   useEffect(() => {
     if (!userId || !presenceActive || !presenceHeartbeat) return;
     let active = true;
@@ -329,6 +337,15 @@ export function GalaxyScreen({
           streamState={operationStreamState}
           loading={operationsQuery.isLoading}
           unavailable={directoryUnavailable}
+        />
+        <UniversePatrolPanel
+          directory={patrolsQuery.data}
+          currentLocationId={world.currentLocation}
+          currentLocationName={currentLocation?.name}
+          locations={locations}
+          loading={patrolsQuery.isLoading}
+          unavailable={patrolsQuery.isError || patrolsQuery.fetchStatus === "paused"}
+          onRetry={() => { void patrolsQuery.refetch(); }}
         />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">

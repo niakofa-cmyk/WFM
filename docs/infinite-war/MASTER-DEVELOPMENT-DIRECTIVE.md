@@ -43,6 +43,14 @@ spectating, server-confirmed enemy-hull tallies, and separate exploration reward
 policy. Server validation, idempotent settlement, private-room boundaries, and
 the current Wing reward gates remain mandatory.
 
+The owner-provided November 7 patrol references are preserved verbatim in
+[`references/redesign/`](references/redesign/). The current implementation
+slice and remaining gates are tracked in
+[`PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md`](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md):
+server-persisted, multi-ship USSF/Accord patrols now move through the existing
+world route graph and appear in the Galaxy screen. This is strategic AI
+visibility only; it is not yet a 3D free-flight encounter or a reward source.
+
 ## Current connected-universe redesign direction — 2026-11-06
 
 The owner has now explicitly authorized starting the visual redesign and

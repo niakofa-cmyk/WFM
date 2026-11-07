@@ -1192,6 +1192,58 @@ export const GetWorldResponse = zod.object({
 
 
 /**
+ * Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrol formations at the authenticated pilot's region
+ */
+export const getWorldPatrolsResponseCurrentLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemIdMax = 180;
+
+export const getWorldPatrolsResponsePatrolsItemCallsignMax = 40;
+
+export const getWorldPatrolsResponsePatrolsItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteItemMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteMin = 2;
+export const getWorldPatrolsResponsePatrolsItemRouteMax = 3;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemIdMax = 160;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemNameMax = 80;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax = 16;
+
+export const getWorldPatrolsResponsePatrolsItemShipsMin = 2;
+export const getWorldPatrolsResponsePatrolsItemShipsMax = 4;
+
+export const getWorldPatrolsResponsePatrolsMax = 128;
+
+
+
+export const GetWorldPatrolsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "currentLocationId": zod.string().min(1).max(getWorldPatrolsResponseCurrentLocationIdMax),
+  "simulationLayer": zod.enum(['strategic']),
+  "patrols": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemIdMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemCallsignMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "objective": zod.enum(['recon', 'route-security', 'escort', 'supply-screen']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemLocationIdMax),
+  "route": zod.array(zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemRouteItemMax)).min(getWorldPatrolsResponsePatrolsItemRouteMin).max(getWorldPatrolsResponsePatrolsItemRouteMax),
+  "ships": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemIdMax),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "name": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemNameMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax)
+})).min(getWorldPatrolsResponsePatrolsItemShipsMin).max(getWorldPatrolsResponsePatrolsItemShipsMax),
+  "lastMovedAt": zod.coerce.date()
+})).max(getWorldPatrolsResponsePatrolsMax)
+})
+
+
+/**
  * Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
  * @summary Discover public operations in the universe
  */
