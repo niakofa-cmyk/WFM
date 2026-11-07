@@ -77,27 +77,35 @@ contract and migration must resolve those relationships explicitly.
 
 ## Narrative geography and connective thread
 
-The following is the proposed connected geography based on the existing
-campaign and owner-supplied redesign sources. It preserves established story
-anchors while marking travel bridges and future reveals as design work.
+The [Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md)
+records the source-backed resolution in detail. The main story-facing order is:
 
-| Story/world beat | Location or route | Narrative and player purpose | Current interpretation |
+**Contact → Mars arrival corridor → Beacon → Warden → Cage → Iron Eclipse → Beyond the Signal**
+
+This is an authored narrative sequence layered over the universe, not a new
+mission-lock chain. Chapter labels do not change the current four-sortie
+campaign gates or the separate cooperative discoveries.
+
+| Story order | Location or route | Narrative purpose | Current implementation boundary |
 |---|---|---|---|
-| Contact | Rust Disc | Recover the relay route key; establish that the signal is more than an ordinary distress call. | Existing campaign beat and separate compatibility expedition; not one continuous route. |
-| Mars arrival corridor | Mars Approach | Travel into the Mars theater, encounter traffic or defenses when implemented, and choose onward destinations. | Existing separate sector operation; route bridge, not an extra campaign prerequisite by assumption. |
-| Beacon | Pale Beacons | Triangulate the muted relay chain and discover that someone has been suppressing the receivers. | Existing campaign beat and separate compatibility expedition. |
-| Warden | Night-side Station / dark hemisphere | Cross into the night-side blackout, discover the blockade's purpose, and recover its record. | Existing campaign story identity; the physical rotating night-side world is planned. |
-| Cage | Dust Lane | Encounter the moving transport and make a faction- and operation-specific choice around Eon Dusk and the signal. | Existing campaign identity; a persistent moving convoy and branching operation are not yet established. |
-| Below the Signal | Subsurface mystery | Follow the signal beneath Mars and connect the Mars conflict to later universe discoveries. | Existing recovered-intelligence reveal; playable surface/subsurface environments remain planned. |
-| Iron Eclipse | Contested Mars orbit | Participate in a consequential fleet engagement connected to the wider war. | Existing separate operation; its canonical chronology and relationship to the signal require owner-story continuity review. |
+| Prelude | Signal history predates the USSF–Accord front; the beacons received it for years; the Warden erasure order also predates that front. | Established by recovered campaign intel. The signal's source and the actors behind the blackout/order remain unknown. |
+| I · Contact | Rust Disc | Recover the relay route key and establish that the signal is more than a distress call. | Existing campaign `contact`; the co-op Rust Disc operation shares place/theme, not the same operation result. |
+| II · Arrival | Mars Approach corridor | Move into the Mars theater and choose onward destinations. | Geographic travel interlude only. The existing co-op Mars Approach survey is separate and does not unlock the campaign's Beacon sortie. |
+| III · Beacon | Pale Beacons | Trace the signal and discover that someone kept the receivers dark. | Existing campaign `beacon`; the co-op `pale-beacons` scout operation and its server discovery remain separate. The suppressing actor is unknown. |
+| IV · Warden | Night-side Station / dark hemisphere | Investigate the blackout and recover the Warden's record. | Existing campaign `warden`. A full rotating night-side world is planned; the order's issuer is unknown. |
+| V · Cage | Dust Lane | Confront the transport carrying Eon Dusk and expose the deeper signal. | Existing campaign `cage`. The brief says USSF escorts it and the Accord must stop it; the exact custody-transfer history is unresolved. |
+| VI · proposed · Iron Eclipse | Contested Mars orbit | Make the exposed signal consequential to the wider fleet conflict. | The latest owner outline places this operation after Cage. Its strategic trigger and aftermath remain proposed; the existing operation remains independent and no campaign gate is added. |
+| VII · future · Beyond the Signal | Subsurface mystery | Follow the recovered signal beneath Mars and into later discoveries. | A future narrative lead, not a playable operation or built subsurface region. |
 
-The supplied seven-chapter outline (Silent Frontier, Mars Arrival, Pale Beacon
-Conspiracy, Night-Side Blockade, Eon Dusk Extraction, Iron Eclipse, Beyond the
-Signal) is a useful **proposed structure**, not yet locked canon. In particular,
-the current authored campaign has four sorties and does not include Mars
-Approach as a campaign sortie; the co-op route has a different three-operation
-chain; Iron Eclipse's placement remains unresolved. A story bible must reconcile
-these before chapter numbers, unlock rules, or new canon are asserted.
+**Iron Eclipse is positioned as the proposed Chapter VI fleet operation** per
+the latest owner chapter outline. This gives the working story map a continuous
+place for the existing operation, while keeping the exact cause, command
+authority, and consequences visibly proposed. It remains separately enterable
+under its current operation contract and is not made a campaign prerequisite.
+
+The seven-part outline is therefore reconciled as five existing campaign beats,
+one optional geographic interlude, a proposed fleet-operation placement, and a
+future signal arc—not seven mandatory campaign sorties.
 
 ## Make exploration part of the war
 
@@ -186,12 +194,13 @@ authority to make a demo appear complete.
 
 ## Implementation order and acceptance gates
 
-1. **Story/source audit:** compare all owner sources, current campaign and
-   recovered intel, sector mission definitions, briefings, dispatches,
-   encounter content, and existing persistence. Record canon, proposals, and
-   unresolved contradictions.
-2. **Canonical story bible:** agree on chronology, faction motives, signal
-   history, Warden/Eon Dusk/Cage relationships, and Iron Eclipse's position.
+1. **Story/source audit:** the working Mars chronology now reconciles the
+   authored campaign facts, current co-op route, and owner-proposed chapter
+   outline. A full universe-history and faction-motive bible remains outstanding.
+2. **Canonical story bible:** retain the working order in
+   [Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md) and
+   keep proposed Iron Eclipse causality separate from established facts. Do
+   not fabricate the signal source, Warden's issuer, or Dusk's custody transfer.
 3. **Shared identities and contracts:** map stable route, POI, story, operation,
    objective, actor, event, and result IDs; remove client/server catalog
    duplication only with protocol and replay compatibility tests.
@@ -227,10 +236,11 @@ Acceptance requires:
 
 ## Current implementation slice
 
-The new `mars-story-thread.ts` data and atlas section connect existing story
-identities to the existing route catalog for **navigation context only**. The
-atlas continues to derive each location's implementation status from
-`mars-adventure-network.ts`. The story thread has no launch action, account
-write, operation authority, live-event claim, or reward capability. This is
-intentional groundwork, not the shared server operation contract or the
-NIGHTFALL acceptance slice.
+The `mars-story-thread.ts` data and atlas section present Contact → Mars
+Approach interlude → Beacon → Warden → Cage → proposed Iron Eclipse → future
+Beyond the Signal. The atlas derives implementation status from
+`mars-adventure-network.ts`; this thread is **navigation context only**. It has
+no launch action, account write, operation authority, live-event claim, or
+reward capability. It adds no progression gate and does not change the separate
+sector operation prerequisites. This is intentional groundwork, not the shared
+server operation contract or the NIGHTFALL acceptance slice.

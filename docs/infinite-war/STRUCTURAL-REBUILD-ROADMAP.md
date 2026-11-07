@@ -75,6 +75,8 @@ unbounded count of live ships or a literally infinite galaxy.
 
 The current narrative relationship and next story-graph gates are recorded in
 [Connected Storyline and Adventure Rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md).
+The canonical working order and explicit lore gaps are in
+[Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md).
 Do not collapse the existing Contact/Beacon/Warden/Cage campaign and the
 Rust Disc/Mars Approach/Pale Beacons sector progression into one unlock chain
 until the shared story, route, and operation identities are reconciled.

@@ -51,13 +51,16 @@ The resulting [connected-storyline and adventure rebuild](CONNECTED-STORYLINE-AN
 is the working direction for tying campaign beats to physical routes and
 operations.
 
-The campaign must not become a menu of disconnected missions. Contact, Beacon,
-Warden, and Cage remain the existing story spine; Mars Approach is proposed as
-connective geography, not an assumed new campaign unlock. Iron Eclipse remains
-a separate operation until its chronology is reconciled. Route display is still
-informational: the atlas does not create operation authority, persistence,
-multiplayer events, or rewards. This direction is consistent with Orbital as
-the main game runtime and with existing server authority.
+The campaign must not become a menu of disconnected missions. The working
+story-facing order is Contact → Mars Approach travel interlude → Beacon →
+Warden → Cage → proposed Chapter VI Iron Eclipse → future Chapter VII Beyond
+the Signal. Mars Approach adds no campaign unlock; Iron Eclipse's position is
+proposed and does not alter its existing operation access. Route display is
+still informational: the atlas does not create operation authority,
+persistence, multiplayer events, or rewards. See
+[Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md). This
+direction is consistent with Orbital as the main game runtime and with existing
+server authority.
 
 This direction permits a bounded visual redesign now; the earlier
 engine-consolidation-before-appearance deferral does not prohibit this work.

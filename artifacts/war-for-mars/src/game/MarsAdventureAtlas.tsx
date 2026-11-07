@@ -1,5 +1,5 @@
 import { MARS_ADVENTURES, MARS_ADVENTURE_STATE_LABEL } from "./mars-adventure-network";
-import { MARS_PARALLEL_STORY_OPERATIONS, MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
+import { MARS_STORY_ROLE_LABEL, MARS_STORY_THREAD } from "./mars-story-thread";
 
 export function MarsAdventureAtlas() {
   const adventureById = new Map(MARS_ADVENTURES.map((adventure) => [adventure.id, adventure]));
@@ -16,11 +16,11 @@ export function MarsAdventureAtlas() {
       <section className="uv-story-thread" aria-label="Connected Mars storyline">
         <header className="uv-story-thread__header">
           <b>CONNECTED STORY THREAD</b>
-          <small>STORY CONTEXT · NOT A LIVE OPERATION LIST</small>
+          <small>WORKING STORY ORDER · NOT A LIVE OPERATION LIST</small>
         </header>
         <p className="uv-story-thread__intro">
-          Contact, Beacon, Warden, and Cage remain the authored campaign beats. Mars Approach links geography;
-          it is not assumed to be another campaign unlock. Explore beyond the story and return without losing its thread.
+          Contact → Mars Approach → Beacon → Warden → Cage → Iron Eclipse → Beyond the Signal.
+          Mars Approach is a travel interlude; Iron Eclipse is a proposed story placement, not a campaign unlock.
         </p>
         <ol className="uv-story-thread__list">
           {MARS_STORY_THREAD.map((beat) => {
@@ -29,6 +29,7 @@ export function MarsAdventureAtlas() {
               <li key={beat.id} data-story-role={beat.role} data-route-state={adventure?.state ?? "unmapped"}>
                 <span className="uv-story-thread__role">{MARS_STORY_ROLE_LABEL[beat.role]}</span>
                 <div>
+                  <small className="uv-story-thread__sequence">{beat.sequenceLabel}</small>
                   <b>{beat.title}</b>
                   <p>{beat.purpose}</p>
                   <small>{adventure?.region ?? "Location mapping pending"} · {adventure ? MARS_ADVENTURE_STATE_LABEL[adventure.state] : "NOT MAPPED"}</small>
@@ -38,20 +39,6 @@ export function MarsAdventureAtlas() {
             );
           })}
         </ol>
-        <aside className="uv-story-thread__parallel">
-          {MARS_PARALLEL_STORY_OPERATIONS.map((operation) => {
-            const adventure = adventureById.get(operation.routeId);
-            return (
-              <div key={operation.id} data-testid="mars-story-parallel-operation">
-                <b>{operation.title}</b>
-                <small>
-                  {adventure ? MARS_ADVENTURE_STATE_LABEL[adventure.state] : "NOT MAPPED"} · CHRONOLOGY UNRESOLVED
-                </small>
-                <p>{operation.note}</p>
-              </div>
-            );
-          })}
-        </aside>
         <small className="uv-story-thread__boundary">
           Navigation context only. This thread does not start an operation, grant a discovery, or change account progression.
         </small>

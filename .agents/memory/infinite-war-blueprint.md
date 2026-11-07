@@ -35,9 +35,10 @@ must connect the game's activities across the world.
 
 **How to apply:** preserve established story identities, distinguish authored
 campaign beats from travel corridors and repeatable events, and keep chronology
-proposals separate from confirmed canon. Use
-`docs/infinite-war/CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md` as the current
-implementation direction.
+decisions separate from still-unknown lore. Use
+`docs/infinite-war/MARS-STORY-CHRONOLOGY-AND-CANON.md` for the current Mars
+sequence and `docs/infinite-war/CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md`
+for the broader implementation direction.
 
 The blueprint's proposed end state includes targetable combat with distinct
 faction and ship capabilities; server-validated damage and destruction;

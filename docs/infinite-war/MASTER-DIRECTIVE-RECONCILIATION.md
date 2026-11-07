@@ -41,11 +41,15 @@ planned locations. These are useful foundations, not a unified story graph.
 
 The new connected-storyline slice links those existing identities to Mars
 locations for navigation context. Mars Approach is a travel bridge, not a new
-campaign gate. Iron Eclipse keeps its operation identity while its narrative
-chronology is reconciled. The atlas adds no launch, event, unlock, multiplayer,
-reward, or persistence authority.
+campaign gate. The working story-facing sequence is now recorded as Contact →
+Mars Approach interlude → Beacon → Warden → Cage → proposed Chapter VI Iron
+Eclipse → future Chapter VII Beyond the Signal. Iron Eclipse keeps its existing
+operation identity and access; the proposed story placement adds no campaign
+gate. The atlas adds no launch, event, unlock, multiplayer, reward, or
+persistence authority. The detailed canon boundaries are in
+[Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md).
 
-**Next architecture gate:** resolve story chronology and stable route/operation
+**Next architecture gate:** define stable shared route/story/operation
 identities before consolidating catalogs. Then migrate one bounded operation
 through the shared contract. Operation NIGHTFALL is the first complete
 continuous-Mars journey acceptance target in the source documents; it is not

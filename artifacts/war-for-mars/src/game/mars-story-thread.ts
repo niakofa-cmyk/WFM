@@ -6,7 +6,8 @@ export type MarsStoryBeat = {
   id: string;
   routeId: string;
   title: string;
-  role: "campaign-beat" | "travel-bridge" | "future-reveal";
+  role: "campaign-beat" | "travel-bridge" | "proposed-operation" | "future-reveal";
+  sequenceLabel: string;
   campaignSortieId?: "contact" | "beacon" | "warden" | "cage";
   purpose: string;
   connection: string;
@@ -18,6 +19,7 @@ export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
     routeId: "rust-disc",
     title: "Contact · The Silent Frontier",
     role: "campaign-beat",
+    sequenceLabel: "CHAPTER I · OPENING",
     campaignSortieId: "contact",
     purpose: "Recover the relay route key and learn why the signal is more than a distress call.",
     connection: "The route key points onward to the muted beacon chain.",
@@ -27,6 +29,7 @@ export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
     routeId: "mars-approach",
     title: "Mars Approach · Arrival Corridor",
     role: "travel-bridge",
+    sequenceLabel: "CHAPTER II · TRAVEL INTERLUDE",
     purpose: "Enter the Mars theater and choose where to investigate, patrol, or seek support.",
     connection: "A geographic travel link, not a new campaign progression gate.",
   },
@@ -35,6 +38,7 @@ export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
     routeId: "pale-beacons",
     title: "Beacon · The Silent Relay Chain",
     role: "campaign-beat",
+    sequenceLabel: "CHAPTER III · INVESTIGATION",
     campaignSortieId: "beacon",
     purpose: "Trace the signal and discover who kept the receivers dark.",
     connection: "The relay evidence points toward the night-side command ship.",
@@ -44,6 +48,7 @@ export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
     routeId: "night-side-station",
     title: "Warden · The Night-side Blockade",
     role: "campaign-beat",
+    sequenceLabel: "CHAPTER IV · BLACKOUT",
     campaignSortieId: "warden",
     purpose: "Investigate the blackout, identify the blockade's purpose, and recover its record.",
     connection: "The Warden record reveals the moving Cage and Eon Dusk.",
@@ -53,32 +58,34 @@ export const MARS_STORY_THREAD: readonly MarsStoryBeat[] = [
     routeId: "dust-lane",
     title: "Cage · The Eon Dusk Extraction",
     role: "campaign-beat",
+    sequenceLabel: "CHAPTER V · EXTRACTION",
     campaignSortieId: "cage",
     purpose: "Confront the transport through a faction- and operation-specific objective.",
     connection: "The recorder connects the conflict to a signal beneath Mars.",
   },
   {
-    id: "beyond-signal",
-    routeId: "below-the-signal",
-    title: "Below the Signal · Wider-Universe Thread",
-    role: "future-reveal",
-    purpose: "Pursue the recovered signal into future physical regions when those environments exist.",
-    connection: "A proposed expansion bridge; subsurface exploration is not yet playable.",
-  },
-] as const;
-
-export const MARS_PARALLEL_STORY_OPERATIONS = [
-  {
     id: "iron-eclipse",
     routeId: "iron-eclipse",
-    title: "Iron Eclipse · Parallel Warfront",
-    chronologyStatus: "unresolved" as const,
-    note: "Keep its current operation identity; reconcile its canonical story placement before inserting it into the campaign sequence.",
+    title: "Iron Eclipse · The Fleet Offensive",
+    role: "proposed-operation",
+    sequenceLabel: "CHAPTER VI · FLEET OPERATION",
+    purpose: "Bring the exposed Mars signal into the wider USSF–Accord fleet conflict.",
+    connection: "Proposed strategic bridge after Cage; the operation's exact cause and consequence still need authorship.",
+  },
+  {
+    id: "beyond-signal",
+    routeId: "below-the-signal",
+    title: "Beyond the Signal · Wider-Universe Thread",
+    role: "future-reveal",
+    sequenceLabel: "CHAPTER VII · FUTURE REVEAL",
+    purpose: "Pursue the recovered signal into future physical regions when those environments exist.",
+    connection: "A proposed expansion bridge; subsurface exploration is not yet playable.",
   },
 ] as const;
 
 export const MARS_STORY_ROLE_LABEL: Record<MarsStoryBeat["role"], string> = {
   "campaign-beat": "EXISTING CAMPAIGN BEAT",
   "travel-bridge": "TRAVEL BRIDGE",
+  "proposed-operation": "PROPOSED STORY POSITION",
   "future-reveal": "PROPOSED STORY REVEAL",
 };

@@ -74,13 +74,12 @@
 .uv-story-thread__list li{position:relative;display:grid;grid-template-columns:minmax(90px,.35fr) minmax(0,1fr);gap:8px;padding:8px 0 8px 10px;border-bottom:1px solid #ead9bf18}
 .uv-story-thread__list li:before{position:absolute;left:-12px;top:13px;width:7px;height:7px;border:1px solid var(--ember);border-radius:50%;background:#111719;content:""}
 .uv-story-thread__role{color:var(--teal);font:500 7px/1.5 "Spline Sans Mono",monospace;letter-spacing:.04em}
-.uv-story-thread__list li[data-story-role="future-reveal"] .uv-story-thread__role{color:var(--plan)}
+.uv-story-thread__list li[data-story-role="proposed-operation"] .uv-story-thread__role,.uv-story-thread__list li[data-story-role="future-reveal"] .uv-story-thread__role{color:var(--plan)}
 .uv-story-thread__list li>div{display:flex;flex-direction:column;gap:3px;min-width:0}
-.uv-story-thread__list b,.uv-story-thread__parallel b{color:var(--sand);font:600 10px "Chakra Petch",sans-serif;letter-spacing:.06em}
-.uv-story-thread__list p,.uv-story-thread__parallel p{margin:2px 0;color:#cbbfa9;font-size:9px;line-height:1.5}
-.uv-story-thread__list small,.uv-story-thread__parallel small{color:var(--dim);font:400 7px/1.5 "Spline Sans Mono",monospace}
-.uv-story-thread__parallel{padding:8px;border:1px solid #e5b76535;background:#0a111488}
-.uv-story-thread__parallel>div{display:flex;flex-direction:column;gap:3px}
+.uv-story-thread__list b{color:var(--sand);font:600 10px "Chakra Petch",sans-serif;letter-spacing:.06em}
+.uv-story-thread__list p{margin:2px 0;color:#cbbfa9;font-size:9px;line-height:1.5}
+.uv-story-thread__list small{color:var(--dim);font:400 7px/1.5 "Spline Sans Mono",monospace}
+.uv-story-thread__list .uv-story-thread__sequence{color:var(--ember);font-weight:600;letter-spacing:.05em}
 .uv-story-thread__boundary{display:block;margin-top:8px;color:var(--dim);font:400 7px/1.5 "Spline Sans Mono",monospace}
 .uv-routes__list{list-style:none;margin:0;padding:0 10px 10px;max-height:360px;overflow:auto}
 .uv-routes__list li{padding:10px 2px;border-top:1px solid #ead9bf20}
