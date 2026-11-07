@@ -27,7 +27,7 @@ export const SORTIES: Sortie[] = [
     foeCount: 4,
     objective: "BREAK THE DEFENDING WING",
     brief:
-      "The Accord found a voice buried under the rust disc's relay lattice. Break the defending wing before the signal is lost; the surviving relay will decode the route key.",
+      "Dusk's expedition was destroyed above Mars. Recover its final flight recorder from the Rust Disc wreckage, break the defending wing guarding the relay, and extract the emergency packet that reports Dusk's capture.",
   },
   {
     id: "beacon",
@@ -40,7 +40,7 @@ export const SORTIES: Sortie[] = [
     foeCount: 3,
     objective: "SECURE TWO BEACONS",
     brief:
-      "The first recording points to three silent beacons on the pale disc. Your small wing must light two before the USSF sweep closes the lane.",
+      "The emergency packet contains a second signal beneath its distress header. Synchronize two of the Pale Beacons and determine whether the pattern predates Dusk's arrival.",
   },
   {
     id: "warden",
@@ -51,9 +51,9 @@ export const SORTIES: Sortie[] = [
     disc: "night",
     allyCount: 4,
     foeCount: 5,
-    objective: "KILL THE WARDEN",
+    objective: "DESTROY THE WARDEN",
     brief:
-      "A Warden is suppressing the night-side relay network. This is the campaign's six-minute Strike: identify the marked ship, keep your wing alive, and end the blockade.",
+      "WARDEN-0 is suppressing records tied to the prisoner transfer. Destroy the marked command vessel, survive the night-side blackout, and recover its authenticated order archive from the wreckage.",
   },
   {
     id: "cage",
@@ -66,7 +66,7 @@ export const SORTIES: Sortie[] = [
     foeCount: 4,
     objective: "THE CAGE",
     brief:
-      "The Warden's recorder reveals a transport cage carrying Eon Dusk through the dust lane. USSF escorts it; the Accord must stop it. The signal inside may explain why both fleets are here.",
+      "The Accord captured Dusk after destroying his expedition and is now transferring him under guard. USSF must intercept the prisoner transport; Accord pilots must protect it and complete the transfer. Recover its custody manifest and signal recorder.",
   },
 ];
 
@@ -74,8 +74,8 @@ export const DISPATCHES = [
   { need: 0, from: "YARD", text: "Dusk's fleet is ash. He is a prisoner of the Accord. The yard wants answers before the next convoy arrives." },
   { need: 1, from: "CONTACT", text: "The rust disc answered with a route key. The pale beacons are not markers; they are part of a relay chain." },
   { need: 2, from: "BEACON", text: "The relay chain points to a command ship on the night side. Its call sign is Warden." },
-  { need: 3, from: "WARDEN", text: "The Warden's recorder confirms a cage is moving through the dust lane. Dusk is aboard, but the escort is not taking him to a prison." },
-  { need: 4, from: "CAGE", text: "The cage is stopped. Its recorder carries a signal older than either fleet. Dusk's war is over; the Mars question is not. The yard stays open." },
+  { need: 3, from: "WARDEN", text: "The Warden archive confirms that a prisoner transfer is moving through the Dust Lane. Dusk was already captured after the destruction of his expedition; this is a later transfer under Accord custody." },
+  { need: 4, from: "CAGE", text: "The transfer's outcome is recorded. The custody manifest confirms Dusk's capture, while the transport recorder carries the signal heard by the Pale Beacons. The war has widened beyond the prisoner." },
 ] as const;
 
 export const RECOVERED_INTEL = [
@@ -83,7 +83,7 @@ export const RECOVERED_INTEL = [
     need: 1,
     from: "RUST DISC / FLIGHT RECORDER 01",
     title: "A route hidden in the relay noise",
-    text: "The first signal is not a distress call. It is a route key, repeated in the timing gaps between relay pulses.",
+    text: "The emergency packet is real, but another pattern rides beneath its distress header. The recorder preserves both signals; they must not be mistaken for one transmission.",
   },
   {
     need: 2,
@@ -95,13 +95,13 @@ export const RECOVERED_INTEL = [
     need: 3,
     from: "NIGHT SIDE / WARDEN BLACK BOX",
     title: "The escort was ordered to disappear",
-    text: "The Warden was told to erase the cage, its cargo, and every record of the route. The order predates the Accord–USSF front.",
+    text: "WARDEN-0 received an order to suppress the prisoner-transfer record, cargo manifest, and route evidence. Its timestamp predates the open Accord–USSF front; the issuing authority remains unknown.",
   },
   {
     need: 4,
     from: "DUST LANE / CAGE RECORDER",
     title: "An answer from below Mars",
-    text: "The recovered signal repeats from beneath the Martian surface. Dusk knew the cage was a trap; he chose the route because it was the only way to make the signal public.",
+    text: "The custody manifest confirms that Dusk was captured after the expedition was destroyed. The transport recorder contains the same anomalous pattern heard by the Pale Beacons. Nothing yet explains its origin.",
   },
 ] as const;
 
