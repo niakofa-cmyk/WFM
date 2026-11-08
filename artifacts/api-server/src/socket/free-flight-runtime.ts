@@ -216,7 +216,19 @@ export function createFreeFlightRuntime(options: {
         const dz = actor.craft.z - viewer.craft.z;
         return dx * dx + dy * dy + dz * dz <= radiusSq;
       })
-      .sort((a, b) => a.actorId.localeCompare(b.actorId))
+      .sort((a, b) => {
+        if (a === viewer) return -1;
+        if (b === viewer) return 1;
+        const aSpace = a.craft.space!;
+        const bSpace = b.craft.space!;
+        const ax = a.craft.x - viewer.craft.x;
+        const ay = aSpace.y - viewerSpace.y;
+        const az = a.craft.z - viewer.craft.z;
+        const bx = b.craft.x - viewer.craft.x;
+        const by = bSpace.y - viewerSpace.y;
+        const bz = b.craft.z - viewer.craft.z;
+        return (ax * ax + ay * ay + az * az) - (bx * bx + by * by + bz * bz);
+      })
       .slice(0, MAX_NEARBY_ACTORS)
       .map((actor) => actorView(actor, viewer));
     return {
