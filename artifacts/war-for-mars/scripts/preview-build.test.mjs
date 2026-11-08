@@ -62,14 +62,26 @@ test('Combat Lab keeps its 3D engine out of the document initial graph', async (
   const report = JSON.parse(
     await readFile(path.join(workspaceRoot, 'generated-artifacts/wfm-combat-lab-bundle-audit.json'), 'utf8'),
   );
-  const engine = report.chunks.find((chunk) => chunk.name === 'three-engine');
+  const engineChunks = report.chunks.filter((chunk) =>
+    chunk.modules.some((module) => /(?:^|\/)node_modules\/three\//.test(module.id)),
+  );
 
-  assert.ok(engine, 'Expected a separately bundled Three.js engine for Combat Lab.');
+  assert.ok(engineChunks.length > 0, 'Expected Three.js in deferred Combat Lab flight chunks.');
   assert.equal(report.engineLoadedInInitialStaticGraph, false);
   assert.ok(
     report.initialStaticJavascriptGzipBytes <= 140 * 1024,
     'Combat Lab initial JavaScript exceeded its 140 KiB gzip budget.',
   );
-  assert.ok(engine.bytes <= 560_000, 'Combat Lab Three.js raw chunk exceeded its budget.');
-  assert.ok(engine.gzipBytes <= 150 * 1024, 'Combat Lab Three.js gzip chunk exceeded its budget.');
+  assert.ok(
+    engineChunks.every((chunk) => !chunk.initialStaticLoad),
+    'A Three.js package chunk entered the Combat Lab initial static graph.',
+  );
+  assert.ok(
+    engineChunks.reduce((total, chunk) => total + chunk.bytes, 0) <= 560_000,
+    'Combat Lab Three.js chunks exceeded their aggregate raw budget.',
+  );
+  assert.ok(
+    engineChunks.reduce((total, chunk) => total + chunk.gzipBytes, 0) <= 150 * 1024,
+    'Combat Lab Three.js chunks exceeded their aggregate gzip budget.',
+  );
 });

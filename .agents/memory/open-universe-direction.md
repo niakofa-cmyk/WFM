@@ -14,15 +14,17 @@ references are retained unchanged in `attached_assets/` and linked from
 **Why:** the owner asked to retain and implement this vision rather than
 merely enlarge planar maps or decorate menus.
 
-**How to apply:** keep Orbital as the intended sole game engine/runtime and do
-not expand a separate Three.js universe. The current renderer is transitional;
-do not claim the Orbital-only renderer migration is complete until verified.
-Preserve existing room infrastructure and account/progression contracts. Treat
-source architecture/canon claims as proposals to check, not proof. Do not
-represent a local no-reward flight trainer as authoritative multiplayer
-progression or Production certification. Competitive promotion requires shared
-verified physics and versioned networking; client-only completion never
-authorizes rewards.
+**How to apply:** keep one Orbital-owned universe, simulation, and authority.
+Three.js is the primary renderer for the main universe; native Orbital WebGL2
+remains a supported companion renderer. Both present shared state rather than
+separate worlds. Follow
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md` for the current
+renderer decision. Preserve existing room infrastructure and
+account/progression contracts. Treat source architecture/canon claims as
+proposals to check, not proof. Do not represent a local no-reward flight
+trainer as authoritative multiplayer progression or Production certification.
+Competitive promotion requires shared verified physics and versioned
+networking; client-only completion never authorizes rewards.
 
 **Additional direction:** grow a small connected universe slice with stable
 destinations and real server-backed operation discovery before adding broad

@@ -26,7 +26,8 @@ import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
 import { buildUniverseSectorNeighborhood, disposeUniverseSectorNeighborhood, setOriginSystemFrame } from "./universe-sector-visuals";
-import { sectorAddressKey, UNIVERSE_SECTOR_EDGE } from "./universe-sectors";
+import { sectorAddressKey, universeSectorContents, UNIVERSE_SECTOR_EDGE } from "./universe-sectors";
+import { createOrbitalStarfieldBuffers } from "./orbital-starfield";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
@@ -1206,6 +1207,20 @@ export function Arena({
     }
     let sectorNeighborhood: THREE.Group | null = null;
     let activeSectorKey = "";
+    let starGeometry: THREE.BufferGeometry | null = null;
+    let starMaterial: THREE.ShaderMaterial | null = null;
+    let activeStarSeed = match.seed >>> 0;
+    const updateStarfieldSeed = (seed: number) => {
+      activeStarSeed = seed;
+      if (!starGeometry || !starMaterial) return;
+      const buffers = createOrbitalStarfieldBuffers(seed);
+      const position = starGeometry.getAttribute("position") as THREE.BufferAttribute;
+      const phase = starGeometry.getAttribute("aPhase") as THREE.BufferAttribute;
+      (position.array as Float32Array).set(buffers.positions);
+      (phase.array as Float32Array).set(buffers.phases);
+      position.needsUpdate = true;
+      phase.needsUpdate = true;
+    };
     const updateUniverseSector = (address: UniverseSession["sectorAddress"]) => {
       const key = sectorAddressKey(address);
       if (key === activeSectorKey) return;
@@ -1216,6 +1231,7 @@ export function Arena({
       sectorNeighborhood = buildUniverseSectorNeighborhood(address);
       scene.add(sectorNeighborhood);
       if (orbitalAssets) setOriginSystemFrame(orbitalAssets.systemFrame, address, UNIVERSE_SECTOR_EDGE);
+      updateStarfieldSeed(universeSectorContents(address).seed);
       activeSectorKey = key;
     };
     if (localUniverse) updateUniverseSector(universeRef.current?.sectorAddress ?? { x: "0", y: "0", z: "0" });
@@ -1253,18 +1269,38 @@ export function Arena({
     );
     boundary.visible = !orbital;
     scene.add(boundary);
-    const starPositions = new Float32Array(700 * 3);
-    for (let i = 0; i < 700; i++) {
-      const r = 160 + Math.random() * 180;
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.acos(2 * Math.random() - 1);
-      starPositions[i * 3] = r * Math.sin(ph) * Math.cos(th);
-      starPositions[i * 3 + 1] = r * Math.cos(ph) * 0.55;
-      starPositions[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
-    }
-    const stars = new THREE.BufferGeometry();
-    stars.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xe6e1d6, size: 0.55 })));
+    starGeometry = new THREE.BufferGeometry();
+    const initialStars = createOrbitalStarfieldBuffers(activeStarSeed);
+    starGeometry.setAttribute("position", new THREE.BufferAttribute(initialStars.positions, 3));
+    starGeometry.setAttribute("aPhase", new THREE.BufferAttribute(initialStars.phases, 1));
+    starMaterial = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        attribute float aPhase;
+        uniform float uTime;
+        varying float vAlpha;
+        void main() {
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * viewPosition;
+          float twinkle = 0.5 + 0.5 * sin(uTime * 1.15 + aPhase);
+          vAlpha = 0.28 + 0.72 * twinkle;
+          gl_PointSize = 0.8 + 1.25 * twinkle;
+        }
+      `,
+      fragmentShader: `
+        varying float vAlpha;
+        void main() {
+          float radius = length(gl_PointCoord - vec2(0.5));
+          float glow = 1.0 - smoothstep(0.12, 0.5, radius);
+          gl_FragColor = vec4(vec3(0.72, 0.84, 0.98), glow * vAlpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    scene.add(new THREE.Points(starGeometry, starMaterial));
     const mars = new THREE.Mesh(
       new THREE.SphereGeometry(28, 32, 24),
       new THREE.MeshStandardMaterial({
@@ -2350,6 +2386,7 @@ export function Arena({
       }
       camera.lookAt(_look);
       if (mag > 0.001) camera.rotateZ(shakeNoise(now * 0.001, 4) * mag * 0.05);
+      if (starMaterial) starMaterial.uniforms.uTime.value = now * 0.001;
       tickSparks(sparkPool, delta);
       for (let i = 0; i < SPARK_N; i++) {
         sparkPos[i * 3] = sparkPool[i].x;
