@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
 import {
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
@@ -99,6 +100,7 @@ type Actor = {
   assists: number;
   creditsAwarded: number;
   gravityEnvironmentV1: boolean;
+  scoutMemory?: ScoutMemory;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -244,20 +246,20 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
   session.persistentPatrols.set(patrol.patrolId, patrol);
 }
 
-function patrolInput(actor: Actor): SharedInput {
-  const target = actor.waypoints[actor.waypointIndex]!;
+function patrolInput(actor: Actor, searchTarget?: { x: number; y: number; z: number }): SharedInput {
+  const target = searchTarget ?? actor.waypoints[actor.waypointIndex]!;
   const { craft } = actor;
   const space = craft.space!;
   const dx = target.x - craft.x;
   const dy = target.y - space.y;
   const dz = target.z - craft.z;
   const distance = detHypot(detHypot(dx, dy), dz);
-  if (distance < 90) actor.waypointIndex = (actor.waypointIndex + 1) % actor.waypoints.length;
+  if (!searchTarget && distance < 90) actor.waypointIndex = (actor.waypointIndex + 1) % actor.waypoints.length;
   const q = space.q;
   const local = rotate([-q[0], -q[1], -q[2], q[3]], dx, dy, dz);
   return {
     ...IDLE,
-    throttle: distance > 120 ? 0.42 : 0.16,
+    throttle: searchTarget ? (distance > 120 ? 0.75 : 0.28) : distance > 120 ? 0.42 : 0.16,
     yaw: clamp(detAtan2(-local.x, -local.z) * 1.45),
     pitch: clamp(detAtan2(local.y, detHypot(local.x, local.z)) * 1.35),
     strafe: clamp(local.x * 0.0012, -0.18, 0.18),
@@ -274,7 +276,7 @@ function actorView(actor: Actor, viewer: Actor): FreeFlightActorV1 {
     faction: actor.faction,
     shipId: actor.shipId,
     callsign: actor.kind === "patrol"
-      ? actor.callsign
+      ? `${actor.callsign.slice(0, 50)}${actor.scoutMemory ? actor.scoutMemory.mode === "tracking" ? " - PURSUIT" : " - SEARCH" : " - PATROL"}`
       : actor === viewer
         ? "YOU"
         : actor.faction === viewer.faction ? "WING PILOT" : "UNIDENTIFIED CONTACT",
@@ -1061,6 +1063,20 @@ export function createFreeFlightRuntime(options: {
     session.tick += 1;
     for (const actor of session.actors.values()) {
       if (!actor.craft.alive) continue;
+      if (actor.kind === "patrol") {
+        actor.scoutMemory = updateScoutMemory(
+          { x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z },
+          actor.scoutMemory,
+          [...session.pilotByUser.values()].map((pilot) => ({
+            actorId: pilot.actorId,
+            position: { x: pilot.craft.x, y: pilot.craft.space!.y, z: pilot.craft.z },
+            hostile: pilot.faction !== actor.faction, alive: pilot.craft.alive,
+            connected: pilot.socket?.readyState === OPEN,
+            concealed: pilot.craft.cloak > 0 || pilot.craft.untargetable > 0,
+          })),
+          session.tick * ORBITAL_DT,
+        );
+      }
       const combat = actor.kind === "patrol" && actor.persistentPatrolId
         ? session.combats.get(actor.persistentPatrolId)
         : undefined;
@@ -1072,7 +1088,11 @@ export function createFreeFlightRuntime(options: {
             .sort((a, b) => distanceBetween(actor, a) - distanceBetween(actor, b))[0]
         : undefined;
       const input = actor.kind === "patrol"
-        ? patrolTarget ? patrolCombatInput(actor, patrolTarget) : patrolInput(actor)
+        ? patrolTarget && actor.scoutMemory?.mode === "tracking" &&
+            actor.scoutMemory.actorId === patrolTarget.actorId
+          ? patrolCombatInput(actor, patrolTarget)
+          : patrolInput(actor, actor.scoutMemory
+            ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
       integrateSpatialFlight(
         actor.craft, input, ORBITAL_DT, 1, [], SHIPS[actor.shipId],
@@ -1081,6 +1101,11 @@ export function createFreeFlightRuntime(options: {
           gravityWells: session.gravityEnvironmentEnabled ? session.anomalyGravityWells : [],
         },
       );
+      // Toggle commands apply once per accepted input, not on every 30Hz tick.
+      if (actor.kind === "pilot") {
+        actor.input.inertial = false;
+        actor.input.aimAssist = false;
+      }
       actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
       if (actor.lastDamageTick < 0 || session.tick - actor.lastDamageTick > 45) {
         actor.shield = Math.min(actor.shieldMax, actor.shield + 0.15 * ORBITAL_DT);

@@ -20,9 +20,10 @@ export function sameSharedPatrolContact(
     Math.round(previous.distanceMeters) === Math.round(next.distanceMeters);
 }
 
-/** Derive the nearest hostile contact from a validated server snapshot only. */
+/** Retain a nearby approach target through small range changes, never stale actors. */
 export function sharedFlightPatrolContact(
   snapshot: FreeFlightSnapshotV1,
+  preferredActorId?: string,
 ): UniversePatrolEncounterNotice | null {
   const own = snapshot.actors.find((actor) =>
     actor.actorId === snapshot.ownActorId && actor.own && actor.kind === "pilot",
@@ -46,7 +47,13 @@ export function sharedFlightPatrolContact(
       left.distanceMeters - right.distanceMeters ||
       left.actor.actorId.localeCompare(right.actor.actorId),
     );
-  const nearest = hostiles[0];
+  const closest = hostiles[0];
+  const preferred = hostiles.find((entry) => entry.actor.actorId === preferredActorId);
+  const nearest = closest && preferred &&
+    // A contact already inside interception range must not be hidden by a lock.
+    !(closest.distanceMeters <= 180 && preferred.distanceMeters > 180) &&
+    preferred.distanceMeters <= closest.distanceMeters * 1.25
+      ? preferred : closest;
   if (!nearest) return null;
 
   return {

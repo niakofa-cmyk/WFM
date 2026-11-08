@@ -71,3 +71,14 @@ test("distant, friendly, and destroyed patrol actors do not open an approach pro
   destroyed.actors[1] = actor("patrol:destroyed", "patrol", "accord", 120, false, false);
   assert.equal(sharedFlightPatrolContact(destroyed), null);
 });
+
+test("approach contact resists small nearest-target swaps but never masks an intercept", () => {
+  const frame = snapshot("ussf", 210);
+  const first = frame.actors[1]!;
+  frame.actors.push({ ...first, actorId: "patrol-ship:closer", position: { x: 200, y: 0, z: 0 } });
+  assert.equal(sharedFlightPatrolContact(frame, first.actorId)?.actorId, first.actorId);
+  frame.actors[2]!.position.x = 170;
+  assert.equal(sharedFlightPatrolContact(frame, first.actorId)?.actorId, "patrol-ship:closer");
+  frame.actors[1]!.alive = false;
+  assert.equal(sharedFlightPatrolContact(frame, first.actorId)?.actorId, "patrol-ship:closer");
+});

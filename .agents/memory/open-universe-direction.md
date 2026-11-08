@@ -37,6 +37,17 @@ vertical slice over a large but disconnected map.
 **How to apply:** expose live operation visibility in navigation, but never
 fabricate active pilots, competition status or reward eligibility.
 
+**Scout direction:** enemy fleets should actively look for opposing pilots and
+patrol/search their previously known locations after losing detection, rather
+than merely follow decorative waypoints.
+
+**Why:** the owner explicitly requested live scout pursuit awareness and
+last-known-location patrol behavior.
+
+**How to apply:** base observations on server detection. Losing contact must
+lead to searching remembered observations, not omniscient tracking of a hidden
+pilot's live position. Preserve encounter admission and verified settlement.
+
 **Architecture rule:** keep public destination presence as anonymous aggregate
 counts, while the owner now requires nearby authenticated player ships to be
 visible as live 3D actors inside the same shared Orbital free-flight session.

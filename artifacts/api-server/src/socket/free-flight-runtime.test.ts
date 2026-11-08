@@ -149,6 +149,46 @@ function makeRuntime() {
   });
 }
 
+test("server patrol scouts pursue sensed pilots without granting unreserved combat authority", async () => {
+  const packets: Packet[] = [];
+  const socket = {
+    readyState: 1, bufferedAmount: 0,
+    send: (data: string) => packets.push(JSON.parse(data) as Packet),
+    close: () => {},
+  };
+  const contact: UniversePatrolEncounter = {
+    patrolId: "search-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Scout patrol", route: ["phobos-yard"], revision: 0,
+    ships: [{ id: "search-ship-0001", hullId: "mandjet", name: "Mandjet", callsign: "SCOUT ONE" }],
+  };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "glide" }),
+    resolveUniversePatrols: async () => [contact],
+    patrolSpawnDistanceMeters: 320,
+  });
+  try {
+    await runtime.handle(socket, "scout-target", { type: "freeflight_join" });
+    const initial = packets.find((packet) => packet.type === "freeflight_joined")?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(initial));
+    const distance = (snapshot: typeof initial) => {
+      const own = snapshot.actors.find((actor) => actor.own)!;
+      const enemy = snapshot.actors.find((actor) => actor.kind === "patrol")!;
+      return Math.hypot(enemy.position.x - own.position.x,
+        enemy.position.y - own.position.y, enemy.position.z - own.position.z);
+    };
+    let clock = Date.now();
+    for (let i = 0; i < 200; i++) runtime.advance(clock += 100);
+    const last = packets.filter((packet) => packet.type === "freeflight_snapshot").at(-1)?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(last));
+    assert.ok(last.actors.some((actor) => actor.callsign.endsWith(" - PURSUIT")));
+    assert.ok(distance(last) < distance(initial) - 30, "scout must physically close, not just change its label");
+    assert.equal(packets.some((packet) => packet.type === "freeflight_weapon_fired"), false);
+    assert.equal(packets.some((packet) => packet.type === "freeflight_combat_result"), false);
+  } finally {
+    await runtime.close();
+  }
+});
+
 async function join(socket: WebSocket) {
   const joined = nextPacket(socket, (packet) => packet.type === "freeflight_joined");
   socket.send(JSON.stringify({ type: "freeflight_join" }));

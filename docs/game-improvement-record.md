@@ -1,5 +1,16 @@
 # WAR FOR MARS — Game improvement record
 
+## Scout pursuit and approach alignment — local candidate
+
+Implemented server-owned scout detection, pursuit and bounded last-observation
+search inside continuous shared flight. Added own-seat heading/velocity
+correction, matched shared prediction's collision set to the server, retained
+stable approach contacts, and corrected sampled flight toggles.
+The existing 180 m encounter and reward-authority gates remain intact.
+See [candidate behavior and verification](infinite-war/SCOUT-PURSUIT-AND-FLIGHT-ALIGNMENT.md).
+16 server and 22 client/runtime tests, both typechecks/builds and four static
+checks passed. This candidate is not deployed; staging and Production are unchanged.
+
 ## Authenticated shared-flight verification — approach blocker
 
 Both staging test pilots completed fresh sign-in and returned authenticated

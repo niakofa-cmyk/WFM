@@ -1,5 +1,26 @@
 {
   "overallStatus": "PENDING",
+  "latestLocalScoutPursuitCandidate": {
+    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
+    "sensorRangeMeters": 520,
+    "engagementRangeMeters": 180,
+    "lastObservationMemorySeconds": 45,
+    "searchRadiusMeters": 100,
+    "memoryScope": "current server flight session; not durable across restart",
+    "serverTestsPassed": 16,
+    "clientRuntimeTestsPassed": 22,
+    "apiAndGameTypechecks": "PASS",
+    "mainAndCombatLabBuilds": "PASS",
+    "staticBuildTestsPassed": 4,
+    "combatLabInitialJavascriptGzipBytes": 126487,
+    "combatLabInitialGzipLimitBytes": 143360,
+    "threeJsInInitialStaticGraph": false,
+    "localWebAndSocketRestarted": true,
+    "publicCompatibilityEntryScreenshot": "PASS; no authenticated gameplay certification",
+    "stagingApproachFixVerified": false,
+    "stagingTwoPilotCombatAndSettlementVerified": false,
+    "stagingOrProductionChanged": false
+  },
   "latestSharedAssistanceRollout": {
     "checkedOn": "2026-11-08",
     "status": "STAGING_AUTHENTICATED_APPROACH_BLOCKED",

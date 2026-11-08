@@ -152,6 +152,7 @@ export function advanceLocalUniverseFlight(
   input: StepInput,
   dt: number,
   sharedGravityWells?: readonly AnomalyGravityWellV1[] | null,
+  sharedFlight = false,
 ): UniverseSectorAddress | null {
   if (session.phase !== "exploration") return null;
   const pilot = match.player;
@@ -165,7 +166,7 @@ export function advanceLocalUniverseFlight(
     boost: controls.boost, brake: controls.brake, drift: controls.drift,
     inertial: controls.inertial,
     ...(controls.maneuver ? { maneuver: controls.maneuver } : {}),
-  }, dt, 1, universeSectorColliders(session.sectorAddress), SHIPS[pilot.ship], {
+  }, dt, 1, sharedFlight ? [] : universeSectorColliders(session.sectorAddress), SHIPS[pilot.ship], {
     boundaryRadius: null,
     gravityWells,
   });

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
 import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
@@ -754,12 +755,12 @@ export function Arena({
           const vitals = freeFlightPilotVitals(frame.snapshot);
           setFreeFlightPilot((current) =>
             sameFreeFlightPilotVitals(current, vitals) ? current : vitals);
-          const nextContact = sharedFlightPatrolContact(frame.snapshot);
-          setSharedPatrolContact((previousContact) =>
-            sameSharedPatrolContact(previousContact, nextContact)
+          setSharedPatrolContact((previousContact) => {
+            const nextContact = sharedFlightPatrolContact(frame.snapshot, previousContact?.actorId);
+            return sameSharedPatrolContact(previousContact, nextContact)
               ? previousContact
-              : nextContact,
-          );
+              : nextContact;
+          });
           const enemyPatrolCount = frame.snapshot.actors.filter(
             (actor) => actor.kind === "patrol" && actor.faction !== faction && actor.alive,
           ).length;
@@ -2068,6 +2069,8 @@ export function Arena({
     const FIXED = 1 / 60;
     let lastDockKey = "";
     let nextNavigationUpdateAt = 0;
+    let reconciledFlightSession = "";
+    let reconciledFlightTick = -1;
     glReadyRef.current = true;
     setGlReady(true);
 
@@ -2100,6 +2103,16 @@ export function Arena({
         if (universeFrozen(universePhase)) acc = 0;
         let steps = 0;
         const pilot = match.player;
+        const sharedFrame = freeFlightFramesRef.current.current;
+        if (freeFlightEnabled && sharedFrame && now - sharedFrame.receivedAt <= 1_500 &&
+            (sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession ||
+              sharedFrame.snapshot.tick !== reconciledFlightTick)) {
+          if (reconcileFreeFlightKinematics(pilot, sharedFrame.snapshot,
+            sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession)) {
+            reconciledFlightSession = sharedFrame.snapshot.sessionInstanceId;
+            reconciledFlightTick = sharedFrame.snapshot.tick;
+          }
+        }
         const serverVitals = freeFlightEnabled
           ? freeFlightPilotVitals(freeFlightFramesRef.current.current?.snapshot)
           : null;
@@ -2113,6 +2126,12 @@ export function Arena({
           freeFlightCombatActiveRef.current, serverVitals);
         while (acc >= FIXED && steps < 5 && pilot.space) {
           const controls = readInput(bus);
+          // V1 authority has no drift or tactical-maneuver fields. Do not let
+          // local-only abilities diverge from the same transmitted controls.
+          if (freeFlightEnabled) {
+            controls.drift = false;
+            delete controls.maneuver;
+          }
           freeFlightClientRef.current?.sendControls({
             ...controls,
             fire: weaponsEnabled && controls.fire,
@@ -2124,6 +2143,7 @@ export function Arena({
             controls,
             FIXED,
             localFreeFlightGravity(pilot),
+            freeFlightEnabled,
           );
           if (nextSector) {
             const previousSector = universeRef.current!.sectorAddress;

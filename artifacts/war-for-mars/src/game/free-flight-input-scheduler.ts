@@ -9,12 +9,16 @@ export class FreeFlightInputScheduler {
   private pendingFire = false;
   private pendingMissile = false;
   private pendingCountermeasure = false;
+  private pendingInertial = false;
+  private pendingAimAssist = false;
 
   next(controls: FlightControlFrame, nowMs: number): FlightControlFrame | null {
     if (!Number.isFinite(nowMs)) return null;
     this.pendingFire ||= controls.fire;
     this.pendingMissile ||= controls.missile;
     this.pendingCountermeasure ||= controls.countermeasure;
+    this.pendingInertial ||= controls.inertial;
+    this.pendingAimAssist ||= controls.aimAssist;
     if (nowMs - this.lastSentAt < FREE_FLIGHT_CONTROL_SEND_INTERVAL_MS) return null;
 
     this.lastSentAt = nowMs;
@@ -23,10 +27,14 @@ export class FreeFlightInputScheduler {
       fire: controls.fire || this.pendingFire,
       missile: controls.missile || this.pendingMissile,
       countermeasure: controls.countermeasure || this.pendingCountermeasure,
+      inertial: this.pendingInertial,
+      aimAssist: this.pendingAimAssist,
     };
     this.pendingFire = false;
     this.pendingMissile = false;
     this.pendingCountermeasure = false;
+    this.pendingInertial = false;
+    this.pendingAimAssist = false;
     return sampled;
   }
 
@@ -35,5 +43,7 @@ export class FreeFlightInputScheduler {
     this.pendingFire = false;
     this.pendingMissile = false;
     this.pendingCountermeasure = false;
+    this.pendingInertial = false;
+    this.pendingAimAssist = false;
   }
 }

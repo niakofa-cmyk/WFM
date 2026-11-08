@@ -39,3 +39,15 @@ test("reset makes the next input immediate and clears pending weapon taps", () =
   scheduler.reset();
   assert.equal(scheduler.next(idle, 16)?.missile, false);
 });
+
+test("one-shot flight toggles survive sampling gaps without repeating on later samples", () => {
+  const scheduler = new FreeFlightInputScheduler();
+  const idle = normalizeFlightControls({});
+  scheduler.next(idle, 0);
+  assert.equal(scheduler.next({ ...idle, inertial: true, aimAssist: true }, 16), null);
+  const toggled = scheduler.next(idle, 50);
+  assert.equal(toggled?.inertial, true);
+  assert.equal(toggled?.aimAssist, true);
+  assert.equal(scheduler.next(idle, 100)?.inertial, false);
+  assert.equal(scheduler.next(idle, 150)?.aimAssist, false);
+});
