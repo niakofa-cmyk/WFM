@@ -1,13 +1,21 @@
-import { CINDER_STATION, type DockEvaluation, type UniverseSession } from "./orbital-universe-session";
+import * as React from "react";
+import {
+  CINDER_STATION,
+  type UniverseDockEvaluation,
+  type UniverseSession,
+} from "./orbital-universe-session";
 import { CinderRingOperationPreview } from "./CinderRingOperationPreview";
 import { isOriginSector, sectorAddressKey, universeSectorContents } from "./universe-sectors";
-import type { LocalAnomalyScan } from "./orbital-universe-runtime";
+import type { LocalAnomalyScan, LocalRelayInteraction } from "./orbital-universe-runtime";
 
 type Props = {
   session: UniverseSession;
-  dock: DockEvaluation | null;
+  dock: UniverseDockEvaluation | null;
   anomalyScan: LocalAnomalyScan | null;
+  relayInteraction: LocalRelayInteraction | null;
   onScanAnomaly: () => void;
+  onScanRelay: () => void;
+  onRecoverRelay: () => void;
   rendererReady: boolean;
   graphicsError: string | null;
   servicesHref: string;
@@ -20,7 +28,7 @@ type Props = {
   onExit: () => void;
 };
 
-const REASON: Record<DockEvaluation["reason"], string> = {
+const REASON: Record<UniverseDockEvaluation["reason"], string> = {
   ready: "DOCKING CLEARED",
   range: "FLY INTO THE RING",
   closure: "TOO FAST · BRAKE",
@@ -31,8 +39,8 @@ const REASON: Record<DockEvaluation["reason"], string> = {
 const panel = "pointer-events-auto border border-bone/15 bg-void/85 backdrop-blur-sm";
 const btn = "min-h-11 px-4 font-hud tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-40";
 
-function formatCinderDistance(distance: number) {
-  if (distance >= 1_000_000_000) return "CINDER RING · DISTANT SECTOR";
+function formatDockDistance(distance: number, targetLabel: string) {
+  if (distance >= 1_000_000_000) return `${targetLabel} · DISTANT SECTOR`;
   if (distance >= 1_000_000) return `${(distance / 1_000_000).toFixed(1)} M KM`;
   if (distance >= 10_000) return `${(distance / 1_000).toFixed(1)} KM`;
   return `${Math.round(distance)} M`;
@@ -40,7 +48,7 @@ function formatCinderDistance(distance: number) {
 
 /** HUD + station panels for the local Orbital universe. Presentation only; Arena owns all state effects. */
 export function UniverseStationOverlay(p: Props) {
-  const { session, dock, anomalyScan } = p;
+  const { session, dock, anomalyScan, relayInteraction } = p;
   const scope = "LOCAL · OFFLINE · NO REWARDS";
 
   if (p.graphicsError) {
@@ -64,51 +72,86 @@ export function UniverseStationOverlay(p: Props) {
         <div className="absolute inset-x-0 top-2 flex justify-center px-3">
           <div className={`${panel} pointer-events-auto flex w-full max-w-[20rem] items-center gap-2 px-2 py-1`}>
             <div className="min-w-0 flex-1">
-              <p className="font-hud text-[11px] tracking-widest text-solar">{dock && dock.distance < 256 ? "CINDER RING" : "FRONTIER SECTOR"}</p>
+              <p className="font-hud text-[11px] tracking-widest text-solar">
+                {dock && dock.distance < 256 ? dock.targetLabel : "FRONTIER SECTOR"}
+              </p>
               <p className="font-hud text-[9px] text-muted" data-testid="text-universe-scope">{scope}</p>
               <p className="truncate font-hud text-[9px] tracking-wider text-bone/70" data-testid="text-universe-sector" title={contents.name}>
                 {sectorAddressKey(session.sectorAddress)} · {origin ? "MARS ORBIT" : contents.name}
               </p>
               <p className="font-hud text-xs tracking-wider text-bone/80" data-testid="text-dock-telemetry">
-                {dock ? `${formatCinderDistance(dock.distance)} · ${dock.closure.toFixed(1)}/${CINDER_STATION.maxClosureSpeed} M/S · ${Math.round(dock.headingDeg)}°` : "ACQUIRING"}
+                {dock ? `${formatDockDistance(dock.distance, dock.targetLabel)} · ${dock.closure.toFixed(1)}/${CINDER_STATION.maxClosureSpeed} M/S · ${Math.round(dock.headingDeg)}°` : "ACQUIRING"}
               </p>
               <p className={`font-hud text-[11px] tracking-widest ${ready ? "text-solar" : "text-bone/60"}`} data-testid="status-dock-gate">
                 {p.rendererReady
-                  ? (dock ? (dock.distance > 1_000_000 ? "RETURN TO CINDER RING SECTOR" : REASON[dock.reason]) : "ACQUIRING")
+                  ? (dock ? (dock.distance > 1_000_000 ? `RETURN TO ${dock.targetLabel} SECTOR` : REASON[dock.reason]) : "ACQUIRING")
                   : "RENDERER STARTING"}
               </p>
             </div>
             <button type="button" data-testid="button-universe-dock" disabled={!ready} onClick={p.onDock}
-              className={`${btn} px-3 ${ready ? "bg-solar text-void" : "border border-bone/20 text-bone"}`}>DOCK</button>
+              className={`${btn} px-3 ${ready ? "bg-solar text-void" : "border border-bone/20 text-bone"}`}>
+              DOCK
+            </button>
             <button type="button" data-testid="button-universe-exit" onClick={p.onExit} aria-label="Leave local universe"
               className="min-h-11 min-w-11 font-hud text-[10px] tracking-widest text-muted hover:text-bone">EXIT</button>
           </div>
         </div>
-        {dock && dock.distance <= 90 ? (
+        {dock?.targetId === "cinder-ring" && dock.distance <= 90 ? (
           <div className="absolute left-3 top-24 w-[min(18rem,calc(100vw-1.5rem))]">
             <CinderRingOperationPreview />
           </div>
         ) : null}
-        {anomalyScan && anomalyScan.distance <= 220 ? (
-          <div className="pointer-events-auto absolute right-3 top-24 w-[min(17rem,calc(100vw-1.5rem))] border border-cyan-300/35 bg-void/90 p-3 backdrop-blur-sm" data-testid="universe-anomaly-signal">
-            <p className="font-hud text-[10px] tracking-[0.2em] text-cyan-300">ANOMALY SIGNAL · LOCAL</p>
-            <p className="mt-1 truncate font-hud text-[10px] text-bone/75">{anomalyScan.label}</p>
-            <p className="mt-1 font-hud text-xs tracking-wider text-bone">{Math.round(anomalyScan.distance)} M · NO REWARDS</p>
-            {anomalyScan.logFull ? (
-              <p className="mt-2 font-hud text-[10px] tracking-widest text-alert" data-testid="status-anomaly-scanned">LOCAL DISCOVERY LOG FULL</p>
-            ) : anomalyScan.scanned ? (
-              <p className="mt-2 font-hud text-[10px] tracking-widest text-solar" data-testid="status-anomaly-scanned">SIGNATURE LOGGED · THIS SESSION</p>
-            ) : (
-              <>
-                <p className="mt-1 font-hud text-[9px] tracking-widest text-muted">
-                  {anomalyScan.ready ? "SCAN WINDOW OPEN" : anomalyScan.distance > 24 ? "CLOSE TO 24 M" : "REDUCE SPEED TO 4 M/S"}
+        <div className="pointer-events-none absolute right-3 top-24 flex w-[min(17rem,calc(100vw-1.5rem))] flex-col gap-2">
+          {anomalyScan && anomalyScan.distance <= 220 ? (
+            <div className="pointer-events-auto border border-cyan-300/35 bg-void/90 p-3 backdrop-blur-sm" data-testid="universe-anomaly-signal">
+              <p className="font-hud text-[10px] tracking-[0.2em] text-cyan-300">ANOMALY SIGNAL · LOCAL</p>
+              <p className="mt-1 truncate font-hud text-[10px] text-bone/75">{anomalyScan.label}</p>
+              <p className="mt-1 font-hud text-xs tracking-wider text-bone">{Math.round(anomalyScan.distance)} M · NO REWARDS</p>
+              {anomalyScan.logFull ? (
+                <p className="mt-2 font-hud text-[10px] tracking-widest text-alert" data-testid="status-anomaly-scanned">LOCAL DISCOVERY LOG FULL</p>
+              ) : anomalyScan.scanned ? (
+                <p className="mt-2 font-hud text-[10px] tracking-widest text-solar" data-testid="status-anomaly-scanned">SIGNATURE LOGGED · THIS SESSION</p>
+              ) : (
+                <>
+                  <p className="mt-1 font-hud text-[9px] tracking-widest text-muted">
+                    {anomalyScan.ready ? "SCAN WINDOW OPEN" : anomalyScan.distance > 24 ? "CLOSE TO 24 M" : "REDUCE SPEED TO 4 M/S"}
+                  </p>
+                  <button type="button" data-testid="button-universe-scan-anomaly" disabled={!anomalyScan.ready} onClick={p.onScanAnomaly}
+                    className={`${btn} mt-2 w-full border border-cyan-300/50 text-cyan-300`}>SCAN SIGNATURE</button>
+                </>
+              )}
+            </div>
+          ) : null}
+          {relayInteraction ? (
+            <div className="pointer-events-auto border border-solar/35 bg-void/90 p-3 backdrop-blur-sm" data-testid="universe-rust-relay">
+              <p className="font-hud text-[10px] tracking-[0.2em] text-solar">RUST DISC RELAY · PHYSICAL CONTACT</p>
+              <p className="mt-1 truncate font-hud text-[10px] text-bone/75">{relayInteraction.label}</p>
+              <p className="mt-1 font-hud text-xs tracking-wider text-bone">
+                {Math.round(relayInteraction.distance)} M · {relayInteraction.speed.toFixed(1)} M/S
+              </p>
+              {relayInteraction.recovered ? (
+                <p className="mt-2 font-hud text-[10px] tracking-widest text-solar" data-testid="status-rust-relay-recovered">
+                  RECORD RECOVERED · LOCAL SESSION ONLY · NOT SYNCED
                 </p>
-                <button type="button" data-testid="button-universe-scan-anomaly" disabled={!anomalyScan.ready} onClick={p.onScanAnomaly}
-                  className={`${btn} mt-2 w-full border border-cyan-300/50 text-cyan-300`}>SCAN SIGNATURE</button>
-              </>
-            )}
-          </div>
-        ) : null}
+              ) : relayInteraction.scanned ? (
+                <>
+                  <p className="mt-2 font-hud text-[9px] tracking-widest text-muted">SIGNAL DECODED · RECOVERY WINDOW OPEN</p>
+                  <button type="button" data-testid="button-universe-recover-rust-relay" disabled={!relayInteraction.canRecover} onClick={p.onRecoverRelay}
+                    className={`${btn} mt-2 w-full bg-solar text-void`}>RECOVER RECORD</button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 font-hud text-[9px] tracking-widest text-muted">
+                    {relayInteraction.ready ? "STATIONARY SCAN WINDOW OPEN" : relayInteraction.distance > 24 ? "CLOSE TO 24 M" : "REDUCE SPEED TO 4 M/S"}
+                  </p>
+                  <button type="button" data-testid="button-universe-scan-rust-relay" disabled={!relayInteraction.canScan} onClick={p.onScanRelay}
+                    className={`${btn} mt-2 w-full border border-solar/50 text-solar`}>SCAN RELAY</button>
+                </>
+              )}
+              <p className="mt-2 font-hud text-[9px] tracking-wider text-muted">LOCAL ONLY · NO REWARDS OR ACCOUNT EVIDENCE</p>
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -126,6 +169,8 @@ export function UniverseStationOverlay(p: Props) {
   }
 
   const debrief = session.phase === "debrief" ? session.debrief : null;
+  const dockedLabel = session.dockedAt === "mars-night-side-station" ? "MARS NIGHT-SIDE STATION" : "CINDER RING";
+  const dockedAtNightSide = session.dockedAt === "mars-night-side-station";
   return (
     <div className="absolute inset-0 z-50 overflow-y-auto overscroll-contain bg-void/70 p-3 sm:p-4" data-universe-phase={session.phase} data-testid="universe-station-panel">
       <div className={`${panel} mx-auto my-auto w-full max-w-md border-l-2 border-l-solar p-4 sm:p-5`}>
@@ -137,33 +182,43 @@ export function UniverseStationOverlay(p: Props) {
             </h2>
             <p className="mt-2 font-hud text-sm tracking-widest text-solar">{debrief.kills} DEFENDERS DOWN · NO REWARDS ISSUED</p>
             <p className="mt-2 text-sm leading-relaxed text-bone/80" data-testid="text-universe-debrief-reason">{debrief.reason}</p>
-            <button type="button" data-testid="button-universe-return" onClick={p.onReturn} className={`${btn} mt-5 w-full bg-solar text-void`}>RETURN TO CINDER RING</button>
+            <button type="button" data-testid="button-universe-return" onClick={p.onReturn} className={`${btn} mt-5 w-full bg-solar text-void`}>RETURN TO {dockedLabel}</button>
           </>
         ) : (
           <>
-            <h2 className="mt-1 font-hud text-3xl leading-none tracking-wide" data-testid="text-universe-docked">DOCKED · CINDER RING</h2>
-            <p className="mt-2 text-sm text-bone/75">Flight is held at the clamp. Your position and velocity are kept for undock{session.trainingRuns ? ` · training runs this session: ${session.trainingRuns}` : ""}.</p>
+            <h2 className="mt-1 font-hud text-3xl leading-none tracking-wide" data-testid="text-universe-docked">DOCKED · {dockedLabel}</h2>
+            <p className="mt-2 text-sm text-bone/75">
+              {dockedAtNightSide
+                ? "Night-side station clamps hold the ship in place. Your flight pose is retained for undock; docking does not update account location, mission evidence, or rewards."
+                : `Flight is held at the Cinder Ring clamp. Your position and velocity are kept for undock${session.trainingRuns ? ` · training runs this session: ${session.trainingRuns}` : ""}.`}
+            </p>
             <div className="mt-4 grid gap-2">
-              <button type="button" data-testid="button-universe-launch-training" onClick={p.onLaunchTraining}
-                className={`${btn} flex min-h-14 flex-col items-start justify-center bg-solar text-left text-void`}>
-                <span>LAUNCH COMBAT TRAINING</span><span className="font-sans text-xs tracking-normal text-void/75">Three defenders · local rules · returns here</span>
-              </button>
+              {!dockedAtNightSide ? (
+                <button type="button" data-testid="button-universe-launch-training" onClick={p.onLaunchTraining}
+                  className={`${btn} flex min-h-14 flex-col items-start justify-center bg-solar text-left text-void`}>
+                  <span>LAUNCH COMBAT TRAINING</span><span className="font-sans text-xs tracking-normal text-void/75">Three defenders · local rules · returns here</span>
+                </button>
+              ) : null}
               <button type="button" data-testid="button-universe-undock" onClick={p.onUndock}
                 className={`${btn} border border-solar/60 text-solar`}>UNDOCK</button>
-              <CinderRingOperationPreview />
-              {p.onOpenOperations ? (
-                <button type="button" data-testid="button-open-account-operations" onClick={p.onOpenOperations}
-                  className="flex min-h-12 flex-col justify-center border border-bone/20 px-4 text-left text-bone hover:border-solar/60">
-                  <span className="font-hud text-sm tracking-widest">OPEN ACCOUNT OPERATIONS</span>
-                  <span className="text-xs text-muted">Listings are public; travel and match access still require server authorization.</span>
-                </button>
-              ) : (
-                <a href={p.servicesHref} data-testid="link-universe-account-services"
-                  className="flex min-h-12 flex-col justify-center border border-bone/20 px-4 text-bone hover:border-bone/40">
-                  <span className="font-hud text-sm tracking-widest">ACCOUNT SERVICES · EXTERNAL</span>
-                  <span className="text-xs text-muted">Leaves this local session. Sign-in, queues and match seats are server-decided; this dock grants none.</span>
-                </a>
-              )}
+              {!dockedAtNightSide ? (
+                <>
+                  <CinderRingOperationPreview />
+                  {p.onOpenOperations ? (
+                    <button type="button" data-testid="button-open-account-operations" onClick={p.onOpenOperations}
+                      className="flex min-h-12 flex-col justify-center border border-bone/20 px-4 text-left text-bone hover:border-solar/60">
+                      <span className="font-hud text-sm tracking-widest">OPEN ACCOUNT OPERATIONS</span>
+                      <span className="text-xs text-muted">Listings are public; travel and match access still require server authorization.</span>
+                    </button>
+                  ) : (
+                    <a href={p.servicesHref} data-testid="link-universe-account-services"
+                      className="flex min-h-12 flex-col justify-center border border-bone/20 px-4 text-bone hover:border-bone/40">
+                      <span className="font-hud text-sm tracking-widest">ACCOUNT SERVICES · EXTERNAL</span>
+                      <span className="text-xs text-muted">Leaves this local session. Sign-in, queues and match seats are server-decided; this dock grants none.</span>
+                    </a>
+                  )}
+                </>
+              ) : null}
               <button type="button" data-testid="button-universe-exit-docked" onClick={p.onExit}
                 className="min-h-11 font-hud text-xs tracking-widest text-muted hover:text-bone">LEAVE UNIVERSE</button>
             </div>

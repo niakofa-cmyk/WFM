@@ -42,15 +42,23 @@ import {
   UNIVERSE_MODE_ID,
   cinderStationTransform,
   createUniverseSession,
-  evaluateCinderDock,
+  evaluateUniverseDock,
   ORBITAL_SUN_POSITION,
   placeAtUniverseStart,
   universeFrozen,
   type UniverseStartLocation,
-  type DockEvaluation,
+  type UniverseDockEvaluation,
   type UniverseSession,
 } from "./orbital-universe-session";
-import { advanceLocalUniverseFlight, evaluateLocalAnomalyScan, transitionLocalUniverse, type LocalAnomalyScan, type LocalUniverseCommand } from "./orbital-universe-runtime";
+import {
+  advanceLocalUniverseFlight,
+  evaluateLocalAnomalyScan,
+  evaluateLocalRelayInteraction,
+  transitionLocalUniverse,
+  type LocalAnomalyScan,
+  type LocalRelayInteraction,
+  type LocalUniverseCommand,
+} from "./orbital-universe-runtime";
 import { UniverseStationOverlay } from "./UniverseStationOverlay";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
@@ -564,9 +572,11 @@ export function Arena({
     universeRef.current = universeRef.current ?? createUniverseSession();
     return universeRef.current;
   });
-  const [dockState, setDockState] = useState<DockEvaluation | null>(null);
+  const [dockState, setDockState] = useState<UniverseDockEvaluation | null>(null);
   const [anomalyScan, setAnomalyScan] = useState<LocalAnomalyScan | null>(null);
   const anomalyScanKeyRef = useRef("");
+  const [relayInteraction, setRelayInteraction] = useState<LocalRelayInteraction | null>(null);
+  const relayInteractionKeyRef = useRef("");
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
   const universeExitRef = useRef(localUniverse?.onExit);
@@ -688,6 +698,8 @@ export function Arena({
     countermeasureVisibleRef.current = false;
     setAnomalyScan(null);
     anomalyScanKeyRef.current = "";
+    setRelayInteraction(null);
+    relayInteractionKeyRef.current = "";
     universeRef.current = next;
     setUniverse(next);
   };
@@ -1505,8 +1517,8 @@ export function Arena({
           steps += 1;
         }
         if (universePhase === "exploration") {
-          const dock = evaluateCinderDock(pilot, universeRef.current!.sectorAddress);
-          const key = `${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
+          const dock = evaluateUniverseDock(pilot, universeRef.current!.sectorAddress);
+          const key = `${dock.targetId}:${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
           if (key !== lastDockKey) {
             lastDockKey = key;
             setDockState(dock);
@@ -1516,6 +1528,14 @@ export function Arena({
           if (scanKey !== anomalyScanKeyRef.current) {
             anomalyScanKeyRef.current = scanKey;
             setAnomalyScan(scan);
+          }
+          const relay = evaluateLocalRelayInteraction(match, universeRef.current!);
+          const relayKey = relay
+            ? `${relay.id}:${Math.floor(relay.distance)}:${relay.scanned}:${relay.recovered}:${relay.ready}`
+            : "none";
+          if (relayKey !== relayInteractionKeyRef.current) {
+            relayInteractionKeyRef.current = relayKey;
+            setRelayInteraction(relay);
           }
         }
         match.fx.length = 0;
@@ -2295,7 +2315,10 @@ export function Arena({
           session={universe}
           dock={dockState}
           anomalyScan={anomalyScan}
+          relayInteraction={relayInteraction}
           onScanAnomaly={() => dispatchUniverse({ type: "scan-anomaly" })}
+          onScanRelay={() => dispatchUniverse({ type: "scan-rust-relay" })}
+          onRecoverRelay={() => dispatchUniverse({ type: "recover-rust-relay" })}
           rendererReady={glReady && !glError}
           graphicsError={glError}
           servicesHref={localUniverse.servicesHref}

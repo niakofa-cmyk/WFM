@@ -56,7 +56,7 @@ test("Mars route atlas preserves unique IDs and labels local, compatibility, and
   assert.equal(MARS_ADVENTURES.length, 11);
   assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "cinder-ring" && state === "orbital-local"));
   assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "rust-disc" && state === "compatibility"));
-  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "night-side-station" && state === "planned"));
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "night-side-station" && state === "orbital-local"));
   assert.notEqual(MARS_ADVENTURE_STATE_LABEL["orbital-local"], MARS_ADVENTURE_STATE_LABEL.compatibility);
   assert.notEqual(MARS_ADVENTURE_STATE_LABEL.compatibility, MARS_ADVENTURE_STATE_LABEL.planned);
   for (const adventure of MARS_ADVENTURES) {

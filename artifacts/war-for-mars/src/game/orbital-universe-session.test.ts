@@ -8,7 +8,8 @@ import { createMatch } from "./sim";
 import { SHIPS } from "./ships";
 import {
   CINDER_STATION, MARS_NIGHT_SIDE_STATION, ORBITAL_MARS_CENTER, RUST_DISC_RELAY, UNIVERSE_MODE_ID,
-  capturePilotPose, cinderStationTransform, createUniverseSession, evaluateCinderDock,
+  capturePilotPose, cinderStationTransform, createUniverseSession, evaluateCinderDock, evaluateMarsNightSideDock,
+  evaluateUniverseDock,
   placeAtCinderApproach, placeAtSpawn, placeAtUniverseStart, restorePilotPose, transitionUniverse, universeFrozen,
 } from "./orbital-universe-session";
 import { ORIGIN_SECTOR, universeSectorColliders } from "./universe-sectors";
@@ -29,7 +30,7 @@ function dockedSession() {
   const craft = atStation();
   return transitionUniverse(createUniverseSession(), {
     type: "dock", pose: capturePilotPose(craft),
-    dock: evaluateCinderDock(craft), rendererReady: true,
+    dock: evaluateUniverseDock(craft), rendererReady: true,
   });
 }
 
@@ -108,7 +109,10 @@ test("Cinder admission requires physical proximity, low speed, heading, and rend
   assert.equal(evaluateCinderDock(craft).reason, "heading");
   craft.space!.q = [0, 0, 0, 1];
   const before = createUniverseSession();
-  const event = { type: "dock" as const, pose: capturePilotPose(craft), dock: evaluateCinderDock(craft), rendererReady: false };
+  const event = {
+    type: "dock" as const, pose: capturePilotPose(craft), dock: evaluateUniverseDock(craft),
+    rendererReady: false,
+  };
   assert.equal(transitionUniverse(before, event), before);
   assert.equal(transitionUniverse(before, { ...event, rendererReady: true }).phase, "docked");
 });
@@ -126,6 +130,38 @@ test("Cinder docking is available through the 22 m approach radius, but not beyo
   craft.z = CINDER_STATION.z + CINDER_STATION.interactionRadius;
   craft.space!.vz = CINDER_STATION.maxClosureSpeed + 0.1;
   assert.equal(evaluateCinderDock(craft).reason, "closure");
+});
+
+test("night-side station requires a real approach and docks without opening Cinder training", () => {
+  const craft = localMatch().player;
+  placeAtUniverseStart(craft, "mars-night-side");
+  assert.equal(evaluateMarsNightSideDock(craft).reason, "range");
+  craft.x = (MARS_NIGHT_SIDE_STATION.position.x + MARS_NIGHT_SIDE_STATION.approach.x) / 2;
+  craft.z = (MARS_NIGHT_SIDE_STATION.position.z + MARS_NIGHT_SIDE_STATION.approach.z) / 2;
+  craft.space!.y = (MARS_NIGHT_SIDE_STATION.position.y + MARS_NIGHT_SIDE_STATION.approach.y) / 2;
+  const wrongYaw = MARS_NIGHT_SIDE_STATION.yaw + Math.PI;
+  craft.space!.q = [0, Math.sin(wrongYaw / 2), 0, Math.cos(wrongYaw / 2)];
+  assert.equal(evaluateMarsNightSideDock(craft).reason, "heading");
+  const alignedYaw = MARS_NIGHT_SIDE_STATION.yaw;
+  craft.space!.q = [0, Math.sin(alignedYaw / 2), 0, Math.cos(alignedYaw / 2)];
+  assert.equal(evaluateMarsNightSideDock(craft).eligible, true);
+  craft.space!.vz = MARS_NIGHT_SIDE_STATION.maxClosureSpeed + 1;
+  assert.equal(evaluateMarsNightSideDock(craft).reason, "closure");
+  craft.space!.vz = 0;
+
+  const before = createUniverseSession();
+  const docked = transitionUniverse(before, {
+    type: "dock",
+    pose: capturePilotPose(craft),
+    dock: evaluateUniverseDock(craft),
+    rendererReady: true,
+  });
+  assert.equal(docked.phase, "docked");
+  assert.equal(docked.dockedAt, "mars-night-side-station");
+  assert.equal(transitionUniverse(docked, { type: "launch-training" }), docked);
+  const undocked = transitionUniverse(docked, { type: "undock" });
+  assert.equal(undocked.phase, "exploration");
+  assert.equal(undocked.dockedAt, null);
 });
 
 test("invalid spatial telemetry never passes the local gate", () => {
@@ -165,7 +201,7 @@ test("station owns its retained pose rather than the caller's mutable event", ()
   const craft = atStation();
   const pose = capturePilotPose(craft);
   const session = transitionUniverse(createUniverseSession(), {
-    type: "dock", pose, dock: evaluateCinderDock(craft), rendererReady: true,
+    type: "dock", pose, dock: evaluateUniverseDock(craft), rendererReady: true,
   });
   pose.space.energy = 1;
   pose.space.q[0] = .9;

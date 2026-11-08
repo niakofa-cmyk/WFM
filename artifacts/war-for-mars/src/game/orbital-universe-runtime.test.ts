@@ -3,11 +3,16 @@ import test from "node:test";
 import { createBus, readInput } from "./input";
 import { prepareOrbital } from "./orbital-sim";
 import { createMatch, step, type StepInput } from "./sim";
-import { advanceLocalUniverseFlight, evaluateLocalAnomalyScan, transitionLocalUniverse } from "./orbital-universe-runtime";
+import {
+  advanceLocalUniverseFlight,
+  evaluateLocalAnomalyScan,
+  evaluateLocalRelayInteraction,
+  transitionLocalUniverse,
+} from "./orbital-universe-runtime";
 import { universeSectorContents } from "./universe-sectors";
 import {
   capturePilotPose, CINDER_STATION, createUniverseSession, evaluateCinderDock,
-  placeAtSpawn, type UniverseSession,
+  MARS_NIGHT_SIDE_STATION, placeAtSpawn, placeAtUniverseStart, RUST_DISC_RELAY, type UniverseSession,
 } from "./orbital-universe-session";
 
 const idle: StepInput = { throttle: 0, yaw: 0, strafe: 0, pitch: 0, fire: false, ult: false, lock: false, evade: 0, preset: null };
@@ -105,6 +110,55 @@ test("local anomaly scan requires a real nearby signal and records no combat rew
   assert.deepEqual(scanned.scannedAnomalies, [scan!.id]);
   assert.equal(scanned.phase, "exploration");
   assert.equal(match.kills, 0);
+});
+
+test("Rust Disc relay must be physically approached, scanned, then recovered in this session", () => {
+  const { match, template } = setup();
+  const session = createUniverseSession();
+  assert.equal(evaluateLocalRelayInteraction(match, session), null);
+  assert.equal(transitionLocalUniverse(match, template, session, { type: "scan-rust-relay" }), session);
+
+  match.player.x = RUST_DISC_RELAY.position.x + 30;
+  match.player.z = RUST_DISC_RELAY.position.z;
+  match.player.space!.y = RUST_DISC_RELAY.position.y;
+  assert.equal(evaluateLocalRelayInteraction(match, session)?.canScan, false);
+  match.player.x = RUST_DISC_RELAY.position.x;
+  match.player.space!.vx = 0;
+  match.player.space!.vy = 0;
+  match.player.space!.vz = 0;
+  const atRelay = evaluateLocalRelayInteraction(match, session);
+  assert.equal(atRelay?.canScan, true);
+  assert.equal(transitionLocalUniverse(match, template, session, { type: "recover-rust-relay" }), session);
+
+  const scanned = transitionLocalUniverse(match, template, session, { type: "scan-rust-relay" });
+  assert.equal(scanned.rustRelayScanned, true);
+  assert.equal(scanned.rustRelayRecovered, false);
+  assert.equal(evaluateLocalRelayInteraction(match, scanned)?.canRecover, true);
+  match.player.x += 30;
+  assert.equal(evaluateLocalRelayInteraction(match, scanned)?.canRecover, false);
+  assert.equal(transitionLocalUniverse(match, template, scanned, { type: "recover-rust-relay" }), scanned);
+  match.player.x -= 30;
+  const recovered = transitionLocalUniverse(match, template, scanned, { type: "recover-rust-relay" });
+  assert.equal(recovered.rustRelayRecovered, true);
+  assert.equal(recovered.phase, "exploration");
+  assert.equal(transitionLocalUniverse(match, template, recovered, { type: "recover-rust-relay" }), recovered);
+  assert.equal(match.kills, 0);
+  assert.equal(match.over, null);
+});
+
+test("night-side station docking uses the nearest physical station and retains local flight", () => {
+  const { match, template } = setup();
+  placeAtUniverseStart(match.player, "mars-night-side");
+  match.player.x = MARS_NIGHT_SIDE_STATION.position.x;
+  match.player.z = MARS_NIGHT_SIDE_STATION.position.z;
+  match.player.space!.y = MARS_NIGHT_SIDE_STATION.position.y;
+  const session = createUniverseSession();
+  const docked = transitionLocalUniverse(match, template, session, { type: "dock", rendererReady: true });
+  assert.equal(docked.phase, "docked");
+  assert.equal(docked.dockedAt, "mars-night-side-station");
+  assert.equal(transitionLocalUniverse(match, template, docked, { type: "launch-training" }), docked);
+  assert.equal(match.kills, 0);
+  assert.equal(match.over, null);
 });
 
 test("frozen station phases ignore flight input, boost, and resource changes", () => {

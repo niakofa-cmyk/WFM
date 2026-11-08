@@ -2,22 +2,37 @@ import { integrateSpatialFlight, normalizeFlightControls } from "@workspace/orbi
 import { SHIPS } from "./ships";
 import type { Match, StepInput } from "./sim";
 import {
-  capturePilotPose, evaluateCinderDock, restorePilotPose, transitionUniverse,
+  capturePilotPose, evaluateUniverseDock, restorePilotPose, RUST_DISC_RELAY, transitionUniverse,
   type UniverseEvent, type UniverseSession,
 } from "./orbital-universe-session";
 import {
-  nearestUniverseAnomaly, rebaseUniversePosition, universeSectorColliders,
+  nearestUniverseAnomaly, positionInCurrentSector, rebaseUniversePosition, universeSectorColliders,
   type UniverseAnomalySignal, type UniverseSectorAddress,
 } from "./universe-sectors";
 
 /** UI commands carry no caller-supplied pose, eligibility, kills or outcome. */
 export type LocalUniverseCommand =
-  | Exclude<UniverseEvent, { type: "dock" | "training-outcome" | "scan-anomaly" }>
+  | Exclude<UniverseEvent, {
+      type: "dock" | "training-outcome" | "scan-anomaly" | "scan-rust-relay" | "recover-rust-relay";
+    }>
   | { type: "dock"; rendererReady: boolean }
   | { type: "training-outcome" }
-  | { type: "scan-anomaly" };
+  | { type: "scan-anomaly" }
+  | { type: "scan-rust-relay" }
+  | { type: "recover-rust-relay" };
 
 export type LocalAnomalyScan = UniverseAnomalySignal & { scanned: boolean; logFull: boolean; ready: boolean };
+export type LocalRelayInteraction = {
+  id: "rust-disc-relay-record";
+  label: string;
+  distance: number;
+  speed: number;
+  scanned: boolean;
+  recovered: boolean;
+  ready: boolean;
+  canScan: boolean;
+  canRecover: boolean;
+};
 
 export function evaluateLocalAnomalyScan(match: Match, session: UniverseSession): LocalAnomalyScan | null {
   const pilot = match.player;
@@ -38,6 +53,29 @@ export function evaluateLocalAnomalyScan(match: Match, session: UniverseSession)
   };
 }
 
+/** Proximity and speed gate the relay interaction; the result remains session-local. */
+export function evaluateLocalRelayInteraction(match: Match, session: UniverseSession): LocalRelayInteraction | null {
+  const pilot = match.player;
+  if (session.phase !== "exploration" || !pilot.alive || !pilot.space) return null;
+  const relay = positionInCurrentSector(session.sectorAddress, { x: "0", y: "0", z: "0" }, RUST_DISC_RELAY.position, 1_000_000);
+  if (!relay) return null;
+  const distance = Math.hypot(relay.x - pilot.x, relay.y - pilot.space.y, relay.z - pilot.z);
+  if (!Number.isFinite(distance) || distance > 220) return null;
+  const speed = Math.hypot(pilot.space.vx, pilot.space.vy, pilot.space.vz);
+  const ready = distance <= 24 && speed <= 4;
+  return {
+    id: "rust-disc-relay-record",
+    label: "RUST DISC · RECOVERED TRANSMISSION",
+    distance,
+    speed,
+    scanned: session.rustRelayScanned,
+    recovered: session.rustRelayRecovered,
+    ready,
+    canScan: ready && !session.rustRelayScanned && !session.rustRelayRecovered,
+    canRecover: ready && session.rustRelayScanned && !session.rustRelayRecovered,
+  };
+}
+
 /**
  * Applies the same activity side effects used by Arena, without owning a
  * renderer, clock, input bus, network connection or animation driver.
@@ -54,9 +92,12 @@ export function transitionLocalUniverse(
   let event: UniverseEvent;
   if (command.type === "dock") {
     // Evaluate current simulation state, never stale UI telemetry.
+    const dock = evaluateUniverseDock(match.player, session.sectorAddress);
     event = {
-      type: "dock", rendererReady: command.rendererReady,
-      pose: capturePilotPose(match.player), dock: evaluateCinderDock(match.player, session.sectorAddress),
+      type: "dock",
+      rendererReady: command.rendererReady,
+      pose: capturePilotPose(match.player),
+      dock,
     };
   } else if (command.type === "training-outcome") {
     if (!match.over) return session;
@@ -76,6 +117,14 @@ export function transitionLocalUniverse(
     const scan = evaluateLocalAnomalyScan(match, session);
     if (!scan?.ready) return session;
     event = { type: "scan-anomaly", id: scan.id };
+  } else if (command.type === "scan-rust-relay") {
+    const relay = evaluateLocalRelayInteraction(match, session);
+    if (!relay?.canScan) return session;
+    event = { type: "scan-rust-relay" };
+  } else if (command.type === "recover-rust-relay") {
+    const relay = evaluateLocalRelayInteraction(match, session);
+    if (!relay?.canRecover) return session;
+    event = { type: "recover-rust-relay" };
   } else {
     event = command;
   }

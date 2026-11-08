@@ -42,7 +42,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     region: "Frontier debris field",
     state: "compatibility",
     concept: "Relay recovery, patrol encounters, salvage, and extraction.",
-    currentEvidence: "A physical local Orbital relay approach is available; mission completion and rewards remain in the server-run compatibility operation.",
+    currentEvidence: "Pilots can scan and recover one relay record per local session; it is not synced as account evidence, and the full operation remains server-run compatibility content.",
     nextGate: "Migrate the operation runtime and settlement through an Orbital adapter with authority and rollback proof.",
   },
   {
@@ -75,10 +75,10 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
   {
     id: "night-side-station",
     name: "Night-side Station",
-    region: "Rotating dark hemisphere",
-    state: "planned",
-    concept: "Navigate the night side, locate a hidden installation, and answer a rescue signal.",
-    currentEvidence: "A fixed dark-hemisphere Orbital station approach is available; the planet does not yet rotate and no surface traversal is implemented.",
+    region: "Fixed dark-hemisphere orbit",
+    state: "orbital-local",
+    concept: "Approach and dock at the night-side installation.",
+    currentEvidence: "The station can be physically approached and locally docked; Mars does not rotate and no surface traversal or rescue operation is implemented.",
     nextGate: "Shared planetary clock, dynamic day/night rotation, and continuous orbit-to-surface travel.",
   },
   {

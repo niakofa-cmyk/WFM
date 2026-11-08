@@ -49,6 +49,9 @@ export const MARS_NIGHT_SIDE_STATION = {
   position: nightStationPosition,
   approach: nightApproachPosition,
   yaw: Math.atan2(-nightDx, -nightDz),
+  interactionRadius: 22,
+  maxClosureSpeed: 4,
+  headingGateDeg: 35,
 } as const;
 
 /** Fixed physical Cinder Ring location (simulation coordinates): dead ahead of spawn on the
@@ -155,6 +158,11 @@ export function placeAtUniverseStart(craft: PoseCraft, location: UniverseStartLo
 
 export type DockReason = "ready" | "range" | "closure" | "heading" | "inactive";
 export type DockEvaluation = { eligible: boolean; reason: DockReason; distance: number; closure: number; headingDeg: number };
+export type UniverseDockTarget = "cinder-ring" | "mars-night-side-station";
+export type UniverseDockEvaluation = DockEvaluation & {
+  targetId: UniverseDockTarget;
+  targetLabel: string;
+};
 
 export function evaluateCinderDock(craft: PoseCraft, sectorAddress: UniverseSectorAddress = ORIGIN_SECTOR): DockEvaluation {
   const s = craft.space;
@@ -179,26 +187,91 @@ export function evaluateCinderDock(craft: PoseCraft, sectorAddress: UniverseSect
   return { eligible: reason === "ready", reason, distance, closure, headingDeg };
 }
 
+export function evaluateMarsNightSideDock(
+  craft: PoseCraft,
+  sectorAddress: UniverseSectorAddress = ORIGIN_SECTOR,
+): DockEvaluation {
+  const s = craft.space;
+  if (!s || !craft.alive || !isFinitePilotState(craft)) {
+    return { eligible: false, reason: "inactive", distance: Infinity, closure: 0, headingDeg: 180 };
+  }
+  const station = positionInCurrentSector(sectorAddress, ORIGIN_SECTOR, MARS_NIGHT_SIDE_STATION.position, 1_000_000);
+  if (!station) {
+    return {
+      eligible: false,
+      reason: "range",
+      distance: 1_000_000_000_000,
+      closure: Math.hypot(s.vx, s.vy, s.vz),
+      headingDeg: 180,
+    };
+  }
+  const dx = station.x - craft.x;
+  const dy = station.y - s.y;
+  const dz = station.z - craft.z;
+  const distance = Math.hypot(dx, dy, dz);
+  const closure = Math.hypot(s.vx, s.vy, s.vz);
+  const forward = rotate(s.q, 0, 0, -1);
+  const forwardLength = Math.hypot(forward.x, forward.y, forward.z);
+  const dot = distance > 1e-6 && forwardLength > 1e-6
+    ? Math.max(-1, Math.min(1, (forward.x * dx + forward.y * dy + forward.z * dz) / (forwardLength * distance)))
+    : 1;
+  const headingDeg = Math.acos(dot) * 180 / Math.PI;
+  const reason: DockReason = distance > MARS_NIGHT_SIDE_STATION.interactionRadius ? "range"
+    : closure > MARS_NIGHT_SIDE_STATION.maxClosureSpeed ? "closure"
+      : headingDeg > MARS_NIGHT_SIDE_STATION.headingGateDeg ? "heading" : "ready";
+  if (!finite(distance, closure, headingDeg)) {
+    return { eligible: false, reason: "inactive", distance: Infinity, closure: 0, headingDeg: 180 };
+  }
+  return { eligible: reason === "ready", reason, distance, closure, headingDeg };
+}
+
+/** Select the physically nearest dockable station in the streamed Mars system. */
+export function evaluateUniverseDock(
+  craft: PoseCraft,
+  sectorAddress: UniverseSectorAddress = ORIGIN_SECTOR,
+): UniverseDockEvaluation {
+  const cinder = evaluateCinderDock(craft, sectorAddress);
+  const nightSide = evaluateMarsNightSideDock(craft, sectorAddress);
+  return cinder.distance <= nightSide.distance
+    ? { ...cinder, targetId: "cinder-ring", targetLabel: "CINDER RING" }
+    : { ...nightSide, targetId: "mars-night-side-station", targetLabel: "MARS NIGHT-SIDE STATION" };
+}
+
 export type UniverseDebrief = { outcome: "win" | "loss" | "draw" | "aborted"; kills: number; reason: string };
 export type UniverseSession = {
   phase: UniversePhase;
   sectorAddress: UniverseSectorAddress;
+  dockedAt: UniverseDockTarget | null;
   scannedAnomalies: string[];
+  rustRelayScanned: boolean;
+  rustRelayRecovered: boolean;
   retained: PilotPose | null;
   debrief: UniverseDebrief | null;
   trainingRuns: number;
 };
 export type UniverseEvent =
-  | { type: "dock"; pose: PilotPose; dock: DockEvaluation; rendererReady: boolean }
+  | { type: "dock"; pose: PilotPose; dock: UniverseDockEvaluation; rendererReady: boolean }
   | { type: "undock" }
   | { type: "launch-training" }
   | { type: "training-outcome"; debrief: UniverseDebrief }
   | { type: "abort-training" }
   | { type: "scan-anomaly"; id: string }
+  | { type: "scan-rust-relay" }
+  | { type: "recover-rust-relay" }
   | { type: "return-from-debrief" };
 
 export function createUniverseSession(): UniverseSession {
-  return { phase: "exploration", sectorAddress: ORIGIN_SECTOR, scannedAnomalies: [], retained: null, debrief: null, trainingRuns: 0 };
+  return {
+    phase: "exploration",
+    sectorAddress: ORIGIN_SECTOR,
+    dockedAt: null,
+    scannedAnomalies: [],
+    rustRelayScanned: false,
+    rustRelayRecovered: false,
+    retained: null,
+    debrief: null,
+    trainingRuns: 0,
+  };
 }
 
 /** Returns the same object when an event is not valid for the current phase. */
@@ -208,11 +281,11 @@ export function transitionUniverse(session: UniverseSession, event: UniverseEven
       if (session.phase !== "exploration" || !event.dock.eligible || !event.rendererReady) return session;
       if (!isFinitePilotState(event.pose)) return session;
       // Deep copy so later flight mutation can never alias the retained pose.
-      return { ...session, phase: "docked", retained: clonePilotPose(event.pose), debrief: null };
+      return { ...session, phase: "docked", dockedAt: event.dock.targetId, retained: clonePilotPose(event.pose), debrief: null };
     case "undock":
-      return session.phase === "docked" ? { ...session, phase: "exploration" } : session;
+      return session.phase === "docked" ? { ...session, phase: "exploration", dockedAt: null } : session;
     case "launch-training":
-      return session.phase === "docked" && session.retained
+      return session.phase === "docked" && session.dockedAt === "cinder-ring" && session.retained
         ? { ...session, phase: "training", trainingRuns: session.trainingRuns + 1, debrief: null }
         : session;
     case "training-outcome":
@@ -224,6 +297,12 @@ export function transitionUniverse(session: UniverseSession, event: UniverseEven
     case "scan-anomaly":
       if (session.phase !== "exploration" || !event.id || session.scannedAnomalies.includes(event.id) || session.scannedAnomalies.length >= 128) return session;
       return { ...session, scannedAnomalies: [...session.scannedAnomalies, event.id] };
+    case "scan-rust-relay":
+      if (session.phase !== "exploration" || session.rustRelayScanned || session.rustRelayRecovered) return session;
+      return { ...session, rustRelayScanned: true };
+    case "recover-rust-relay":
+      if (session.phase !== "exploration" || !session.rustRelayScanned || session.rustRelayRecovered) return session;
+      return { ...session, rustRelayRecovered: true };
     case "return-from-debrief":
       return session.phase === "debrief" ? { ...session, phase: "docked" } : session;
   }
