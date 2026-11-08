@@ -1,4 +1,8 @@
-import { integrateSpatialFlight, normalizeFlightControls } from "@workspace/orbital-sim";
+import {
+  integrateSpatialFlight,
+  normalizeFlightControls,
+  type AnomalyGravityWellV1,
+} from "@workspace/orbital-sim";
 import { SHIPS } from "./ships";
 import type { Match, StepInput } from "./sim";
 import {
@@ -7,7 +11,7 @@ import {
 } from "./orbital-universe-session";
 import {
   nearestUniverseAnomaly, positionInCurrentSector, rebaseUniversePosition, universeSectorColliders,
-  type UniverseAnomalySignal, type UniverseSectorAddress,
+  universeSectorGravityWells, type UniverseAnomalySignal, type UniverseSectorAddress,
 } from "./universe-sectors";
 
 /** UI commands carry no caller-supplied pose, eligibility, kills or outcome. */
@@ -142,17 +146,29 @@ export function transitionLocalUniverse(
 }
 
 /** Exploration consumes flight only: combat buttons cannot produce a shot or AI step. */
-export function advanceLocalUniverseFlight(match: Match, session: UniverseSession, input: StepInput, dt: number): UniverseSectorAddress | null {
+export function advanceLocalUniverseFlight(
+  match: Match,
+  session: UniverseSession,
+  input: StepInput,
+  dt: number,
+  sharedGravityWells?: readonly AnomalyGravityWellV1[] | null,
+): UniverseSectorAddress | null {
   if (session.phase !== "exploration") return null;
   const pilot = match.player;
   const controls = normalizeFlightControls(input);
+  const gravityWells = sharedGravityWells === undefined
+    ? universeSectorGravityWells(session.sectorAddress)
+    : sharedGravityWells ?? [];
   integrateSpatialFlight(pilot, {
     throttle: controls.throttle, yaw: controls.yaw, strafe: controls.strafe,
     pitch: controls.pitch, roll: controls.roll, vertical: controls.vertical,
     boost: controls.boost, brake: controls.brake, drift: controls.drift,
     inertial: controls.inertial,
     ...(controls.maneuver ? { maneuver: controls.maneuver } : {}),
-  }, dt, 1, universeSectorColliders(session.sectorAddress), SHIPS[pilot.ship], { boundaryRadius: null });
+  }, dt, 1, universeSectorColliders(session.sectorAddress), SHIPS[pilot.ship], {
+    boundaryRadius: null,
+    gravityWells,
+  });
   const rebased = rebaseUniversePosition(session.sectorAddress, { x: pilot.x, y: pilot.space!.y, z: pilot.z });
   if (!rebased.crossed) return null;
   pilot.x = rebased.local.x;

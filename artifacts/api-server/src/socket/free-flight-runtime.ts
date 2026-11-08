@@ -3,6 +3,7 @@ import {
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_PROTOCOL_V1,
+  FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
   MISSILE_CATALOG,
   PRIMARY_WEAPON_CATALOG,
   acquireTarget,
@@ -13,6 +14,7 @@ import {
   detSin,
   guideMissile,
   integrateSpatialFlight,
+  anomalyGravityWellForSector,
   newFlight,
   parseOrbitalInput,
   rotate,
@@ -21,6 +23,8 @@ import {
   sphereSweepTime,
   type FlightControls,
   type FreeFlightActorV1,
+  type AnomalyGravityWellV1,
+  type FreeFlightEnvironmentV1,
   type FreeFlightSnapshotV1,
   type SpatialBullet,
   type SpatialCraft,
@@ -93,6 +97,7 @@ type Actor = {
   kills: number;
   assists: number;
   creditsAwarded: number;
+  gravityEnvironmentV1: boolean;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -122,6 +127,8 @@ type Session = {
   instanceId: string;
   actors: Map<string, Actor>;
   pilotByUser: Map<string, Actor>;
+  anomalyGravityWells: AnomalyGravityWellV1[];
+  gravityEnvironmentEnabled: boolean;
   persistentPatrols: Map<string, UniversePatrolEncounter>;
   projectiles: FreeFlightProjectile[];
   combat: LiveEncounter | null;
@@ -335,6 +342,10 @@ export function createFreeFlightRuntime(options: {
     if (sessions.size >= MAX_SESSIONS) return null;
     session = {
       key, instanceId: randomUUID(), actors: new Map(), pilotByUser: new Map(),
+      anomalyGravityWells: anomalyGravityWellForSector(key)
+        ? [anomalyGravityWellForSector(key)!]
+        : [],
+      gravityEnvironmentEnabled: false,
       persistentPatrols: new Map(), projectiles: [], combat: null,
       engagementPending: false, nextProjectileId: 1,
       nextNumericId: 1, tick: 0, accumulatorMs: 0,
@@ -392,6 +403,33 @@ export function createFreeFlightRuntime(options: {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
       }
+    }
+  }
+
+  function environmentFor(session: Session): FreeFlightEnvironmentV1 {
+    return {
+      protocol: FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
+      sessionInstanceId: session.instanceId,
+      enabled: session.gravityEnvironmentEnabled,
+      gravityWells: session.gravityEnvironmentEnabled ? session.anomalyGravityWells : [],
+    };
+  }
+
+  function refreshGravityEnvironment(session: Session) {
+    const connectedPilots = [...session.pilotByUser.values()].filter(
+      (actor) => actor.socket?.readyState === OPEN,
+    );
+    const enabled = connectedPilots.length > 0 &&
+      connectedPilots.every((actor) => actor.gravityEnvironmentV1);
+    const changed = session.gravityEnvironmentEnabled !== enabled;
+    session.gravityEnvironmentEnabled = enabled;
+    return changed;
+  }
+
+  function broadcastEnvironment(session: Session, except: WebSocketLike | null = null) {
+    const packet = { type: "freeflight_environment", environment: environmentFor(session) };
+    for (const actor of session.pilotByUser.values()) {
+      if (actor.socket?.readyState === OPEN && actor.socket !== except) send(actor.socket, packet);
     }
   }
 
@@ -783,7 +821,10 @@ export function createFreeFlightRuntime(options: {
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
       integrateSpatialFlight(
         actor.craft, input, ORBITAL_DT, 1, [], SHIPS[actor.shipId],
-        { boundaryRadius: null },
+        {
+          boundaryRadius: null,
+          gravityWells: session.gravityEnvironmentEnabled ? session.anomalyGravityWells : [],
+        },
       );
       actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
       if (actor.lastDamageTick < 0 || session.tick - actor.lastDamageTick > 45) {
@@ -814,6 +855,7 @@ export function createFreeFlightRuntime(options: {
     seat.actor.socket = null;
     seat.actor.input = { ...IDLE };
     seat.actor.disconnectedAt = Date.now();
+    if (refreshGravityEnvironment(seat.session)) broadcastEnvironment(seat.session);
     seat.session.emptySince = [...seat.session.actors.values()].every((actor) =>
       actor.kind !== "pilot" || actor.socket?.readyState !== OPEN,
     ) ? Date.now() : null;
@@ -887,6 +929,7 @@ export function createFreeFlightRuntime(options: {
             lastInputAt: now, lastSeq: 0, inputWindowAt: now, inputCount: 0,
             disconnectedAt: null, waypointIndex: 0, waypoints: [],
             primaryCooldown: 0, lastDamageTick: -1, kills: 0, assists: 0, creditsAwarded: 0,
+            gravityEnvironmentV1: false,
           };
           session.actors.set(actor.actorId, actor);
           session.pilotByUser.set(userId, actor);
@@ -901,6 +944,7 @@ export function createFreeFlightRuntime(options: {
         const previousSeat = userSeats.get(userId);
         if (previousSeat) seats.delete(previousSeat.actor.socket!);
         actor.socket = socket;
+        actor.gravityEnvironmentV1 = false;
         actor.disconnectedAt = null;
         actor.lastInputAt = now;
         actor.input = { ...IDLE };
@@ -908,11 +952,14 @@ export function createFreeFlightRuntime(options: {
         seats.set(socket, seat);
         userSeats.set(userId, seat);
         session.emptySince = null;
+        const environmentChanged = refreshGravityEnvironment(session);
         send(socket, {
           type: "freeflight_joined",
           nextInputSeq: actor.lastSeq + 1,
           snapshot: snapshotFor(session, actor),
+          environment: environmentFor(session),
         });
+        if (environmentChanged) broadcastEnvironment(session, socket);
         publish(session);
       } catch {
         error("freeflight_admission_unavailable");
@@ -924,6 +971,16 @@ export function createFreeFlightRuntime(options: {
 
     const seat = seats.get(socket);
     if (!seat || seat.userId !== userId) { error("freeflight_join_required"); return; }
+    if (packet.type === "freeflight_environment_request") {
+      if (Object.keys(packet).length !== 1) {
+        error("invalid_freeflight_environment_request");
+        return;
+      }
+      seat.actor.gravityEnvironmentV1 = true;
+      refreshGravityEnvironment(seat.session);
+      broadcastEnvironment(seat.session);
+      return;
+    }
     if (packet.type === "freeflight_engage") {
       if (Object.keys(packet).length !== 2 || typeof packet.targetActorId !== "string") {
         error("invalid_freeflight_engage");

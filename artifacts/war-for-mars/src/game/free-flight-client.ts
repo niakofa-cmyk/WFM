@@ -1,8 +1,10 @@
 import {
   ORBITAL_RULES_VERSION,
+  isFreeFlightEnvironmentV1,
   isFreeFlightSnapshotV1,
   normalizeFlightControls,
   type FlightControlFrame,
+  type FreeFlightEnvironmentV1,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
 import { currentWingSocketUrl } from "./socket-endpoint";
@@ -23,6 +25,7 @@ export type ReceivedFreeFlightSnapshot = {
 type FreeFlightClientOptions = {
   getSessionToken: () => Promise<string | null>;
   onSnapshot: (frame: ReceivedFreeFlightSnapshot) => void;
+  onEnvironment?: (environment: FreeFlightEnvironmentV1 | null) => void;
   onState?: (state: FreeFlightConnectionState, reason?: string) => void;
   onCombatPacket?: (packet: Record<string, unknown>) => void;
 };
@@ -152,6 +155,14 @@ export class FreeFlightClient {
         this.attempt = 0;
         this.options.onState?.("joined");
         this.acceptSnapshot(packet.snapshot);
+        this.acceptEnvironment(packet.environment);
+        // Capability negotiation keeps older server/client pairs on their
+        // existing movement rules during a rolling deployment.
+        socket.send(JSON.stringify({ type: "freeflight_environment_request" }));
+        return;
+      }
+      if (packet.type === "freeflight_environment") {
+        this.acceptEnvironment(packet.environment);
         return;
       }
       if (packet.type === "freeflight_snapshot") {
@@ -201,6 +212,12 @@ export class FreeFlightClient {
       snapshot: value,
       receivedAt: typeof performance === "undefined" ? Date.now() : performance.now(),
     });
+  }
+
+  private acceptEnvironment(value: unknown) {
+    this.options.onEnvironment?.(
+      isFreeFlightEnvironmentV1(value) ? value : null,
+    );
   }
 
   private scheduleReconnect(reason: string) {

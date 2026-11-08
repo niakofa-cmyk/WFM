@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { AnomalyGravityWellV1 } from "@workspace/orbital-sim";
 import {
   nearbyUniverseSectors, type UniverseSectorAddress, type UniversePosition,
 } from "./universe-sectors";
@@ -6,7 +7,10 @@ import {
 const ROCK_COLORS = [0x756656, 0x655a50, 0x867765, 0x505965] as const;
 
 /** Low-poly, deterministic nearby scenery. The main game retains one scene and renderer. */
-export function buildUniverseSectorNeighborhood(address: UniverseSectorAddress): THREE.Group {
+export function buildUniverseSectorNeighborhood(
+  address: UniverseSectorAddress,
+  options: { includeAnomalies?: boolean } = {},
+): THREE.Group {
   const root = new THREE.Group();
   root.name = `universe-sector-neighborhood:${address.x}:${address.y}:${address.z}`;
   const sectors = nearbyUniverseSectors(address);
@@ -35,7 +39,7 @@ export function buildUniverseSectorNeighborhood(address: UniverseSectorAddress):
       cell.add(rock);
     }
 
-    if (sector.contents.anomaly) {
+    if (options.includeAnomalies !== false && sector.contents.anomaly) {
       const anomaly = sector.contents.anomaly;
       const beacon = new THREE.Group();
       beacon.name = `sector-anomaly:${sector.contents.key}`;
@@ -57,6 +61,37 @@ export function buildUniverseSectorNeighborhood(address: UniverseSectorAddress):
     }
     root.add(cell);
   }
+  return root;
+}
+
+/** Shared-flight lens marker; the starfield shader supplies the surrounding warp. */
+export function buildAnomalyLensingVisual(well: AnomalyGravityWellV1): THREE.Group {
+  const root = new THREE.Group();
+  root.name = `server-anomaly-lens:${well.id}`;
+  const innerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(well.softeningRadius * 0.95, 0.24, 8, 64),
+    new THREE.MeshBasicMaterial({
+      color: 0x9deaff, transparent: true, opacity: 0.74,
+      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  innerRing.rotation.x = Math.PI / 2;
+  root.add(innerRing);
+  const outerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(well.softeningRadius * 1.42, 0.12, 6, 72),
+    new THREE.MeshBasicMaterial({
+      color: 0x617aff, transparent: true, opacity: 0.38,
+      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  outerRing.rotation.set(Math.PI / 2 + 0.32, 0.15, 0);
+  root.add(outerRing);
+  root.add(new THREE.Mesh(
+    new THREE.IcosahedronGeometry(well.softeningRadius * 0.42, 1),
+    new THREE.MeshBasicMaterial({
+      color: 0x07101d, transparent: true, opacity: 0.94, depthWrite: false,
+    }),
+  ));
   return root;
 }
 

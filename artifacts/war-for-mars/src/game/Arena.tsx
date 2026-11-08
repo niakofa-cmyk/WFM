@@ -25,7 +25,12 @@ import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraPose } from "./orbital-camera";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
-import { buildUniverseSectorNeighborhood, disposeUniverseSectorNeighborhood, setOriginSystemFrame } from "./universe-sector-visuals";
+import {
+  buildAnomalyLensingVisual,
+  buildUniverseSectorNeighborhood,
+  disposeUniverseSectorNeighborhood,
+  setOriginSystemFrame,
+} from "./universe-sector-visuals";
 import { sectorAddressKey, universeSectorContents, UNIVERSE_SECTOR_EDGE } from "./universe-sectors";
 import { createOrbitalStarfieldBuffers } from "./orbital-starfield";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
@@ -37,7 +42,9 @@ import {
   getGameModeDefinition,
   isOrbitalRuntimeId,
   ORBITAL_RUNTIME_ID,
+  type AnomalyGravityWellV1,
   type CombatRuntimeId,
+  type FreeFlightEnvironmentV1,
   type GameModeId,
 } from "@workspace/orbital-sim";
 import {
@@ -633,6 +640,7 @@ export function Arena({
   const freeFlightTokenRef = useRef(localUniverse?.getSessionToken);
   freeFlightTokenRef.current = localUniverse?.getSessionToken;
   const freeFlightClientRef = useRef<FreeFlightClient | null>(null);
+  const freeFlightEnvironmentRef = useRef<FreeFlightEnvironmentV1 | null>(null);
   const freeFlightFramesRef = useRef<{
     previous: ReceivedFreeFlightSnapshot | null;
     current: ReceivedFreeFlightSnapshot | null;
@@ -643,6 +651,29 @@ export function Arena({
   const freeFlightEnabled = localUniverseActive &&
     localUniverse?.freeFlightEnabled === true &&
     Boolean(localUniverse.getSessionToken);
+  const localFreeFlightGravity = (pilot: Craft): readonly AnomalyGravityWellV1[] | undefined => {
+    if (!freeFlightEnabled) return undefined;
+    const environment = freeFlightEnvironmentRef.current;
+    if (!environment?.enabled || !pilot.space) return [];
+    const frame = freeFlightFramesRef.current.current;
+    const ownActor = frame?.snapshot.actors.find(
+      (actor) => actor.actorId === frame.snapshot.ownActorId,
+    );
+    if (!ownActor) return [];
+    const offset = {
+      x: pilot.x - ownActor.position.x,
+      y: pilot.space.y - ownActor.position.y,
+      z: pilot.z - ownActor.position.z,
+    };
+    return environment.gravityWells.map((well) => ({
+      ...well,
+      center: {
+        x: well.center.x + offset.x,
+        y: well.center.y + offset.y,
+        z: well.center.z + offset.z,
+      },
+    }));
+  };
   useEffect(() => {
     if (!freeFlightEnabled) return;
     let disposed = false;
@@ -652,6 +683,9 @@ export function Arena({
       if (disposed) return;
       client = new Client({
         getSessionToken: () => freeFlightTokenRef.current?.() ?? Promise.resolve(null),
+        onEnvironment: (environment) => {
+          freeFlightEnvironmentRef.current = environment;
+        },
         onSnapshot: (frame) => {
           const previous = freeFlightFramesRef.current.current;
           freeFlightFramesRef.current = { previous, current: frame };
@@ -674,7 +708,10 @@ export function Arena({
         },
         onState: (state, reason) => {
           setFreeFlightStatus(reason ?? state);
-          if (state !== "joined") freeFlightCombatActiveRef.current = false;
+          if (state !== "joined") {
+            freeFlightCombatActiveRef.current = false;
+            freeFlightEnvironmentRef.current = null;
+          }
           if (state !== "joined") {
             setVisibleEnemyPatrols(0);
             setSharedPatrolContact(null);
@@ -749,6 +786,7 @@ export function Arena({
       client?.stop();
       if (freeFlightClientRef.current === client) freeFlightClientRef.current = null;
       freeFlightFramesRef.current = { previous: null, current: null };
+      freeFlightEnvironmentRef.current = null;
     };
   }, [faction, freeFlightEnabled]);
   useEffect(() => {
@@ -1207,6 +1245,22 @@ export function Arena({
     }
     let sectorNeighborhood: THREE.Group | null = null;
     let activeSectorKey = "";
+    let serverAnomalyVisual: THREE.Group | null = null;
+    let activeServerAnomalyId = "";
+    const syncServerAnomalyVisual = (well?: AnomalyGravityWellV1) => {
+      const nextId = well?.id ?? "";
+      if (nextId === activeServerAnomalyId) return;
+      if (serverAnomalyVisual) {
+        scene.remove(serverAnomalyVisual);
+        disposeUniverseSectorNeighborhood(serverAnomalyVisual);
+        serverAnomalyVisual = null;
+      }
+      activeServerAnomalyId = nextId;
+      if (well) {
+        serverAnomalyVisual = buildAnomalyLensingVisual(well);
+        scene.add(serverAnomalyVisual);
+      }
+    };
     let starGeometry: THREE.BufferGeometry | null = null;
     let starMaterial: THREE.ShaderMaterial | null = null;
     let activeStarSeed = match.seed >>> 0;
@@ -1228,7 +1282,9 @@ export function Arena({
         scene.remove(sectorNeighborhood);
         disposeUniverseSectorNeighborhood(sectorNeighborhood);
       }
-      sectorNeighborhood = buildUniverseSectorNeighborhood(address);
+      sectorNeighborhood = buildUniverseSectorNeighborhood(address, {
+        includeAnomalies: !freeFlightEnabled,
+      });
       scene.add(sectorNeighborhood);
       if (orbitalAssets) setOriginSystemFrame(orbitalAssets.systemFrame, address, UNIVERSE_SECTOR_EDGE);
       updateStarfieldSeed(universeSectorContents(address).seed);
@@ -1241,6 +1297,8 @@ export function Arena({
       renderer.toneMappingExposure = 1.15;
     }
     const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 520);
+    const lensWorldPosition = new THREE.Vector3();
+    const lensEdgePosition = new THREE.Vector3();
     scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
     scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
     const sun = new THREE.DirectionalLight(look.sun, 1.7);
@@ -1274,25 +1332,49 @@ export function Arena({
     starGeometry.setAttribute("position", new THREE.BufferAttribute(initialStars.positions, 3));
     starGeometry.setAttribute("aPhase", new THREE.BufferAttribute(initialStars.phases, 1));
     starMaterial = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
+      uniforms: {
+        uTime: { value: 0 },
+        uLensCenter: { value: new THREE.Vector2(0, 0) },
+        uLensRadius: { value: 0.12 },
+        uLensStrength: { value: 0 },
+      },
       vertexShader: `
         attribute float aPhase;
         uniform float uTime;
+        uniform vec2 uLensCenter;
+        uniform float uLensRadius;
+        uniform float uLensStrength;
         varying float vAlpha;
+        varying float vLens;
         void main() {
           vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * viewPosition;
+          vec4 clipPosition = projectionMatrix * viewPosition;
+          vLens = 0.0;
+          if (clipPosition.w > 0.0 && uLensStrength > 0.0) {
+            vec2 projected = clipPosition.xy / clipPosition.w;
+            vec2 radial = projected - uLensCenter;
+            float distanceToLens = max(length(radial), 0.001);
+            float radius = max(uLensRadius, 0.015);
+            float influence = exp(-(distanceToLens * distanceToLens) / (radius * radius));
+            radial /= distanceToLens;
+            clipPosition.xy += radial *
+              (uLensStrength * influence / (distanceToLens + 0.12)) * clipPosition.w;
+            vLens = influence;
+          }
+          gl_Position = clipPosition;
           float twinkle = 0.5 + 0.5 * sin(uTime * 1.15 + aPhase);
-          vAlpha = 0.28 + 0.72 * twinkle;
+          vAlpha = 0.28 + 0.72 * twinkle + 0.08 * vLens;
           gl_PointSize = 0.8 + 1.25 * twinkle;
         }
       `,
       fragmentShader: `
         varying float vAlpha;
+        varying float vLens;
         void main() {
           float radius = length(gl_PointCoord - vec2(0.5));
           float glow = 1.0 - smoothstep(0.12, 0.5, radius);
-          gl_FragColor = vec4(vec3(0.72, 0.84, 0.98), glow * vAlpha);
+          vec3 color = mix(vec3(0.72, 0.84, 0.98), vec3(0.62, 0.88, 1.0), vLens);
+          gl_FragColor = vec4(color, glow * vAlpha);
         }
       `,
       transparent: true,

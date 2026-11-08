@@ -1,5 +1,5 @@
-import type { Rock } from "@workspace/orbital-sim";
-import { seedUniverseSector, type SeededUniverseSector } from "@workspace/orbital-sim";
+import type { AnomalyGravityWellV1, Rock } from "@workspace/orbital-sim";
+import { anomalyGravityWellForSector, seedUniverseSector, type SeededUniverseSector } from "@workspace/orbital-sim";
 
 /**
  * Sector-local coordinates stay small for deterministic flight. The address is
@@ -30,6 +30,7 @@ export type UniverseAnomalySignal = {
 const COORDINATE = /^-?(0|[1-9]\d*)$/;
 const contentsCache = new Map<string, UniverseSectorContents>();
 const colliderCache = new Map<string, Rock[]>();
+const gravityWellCache = new Map<string, readonly AnomalyGravityWellV1[]>();
 
 function coordinate(value: string): bigint {
   if (!COORDINATE.test(value)) throw new Error(`Invalid universe sector coordinate: ${value}`);
@@ -154,6 +155,30 @@ export function nearbyUniverseSectors(address: UniverseSectorAddress, radius = 1
     }
   }
   return sectors;
+}
+
+/** Server-independent local wells use the same sector seed and bounded physics rule. */
+export function universeSectorGravityWells(address: UniverseSectorAddress): readonly AnomalyGravityWellV1[] {
+  const key = sectorAddressKey(address);
+  const cached = gravityWellCache.get(key);
+  if (cached) return cached;
+  const wells: AnomalyGravityWellV1[] = [];
+  for (const sector of nearbyUniverseSectors(address)) {
+    if (!sector.contents.anomaly) continue;
+    const well = anomalyGravityWellForSector(sector.contents.key);
+    if (!well) continue;
+    wells.push({
+      ...well,
+      center: {
+        x: sector.offset.x + well.center.x,
+        y: sector.offset.y + well.center.y,
+        z: sector.offset.z + well.center.z,
+      },
+    });
+  }
+  if (gravityWellCache.size >= 64) gravityWellCache.delete(gravityWellCache.keys().next().value!);
+  gravityWellCache.set(key, wells);
+  return wells;
 }
 
 /** Collision candidates use the same deterministic rocks as sector visuals. */

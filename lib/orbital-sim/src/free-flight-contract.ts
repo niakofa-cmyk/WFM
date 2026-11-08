@@ -1,6 +1,8 @@
 import { ORBITAL_RULES_VERSION } from "./flight";
+import { isAnomalyGravityWellV1, type AnomalyGravityWellV1 } from "./anomaly-gravity";
 
 export const FREE_FLIGHT_PROTOCOL_V1 = "orbital-freeflight-v1" as const;
+export const FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1 = "orbital-freeflight-environment-v1" as const;
 export const FREE_FLIGHT_MAX_ACTORS = 32;
 
 export type FreeFlightVector3 = { x: number; y: number; z: number };
@@ -31,6 +33,12 @@ export type FreeFlightSnapshotV1 = {
   serverTime: number;
   ownActorId: string;
   actors: FreeFlightActorV1[];
+};
+export type FreeFlightEnvironmentV1 = {
+  protocol: typeof FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1;
+  sessionInstanceId: string;
+  enabled: boolean;
+  gravityWells: AnomalyGravityWellV1[];
 };
 
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
@@ -108,4 +116,19 @@ export function isFreeFlightSnapshotV1(value: unknown): value is FreeFlightSnaps
     ownActors.length === 1 &&
     ownActors[0]?.kind === "pilot" &&
     ownActors[0]?.actorId === snapshot.ownActorId;
+}
+
+/** Validate a server-issued environmental ruleset before local prediction/rendering. */
+export function isFreeFlightEnvironmentV1(value: unknown): value is FreeFlightEnvironmentV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const environment = value as Record<string, unknown>;
+  if (!exactKeys(environment, ["protocol", "sessionInstanceId", "enabled", "gravityWells"]) ||
+      environment.protocol !== FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1 ||
+      typeof environment.sessionInstanceId !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(environment.sessionInstanceId) ||
+      typeof environment.enabled !== "boolean" ||
+      !Array.isArray(environment.gravityWells) ||
+      environment.gravityWells.length > 1 ||
+      !environment.gravityWells.every(isAnomalyGravityWellV1)) return false;
+  return environment.enabled || environment.gravityWells.length === 0;
 }
