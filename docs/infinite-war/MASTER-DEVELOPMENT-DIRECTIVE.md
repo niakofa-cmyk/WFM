@@ -59,6 +59,9 @@ patrolling in the same shared Orbital free-flight region, with server-owned
 movement and seamless encounter/resume. The full owner direction, current
 baseline, privacy boundary, and acceptance gates are in
 [`LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md).
+The attached server-movement, binary transport, delta-compression, targeting,
+and tracer proposals are preserved and adapted in
+[`SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md`](SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md).
 
 ## Current connected-universe redesign direction — 2026-11-06
 

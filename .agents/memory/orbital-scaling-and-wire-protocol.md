@@ -16,6 +16,22 @@ Client-side replay caches and recovered inputs never restore server authority,
 combat outcomes, or rewards. Rejoin from a fresh authenticated server snapshot
 under the active mode's reconnect policy.
 
+**Owner direction:** build live shared Orbital flight for nearby authenticated
+pilots and persistent AI fleets on the existing authenticated WFM socket.
+Identity, faction, position, movement, target locks, damage, and results remain
+server-owned. Exact pilot poses are restricted to authorized nearby session
+participants; public presence remains aggregate-only.
+
+**Why:** the owner provided server-movement, binary transport, lock-on, delta,
+and tracer proposals as the foundation for visible open-universe free flight.
+
+**How to apply:** follow
+`docs/infinite-war/SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md`. Keep
+the supplied examples as references, not executable designs: do not trust
+client identity/coordinates, add hard-coded secrets or a second unauthenticated
+socket, or replace Orbital physics. Establish an authenticated server snapshot
+baseline before binary deltas, lock-on, or weapon-tracer replication.
+
 **Why:** the supplied scaling examples proposed `Math.fround` as a blanket
 determinism guarantee, an in-place binary protocol replacement, and local
 telemetry writes into agent memory. Those approaches risk cross-runtime drift,

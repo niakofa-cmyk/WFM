@@ -66,6 +66,8 @@ The current implementation is a useful foundation, not this completed feature:
 
 See [persistent patrol implementation and limits](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
 and [the server encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md).
+The transport and weapon-event implementation sequence is in
+[Shared-flight wire protocol and weapon telemetry](SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md).
 
 ## Implementation and acceptance gates
 
