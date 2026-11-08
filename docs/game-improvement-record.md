@@ -1151,3 +1151,16 @@ not an authenticated 3D battle. Current behavior remains scoped to a saved-locat
 session, not continuous spatial-shard handoff or physical-device certification.
 The approved staging rollout is recorded in `STAGING-TEST-REPORT.md`; the new
 combat changes have not been deployed or authenticated on staging.
+
+## 2026-11-08 — Approved reviewed-build staging rollout
+
+The owner authorized a staging-only rollout of
+`2982e16f13694c78a490f349dce1767136849978`. App, API and Wing Socket all reached
+Railway SUCCESS on that exact source. The protected gateway health/access checks
+returned HTTP 200; Production remained untouched.
+
+The real browser sign-in reached a new-device verification challenge and is
+retained for a fresh code through Secrets. No code was submitted and no active
+session/profile or gameplay result has been verified. The authenticated
+multi-fleet encounter check is blocked, not passed. Deployment identifiers and
+the evidence boundary are recorded in `STAGING-TEST-REPORT.md`.

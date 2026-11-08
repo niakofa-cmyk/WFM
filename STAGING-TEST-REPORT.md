@@ -1279,3 +1279,35 @@ Later local changes add concurrent persistent patrol encounters, reinforcement
 response and per-participant damage/result isolation. Those changes are not
 included in the deployed revision above. Local checks are separate evidence,
 not staging certification.
+
+## 2026-11-08 — Reviewed combat build deployed; fresh verification required
+
+The owner approved deploying reviewed commit
+`2982e16f13694c78a490f349dce1767136849978` to the isolated staging environment.
+The environment's staged diff contained only the three service source updates,
+with no destructive changes or variable/network changes. Railway reported all
+three exact-source deployments **SUCCESS**:
+
+| Staging service | Deployment |
+| --- | --- |
+| App | `1a258de0-134f-4eba-8122-08878a65ac0e` |
+| API | `89056b41-9f76-44ff-af99-6fd5263258af` |
+| Wing Socket | `4d52ae46-a1d1-4d19-ad49-5f9f96ae7559` |
+
+The protected gateway's health and access routes both returned HTTP 200. This
+establishes rollout/gateway availability, not an authenticated gameplay pass.
+Production was not modified.
+
+The workspace-side browser used the existing approved staging test account.
+Its credentialed page remains at `needs_client_trust`, with a visible one-time
+verification challenge and no active session. No verification code has been
+submitted, no authenticated profile success has been observed, and no flight,
+combat or reward settlement has been attempted.
+
+The current challenge is retained in a managed background browser owner. The
+asynchronous private IPC self-test passed before sign-in; credentials and browser
+sessions remain in process memory, not stored browser state or logs. A fresh
+code for this challenge must be supplied through Secrets before the test can
+continue. Older stored codes are not evidence of current challenge completion.
+Encounter verification remains **BLOCKED — FRESH VERIFICATION REQUIRED**;
+machine-readable promotion evidence remains pending.
