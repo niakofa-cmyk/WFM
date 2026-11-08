@@ -3,6 +3,7 @@ import {
   PATROL_SENSOR_RANGE_METERS,
 } from "./universe-patrol-flight";
 import type { UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
+import { SHIPS, type ShipId } from "./ships";
 
 /** Derive the nearest hostile contact from a validated server snapshot only. */
 export function sharedFlightPatrolContact(
@@ -15,6 +16,7 @@ export function sharedFlightPatrolContact(
 
   const hostiles = snapshot.actors
     .filter((actor) => actor.kind === "patrol" && actor.alive && actor.faction !== own.faction)
+    .filter((actor) => Object.hasOwn(SHIPS, actor.shipId))
     .map((actor) => ({
       actor,
       distanceMeters: Math.hypot(
@@ -35,8 +37,13 @@ export function sharedFlightPatrolContact(
   return {
     callsign: nearest.actor.callsign,
     faction: nearest.actor.faction,
+    shipId: nearest.actor.shipId as ShipId,
     shipCount: hostiles.length,
     distanceMeters: nearest.distanceMeters,
+    shield: nearest.actor.shield,
+    shieldMax: nearest.actor.shieldMax,
+    hull: nearest.actor.hull,
+    hullMax: nearest.actor.hullMax,
     source: "server-snapshot",
   };
 }

@@ -85,11 +85,17 @@ The current implementation is a useful foundation, not this completed feature:
   spatial cells, and its four patrols are not the persistent route fleet system.
 - Weapon actions are rejected in this slice. No kill attribution, rewards,
   reputation, territory changes, or live-battle settlement are connected.
+- The landscape in-flight contact card now surfaces faction, ship class, range,
+  shield, and hull from the authenticated free-flight snapshot. It is a live
+  target-information display only; it does not imply that continuous-flight
+  weapons or damage have been enabled.
 
 See [persistent patrol implementation and limits](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
 and [the server encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md).
 The transport and weapon-event implementation sequence is in
 [Shared-flight wire protocol and weapon telemetry](SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md).
+The saved landscape combat HUD reference and its remaining combat gates are in
+[Free-flight combat HUD and encounter reference](FREE-FLIGHT-COMBAT-HUD-AND-ENCOUNTER-REFERENCE.md).
 The source audit, rollout gates, and exact prototype limits are in
 [Free-flight roaming runtime audit and implementation](FREE-FLIGHT-ROAMING-RUNTIME-AUDIT-AND-IMPLEMENTATION.md).
 

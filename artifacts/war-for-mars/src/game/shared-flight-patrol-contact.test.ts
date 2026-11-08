@@ -45,6 +45,11 @@ test("server snapshot proximity creates a hostile contact for either faction", (
     assert.equal(contact.source, "server-snapshot");
     assert.equal(contact.distanceMeters, 120);
     assert.equal(contact.faction, faction === "ussf" ? "accord" : "ussf");
+    assert.equal(contact.shipId, faction === "ussf" ? "mandjet" : "duskbreaker");
+    assert.equal(contact.shield, 100);
+    assert.equal(contact.shieldMax, 100);
+    assert.equal(contact.hull, 100);
+    assert.equal(contact.hullMax, 100);
   }
 });
 

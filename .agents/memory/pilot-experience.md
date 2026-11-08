@@ -33,3 +33,19 @@ must not silently revert the owner's later direct, responsive arc-roll controls.
 **Why:** On 2026-11-05 the browser reproduction showed that Orbital AI emitted no guided threats, making the hidden flare action unreachable, and React-owned static disabled/hidden props could conflict with per-frame state. A warning that disappears during a touch can also prevent the pilot from responding.
 
 **How to apply:** Keep deterministic simulation changes byte-identical between browser and server copies. Test target acquisition and ammo consumption through the mobile action, then verify an incoming guided missile makes the flare available and a flare removes hostile missiles while emitting a hull-positioned visual event. Keep countermeasures offline-only unless a server-authoritative mode explicitly supports them.
+
+**Shared-universe combat reference:** Use
+[`FREE-FLIGHT-COMBAT-HUD-AND-ENCOUNTER-REFERENCE.md`](../../docs/infinite-war/FREE-FLIGHT-COMBAT-HUD-AND-ENCOUNTER-REFERENCE.md)
+and its saved landscape screenshot for patrol encounter HUD placement. The
+local compatibility trainer is not the universe entry point; shared contact
+health must come from server snapshots, and continuous-flight weapon damage
+must remain unclaimed until the server combat contract is active.
+
+**Why:** The user asked to carry the Orbital Combat Lab training experience into
+the open-universe flight build and provided a landscape combat screenshot. The
+existing free-flight stream reports ship integrity but does not yet adjudicate
+continuous-flight weapons or rewards.
+
+**How to apply:** Keep live target information in the flight HUD and derive it
+only from authenticated snapshots. Preserve the offline trainer as a fallback;
+do not imply its local combat state is shared, persistent, or reward-bearing.
