@@ -109,8 +109,10 @@ and [Live 3D patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROL
    The browser pilot is still predicted locally, while the server runs its own
    movement copy. Current sessions are destination-scoped, not 3D spatial cells.
 2. **Next:** reconcile local flight controls and pose with server snapshots,
-   connect persistent patrol routes, and validate the shared world through
-   reconnects and paired staging clients. Keep both feature flags off by default.
+   link persistent patrol identities and casualty state into the stream, and
+   validate the shared world through reconnects and paired staging clients.
+   Development enables the paired V2 path by default; Production still requires
+   explicit frontend and socket flags.
 3. Add a bounded versioned binary keyframe/delta protocol behind a paired
    frontend/socket opt-in. Profile under realistic actor counts, latency,
    packet loss, reconnect, and mobile CPU limits.

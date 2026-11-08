@@ -130,3 +130,12 @@ test("regional patrol traffic refreshes by location and pauses safely in backgro
   assert.match(galaxy, /refetchIntervalInBackground: false/);
   assert.match(galaxy, /queryKey: \[\.\.\.getGetWorldPatrolsQueryKey\(\), world\?\.currentLocation\]/);
 });
+
+test("patrol intercept overlay pauses and resumes the same mounted universe flight", () => {
+  const warApp = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
+  const arena = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
+  assert.match(warApp, /className=\{`fixed inset-0 \$\{universeServicesOpen \? "invisible pointer-events-none" : ""\}`\}/);
+  assert.match(warApp, /universeExpeditionMission \? \([\s\S]*?<SectorExpedition/);
+  assert.match(warApp, /onReturnToUniverse=\{\(\) => \{[\s\S]*?setUniverseExpeditionMission\(null\);[\s\S]*?setUniverseServicesOpen\(false\)/);
+  assert.match(arena, /localUniverse\.servicesOpen[\s\S]*?clearInput\(busRef\.current\);[\s\S]*?setPaused\(true\)/);
+});

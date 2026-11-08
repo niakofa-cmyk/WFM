@@ -66,6 +66,20 @@ The current implementation is a useful foundation, not this completed feature:
   temporary patrol actors to authenticated pilots in the same coarse
   destination session. The current Arena projects those ships in the existing
   Three.js scene; it does not open a parallel game universe.
+- A fresh shared-flight snapshot now drives the in-flight hostile-contact
+  prompt using the server-reported pilot and patrol positions. Requesting an
+  intercept opens the authenticated Orbital V2 patrol operation as an overlay:
+  the existing free-flight Arena stays mounted, pauses, and resumes at its
+  previous local position when the pilot returns. V2 pairs automatically in
+  development, with an explicit `false` override; Production still requires
+  the frontend and socket V2 flags.
+- The overlay operation resolves and reserves a persistent opposing fleet from
+  the server-owned account location and independently enforces its 180 m
+  combat-authorization gate. The prompt is not itself combat authorization.
+  The temporary visible patrol actor is not yet linked by persistent patrol ID
+  to the fleet selected for the operation, and the operation's combat still
+  runs in its server-run sector simulation rather than the continuous
+  free-flight physics session.
 - The player's rendered ship still follows local prediction; authoritative pose
   reconciliation is not yet implemented. The prototype's sessions are not 3D
   spatial cells, and its four patrols are not the persistent route fleet system.

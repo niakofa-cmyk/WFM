@@ -15,6 +15,7 @@ import { MarsAdventureAtlas } from "./MarsAdventureAtlas";
 import { OrbitalFlightPreview } from "./OrbitalFlightPreview";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
 import type { FlightState } from "./flight-sector";
+import { sectorOrbitalV2Enabled } from "./sector-client";
 import "./combat-lab.css";
 import "./orbital-universe.css";
 
@@ -85,8 +86,10 @@ function OrbitalBootCore({
     featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
     prerequisitesReady: Boolean(userId),
   });
-  const canInterceptPatrol = expeditionEnabled
-    && import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true";
+  const canInterceptPatrol = expeditionEnabled && sectorOrbitalV2Enabled({
+    DEV: import.meta.env.DEV,
+    VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
+  });
   const loading = (text: string) => <main role="status" className="lab-loading">{text}</main>;
 
   if (mode === "arena") return <div className="combat-lab"><Suspense fallback={loading("Loading flight systems…")}><Arena key={run} modeId="orbital-combat-lab" runtime={ORBITAL_RUNTIME_ID} shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="MARS ORBIT · COMBAT LAB" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} onNetworkExit={() => { throw new Error("Offline training must not open a network session."); }} onDone={(result) => { setSummary(`Mars Orbit training complete. ${result.kills} defenders destroyed. ${result.reason}`); setMode("entry"); }} /></Suspense></div>;

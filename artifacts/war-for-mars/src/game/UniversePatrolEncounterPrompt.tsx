@@ -7,6 +7,7 @@ export type UniversePatrolEncounterNotice = {
   faction: Faction;
   shipCount: number;
   distanceMeters: number;
+  source?: "server-snapshot";
 };
 
 export function UniversePatrolEncounterPrompt({
@@ -27,12 +28,15 @@ export function UniversePatrolEncounterPrompt({
       data-testid="panel-in-flight-patrol-contact"
       aria-live="polite"
     >
-      <p className="font-hud text-[9px] tracking-[0.2em] text-[#f0a95d]">SERVER-REPORTED PATROL CONTACT</p>
+      <p className="font-hud text-[9px] tracking-[0.2em] text-[#f0a95d]">
+        {contact.source === "server-snapshot" ? "LIVE SERVER PATROL CONTACT" : "SERVER-REPORTED PATROL CONTACT"}
+      </p>
       <p className="mt-1 font-hud text-sm tracking-widest text-bone">
         {contact.callsign} · {contact.faction.toUpperCase()}
       </p>
       <p className="mt-1 text-[10px] tracking-wide text-muted">
-        {contact.shipCount} SHIPS · {Math.round(contact.distanceMeters)}M · VISUAL CONTACT
+        {contact.shipCount} SHIPS · {Math.round(contact.distanceMeters)}M ·
+        {contact.source === "server-snapshot" ? " SERVER POSITION" : " VISUAL CONTACT"}
       </p>
       {inRange ? enabled ? (
         <button

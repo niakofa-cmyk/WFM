@@ -162,7 +162,10 @@ test("new sector feature fails closed in Production and rejects ambiguous declar
   assert.equal(sectorFlightEnabled({ NODE_ENV: "development", WFM_SECTOR_FLIGHT_ENABLED: "false" }), false);
 });
 test("Orbital sector protocol requires an explicit paired deployment opt-in", () => {
-  assert.equal(sectorProtocolVersion({ NODE_ENV: "development" }), 1);
+  assert.equal(sectorProtocolVersion({ NODE_ENV: "development" }), SECTOR_ORBITAL_PROTOCOL_VERSION);
+  assert.equal(sectorProtocolVersion({
+    NODE_ENV: "development", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "false",
+  }), 1);
   assert.equal(sectorProtocolVersion({
     NODE_ENV: "development", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true",
   }), 2);

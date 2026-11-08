@@ -34,6 +34,7 @@ const ENABLED = expeditionFeatureEnabled({
   VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
 });
 const PROTOCOL_VERSION = sectorClientProtocolVersion({
+  DEV: import.meta.env.DEV,
   VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
 });
 const HANDSHAKE_TIMEOUT_MS = 8000;

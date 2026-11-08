@@ -18,6 +18,10 @@ test("feature is off in production unless explicitly enabled, on in development"
 test("client keeps compatibility protocol by default and pins opt-in snapshots to Orbital rules", () => {
   assert.equal(sectorClientProtocolVersion({}), 1);
   assert.equal(sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "TRUE" }), 1);
+  assert.equal(sectorClientProtocolVersion({ DEV: true }), SECTOR_ORBITAL_PROTOCOL_VERSION);
+  assert.equal(sectorClientProtocolVersion({
+    DEV: true, VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "false",
+  }), 1);
   assert.equal(
     sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true" }),
     SECTOR_ORBITAL_PROTOCOL_VERSION,

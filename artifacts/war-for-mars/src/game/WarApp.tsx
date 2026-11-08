@@ -58,6 +58,7 @@ import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe
 import type { SectorMissionId } from "./sector-missions";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
 import { enterOrbitalOnAccountBoot } from "./wfm-boot";
+import { sectorOrbitalV2Enabled } from "./sector-client";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -72,7 +73,10 @@ const casualAiQueueAvailable =
 const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
   && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
 const universePatrolInterceptionEnabled = expeditionEnabled
-  && import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true";
+  && sectorOrbitalV2Enabled({
+    DEV: import.meta.env.DEV,
+    VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
+  });
 
 type StagingRewardDiagnostic = {
   runId: string;

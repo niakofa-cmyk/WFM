@@ -16,6 +16,16 @@ test("in-flight patrol prompt requests the server approach operation in range", 
   assert.match(html, /REQUEST SERVER APPROACH/);
 });
 
+test("shared-flight contacts identify their distance as server-snapshot state", () => {
+  const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
+    contact: { ...contact, source: "server-snapshot" },
+    enabled: true,
+    onIntercept: () => {},
+  }));
+  assert.match(html, /LIVE SERVER PATROL CONTACT/);
+  assert.match(html, /SERVER POSITION/);
+});
+
 test("patrol prompt stays advisory while distant or when the combat rollout is disabled", () => {
   const distant = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
     contact: { ...contact, distanceMeters: 400 }, enabled: true, onIntercept: () => {},

@@ -65,6 +65,7 @@ import { UniverseStationOverlay } from "./UniverseStationOverlay";
 import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
 import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
+import { sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -599,6 +600,7 @@ export function Arena({
   const [relayInteraction, setRelayInteraction] = useState<LocalRelayInteraction | null>(null);
   const relayInteractionKeyRef = useRef("");
   const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
+  const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
   const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
   const [glReady, setGlReady] = useState(false);
@@ -630,6 +632,16 @@ export function Arena({
         onSnapshot: (frame) => {
           const previous = freeFlightFramesRef.current.current;
           freeFlightFramesRef.current = { previous, current: frame };
+          const nextContact = sharedFlightPatrolContact(frame.snapshot);
+          setSharedPatrolContact((previousContact) =>
+            previousContact?.callsign === nextContact?.callsign &&
+            previousContact?.faction === nextContact?.faction &&
+            previousContact?.shipCount === nextContact?.shipCount &&
+            Math.round(previousContact?.distanceMeters ?? -1) ===
+              Math.round(nextContact?.distanceMeters ?? -1)
+              ? previousContact
+              : nextContact,
+          );
           const enemyPatrolCount = frame.snapshot.actors.filter(
             (actor) => actor.kind === "patrol" && actor.faction !== faction && actor.alive,
           ).length;
@@ -639,7 +651,10 @@ export function Arena({
         },
         onState: (state, reason) => {
           setFreeFlightStatus(reason ?? state);
-          if (state !== "joined") setVisibleEnemyPatrols(0);
+          if (state !== "joined") {
+            setVisibleEnemyPatrols(0);
+            setSharedPatrolContact(null);
+          }
         },
       });
       freeFlightClientRef.current = client;
@@ -2557,7 +2572,7 @@ export function Arena({
       ) : null}
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
-          contact={patrolContact}
+          contact={sharedPatrolContact ?? patrolContact}
           enabled={Boolean(localUniverse.canInterceptPatrol)}
           onIntercept={() => localUniverseRef.current?.onInterceptPatrol?.()}
         />

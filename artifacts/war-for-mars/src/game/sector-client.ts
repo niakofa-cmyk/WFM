@@ -23,11 +23,22 @@ export function expeditionFeatureEnabled(env: { DEV?: boolean; VITE_WFM_SECTOR_E
   return env.DEV === true || env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true";
 }
 
-/** V2 remains opt-in so the existing authenticated compatibility route is the default. */
-export function sectorClientProtocolVersion(env: { VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string }): SectorProtocolVersion {
-  return env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true"
+/** Development pairs V2 by default; production still requires an explicit opt-in. */
+export function sectorClientProtocolVersion(env: {
+  DEV?: boolean;
+  VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string;
+}): SectorProtocolVersion {
+  const flag = env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED;
+  return flag === "true" || (env.DEV === true && flag !== "false")
     ? SECTOR_ORBITAL_PROTOCOL_VERSION
     : SECTOR_PROTOCOL_VERSION;
+}
+
+export function sectorOrbitalV2Enabled(env: {
+  DEV?: boolean;
+  VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string;
+}): boolean {
+  return sectorClientProtocolVersion(env) === SECTOR_ORBITAL_PROTOCOL_VERSION;
 }
 
 export function normalizeRoomCode(raw: string): string {
