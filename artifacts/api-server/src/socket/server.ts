@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
+import { createFreeFlightRuntime, type FreeFlightAdmission } from "./free-flight-runtime";
 import { sectorMission, type SectorProgress, type SectorProtocolVersion } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
@@ -96,6 +97,7 @@ type Client = {
   aiFillQueueRequested: boolean;
   queueEnteredAt: number | null;
   sectorMission: string | null;
+  freeFlightRequested: boolean;
 };
 
 type PendingCompetitiveAssignment = {
@@ -118,6 +120,8 @@ export async function startWingSocketServer(
     enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
     enableSectorFlight?: boolean;
+    enableFreeFlight?: boolean;
+    resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
@@ -151,6 +155,9 @@ export async function startWingSocketServer(
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,
   });
+  const freeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
+    ? createFreeFlightRuntime({ resolveAdmission: options.resolveFreeFlightAdmission })
+    : null;
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const competitiveQueue: Client[] = [];
@@ -173,7 +180,7 @@ export async function startWingSocketServer(
   const httpServer = createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ status: "ok", rooms: rooms.size }));
+      response.end(JSON.stringify({ status: "ok", rooms: rooms.size, freeFlightSessions: freeFlightRuntime?.sessionCount ?? 0, freeFlightPilots: freeFlightRuntime?.pilotCount ?? 0 }));
       return;
     }
     response.writeHead(404);
@@ -192,6 +199,7 @@ export async function startWingSocketServer(
       aiFillQueueRequested: boolean;
       sectorMission: string | null;
       spectateMatchId: string | null;
+      freeFlightRequested: boolean;
     }
   >();
 
@@ -222,6 +230,15 @@ export async function startWingSocketServer(
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
     const sectorId = url.searchParams.get("sector");
+    const freeFlightRequested = url.searchParams.get("freeflight") === "1" && url.searchParams.size === 1;
+    if (url.searchParams.has("freeflight") && !freeFlightRequested) {
+      rejectUpgrade(socket, "400 Bad Request");
+      return;
+    }
+    if (freeFlightRequested && (!options.enableFreeFlight || !freeFlightRuntime)) {
+      rejectUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
     const requestedSpectateId = url.searchParams.get("spectate");
     const spectateMatchId =
       requestedSpectateId && SPECTATE_MATCH_ID.test(requestedSpectateId)
@@ -271,7 +288,7 @@ export async function startWingSocketServer(
     }
     if (
       (url.pathname !== "/ws" && url.pathname !== "/ws/") ||
-      (!queueRequested && !roomRequested && !spectatorRequested) ||
+      (!queueRequested && !roomRequested && !spectatorRequested && !freeFlightRequested) ||
       (url.searchParams.has("spectate") && !spectatorRequested)
     ) {
       rejectUpgrade(socket, "400 Bad Request");
@@ -284,6 +301,7 @@ export async function startWingSocketServer(
         aiFillQueueRequested,
         sectorMission: sectorId,
         spectateMatchId: spectatorRequested ? spectateMatchId : null,
+        freeFlightRequested,
       });
       sockets.emit("connection", client, request);
     });
@@ -786,6 +804,7 @@ export async function startWingSocketServer(
       aiFillQueueRequested: request?.aiFillQueueRequested ?? false,
       queueEnteredAt: null,
       sectorMission: request?.sectorMission ?? null,
+      freeFlightRequested: request?.freeFlightRequested ?? false,
     };
     clients.set(socket, client);
     let authenticationTimeout: ReturnType<typeof setTimeout> | null =
@@ -890,6 +909,16 @@ export async function startWingSocketServer(
       if (client.sectorMission) {
         void sectorRuntime.handle(socket, client.playerId, client.sectorMission, client.roomId, packet)
           .catch(() => send(socket, { type: "error", reason: "sector_service_unavailable" }));
+        return;
+      }
+
+      if (client.freeFlightRequested) {
+        if (!freeFlightRuntime) {
+          send(socket, { type: "error", reason: "freeflight_unavailable" });
+          return;
+        }
+        void freeFlightRuntime.handle(socket, client.playerId, packet)
+          .catch(() => send(socket, { type: "error", reason: "freeflight_service_unavailable" }));
         return;
       }
 
@@ -1229,6 +1258,7 @@ export async function startWingSocketServer(
 
     socket.on("close", () => {
       sectorRuntime.detach(socket);
+      freeFlightRuntime?.detach(socket);
       clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
       if (removeFromCompetitiveQueue(client)) matchCompetitiveQueue();
@@ -1426,6 +1456,7 @@ export async function startWingSocketServer(
   const timer = setInterval(() => {
     const now = Date.now();
     sectorRuntime.advance(now);
+    freeFlightRuntime?.advance(now);
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
     for (const client of [...competitiveQueue]) {
@@ -1600,6 +1631,7 @@ export async function startWingSocketServer(
       clearInterval(timer);
       clearInterval(heartbeat);
       const sectorClosed = sectorRuntime.close();
+      const freeFlightClosed = freeFlightRuntime?.close() ?? Promise.resolve();
       const httpClosed = new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
@@ -1663,6 +1695,7 @@ export async function startWingSocketServer(
         const results = await Promise.all(shutdownNotices);
         await Promise.all(settlementClosures);
         await sectorClosed;
+        await freeFlightClosed;
         if (results.length > 0) {
           process.stdout.write(
             `${JSON.stringify({
