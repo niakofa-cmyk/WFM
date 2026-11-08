@@ -295,6 +295,21 @@ export function createFreeFlightRuntime(options: {
         }
         detach(existing.actor.socket);
       }
+      // A disconnected pilot may have no live socket-seat entry while its
+      // grace-period actor remains in the previous location session. Remove
+      // that stale actor before admitting the account into a different location.
+      for (const priorSession of sessions.values()) {
+        if (priorSession.key === admission.sessionKey) continue;
+        const priorActor = priorSession.pilotByUser.get(userId);
+        if (!priorActor) continue;
+        if (priorActor.socket?.readyState === OPEN) {
+          error("freeflight_session_already_active");
+          return;
+        }
+        priorSession.actors.delete(priorActor.actorId);
+        priorSession.pilotByUser.delete(userId);
+      }
+
       const session = sessionFor(admission.sessionKey, Date.now());
       if (!session) { error("freeflight_capacity"); return; }
       let actor = session.pilotByUser.get(userId);
