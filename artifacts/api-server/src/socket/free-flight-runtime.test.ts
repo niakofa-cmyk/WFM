@@ -237,6 +237,7 @@ test("reconnecting a pilot resumes the server-owned input sequence without dupli
     first.send(JSON.stringify({ type: "freeflight_join" }));
     const firstJoined = await firstJoin;
     assert.equal(firstJoined.nextInputSeq, 1);
+    const firstSnapshot = firstJoined.snapshot as { ownActorId: string };
 
     const firstAccepted = nextPacket(first, (packet) => packet.type === "freeflight_input_accepted");
     first.send(JSON.stringify({ type: "freeflight_input", input: flightInput(1, { throttle: 0.4 }) }));
@@ -253,7 +254,8 @@ test("reconnecting a pilot resumes the server-owned input sequence without dupli
     assert.equal((await accepted).seq, 2);
 
     const snapshot = rejoined.snapshot as { ownActorId: string; actors: Array<{ actorId: string; kind: string }> };
-    assert.equal(snapshot.actors.filter((actor) => actor.kind === "pilot" && actor.actorId === snapshot.ownActorId).length, 1);
+    assert.equal(snapshot.ownActorId, firstSnapshot.ownActorId);
+    assert.equal(snapshot.actors.filter((actor) => actor.kind === "pilot").length, 1);
   } finally {
     if (first) await close(first);
     if (replacement) await close(replacement);
