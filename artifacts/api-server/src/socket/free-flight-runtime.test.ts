@@ -119,19 +119,25 @@ test("authenticated pilots receive exact nearby 3D actors only inside their serv
     const [firstSnapshot, secondSnapshot, isolatedSnapshot] = await Promise.all([
       join(first), join(second), join(isolated),
     ]);
+    const firstSharedPacket = await nextPacket(first, (packet) => {
+      if (packet.type !== "freeflight_snapshot") return false;
+      const snapshot = packet.snapshot as typeof firstSnapshot;
+      return snapshot.actors.filter((actor) => actor.kind === "pilot").length === 2;
+    });
+    const firstSharedSnapshot = firstSharedPacket.snapshot as typeof firstSnapshot;
     assert.equal(firstSnapshot.protocol, "orbital-freeflight-v1");
-    assert.equal(firstSnapshot.sessionInstanceId, secondSnapshot.sessionInstanceId);
-    assert.notEqual(firstSnapshot.sessionInstanceId, isolatedSnapshot.sessionInstanceId);
+    assert.equal(firstSharedSnapshot.sessionInstanceId, secondSnapshot.sessionInstanceId);
+    assert.notEqual(firstSharedSnapshot.sessionInstanceId, isolatedSnapshot.sessionInstanceId);
 
-    const firstOtherPilots = firstSnapshot.actors.filter((actor) =>
-      actor.kind === "pilot" && actor.actorId !== firstSnapshot.ownActorId,
+    const firstOtherPilots = firstSharedSnapshot.actors.filter((actor) =>
+      actor.kind === "pilot" && actor.actorId !== firstSharedSnapshot.ownActorId,
     );
     assert.equal(firstOtherPilots.length, 1);
-    assert.ok(firstSnapshot.actors.some((actor) => actor.kind === "patrol" && actor.faction === "ussf"));
-    assert.ok(firstSnapshot.actors.some((actor) => actor.kind === "patrol" && actor.faction === "accord"));
+    assert.ok(firstSharedSnapshot.actors.some((actor) => actor.kind === "patrol" && actor.faction === "ussf"));
+    assert.ok(firstSharedSnapshot.actors.some((actor) => actor.kind === "patrol" && actor.faction === "accord"));
     assert.equal(isolatedSnapshot.actors.filter((actor) => actor.kind === "pilot").length, 1);
 
-    for (const actor of firstSnapshot.actors) {
+    for (const actor of firstSharedSnapshot.actors) {
       assert.equal(Object.hasOwn(actor, "userId"), false);
       assert.equal(Object.hasOwn(actor, "playerId"), false);
     }
