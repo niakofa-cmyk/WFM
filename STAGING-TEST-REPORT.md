@@ -6,6 +6,23 @@
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
 
+## Scout pursuit and flight alignment rollout — 2026-11-08
+
+Owner-approved staging-only runtime `26ade0c268f1dd4ec1b9a0a16e083abb59128a08`
+reached SUCCESS on the app, API and socket at matching source pins.
+Deployment IDs are recorded in `latestLocalScoutPursuitCandidate` in the JSON
+results. No schema, flags, authentication or Production configuration changed.
+
+The deployed Combat Lab initial JavaScript audit passed at **127,134 B gzip**
+against the unchanged **143,360 B** limit; Three.js is outside the initial
+static graph. Unauthenticated root, profile and same-origin WebSocket upgrade
+requests each returned **401**.
+
+This is deployment and gateway evidence, not authenticated combat evidence.
+Fresh sign-ins and the bounded approach/pursuit/shared-battle test remain
+pending. Earlier authenticated approach failure below belongs to the previous
+runtime, not a test of this candidate.
+
 ## Current local workspace verification — 2026-10-28
 
 The last full workspace-quality run covered the application/test source committed as

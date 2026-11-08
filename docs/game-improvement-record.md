@@ -1,6 +1,6 @@
 # WAR FOR MARS — Game improvement record
 
-## Scout pursuit and approach alignment — local candidate
+## Scout pursuit and approach alignment — staging verification pending
 
 Implemented server-owned scout detection, pursuit and bounded last-observation
 search inside continuous shared flight. Added own-seat heading/velocity
@@ -9,7 +9,13 @@ stable approach contacts, and corrected sampled flight toggles.
 The existing 180 m encounter and reward-authority gates remain intact.
 See [candidate behavior and verification](infinite-war/SCOUT-PURSUIT-AND-FLIGHT-ALIGNMENT.md).
 16 server and 22 client/runtime tests, both typechecks/builds and four static
-checks passed. This candidate is not deployed; staging and Production are unchanged.
+checks passed. After explicit approval, commit `26ade0c` deployed successfully
+to the staging app, API and socket with matching source pins. Railway's Lab
+initial bundle audit passed at 127,134 B gzip against the unchanged 143,360 B
+limit; Three.js remains lazy-loaded. Unauthenticated root, profile and WebSocket
+requests returned 401. No schema or flag changes; Production is unchanged.
+Fresh authenticated approach, pursuit/search, two-pilot battle and reward
+settlement verification remain pending.
 
 ## Authenticated shared-flight verification — approach blocker
 

@@ -1,7 +1,18 @@
 {
   "overallStatus": "PENDING",
   "latestLocalScoutPursuitCandidate": {
-    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
+    "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",
+    "stagingRuntimeCommit": "26ade0c268f1dd4ec1b9a0a16e083abb59128a08",
+    "stagingServices": {
+      "app": { "status": "SUCCESS", "deploymentId": "cd980296-b2f7-44d9-a52b-abf5ab3b574f" },
+      "api": { "status": "SUCCESS", "deploymentId": "80ce3189-c977-4293-9f92-9fb72a3885cd" },
+      "socket": { "status": "SUCCESS", "deploymentId": "90a38506-13cd-4c97-8d9b-af3201d8dbfe" }
+    },
+    "matchingStagingSourcePins": true,
+    "railwayCombatLabInitialJavascriptGzipBytes": 127134,
+    "unauthenticatedGatewayChecks": { "rootHttpStatus": 401, "profileHttpStatus": 401, "webSocketUpgradeHttpStatus": 401 },
+    "schemaOrFlagChanges": false,
+    "productionChanged": false,
     "sensorRangeMeters": 520,
     "engagementRangeMeters": 180,
     "lastObservationMemorySeconds": 45,
@@ -19,7 +30,7 @@
     "publicCompatibilityEntryScreenshot": "PASS; no authenticated gameplay certification",
     "stagingApproachFixVerified": false,
     "stagingTwoPilotCombatAndSettlementVerified": false,
-    "stagingOrProductionChanged": false
+    "stagingChanged": true
   },
   "latestSharedAssistanceRollout": {
     "checkedOn": "2026-11-08",
