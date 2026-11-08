@@ -28,7 +28,7 @@ import { LocalPerformanceReport } from "./LocalPerformanceReport";
 import type {
   IronEclipseCommandRequest, IronEclipseSnapshot, IronEclipseSubsystemId, IronEclipseOrder,
   SectorCommandRequest, SectorEvidencePickup, SectorEvidenceRecoveryRequest, SectorFactionContact,
-  SectorMission, SectorSnapshot, SectorTacticalCommand, SectorTransponderRequest,
+  SectorMission, SectorPatrolApproach, SectorSnapshot, SectorTacticalCommand, SectorTransponderRequest,
 } from "./sector-missions";
 import { SECTOR_INPUT_INTERVAL_MS, holdInput, sanitizeInput, slotLabel } from "./sector-client";
 import { CINDER_ASTEROID_OPERATION_ID, localTrainingSector } from "./sector-navigation";
@@ -77,6 +77,7 @@ type Hud = {
   vectorDriftAvailable: boolean; drifting: boolean; crew: CrewRow[];
   tacticalCommandsAvailable: boolean; command: SectorTacticalCommand | null;
   factionContact: SectorFactionContact | null;
+  patrolApproach: SectorPatrolApproach | null;
   evidence: Array<SectorEvidencePickup & { distanceMeters: number }>;
   operation: IronEclipseSnapshot | null;
 };
@@ -913,6 +914,7 @@ export function RustDiscFlight({ onExit, expedition, expeditionHref }: { onExit?
           drifting: inp.drift === true,
           tacticalCommandsAvailable: snapNow?.capabilities?.tacticalCommands === true,
           factionContact: snapNow?.factionContact ?? null,
+          patrolApproach: snapNow?.patrolApproach ?? null,
           command: snapNow?.command ?? null,
           evidence,
           operation: ironEclipse ? snapNow?.operation ?? null : null,
@@ -1367,6 +1369,21 @@ function FlightHud({ hud, shipId, droneMax, onTransponder, transponderDisabled }
               className="min-h-7 border border-solar/50 px-2 text-solar disabled:opacity-40">
               IFF {hud.factionContact.transponder === "broadcast" ? "TX" : "DARK"}
             </button>
+          </div>
+        ) : null}
+        {hud.patrolApproach ? (
+          <div className="mt-1 border-t border-[#ff7a5c]/30 pt-1 font-hud text-[8px] tracking-[0.14em]"
+            data-testid="status-server-patrol-approach" role="status">
+            <p className={hud.patrolApproach.combatAuthorized ? "text-solar" : "text-[#ff7a5c]"}>
+              {hud.patrolApproach.combatAuthorized
+                ? "SERVER RANGE VERIFIED · WEAPONS CLEARED"
+                : hud.patrolApproach.distanceMeters === null
+                  ? "NO LIVING PATROL CONTACT · EXTRACT"
+                  : `SERVER APPROACH LOCK · ${Math.round(hud.patrolApproach.distanceMeters)}M · CLOSE TO ${hud.patrolApproach.engagementRangeMeters}M`}
+            </p>
+            {!hud.patrolApproach.combatAuthorized && hud.patrolApproach.distanceMeters !== null
+              ? <p className="mt-0.5 text-muted">WEAPONS AND PATROL FIRE REMAIN LOCKED UNTIL SERVER RANGE CHECK PASSES</p>
+              : null}
           </div>
         ) : null}
       </div>

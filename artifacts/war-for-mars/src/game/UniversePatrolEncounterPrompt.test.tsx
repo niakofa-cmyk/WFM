@@ -6,14 +6,14 @@ import { UniversePatrolEncounterPrompt } from "./UniversePatrolEncounterPrompt";
 
 const contact = { callsign: "ACCORD-0101", faction: "accord" as const, shipCount: 3, distanceMeters: 120 };
 
-test("in-flight patrol prompt offers only the server-authoritative intercept action in range", () => {
+test("in-flight patrol prompt requests the server approach operation in range", () => {
   const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
     contact, enabled: true, onIntercept: () => {},
   }));
   assert.match(html, /ACCORD-0101/);
   assert.match(html, /3 SHIPS/);
   assert.match(html, /button-intercept-in-flight-patrol/);
-  assert.match(html, /SERVER-SETTLED COMBAT/);
+  assert.match(html, /REQUEST SERVER APPROACH/);
 });
 
 test("patrol prompt stays advisory while distant or when the combat rollout is disabled", () => {

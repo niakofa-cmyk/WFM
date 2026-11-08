@@ -23,6 +23,7 @@ export {
 export type { SectorProtocolVersion, SectorSimulationContract } from "@workspace/orbital-sim";
 export const SECTOR_PROTOCOL_VERSION = SECTOR_COMPAT_PROTOCOL_VERSION;
 export const SECTOR_STEP = 1 / 60;
+export const UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS = 180;
 export const SECTOR_MARS = { position: { x: 0, y: -700, z: -1800 }, radius: 600 };
 export type SectorMissionId = "rust-disc" | "mars-approach" | "pale-beacons" | "iron-eclipse" | "universe-patrol";
 export type IronEclipseSubsystemId = "point-defense" | "shield-array" | "reactor";
@@ -88,6 +89,11 @@ export type SectorHostileFleetSnapshot = {
   locationId: string;
   faction: "ussf" | "accord";
   ships: SectorHostileFleetShip[];
+};
+export type SectorPatrolApproach = {
+  distanceMeters: number | null;
+  engagementRangeMeters: typeof UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS;
+  combatAuthorized: boolean;
 };
 export type SectorFactionContact = {
   actorFaction: "ussf" | "accord";
@@ -157,7 +163,7 @@ export const SECTOR_MISSIONS: readonly SectorMission[] = [
   {
     id: "universe-patrol", title: "Opposing Patrol · Intercept",
     prerequisite: null,
-    description: "Intercept the server-owned opposing fleet at your saved universe location, disable its ships, and extract.",
+    description: "Approach the server-owned opposing fleet, pass its 180 m proximity check under Orbital simulation, then engage and extract.",
     sector: {
       ...CINDER_ASTEROID_SECTOR,
       id: "universe-patrol-contact-v1",
@@ -208,6 +214,8 @@ export type SectorSnapshot = {
   evidence?: SectorEvidencePickup[];
   /** Server-authoritative hostile formation for the current universe patrol instance. */
   hostileFleet?: SectorHostileFleetSnapshot;
+  /** Server-computed approach telemetry; no client position is accepted. */
+  patrolApproach?: SectorPatrolApproach;
   simulation?: SectorSimulationContract;
   capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
   command?: SectorTacticalCommand | null;

@@ -15,6 +15,7 @@ import {
   type IronEclipseCommandRequest, type IronEclipseOrder, type IronEclipseSubsystemId, type SectorProtocolVersion,
   type SectorScoutResult, type SectorEvidencePickup,
   type SectorHostileFleetShip, type SectorHostileFleetSnapshot,
+  UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS,
   SECTOR_PROTOCOL_VERSION,
 } from "../game/sector-missions";
 import { validSectorCompletion, type CompletedSectorMission } from "../game/sector-completion";
@@ -173,6 +174,29 @@ function nearestLivingPatrolShip(
     .sort((a, b) => a.distance - b.distance || a.ship.actorId.localeCompare(b.ship.actorId))[0]?.ship;
 }
 
+export function isUniversePatrolWithinEngagementRange(distanceMeters: number | null): boolean {
+  return distanceMeters !== null && Number.isFinite(distanceMeters) &&
+    distanceMeters >= 0 && distanceMeters <= UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS;
+}
+
+function patrolApproachFor(room: Room, pilot: Pilot) {
+  if (room.mission.id !== "universe-patrol") return undefined;
+  const target = nearestLivingPatrolShip(room, pilot.flight.position);
+  const distanceMeters = target
+    ? vectorLength({
+        x: pilot.flight.position.x - target.position.x,
+        y: pilot.flight.position.y - target.position.y,
+        z: pilot.flight.position.z - target.position.z,
+      })
+    : null;
+  const roundedDistance = distanceMeters === null ? null : Math.round(distanceMeters * 100) / 100;
+  return {
+    distanceMeters: roundedDistance,
+    engagementRangeMeters: UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS,
+    combatAuthorized: isUniversePatrolWithinEngagementRange(distanceMeters),
+  } as const;
+}
+
 export function roamingPatrolPosition(tick: number): FlightState["position"] {
   const routeLength = PALE_BEACON_PATROL_ROUTE.length;
   const routeTicks = routeLength * PATROL_LEG_TICKS;
@@ -320,6 +344,9 @@ export function createSectorRuntime(options: Options) {
       const evidenceRecords = protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
         ? evidenceForMission(room.mission.id)
         : null;
+      const patrolApproach = protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+        ? patrolApproachFor(room, own)
+        : undefined;
       const snapshot: SectorSnapshot = {
         type: "sector_snapshot", version: protocolVersion, roomCode: room.code, missionId: room.mission.id,
         ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
@@ -341,6 +368,7 @@ export function createSectorRuntime(options: Options) {
         ...(own.scoutResult ? { scoutResult: own.scoutResult } : {}),
         ...(own.scoutResultStatus ? { scoutResultStatus: own.scoutResultStatus } : {}),
         ...(own.factionContact ? { factionContact: own.factionContact } : {}),
+        ...(patrolApproach ? { patrolApproach } : {}),
         ...(room.mission.id === "universe-patrol" && room.universePatrol && room.patrolFleet
           ? {
               hostileFleet: {
@@ -966,10 +994,24 @@ export function createSectorRuntime(options: Options) {
         const flightSector = room.flightSector;
         for (const pilot of room.pilots) {
           if (pilot.socket?.readyState !== WebSocket.OPEN) continue;
-          const input = now - pilot.lastInput < 350 ? pilot.input : idleInput;
           const patrolTarget = room.mission.id === "universe-patrol"
             ? nearestLivingPatrolShip(room, pilot.flight.position)
             : undefined;
+          const requestedInput = now - pilot.lastInput < 350 ? pilot.input : idleInput;
+          const patrolDistance = patrolTarget
+            ? vectorLength({
+                x: pilot.flight.position.x - patrolTarget.position.x,
+                y: pilot.flight.position.y - patrolTarget.position.y,
+                z: pilot.flight.position.z - patrolTarget.position.z,
+              })
+            : null;
+          const patrolCombatAuthorized = room.mission.id !== "universe-patrol" ||
+            isUniversePatrolWithinEngagementRange(patrolDistance);
+          // The authenticated server simulation owns both poses. Client inputs
+          // cannot enable weapons until the server computes the 180 m approach.
+          const input = room.mission.id === "universe-patrol" && !patrolCombatAuthorized
+            ? { ...requestedInput, fire: false, missile: false, lock: false }
+            : requestedInput;
           if (room.scoutEncounter) {
             copyPosition(pilot.flight.drone.position, patrolTarget?.position ?? room.scoutPosition);
           }
@@ -977,7 +1019,8 @@ export function createSectorRuntime(options: Options) {
           const contactCanEngage = pilot.factionContact?.action === "intercept" ||
             pilot.factionContact?.action === "request_reinforcements";
           flightSector.hostileFireDisabled = baseHostileFireDisabled ||
-            (!!room.scoutEncounter && !contactCanEngage);
+            (!!room.scoutEncounter && (!contactCanEngage ||
+              room.mission.id === "universe-patrol" && !patrolCombatAuthorized));
           if (now - pilot.lastInput < 350 &&
               (input.throttle > 0.05 || Math.abs(input.pitch) + Math.abs(input.yaw) + Math.abs(input.roll) > 0.05 || input.fire)) pilot.activeTicks++;
           const operationTarget = room.operation ? ironEclipseTarget(room.operation) : undefined;

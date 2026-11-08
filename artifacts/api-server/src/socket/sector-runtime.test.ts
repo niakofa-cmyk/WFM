@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
 import {
-  createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorEvidenceRecovery,
+  createSectorRuntime, isUniversePatrolWithinEngagementRange, parseIronEclipseCommand, parseSectorCommand, parseSectorEvidenceRecovery,
   parseSectorInput, parseSectorTransponder, roamingPatrolPosition,
 } from "./sector-runtime";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
@@ -34,6 +34,13 @@ test("Orbital patrol route is deterministic and evidence recovery packets carry 
   assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", evidenceId: "first-witness-trace" }), false);
   assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", position: { x: 0, y: 0, z: 0 } }), false);
 });
+test("server patrol engagement range is inclusive at 180m and rejects client-sized or invalid distances", () => {
+  assert.equal(isUniversePatrolWithinEngagementRange(180), true);
+  assert.equal(isUniversePatrolWithinEngagementRange(179.99), true);
+  assert.equal(isUniversePatrolWithinEngagementRange(180.01), false);
+  assert.equal(isUniversePatrolWithinEngagementRange(null), false);
+  assert.equal(isUniversePatrolWithinEngagementRange(Number.NaN), false);
+});
 test("universe patrols resolve as visible opposing fleets and settle server-attributed casualties", async () => {
   const contact = {
     patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
@@ -50,6 +57,7 @@ test("universe patrols resolve as visible opposing fleets and settle server-attr
     }],
   };
   let reservedPilots: readonly string[] = [];
+  let serverApproachMovementSteps = 0;
   const settledResults: ReturnType<typeof readExplorationReceipt>[] = [];
   const runtime = createSectorRuntime({
     protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
@@ -62,6 +70,14 @@ test("universe patrols resolve as visible opposing fleets and settle server-attr
       return contact;
     },
     physics: (state, input, _seconds, sector) => {
+      if (input.throttle > 0) {
+        serverApproachMovementSteps++;
+        state.position = {
+          x: state.drone.position.x,
+          y: state.drone.position.y,
+          z: state.drone.position.z + 100,
+        };
+      }
       if (input.fire) {
         state.stage = "drone";
         state.drone.hull = 0;
@@ -98,15 +114,33 @@ test("universe patrols resolve as visible opposing fleets and settle server-attr
   await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room,
     { type: "sector_launch" }, 2);
   assert.deepEqual(reservedPilots, ["patrol-pilot"]);
+  assert.equal(host.latest().patrolApproach?.combatAuthorized, false);
+  assert.ok((host.latest().patrolApproach?.distanceMeters ?? 0) > 180);
   await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
     type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
   }, 3);
   runtime.advance(0);
   runtime.advance(17);
+  assert.equal(host.latest().scoutResult, undefined, "a distant client fire request is not simulated as a patrol kill");
+  assert.equal(host.latest().patrolApproach?.combatAuthorized, false);
   await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
-    type: "sector_input", seq: 1, input: NEUTRAL_FLIGHT_INPUT,
+    type: "sector_input", seq: 1, input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 1 },
   }, 20);
-  runtime.advance(34);
+  runtime.advance(119);
+  assert.ok(serverApproachMovementSteps > 0, "the active Orbital server tick consumed the approach input");
+  assert.equal(
+    host.latest().patrolApproach?.combatAuthorized,
+    true,
+    "the server's simulated position crossed the gate",
+  );
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 2, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 120);
+  runtime.advance(136);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 3, input: NEUTRAL_FLIGHT_INPUT,
+  }, 140);
+  runtime.advance(221);
   await new Promise<void>((resolve) => setImmediate(resolve));
 
   assert.equal(host.latest().phase, "complete");

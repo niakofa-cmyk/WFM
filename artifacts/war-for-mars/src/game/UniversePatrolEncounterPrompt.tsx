@@ -1,3 +1,4 @@
+import React from "react";
 import type { Faction } from "./ships";
 import { PATROL_INTERCEPT_RANGE_METERS } from "./universe-patrol-flight";
 
@@ -40,7 +41,7 @@ export function UniversePatrolEncounterPrompt({
           data-testid="button-intercept-in-flight-patrol"
           onClick={onIntercept}
         >
-          INTERCEPT · SERVER-SETTLED COMBAT
+          REQUEST SERVER APPROACH
         </button>
       ) : (
         <p className="mt-3 border border-bone/15 px-2 py-2 text-[10px] text-muted" data-testid="status-patrol-intercept-disabled">
@@ -48,7 +49,7 @@ export function UniversePatrolEncounterPrompt({
         </p>
       ) : (
         <p className="mt-3 text-[10px] tracking-wide text-muted" data-testid="status-patrol-approach">
-          CLOSE TO {PATROL_INTERCEPT_RANGE_METERS}M TO REQUEST INTERCEPT
+          CLOSE TO {PATROL_INTERCEPT_RANGE_METERS}M TO REQUEST APPROACH
         </p>
       )}
     </aside>

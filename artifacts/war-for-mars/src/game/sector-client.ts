@@ -2,9 +2,10 @@ import { NEUTRAL_FLIGHT_INPUT, type FlightInput } from "./flight-sector";
 import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
   SECTOR_PROTOCOL_VERSION, sectorMission,
+  UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
   type IronEclipseSnapshot, type SectorFactionContact, type SectorProtocolVersion, type SectorScoutResult,
-  type SectorEvidencePickup,
+  type SectorEvidencePickup, type SectorPatrolApproach,
 } from "./sector-missions";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
@@ -166,6 +167,19 @@ function validHostileFleet(value: unknown, ownShipId: ShipId): value is NonNulla
     return valid;
   });
 }
+function validPatrolApproach(value: unknown): value is SectorPatrolApproach {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const approach = value as Partial<SectorPatrolApproach>;
+  if (Object.keys(approach).length !== 3 ||
+      !["distanceMeters", "engagementRangeMeters", "combatAuthorized"].every(key => Object.hasOwn(approach, key)) ||
+      approach.engagementRangeMeters !== UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS ||
+      typeof approach.combatAuthorized !== "boolean") return false;
+  if (approach.distanceMeters === null) return approach.combatAuthorized === false;
+  return typeof approach.distanceMeters === "number" &&
+    Number.isFinite(approach.distanceMeters) && approach.distanceMeters >= 0 &&
+    approach.distanceMeters <= 20_000 &&
+    approach.combatAuthorized === (approach.distanceMeters <= UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS);
+}
 function validFactionContact(value: unknown): value is SectorFactionContact {
   if (!value || typeof value !== "object") return false;
   const contact = value as Partial<SectorFactionContact>;
@@ -249,8 +263,9 @@ export function parseSectorSnapshot(
   if (p.missionId === "universe-patrol") {
     const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
     if (expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || !ownPilot ||
-        !validHostileFleet(p.hostileFleet, ownPilot.shipId)) return null;
-  } else if (p.hostileFleet !== undefined) return null;
+        !validHostileFleet(p.hostileFleet, ownPilot.shipId) ||
+        !validPatrolApproach(p.patrolApproach)) return null;
+  } else if (p.hostileFleet !== undefined || p.patrolApproach !== undefined) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&

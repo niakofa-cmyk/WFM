@@ -1,4 +1,5 @@
 import type { Rock } from "@workspace/orbital-sim";
+import { seedUniverseSector, type SeededUniverseSector } from "@workspace/orbital-sim";
 
 /**
  * Sector-local coordinates stay small for deterministic flight. The address is
@@ -13,13 +14,10 @@ export type UniverseSectorAddress = { x: string; y: string; z: string };
 export type UniversePosition = { x: number; y: number; z: number };
 
 export type SectorAsteroid = Rock & { y: number; seed: number };
-export type UniverseSectorContents = {
+export type UniverseSectorContents = Omit<SeededUniverseSector, "kind" | "asteroids"> & {
   key: string;
-  seed: number;
-  name: string;
-  kind: "origin" | "asteroid-field" | "debris-stream" | "anomaly-front" | "quiet-space";
+  kind: "origin" | SeededUniverseSector["kind"];
   asteroids: SectorAsteroid[];
-  anomaly: UniversePosition | null;
 };
 export type UniverseAnomalySignal = {
   id: string;
@@ -88,28 +86,6 @@ export function nearbySectorOffset(
   };
 }
 
-function hashText(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0 || 1;
-}
-
-function randomStream(seed: number) {
-  let state = seed >>> 0 || 1;
-  return () => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return (state >>> 0) / 0x1_0000_0000;
-  };
-}
-
-const SECTOR_NAMES = ["ASHEN REACH", "DUSTWAKE", "GLASS CURRENT", "NIGHTWARD", "PALE FRONTIER", "RED VEIL"] as const;
-const SECTOR_KINDS = ["asteroid-field", "debris-stream", "anomaly-front", "quiet-space"] as const;
-
 /** Pure, address-seeded local sector content. It creates no multiplayer operation or reward. */
 export function universeSectorContents(address: UniverseSectorAddress): UniverseSectorContents {
   const key = sectorAddressKey(address);
@@ -121,21 +97,7 @@ export function universeSectorContents(address: UniverseSectorAddress): Universe
     return origin;
   }
 
-  const seed = hashText(key);
-  const random = randomStream(seed);
-  const kind = SECTOR_KINDS[seed % SECTOR_KINDS.length]!;
-  const name = `${SECTOR_NAMES[(seed >>> 4) % SECTOR_NAMES.length]} · ${kind.replace("-", " ").toUpperCase()}`;
-  const asteroids = Array.from({ length: 3 + (seed % 3) }, (_, index) => ({
-    x: (random() * 2 - 1) * 188,
-    y: (random() * 2 - 1) * 126,
-    z: (random() * 2 - 1) * 188,
-    r: 7 + random() * 12,
-    seed: (seed + index * 7919) >>> 0,
-  }));
-  const anomaly = kind === "anomaly-front"
-    ? { x: (random() * 2 - 1) * 145, y: (random() * 2 - 1) * 105, z: (random() * 2 - 1) * 145 }
-    : null;
-  const contents = { key, seed, name, kind, asteroids, anomaly };
+  const contents = { key, ...seedUniverseSector(key) };
   if (contentsCache.size >= 256) contentsCache.delete(contentsCache.keys().next().value!);
   contentsCache.set(key, contents);
   return contents;

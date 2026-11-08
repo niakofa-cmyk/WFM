@@ -105,6 +105,11 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     ...orbitalSnapshot,
     missionId: "universe-patrol",
     phase: "lobby",
+    patrolApproach: {
+      distanceMeters: 619.52,
+      engagementRangeMeters: 180,
+      combatAuthorized: false,
+    },
     hostileFleet: {
       patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
       callsign: "ASHEN SPEAR",
@@ -122,6 +127,18 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     },
   };
   assert.ok(parseSectorSnapshot(universePatrolSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: { ...universePatrolSnapshot.patrolApproach, distanceMeters: 181, combatAuthorized: true },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the client cannot contradict the server's 180m range calculation");
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: { ...universePatrolSnapshot.patrolApproach, distanceMeters: 179, combatAuthorized: false },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the server range decision must match its reported distance");
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: undefined,
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "patrol combat requires a server approach snapshot");
   assert.equal(parseSectorSnapshot({
     ...universePatrolSnapshot,
     hostileFleet: { ...universePatrolSnapshot.hostileFleet, faction: "ussf" },
