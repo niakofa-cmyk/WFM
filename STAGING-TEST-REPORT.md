@@ -1614,3 +1614,20 @@ verification-code submission was performed for these readiness checks.
 Deployment and access protection passed; fresh authenticated player firing,
 two-pilot late assistance, damage/kill attribution, settlement and post-battle
 flight remain unverified. Overall promotion remains **PENDING**.
+
+### Authenticated two-pilot attempt — blocked before gameplay
+
+All repository improvements were confirmed pushed through `55dd67f`.
+Both isolated browser contexts passed the staging Development-instance guard
+and reached sign-in verification challenges. The first browser owners were
+lost when the workspace slept during the secure code handoff. Replacement
+owners ran as bounded test jobs but expired before sign-in completed.
+
+No verification code was submitted to either the original or replacement
+challenge. Neither account reached a confirmed active session or authenticated
+profile response; no battle was started and no reward was claimed. Do not count
+authentication setup as a passed two-pilot gameplay check.
+
+Stop reopening challenges until a coordinated sign-in can be completed.
+Previously supplied codes must not be used against replacement challenges.
+Staging gameplay remains pinned to `61fd952`; Production is unchanged.

@@ -24,6 +24,15 @@
     "unauthenticatedGatewayChecks": { "rootHttpStatus": 401, "profileHttpStatus": 401, "webSocketUpgradeHttpStatus": 401 },
     "freshAuthenticatedTwoPilotBattleVerified": false,
     "freshStagingKillAssistAndRewardSettlementVerified": false,
+    "authenticatedVerificationAttempt": {
+      "status": "BLOCKED_PENDING_FRESH_SIGN_INS",
+      "developmentGuardPassedForBothContexts": true,
+      "verificationCodesSubmitted": false,
+      "bothAccountsAuthenticated": false,
+      "battleStarted": false,
+      "reason": "Initial browser owners were lost during workspace sleep; replacement finite browser jobs later expired before sign-in completed.",
+      "nextAction": "Open new challenges only when the user is ready, require fresh matching codes, then verify both active sessions and profile responses before gameplay."
+    },
     "schemaOrFlagChanges": false,
     "productionChanged": false
   },

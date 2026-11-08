@@ -19,3 +19,20 @@ listener still executed the earlier summarizer and never populated them.
 test-owned observer listeners before expecting new fields. A normal reload in
 the same authenticated context may rejoin the socket; it is not a reason to
 create another browser, export state or repeat sign-in.
+
+Managed background ownership alone does not prevent workspace sleep during a
+secure verification-code handoff.
+
+**Why:** sleeping stopped both retained browser owners and destroyed the pages
+that owned their pending sign-in challenges. A newly supplied code could no
+longer be submitted to its original page.
+
+**How to apply:** check owner IPC before using a supplied code. Never reuse a
+code against a replacement challenge. For a finite verification job that must
+survive an unattended handoff, use a strict timeout and bounded keep-alive,
+then stop it immediately when finished or no longer needed. Do not keep a
+forever-running service awake or export sessions as a workaround.
+
+If the handoff also exceeds the bounded job lifetime, stop issuing replacement
+challenges until the user is ready for a coordinated sign-in. Extending
+keep-alive indefinitely is not a recovery strategy.
