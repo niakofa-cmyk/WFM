@@ -224,3 +224,39 @@ test("free-flight admission is mandatory and the server does not accept a client
     await runtime.close();
   }
 });
+
+
+test("reconnecting a pilot resumes the server-owned input sequence without duplicating its actor", async () => {
+  const runtime = await startRuntime();
+  const url = `ws://127.0.0.1:${runtime.port}/ws?freeflight=1`;
+  let first: WebSocket | null = null;
+  let replacement: WebSocket | null = null;
+  try {
+    first = await connect(url, "reconnecting-pilot");
+    const firstJoin = nextPacket(first, (packet) => packet.type === "freeflight_joined");
+    first.send(JSON.stringify({ type: "freeflight_join" }));
+    const firstJoined = await firstJoin;
+    assert.equal(firstJoined.nextInputSeq, 1);
+
+    const firstAccepted = nextPacket(first, (packet) => packet.type === "freeflight_input_accepted");
+    first.send(JSON.stringify({ type: "freeflight_input", input: flightInput(1, { throttle: 0.4 }) }));
+    assert.equal((await firstAccepted).seq, 1);
+    await close(first);
+
+    replacement = await connect(url, "reconnecting-pilot");
+    const rejoin = nextPacket(replacement, (packet) => packet.type === "freeflight_joined");
+    replacement.send(JSON.stringify({ type: "freeflight_join" }));
+    const rejoined = await rejoin;
+    assert.equal(rejoined.nextInputSeq, 2);
+    const accepted = nextPacket(replacement, (packet) => packet.type === "freeflight_input_accepted");
+    replacement.send(JSON.stringify({ type: "freeflight_input", input: flightInput(2, { throttle: 0.4 }) }));
+    assert.equal((await accepted).seq, 2);
+
+    const snapshot = rejoined.snapshot as { ownActorId: string; actors: Array<{ actorId: string; kind: string }> };
+    assert.equal(snapshot.actors.filter((actor) => actor.kind === "pilot" && actor.actorId === snapshot.ownActorId).length, 1);
+  } finally {
+    if (first) await close(first);
+    if (replacement) await close(replacement);
+    await runtime.close();
+  }
+});
