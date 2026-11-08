@@ -1,5 +1,11 @@
 # Orbital native renderer — production migration gate
 
+> **Superseded decision:** This checklist records the earlier parity-before-
+> removal proposal. The owner later chose immediate Three.js removal and
+> retirement of unported modes. Do not use this historical gate to restore
+> compatibility rendering or block removal. Current scope and verification are
+> in [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+
 ## Current status
 
 **The main Arena renderer is not ready to be replaced.** The native WebGL2

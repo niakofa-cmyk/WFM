@@ -40,10 +40,10 @@
 - [Open-universe direction](open-universe-direction.md) — chosen faction sets opposing patrols; server owns kills, shared fleet losses, and completed-extraction rewards.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
-- [Three.js mobile loading](threejs-mobile-loading.md) — while migrating, defer the temporary renderer behind a narrow adapter; never pass its full namespace through UI state.
-- [Engine selection](wfm-engine-selection.md) — Orbital owns the final renderer; keep the current Three.js implementation only until verified replacement and rollback gates pass.
+- [Three.js retirement](threejs-mobile-loading.md) — keep Three.js absent; retired modes must be rebuilt in Orbital before re-entry.
+- [Engine selection](wfm-engine-selection.md) — Orbital is the only renderer; Three.js was removed with explicit retirement of unported modes.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
-- [Canonical engine migration](orbital-canonical-gameplay.md) — Orbital owns final rendering and gameplay; migrate Three.js out only after renderer parity and device gates pass.
+- [Canonical engine migration](orbital-canonical-gameplay.md) — the owner chose Orbital-only rendering now; legacy experiences may be retired rather than kept in Three.js.
 - [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — regional AI routes project into 3D; nearby human presence stays aggregate, and shared human flight remains separate.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.

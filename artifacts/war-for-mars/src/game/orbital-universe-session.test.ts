@@ -34,7 +34,7 @@ function dockedSession() {
   });
 }
 
-test("local universe declares canonical Arena ownership with no network or reward authority", () => {
+test("local universe declares Orbital ownership with no network or reward authority", () => {
   const definition = getGameModeDefinition(UNIVERSE_MODE_ID);
   const runtime = createOrbitalRuntime(definition);
   assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);

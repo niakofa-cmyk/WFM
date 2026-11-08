@@ -11,10 +11,10 @@ The owner specifically identified the current Home-screen presentation:
 `ORBITAL COMBAT LAB · OFFLINE` / `Canonical local combat training · no rewards`.
 That is the current access path, **not the desired final product architecture**.
 
-Break down and re-engineer the Lab's end-to-end function flow into the main
-game execution path. “Break down” means inspect, extract, refactor and verify
-its responsibilities — not deliberately break the running game or delete
-working replacements before parity is demonstrated.
+Re-engineer the Lab's end-to-end function flow into the main game execution
+path. The owner has since explicitly chosen immediate Three.js removal and
+retirement of modes without Orbital-native presentation. This removes old
+presentation routes; it does not claim their feature or multiplayer parity.
 
 This clarification governs the maintained rebuild/redesign files wherever
 older wording could justify leaving Orbital as a side mode. Preserve the
@@ -72,13 +72,13 @@ Do not create a separate universe engine to satisfy the diagram.
   Authoritative match instances may scale independently behind versioned
   operation adapters while retaining one coherent player journey.
 - The final game uses Orbital Engine as its sole rendering and gameplay
-  foundation. Three.js is a source of techniques only, not a shipped renderer
-  dependency. The current Three.js-based presentation remains temporarily until
-  an Orbital-native renderer passes parity/performance gates; see the
+  foundation. Three.js is removed, not retained as a shipped or deferred
+  renderer. The active playable scope is the native Cinder Ring slice.
+- Unported legacy presentations are retired, not compatibility or rollback
+  paths. Preserve their server-owned identity and operation contracts, then
+  restore player entry only after Orbital-native presentation and authority
+  behavior have been rebuilt and verified. See the
   [renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-- Legacy experiences remain accessible as compatibility/rollback paths during
-  migration. Their existence must not justify leaving the redesigned main
-  universe permanently outside Orbital.
 
 ### Services and authority
 

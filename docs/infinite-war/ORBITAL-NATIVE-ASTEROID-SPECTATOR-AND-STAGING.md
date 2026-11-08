@@ -1,5 +1,11 @@
 # Orbital-native asteroid spectator and staging gate
 
+> **Superseded renderer gate:** The owner chose immediate Three.js removal and
+> retirement of unported combat presentation rather than a parity-gated
+> compatibility period. This file remains a staging/authority reference; its
+> renderer rollback language is not current. See
+> [renderer rebuild status](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+
 ## Implemented slice
 
 The Cinder Ring live Wing spectator now has a read-only WebGL2 view that renders

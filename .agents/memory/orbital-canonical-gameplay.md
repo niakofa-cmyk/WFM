@@ -17,26 +17,22 @@ maintained roadmap and asteroid-hub contract for current implementation.
 The newest controlling source and its one-main-engine precedence are recorded
 in [master development directive](master-development-directive.md).
 
-**Rule:** One Orbital engine must own the finished game's rendering and gameplay
-runtime, with specialist experiences connected through adapters. Three.js is a
-reference for techniques only, not a library to ship in the finished game. The
-current repository still uses it for rendering and has no complete Orbital-native
-renderer, so remove it only after a replacement passes feature, performance,
-authority, and rollback gates. Preserve existing identity, matchmaking, economy,
-progression, reward services, and working compatibility paths during migration.
+**Rule:** One Orbital engine must own the game's rendering and gameplay runtime.
+The owner chose immediate Three.js removal and retirement of unported
+presentation modes. The active Orbital-native scope is local Cinder Ring flight;
+unported combat, campaign, and cooperative modes are not migrated or playable
+through the retired routes. Preserve server authority, identity, matchmaking,
+economy, progression, and reward services.
 
-**Why:** the owner explicitly corrected the renderer decision: the game's scale
-requires one Orbital rendering and simulation foundation, while repository
-inspection shows that Three.js currently supplies the only working 3D renderer.
-The migration must honor the target without breaking the current game prematurely.
+**Why:** the owner explicitly chose retiring old modes now instead of keeping
+Three.js as a compatibility runtime. This is a product decision, not evidence
+that Orbital has parity for those experiences.
 
 **How to apply:** follow
-`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md` for the audited
-current state and renderer removal gates. Build an Orbital-owned renderer proof,
-then migrate and test one surface/mode at a time. Use explicit operation
-adapters; version network/replay contracts and change client/API/socket
-authority together. The local Cinder approach cannot authorize a queue or create
-an operation. Retain Wing's server-owned competitive and reward gates.
+`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md`. Do not restore
+Three.js or present retired routes as available. Rebuild modes individually
+inside Orbital, preserving server-owned authority and versioned operation
+contracts. Local Cinder flight cannot authorize a queue or create a reward.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc

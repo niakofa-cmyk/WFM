@@ -6,21 +6,21 @@
 - [Faction ledger and shield impact source](references/redesign/FACTION-LEDGER-AND-SHIELD-IMPACT-SOURCE.txt)
 - [Staging preflight and territory grid source](references/redesign/STAGING-PREFLIGHT-AND-TERRITORY-GRID-SOURCE.txt)
 
-## Implemented: Combat Lab initial bundle
+## Implemented: Three.js dependency retirement
 
-The failing build was caused by the `three-engine` manual chunk being hoisted
-into the standalone Combat Lab's initial static dependency graph. Before the
-change, the main app measured 124,612 B gzip, but Combat Lab measured 258,419 B
-gzip and loaded the 131,388 B Three.js chunk immediately.
+The owner chose immediate removal and accepted retiring the unported combat
+screens instead of keeping Three.js in deferred compatibility chunks. The WFM
+package no longer declares `three` or `@types/three`; the previous Three.js
+renderer modules and visual helpers were removed. Arena and legacy sector routes
+now display retirement notices, while `/flight`, `/play`, and the Combat Lab
+enter the Orbital-native Cinder Ring scene.
 
-The normal app keeps its existing deferred engine split. The Combat Lab build
-now lets Rollup retain the lazy import boundary instead of forcing Three.js into
-a shared static chunk. Bundle auditing identifies chunks by their actual Three.js
-module IDs instead of assuming one chunk name. `preview-build.test.mjs` verifies
-that every Three.js-containing chunk remains outside both initial graphs.
-
-This fixes the initial bundle budget failure; it does **not** remove Three.js
-from the compatibility route or certify the full Orbital-only migration.
+Both the main-app and standalone Combat Lab build audits now reject any
+Three.js module in any emitted chunk and retain a separate 140 KiB gzip budget
+for each initial static graph. Historical bundle measurements in earlier
+reports describe the old deferred setup and are not current performance
+measurements. Removal is not feature parity: retired campaign, co-op, Wing, and
+legacy sector presentation has not been rebuilt in Orbital.
 
 ## Implemented: safe staging preflight
 
@@ -51,17 +51,16 @@ seed fake pilots.
 
 ## Shield-impact decision
 
-The supplied shield effect uses Three.js meshes and exposes a method that
+The supplied shield effect uses legacy Three.js meshes and exposes a method that
 accepts arbitrary pilot IDs and coordinates. This conflicts with Orbital's
 native-renderer direction and lacks a server-authored shield-impact event
 contract. Wiring it to client telemetry would permit fabricated flashes and
 could imply damage that the server never confirmed.
 
-The visual effect is therefore not added to a legacy renderer. The correct
-implementation needs an authoritative hit event from the active Orbital combat
-runtime, validated actor identity and pose, and a native WebGL2 effect that
-consumes only that event. The current build does not expose that complete
-free-flight event path.
+The visual effect is not retained. The correct implementation needs an
+authoritative hit event from the active Orbital combat runtime, validated actor
+identity and pose, and a native WebGL2 effect that consumes only that event.
+The current build does not expose that complete free-flight event path.
 
 ## Territory-grid decision
 
@@ -78,7 +77,7 @@ read-only universe map. No territory state or UI is claimed by this review.
 ## Verification boundary
 
 The Combat Lab and main-app bundles are measured separately. The static-load
-budget is enforced for each entry, and engine chunks remain deferred. This
-document does not claim that continuous server-authoritative free flight,
-persistent territory control, shield-impact events, or the complete
-Three.js-to-Orbital migration are finished.
+budget is enforced for each entry, and either build fails if any Three.js module
+appears. This document does not claim that continuous server-authoritative free
+flight, persistent territory control, shield-impact events, or the complete
+Orbital-only multiplayer game are finished.

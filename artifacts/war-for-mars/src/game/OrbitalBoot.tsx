@@ -20,7 +20,7 @@ type Mode = "entry" | "universe";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const HUB = `${BASE}/universe`;
 
-/** Shared primary boot and compatibility Lab entry; one flight implementation. */
+/** Shared primary boot and standalone Lab entry; one native flight implementation. */
 export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
   return standalone
     ? <OrbitalBootCore standalone />
@@ -87,6 +87,8 @@ function OrbitalBootCore({
         faction={faction}
         servicesHref={HUB}
         traffic={localTraffic}
+        autoStart
+        immersive
       />
     </div>
   );
