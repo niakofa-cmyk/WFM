@@ -6,7 +6,7 @@ import {
   useGetWorld,
   useGetWorldPatrols,
 } from "@workspace/api-client-react";
-import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { isOrbitalFreeFlightEnabled, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
 import { ROSTER, SHIPS, type Faction, type ShipId } from "./ships";
 import { unlockAudio } from "./audio";
@@ -80,8 +80,11 @@ function OrbitalBootCore({
   const localTraffic = patrolDirectory?.traffic ?? [];
   const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
     && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
-  const freeFlightEnabled = Boolean(userId) &&
-    import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED === "true";
+  const freeFlightEnabled = isOrbitalFreeFlightEnabled({
+    environment: import.meta.env.MODE,
+    featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+    prerequisitesReady: Boolean(userId),
+  });
   const canInterceptPatrol = expeditionEnabled
     && import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true";
   const loading = (text: string) => <main role="status" className="lab-loading">{text}</main>;

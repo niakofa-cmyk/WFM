@@ -600,6 +600,7 @@ export function Arena({
   const relayInteractionKeyRef = useRef("");
   const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
+  const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
   const universeExitRef = useRef(localUniverse?.onExit);
@@ -629,8 +630,17 @@ export function Arena({
         onSnapshot: (frame) => {
           const previous = freeFlightFramesRef.current.current;
           freeFlightFramesRef.current = { previous, current: frame };
+          const enemyPatrolCount = frame.snapshot.actors.filter(
+            (actor) => actor.kind === "patrol" && actor.faction !== faction && actor.alive,
+          ).length;
+          setVisibleEnemyPatrols((previousCount) =>
+            previousCount === enemyPatrolCount ? previousCount : enemyPatrolCount,
+          );
         },
-        onState: (state, reason) => setFreeFlightStatus(reason ?? state),
+        onState: (state, reason) => {
+          setFreeFlightStatus(reason ?? state);
+          if (state !== "joined") setVisibleEnemyPatrols(0);
+        },
       });
       freeFlightClientRef.current = client;
       client.start();
@@ -645,7 +655,7 @@ export function Arena({
       if (freeFlightClientRef.current === client) freeFlightClientRef.current = null;
       freeFlightFramesRef.current = { previous: null, current: null };
     };
-  }, [freeFlightEnabled]);
+  }, [faction, freeFlightEnabled]);
   useEffect(() => {
     if (!localUniverseActive || universe?.phase !== "exploration") setPatrolContact(null);
   }, [localUniverseActive, universe?.phase]);
@@ -2520,6 +2530,7 @@ export function Arena({
       {localUniverse && freeFlightEnabled ? (
         <p data-testid="free-flight-network-status" className="absolute right-3 top-3 z-30 border border-solar/40 bg-void/85 px-2 py-1 font-hud text-[10px] tracking-widest text-solar">
           SHARED FLIGHT · {freeFlightStatus.replaceAll("_", " ").toUpperCase()}
+          {freeFlightStatus === "joined" ? ` · ENEMY PATROLS ${visibleEnemyPatrols}` : ""}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (

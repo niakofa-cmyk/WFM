@@ -1,5 +1,6 @@
 import { startWingSocketServer } from "./server";
 import { eq } from "drizzle-orm";
+import { isOrbitalFreeFlightEnabled } from "@workspace/orbital-sim";
 import { SHIPS, type Faction, type ShipId } from "../game/ships";
 import type { FreeFlightAdmission } from "./free-flight-runtime";
 import { parseSocketOrigins } from "./origin-policy";
@@ -54,9 +55,11 @@ const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;
 const enableSectorFlight = sectorFlightEnabled(process.env);
-const enableFreeFlight =
-  process.env.ORBITAL_FREE_FLIGHT_ENABLED === "true" &&
-  Boolean(process.env.DATABASE_URL);
+const enableFreeFlight = isOrbitalFreeFlightEnabled({
+  environment: process.env.NODE_ENV ?? "production",
+  featureFlag: process.env.ORBITAL_FREE_FLIGHT_ENABLED,
+  prerequisitesReady: Boolean(process.env.DATABASE_URL),
+});
 const freeFlightLocations: Readonly<Record<string, string>> = {
   "phobos-yard": "mars-orbit",
   "cinder-asteroid": "cinder-ring",

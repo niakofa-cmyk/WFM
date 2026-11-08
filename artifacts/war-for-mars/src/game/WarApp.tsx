@@ -53,7 +53,7 @@ import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
 import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
-import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { isOrbitalFreeFlightEnabled, isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe-session";
 import type { SectorMissionId } from "./sector-missions";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
@@ -1301,8 +1301,11 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 patrolDirectory: universePatrolDirectory,
                 canInterceptPatrol: universePatrolInterceptionEnabled,
                 getSessionToken: getToken,
-                freeFlightEnabled: Boolean(userId) &&
-                  import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED === "true",
+                freeFlightEnabled: isOrbitalFreeFlightEnabled({
+                  environment: import.meta.env.MODE,
+                  featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+                  prerequisitesReady: Boolean(userId),
+                }),
                 onExit: () => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);

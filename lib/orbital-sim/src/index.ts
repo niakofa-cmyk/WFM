@@ -15,3 +15,4 @@ export * from "./spatial-world";
 export * from "./universe-sector-seeding";
 export * from "./universe-sync-contract";
 export * from "./free-flight-contract";
+export * from "./free-flight-rollout";

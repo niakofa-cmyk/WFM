@@ -35,9 +35,10 @@ from the complete shared universe the game is intended to become.
   server-owned pilot movement and patrol movement on the existing authenticated
   socket. The runtime accepts control intent only; server admission resolves
   faction, owned hull, and a supported world location from account/world state.
-- `artifacts/api-server/src/socket/index.ts` enables the server feature only
-  when `ORBITAL_FREE_FLIGHT_ENABLED=true` and the database is configured. The
-  feature remains off by default. No deployment environment was changed.
+- `artifacts/api-server/src/socket/index.ts` enables the server feature in
+  development when the database is configured. An explicit `false` disables it;
+  production still requires `ORBITAL_FREE_FLIGHT_ENABLED=true`. No deployment
+  environment was changed.
 - `lib/orbital-sim/src/free-flight-contract.ts` strictly validates the
   versioned snapshot before client rendering.
 - `artifacts/war-for-mars/src/game/free-flight-client.ts` authenticates using
@@ -46,9 +47,9 @@ from the complete shared universe the game is intended to become.
 - `Arena.tsx` projects server-snapshot pilots and patrols as ship meshes into the
   already-running Orbital free-flight scene. It interpolates bounded snapshots
   and falls back to existing local traffic when the feature is absent or stale.
-- The frontend is separately opt-in through
-  `VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED=true`. It does not start a network
-  session by default.
+- The authenticated frontend connects automatically in development; production
+  remains opt-in through `VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED=true`. Pilots see
+  the current opposing patrol count after the server snapshot arrives.
 - Runtime tests cover authenticated admission, same-location pilot visibility,
   location isolation, validated snapshots, server movement, moving patrols,
   reconnect sequence continuity, and rejection of client-authored combat or
