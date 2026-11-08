@@ -27,7 +27,7 @@ from the complete shared universe the game is intended to become.
 | Treat this as infinite spatial sharding | Not yet implemented. The current session key is a coarse, server-derived destination (`mars:<anchor>`), not a 3D spatial cell or continuous route-space partition. |
 | Treat the four visible patrols as the persistent universe fleet system | Not yet implemented. They are temporary runtime actors. Persistent route records, route scheduling, casualties, and fleet objectives are still separate systems. |
 | Enable server-authoritative battles and rewards from visible proximity | Not implemented. The free-flight input explicitly rejects weapon actions. No kill attribution, encounter settlement, reward, reputation, or territory change is made by this prototype. |
-| Claim verified staging or multi-device readiness | Not verified. No staging credentials or authentication flow were used for this implementation. |
+| Claim verified staging or multi-device readiness | Not verified. A later protected staging rollout reached the sign-in page, but did not confirm an authenticated profile; see the staging report below. |
 
 ## What is implemented
 
@@ -37,8 +37,9 @@ from the complete shared universe the game is intended to become.
   faction, owned hull, and a supported world location from account/world state.
 - `artifacts/api-server/src/socket/index.ts` enables the server feature in
   development when the database is configured. An explicit `false` disables it;
-  production still requires `ORBITAL_FREE_FLIGHT_ENABLED=true`. No deployment
-  environment was changed.
+  production still requires `ORBITAL_FREE_FLIGHT_ENABLED=true`. In the
+  2026-11-08 isolated staging rollout, the client and socket feature flags were
+  enabled only in staging; Production was not changed.
 - `lib/orbital-sim/src/free-flight-contract.ts` strictly validates the
   versioned snapshot before client rendering.
 - `artifacts/war-for-mars/src/game/free-flight-client.ts` authenticates using
@@ -63,16 +64,19 @@ the player flight itself is fully server-authoritative.
 
 ## Rollout and rollback
 
-Keep both feature flags off until the remaining acceptance gates pass. To
-disable this slice, turn off `ORBITAL_FREE_FLIGHT_ENABLED` on the API and
-`VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED` in the frontend build. No database schema
-change is required. Existing local flight and separate authenticated combat
-operations remain intact.
+Keep both feature flags off in Production until the remaining acceptance gates
+pass. The protected staging environment was temporarily enabled for the
+verification attempt documented in
+[`Staging free-flight rollout and paired verification`](../staging-free-flight-paired-verification-2026-11-08.md).
+To disable this slice, turn off `ORBITAL_FREE_FLIGHT_ENABLED` on the API and
+`VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED` in the frontend build. Existing local
+flight and separate authenticated combat operations remain intact.
 
 Do not call it production-ready based on a passing local socket test. Staging
 must verify two authenticated devices, both factions, movement reconciliation,
 disconnect/rejoin, privacy between locations, and safe fallback after the
-feature is disabled.
+feature is disabled. The latest staging attempt did not pass authentication and
+therefore provides no evidence for those gates.
 
 ## Next three implementation slices
 
