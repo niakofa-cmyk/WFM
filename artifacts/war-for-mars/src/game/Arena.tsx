@@ -64,6 +64,7 @@ import {
 import { UniverseStationOverlay } from "./UniverseStationOverlay";
 import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
+import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -165,6 +166,8 @@ type ArenaProps = {
     patrolDirectory?: WorldPatrolDirectory | null;
     canInterceptPatrol?: boolean;
     onInterceptPatrol?: () => void;
+    getSessionToken?: () => Promise<string | null>;
+    freeFlightEnabled?: boolean;
   };
 };
 
@@ -596,13 +599,53 @@ export function Arena({
   const [relayInteraction, setRelayInteraction] = useState<LocalRelayInteraction | null>(null);
   const relayInteractionKeyRef = useRef("");
   const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
+  const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
   const universeExitRef = useRef(localUniverse?.onExit);
   universeExitRef.current = localUniverse?.onExit;
   const localUniverseRef = useRef(localUniverse);
   localUniverseRef.current = localUniverse;
+  const freeFlightTokenRef = useRef(localUniverse?.getSessionToken);
+  freeFlightTokenRef.current = localUniverse?.getSessionToken;
+  const freeFlightClientRef = useRef<FreeFlightClient | null>(null);
+  const freeFlightFramesRef = useRef<{
+    previous: ReceivedFreeFlightSnapshot | null;
+    current: ReceivedFreeFlightSnapshot | null;
+  }>({ previous: null, current: null });
   const localUniverseActive = Boolean(localUniverse);
+  const freeFlightEnabled = localUniverseActive &&
+    localUniverse?.freeFlightEnabled === true &&
+    Boolean(localUniverse.getSessionToken);
+  useEffect(() => {
+    if (!freeFlightEnabled) return;
+    let disposed = false;
+    let client: FreeFlightClient | null = null;
+    setFreeFlightStatus("connecting");
+    void import("./free-flight-client").then(({ FreeFlightClient: Client }) => {
+      if (disposed) return;
+      client = new Client({
+        getSessionToken: () => freeFlightTokenRef.current?.() ?? Promise.resolve(null),
+        onSnapshot: (frame) => {
+          const previous = freeFlightFramesRef.current.current;
+          freeFlightFramesRef.current = { previous, current: frame };
+        },
+        onState: (state, reason) => setFreeFlightStatus(reason ?? state),
+      });
+      freeFlightClientRef.current = client;
+      client.start();
+    }).catch((error: unknown) => {
+      if (!disposed) {
+        setFreeFlightStatus(error instanceof Error ? "client_module_failed" : "client_module_unavailable");
+      }
+    });
+    return () => {
+      disposed = true;
+      client?.stop();
+      if (freeFlightClientRef.current === client) freeFlightClientRef.current = null;
+      freeFlightFramesRef.current = { previous: null, current: null };
+    };
+  }, [freeFlightEnabled]);
   useEffect(() => {
     if (!localUniverseActive || universe?.phase !== "exploration") setPatrolContact(null);
   }, [localUniverseActive, universe?.phase]);
@@ -1189,6 +1232,85 @@ export function Arena({
       return group;
     });
     const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const sharedFlightGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const removeSharedFlightGroups = () => {
+      for (const entry of sharedFlightGroups.values()) disposePatrolShipGroup(entry.group);
+      sharedFlightGroups.clear();
+    };
+    const renderSharedFlight = (now: number, pilot: Craft) => {
+      const frames = freeFlightFramesRef.current;
+      const current = frames.current;
+      if (!current || now - current.receivedAt > 1_500) {
+        removeSharedFlightGroups();
+        return false;
+      }
+      const snapshot = current.snapshot;
+      const own = snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId);
+      if (!own) {
+        removeSharedFlightGroups();
+        return false;
+      }
+      const previous = frames.previous;
+      const sameSession = previous?.snapshot.sessionInstanceId === snapshot.sessionInstanceId;
+      const previousOwn = sameSession && previous
+        ? previous.snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId)
+        : undefined;
+      const duration = sameSession && previous
+        ? current.receivedAt - previous.receivedAt
+        : 0;
+      const renderTime = now - 100;
+      const alpha = previousOwn && duration > 0 && duration <= 300
+        ? Math.max(0, Math.min(1, (renderTime - previous!.receivedAt) / duration))
+        : 1;
+      const lerp = (from: number, to: number) => from + (to - from) * alpha;
+      const ownPosition = {
+        x: previousOwn ? lerp(previousOwn.position.x, own.position.x) : own.position.x,
+        y: previousOwn ? lerp(previousOwn.position.y, own.position.y) : own.position.y,
+        z: previousOwn ? lerp(previousOwn.position.z, own.position.z) : own.position.z,
+      };
+      const anchor = { x: pilot.x, y: pilot.space?.y ?? 0, z: pilot.z };
+      const visibleIds = new Set<string>();
+      for (const actor of snapshot.actors) {
+        if (actor.own || actor.actorId === snapshot.ownActorId ||
+            !Object.hasOwn(SHIPS, actor.shipId)) continue;
+        visibleIds.add(actor.actorId);
+        let entry = sharedFlightGroups.get(actor.actorId);
+        if (!entry || entry.shipId !== actor.shipId) {
+          if (entry) disposePatrolShipGroup(entry.group);
+          const group = buildOrbitalShip(actor.shipId as ShipId);
+          group.scale.setScalar(actor.kind === "patrol" ? 2.4 : 2.1);
+          scene.add(group);
+          entry = { group, shipId: actor.shipId as ShipId };
+          sharedFlightGroups.set(actor.actorId, entry);
+        }
+        const previousActor = sameSession
+          ? previous?.snapshot.actors.find((candidate) => candidate.actorId === actor.actorId)
+          : undefined;
+        const position = {
+          x: previousActor ? lerp(previousActor.position.x, actor.position.x) : actor.position.x,
+          y: previousActor ? lerp(previousActor.position.y, actor.position.y) : actor.position.y,
+          z: previousActor ? lerp(previousActor.position.z, actor.position.z) : actor.position.z,
+        };
+        entry.group.visible = actor.alive;
+        entry.group.position.set(
+          anchor.x + position.x - ownPosition.x,
+          UNIVERSE_RENDER_Y_OFFSET + anchor.y + position.y - ownPosition.y,
+          anchor.z + position.z - ownPosition.z,
+        );
+        entry.group.quaternion.set(
+          actor.orientation.x,
+          actor.orientation.y,
+          actor.orientation.z,
+          actor.orientation.w,
+        );
+      }
+      for (const [actorId, entry] of sharedFlightGroups) {
+        if (visibleIds.has(actorId)) continue;
+        disposePatrolShipGroup(entry.group);
+        sharedFlightGroups.delete(actorId);
+      }
+      return true;
+    };
     const universePatrolOrigin = localUniverse ? {
       x: match.player.x,
       y: match.player.space?.y ?? 0,
@@ -1541,7 +1663,9 @@ export function Arena({
         let steps = 0;
         const pilot = match.player;
         while (acc >= FIXED && steps < 5 && pilot.space) {
-          const nextSector = advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED);
+          const controls = readInput(bus);
+          freeFlightClientRef.current?.sendControls(controls);
+          const nextSector = advanceLocalUniverseFlight(match, universeRef.current!, controls, FIXED);
           if (nextSector) {
             const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
             universeRef.current = nextSession;
@@ -1551,7 +1675,12 @@ export function Arena({
           acc -= FIXED;
           steps += 1;
         }
-        if (universePhase === "exploration" && universePatrolOrigin && now - lastPatrolProjectionAt >= 120) {
+        const latestSharedFrame = freeFlightFramesRef.current.current;
+        const sharedTrafficFresh = Boolean(
+          latestSharedFrame && now - latestSharedFrame.receivedAt <= 1_500,
+        );
+        if (universePhase === "exploration" && universePatrolOrigin &&
+            now - lastPatrolProjectionAt >= 120 && !sharedTrafficFresh) {
           lastPatrolProjectionAt = now;
           const liveUniverse = localUniverseRef.current;
           const projection = projectUniversePatrolTraffic(
@@ -1608,11 +1737,15 @@ export function Arena({
               return next;
             });
           }
-        } else if (universePhase !== "exploration") {
+        } else if (universePhase !== "exploration" || sharedTrafficFresh) {
           for (const entry of patrolGroups.values()) entry.group.visible = false;
+          if (universePhase !== "exploration") {
+            for (const entry of sharedFlightGroups.values()) entry.group.visible = false;
+          }
           if (patrolContact) setPatrolContact(null);
         }
         if (universePhase === "exploration") {
+          renderSharedFlight(now, pilot);
           const dock = evaluateUniverseDock(pilot, universeRef.current!.sectorAddress);
           const key = `${dock.targetId}:${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
           if (key !== lastDockKey) {
@@ -2382,6 +2515,11 @@ export function Arena({
       {online ? (
         <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
           {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
+        </p>
+      ) : null}
+      {localUniverse && freeFlightEnabled ? (
+        <p data-testid="free-flight-network-status" className="absolute right-3 top-3 z-30 border border-solar/40 bg-void/85 px-2 py-1 font-hud text-[10px] tracking-widest text-solar">
+          SHARED FLIGHT · {freeFlightStatus.replaceAll("_", " ").toUpperCase()}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (

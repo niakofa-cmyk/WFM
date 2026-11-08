@@ -1300,6 +1300,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 servicesOpen: universeServicesOpen,
                 patrolDirectory: universePatrolDirectory,
                 canInterceptPatrol: universePatrolInterceptionEnabled,
+                getSessionToken: getToken,
+                freeFlightEnabled: Boolean(userId) &&
+                  import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED === "true",
                 onExit: () => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);

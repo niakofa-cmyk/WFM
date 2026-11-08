@@ -44,7 +44,7 @@ with bounded range, short-lived snapshots, and disconnect expiry. They must not
 become a public location lookup, identity feed, or permanent coordinate record.
 Do not fabricate pilot ships when no server presence exists.
 
-## Verified baseline and explicit gap — 2026-11-08
+## Verified baseline and current prototype — 2026-11-08
 
 The current implementation is a useful foundation, not this completed feature:
 
@@ -60,32 +60,39 @@ The current implementation is a useful foundation, not this completed feature:
   free-flight position.
 - The existing universe-presence API stores a server-derived destination and
   returns aggregate counts. It does not distribute pilot ship poses. The
-  current account free-flight does not publish a continuous flight heartbeat.
-- Faction reputation/territory changes and a continuously shared human-pilot
-  traffic layer are not implemented by these pieces.
+  aggregate API remains separate from the new authenticated short-lived pose
+  stream.
+- A feature-gated JSON prototype now broadcasts server-simulated pilot and
+  temporary patrol actors to authenticated pilots in the same coarse
+  destination session. The current Arena projects those ships in the existing
+  Three.js scene; it does not open a parallel game universe.
+- The player's rendered ship still follows local prediction; authoritative pose
+  reconciliation is not yet implemented. The prototype's sessions are not 3D
+  spatial cells, and its four patrols are not the persistent route fleet system.
+- Weapon actions are rejected in this slice. No kill attribution, rewards,
+  reputation, territory changes, or live-battle settlement are connected.
 
 See [persistent patrol implementation and limits](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
 and [the server encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md).
 The transport and weapon-event implementation sequence is in
 [Shared-flight wire protocol and weapon telemetry](SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md).
+The source audit, rollout gates, and exact prototype limits are in
+[Free-flight roaming runtime audit and implementation](FREE-FLIGHT-ROAMING-RUNTIME-AUDIT-AND-IMPLEMENTATION.md).
 
 ## Implementation and acceptance gates
 
-1. Add a server-owned shared Orbital free-flight session with bounded spatial
-   cells, authenticated seats, validated control input, fixed-tick movement,
-   interest management, and reconnect recovery.
-2. Feed existing persistent patrol records into that session as actual moving
-   fleet actors; use the selected player faction to determine opposing patrols.
-3. Add nearby authenticated pilot ships from the same session to the same
-   renderer snapshot. Keep identity exposure limited to what the in-game
-   encounter requires.
-4. Run encounter detection and escalation from server simulation state. Preserve
+1. Replace coarse destination sessions with server-owned bounded spatial cells
+   and feed existing persistent patrol route records into those interest groups.
+2. Reconcile predicted local pilot movement to the server pose; validate
+   reconnect, snapshot interpolation, and renderer parity through both supported
+   paths.
+3. Run encounter detection and escalation from server simulation state. Preserve
    the current encounter rules and use existing result/settlement contracts
    rather than trusting client proximity or opening a parallel battle instance.
-5. End combat back into the same authoritative universe session, applying
+4. End combat back into the same authoritative universe session, applying
    casualties and recording kill/assist history without resetting flight
    position or silently advancing a hidden local simulation.
-6. Verify both renderer paths against identical snapshots and control outcomes.
+5. Verify both renderer paths against identical snapshots and control outcomes.
    Test both factions, multiple devices, latency, reconnect, stale presence,
    privacy, duplicate settlement, and rollback on staging before rollout.
 

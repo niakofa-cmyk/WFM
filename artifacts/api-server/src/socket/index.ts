@@ -1,4 +1,7 @@
 import { startWingSocketServer } from "./server";
+import { eq } from "drizzle-orm";
+import { SHIPS, type Faction, type ShipId } from "../game/ships";
+import type { FreeFlightAdmission } from "./free-flight-runtime";
 import { parseSocketOrigins } from "./origin-policy";
 import { createClerkSessionVerifier } from "./clerk-session-verifier";
 import { resolveClerkIssuer } from "./clerk-issuer-policy";
@@ -51,6 +54,45 @@ const settleWingMatch = wingRewardsEnabled
   ? (await import("../game/wing-rewards")).settleCompletedWingMatch
   : undefined;
 const enableSectorFlight = sectorFlightEnabled(process.env);
+const enableFreeFlight =
+  process.env.ORBITAL_FREE_FLIGHT_ENABLED === "true" &&
+  Boolean(process.env.DATABASE_URL);
+const freeFlightLocations: Readonly<Record<string, string>> = {
+  "phobos-yard": "mars-orbit",
+  "cinder-asteroid": "cinder-ring",
+  "rust-disc": "rust-disc",
+  "night-side": "mars-night-side",
+};
+const resolveFreeFlightAdmission = enableFreeFlight
+  ? async (userId: string): Promise<FreeFlightAdmission | null> => {
+      const { db, playerProgressTable, playerWorldStateTable } = await import("@workspace/db");
+      const [row] = await db
+        .select({
+          faction: playerProgressTable.faction,
+          shipId: playerProgressTable.shipId,
+          locationId: playerWorldStateTable.currentLocation,
+        })
+        .from(playerProgressTable)
+        .innerJoin(
+          playerWorldStateTable,
+          eq(playerWorldStateTable.userId, playerProgressTable.userId),
+        )
+        .where(eq(playerProgressTable.userId, userId))
+        .limit(1);
+      if (!row || (row.faction !== "ussf" && row.faction !== "accord")) return null;
+      const location = freeFlightLocations[row.locationId];
+      if (!location) return null;
+      const faction = row.faction as Faction;
+      const shipId = row.shipId as ShipId;
+      if (!Object.hasOwn(SHIPS, shipId) || SHIPS[shipId].faction !== faction) return null;
+      return { sessionKey: `mars:${location}`, faction, shipId };
+    }
+  : undefined;
+process.stdout.write(`${JSON.stringify({
+  event: "orbital_freeflight_readiness",
+  enabled: enableFreeFlight,
+  admission: enableFreeFlight ? "database-backed" : "disabled",
+})}\n`);
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
@@ -96,6 +138,8 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableWingRewards: wingRewardsEnabled,
   settleWingMatch,
   enableSectorFlight,
+  enableFreeFlight,
+  resolveFreeFlightAdmission,
   sectorProtocolVersion: sectorWireProtocolVersion,
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,

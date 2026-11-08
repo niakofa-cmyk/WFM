@@ -47,7 +47,7 @@ test("local universe entry keeps flight lazy and blocks planned destination laun
 test("standalone boot does not call Clerk auth outside a provider", () => {
   const source = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
   assert.match(source, /return standalone[\s\S]*?<OrbitalBootCore standalone/);
-  assert.match(source, /function AuthenticatedOrbitalBoot\(\) \{\s*const \{ userId \} = useAuth\(\);/);
+  assert.match(source, /function AuthenticatedOrbitalBoot\(\) \{\s*const \{ getToken, userId \} = useAuth\(\);/);
   assert.match(source, /function OrbitalBootCore\(/);
 });
 

@@ -22,9 +22,13 @@ their illustrative code is not production-ready and must not be copied directly.
 - `artifacts/api-server/src/socket/sector-runtime.ts` runs authenticated Orbital
   flight sessions with server-owned ticks, validated controls, combat, and
   existing result/settlement hooks. Preserve this authority and rollback path.
-- `lib/orbital-sim/src/universe-sync-contract.ts` defines a strictly validated
-  bounded frame shape for `ai_patrol` and `human_pilot` actors. It is a contract,
-  not a live session producer or a connected client stream yet.
+- `lib/orbital-sim/src/universe-sync-contract.ts` defines the bounded universe
+  frame shape; `free-flight-contract.ts` validates the prototype's versioned
+  free-flight snapshots before rendering.
+- `artifacts/api-server/src/socket/free-flight-runtime.ts` and the paired
+  frontend client now provide an opt-in JSON stream in coarse destination
+  sessions. This is not yet spatially sharded, persistent, or movement-
+  reconciled.
 - `lib/orbital-sim/src/spatial-world.ts` provides integer-addressed chunks and
   bounded local offsets. Use this coordinate model for spatial sharding rather
   than unbounded absolute floats.
@@ -33,8 +37,9 @@ their illustrative code is not production-ready and must not be copied directly.
 - `Arena` is the main Three.js renderer; native Orbital WebGL2 is a supported
   companion renderer. Both must consume the same canonical Orbital snapshots.
 
-The user-facing target and current free-flight gaps are documented in
-[Live 3D patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md).
+The audit, current implementation limits, feature gates, and next steps are
+documented in [Free-flight roaming runtime audit and implementation](FREE-FLIGHT-ROAMING-RUNTIME-AUDIT-AND-IMPLEMENTATION.md)
+and [Live 3D patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md).
 
 ## Adopted design requirements
 
@@ -96,14 +101,16 @@ The user-facing target and current free-flight gaps are documented in
   Tracer endpoints and weapon events must come from authoritative simulation,
   not raw client coordinates.
 
-## Implementation order
+## Implementation status and remaining order
 
-1. Build the server-owned shared-flight shard on the existing authenticated WFM
-   socket and current Orbital simulation contracts. Derive shard identity and
-   entry pose on the server; keep public presence aggregate-only.
-2. Integrate local flight controls with authoritative input acknowledgements,
-   snapshots, nearby AI patrols, and nearby authenticated pilot actors. Establish
-   JSON/V1 behavior and reconnect tests before enabling binary frames.
+1. **Prototype completed, feature-gated:** the authenticated WFM socket now
+   supports server movement, nearby pilot/patrol JSON snapshots, client
+   snapshot validation, and rendering in the existing Three.js Orbital scene.
+   The browser pilot is still predicted locally, while the server runs its own
+   movement copy. Current sessions are destination-scoped, not 3D spatial cells.
+2. **Next:** reconcile local flight controls and pose with server snapshots,
+   connect persistent patrol routes, and validate the shared world through
+   reconnects and paired staging clients. Keep both feature flags off by default.
 3. Add a bounded versioned binary keyframe/delta protocol behind a paired
    frontend/socket opt-in. Profile under realistic actor counts, latency,
    packet loss, reconnect, and mobile CPU limits.

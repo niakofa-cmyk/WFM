@@ -33,16 +33,18 @@ export function OrbitalBoot({ standalone = false }: { standalone?: boolean }) {
 }
 
 function AuthenticatedOrbitalBoot() {
-  const { userId } = useAuth();
-  return <OrbitalBootCore userId={userId} />;
+  const { getToken, userId } = useAuth();
+  return <OrbitalBootCore userId={userId} getSessionToken={getToken} />;
 }
 
 function OrbitalBootCore({
   standalone = false,
   userId,
+  getSessionToken,
 }: {
   standalone?: boolean;
   userId?: string | null;
+  getSessionToken?: () => Promise<string | null>;
 }) {
   const [faction, setFaction] = useState<Faction>("ussf");
   const [ship, setShip] = useState<ShipId>("duskbreaker");
@@ -78,6 +80,8 @@ function OrbitalBootCore({
   const localTraffic = patrolDirectory?.traffic ?? [];
   const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
     && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
+  const freeFlightEnabled = Boolean(userId) &&
+    import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED === "true";
   const canInterceptPatrol = expeditionEnabled
     && import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true";
   const loading = (text: string) => <main role="status" className="lab-loading">{text}</main>;
@@ -112,6 +116,8 @@ function OrbitalBootCore({
               servicesOpen: patrolInterceptOpen,
               patrolDirectory,
               canInterceptPatrol,
+              getSessionToken,
+              freeFlightEnabled,
               onInterceptPatrol: () => setPatrolInterceptOpen(true),
               onExit: () => {
                 setPatrolInterceptOpen(false);
@@ -192,7 +198,11 @@ function OrbitalBootCore({
           onClick={() => { unlockAudio(); setSummary(""); setTrainingReturnSnapshot(null); setRun((value) => value + 1); setMode("universe"); }}>
           {dest.id === "cinder-ring" ? "APPROACH CINDER · ORBITAL UNIVERSE" : "ENTER MARS ORBIT · ORBITAL UNIVERSE"}
         </button>
-        <p className="uv-map__hint" data-testid="text-local-universe-scope">Current flight profile: session-only sandbox, no rewards or shared ships. Authenticated universe encounters and rewards require server authority.</p>
+        <p className="uv-map__hint" data-testid="text-local-universe-scope">
+          {freeFlightEnabled
+            ? "Live shared flight is enabled for this authenticated profile. Server movement and roaming ships are active; combat and rewards remain disabled in this slice."
+            : "Current flight profile: session-only sandbox, no rewards or shared ships. Authenticated shared flight requires the server feature gate."}
+        </p>
         {!standalone ? <p className="uv-map__hint">Combat training is a station activity at Cinder Ring inside this same flight session.</p>
           : dest.status === "training" ? <button data-testid="button-launch-combat-lab" className="uv-launch" onClick={launch}>LAUNCH COMPATIBILITY TRAINING</button>
             : dest.status === "approach" ? <button data-testid="button-launch-cinder-approach" className="uv-launch uv-launch--approach" onClick={launch}>CINDER APPROACH · COMPATIBILITY</button>
