@@ -160,6 +160,7 @@ export class FreeFlightClient {
       }
       if (packet.type === "freeflight_engagement_started" ||
           packet.type === "freeflight_engagement_state" ||
+          packet.type === "freeflight_weapon_fired" ||
           packet.type === "freeflight_weapon_event" ||
           packet.type === "freeflight_combat_result") {
         this.options.onCombatPacket?.(packet);

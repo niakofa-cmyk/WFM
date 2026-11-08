@@ -107,6 +107,24 @@ export type OnlineSnapshot = {
 
 type RemotePose = { x: number; z: number; yaw: number; pitch: number; steer: number };
 type RemoteFrame = { receivedAt: number; poses: Record<number, RemotePose> };
+type SharedFlightWeaponEffect = {
+  eventId: string;
+  sourceFaction: Faction;
+  visualEffect: keyof typeof WEAPON_EFFECT_COLORS;
+  from: { x: number; y: number; z: number };
+  velocity: { x: number; y: number; z: number };
+  lifetimeSeconds: number;
+  receivedAt: number;
+  impact?: { to: { x: number; y: number; z: number }; receivedAt: number };
+};
+
+function isFlightVector(value: unknown): value is { x: number; y: number; z: number } {
+  if (!value || typeof value !== "object") return false;
+  const vector = value as Record<string, unknown>;
+  return ["x", "y", "z"].every((key) =>
+    typeof vector[key] === "number" && Number.isFinite(vector[key]),
+  );
+}
 
 export type OnlineRoom = {
   socket: WebSocket;
@@ -618,6 +636,8 @@ export function Arena({
     previous: ReceivedFreeFlightSnapshot | null;
     current: ReceivedFreeFlightSnapshot | null;
   }>({ previous: null, current: null });
+  const freeFlightCombatActiveRef = useRef(false);
+  const freeFlightWeaponEffectsRef = useRef<SharedFlightWeaponEffect[]>([]);
   const localUniverseActive = Boolean(localUniverse);
   const freeFlightEnabled = localUniverseActive &&
     localUniverse?.freeFlightEnabled === true &&
@@ -653,22 +673,55 @@ export function Arena({
         },
         onState: (state, reason) => {
           setFreeFlightStatus(reason ?? state);
+          if (state !== "joined") freeFlightCombatActiveRef.current = false;
           if (state !== "joined") {
             setVisibleEnemyPatrols(0);
             setSharedPatrolContact(null);
           }
         },
         onCombatPacket: (packet) => {
-          if (packet.type === "freeflight_engagement_started") {
+          if (packet.type === "freeflight_weapon_fired" &&
+              typeof packet.eventId === "string" &&
+              (packet.sourceFaction === "ussf" || packet.sourceFaction === "accord") &&
+              typeof packet.visualEffect === "string" &&
+              Object.hasOwn(WEAPON_EFFECT_COLORS, packet.visualEffect) &&
+              isFlightVector(packet.from) && isFlightVector(packet.velocity) &&
+              typeof packet.lifetimeSeconds === "number" &&
+              Number.isFinite(packet.lifetimeSeconds)) {
+            freeFlightWeaponEffectsRef.current.push({
+              eventId: packet.eventId,
+              sourceFaction: packet.sourceFaction,
+              visualEffect: packet.visualEffect as keyof typeof WEAPON_EFFECT_COLORS,
+              from: packet.from,
+              velocity: packet.velocity,
+              lifetimeSeconds: Math.max(0, Math.min(5, packet.lifetimeSeconds)),
+              receivedAt: performance.now(),
+            });
+            if (freeFlightWeaponEffectsRef.current.length > 160) {
+              freeFlightWeaponEffectsRef.current.splice(
+                0,
+                freeFlightWeaponEffectsRef.current.length - 160,
+              );
+            }
+          } else if (packet.type === "freeflight_weapon_event" &&
+              typeof packet.eventId === "string" && isFlightVector(packet.to)) {
+            const effect = freeFlightWeaponEffectsRef.current.find(
+              (candidate) => candidate.eventId === packet.eventId,
+            );
+            if (effect) effect.impact = { to: packet.to, receivedAt: performance.now() };
+          } else if (packet.type === "freeflight_engagement_started") {
+            freeFlightCombatActiveRef.current = true;
             setFreeFlightCombatStatus("active");
           } else if (packet.type === "freeflight_engagement_state" &&
               typeof packet.phase === "string") {
+            freeFlightCombatActiveRef.current = packet.phase === "active";
             setFreeFlightCombatStatus(packet.phase);
           } else if (packet.type === "freeflight_combat_result" &&
               packet.status === "settled" &&
               Number.isSafeInteger(packet.kills) &&
               Number.isSafeInteger(packet.assists) &&
               Number.isSafeInteger(packet.creditsAwarded)) {
+            freeFlightCombatActiveRef.current = false;
             setFreeFlightCombatStatus("complete");
             setFreeFlightTally((previous) => ({
               kills: previous.kills + (packet.kills as number),
@@ -676,6 +729,9 @@ export function Arena({
               credits: previous.credits + (packet.creditsAwarded as number),
             }));
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
+            if (packet.reason === "freeflight_engagement_required") {
+              freeFlightCombatActiveRef.current = false;
+            }
             setFreeFlightCombatStatus(packet.reason);
           }
         },
@@ -1281,21 +1337,130 @@ export function Arena({
     });
     const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
     const sharedFlightGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const sharedFlightEffects = new Map<string, {
+      line: THREE.Line;
+      material: THREE.LineBasicMaterial;
+    }>();
     const removeSharedFlightGroups = () => {
       for (const entry of sharedFlightGroups.values()) disposePatrolShipGroup(entry.group);
       sharedFlightGroups.clear();
+    };
+    const removeSharedFlightEffects = () => {
+      for (const { line, material } of sharedFlightEffects.values()) {
+        scene.remove(line);
+        line.geometry.dispose();
+        material.dispose();
+      }
+      sharedFlightEffects.clear();
+      freeFlightWeaponEffectsRef.current = [];
+    };
+    const renderSharedFlightEffects = (
+      now: number,
+      ownPosition: { x: number; y: number; z: number },
+      anchor: { x: number; y: number; z: number },
+    ) => {
+      const liveIds = new Set<string>();
+      const effects = freeFlightWeaponEffectsRef.current;
+      for (let index = effects.length - 1; index >= 0; index -= 1) {
+        const effect = effects[index]!;
+        const age = Math.max(0, (now - effect.receivedAt) / 1_000);
+        const impactAge = effect.impact
+          ? Math.max(0, (now - effect.impact.receivedAt) / 1_000)
+          : null;
+        if (effect.impact ? impactAge! > 0.28 : age > effect.lifetimeSeconds) {
+          effects.splice(index, 1);
+          const entry = sharedFlightEffects.get(effect.eventId);
+          if (entry) {
+            scene.remove(entry.line);
+            entry.line.geometry.dispose();
+            entry.material.dispose();
+            sharedFlightEffects.delete(effect.eventId);
+          }
+          continue;
+        }
+        liveIds.add(effect.eventId);
+        let entry = sharedFlightEffects.get(effect.eventId);
+        if (!entry) {
+          const material = new THREE.LineBasicMaterial({
+            color: WEAPON_EFFECT_COLORS[effect.visualEffect][effect.sourceFaction],
+            transparent: true,
+            opacity: 1,
+            depthWrite: false,
+          });
+          const geometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(),
+            new THREE.Vector3(),
+          ]);
+          const line = new THREE.Line(geometry, material);
+          line.frustumCulled = false;
+          line.renderOrder = 6;
+          scene.add(line);
+          entry = { line, material };
+          sharedFlightEffects.set(effect.eventId, entry);
+        }
+        const velocity = effect.velocity;
+        const speed = Math.hypot(velocity.x, velocity.y, velocity.z) || 1;
+        const progress = Math.min(age, effect.lifetimeSeconds);
+        const tip = effect.impact?.to ?? {
+          x: effect.from.x + velocity.x * progress,
+          y: effect.from.y + velocity.y * progress,
+          z: effect.from.z + velocity.z * progress,
+        };
+        const traveled = Math.hypot(
+          tip.x - effect.from.x,
+          tip.y - effect.from.y,
+          tip.z - effect.from.z,
+        );
+        const tail = effect.impact
+          ? {
+              x: tip.x - velocity.x / speed * Math.min(5, traveled || 5),
+              y: tip.y - velocity.y / speed * Math.min(5, traveled || 5),
+              z: tip.z - velocity.z / speed * Math.min(5, traveled || 5),
+            }
+          : traveled > 5
+            ? {
+                x: tip.x - velocity.x / speed * 5,
+                y: tip.y - velocity.y / speed * 5,
+                z: tip.z - velocity.z / speed * 5,
+              }
+            : effect.from;
+        const toScene = (point: { x: number; y: number; z: number }) => ({
+          x: anchor.x + point.x - ownPosition.x,
+          y: UNIVERSE_RENDER_Y_OFFSET + anchor.y + point.y - ownPosition.y,
+          z: anchor.z + point.z - ownPosition.z,
+        });
+        const start = toScene(tail);
+        const end = toScene(tip);
+        const position = entry.line.geometry.getAttribute("position") as THREE.BufferAttribute;
+        position.setXYZ(0, start.x, start.y, start.z);
+        position.setXYZ(1, end.x, end.y, end.z);
+        position.needsUpdate = true;
+        entry.line.geometry.computeBoundingSphere();
+        entry.material.opacity = effect.impact
+          ? Math.max(0, 1 - impactAge! / 0.28)
+          : 0.95;
+      }
+      for (const [eventId, entry] of sharedFlightEffects) {
+        if (liveIds.has(eventId)) continue;
+        scene.remove(entry.line);
+        entry.line.geometry.dispose();
+        entry.material.dispose();
+        sharedFlightEffects.delete(eventId);
+      }
     };
     const renderSharedFlight = (now: number, pilot: Craft) => {
       const frames = freeFlightFramesRef.current;
       const current = frames.current;
       if (!current || now - current.receivedAt > 1_500) {
         removeSharedFlightGroups();
+        removeSharedFlightEffects();
         return false;
       }
       const snapshot = current.snapshot;
       const own = snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId);
       if (!own) {
         removeSharedFlightGroups();
+        removeSharedFlightEffects();
         return false;
       }
       const previous = frames.previous;
@@ -1357,6 +1522,7 @@ export function Arena({
         disposePatrolShipGroup(entry.group);
         sharedFlightGroups.delete(actorId);
       }
+      renderSharedFlightEffects(now, ownPosition, anchor);
       return true;
     };
     const universePatrolOrigin = localUniverse ? {
@@ -1712,7 +1878,11 @@ export function Arena({
         const pilot = match.player;
         while (acc >= FIXED && steps < 5 && pilot.space) {
           const controls = readInput(bus);
-          freeFlightClientRef.current?.sendControls(controls);
+          freeFlightClientRef.current?.sendControls({
+            ...controls,
+            fire: freeFlightCombatActiveRef.current && controls.fire,
+            missile: freeFlightCombatActiveRef.current && controls.missile,
+          });
           const nextSector = advanceLocalUniverseFlight(match, universeRef.current!, controls, FIXED);
           if (nextSector) {
             const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
@@ -2514,6 +2684,7 @@ export function Arena({
       alive = false;
       cancelAnimationFrame(raf);
       engineGain(0);
+      removeSharedFlightEffects();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       delete window.__controlsTest;
       observer.disconnect();
@@ -2550,7 +2721,9 @@ export function Arena({
   }, [ship.ultShort]);
 
   const bus = busRef.current;
-  const sharedFreeFlightCombat = freeFlightStatus === "joined";
+  const sharedFreeFlightJoined = freeFlightStatus === "joined";
+  const sharedFreeFlightEngagementActive =
+    sharedFreeFlightJoined && freeFlightCombatStatus === "active";
   return (
     <div
       data-testid="arena-stage"
@@ -2570,7 +2743,7 @@ export function Arena({
         <p data-testid="free-flight-network-status" className="absolute right-3 top-3 z-30 border border-solar/40 bg-void/85 px-2 py-1 font-hud text-[10px] tracking-widest text-solar">
           SHARED FLIGHT · {freeFlightStatus.replaceAll("_", " ").toUpperCase()}
           {freeFlightStatus === "joined" ? ` · ENEMY PATROLS ${visibleEnemyPatrols}` : ""}
-          {sharedFreeFlightCombat && freeFlightCombatStatus !== "idle"
+          {sharedFreeFlightJoined && freeFlightCombatStatus !== "idle"
             ? ` · PATROL ${freeFlightCombatStatus.replaceAll("-", " ").toUpperCase()} · K/A ${freeFlightTally.kills}/${freeFlightTally.assists} · CR ${freeFlightTally.credits}`
             : ""}
         </p>
@@ -2600,8 +2773,8 @@ export function Arena({
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
           contact={sharedPatrolContact ?? patrolContact}
-          enabled={sharedFreeFlightCombat || Boolean(localUniverse.canInterceptPatrol)}
-          onEngage={sharedFreeFlightCombat ? () => {
+          enabled={sharedFreeFlightJoined || Boolean(localUniverse.canInterceptPatrol)}
+          onEngage={sharedFreeFlightJoined ? () => {
             const actorId = sharedPatrolContact?.actorId;
             if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
               setFreeFlightCombatStatus("requesting");
@@ -2832,7 +3005,7 @@ export function Arena({
                       </div>
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
-                    {exploringHud && !sharedFreeFlightCombat ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
+                    {exploringHud && !sharedFreeFlightEngagementActive ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -2931,7 +3104,7 @@ export function Arena({
                         }}
                       />
                     )}
-                    {exploringHud && !sharedFreeFlightCombat ? null : <PilotActionButton
+                    {exploringHud && !sharedFreeFlightEngagementActive ? null : <PilotActionButton
                       ref={missileRef}
                       icon="missile"
                       label="Launch guided missile"
@@ -2960,7 +3133,7 @@ export function Arena({
                           requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
                         }}
                       />
-                      {exploringHud && !sharedFreeFlightCombat ? <span className="sr-only">Primary guns unavailable outside a live encounter</span> : <PilotActionButton
+                      {exploringHud && !sharedFreeFlightEngagementActive ? <span className="sr-only">Primary guns unavailable outside a live encounter</span> : <PilotActionButton
                         icon="fire"
                         label="Hold primary guns"
                         testId="button-fire"
@@ -2995,9 +3168,9 @@ export function Arena({
           ) : (
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
-                {!exploringHud || sharedFreeFlightCombat ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
+                {!exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
                 {orbital ? (
-                  !exploringHud || sharedFreeFlightCombat ? <PilotActionButton
+                  !exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton
                     ref={missileRef}
                     icon="missile"
                     label="Launch guided missile"
@@ -3029,7 +3202,7 @@ export function Arena({
                     />
                   </>
                 )}
-                {!exploringHud || sharedFreeFlightCombat ? <PilotActionButton
+                {!exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton
                   icon="fire"
                   label="Hold primary guns"
                   testId="button-fire"

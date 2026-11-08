@@ -457,6 +457,19 @@ export function createFreeFlightRuntime(options: {
         sourceActorId: actor.actorId,
         faction: actor.faction,
       });
+      const projectile = session.projectiles[session.projectiles.length - 1]!;
+      broadcast(session, {
+        type: "freeflight_weapon_fired",
+        eventId: weaponEventId(session, projectile.id),
+        sourceActorId: actor.actorId,
+        sourceFaction: actor.faction,
+        weaponId: projectile.weaponId ?? (projectile.missile ? "missile" : "primary"),
+        visualEffect: projectile.visualEffect ?? (projectile.missile ? "swarm" : "pulse"),
+        from: { x: projectile.x, y: projectile.y ?? 0, z: projectile.z },
+        velocity: { x: projectile.vx, y: projectile.vy ?? 0, z: projectile.vz },
+        lifetimeSeconds: projectile.life,
+        serverTime: Date.now(),
+      });
     }
   }
 
@@ -468,7 +481,6 @@ export function createFreeFlightRuntime(options: {
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     actor.craft.lockTargetId = target?.numericId ?? null;
     acquireTarget(actor.craft, target?.craft, ORBITAL_DT, [], missile);
-    actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
     const ship = SHIPS[actor.shipId];
     if (input.fire && actor.primaryCooldown <= 0) {
       addProjectiles(session, actor, spawnPrimaryVolley(
@@ -525,8 +537,10 @@ export function createFreeFlightRuntime(options: {
       eventId: weaponEventId(session, projectile.id),
       encounterId: combat?.id ?? null,
       sourceActorId: projectile.sourceActorId,
+      sourceFaction: projectile.faction,
       targetActorId: target.actorId,
       weaponId: projectile.weaponId ?? (projectile.missile ? "missile" : "primary"),
+      visualEffect: projectile.visualEffect ?? (projectile.missile ? "swarm" : "pulse"),
       from,
       to,
       shieldDamage,

@@ -89,6 +89,7 @@ async function join(socket: WebSocket) {
       faction: string;
       callsign: string;
       position: { x: number; y: number; z: number };
+      yaw: number;
       [key: string]: unknown;
     }>;
   };
@@ -171,8 +172,8 @@ test("the server advances 3D pilot and patrol movement and rejects client combat
 test("persistent patrol combat resolves server-side damage, kill attribution, and reward settlement in shared flight", async () => {
   const ship: PersistentPatrolShip = {
     id: "persistent-test-ship-0001",
-    hullId: "mandjet",
-    name: "Accord interceptor",
+    hullId: "shakuna",
+    name: "Accord hunter",
     callsign: "Vesper",
   };
   const contact = {
@@ -230,37 +231,62 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
 
     let finished = false;
     const resultPromise = nextPacket(socket, (packet) =>
-      packet.type === "freeflight_combat_result", 15_000).then((packet) => {
+      packet.type === "freeflight_combat_result", 25_000).then((packet) => {
         finished = true;
         return packet;
       });
-    const diagnostics: string[] = [];
+    let latestSnapshot = initial;
+    let playerShotsFired = 0;
+    let playerMissilesFired = 0;
+    let playerWeaponHits = 0;
     const onDiagnostic = (data: Buffer) => {
       try {
         const packet = JSON.parse(data.toString()) as Packet;
-        if (packet.type === "freeflight_weapon_event") {
-          diagnostics.push(`hit:${packet.targetActorId}:h${packet.hullDamage}:s${packet.shieldDamage}:dead${packet.destroyed}`);
-        } else if (packet.type === "freeflight_engagement_state" || packet.type === "error") {
-          diagnostics.push(`${packet.type}:${packet.reason ?? packet.phase ?? ""}`);
+        if (packet.type === "freeflight_weapon_fired" &&
+            packet.sourceActorId === initial.ownActorId) {
+          playerShotsFired += 1;
+          if (packet.weaponId === "precision-seeker") playerMissilesFired += 1;
+        } else if (packet.type === "freeflight_weapon_event") {
+          if (packet.sourceActorId === initial.ownActorId &&
+              packet.targetActorId === target.actorId) playerWeaponHits += 1;
+        } else if (packet.type === "freeflight_snapshot") {
+          latestSnapshot = packet.snapshot as typeof initial;
         }
       } catch { /* Ignore malformed test data. */ }
     };
     socket.on("message", onDiagnostic);
     let seq = 1;
-    for (let index = 0; index < 100 && !finished; index += 1) {
+    for (let index = 0; index < 400 && !finished; index += 1) {
+      const player = latestSnapshot.actors.find((entry) =>
+        entry.actorId === latestSnapshot.ownActorId,
+      )!;
+      const enemy = latestSnapshot.actors.find((entry) => entry.actorId === target.actorId)!;
+      const dx = enemy.position.x - player.position.x;
+      const dz = enemy.position.z - player.position.z;
+      const desiredYaw = Math.atan2(-dx, -dz);
+      const yawError = Math.atan2(
+        Math.sin(desiredYaw - player.yaw),
+        Math.cos(desiredYaw - player.yaw),
+      );
       const accepted = nextPacket(socket, (packet) =>
         packet.type === "freeflight_input_accepted" && packet.seq === seq, 2_000);
       socket.send(JSON.stringify({
         type: "freeflight_input",
-        input: input(seq, { fire: true }),
+        input: input(seq, {
+          yaw: Math.abs(yawError) > 0.04 ? Math.sign(yawError) : 0,
+          fire: true,
+          missile: true,
+        }),
       }));
       await accepted;
       seq += 1;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    if (!finished) console.log("free-flight combat diagnostics", diagnostics);
     const result = await resultPromise;
     assert.equal(result.status, "settled");
+    assert.ok(playerShotsFired > 0, "the server must create and broadcast real weapon projectiles");
+    assert.ok(playerMissilesFired > 0, "the server must launch an acquired, server-owned missile");
+    assert.ok(playerWeaponHits > 0, "the player's server-fired weapon must hit the patrol ship");
     assert.ok(Number(result.kills) >= 1);
     assert.ok(Number(result.creditsAwarded) > 0);
   } finally {
