@@ -269,6 +269,78 @@ test("a changed reserved fleet roster fails closed instead of creating ghost tar
   }
 });
 
+test("rejected secondary claims refresh departed ships and reconnect restores existing combat authority", async () => {
+  const contact = {
+    patrolId: "refresh-test-patrol-0001", locationId: "phobos-yard",
+    faction: "accord" as const, callsign: "First Fleet",
+    route: ["phobos-yard", "cinder-asteroid"], revision: 0,
+    ships: [{
+      id: "refresh-test-ship-0001", hullId: "shakuna" as const,
+      name: "Hunter", callsign: "First",
+    }],
+  };
+  const second = {
+    ...contact, patrolId: "refresh-test-patrol-0002", callsign: "Departing Fleet",
+    ships: [{ ...contact.ships[0], id: "refresh-test-ship-0002" }],
+  };
+  let departed = false;
+  const packets: Packet[] = [];
+  const makeSocket = () => ({
+    readyState: WebSocket.OPEN, bufferedAmount: 0,
+    send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  });
+  const socket = makeSocket();
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "duskbreaker",
+    }),
+    resolveUniversePatrols: async (_id, faction) =>
+      faction === "ussf" ? departed ? [contact] : [contact, second] : [],
+    reserveUniversePatrol: async (_ids, _faction, requested) =>
+      requested.patrolId === contact.patrolId ? contact : null,
+    settleScoutEncounter: async () => { throw new Error("must not settle an unfinished fleet"); },
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    await runtime.handle(socket, "refresh-pilot", { type: "freeflight_join" });
+    await runtime.handle(socket, "refresh-pilot", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:refresh-test-ship-0001",
+    });
+    assert.ok(packets.some((packet) => packet.type === "freeflight_engagement_started"));
+    departed = true;
+    await runtime.handle(socket, "refresh-pilot", {
+      type: "freeflight_input", input: input(1, { fire: true }),
+    });
+    await runtime.handle(socket, "refresh-pilot", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:refresh-test-ship-0002",
+    });
+    assert.ok(packets.some((packet) => packet.reason === "freeflight_patrol_departed"));
+    const state = packets.filter((packet) => packet.type === "freeflight_engagement_state").at(-1)!;
+    assert.equal(state.phase, "active");
+    assert.equal(state.activeEncounterCount, 1);
+    const snapshot = packets.filter((packet) => packet.type === "freeflight_snapshot").at(-1)!.snapshot as {
+      actors: { actorId: string }[];
+    };
+    assert.ok(snapshot.actors.some((actor: { actorId: string }) =>
+      actor.actorId === "patrol-ship:refresh-test-ship-0001"));
+    assert.equal(snapshot.actors.some((actor: { actorId: string }) =>
+      actor.actorId === "patrol-ship:refresh-test-ship-0002"), false);
+    runtime.detach(socket);
+    const reconnected = makeSocket();
+    packets.length = 0;
+    await runtime.handle(reconnected, "refresh-pilot", { type: "freeflight_join" });
+    const restored = packets.find((packet) => packet.type === "freeflight_engagement_state")!;
+    assert.equal(restored.phase, "active");
+    assert.equal(restored.activeEncounterCount, 1);
+    assert.equal(restored.kills, 0);
+    assert.equal(restored.creditsAwarded, 0);
+    assert.equal(packets.some((packet) => packet.type === "freeflight_engagement_started"), false);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("shared-flight patrol combat settles independently of the co-op V1 rollback protocol", async () => {
   const ship: PersistentPatrolShip = {
     id: "persistent-test-ship-0001",

@@ -12,6 +12,14 @@ import { WORLD_LOCATION_COORDINATES, WORLD_PATROL_SECTOR_NETWORK } from "./world
 const ENCOUNTER_LEASE_MS = 20 * 60_000;
 const ACTOR_SHIP_PREFIX = "patrol-ship:";
 
+/** Operational reasons only: never log account, encounter or fleet identities. */
+function rejectedReservation(reason: string): null {
+  process.stdout.write(`${JSON.stringify({
+    event: "universe_patrol_reservation_rejected", reason,
+  })}\n`);
+  return null;
+}
+
 export type UniversePatrolEncounter = {
   patrolId: string;
   locationId: string;
@@ -102,20 +110,19 @@ export async function reserveUniversePatrolEncounter(
       currentLocation: playerWorldStateTable.currentLocation,
     }).from(playerWorldStateTable).where(inArray(playerWorldStateTable.userId, [...userIds].sort()))
       .orderBy(playerWorldStateTable.userId).for("update");
-    if (worlds.length !== userIds.length ||
-        worlds.some((world) => world.currentLocation !== contact.locationId) ||
-        contact.faction !== opposingFaction(pilotFaction)) {
-      return null;
+    if (worlds.length !== userIds.length) return rejectedReservation("participant_world_missing");
+    if (worlds.some((world) => world.currentLocation !== contact.locationId)) {
+      return rejectedReservation("participant_location_changed");
     }
+    if (contact.faction !== opposingFaction(pilotFaction)) return rejectedReservation("faction_mismatch");
     const [row] = await tx.select().from(universePatrolsTable)
       .where(eq(universePatrolsTable.patrolId, contact.patrolId)).for("update");
-    if (!row || row.currentLocationId !== contact.locationId || row.faction !== contact.faction ||
-        row.shipRoster.length === 0 ||
-        (row.activeEncounterId !== null &&
-          row.encounterLeaseExpiresAt !== null &&
-          row.encounterLeaseExpiresAt > now)) {
-      return null;
-    }
+    if (!row) return rejectedReservation("patrol_missing");
+    if (row.currentLocationId !== contact.locationId) return rejectedReservation("patrol_departed");
+    if (row.faction !== contact.faction) return rejectedReservation("faction_mismatch");
+    if (row.shipRoster.length === 0) return rejectedReservation("patrol_empty");
+    if (row.activeEncounterId !== null && row.encounterLeaseExpiresAt !== null &&
+        row.encounterLeaseExpiresAt > now) return rejectedReservation("patrol_already_reserved");
     const leaseExpiresAt = new Date(now.getTime() + ENCOUNTER_LEASE_MS);
     const [reserved] = await tx.update(universePatrolsTable).set({
       activeEncounterId: encounterId,
@@ -123,7 +130,7 @@ export async function reserveUniversePatrolEncounter(
       revision: row.revision + 1,
       updatedAt: now,
     }).where(eq(universePatrolsTable.patrolId, row.patrolId)).returning();
-    if (!reserved) return null;
+    if (!reserved) return rejectedReservation("claim_not_applied");
     return {
       patrolId: reserved.patrolId,
       locationId: reserved.currentLocationId,

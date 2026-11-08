@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
@@ -84,7 +85,7 @@ import { UniverseStationOverlay } from "./UniverseStationOverlay";
 import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
 import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
-import { sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import { sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -686,6 +687,7 @@ export function Arena({
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
+  const [freeFlightNotice, setFreeFlightNotice] = useState("");
   const [freeFlightTally, setFreeFlightTally] = useState({ kills: 0, assists: 0, credits: 0 });
   const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
   const [glReady, setGlReady] = useState(false);
@@ -750,11 +752,7 @@ export function Arena({
           freeFlightFramesRef.current = { previous, current: frame };
           const nextContact = sharedFlightPatrolContact(frame.snapshot);
           setSharedPatrolContact((previousContact) =>
-            previousContact?.callsign === nextContact?.callsign &&
-            previousContact?.faction === nextContact?.faction &&
-            previousContact?.shipCount === nextContact?.shipCount &&
-            Math.round(previousContact?.distanceMeters ?? -1) ===
-              Math.round(nextContact?.distanceMeters ?? -1)
+            sameSharedPatrolContact(previousContact, nextContact)
               ? previousContact
               : nextContact,
           );
@@ -769,6 +767,8 @@ export function Arena({
           setFreeFlightStatus(reason ?? state);
           if (state !== "joined") {
             freeFlightCombatActiveRef.current = false;
+            setFreeFlightCombatStatus("idle");
+            setFreeFlightNotice("");
             freeFlightEnvironmentRef.current = null;
           }
           if (state !== "joined") {
@@ -809,10 +809,19 @@ export function Arena({
           } else if (packet.type === "freeflight_engagement_started") {
             freeFlightCombatActiveRef.current = true;
             setFreeFlightCombatStatus("active");
+            setFreeFlightNotice("");
           } else if (packet.type === "freeflight_engagement_state" &&
               typeof packet.phase === "string") {
             freeFlightCombatActiveRef.current = packet.phase === "active";
             setFreeFlightCombatStatus(packet.phase);
+            if ([packet.kills, packet.assists, packet.creditsAwarded].every(
+              (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
+            )) {
+              setFreeFlightTally({
+                kills: packet.kills as number, assists: packet.assists as number,
+                credits: packet.creditsAwarded as number,
+              });
+            }
           } else if (packet.type === "freeflight_combat_result" &&
               packet.status === "settled" &&
               Number.isSafeInteger(packet.kills) &&
@@ -829,11 +838,12 @@ export function Arena({
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
             if (packet.reason === "freeflight_engagement_required") {
               freeFlightCombatActiveRef.current = false;
-              setFreeFlightCombatStatus("idle");
-              return;
             }
             if (packet.reason === "freeflight_rate_limited") return;
-            setFreeFlightCombatStatus(packet.reason);
+            setFreeFlightNotice(freeFlightCombatNotice(packet.reason));
+            setFreeFlightCombatStatus((current) => combatStatusAfterError(
+              current, freeFlightCombatActiveRef.current, packet.reason as string,
+            ));
           }
         },
       });
@@ -3144,10 +3154,12 @@ export function Arena({
         <UniversePatrolEncounterPrompt
           contact={sharedPatrolContact ?? patrolContact}
           enabled={sharedFreeFlightJoined}
+          notice={freeFlightNotice}
           onEngage={sharedFreeFlightJoined ? () => {
             const actorId = sharedPatrolContact?.actorId;
             if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
-              setFreeFlightCombatStatus("requesting");
+              setFreeFlightNotice("");
+              setFreeFlightCombatStatus(combatStatusAfterRequest(freeFlightCombatActiveRef.current));
             }
           } : undefined}
         />

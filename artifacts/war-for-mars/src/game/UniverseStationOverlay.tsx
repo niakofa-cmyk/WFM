@@ -76,7 +76,7 @@ export function UniverseStationOverlay(p: Props) {
         {nearDock && dock ? (
           <div className="absolute inset-x-0 top-3 flex justify-center px-3">
             <div className="pointer-events-auto flex items-center gap-2 text-shadow" data-testid="universe-dock-readout">
-              <span className="font-hud text-[10px] tracking-widest text-solar">{dock.targetLabel}</span>
+              <span className="font-hud text-[10px] tracking-widest text-solar">DOCK TARGET · {dock.targetLabel}</span>
               <span className="font-hud text-[10px] tracking-wider text-bone/85" data-testid="text-dock-telemetry">
                 {formatDockDistance(dock.distance, dock.targetLabel)}
               </span>

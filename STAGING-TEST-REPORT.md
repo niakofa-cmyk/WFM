@@ -1398,3 +1398,47 @@ manual rewards or Production changes were made.
 **Result: staging rollout PASS; persistent server patrol traffic verified;
 end-to-end encounter/reward check BLOCKED.** The scoped machine-readable record
 was updated without changing overall promotion status from PENDING.
+
+## 2026-11-08 — Local encounter recovery corrections, awaiting rollout
+
+The owner requested fixing the remaining encounter flow. Source review found
+two concrete authority/UI gaps: rejoining an existing shared-flight seat did
+not send its current encounter state, and a rejected secondary fleet request
+could replace the active HUD status and hide weapon controls. These are fixed:
+
+- Join and rejected encounter requests now return server-owned aggregate combat
+  phase, active encounter count and the seat's tally. Reconnect does not create
+  another encounter or manufacture a settlement.
+- Secondary requests/errors preserve existing active combat controls; explanatory
+  notices are separate from combat authority. Explicit server rejection of
+  firing without an encounter still clears controls.
+- A rejected persistent claim refreshes idle opposing contacts at the
+  authenticated saved location. Departed actors are removed and changed rosters
+  replaced, without overwriting active contracts or bypassing durable claims.
+  Claim/refresh work is serialized together. A changed saved location fails
+  closed rather than importing fleets from another sector.
+- Durable reservation rejections now log only an operational reason enum,
+  without account/fleet/encounter identities, to distinguish location, missing
+  roster and existing-lease cases on the next rollout. This does not establish
+  which durable rejection caused the earlier staging trace.
+- Contact deduplication now includes actor identity, engageability and shield/
+  hull data, so a stationary contact cannot retain an obsolete target or stale
+  integrity bars after refresh.
+- The nearby station header explicitly says **DOCK TARGET**, clarifying that
+  Cinder Ring is the docking destination, not a claim about the account's saved
+  sector. No account location or flight coordinates were changed to force a
+  match.
+
+Local API and frontend typechecks passed. **36 server**, **16 frontend**, and
+**4 static-preview** checks passed. Regressions cover departed-secondary-fleet
+refresh while another encounter stays active, rejoin state without duplicate
+admission, weapons/attribution/settlement under co-op V1, control retention after
+rejection and contact identity/integrity updates. Both main and standalone Lab
+builds passed. Lab initial static JavaScript was **126,473 B gzip**, below the
+unchanged **143,360 B** limit; Three.js remains lazy.
+
+Socket and web workflows restarted cleanly. A landscape screenshot confirmed
+the public Lab entry loads; it is not authenticated combat evidence. These
+corrections have **not** been deployed to staging or Production. Staging remains
+at `70ee4bb` with the blocked outcome above. Promotion remains PENDING until a
+new approved rollout and a successful encounter/reward check.

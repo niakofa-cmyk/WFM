@@ -38,8 +38,10 @@ export function UniversePatrolEncounterPrompt({
   contact,
   enabled,
   onEngage,
+  notice,
 }: {
   contact: UniversePatrolEncounterNotice | null;
+  notice?: string;
   enabled: boolean;
   onEngage?: () => void;
 }) {
@@ -89,6 +91,8 @@ export function UniversePatrolEncounterPrompt({
           <IntegrityBar label="HULL" value={contact.hull!} maximum={contact.hullMax!} />
         </div>
       ) : null}
+      {notice ? <p role="status" data-testid="status-patrol-request"
+        className="mt-1 pl-4 font-hud text-[9px] text-bone/80">{notice}</p> : null}
       {inRange && !liveEngage ? (
         <p className="mt-1 pl-4 font-hud text-[9px] tracking-widest text-muted" data-testid="status-patrol-engagement-unavailable">
           {contact.source === "server-snapshot"

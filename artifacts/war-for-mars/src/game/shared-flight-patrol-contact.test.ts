@@ -6,7 +6,7 @@ import {
   type FreeFlightActorV1,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
-import { sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import { sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
 
 function actor(
   actorId: string,
@@ -37,6 +37,15 @@ function snapshot(ownFaction: "ussf" | "accord", enemyDistance: number): FreeFli
     actors: [own, enemy],
   };
 }
+
+test("stationary contact updates retain changed actor identity and hull/shield state", () => {
+  const contact = sharedFlightPatrolContact(snapshot("ussf", 150))!;
+  assert.equal(sameSharedPatrolContact(contact, { ...contact }), true);
+  assert.equal(sameSharedPatrolContact(contact, { ...contact, actorId: "patrol-ship:replacement" }), false);
+  assert.equal(sameSharedPatrolContact(contact, { ...contact, shield: 90 }), false);
+  assert.equal(sameSharedPatrolContact(contact, { ...contact, hull: 80 }), false);
+  assert.equal(sameSharedPatrolContact(contact, null), false);
+});
 
 test("server snapshot proximity creates a hostile contact for either faction", () => {
   for (const faction of ["ussf", "accord"] as const) {

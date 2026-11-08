@@ -49,3 +49,4 @@
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
 - [Anomaly gravity contract](anomaly-gravity-contract.md) — negotiate versioned server fields before applying shared movement forces; visuals remain non-authoritative.
 - [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.
+- [Shared-flight combat recovery](shared-flight-combat-recovery.md) — reconnect restores server battle state; secondary request failures must not hide active controls or bypass fleet claims.

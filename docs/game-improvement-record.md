@@ -1199,3 +1199,22 @@ also differed. Follow-up must trace reservation ownership/location and preserve
 active combat controls when another fleet request is rejected, rather than
 bypassing reservations or changing account flags. The test browser was closed
 after controls were neutralized; no Production or promotion changes occurred.
+
+## 2026-11-08 — Encounter recovery and control-state corrections
+
+Local changes restore the server's existing combat state and tally on rejoin,
+preserve active weapon controls when a secondary request fails, and refresh
+departed/changed idle patrols after a rejected claim without replacing active
+contracts. Claim and refresh work are serialized. Reservation logs now expose
+only safe operational reason codes for the next staging diagnosis; no lease or
+reward authority was bypassed.
+
+Stationary contact updates now retain changed target identity and integrity
+values. The Cinder label is explicitly marked DOCK TARGET rather than implying
+that the account moved sectors. No coordinates or saved locations were edited.
+
+Both typechecks, 36 server checks, 16 frontend checks, four preview-build checks,
+and main/Lab builds passed. The Lab audit remains below its unchanged size
+budget with Three.js lazy. A public entry screenshot and clean workflow startup
+are local-only checks. Staging remains at `70ee4bb`; this recovery candidate
+still needs approved rollout and authenticated encounter verification.

@@ -1,5 +1,25 @@
 {
   "overallStatus": "PENDING",
+  "latestLocalEncounterRecoveryFix": {
+    "checkedOn": "2026-11-08",
+    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
+    "scope": "Reconnect combat-state hydration, secondary-request control preservation, targeted stale-fleet refresh after rejected claims, contact integrity/identity updates, and explicit dock-target labeling. Does not replace live staging evidence or certify the full workspace.",
+    "apiTypecheck": "PASS",
+    "gameTypecheck": "PASS",
+    "focusedServerChecksPassed": 36,
+    "focusedGameChecksPassed": 16,
+    "staticPreviewBuildChecksPassed": 4,
+    "mainAndCombatLabBuilds": "PASS",
+    "combatLabInitialStaticGzipBytes": 126473,
+    "combatLabGzipLimitBytes": 143360,
+    "threeJsInInitialStaticGraph": false,
+    "localSocketAndWebStarted": true,
+    "publicLabEntryScreenshot": "PASS; entry page only, not authenticated combat",
+    "stagingRuntimeStillAtCommit": "70ee4bbe04f4f12c003674052edefc308d974fd2",
+    "freshStagingEncounterCheck": "NOT_RUN",
+    "productionUntouched": true,
+    "promotionCertified": false
+  },
   "latestSharedFreeFlightStagingCheck": {
     "checkedOn": "2026-11-08",
     "sourceCommit": "70ee4bbe04f4f12c003674052edefc308d974fd2",

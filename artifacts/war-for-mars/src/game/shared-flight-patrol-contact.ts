@@ -5,6 +5,21 @@ import {
 import type { UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { SHIPS, type ShipId } from "./ships";
 
+/** Keep the render optimization, but never retain a stale target or integrity. */
+export function sameSharedPatrolContact(
+  previous: UniversePatrolEncounterNotice | null,
+  next: UniversePatrolEncounterNotice | null,
+): boolean {
+  if (!previous || !next) return previous === next;
+  return previous.actorId === next.actorId && previous.engageable === next.engageable &&
+    previous.callsign === next.callsign && previous.faction === next.faction &&
+    previous.shipId === next.shipId && previous.shipCount === next.shipCount &&
+    previous.shield === next.shield && previous.shieldMax === next.shieldMax &&
+    previous.hull === next.hull && previous.hullMax === next.hullMax &&
+    previous.source === next.source &&
+    Math.round(previous.distanceMeters) === Math.round(next.distanceMeters);
+}
+
 /** Derive the nearest hostile contact from a validated server snapshot only. */
 export function sharedFlightPatrolContact(
   snapshot: FreeFlightSnapshotV1,

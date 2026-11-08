@@ -90,3 +90,15 @@ test("open flight hides empty station and event panels to keep the sightline cle
   assert.doesNotMatch(html, /FRONTIER SECTOR|text-universe-scope|button-universe-dock/);
   assert.doesNotMatch(html, /No active public matches reported here/);
 });
+
+test("a nearby docking target is labeled as a target, not as the server's current sector", () => {
+  const html = renderToStaticMarkup(createElement(UniverseStationOverlay, {
+    ...baseProps,
+    session: createUniverseSession(),
+    dock: {
+      eligible: false, reason: "range", distance: 120, closure: 0, headingDeg: 0,
+      targetId: "cinder-ring", targetLabel: "CINDER RING",
+    },
+  }));
+  assert.match(html, /DOCK TARGET · CINDER RING/);
+});

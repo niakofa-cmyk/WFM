@@ -725,19 +725,90 @@ export function createFreeFlightRuntime(options: {
     })();
   }
 
+  function sendCombatState(session: Session, actor: Actor) {
+    const encounters = liveCombats(session).filter((combat) =>
+      combat.participantActorIds.has(actor.actorId));
+    const active = encounters.filter((combat) => combat.phase === "active");
+    send(actor.socket, {
+      type: "freeflight_engagement_state",
+      phase: active.length ? "active" : encounters.length ? "settling" : "idle",
+      activeEncounterCount: active.length,
+      kills: actor.kills, assists: actor.assists, creditsAwarded: actor.creditsAwarded,
+    });
+  }
+
+  /** Refresh only idle opposing fleets after a rejected durable claim. Never
+   * overwrite an active contract or import another saved location's contacts. */
+  async function refreshRejectedPatrol(seat: Seat, contact: UniversePatrolEncounter): Promise<string> {
+    if (!options.resolveUniversePatrols) return "freeflight_patrol_reservation_unavailable";
+    try {
+      const admission = await options.resolveAdmission(seat.userId);
+      if (!admission || admission.sessionKey !== seat.session.key) return "freeflight_location_changed";
+      const fresh = await options.resolveUniversePatrols(seat.userId, seat.actor.faction);
+      const session = seat.session;
+      if (closed || sessions.get(session.key) !== session ||
+          userSeats.get(seat.userId) !== seat) return "freeflight_encounter_interrupted";
+      const current = fresh.filter((patrol) =>
+        patrol.locationId === contact.locationId && patrol.faction === contact.faction);
+      let changed = false;
+      for (const previous of session.persistentPatrols.values()) {
+        if (previous.faction !== contact.faction ||
+            session.combats.has(previous.patrolId) &&
+            session.combats.get(previous.patrolId)!.phase !== "complete") continue;
+        const replacement = current.find((patrol) => patrol.patrolId === previous.patrolId);
+        const sameRoster = replacement && previous.ships.length === replacement.ships.length &&
+          previous.ships.every((ship) => replacement.ships.some(
+            (next) => next.id === ship.id && next.hullId === ship.hullId));
+        if (sameRoster) continue;
+        for (const actor of session.actors.values()) {
+          if (actor.persistentPatrolId === previous.patrolId) session.actors.delete(actor.actorId);
+        }
+        session.persistentPatrols.delete(previous.patrolId);
+        changed ||= previous.patrolId === contact.patrolId;
+      }
+      for (const patrol of current) {
+        if (!session.persistentPatrols.has(patrol.patrolId) &&
+            session.actors.size + patrol.ships.length <= MAX_ACTORS_PER_SESSION) {
+          addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+        }
+      }
+      publish(session);
+      return !current.some((patrol) => patrol.patrolId === contact.patrolId)
+        ? "freeflight_patrol_departed"
+        : changed ? "freeflight_patrol_roster_changed" : "freeflight_patrol_reservation_unavailable";
+    } catch {
+      return "freeflight_patrol_refresh_unavailable";
+    }
+  }
+
   async function startEngagement(socket: WebSocketLike, seat: Seat, targetActorId: string) {
+    if (seat.session.engagementPending) {
+      send(socket, { type: "error", reason: "freeflight_encounter_active" });
+      sendCombatState(seat.session, seat.actor);
+      return;
+    }
+    seat.session.engagementPending = true;
+    try {
+      await claimEngagement(socket, seat, targetActorId);
+    } finally {
+      seat.session.engagementPending = false;
+    }
+  }
+
+  async function claimEngagement(socket: WebSocketLike, seat: Seat, targetActorId: string) {
     const { session, actor } = seat;
-    const error = (reason: string) => send(socket, { type: "error", reason });
+    const error = (reason: string) => {
+      send(socket, { type: "error", reason });
+      // A secondary rejection must not strand an already-engaged pilot
+      // without controls, including after a browser reconnect.
+      sendCombatState(session, actor);
+    };
     if (!options.reserveUniversePatrol || !options.settleScoutEncounter) {
       error("freeflight_combat_unavailable");
       return;
     }
     if (!/^[A-Za-z0-9_:-]{8,80}$/.test(targetActorId)) {
       error("invalid_freeflight_target");
-      return;
-    }
-    if (session.engagementPending) {
-      error("freeflight_encounter_active");
       return;
     }
     if (liveCombats(session).length >= MAX_ACTIVE_ENCOUNTERS) {
@@ -783,7 +854,6 @@ export function createFreeFlightRuntime(options: {
       return;
     }
     const encounterId = randomUUID();
-    session.engagementPending = true;
     let reserved: UniversePatrolEncounter | null;
     try {
       reserved = await options.reserveUniversePatrol(
@@ -795,12 +865,13 @@ export function createFreeFlightRuntime(options: {
     } catch {
       error("freeflight_patrol_reservation_failed");
       return;
-    } finally {
-      session.engagementPending = false;
     }
     if (!reserved || reserved.patrolId !== contact.patrolId ||
         reserved.faction !== contact.faction || reserved.locationId !== contact.locationId) {
-      error("freeflight_patrol_reservation_unavailable");
+      if (reserved) {
+        await options.releaseUniversePatrol?.(reserved.patrolId, encounterId).catch(() => {});
+      }
+      error(await refreshRejectedPatrol(seat, contact));
       return;
     }
     if (closed || sessions.get(session.key) !== session || seats.get(socket) !== seat ||
@@ -820,6 +891,7 @@ export function createFreeFlightRuntime(options: {
         candidate.persistentShipId === ship.id && candidate.shipId === ship.hullId));
     if (!rosterMatches) {
       await options.releaseUniversePatrol?.(reserved.patrolId, encounterId).catch(() => {});
+      await refreshRejectedPatrol(seat, contact);
       error("freeflight_patrol_roster_changed");
       return;
     }
@@ -1091,6 +1163,7 @@ export function createFreeFlightRuntime(options: {
           snapshot: snapshotFor(session, actor),
           environment: environmentFor(session),
         });
+        sendCombatState(session, actor);
         if (environmentChanged) broadcastEnvironment(session, socket);
         publish(session);
       } catch {
