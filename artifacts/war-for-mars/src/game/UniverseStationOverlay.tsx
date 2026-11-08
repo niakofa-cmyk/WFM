@@ -50,7 +50,7 @@ function formatDockDistance(distance: number, targetLabel: string) {
 /** HUD + station panels for the local Orbital universe. Presentation only; Arena owns all state effects. */
 export function UniverseStationOverlay(p: Props) {
   const { session, dock, anomalyScan, relayInteraction } = p;
-  const scope = p.sharedFlightJoined
+  const scope = session.phase === "exploration" && p.sharedFlightJoined
     ? "SHARED FLIGHT · SERVER AUTHORITY"
     : "LOCAL PRACTICE · NO REWARDS";
 
@@ -90,10 +90,6 @@ export function UniverseStationOverlay(p: Props) {
             </div>
           </div>
         ) : null}
-        <button type="button" data-testid="button-universe-exit" onClick={p.onExit} aria-label="Leave universe"
-          className="pointer-events-auto absolute right-[calc(env(safe-area-inset-right,0px)+6.5rem)] top-3 min-h-11 min-w-11 font-hud text-[10px] tracking-widest text-bone/65 text-shadow hover:text-bone">
-          EXIT
-        </button>
         {dock?.targetId === "cinder-ring" && dock.distance <= 90 ? (
           <div className="absolute left-1/2 top-14 w-[min(20rem,calc(100vw-1.5rem))] -translate-x-1/2">
             <CinderRingOperationPreview />
@@ -145,6 +141,7 @@ export function UniverseStationOverlay(p: Props) {
                     className="mt-1 min-h-10 border border-solar/70 bg-void/60 px-3 font-hud text-[10px] tracking-widest text-solar">SCAN</button>
                 </>
               )}
+              <p className="mt-1 font-hud text-[8px] tracking-wider text-muted">LOCAL ONLY · NO REWARDS OR ACCOUNT EVIDENCE</p>
             </div>
           ) : null}
         </div>

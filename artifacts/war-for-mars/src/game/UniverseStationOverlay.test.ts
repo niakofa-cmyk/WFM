@@ -80,3 +80,13 @@ test("night-side docking gets its own local station panel without Cinder-only op
   assert.doesNotMatch(html, /button-universe-launch-training/);
   assert.doesNotMatch(html, /OPEN ACCOUNT OPERATIONS/);
 });
+
+test("open flight hides empty station and event panels to keep the sightline clear", () => {
+  const html = renderToStaticMarkup(createElement(UniverseStationOverlay, {
+    ...baseProps,
+    session: createUniverseSession(),
+  }));
+  assert.match(html, /universe-exploration-hud/);
+  assert.doesNotMatch(html, /FRONTIER SECTOR|text-universe-scope|button-universe-dock/);
+  assert.doesNotMatch(html, /No active public matches reported here/);
+});

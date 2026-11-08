@@ -6,36 +6,43 @@ import { UniversePatrolEncounterPrompt } from "./UniversePatrolEncounterPrompt";
 
 const contact = { callsign: "ACCORD-0101", faction: "accord" as const, shipCount: 3, distanceMeters: 120 };
 
-test("in-flight patrol prompt requests the server approach operation in range", () => {
+test("local patrol traffic is a read-only preview and cannot launch a separate combat runtime", () => {
   const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
-    contact, enabled: true, onIntercept: () => {},
+    contact, enabled: false,
   }));
   assert.match(html, /ACCORD-0101/);
   assert.match(html, /3 SHIPS/);
-  assert.match(html, /button-intercept-in-flight-patrol/);
-  assert.match(html, /REQUEST SERVER APPROACH/);
+  assert.match(html, /LOCAL PATROL CONTACT/);
+  assert.match(html, /LOCAL PREVIEW · NO SERVER COMBAT/);
+  assert.doesNotMatch(html, /button-intercept-in-flight-patrol/);
+  assert.doesNotMatch(html, /REQUEST PATROL INTERCEPT/);
 });
 
-test("shared-flight contacts identify their distance as server-snapshot state", () => {
+test("a nearby engageable server patrol exposes an in-scene free-flight engagement", () => {
   const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
-    contact: { ...contact, source: "server-snapshot" },
+    contact: { ...contact, source: "server-snapshot", engageable: true },
     enabled: true,
-    onIntercept: () => {},
+    onEngage: () => {},
   }));
-  assert.match(html, /LIVE SERVER PATROL CONTACT/);
-  assert.match(html, /SERVER POSITION/);
+  assert.match(html, /LIVE FLEET CONTACT/);
+  assert.match(html, /button-intercept-in-flight-patrol/);
+  assert.match(html, /ENGAGE/);
+  assert.match(html, /aria-label="Engage patrol in server-authoritative free flight"/);
 });
 
-test("patrol prompt stays advisory while distant or when the combat rollout is disabled", () => {
+test("patrol prompt stays compact and non-actionable when distant or the shared link is unavailable", () => {
   const distant = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
-    contact: { ...contact, distanceMeters: 400 }, enabled: true, onIntercept: () => {},
+    contact: { ...contact, distanceMeters: 400, source: "server-snapshot", engageable: true },
+    enabled: true,
+    onEngage: () => {},
   }));
-  assert.match(distant, /status-patrol-approach/);
   assert.doesNotMatch(distant, /button-intercept-in-flight-patrol/);
 
   const disabled = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
-    contact, enabled: false, onIntercept: () => {},
+    contact: { ...contact, source: "server-snapshot", engageable: true },
+    enabled: false,
+    onEngage: () => {},
   }));
-  assert.match(disabled, /status-patrol-intercept-disabled/);
+  assert.match(disabled, /SHARED COMBAT LINK UNAVAILABLE/);
   assert.doesNotMatch(disabled, /button-intercept-in-flight-patrol/);
 });

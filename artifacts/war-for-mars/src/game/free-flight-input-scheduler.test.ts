@@ -22,10 +22,11 @@ test("short fire and missile taps survive between network samples", () => {
   const idle = normalizeFlightControls({});
 
   assert.ok(scheduler.next(idle, 0));
-  assert.equal(scheduler.next({ ...idle, fire: true, missile: true }, 20), null);
+  assert.equal(scheduler.next({ ...idle, fire: true, missile: true, countermeasure: true }, 20), null);
   const sampled = scheduler.next(idle, 50);
   assert.equal(sampled?.fire, true);
   assert.equal(sampled?.missile, true);
+  assert.equal(sampled?.countermeasure, true);
   assert.equal(scheduler.next(idle, 100)?.missile, false);
 });
 

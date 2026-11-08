@@ -49,3 +49,22 @@ continuous-flight weapons or rewards.
 **How to apply:** Keep live target information in the flight HUD and derive it
 only from authenticated snapshots. Preserve the offline trainer as a fallback;
 do not imply its local combat state is shared, persistent, or reward-bearing.
+
+**Active-flight sightline and patrol boundary:** Keep the live universe visible.
+Hide empty station and public-event panels and detailed docking telemetry while
+in open flight; keep expanded station, training, and debrief controls available
+when the pilot is docked or has opened the flight menu. Show roaming patrols as
+3D ships with restrained faction designations. Only a fresh server snapshot in
+an authenticated shared session can expose an in-scene engage action or
+authoritative integrity; local patrol projections never open a separate battle
+runtime or grant combat outcomes and rewards.
+
+**Why:** On 2026-11-08 the user asked for visible opposing patrol fleets and
+same-scene live encounters while removing unnecessary HUD panels that block the
+battlefield view.
+
+**How to apply:** Keep active-flight information to connection state, nearby
+patrol designation/range, in-range server integrity, and the actions the pilot
+can perform now. Do not render an empty activity state as a panel or show
+transport rate-limit errors as combat feedback. Keep local preview explicitly
+non-authoritative and preserve server-owned combat/reward checks.

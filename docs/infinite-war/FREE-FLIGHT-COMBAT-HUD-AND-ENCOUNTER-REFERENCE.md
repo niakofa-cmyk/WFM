@@ -28,40 +28,47 @@ free-flight snapshot. Client estimates may guide presentation but cannot
 authorize damage, kill credit, faction outcomes, or rewards. The current patrol
 intercept request remains subject to the server's approach and combat gates.
 
-## Implemented reference slice — 2026-11-08
+## Current implementation and limits — 2026-11-08
 
-- The in-flight patrol contact card now shows the server-reported faction, hull
-  class, range, shield, and hull values when those values are present in a fresh
-  authenticated shared-flight snapshot.
-- The card is positioned in the landscape HUD's upper-left contact area and
-  retains the existing server-gated intercept action.
-- Strategic patrol projections that do not include live integrity do not show
-  invented shield or hull percentages.
-- The attached image is retained in this reference directory.
+- The shared-flight server runtime contains the authoritative patrol-engagement,
+  projectile, collision, shield/hull damage, kill/assist attribution, and result
+  settlement path. Persistent-patrol reservations and settlement adapters must
+  be present for a patrol result to be eligible; source code alone does not
+  prove that the deployed environment has those adapters or feature gates.
+- `Arena` renders actors from a fresh authenticated shared-flight snapshot as
+  individual Three.js ship models. Opposing patrols also receive a small
+  faction-colored world-space designation. REST/local patrol projections stay
+  visual-only and never authorize engagement or rewards.
+- A patrol can be engaged from the active flight scene only when the pilot is
+  joined to the shared socket and the current server snapshot marks the patrol
+  engageable. The flight HUD does not send the pilot into the separate
+  `universe-patrol` sector runtime.
+- The client samples movement controls at 20 Hz, below the server's 35-message
+  per-second limit, and preserves short primary-fire and missile taps between
+  samples. A rate-limit transport error is not presented as a combat state.
+- Active flight keeps the target designation, range, conditional in-range
+  integrity bars, and a gated engage action. Empty station/event cards and
+  extended docking telemetry are hidden from the sightline; full station,
+  training, and debrief controls remain available when appropriate.
 
-This is a contact/HUD integration slice, not continuous-flight combat. The
-free-flight socket still rejects weapon intents; it does not yet run live
-projectiles, damage, kill/assist attribution, persistent casualties, or rewards
-inside the continuous shared flight session. The existing authenticated
-`universe-patrol` operation still runs its battle in the sector combat runtime.
-Keep that distinction explicit until the shared-flight combat contract and
-staging checks are implemented.
+This describes implemented source behavior, not a staging or Production
+verification. The attached screenshot showed the earlier oversized local/offline
+cards and a `FREEFLIGHT_RATE_LIMITED` status, so it did not prove live fleet
+combat. A signed-in shared session, persistent patrol reservation, server
+settlement configuration, and a multi-device check are still required before
+claiming that a deployed encounter has been verified.
 
-## Next engineering gates
+## Remaining verification gates
 
-1. Bring Orbital weapon intents into the shared-flight server simulation. The
-   server must validate target identity, faction, range, facing, cadence, ammo,
-   projectile collision, shield/hull damage, and encounter eligibility.
-2. Publish authoritative target/weapon feedback so all nearby pilots see
-   consistent impacts and destroyed ships in the same 3D session.
-3. Reuse the existing exploration-result and reward-settlement contracts only
-   after persistent patrol identity, kill/assist attribution, reconnect replay,
-   and anti-farm policy are bound to the shared session.
-4. Keep training/local compatibility, shared free-flight combat, and
-   reward-bearing server operations visibly distinct in tests and UI.
-5. Verify both factions, both supported renderers, multiple devices,
-   disconnect/reconnect, duplicate settlement, and the no-reward fallback on
-   staging before enabling rewards broadly.
+1. On staging, confirm the authenticated shared socket returns actual opposing
+   patrol actors and that their 3D models move with successive server snapshots.
+2. Engage a persistent patrol from the same flight scene; verify server-owned
+   impacts, shield/hull changes, kill/assist attribution, and eligible reward
+   settlement without leaving the universe.
+3. Repeat as USSF and Accord, then test two devices, reconnect, duplicate
+   settlement, and a local no-reward preview.
+4. Verify both supported renderers and supported physical mobile devices before
+   making performance or device-compatibility claims.
 
 See also:
 [live patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md)

@@ -119,7 +119,7 @@ test("connected entry stays within authenticated account shell while offline fli
   assert.match(lab, /Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\)/);
   assert.match(warApp, /useGetWorldPatrols/);
   assert.match(warApp, /patrolDirectory: universePatrolDirectory/);
-  assert.match(warApp, /onInterceptPatrol: \(\) => \{[\s\S]*?setUniverseExpeditionMission\("universe-patrol"\)/);
+  assert.doesNotMatch(warApp, /onInterceptPatrol|canInterceptPatrol/);
   assert.match(galaxy, /navigationDestinations.find[\s\S]*?\.canTravel/);
   assert.match(galaxy, /if \(!current\?\.canOpen \|\| !operation \|\| directoryUnavailable\) return/);
 });

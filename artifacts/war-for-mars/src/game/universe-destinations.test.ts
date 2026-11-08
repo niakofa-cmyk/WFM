@@ -40,7 +40,8 @@ test("local universe entry keeps flight lazy and blocks planned destination laun
   assert.match(source, /useGetWorldPatrols/);
   assert.match(source, /enabled: Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\) && worldQuery\.data\)/);
   assert.match(source, /serverStartLocation === startLocation/);
-  assert.match(source, /patrolDirectory,[\s\S]*canInterceptPatrol,[\s\S]*onInterceptPatrol/);
+  assert.match(source, /patrolDirectory,[\s\S]*getSessionToken,[\s\S]*freeFlightEnabled/);
+  assert.doesNotMatch(source, /onInterceptPatrol|canInterceptPatrol/);
   assert.match(source, /traffic=\{localTraffic\}/);
 });
 

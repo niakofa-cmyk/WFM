@@ -9,6 +9,7 @@ import {
 } from "@workspace/orbital-sim";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { reconnectDelayMs } from "./reconnect-policy";
+import { FreeFlightInputScheduler } from "./free-flight-input-scheduler";
 
 export type FreeFlightConnectionState =
   | "connecting"
@@ -40,6 +41,7 @@ export class FreeFlightClient {
   private generation = 0;
   private joined = false;
   private sessionInstanceId: string | null = null;
+  private readonly inputScheduler = new FreeFlightInputScheduler();
 
   constructor(private readonly options: FreeFlightClientOptions) {}
 
@@ -54,6 +56,7 @@ export class FreeFlightClient {
     this.generation += 1;
     this.joined = false;
     this.sessionInstanceId = null;
+    this.inputScheduler.reset();
     if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     const socket = this.socket;
@@ -66,7 +69,11 @@ export class FreeFlightClient {
   sendControls(value: Partial<FlightControlFrame>) {
     const socket = this.socket;
     if (!this.joined || !socket || socket.readyState !== WebSocket.OPEN) return;
-    const controls = normalizeFlightControls(value);
+    const controls = this.inputScheduler.next(
+      normalizeFlightControls(value),
+      typeof performance === "undefined" ? Date.now() : performance.now(),
+    );
+    if (!controls) return;
     const input = {
       version: ORBITAL_RULES_VERSION,
       seq: this.nextInputSeq++,
@@ -154,6 +161,7 @@ export class FreeFlightClient {
         }
         this.nextInputSeq = packet.nextInputSeq as number;
         this.joined = true;
+        this.inputScheduler.reset();
         this.attempt = 0;
         this.options.onState?.("joined");
         this.acceptSnapshot(packet.snapshot);
@@ -201,6 +209,7 @@ export class FreeFlightClient {
       this.socket = null;
       this.joined = false;
       this.sessionInstanceId = null;
+      this.inputScheduler.reset();
       this.scheduleReconnect("socket_closed");
     });
     socket.addEventListener("error", () => {
@@ -233,6 +242,7 @@ export class FreeFlightClient {
     if (this.stopped || this.reconnectTimer !== null) return;
     this.joined = false;
     this.sessionInstanceId = null;
+    this.inputScheduler.reset();
     this.options.onState?.("reconnecting", reason);
     const delay = reconnectDelayMs(this.attempt++);
     this.reconnectTimer = setTimeout(() => {

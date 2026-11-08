@@ -8,11 +8,13 @@ export class FreeFlightInputScheduler {
   private lastSentAt = Number.NEGATIVE_INFINITY;
   private pendingFire = false;
   private pendingMissile = false;
+  private pendingCountermeasure = false;
 
   next(controls: FlightControlFrame, nowMs: number): FlightControlFrame | null {
     if (!Number.isFinite(nowMs)) return null;
     this.pendingFire ||= controls.fire;
     this.pendingMissile ||= controls.missile;
+    this.pendingCountermeasure ||= controls.countermeasure;
     if (nowMs - this.lastSentAt < FREE_FLIGHT_CONTROL_SEND_INTERVAL_MS) return null;
 
     this.lastSentAt = nowMs;
@@ -20,9 +22,11 @@ export class FreeFlightInputScheduler {
       ...controls,
       fire: controls.fire || this.pendingFire,
       missile: controls.missile || this.pendingMissile,
+      countermeasure: controls.countermeasure || this.pendingCountermeasure,
     };
     this.pendingFire = false;
     this.pendingMissile = false;
+    this.pendingCountermeasure = false;
     return sampled;
   }
 
@@ -30,5 +34,6 @@ export class FreeFlightInputScheduler {
     this.lastSentAt = Number.NEGATIVE_INFINITY;
     this.pendingFire = false;
     this.pendingMissile = false;
+    this.pendingCountermeasure = false;
   }
 }

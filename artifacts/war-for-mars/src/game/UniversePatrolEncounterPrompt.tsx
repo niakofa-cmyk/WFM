@@ -91,7 +91,11 @@ export function UniversePatrolEncounterPrompt({
       ) : null}
       {inRange && !liveEngage ? (
         <p className="mt-1 pl-4 font-hud text-[9px] tracking-widest text-muted" data-testid="status-patrol-engagement-unavailable">
-          {contact.source === "server-snapshot" ? "SHARED COMBAT LINK UNAVAILABLE" : "LOCAL PREVIEW · NO SERVER COMBAT"}
+          {contact.source === "server-snapshot"
+            ? "SHARED COMBAT LINK UNAVAILABLE"
+            : enabled
+              ? "AWAITING SHARED PATROL CONTACT"
+              : "LOCAL PREVIEW · NO SERVER COMBAT"}
         </p>
       ) : null}
     </aside>

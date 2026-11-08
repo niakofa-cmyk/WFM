@@ -58,7 +58,6 @@ import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe
 import type { SectorMissionId } from "./sector-missions";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
 import { enterOrbitalOnAccountBoot } from "./wfm-boot";
-import { sectorOrbitalV2Enabled } from "./sector-client";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -72,11 +71,6 @@ const casualAiQueueAvailable =
   import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
 const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
   && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
-const universePatrolInterceptionEnabled = expeditionEnabled
-  && sectorOrbitalV2Enabled({
-    DEV: import.meta.env.DEV,
-    VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
-  });
 
 type StagingRewardDiagnostic = {
   runId: string;
@@ -1303,7 +1297,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 startLocation: orbitalStartLocation ?? "mars-orbit",
                 servicesOpen: universeServicesOpen,
                 patrolDirectory: universePatrolDirectory,
-                canInterceptPatrol: universePatrolInterceptionEnabled,
                 getSessionToken: getToken,
                 freeFlightEnabled: isOrbitalFreeFlightEnabled({
                   environment: import.meta.env.MODE,
@@ -1315,10 +1308,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                   setOrbitalUniverseOpen(false);
                 },
                 onOpenOperations: () => setUniverseServicesOpen(true),
-                onInterceptPatrol: () => {
-                  setUniverseExpeditionMission("universe-patrol");
-                  setUniverseServicesOpen(true);
-                },
               }}
               onNetworkExit={() => {
                 throw new Error("The local Orbital universe must not open a network session.");

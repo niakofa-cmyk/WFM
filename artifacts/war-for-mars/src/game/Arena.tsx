@@ -180,9 +180,8 @@ type ArenaProps = {
   modeId: GameModeId;
   orbitalCampaign?: boolean;
   /**
-   * Local Orbital flight stays session-only. A signed-in caller may provide a
-   * read-only server patrol picture; intercepts still leave through the
-   * authenticated server operation instead of authorizing local kills.
+   * Local Orbital flight may display read-only patrol traffic. Patrol combat
+   * starts only through the authenticated shared-flight socket in this scene.
    */
   localUniverse?: {
     onExit: () => void;
@@ -191,8 +190,6 @@ type ArenaProps = {
     servicesOpen?: boolean;
     onOpenOperations?: () => void;
     patrolDirectory?: WorldPatrolDirectory | null;
-    canInterceptPatrol?: boolean;
-    onInterceptPatrol?: () => void;
     getSessionToken?: () => Promise<string | null>;
     freeFlightEnabled?: boolean;
   };
@@ -211,7 +208,50 @@ function pilotCraft(match: Match, slotId: number): Craft {
   return match.enemies[slotId - 5] ?? match.player;
 }
 
-function disposePatrolShipGroup(group: THREE.Group) {
+function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" | "accord") {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const accent = patrolFaction === "ussf" ? "#77ddff" : "#f0a95d";
+  const designation = `${patrolFaction.toUpperCase()} PATROL`;
+  const label = callsign.trim().toUpperCase().slice(0, 26) || "ROAMING FLEET";
+  context.font = '700 19px "Barlow Condensed", sans-serif';
+  context.lineWidth = 4;
+  context.strokeStyle = "rgba(3, 6, 11, 0.9)";
+  context.fillStyle = accent;
+  context.strokeText(designation, 10, 24);
+  context.fillText(designation, 10, 24);
+  context.font = '600 15px "Barlow Condensed", sans-serif';
+  context.strokeText(label, 10, 46);
+  context.fillStyle = "#e6e1d6";
+  context.fillText(label, 10, 46);
+  context.fillStyle = accent;
+  context.fillRect(10, 56, 155, 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    opacity: 0.95,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.name = "wfm-hostile-patrol-designation";
+  sprite.scale.set(48, 12, 1);
+  sprite.renderOrder = 12;
+  return sprite;
+}
+
+function disposePatrolShipGroup(group: THREE.Group, designation?: THREE.Sprite) {
+  if (designation) {
+    designation.removeFromParent();
+    designation.material.map?.dispose();
+    designation.material.dispose();
+  }
   group.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     object.geometry.dispose();
@@ -771,7 +811,10 @@ export function Arena({
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
             if (packet.reason === "freeflight_engagement_required") {
               freeFlightCombatActiveRef.current = false;
+              setFreeFlightCombatStatus("idle");
+              return;
             }
+            if (packet.reason === "freeflight_rate_limited") return;
             setFreeFlightCombatStatus(packet.reason);
           }
         },
@@ -1455,14 +1498,16 @@ export function Arena({
       scene.add(group);
       return group;
     });
-    const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
-    const sharedFlightGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite }>();
+    const sharedFlightGroups = new Map<string, { group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite }>();
     const sharedFlightEffects = new Map<string, {
       line: THREE.Line;
       material: THREE.LineBasicMaterial;
     }>();
     const removeSharedFlightGroups = () => {
-      for (const entry of sharedFlightGroups.values()) disposePatrolShipGroup(entry.group);
+      for (const entry of sharedFlightGroups.values()) {
+        disposePatrolShipGroup(entry.group, entry.designation);
+      }
       sharedFlightGroups.clear();
     };
     const removeSharedFlightEffects = () => {
@@ -1609,11 +1654,15 @@ export function Arena({
         visibleIds.add(actor.actorId);
         let entry = sharedFlightGroups.get(actor.actorId);
         if (!entry || entry.shipId !== actor.shipId) {
-          if (entry) disposePatrolShipGroup(entry.group);
+          if (entry) disposePatrolShipGroup(entry.group, entry.designation);
           const group = buildOrbitalShip(actor.shipId as ShipId);
           group.scale.setScalar(actor.kind === "patrol" ? 2.4 : 2.1);
           scene.add(group);
-          entry = { group, shipId: actor.shipId as ShipId };
+          const designation = actor.kind === "patrol" && actor.faction !== faction
+            ? createPatrolDesignationSprite(actor.callsign, actor.faction) ?? undefined
+            : undefined;
+          if (designation) scene.add(designation);
+          entry = { group, shipId: actor.shipId as ShipId, designation };
           sharedFlightGroups.set(actor.actorId, entry);
         }
         const previousActor = sameSession
@@ -1624,12 +1673,17 @@ export function Arena({
           y: previousActor ? lerp(previousActor.position.y, actor.position.y) : actor.position.y,
           z: previousActor ? lerp(previousActor.position.z, actor.position.z) : actor.position.z,
         };
+        const scenePosition = {
+          x: anchor.x + position.x - ownPosition.x,
+          y: UNIVERSE_RENDER_Y_OFFSET + anchor.y + position.y - ownPosition.y,
+          z: anchor.z + position.z - ownPosition.z,
+        };
         entry.group.visible = actor.alive;
-        entry.group.position.set(
-          anchor.x + position.x - ownPosition.x,
-          UNIVERSE_RENDER_Y_OFFSET + anchor.y + position.y - ownPosition.y,
-          anchor.z + position.z - ownPosition.z,
-        );
+        entry.group.position.set(scenePosition.x, scenePosition.y, scenePosition.z);
+        if (entry.designation) {
+          entry.designation.visible = actor.alive;
+          entry.designation.position.set(scenePosition.x, scenePosition.y + 22, scenePosition.z);
+        }
         entry.group.quaternion.set(
           actor.orientation.x,
           actor.orientation.y,
@@ -1639,7 +1693,7 @@ export function Arena({
       }
       for (const [actorId, entry] of sharedFlightGroups) {
         if (visibleIds.has(actorId)) continue;
-        disposePatrolShipGroup(entry.group);
+        disposePatrolShipGroup(entry.group, entry.designation);
         sharedFlightGroups.delete(actorId);
       }
       renderSharedFlightEffects(now, ownPosition, anchor);
@@ -2039,7 +2093,7 @@ export function Arena({
             visibleIds.add(contact.contactId);
             let entry = patrolGroups.get(contact.contactId);
             if (entry && entry.shipId !== contact.shipId) {
-              disposePatrolShipGroup(entry.group);
+              disposePatrolShipGroup(entry.group, entry.designation);
               patrolGroups.delete(contact.contactId);
               entry = undefined;
             }
@@ -2047,7 +2101,11 @@ export function Arena({
               const group = buildOrbitalShip(contact.shipId);
               group.scale.setScalar(2.4);
               scene.add(group);
-              entry = { group, shipId: contact.shipId };
+              const designation = contact.faction !== faction
+                ? createPatrolDesignationSprite(contact.callsign, contact.faction) ?? undefined
+                : undefined;
+              if (designation) scene.add(designation);
+              entry = { group, shipId: contact.shipId, designation };
               patrolGroups.set(contact.contactId, entry);
             }
             entry.group.visible = true;
@@ -2057,9 +2115,20 @@ export function Arena({
               contact.position.z,
             );
             entry.group.rotation.set(0, contact.yaw, 0);
+            if (entry.designation) {
+              entry.designation.visible = true;
+              entry.designation.position.set(
+                contact.position.x,
+                UNIVERSE_RENDER_Y_OFFSET + contact.position.y + 22,
+                contact.position.z,
+              );
+            }
           }
           for (const [contactId, entry] of patrolGroups) {
-            if (!visibleIds.has(contactId)) entry.group.visible = false;
+            if (!visibleIds.has(contactId)) {
+              entry.group.visible = false;
+              if (entry.designation) entry.designation.visible = false;
+            }
           }
           if (now - lastPatrolNoticeAt >= 400) {
             lastPatrolNoticeAt = now;
@@ -2082,9 +2151,15 @@ export function Arena({
             });
           }
         } else if (universePhase !== "exploration" || sharedTrafficFresh) {
-          for (const entry of patrolGroups.values()) entry.group.visible = false;
+          for (const entry of patrolGroups.values()) {
+            entry.group.visible = false;
+            if (entry.designation) entry.designation.visible = false;
+          }
           if (universePhase !== "exploration") {
-            for (const entry of sharedFlightGroups.values()) entry.group.visible = false;
+            for (const entry of sharedFlightGroups.values()) {
+              entry.group.visible = false;
+              if (entry.designation) entry.designation.visible = false;
+            }
           }
           if (patrolContact) setPatrolContact(null);
         }
@@ -2877,6 +2952,11 @@ export function Arena({
       canvas.removeEventListener("pointercancel", onPointerUp);
       const geos = new Set<THREE.BufferGeometry>();
       const mats = new Set<THREE.Material>();
+      for (const entry of patrolGroups.values()) {
+        disposePatrolShipGroup(entry.group, entry.designation);
+      }
+      patrolGroups.clear();
+      removeSharedFlightGroups();
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) geos.add(mesh.geometry);
@@ -2899,6 +2979,20 @@ export function Arena({
 
   const bus = busRef.current;
   const sharedFreeFlightJoined = freeFlightStatus === "joined";
+  const freeFlightLinkLabel = sharedFreeFlightJoined
+    ? "SHARED FLIGHT"
+    : freeFlightEnabled && ["connecting", "authenticating", "reconnecting"].includes(freeFlightStatus)
+      ? "CONNECTING"
+      : freeFlightEnabled
+        ? "LINK UNAVAILABLE"
+        : "LOCAL PREVIEW";
+  const freeFlightCombatLabel = freeFlightCombatStatus === "active"
+    ? "ENGAGED"
+    : freeFlightCombatStatus === "requesting"
+      ? "REQUESTING"
+      : freeFlightCombatStatus === "complete"
+        ? "RESULT"
+        : "";
   const sharedFreeFlightEngagementActive =
     sharedFreeFlightJoined && freeFlightCombatStatus === "active";
   return (
@@ -2916,12 +3010,17 @@ export function Arena({
           {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
         </p>
       ) : null}
-      {localUniverse && freeFlightEnabled ? (
-        <p data-testid="free-flight-network-status" className="absolute right-3 top-3 z-30 border border-solar/40 bg-void/85 px-2 py-1 font-hud text-[10px] tracking-widest text-solar">
-          SHARED FLIGHT · {freeFlightStatus.replaceAll("_", " ").toUpperCase()}
-          {freeFlightStatus === "joined" ? ` · ENEMY PATROLS ${visibleEnemyPatrols}` : ""}
-          {sharedFreeFlightJoined && freeFlightCombatStatus !== "idle"
-            ? ` · PATROL ${freeFlightCombatStatus.replaceAll("-", " ").toUpperCase()} · K/A ${freeFlightTally.kills}/${freeFlightTally.assists} · CR ${freeFlightTally.credits}`
+      {localUniverse ? (
+        <p
+          data-testid="free-flight-network-status"
+          data-state={sharedFreeFlightJoined ? "shared" : "preview"}
+          className="absolute right-3 top-3 z-30 max-w-[48vw] text-right font-hud text-[10px] tracking-widest text-solar text-shadow"
+        >
+          {freeFlightLinkLabel}
+          {sharedFreeFlightJoined && visibleEnemyPatrols > 0 ? ` · ${visibleEnemyPatrols} HOSTILE SHIPS` : ""}
+          {sharedFreeFlightJoined && freeFlightCombatLabel ? ` · ${freeFlightCombatLabel}` : ""}
+          {sharedFreeFlightJoined && (freeFlightTally.kills > 0 || freeFlightTally.assists > 0 || freeFlightTally.credits > 0)
+            ? ` · K${freeFlightTally.kills} A${freeFlightTally.assists} +${freeFlightTally.credits} CR`
             : ""}
         </p>
       ) : null}
@@ -2950,20 +3049,20 @@ export function Arena({
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
           contact={sharedPatrolContact ?? patrolContact}
-          enabled={sharedFreeFlightJoined || Boolean(localUniverse.canInterceptPatrol)}
+          enabled={sharedFreeFlightJoined}
           onEngage={sharedFreeFlightJoined ? () => {
             const actorId = sharedPatrolContact?.actorId;
             if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
               setFreeFlightCombatStatus("requesting");
             }
           } : undefined}
-          onIntercept={() => localUniverseRef.current?.onInterceptPatrol?.()}
         />
       ) : null}
       {localUniverse && universe ? (
         <UniverseStationOverlay
           session={universe}
           dock={dockState}
+          sharedFlightJoined={sharedFreeFlightJoined}
           anomalyScan={anomalyScan}
           relayInteraction={relayInteraction}
           onScanAnomaly={() => dispatchUniverse({ type: "scan-anomaly" })}
@@ -3437,6 +3536,16 @@ export function Arena({
               pausedRef.current = false;
               setPaused(false);
             }}>RESUME FLIGHT</button>
+            {localUniverse ? (
+              <button
+                type="button"
+                data-testid="button-leave-universe"
+                className="pilot-menu-setting mt-2 w-full"
+                onClick={() => localUniverseRef.current?.onExit()}
+              >
+                EXIT UNIVERSE
+              </button>
+            ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" data-testid="button-shake-toggle" aria-pressed={shakeUi} className="pilot-menu-setting" onClick={() => {
                 const next = !shakeRef.current;
