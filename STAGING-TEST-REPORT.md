@@ -1237,3 +1237,25 @@ fill that gap.
 The integration branch now contains a later Offline Arcade mode-routing
 change (`310402d`); that revision was pushed to the repository but was not
 deployed to staging or Production in this update.
+
+## 2026-11-08 — Authenticated encounter preflight after navigation build
+
+The verified local workspace source `8c558379602190e1b5ba072555b980c186b6da69`
+was pushed to `design/orbital-universe-entry`; the remote branch was read back
+and matched that exact commit. The local full-workspace typecheck, tests, and
+build had passed for this source, including the unchanged Combat Lab bundle
+limits.
+
+Read-only Railway metadata showed the staging app, API, and Wing Socket are
+healthy on the same branch but remain pinned to source
+`76e89c469cb2ffabfa7d456f9574cc7feae7c6d0`. They do not yet serve the pushed
+source. No Clerk sign-in challenge was started, no authenticated encounter was
+attempted, and no staging source pin, database, Production setting, or
+Production deployment was changed. The authenticated encounter result is
+**NOT RUN — DEPLOYED SOURCE MISMATCH**; the mismatch cannot be treated as a
+gameplay failure or a pass.
+
+The API service's staging pre-deploy command runs `pnpm --filter @workspace/db
+push`. Updating the source pins and deploying the current branch therefore
+requires explicit staging-deployment approval before the fresh challenge and
+encounter test can validate this source. Production remains **NOT CLAIMED**.

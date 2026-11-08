@@ -1103,3 +1103,26 @@ the public landing page; the signed-in universe and WebGL approach were not
 visually verified. The capture browser reported no WebGL adapters, so it cannot
 certify the 3D flight scene. No Android device test, staging rollout, or
 Production deployment was performed.
+
+## 2026-11-08 — Continuous sector flight and staging encounter preflight
+
+Orbital flight now carries the camera through local sector-origin shifts, keeps
+a deployment-point anchor for the mounted session, and presents a compact
+return vector and straight-line range after the pilot travels beyond the local
+area. The existing deterministic flight step and arbitrary-precision sector
+address format remain in use. The two source briefs are preserved verbatim in
+`docs/references/`; the evaluated implementation and authority boundaries are
+in `docs/infinite-war/CONTINUOUS-SPATIAL-FLIGHT-AND-RETURN-NAVIGATION.md`.
+
+The standalone Combat Lab and main app now build Three.js into a single lazy
+vendor chunk. The full workspace typecheck, tests, and builds passed, and the
+bundle audit remains within its existing limits.
+
+The verified source `8c558379602190e1b5ba072555b980c186b6da69` was pushed to
+`design/orbital-universe-entry`. A read-only Railway preflight found the staging
+frontend, API, and socket still pinned to `76e89c469cb2ffabfa7d456f9574cc7feae7c6d0`.
+No fresh sign-in challenge or encounter was started because that deployed
+revision cannot verify the pushed source. The API deployment's pre-deploy
+command runs the staging database schema push; changing service pins and
+deploying the candidate needs explicit staging-deployment approval. No staging
+or Production database/configuration changes were made.

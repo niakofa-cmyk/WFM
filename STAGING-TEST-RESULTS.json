@@ -1910,6 +1910,25 @@
     "laterIntegrationRevision": "310402d",
     "laterIntegrationRevisionDeployed": false
   },
+  "latestAuthenticatedEncounterPreflight": {
+    "date": "2026-11-08",
+    "candidateSourceCommit": "8c558379602190e1b5ba072555b980c186b6da69",
+    "pushedBranch": "design/orbital-universe-entry",
+    "remoteBranchMatchesCandidate": true,
+    "stagingServices": {
+      "frontend": "SUCCESS",
+      "api": "SUCCESS",
+      "socket": "SUCCESS",
+      "allOnSourceCommit": "76e89c469cb2ffabfa7d456f9574cc7feae7c6d0",
+      "matchesCandidate": false,
+      "pendingChanges": 0
+    },
+    "authenticatedChallenge": "NOT_STARTED",
+    "encounterTest": "NOT_RUN_DEPLOYED_SOURCE_MISMATCH",
+    "stagingPinChanged": false,
+    "stagingDatabaseChanged": false,
+    "productionSettingsOrDeploymentChanged": false
+  },
   "latestOwnerReportedTwoDevicePrivateRoomFlightCheck": {
     "date": "2026-11-06",
     "status": "OWNER_REPORTED_PASS",
