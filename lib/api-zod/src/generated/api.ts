@@ -999,7 +999,7 @@ export const ExecuteWorldServiceResponse = zod.object({
   "narrative": zod.array(zod.object({
   "id": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemIdMax),
   "chapter": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemChapterMax),
-  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
   "title": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTitleMax),
   "source": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSourceMax),
   "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
@@ -1167,7 +1167,7 @@ export const GetWorldResponse = zod.object({
   "narrative": zod.array(zod.object({
   "id": zod.string().min(1).max(getWorldResponseNarrativeItemIdMax),
   "chapter": zod.string().min(1).max(getWorldResponseNarrativeItemChapterMax),
-  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
   "title": zod.string().min(1).max(getWorldResponseNarrativeItemTitleMax),
   "source": zod.string().min(1).max(getWorldResponseNarrativeItemSourceMax),
   "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
@@ -1192,8 +1192,8 @@ export const GetWorldResponse = zod.object({
 
 
 /**
- * Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
- * @summary Get server-owned patrol formations at the authenticated pilot's region
+ * Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
  */
 export const getWorldPatrolsResponseCurrentLocationIdMax = 100;
 
@@ -1721,7 +1721,7 @@ export const TravelWorldResponse = zod.object({
   "narrative": zod.array(zod.object({
   "id": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemIdMax),
   "chapter": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemChapterMax),
-  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
   "title": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTitleMax),
   "source": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSourceMax),
   "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
@@ -1899,7 +1899,7 @@ export const ExploreLocationResponse = zod.object({
   "narrative": zod.array(zod.object({
   "id": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemIdMax),
   "chapter": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemChapterMax),
-  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
   "title": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTitleMax),
   "source": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSourceMax),
   "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
@@ -2079,7 +2079,7 @@ export const ActOnWorldQuestResponse = zod.object({
   "narrative": zod.array(zod.object({
   "id": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemIdMax),
   "chapter": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemChapterMax),
-  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage']),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
   "title": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTitleMax),
   "source": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSourceMax),
   "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),

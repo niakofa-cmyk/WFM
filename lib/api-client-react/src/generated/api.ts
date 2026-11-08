@@ -1251,8 +1251,8 @@ export const getGetWorldPatrolsUrl = () => {
 }
 
 /**
- * Returns persistent AI patrol formations in the server-recorded current world location. These are strategic NPC contacts, not human pilots, active multiplayer matches, combat outcomes, or reward grants. Clients cannot choose a region or write patrol state.
- * @summary Get server-owned patrol formations at the authenticated pilot's region
+ * Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
  */
 export const getWorldPatrols = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldPatrolDirectory> => {
 
@@ -1299,7 +1299,7 @@ export type GetWorldPatrolsQueryError = ErrorType<void>
 
 
 /**
- * @summary Get server-owned patrol formations at the authenticated pilot's region
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
  */
 
 export function useGetWorldPatrols<TData = Awaited<ReturnType<typeof getWorldPatrols>>, TError = ErrorType<void>>(

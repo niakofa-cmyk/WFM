@@ -42,7 +42,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     region: "Frontier debris field",
     state: "compatibility",
     concept: "Relay recovery, patrol encounters, salvage, and extraction.",
-    currentEvidence: "Pilots can scan and recover one relay record per local session; it is not synced as account evidence, and the full operation remains server-run compatibility content.",
+    currentEvidence: "The server-run expedition can persist the relay record after server-verified recovery; offline local recovery remains unsynced, and the operation stays on its separate server-run path.",
     nextGate: "Migrate the operation runtime and settlement through an Orbital adapter with authority and rollback proof.",
   },
   {

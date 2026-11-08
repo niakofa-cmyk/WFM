@@ -105,6 +105,14 @@ const PALE_BEACON_EVIDENCE = [
   { id: "pale-beacon-record", title: "PALE BEACON RECEIVER HISTORY", position: { x: 620, y: 210, z: -740 } },
   { id: "earth-first-response", title: "EARTH RELAY PACKET", position: { x: 1260, y: 390, z: -1510 } },
 ] as const;
+const RUST_DISC_EVIDENCE = [
+  { id: "rust-disc-relay-record", title: "RUST DISC · EMERGENCY RELAY BUFFER", position: { x: 18, y: 44, z: -125 } },
+] as const;
+function evidenceForMission(missionId: string) {
+  if (missionId === "rust-disc") return RUST_DISC_EVIDENCE;
+  if (missionId === "pale-beacons") return PALE_BEACON_EVIDENCE;
+  return null;
+}
 const PALE_BEACON_PATROL_ROUTE = [
   { x: 950, y: 300, z: -1150 },
   { x: 1370, y: 360, z: -900 },
@@ -309,6 +317,9 @@ export function createSectorRuntime(options: Options) {
   }
   function publish(room: Room) {
     for (const own of room.pilots) {
+      const evidenceRecords = protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+        ? evidenceForMission(room.mission.id)
+        : null;
       const snapshot: SectorSnapshot = {
         type: "sector_snapshot", version: protocolVersion, roomCode: room.code, missionId: room.mission.id,
         ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
@@ -341,8 +352,8 @@ export function createSectorRuntime(options: Options) {
               } satisfies SectorHostileFleetSnapshot,
             }
           : {}),
-        ...(protocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION && room.mission.id === "pale-beacons"
-          ? { evidence: PALE_BEACON_EVIDENCE.map((record): SectorEvidencePickup => ({
+        ...(evidenceRecords
+          ? { evidence: evidenceRecords.map((record): SectorEvidencePickup => ({
               ...record,
               position: { ...record.position },
               state: own.evidenceRecovered.has(record.id) ? "recovered"
@@ -651,15 +662,16 @@ export function createSectorRuntime(options: Options) {
       publish(room); return;
     }
     if (packet.type === "sector_recover_evidence") {
-      if (!parseSectorEvidenceRecovery(packet) || room.mission.id !== "pale-beacons" ||
-          protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || room.phase !== "active" || !room.scoutEncounter) {
+      const evidenceRecords = evidenceForMission(room.mission.id);
+      if (!parseSectorEvidenceRecovery(packet) || !evidenceRecords ||
+          protocolVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || room.phase !== "active") {
         error("invalid_sector_evidence_recovery"); return;
       }
       if (pilot.evidenceActionAt !== null && now - pilot.evidenceActionAt < 900) {
         error("sector_evidence_rate_limited"); return;
       }
       pilot.evidenceActionAt = now;
-      const nearest = PALE_BEACON_EVIDENCE
+      const nearest = evidenceRecords
         .filter((record) => !pilot.evidenceRecovered.has(record.id) && !pilot.evidenceRecovering.has(record.id))
         .map((record) => ({
           record,

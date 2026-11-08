@@ -7,7 +7,7 @@ export type NarrativeOutcome = "win" | "loss" | "draw";
 export type CampaignNarrativeRecord = {
   id: string;
   chapter: string;
-  missionId: Extract<MissionId, "contact" | "beacon" | "warden" | "cage">;
+  missionId: Extract<MissionId, "contact" | "beacon" | "warden" | "cage"> | "rust-disc";
   title: string;
   source: string;
   knowledgeLayer: NarrativeKnowledgeLayer;
@@ -83,6 +83,19 @@ export const CAMPAIGN_NARRATIVE_RECORDS = [
     transcript: [
       { speaker: "EXPEDITION PILOT · EMERGENCY TRANSMISSION", text: "Fleet is down. Dusk is alive and in Accord custody. This is the capture report—send it to Earth now." },
       { speaker: "EARTH RELAY · RECEIPT", text: "Capture report received. Source signal fading." },
+    ],
+  },
+  {
+    id: "rust-disc-relay-record",
+    chapter: "PRELUDE · THE LOST EXPEDITION",
+    missionId: "rust-disc",
+    title: "The relay carried the capture report",
+    source: "Rust Disc · emergency relay buffer",
+    knowledgeLayer: "public",
+    synopsis: "The recovered relay buffer matches Earth's receipt for the expedition's capture report. It corroborates that the message escaped Mars before the fleet went silent; it does not identify who later authorized Earth's response.",
+    transcript: [
+      { speaker: "RELAY DECODER · RECOVERED LOG", text: "Checksum valid. Capture report transmitted before fleet signal loss." },
+      { speaker: "EARTH RECEIPT · ARCHIVE", text: "Packet acknowledged. Source signature matches the Rust Disc emergency relay." },
     ],
   },
   {

@@ -388,6 +388,63 @@ test("Orbital Pale Beacons moves its patrol and recovers only server-selected ne
   await runtime.close();
 });
 
+test("Orbital Rust Disc archives its relay record only after server-verified recovery", async () => {
+  const recovered: Array<{ userId: string; evidenceId: string; encounterId: string }> = [];
+  let pilotPosition = { x: 0, y: 0, z: 0 };
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: [], persistenceAvailable: true }),
+    recoverNarrativeEvidence: async (userId, evidenceId, encounterId) => {
+      recovered.push({ userId, evidenceId, encounterId });
+      return "recovered";
+    },
+    physics: (state, _input, seconds) => {
+      state.position = { ...pilotPosition };
+      state.elapsed += seconds;
+      state.stage = "drone";
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: SECTOR_ORBITAL_PROTOCOL_VERSION, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", join, 0);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_launch",
+  }, 2);
+
+  runtime.advance(120);
+  const site = pilot.latest().evidence?.[0];
+  assert.equal(site?.id, "rust-disc-relay-record");
+  assert.equal(site?.state, "available");
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence",
+  }, 3);
+  assert.equal(pilot.packets.at(-1)?.reason, "evidence_not_in_recovery_range");
+  assert.equal(recovered.length, 0, "a distant relay claim cannot enter the account archive");
+
+  pilotPosition = { ...site!.position };
+  runtime.advance(1200);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence", evidenceId: "earth-first-response",
+  }, 1201);
+  assert.equal(pilot.packets.at(-1)?.reason, "invalid_sector_evidence_recovery",
+    "the client cannot choose a record ID");
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence",
+  }, 1202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["rust-disc-relay-record"]);
+  assert.equal(recovered[0]?.userId, "rust-evidence-pilot");
+  assert.ok(recovered[0]?.encounterId, "the archive write is scoped to the server encounter");
+  assert.equal(pilot.latest().evidence?.[0]?.state, "recovered");
+  await runtime.close();
+});
+
 test("Pale Beacons contact actions use server-verified inputs and gate hostile fire by faction response", async () => {
   const publicListings: unknown[] = [];
   const runtime = createSectorRuntime({

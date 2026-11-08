@@ -1115,7 +1115,7 @@ components:
       properties:
         id: { type: string, minLength: 1, maxLength: 80 }
         chapter: { type: string, minLength: 1, maxLength: 120 }
-        missionId: { type: string, enum: [contact, beacon, warden, cage] }
+        missionId: { type: string, enum: [contact, beacon, warden, cage, rust-disc] }
         title: { type: string, minLength: 1, maxLength: 160 }
         source: { type: string, minLength: 1, maxLength: 160 }
         knowledgeLayer: { type: string, enum: [public, restricted, classified, unresolved] }

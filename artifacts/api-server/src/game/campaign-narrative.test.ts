@@ -42,12 +42,16 @@ test("the world archive returns only server-discovered story records in chronolo
   const discoveredAt = new Date("2026-11-07T18:00:00.000Z");
   const archive = narrativeArchiveForDiscoveries([
     { locationId: narrativeDiscoveryId("cage-ussf-secures"), createdAt: discoveredAt },
+    { locationId: narrativeDiscoveryId("rust-disc-relay-record"), createdAt: discoveredAt },
     { locationId: "rust-disc", createdAt: discoveredAt },
     { locationId: narrativeDiscoveryId("dusk-rise"), createdAt: discoveredAt },
     { locationId: narrativeDiscoveryId("not-a-known-record"), createdAt: discoveredAt },
   ]);
 
-  assert.deepEqual(archive.map((record) => record.id), ["dusk-rise", "cage-ussf-secures"]);
+  assert.deepEqual(archive.map((record) => record.id), ["dusk-rise", "rust-disc-relay-record", "cage-ussf-secures"]);
+  const relayRecord = archive.find((record) => record.id === "rust-disc-relay-record");
+  assert.equal(relayRecord?.missionId, "rust-disc");
+  assert.match(relayRecord?.synopsis ?? "", /matches Earth's receipt/);
   assert.equal(archive[0]?.discoveredAt, discoveredAt);
   assert.ok(archive[0]?.transcript.length);
   assert.doesNotMatch(

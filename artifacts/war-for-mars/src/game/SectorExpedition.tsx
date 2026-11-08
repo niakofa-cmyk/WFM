@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { Link } from "wouter";
-import { getGetWorldExplorationResultsQueryKey, useGetWorldExplorationResults, type WorldScoutEncounterResult } from "@workspace/api-client-react";
+import { getGetWorldExplorationResultsQueryKey, getGetWorldQueryKey, useGetWorldExplorationResults, type WorldScoutEncounterResult } from "@workspace/api-client-react";
 import { CommandBackdrop, CommandPanel, PanelLabel } from "./CommandArt";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
@@ -83,6 +84,7 @@ function Gate({ title, body, signIn, loading, embedded, onReturn }: { title: str
 
 function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, onReturnToUniverse }: SectorExpeditionProps) {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
@@ -177,6 +179,11 @@ function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, o
   const handleSnapshot = useCallback((snap: SectorSnapshot) => {
     const prev = snapshotRef.current;
     snapshotRef.current = snap;
+    const newlyRecoveredEvidence = snap.evidence?.some((site) =>
+      site.state === "recovered" && !prev?.evidence?.some((prior) => prior.id === site.id && prior.state === "recovered"));
+    if (newlyRecoveredEvidence) {
+      void queryClient.invalidateQueries({ queryKey: getGetWorldQueryKey() });
+    }
     joinedRef.current = true;
     deadlineRef.current = null;
     setConnection("connected");
@@ -187,7 +194,7 @@ function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, o
       setProgress(snap.progress);
     }
     setView(snap.phase === "lobby" ? "lobby" : snap.phase === "active" ? "flight" : "debrief");
-  }, []);
+  }, [queryClient]);
 
   const open = useCallback((session: Session) => {
     let url: URL;
@@ -317,7 +324,8 @@ function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, o
       if (command.type === "sector_transponder") {
         if (current.missionId !== "pale-beacons" && current.missionId !== "universe-patrol") return false;
       } else if (command.type === "sector_recover_evidence") {
-        if (current.missionId !== "pale-beacons" || current.version !== SECTOR_ORBITAL_PROTOCOL_VERSION) return false;
+        if ((current.missionId !== "rust-disc" && current.missionId !== "pale-beacons") ||
+            current.version !== SECTOR_ORBITAL_PROTOCOL_VERSION) return false;
       } else if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
         if (current.missionId !== "iron-eclipse" || !current.operation || current.ownSlot !== current.hostSlot) return false;
       } else if (current.capabilities?.tacticalCommands !== true) return false;

@@ -1453,6 +1453,7 @@ export const CampaignNarrativeRecordMissionId = {
   beacon: 'beacon',
   warden: 'warden',
   cage: 'cage',
+  'rust-disc': 'rust-disc',
 } as const;
 
 export type CampaignNarrativeRecordKnowledgeLayer = typeof CampaignNarrativeRecordKnowledgeLayer[keyof typeof CampaignNarrativeRecordKnowledgeLayer];
