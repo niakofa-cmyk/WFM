@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { SHIPS, type ShipId } from "./ships";
+import {
+  MARS_NIGHT_SIDE_STATION,
+  ORBITAL_MARS_CENTER,
+  RUST_DISC_RELAY,
+  UNIVERSE_RENDER_Y_OFFSET,
+} from "./orbital-universe-session";
 
 // Vehicle-only procedural assets. Nose is +Z, matching Arena's existing models.
 type Vec3Tuple = readonly [number, number, number];
@@ -641,7 +647,7 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
   bump.colorSpace = THREE.NoColorSpace;
   bump.needsUpdate = true;
   const mars = new THREE.Mesh(new THREE.SphereGeometry(65, 80, 48), new THREE.MeshStandardMaterial({ map: texture, bumpMap: bump, bumpScale: .6, roughness: .96, metalness: 0 }));
-  mars.position.set(-100, 21, -200); mars.rotation.z = .3;
+  mars.position.set(ORBITAL_MARS_CENTER.x, ORBITAL_MARS_CENTER.y, ORBITAL_MARS_CENTER.z); mars.rotation.z = .3;
   systemFrame.add(mars);
   const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(66.3, 64, 40), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
@@ -673,8 +679,68 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
   }
   station.position.set(65, 17, -110); station.rotation.y = -.4; systemFrame.add(station);
   station.name = "cinder-ring-station";
+
+  const relay = new THREE.Group();
+  relay.name = "rust-disc-relay";
+  const relayMetal = new THREE.MeshStandardMaterial({ color: 0x77634e, metalness: .72, roughness: .62 });
+  const relayDark = new THREE.MeshStandardMaterial({ color: 0x272e35, metalness: .58, roughness: .72 });
+  const relaySignal = new THREE.MeshBasicMaterial({ color: 0xe0a15a });
+  const relaySpine = new THREE.Mesh(new THREE.BoxGeometry(12, 3.2, 5), relayDark);
+  relay.add(relaySpine);
+  const relayMast = new THREE.Mesh(new THREE.CylinderGeometry(.55, .9, 12, 8), relayMetal);
+  relayMast.position.set(0, 7, 0);
+  relay.add(relayMast);
+  const relayDish = new THREE.Group();
+  relayDish.position.set(0, 12, 0);
+  relayDish.rotation.x = -.38;
+  const reflector = new THREE.Mesh(new THREE.SphereGeometry(4.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), relayMetal);
+  reflector.scale.y = .24;
+  relayDish.add(reflector);
+  const dishRim = new THREE.Mesh(new THREE.TorusGeometry(4.2, .18, 6, 24), relaySignal);
+  dishRim.rotation.x = Math.PI / 2;
+  relayDish.add(dishRim);
+  relay.add(relayDish);
+  for (const side of [-1, 1]) {
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(15, .28, .55), relayMetal);
+    strut.position.set(side * 10, 0, 0);
+    strut.rotation.z = side * -.12;
+    relay.add(strut);
+    const solarPanel = new THREE.Mesh(new THREE.BoxGeometry(7, .16, 3.4), new THREE.MeshStandardMaterial({
+      color: 0x1b4052, emissive: 0x123044, emissiveIntensity: .45, metalness: .4, roughness: .48,
+    }));
+    solarPanel.position.set(side * 16, 0, 0);
+    relay.add(solarPanel);
+  }
+  relay.position.set(RUST_DISC_RELAY.position.x, RUST_DISC_RELAY.position.y + UNIVERSE_RENDER_Y_OFFSET, RUST_DISC_RELAY.position.z);
+  systemFrame.add(relay);
+
+  const nightStation = new THREE.Group();
+  nightStation.name = "mars-night-side-station";
+  const nightHull = new THREE.MeshStandardMaterial({ color: 0x57616c, metalness: .78, roughness: .5 });
+  const nightRing = new THREE.Mesh(new THREE.TorusGeometry(7, .55, 8, 40), nightHull);
+  nightStation.add(nightRing);
+  const nightHub = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.4, 8, 10), nightHull);
+  nightStation.add(nightHub);
+  for (let i = 0; i < 4; i++) {
+    const angle = i * Math.PI / 2;
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.2), nightHull);
+    pod.position.set(Math.cos(angle) * 8, Math.sin(angle) * 8, 0);
+    pod.rotation.z = angle;
+    nightStation.add(pod);
+  }
+  const nightBeacon = new THREE.Mesh(new THREE.SphereGeometry(.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff8b54 }));
+  nightBeacon.position.set(0, 0, 3);
+  nightStation.add(nightBeacon);
+  nightStation.position.set(
+    MARS_NIGHT_SIDE_STATION.position.x,
+    MARS_NIGHT_SIDE_STATION.position.y + UNIVERSE_RENDER_Y_OFFSET,
+    MARS_NIGHT_SIDE_STATION.position.z,
+  );
+  nightStation.lookAt(ORBITAL_MARS_CENTER.x, ORBITAL_MARS_CENTER.y + UNIVERSE_RENDER_Y_OFFSET, ORBITAL_MARS_CENTER.z);
+  systemFrame.add(nightStation);
+
   scene.add(systemFrame, background);
-  return { textures: [texture, bump], station, systemFrame, background };
+  return { textures: [texture, bump], station, relay, nightStation, systemFrame, background };
 }
 
 export function orbitalRock(radius: number, seed: number) {

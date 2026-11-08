@@ -1261,7 +1261,12 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
               disc="rust"
               allyCount={1}
               foeCount={3}
-              objective="CINDER RING · LOCAL TRAINING"
+              objective={
+                orbitalStartLocation === "rust-disc" ? "RUST DISC · RELAY APPROACH"
+                  : orbitalStartLocation === "mars-night-side" ? "MARS NIGHT-SIDE · STATION APPROACH"
+                    : orbitalStartLocation === "cinder-ring" ? "CINDER RING · LOCAL TRAINING"
+                      : "MARS ORBIT · LOCAL TRAINING"
+              }
               tech={null}
               gyro={save.gyro}
               drilled

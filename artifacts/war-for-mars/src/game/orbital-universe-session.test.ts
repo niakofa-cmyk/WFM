@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { createOrbitalRuntime, getGameModeDefinition, integrateSpatialFlight, normalizeFlightControls, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { createOrbitalRuntime, getGameModeDefinition, integrateSpatialFlight, normalizeFlightControls, ORBITAL_RUNTIME_ID, rotate } from "@workspace/orbital-sim";
 import { clearInput, createBus, readInput, setCircularRollControl } from "./input";
 import { prepareOrbital } from "./orbital-sim";
 import { createMatch } from "./sim";
 import { SHIPS } from "./ships";
 import {
-  CINDER_STATION, UNIVERSE_MODE_ID,
+  CINDER_STATION, MARS_NIGHT_SIDE_STATION, ORBITAL_MARS_CENTER, RUST_DISC_RELAY, UNIVERSE_MODE_ID,
   capturePilotPose, cinderStationTransform, createUniverseSession, evaluateCinderDock,
   placeAtCinderApproach, placeAtSpawn, placeAtUniverseStart, restorePilotPose, transitionUniverse, universeFrozen,
 } from "./orbital-universe-session";
@@ -71,6 +71,31 @@ test("Mars and Cinder chart entries start in the same universe at physical fligh
   assert.equal(gate.headingDeg, 0);
   assert.equal(gate.eligible, false);
   assert.equal(gate.reason, "range");
+});
+
+test("Rust Disc and Mars night-side starts are physical, oriented Orbital approach poses", () => {
+  const rust = localMatch().player;
+  placeAtUniverseStart(rust, "rust-disc");
+  assert.deepEqual({ x: rust.x, y: rust.space!.y, z: rust.z }, RUST_DISC_RELAY.approach);
+  const rustForward = rotate(rust.space!.q, 0, 0, -1);
+  const relayVector = {
+    x: RUST_DISC_RELAY.position.x - rust.x,
+    z: RUST_DISC_RELAY.position.z - rust.z,
+  };
+  assert.ok(rustForward.x * relayVector.x + rustForward.z * relayVector.z > 0);
+  assert.equal(rust.speed, 0);
+  assert.equal(evaluateCinderDock(rust).reason, "range");
+
+  const nightSide = localMatch().player;
+  placeAtUniverseStart(nightSide, "mars-night-side");
+  assert.deepEqual({ x: nightSide.x, y: nightSide.space!.y, z: nightSide.z }, MARS_NIGHT_SIDE_STATION.approach);
+  assert.ok(Math.abs(Math.hypot(
+    nightSide.x - ORBITAL_MARS_CENTER.x,
+    nightSide.space!.y - ORBITAL_MARS_CENTER.y,
+    nightSide.z - ORBITAL_MARS_CENTER.z,
+  ) - 108) < 1e-9);
+  assert.equal(nightSide.speed, 0);
+  assert.equal(evaluateCinderDock(nightSide).reason, "range");
 });
 
 test("Cinder admission requires physical proximity, low speed, heading, and renderer", () => {

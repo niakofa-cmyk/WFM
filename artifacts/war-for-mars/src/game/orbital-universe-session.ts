@@ -9,12 +9,47 @@ import { ORIGIN_SECTOR, type UniverseSectorAddress, positionInCurrentSector } fr
  */
 
 export const UNIVERSE_MODE_ID = "orbital-universe-local" as const;
-export type UniverseStartLocation = "mars-orbit" | "cinder-ring";
+export type UniverseStartLocation = "mars-orbit" | "cinder-ring" | "rust-disc" | "mars-night-side";
 export type UniversePhase = "exploration" | "docked" | "training" | "debrief";
 
 /** Arena renders crafts at world y = 0.9 + flight y. */
 export const UNIVERSE_RENDER_Y_OFFSET = 0.9;
 export const UNIVERSE_SPAWN = { x: 0, y: 0, z: 0, yaw: 0 } as const;
+/** Static local-system reference frame shared by Orbital landmarks and approach spawns. */
+export const ORBITAL_MARS_CENTER = { x: -100, y: 21, z: -200 } as const;
+export const ORBITAL_SUN_POSITION = { x: -50, y: 40, z: -20 } as const;
+
+/** Rust Disc's relay sits beyond Cinder in the same streamed Mars-origin sector. */
+export const RUST_DISC_RELAY = {
+  position: { x: 72, y: 4, z: -300 },
+  approach: { x: 42, y: 4, z: -270 },
+  yaw: -Math.PI / 4,
+} as const;
+
+function nightSidePosition(radius: number) {
+  const sunVector = {
+    x: ORBITAL_SUN_POSITION.x - ORBITAL_MARS_CENTER.x,
+    y: ORBITAL_SUN_POSITION.y - ORBITAL_MARS_CENTER.y,
+    z: ORBITAL_SUN_POSITION.z - ORBITAL_MARS_CENTER.z,
+  };
+  const length = Math.hypot(sunVector.x, sunVector.y, sunVector.z);
+  return {
+    x: ORBITAL_MARS_CENTER.x - sunVector.x / length * radius,
+    y: ORBITAL_MARS_CENTER.y - sunVector.y / length * radius,
+    z: ORBITAL_MARS_CENTER.z - sunVector.z / length * radius,
+  };
+}
+
+const nightStationPosition = nightSidePosition(72);
+const nightApproachPosition = nightSidePosition(108);
+const nightDx = nightStationPosition.x - nightApproachPosition.x;
+const nightDz = nightStationPosition.z - nightApproachPosition.z;
+/** A visible orbital installation and a safe approach point on Mars's fixed dark hemisphere. */
+export const MARS_NIGHT_SIDE_STATION = {
+  position: nightStationPosition,
+  approach: nightApproachPosition,
+  yaw: Math.atan2(-nightDx, -nightDz),
+} as const;
 
 /** Fixed physical Cinder Ring location (simulation coordinates): dead ahead of spawn on the
  * spawn flight plane, ring facing +Z, so forward-only throttle reaches the gate. */
@@ -91,9 +126,31 @@ export function placeAtCinderApproach(craft: PoseCraft) {
   craft.z = CINDER_STATION.z + CINDER_STATION.interactionRadius * 2;
 }
 
+function placeAtAnchor(craft: PoseCraft, position: { x: number; y: number; z: number }, yaw: number) {
+  placeAtSpawn(craft);
+  craft.x = position.x;
+  craft.z = position.z;
+  craft.space!.y = position.y;
+  craft.yaw = yaw;
+  const half = yaw / 2;
+  craft.space!.q = [0, Math.sin(half), 0, Math.cos(half)];
+}
+
 export function placeAtUniverseStart(craft: PoseCraft, location: UniverseStartLocation = "mars-orbit") {
-  if (location === "cinder-ring") placeAtCinderApproach(craft);
-  else placeAtSpawn(craft);
+  switch (location) {
+    case "cinder-ring":
+      placeAtCinderApproach(craft);
+      break;
+    case "rust-disc":
+      placeAtAnchor(craft, RUST_DISC_RELAY.approach, RUST_DISC_RELAY.yaw);
+      break;
+    case "mars-night-side":
+      placeAtAnchor(craft, MARS_NIGHT_SIDE_STATION.approach, MARS_NIGHT_SIDE_STATION.yaw);
+      break;
+    case "mars-orbit":
+      placeAtSpawn(craft);
+      break;
+  }
 }
 
 export type DockReason = "ready" | "range" | "closure" | "heading" | "inactive";

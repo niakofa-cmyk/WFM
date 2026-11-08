@@ -7,6 +7,8 @@ import type { UniverseStartLocation } from "./orbital-universe-session";
 const SERVER_LOCATION_ANCHORS: Readonly<Record<string, UniverseStartLocation>> = {
   "phobos-yard": "mars-orbit",
   "cinder-asteroid": "cinder-ring",
+  "rust-disc": "rust-disc",
+  "night-side": "mars-night-side",
 };
 
 export function orbitalStartForVerifiedWorldLocation(

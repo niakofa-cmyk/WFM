@@ -42,8 +42,8 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     region: "Frontier debris field",
     state: "compatibility",
     concept: "Relay recovery, patrol encounters, salvage, and extraction.",
-    currentEvidence: "Existing Rust Disc operation paths remain separate compatibility experiences.",
-    nextGate: "Migrate the mission and presentation through an Orbital adapter with authority and rollback proof.",
+    currentEvidence: "A physical local Orbital relay approach is available; mission completion and rewards remain in the server-run compatibility operation.",
+    nextGate: "Migrate the operation runtime and settlement through an Orbital adapter with authority and rollback proof.",
   },
   {
     id: "mars-approach",
@@ -78,8 +78,8 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     region: "Rotating dark hemisphere",
     state: "planned",
     concept: "Navigate the night side, locate a hidden installation, and answer a rescue signal.",
-    currentEvidence: "No working rotating Mars world or night-side traversal.",
-    nextGate: "Planet rotation, shared world clock, and continuous day/night travel.",
+    currentEvidence: "A fixed dark-hemisphere Orbital station approach is available; the planet does not yet rotate and no surface traversal is implemented.",
+    nextGate: "Shared planetary clock, dynamic day/night rotation, and continuous orbit-to-surface travel.",
   },
   {
     id: "dust-lane",

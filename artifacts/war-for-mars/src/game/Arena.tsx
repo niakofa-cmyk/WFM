@@ -43,6 +43,7 @@ import {
   cinderStationTransform,
   createUniverseSession,
   evaluateCinderDock,
+  ORBITAL_SUN_POSITION,
   placeAtUniverseStart,
   universeFrozen,
   type UniverseStartLocation,
@@ -1043,7 +1044,7 @@ export function Arena({
     scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
     scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
     const sun = new THREE.DirectionalLight(look.sun, 1.7);
-    sun.position.set(-50, 40, -20);
+    sun.position.set(ORBITAL_SUN_POSITION.x, ORBITAL_SUN_POSITION.y, ORBITAL_SUN_POSITION.z);
     scene.add(sun);
     const theaterTextures = createTheaterTextures();
 
