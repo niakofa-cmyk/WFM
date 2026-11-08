@@ -71,11 +71,12 @@ Do not create a separate universe engine to satisfy the diagram.
 - One runtime foundation does not mean one enormous server simulation.
   Authoritative match instances may scale independently behind versioned
   operation adapters while retaining one coherent player journey.
-- The final game uses Orbital Engine as its sole rendering and gameplay
-  foundation. Three.js is a source of techniques only, not a shipped renderer
-  dependency. The current Three.js-based presentation remains temporarily until
-  an Orbital-native renderer passes parity/performance gates; see the
-  [renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+- The game uses Three.js as its primary 3D rendering and scene-runtime
+  foundation, integrated with Orbital's shared gameplay/simulation and
+  authoritative world state. Native Orbital WebGL2 remains a supported
+  companion renderer. Three.js is a shipped game dependency and is not targeted
+  for removal; keep it code-split from the initial menu graph. See the
+  [current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 - Legacy experiences remain accessible as compatibility/rollback paths during
   migration. Their existence must not justify leaving the redesigned main
   universe permanently outside Orbital.

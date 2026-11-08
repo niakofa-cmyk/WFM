@@ -1,5 +1,11 @@
 # Updated Repository Forensic Evaluation
 
+> **Renderer decision superseded 2026-11-08:** Three.js is the primary 3D
+> renderer and scene-runtime foundation for the Orbital open universe; native
+> Orbital WebGL2 remains a companion path. The renderer-removal conclusions
+> below are historical and no longer control implementation. See
+> [Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+
 ## Governing references
 
 This source-backed audit follows the owner's latest reconstruction references:
@@ -40,13 +46,12 @@ camera tracking, spatial transforms, environment composition, culling/LOD,
 large-distance precision, and mobile frame pacing—into the Orbital-owned
 presentation lifecycle.
 
-That earlier forensic assessment allowed Three.js to remain a low-level
-dependency. The owner has since corrected the target: Orbital Engine must own
-the finished renderer and gameplay, and Three.js is a source of techniques only.
-The existing renderer remains temporarily because no complete Orbital-native
-renderer is present in the inspected source. See the
-[current renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md)
-for the staged replacement and removal gates.
+Three.js remains the primary 3D renderer and scene-runtime foundation; Orbital
+supplies shared simulation and world-state contracts integrated with it. The
+renderer is not temporary, and there is no active plan to remove it. The
+historical renderer-rebuild document remains useful for code audit, resource
+lifecycle, performance, and rollback evidence, not as a replacement/removal
+directive.
 
 The game-mode registry now tracks `simulation` and `presentation` separately.
 In particular, `rust-disc-local` is simulation-canonical but still reports

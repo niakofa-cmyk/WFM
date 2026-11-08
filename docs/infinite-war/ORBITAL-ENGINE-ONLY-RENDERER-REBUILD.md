@@ -29,9 +29,11 @@ The full owner-supplied comparison and recommendation is retained unchanged at
 [`attached_assets/Pasted--War-for-Mars-Orbital-Engine-vs-Three-js-Yes-My-recomme_1794031481638.txt`](../../attached_assets/Pasted--War-for-Mars-Orbital-Engine-vs-Three-js-Yes-My-recomme_1794031481638.txt).
 The later visual-pipeline proposal is preserved verbatim at
 [`references/redesign/Pasted-To-port-the-technical-features-and-visual-capabilities-_1794048558104.txt`](references/redesign/Pasted-To-port-the-technical-features-and-visual-capabilities-_1794048558104.txt).
-Its Three.js implementation is not adopted; its read-only rendering,
-instancing, local-coordinate and resource-lifecycle techniques are being ported
-into the Orbital-owned WebGL2 proof.
+Its code samples are not adopted wholesale. Useful ideas such as read-only
+rendering, instancing, local coordinates, and explicit resource lifecycles may
+be implemented in the primary Three.js renderer or the supported WebGL2
+companion. The old instruction to port all visual work into an Orbital-owned
+WebGL2 replacement is superseded.
 The source explicitly distinguishes “large” from “too heavy”: its historical
 bundle numbers do not establish a current performance failure. The reason to
 move is one coherent, owned engine architecture, with performance decisions

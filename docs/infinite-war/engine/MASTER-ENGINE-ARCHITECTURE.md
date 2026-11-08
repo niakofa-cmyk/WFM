@@ -21,11 +21,13 @@ experiences need not share identical physics parameters or objectives.
 Section 16 requires engine consolidation before appearance redesign. Existing
 Rust Disc, Wing, account records, issued replays and multiplayer safeguards stay
 operational until replacement paths pass compatibility and rollback gates.
-The owner has since clarified that Three.js is not part of the final runtime:
-Orbital Engine must own rendering and gameplay. Three.js is reference material
-for techniques only. The repository's current Three.js renderer is a temporary
-implementation until Orbital's replacement passes the
-[renderer migration gates](../ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+The current owner direction keeps Three.js as the main 3D renderer and
+scene-runtime foundation for the Orbital open universe. Orbital remains the
+shared gameplay/simulation and world-state foundation integrated with it;
+Three.js is not techniques-only or temporary migration infrastructure. Native
+Orbital WebGL2 remains a companion path. Historical renderer-removal gates are
+retained for provenance, not as an active migration objective; see the
+[current rendering strategy](../RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 ## Actual architecture, source audited 2026-11-06
 

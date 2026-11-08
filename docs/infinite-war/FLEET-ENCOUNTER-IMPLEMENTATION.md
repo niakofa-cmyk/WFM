@@ -14,10 +14,10 @@ roster, movement, damage, destruction, attribution, and settlement are server
 owned. Defeated patrol ships are removed from the shared strategic roster so
 other pilots see the resulting fleet loss.
 
-The master spacecraft directive contains an implementation note recommending
-Three.js. The controlling WFM rebuild direction remains Orbital as the sole
-game engine/runtime; this slice reuses the existing Orbital flight adapter and
-its current renderer without adding a second gameplay runtime or dependency.
+The current rendering strategy keeps Three.js as the primary 3D renderer and
+scene-runtime foundation, integrated with Orbital's shared gameplay/simulation
+contracts. This slice reuses the existing Orbital flight adapter and current
+renderer without adding a second gameplay runtime, universe, or authority.
 
 ## First playable scope
 

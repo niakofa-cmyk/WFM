@@ -5,15 +5,15 @@
 WAR FOR MARS: INFINITE WAR is being rebuilt through the Orbital Engine runtime
 as one navigable game. Orbital owns gameplay state, rendering, spatial
 simulation, flight, combat rules, world transitions, and multiplayer authority
-boundaries. The owner has clarified that Three.js is a source of techniques to
-learn from, not a library to ship in the finished game.
+boundaries. Three.js is the main 3D renderer and scene-runtime foundation for
+this Orbital universe. Orbital simulation and server-owned world state integrate
+with it; native Orbital WebGL2 remains a supported companion path.
 
-The target excludes a separate Three.js runtime and direct Three.js production
-dependency. However, the current repository still uses Three.js for the only
-working 3D renderer and has no complete Orbital-native renderer. The dependency
-must therefore be removed through a staged renderer migration, not deleted
-before an equivalent replacement works. See the
-[Orbital Engine-only renderer rebuild directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+Do not remove Three.js or treat it as a techniques-only source. Keep it
+code-split so the initial hangar/menu graph does not download the 3D runtime
+until a flight scene needs it. This lazy-loading boundary is a performance
+measure, not a separate universe or a renderer migration. See the
+[current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 ## Preserved owner references
 

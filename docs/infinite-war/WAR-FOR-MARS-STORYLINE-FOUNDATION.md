@@ -18,16 +18,19 @@ This guide governs narrative meaning and continuity. The
 relates to existing authored campaign facts and where details remain
 unresolved. The [connected-storyline rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md)
 governs how story, routes, operations, and world events connect. The
+[current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md) governs
+the renderer target. The
 [Orbital Engine-only renderer directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md)
-governs the runtime target and current migration evidence.
+is retained as historical audit material.
 
-**Engine boundary:** Orbital Combat Engine is the exclusive target game engine
-and rendering runtime. Three.js is a source of techniques, not a target
-renderer. The checked-out game still contains Three.js-based compatibility
-rendering; the Orbital-only migration is a target, not a completed migration.
-Do not mistake a historical pull-request proposal or current implementation
-inventory for the controlling architecture decision. Retire compatibility
-rendering only after the existing Orbital migration gates pass.
+**Engine boundary:** Three.js is the main 3D rendering and scene-runtime
+foundation for the Orbital open-universe game. Orbital supplies the shared
+gameplay/simulation rules, world state, and authority contracts integrated with
+that renderer; native Orbital WebGL2 remains a companion path. Do not treat
+Three.js as temporary or remove it. Historical Orbital-only renderer proposals
+are superseded on renderer retirement, while their source audits, performance
+measurements, and rollback safeguards remain useful. See the
+[current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 ## The premise
 
@@ -229,9 +232,9 @@ rules. The chronology and evidence map is documented in
 
 The premise, factions, and mystery are **design direction**. Existing campaign
 content remains the implemented baseline unless a separately reviewed story
-change updates its source, tests, and server contracts. The Orbital-only engine
-is likewise the **target architecture**, not proof that all current
-Three.js-based renderer paths have already been migrated.
+change updates its source, tests, and server contracts. The shared Orbital
+simulation and connected-universe architecture is the target; this does not
+claim all route, multiplayer, or presentation lifecycles are already unified.
 
 ## Next narrative work
 

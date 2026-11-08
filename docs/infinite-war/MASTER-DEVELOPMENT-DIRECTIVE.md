@@ -144,13 +144,16 @@ and controls the current extraction order. Its code-backed companion is
 Its implementation companion is
 [`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
 
-This direction resolves the end state: **all playable modes must ultimately use
-one canonical, versioned Orbital Combat Engine.** Combat Lab remains offline and
-no-reward as its training interface, not a separate production engine. Rust
-Disc, Arcade, every campaign sortie, co-op, Iron Eclipse, all room types, Wing
-and later fleet operations are configurations of the same gameplay runtime.
-Their existing authentication, matchmaking, mission authority, account data,
-progression, reward and idempotency services remain authoritative.
+This direction resolves the gameplay end state: **all playable modes must
+ultimately use one canonical, versioned Orbital simulation and world-state
+foundation.** Three.js is the main 3D renderer and scene-runtime foundation for
+the open-universe Combat Lab game; it is not a temporary dependency to remove.
+Native Orbital WebGL2 remains a supported companion renderer. Combat Lab remains
+the training activity inside the connected game, not a separate production
+engine. Rust Disc, Arcade, campaign sorties, co-op, Iron Eclipse, room types,
+Wing, and later fleet operations are configurations/adapters over shared Orbital
+gameplay contracts. Existing authentication, matchmaking, mission authority,
+account data, progression, rewards, and idempotency services remain authoritative.
 
 This supersedes any interpretation that the legacy planar Wing or other
 mode-specific combat runtime is a permanent destination. It does **not** justify
@@ -160,12 +163,12 @@ parity and acceptance pass.
 
 ## Required integration policy
 
-1. Make Orbital Engine the sole final game and rendering runtime. Treat current
-   Three.js rendering as temporary migration infrastructure, not the target.
-   Study its useful techniques and rebuild them in Orbital; do not remove its
-   current implementation until the Orbital replacement passes parity,
-   performance, and rollback gates. See
-   [the renderer migration directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+1. Keep Three.js as the primary 3D renderer and scene runtime for the main
+   Orbital universe. Integrate it with the canonical Orbital simulation and
+   shared world state; do not remove it or treat it as techniques-only. Keep
+   native WebGL2 as a companion renderer where supported and measured. Neither
+   renderer may own a duplicate simulation or universe. See
+   [the current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 2. Migrate every mode toward the canonical orbital combat foundation; do not
    assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session

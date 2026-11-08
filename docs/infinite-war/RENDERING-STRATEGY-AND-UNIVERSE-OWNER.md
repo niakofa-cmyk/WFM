@@ -6,11 +6,14 @@
 
 WAR FOR MARS: INFINITE WAR remains one Orbital Combat Lab universe and one
 shared gameplay/simulation foundation. Keep and use both the Three.js renderer
-and the native Orbital WebGL2 renderer. Continue building the main open-universe
-Combat Lab experience primarily with its Three.js rendering path; use native
-WebGL2 as an additional renderer for supported previews, specialized views, or
-measured fallback needs. Other render helpers may be considered when they serve
-this same universe and pass compatibility and performance checks.
+and the native Orbital WebGL2 renderer. Three.js is the main 3D rendering and
+scene-runtime foundation for the infinite open universe and Combat Lab build.
+Orbital's shared simulation, world state, controls, and server authority are
+integrated with that Three.js foundation; Three.js is not merely a source of
+techniques or a temporary dependency to remove. Use native WebGL2 as an
+additional renderer for supported previews, specialized views, or measured
+fallback needs. Other render helpers may be considered when they serve this same
+universe and pass compatibility and performance checks.
 
 The renderer choice does **not** create a second game, universe, physics model,
 identity system, progression owner, or multiplayer authority. Renderers are
@@ -19,6 +22,12 @@ Three.js is not merely a temporary package to delete, and the native WebGL2
 renderer is not a separate game. Earlier documents that prohibited shipping
 Three.js are superseded on that point; their evidence about current code,
 performance testing, and staged changes remains useful.
+
+Code-splitting Three.js out of the initial menu download is a loading/performance
+boundary, not an engine-retirement plan. Keep the library in the playable game,
+load it when the 3D experience needs it, and retain bundle audits rather than
+weakening their limits. Engine choice alone does not fix authentication,
+networking, server authority, or deployment readiness.
 
 ## What the attached flight reference represents
 
@@ -94,4 +103,5 @@ physics, server packets, or reward authority.
 The earlier [Orbital-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md)
 and source documents remain available for provenance and their code/performance
 findings. Their renderer-retirement recommendation is no longer controlling.
-Do not rewrite verbatim source uploads; this file records the current correction.
+Do not rewrite verbatim source uploads; this file records the current correction
+and governs interpretation of those historical references.

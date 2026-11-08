@@ -49,9 +49,11 @@ persistent materials. Mining requires a server-owned resource ledger, location
 and tool checks, depletion/idempotency rules, and transaction-backed inventory
 settlement before it can grant anything.
 
-The Three.js lazy-loading example is not applied. It conflicts with the
-owner's Orbital-only renderer direction and would preserve a second renderer
-instead of completing that migration.
+Three.js lazy-loading is compatible with the current direction: Three.js is the
+primary 3D renderer, loaded when a flight scene needs it rather than in the
+initial menu graph. Keep this presentation optimization separate from route
+partitioning and server authority. It must not create a second universe or
+change the authenticated server's ownership of locations and actions.
 
 ## Scope boundary
 
