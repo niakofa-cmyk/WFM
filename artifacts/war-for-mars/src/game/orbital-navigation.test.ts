@@ -108,16 +108,20 @@ test("operation handoffs retain the competitive docking gate and existing specia
 test("connected entry stays within authenticated account shell while offline flight stays independent", () => {
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const lab = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
+  const warApp = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
+  const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
   assert.match(app, /path="\/universe"><AccountGameEntry universe/);
   assert.match(app, /isLoaded && isSignedIn/);
-  assert.match(app, /<OrbitalBoot \/>/);
-  assert.doesNotMatch(app, /<WarApp|<RustDiscFlight|<SectorExpedition/);
+  assert.match(app, /key=\{`\$\{userId\}:\$\{universe\}:\$\{orbital\}`\}/);
   assert.match(lab, /const HUB = `\$\{BASE\}\/universe`/);
   assert.doesNotMatch(lab, /ClerkProvider|fetch\(/);
   assert.match(lab, /useGetWorldPatrols/);
   assert.match(lab, /Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\)/);
-  assert.match(lab, /nativeDestinationAvailable = dest\.id === "cinder-ring"/);
-  assert.match(lab, /Cinder Ring is the current Orbital-native flight slice/);
+  assert.match(warApp, /useGetWorldPatrols/);
+  assert.match(warApp, /patrolDirectory: universePatrolDirectory/);
+  assert.match(warApp, /onInterceptPatrol: \(\) => \{[\s\S]*?setUniverseExpeditionMission\("universe-patrol"\)/);
+  assert.match(galaxy, /navigationDestinations.find[\s\S]*?\.canTravel/);
+  assert.match(galaxy, /if \(!current\?\.canOpen \|\| !operation \|\| directoryUnavailable\) return/);
 });
 
 test("regional patrol traffic refreshes by location and pauses safely in background", () => {

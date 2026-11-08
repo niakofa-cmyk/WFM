@@ -1,0 +1,756 @@
+import * as THREE from "three";
+import { SHIPS, type ShipId } from "./ships";
+import {
+  MARS_NIGHT_SIDE_STATION,
+  ORBITAL_MARS_CENTER,
+  RUST_DISC_RELAY,
+  UNIVERSE_RENDER_Y_OFFSET,
+} from "./orbital-universe-session";
+
+// Vehicle-only procedural assets. Nose is +Z, matching Arena's existing models.
+type Vec3Tuple = readonly [number, number, number];
+type EngineMount = readonly [number, number, number, number];
+type ArmorPanel = readonly [number, number, number, number, number, number];
+type HullBlueprint = {
+  silhouette: string;
+  cockpit: readonly [number, number, number, number, number, number];
+  profile: readonly (readonly [number, number, number])[];
+  wing: readonly (readonly [number, number])[];
+  engines: readonly EngineMount[];
+  guns: readonly Vec3Tuple[];
+  missiles: readonly Vec3Tuple[];
+  armor: readonly ArmorPanel[];
+  sensor: "dish" | "mast" | "array" | "radial";
+  ring?: "saucer" | "triple" | "split";
+};
+export type HangarInspectionView = "hull" | "engines" | "weapons";
+export type HangarDamageState = "intact" | "field" | "critical";
+export type OrbitalDamageController = {
+  update: (hull: number, hullMax: number) => HangarDamageState;
+  dispose: () => void;
+};
+export type HangarInspectionEffects = {
+  setDamage: (state: HangarDamageState) => void;
+  update: (view: HangarInspectionView, elapsedMs: number, animate: boolean) => void;
+  dispose: () => void;
+};
+export function shouldAnimateHangarPreview(visible: boolean, documentVisible: boolean, reducedMotion: boolean) {
+  return visible && documentVisible && !reducedMotion;
+}
+
+/**
+ * Applies presentation-only battle wear to a live Orbital hull. It changes no
+ * simulation values, collision geometry, targeting, or damage outcomes.
+ */
+export function createOrbitalDamageController(model: THREE.Group): OrbitalDamageController {
+  const targets = ["engine-housing-1", "primary-cannon-1", "port-armor-plate"]
+    .map((name) => model.getObjectByName(name))
+    .filter((object): object is THREE.Mesh => object instanceof THREE.Mesh);
+  const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const fieldMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const criticalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const tint = (material: THREE.Material, severity: "field" | "critical") => {
+    const damaged = material.clone();
+    if (damaged instanceof THREE.MeshStandardMaterial) {
+      damaged.color.lerp(new THREE.Color(0x6e3026), severity === "field" ? .28 : .62);
+      damaged.emissive.set(severity === "field" ? 0x5e2418 : 0xc33220);
+      damaged.emissiveIntensity = severity === "field" ? .16 : .42;
+      damaged.roughness = .82;
+    }
+    return damaged;
+  };
+  const mapMaterials = (material: THREE.Material | THREE.Material[], severity: "field" | "critical") =>
+    Array.isArray(material) ? material.map((part) => tint(part, severity)) : tint(material, severity);
+  for (const mesh of targets) {
+    originalMaterials.set(mesh, mesh.material);
+    fieldMaterials.set(mesh, mapMaterials(mesh.material, "field"));
+    criticalMaterials.set(mesh, mapMaterials(mesh.material, "critical"));
+  }
+
+  const engine = model.getObjectByName("engine-housing-1");
+  const scorch = new THREE.Mesh(
+    new THREE.RingGeometry(.09, .2, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff6848, transparent: true, opacity: .68, depthWrite: false }),
+  );
+  scorch.name = "orbital-flight-damage-scorch";
+  scorch.userData.presentationOnly = true;
+  const scorchPosition = engine
+    ? model.worldToLocal(engine.getWorldPosition(new THREE.Vector3()))
+    : new THREE.Vector3(-.45, .32, -.8);
+  scorch.position.copy(scorchPosition).add(new THREE.Vector3(0, .12, .1));
+  scorch.rotation.x = Math.PI / 2;
+  scorch.visible = false;
+  model.add(scorch);
+
+  let current: HangarDamageState = "intact";
+  const update = (hull: number, hullMax: number): HangarDamageState => {
+    const ratio = Number.isFinite(hull) && Number.isFinite(hullMax) && hullMax > 0
+      ? Math.max(0, Math.min(1, hull / hullMax))
+      : 0;
+    const next: HangarDamageState = ratio <= .25 ? "critical" : ratio <= .55 ? "field" : "intact";
+    if (next === current) return current;
+    current = next;
+    for (const mesh of targets) {
+      mesh.material = next === "intact"
+        ? originalMaterials.get(mesh)!
+        : next === "field" ? fieldMaterials.get(mesh)! : criticalMaterials.get(mesh)!;
+    }
+    scorch.visible = next !== "intact";
+    model.userData.flightDamageState = next;
+    return next;
+  };
+  model.userData.flightDamageState = current;
+  return {
+    update,
+    dispose: () => {
+      for (const mesh of targets) {
+        mesh.material = originalMaterials.get(mesh)!;
+      }
+      for (const materials of [...fieldMaterials.values(), ...criticalMaterials.values()]) {
+        (Array.isArray(materials) ? materials : [materials]).forEach((material) => material.dispose());
+      }
+      model.remove(scorch);
+      scorch.geometry.dispose();
+      (scorch.material as THREE.Material).dispose();
+      delete model.userData.flightDamageState;
+    },
+  };
+}
+
+/**
+ * Shared geometry language, individual airframes. Profile entries are
+ * [longitudinal position, half-width, half-height]; wing outlines use x/z.
+ * These are presentation meshes only and never define flight or hitbox data.
+ */
+const HULL_BLUEPRINTS: Record<ShipId, HullBlueprint> = {
+  mandjet: {
+    silhouette: "armored-vanguard",
+    cockpit: [0, .22, .24, 1.25, .82, 1.1],
+    profile: [[-1.4, .26, .28], [-1.02, .52, .39], [-.48, .66, .43], [.18, .67, .4], [.82, .52, .31], [1.34, .3, .23], [1.68, .018, .025]],
+    wing: [[.28, .4], [.94, .54], [1.58, .34], [1.46, -.4], [.96, -.55], [.3, -.38]],
+    engines: [[-.58, -.06, -.82, .21], [.58, -.06, -.82, .21], [-.28, .04, -1.08, .16], [.28, .04, -1.08, .16]],
+    guns: [[-.48, -.14, .45], [.48, -.14, .45]], missiles: [[-.98, -.18, -.36], [.98, -.18, -.36]],
+    armor: [[-.38, .29, .18, .34, .08, .34], [.38, .29, .18, .34, .08, .34], [-.84, .09, -.14, .38, .06, .28], [.84, .09, -.14, .38, .06, .28]],
+    sensor: "radial", ring: "saucer",
+  },
+  shakuna: {
+    silhouette: "needle-interceptor",
+    cockpit: [0, .16, .72, .58, .62, 1.9],
+    profile: [[-1.42, .12, .13], [-1.04, .22, .18], [-.34, .31, .23], [.42, .25, .18], [1.04, .14, .11], [1.6, .012, .02]],
+    wing: [[.22, .82], [.72, .48], [1.92, .56], [1.32, -.92], [.82, -.58], [.26, -.12]],
+    engines: [[-.3, -.02, -1.04, .155], [.3, -.02, -1.04, .155]],
+    guns: [[-.34, -.08, .5], [.34, -.08, .5]], missiles: [[-.87, -.14, -.27], [.87, -.14, -.27]],
+    armor: [[-.3, .18, .16, .2, .05, .33], [.3, .18, .16, .2, .05, .33]],
+    sensor: "mast",
+  },
+  sundara: {
+    silhouette: "stealth-strike-wing",
+    cockpit: [0, .16, .88, .58, .48, 1.7],
+    profile: [[-1.48, .2, .17], [-1.02, .45, .31], [-.4, .56, .35], [.28, .48, .29], [.94, .32, .2], [1.5, .024, .035]],
+    wing: [[.24, .52], [.62, .39], [1.62, .54], [1.95, .1], [1.54, -.42], [.82, -.7], [.25, -.38]],
+    engines: [[-.62, -.1, -.86, .22], [.62, -.1, -.86, .22]],
+    guns: [[-.43, -.15, .44], [.43, -.15, .44], [0, .08, .82]], missiles: [[-.82, -.18, -.38], [-.35, -.2, -.58], [.35, -.2, -.58], [.82, -.18, -.38]],
+    armor: [[-.32, .28, -.02, .28, .07, .42], [.32, .28, -.02, .28, .07, .42], [0, -.24, -.55, .72, .1, .34]],
+    sensor: "dish",
+  },
+  tripura: {
+    silhouette: "trinity-ring-support",
+    cockpit: [0, .25, .5, 1.05, .76, 1.35],
+    profile: [[-1.34, .2, .19], [-.96, .4, .29], [-.38, .54, .3], [.12, .45, .26], [.78, .32, .2], [1.46, .018, .025]],
+    wing: [[.24, .48], [1.34, .82], [1.72, .28], [1.32, -.62], [.86, -.82], [.24, -.48]],
+    engines: [[-.55, -.2, -.82, .13], [.55, -.2, -.82, .13], [-.55, .2, -.82, .13], [.55, .2, -.82, .13]],
+    guns: [[-.4, -.12, .42], [.4, -.12, .42]], missiles: [[-.94, -.18, -.28], [.94, -.18, -.28]],
+    armor: [[-.3, .26, .04, .3, .06, .32], [.3, .26, .04, .3, .06, .32]],
+    sensor: "radial", ring: "triple",
+  },
+  duskbreaker: {
+    silhouette: "precision-dart",
+    cockpit: [0, .2, .74, .72, .65, 1.8],
+    profile: [[-1.4, .17, .16], [-1.02, .31, .24], [-.42, .4, .29], [.22, .34, .24], [.92, .22, .16], [1.58, .014, .024]],
+    wing: [[.22, .74], [.82, .36], [1.68, -.76], [.98, -.56], [.3, -.25]],
+    engines: [[-.35, -.04, -1.02, .18], [.35, -.04, -1.02, .18]],
+    guns: [[-.4, -.1, .56], [.4, -.1, .56]], missiles: [[-.77, -.15, -.26], [.77, -.15, -.26]],
+    armor: [[-.28, .23, .12, .22, .05, .38], [.28, .23, .12, .22, .05, .38]],
+    sensor: "array",
+  },
+  sentinel: {
+    silhouette: "armored-escort-wing",
+    cockpit: [0, .27, .56, 1.32, .82, 1.28],
+    profile: [[-1.35, .28, .25], [-.98, .5, .37], [-.38, .58, .42], [.3, .57, .38], [.84, .42, .29], [1.42, .17, .15], [1.65, .014, .02]],
+    wing: [[.3, .56], [1.18, 1.02], [1.92, .72], [1.82, -.65], [1.14, -1.04], [.3, -.58]],
+    engines: [[-.72, -.08, -.88, .18], [.72, -.08, -.88, .18], [-.72, .17, -.67, .12], [.72, .17, -.67, .12]],
+    guns: [[-.58, -.16, .44], [.58, -.16, .44], [-1.08, -.12, .08], [1.08, -.12, .08]],
+    missiles: [[-.98, -.2, -.36], [.98, -.2, -.36]],
+    armor: [[-.4, .32, .04, .42, .1, .42], [.4, .32, .04, .42, .1, .42], [-1.18, .1, -.02, .3, .08, .34], [1.18, .1, -.02, .3, .08, .34]],
+    sensor: "array",
+  },
+  splitter: {
+    silhouette: "split-ring-hunter",
+    cockpit: [0, .22, .65, .8, .68, 1.45],
+    profile: [[-1.34, .18, .17], [-.96, .32, .25], [-.34, .43, .29], [.24, .39, .26], [.92, .22, .16], [1.48, .018, .024]],
+    wing: [[.24, .45], [1.38, .72], [1.88, .02], [1.42, -.72], [.88, -.82], [.24, -.44]],
+    engines: [[0, -.04, -1.08, .23], [-.86, -.1, -.56, .11], [.86, -.1, -.56, .11]],
+    guns: [[-.44, -.1, .48], [.44, -.1, .48]], missiles: [[-.9, -.16, -.27], [.9, -.16, -.27]],
+    armor: [[-.32, .23, .02, .26, .06, .38], [.32, .23, .02, .26, .06, .38]],
+    sensor: "dish", ring: "split",
+  },
+  glide: {
+    silhouette: "swept-raider",
+    cockpit: [0, .17, .82, .6, .52, 1.82],
+    profile: [[-1.5, .12, .13], [-1.04, .22, .18], [-.46, .29, .21], [.18, .28, .18], [.88, .17, .12], [1.56, .012, .02]],
+    wing: [[.21, .82], [1.94, .3], [1.18, -1.18], [.68, -.82], [.22, -.31]],
+    engines: [[-.3, -.02, -1.05, .145], [.3, -.02, -1.05, .145]],
+    guns: [[-.34, -.08, .53], [.34, -.08, .53]], missiles: [[-.8, -.13, -.22], [.8, -.13, -.22]],
+    armor: [[-.26, .17, .16, .16, .045, .34], [.26, .17, .16, .16, .045, .34]],
+    sensor: "mast",
+  },
+  wasp: {
+    silhouette: "high-sweep-interceptor",
+    cockpit: [0, .15, .76, .48, .48, 1.72],
+    profile: [[-1.38, .1, .12], [-.92, .24, .2], [-.26, .31, .21], [.45, .22, .16], [1.12, .12, .1], [1.58, .012, .02]],
+    wing: [[.24, .66], [.76, .5], [2.04, .82], [1.52, -.75], [.88, -.52], [.23, -.22]],
+    engines: [[-.36, -.03, -1.03, .15], [.36, -.03, -1.03, .15]],
+    guns: [[-.32, -.08, .56], [.32, -.08, .56]], missiles: [[-.74, -.14, -.24], [-.48, -.14, -.3], [.48, -.14, -.3], [.74, -.14, -.24]],
+    armor: [[-.32, .16, .14, .2, .045, .32], [.32, .16, .14, .2, .045, .32]],
+    sensor: "mast",
+  },
+  valiant: {
+    silhouette: "balanced-multirole-wing",
+    cockpit: [0, .18, .62, .66, .54, 1.58],
+    profile: [[-1.42, .17, .16], [-.98, .34, .25], [-.38, .42, .29], [.28, .38, .25], [.92, .25, .17], [1.5, .015, .025]],
+    wing: [[.24, .58], [.82, .52], [1.46, .7], [1.68, .05], [1.18, -.67], [.62, -.58], [.22, -.32]],
+    engines: [[-.42, -.06, -.98, .17], [.42, -.06, -.98, .17]],
+    guns: [[-.42, -.1, .47], [.42, -.1, .47]], missiles: [[-.86, -.16, -.28], [.86, -.16, -.28]],
+    armor: [[-.32, .23, .04, .26, .06, .36], [.32, .23, .04, .26, .06, .36]],
+    sensor: "array",
+  },
+  aegis: {
+    silhouette: "missile-defense-escort",
+    cockpit: [0, .25, .52, 1.22, .72, 1.26],
+    profile: [[-1.3, .26, .24], [-.9, .5, .36], [-.36, .62, .42], [.3, .6, .38], [.84, .4, .28], [1.42, .14, .14], [1.62, .014, .02]],
+    wing: [[.28, .55], [1.22, 1.12], [2.0, .76], [1.9, -.68], [1.18, -1.1], [.3, -.55]],
+    engines: [[-.72, -.08, -.9, .16], [.72, -.08, -.9, .16], [-.72, .17, -.7, .12], [.72, .17, -.7, .12]],
+    guns: [[-.62, -.14, .48], [.62, -.14, .48], [-1.14, -.11, .08], [1.14, -.11, .08]],
+    missiles: [[-.96, -.18, -.34], [-.62, -.2, -.42], [.62, -.2, -.42], [.96, -.18, -.34]],
+    armor: [[-.4, .32, .04, .42, .1, .42], [.4, .32, .04, .42, .1, .42], [-1.2, .1, -.02, .3, .08, .34], [1.2, .1, -.02, .3, .08, .34]],
+    sensor: "array",
+  },
+  bastion: {
+    silhouette: "armored-assault-gunship",
+    cockpit: [0, .29, .47, 1.32, .82, 1.2],
+    profile: [[-1.28, .33, .28], [-.94, .57, .43], [-.38, .68, .48], [.35, .66, .44], [.88, .49, .34], [1.38, .24, .2], [1.62, .018, .025]],
+    wing: [[.3, .56], [1.24, .98], [1.88, .68], [1.92, -.58], [1.16, -1.04], [.3, -.62]],
+    engines: [[-.58, -.1, -.86, .22], [.58, -.1, -.86, .22], [-.98, -.04, -.46, .15], [.98, -.04, -.46, .15]],
+    guns: [[-.66, -.16, .5], [.66, -.16, .5], [-.28, -.22, .78], [.28, -.22, .78]],
+    missiles: [[-.98, -.19, -.31], [-.52, -.22, -.45], [.52, -.22, -.45], [.98, -.19, -.31]],
+    armor: [[-.43, .34, .08, .46, .11, .43], [.43, .34, .08, .46, .11, .43], [-1.22, .12, -.02, .32, .09, .38], [1.22, .12, -.02, .32, .09, .38]],
+    sensor: "mast",
+  },
+  apep: {
+    silhouette: "stealth-manta-hunter",
+    cockpit: [0, .17, .86, .5, .42, 1.65],
+    profile: [[-1.48, .12, .13], [-1.02, .34, .23], [-.38, .48, .28], [.22, .46, .24], [.88, .3, .17], [1.48, .016, .024]],
+    wing: [[.22, .52], [.56, .37], [1.88, .58], [1.68, -.02], [1.18, -.65], [.56, -.54], [.22, -.3]],
+    engines: [[-.48, -.08, -.98, .19], [.48, -.08, -.98, .19]],
+    guns: [[-.38, -.12, .5], [.38, -.12, .5]], missiles: [[-.82, -.16, -.33], [-.42, -.18, -.48], [.42, -.18, -.48], [.82, -.16, -.33]],
+    armor: [[-.32, .24, .02, .29, .055, .42], [.32, .24, .02, .29, .055, .42], [0, -.16, -.48, .58, .08, .4]],
+    sensor: "dish",
+  },
+  sekhmet: {
+    silhouette: "bronze-siege-lance",
+    cockpit: [0, .27, .42, 1.16, .72, 1.14],
+    profile: [[-1.38, .31, .27], [-.98, .54, .4], [-.4, .66, .46], [.24, .62, .4], [.82, .44, .3], [1.46, .22, .18], [1.66, .016, .024]],
+    wing: [[.28, .54], [1.18, .96], [1.74, .54], [1.62, -.55], [1.06, -.92], [.28, -.56]],
+    engines: [[-.62, -.08, -.9, .21], [.62, -.08, -.9, .21], [-.26, .06, -1.08, .16], [.26, .06, -1.08, .16]],
+    guns: [[-.44, -.18, .68], [0, -.12, .98], [.44, -.18, .68]], missiles: [[-.94, -.19, -.32], [.94, -.19, -.32]],
+    armor: [[-.42, .32, .04, .42, .1, .42], [.42, .32, .04, .42, .1, .42], [0, -.25, -.52, .76, .12, .37]],
+    sensor: "radial",
+  },
+  garuda: {
+    silhouette: "tri-wing-swarm-interceptor",
+    cockpit: [0, .16, .74, .52, .48, 1.68],
+    profile: [[-1.42, .11, .13], [-.98, .24, .19], [-.34, .31, .22], [.36, .25, .17], [1.02, .14, .11], [1.56, .014, .02]],
+    wing: [[.22, .58], [.72, .46], [1.68, .82], [1.4, .16], [1.92, -.5], [.86, -.56], [.22, -.26]],
+    engines: [[-.34, -.02, -1.02, .145], [.34, -.02, -1.02, .145], [-.86, -.03, -.64, .11], [.86, -.03, -.64, .11]],
+    guns: [[-.34, -.08, .52], [.34, -.08, .52]], missiles: [[-.98, -.15, -.28], [-.68, -.17, -.38], [-.36, -.17, -.44], [.36, -.17, -.44], [.68, -.17, -.38], [.98, -.15, -.28]],
+    armor: [[-.28, .17, .13, .2, .045, .3], [.28, .17, .13, .2, .045, .3]],
+    sensor: "mast",
+  },
+  vajra: {
+    silhouette: "radial-electronic-warfare-support",
+    cockpit: [0, .24, .48, 1.12, .76, 1.3],
+    profile: [[-1.36, .22, .2], [-.96, .42, .3], [-.38, .52, .34], [.25, .48, .3], [.82, .32, .22], [1.48, .018, .025]],
+    wing: [[.24, .48], [1.02, .92], [1.78, .55], [1.68, -.5], [1.02, -.88], [.24, -.48]],
+    engines: [[-.54, -.08, -.9, .16], [.54, -.08, -.9, .16]],
+    guns: [[-.44, -.12, .48], [.44, -.12, .48], [-.92, -.1, .04], [.92, -.1, .04]],
+    missiles: [[-.86, -.17, -.3], [.86, -.17, -.3]],
+    armor: [[-.33, .27, .04, .32, .075, .38], [.33, .27, .04, .32, .075, .38]],
+    sensor: "radial",
+  },
+};
+
+function makeFuselage(profile: HullBlueprint["profile"]) {
+  const sides = 10;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (const [z, rx, ry] of profile) {
+    for (let side = 0; side < sides; side++) {
+      const angle = side / sides * Math.PI * 2;
+      positions.push(Math.cos(angle) * rx, Math.sin(angle) * ry, z);
+    }
+  }
+  for (let ring = 0; ring < profile.length - 1; ring++) {
+    for (let side = 0; side < sides; side++) {
+      const a = ring * sides + side;
+      const b = ring * sides + (side + 1) % sides;
+      const c = (ring + 1) * sides + side;
+      const d = (ring + 1) * sides + (side + 1) % sides;
+      indices.push(a, b, c, b, d, c);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+export function buildOrbitalShip(id: ShipId) {
+  const group = new THREE.Group();
+  const ship = SHIPS[id];
+  const blueprint = HULL_BLUEPRINTS[id];
+  const accord = ship.faction === "accord";
+  const factionColor = accord ? 0xe6a34c : 0x57b9ee;
+  const body = new THREE.MeshStandardMaterial({
+    color: accord ? 0x88603b : 0x8297a5, roughness: accord ? .33 : .4, metalness: .76,
+  });
+  const armor = new THREE.MeshStandardMaterial({ color: accord ? 0x3b2b22 : 0x273541, roughness: .43, metalness: .68 });
+  const trim = new THREE.MeshStandardMaterial({ color: accord ? 0xe7bf7e : 0xb8cbd5, roughness: .28, metalness: .74 });
+  const marking = new THREE.MeshStandardMaterial({ color: factionColor, emissive: factionColor, emissiveIntensity: .22, roughness: .34, metalness: .54 });
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0x143c4d, emissive: accord ? 0x84451e : 0x276480, emissiveIntensity: .45, metalness: .7, roughness: .12,
+  });
+  const hot = new THREE.MeshStandardMaterial({
+    color: accord ? 0xffb64f : 0x8ddcfa, emissive: accord ? 0xff7d20 : 0x38b9ed, emissiveIntensity: 2.8, roughness: .2,
+  });
+  const add = (name: string, geometry: THREE.BufferGeometry, material: THREE.Material, at: Vec3Tuple) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(...at);
+    mesh.userData.role = name;
+    mesh.userData.baseE = (material as THREE.MeshStandardMaterial).emissiveIntensity ?? 0;
+    group.add(mesh);
+    return mesh;
+  };
+  const tagDamageGroup = (mesh: THREE.Mesh, groupName: string) => {
+    mesh.userData.hangarDamageGroup = groupName;
+    return mesh;
+  };
+
+  const fuse = add("fuselage", makeFuselage(blueprint.profile), body, [0, 0, 0]);
+  fuse.userData.silhouette = blueprint.silhouette;
+
+  // The cockpit, sensor fit and stern structure vary with each airframe.
+  const [cockpitX, cockpitY, cockpitZ, canopyX, canopyY, canopyZ] = blueprint.cockpit;
+  const canopy = add("cockpit-canopy", new THREE.SphereGeometry(.23, 12, 8), glass, [cockpitX, cockpitY, cockpitZ]);
+  canopy.scale.set(canopyX, canopyY, canopyZ);
+  if (blueprint.sensor === "dish") {
+    const stem = add("sensor-stem", new THREE.CylinderGeometry(.025, .04, .24, 6), trim, [0, .34, -.16]);
+    stem.rotation.x = .18;
+    const dish = add("sensor-dish", new THREE.CylinderGeometry(.12, .055, .045, 12), trim, [0, .47, -.12]);
+    dish.rotation.x = Math.PI / 2;
+  } else if (blueprint.sensor === "mast") {
+    add("sensor-mast", new THREE.CylinderGeometry(.018, .04, .42, 6), trim, [0, .31, -.38]);
+    add("sensor-beacon", new THREE.SphereGeometry(.075, 8, 6), marking, [0, .53, -.38]);
+  } else if (blueprint.sensor === "array") {
+    add("sensor-array-left", new THREE.BoxGeometry(.22, .055, .3), trim, [-.28, .27, -.2]);
+    add("sensor-array-right", new THREE.BoxGeometry(.22, .055, .3), trim, [.28, .27, -.2]);
+    add("sensor-beacon", new THREE.SphereGeometry(.06, 8, 6), marking, [0, .34, -.17]);
+  } else {
+    add("radial-sensor", new THREE.TorusGeometry(.15, .027, 6, 18), marking, [0, .14, -.28]);
+    add("radial-core", new THREE.SphereGeometry(.08, 8, 6), trim, [0, .14, -.28]);
+  }
+
+  const wingShape = new THREE.Shape();
+  blueprint.wing.forEach(([x, z], index) => {
+    if (index === 0) wingShape.moveTo(x, z);
+    else wingShape.lineTo(x, z);
+  });
+  wingShape.closePath();
+  for (const side of [-1, 1] as const) {
+    const plate = add(
+      side < 0 ? "port-wing" : "starboard-wing",
+      new THREE.ExtrudeGeometry(wingShape, { depth: .075, bevelEnabled: true, bevelThickness: .018, bevelSize: .022, bevelSegments: 1 }),
+      body,
+      [0, -.035, 0],
+    );
+    plate.geometry.translate(0, 0, -.0375);
+    plate.scale.x = side;
+    plate.rotation.x = Math.PI / 2;
+
+    // Modular armor breaks up the wings and gives the faction silhouette detail.
+    for (const [x, y, z, sx, sy, sz] of blueprint.armor) {
+      if (Math.sign(x || side) !== side) continue;
+      const panel = add(side < 0 ? "port-armor-plate" : "starboard-armor-plate", new THREE.BoxGeometry(sx, sy, sz), armor, [x, y, z]);
+      panel.rotation.y = side * .12;
+      tagDamageGroup(panel, side < 0 ? "armor-port" : "armor-starboard");
+    }
+
+    const stripe = add(
+      side < 0 ? "port-faction-marking" : "starboard-faction-marking",
+      new THREE.BoxGeometry(.22, .018, .13),
+      marking,
+      [side * 1.22, .025, -.26],
+    );
+    stripe.rotation.y = side * -.22;
+  }
+
+  // Engine count and placement are role-specific: twin, central, distributed,
+  // and four-pod escort layouts all remain within the original fighter envelope.
+  for (const [index, [x, y, z, radius]] of blueprint.engines.entries()) {
+    const damageGroup = `engine-${index + 1}`;
+    const engine = tagDamageGroup(add(`engine-housing-${index + 1}`, new THREE.CylinderGeometry(radius * .78, radius, .64, 10), armor, [x, y, z]), damageGroup);
+    engine.rotation.x = Math.PI / 2;
+    const collar = tagDamageGroup(add(`engine-collar-${index + 1}`, new THREE.TorusGeometry(radius * .72, .028, 6, 12), trim, [x, y, z - .34]), damageGroup);
+    const exhaust = tagDamageGroup(add(`engine-exhaust-${index + 1}`, new THREE.CircleGeometry(radius * .58, 10), hot, [x, y, z - .35]), damageGroup);
+    exhaust.rotation.y = Math.PI;
+    exhaust.name = index === 0 ? "exhaust" : `exhaust-${index + 1}`;
+    const nozzle = tagDamageGroup(add(`engine-nozzle-${index + 1}`, new THREE.SphereGeometry(radius * .38, 8, 6), hot, [x, y, z - .47]), damageGroup);
+    nozzle.scale.z = 1.8;
+    collar.userData.engineIndex = index;
+  }
+
+  for (const [index, [x, y, z]] of blueprint.guns.entries()) {
+    const damageGroup = `weapon-${index + 1}`;
+    const mount = tagDamageGroup(add(`weapon-hardpoint-${index + 1}`, new THREE.BoxGeometry(.12, .09, .17), armor, [x, y, z - .16]), damageGroup);
+    mount.rotation.y = x < 0 ? -.12 : .12;
+    const barrel = tagDamageGroup(add(`primary-cannon-${index + 1}`, new THREE.CylinderGeometry(.034, .058, .48, 8), trim, [x, y, z]), damageGroup);
+    barrel.rotation.x = Math.PI / 2;
+  }
+  for (const [index, [x, y, z]] of blueprint.missiles.entries()) {
+    const damageGroup = `missile-${index + 1}`;
+    const rail = tagDamageGroup(add(`missile-rail-${index + 1}`, new THREE.BoxGeometry(.16, .065, .38), armor, [x, y - .08, z]), damageGroup);
+    rail.rotation.y = x < 0 ? -.08 : .08;
+    const missile = tagDamageGroup(add(`missile-round-${index + 1}`, new THREE.CylinderGeometry(.045, .075, .42, 8), trim, [x, y - .16, z + .04]), damageGroup);
+    missile.rotation.x = Math.PI / 2;
+    tagDamageGroup(add(`missile-nose-${index + 1}`, new THREE.ConeGeometry(.052, .15, 8), marking, [x, y - .16, z + .325]), damageGroup);
+  }
+
+  // Three unobtrusive docking points make the hull read as a spacecraft, not
+  // only a flying silhouette. They are visual fittings, not collision gear.
+  for (const [index, [x, y, z]] of [[-.36, -.3, -.5], [.36, -.3, -.5], [0, -.27, -1.05] as Vec3Tuple].entries()) {
+    add(`docking-strut-${index + 1}`, new THREE.CylinderGeometry(.025, .04, .2, 6), trim, [x, y, z]);
+    add(`docking-pad-${index + 1}`, new THREE.BoxGeometry(.18, .035, .22), armor, [x, y - .11, z]);
+  }
+
+  if (blueprint.ring === "saucer") {
+    const saucer = add("vanguard-saucer-armor", new THREE.CylinderGeometry(.98, .84, .16, 32), body, [0, -.02, .12]);
+    saucer.rotation.x = Math.PI / 2;
+    add("solar-rim", new THREE.TorusGeometry(.82, .065, 8, 40), marking, [0, .025, .22]);
+    add("inner-armor-ring", new THREE.TorusGeometry(.54, .028, 6, 32), trim, [0, .045, .22]);
+  } else if (blueprint.ring === "triple") {
+    for (let index = 0; index < 3; index++) {
+      add(`trinity-ring-${index + 1}`, new THREE.TorusGeometry(.62 + index * .22, .035, 6, 32), index === 1 ? marking : trim, [0, .02 + index * .055, -.18]);
+    }
+  } else if (blueprint.ring === "split") {
+    const portArc = add("split-ring-port", new THREE.TorusGeometry(.82, .052, 7, 32, Math.PI * 1.62), marking, [-.02, .04, -.22]);
+    const starboardArc = add("split-ring-starboard", new THREE.TorusGeometry(.82, .052, 7, 32, Math.PI * 1.62), trim, [.02, -.04, -.22]);
+    starboardArc.rotation.z = Math.PI;
+    portArc.rotation.z = Math.PI * .04;
+  }
+
+  group.userData.asset = `wfm-orbital-${id}`;
+  group.userData.presentationOnly = true;
+  group.userData.silhouette = blueprint.silhouette;
+  group.userData.faction = ship.faction;
+  group.userData.designLanguage = accord ? "accord-energy-forged" : "ussf-modular-military";
+  group.userData.engineCount = blueprint.engines.length;
+  group.userData.weaponHardpoints = blueprint.guns.length;
+  group.userData.missileRails = blueprint.missiles.length;
+  group.userData.sensorFit = blueprint.sensor;
+  group.userData.primaryWeaponFit = ship.primaryFit;
+  group.userData.missileFit = ship.missileFit;
+  group.userData.missileAmmo = ship.missileAmmo;
+  group.userData.missileDamage = ship.missileDamage;
+  group.userData.specialAbility = ship.ultName;
+  return group;
+}
+
+/**
+ * Adds hangar-only inspection effects to one presentation model. These meshes
+ * are never shared with the gameplay scene and do not change ship stats or hitboxes.
+ */
+export function createHangarInspectionEffects(model: THREE.Group, factionColor: number): HangarInspectionEffects {
+  const damageableNames = ["engine-housing-1", "primary-cannon-1", "port-armor-plate"];
+  const damageable = damageableNames
+    .map((name) => model.getObjectByName(name))
+    .filter((object): object is THREE.Mesh => object instanceof THREE.Mesh);
+  const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const damagedMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const makeDamagedMaterial = (material: THREE.Material) => {
+    const damaged = material.clone();
+    if (damaged instanceof THREE.MeshStandardMaterial) {
+      damaged.color.lerp(new THREE.Color(0x6e3026), .48);
+      damaged.emissive.set(0x9e2f1d);
+      damaged.emissiveIntensity = Math.max(damaged.emissiveIntensity, .42);
+      damaged.roughness = .78;
+    }
+    return damaged;
+  };
+  for (const mesh of damageable) {
+    const original = mesh.material;
+    originalMaterials.set(mesh, original);
+    damagedMaterials.set(
+      mesh,
+      Array.isArray(original) ? original.map(makeDamagedMaterial) : makeDamagedMaterial(original),
+    );
+  }
+
+  const originalVisibility = new Map<THREE.Object3D, boolean>();
+  const allParts: THREE.Object3D[] = [];
+  model.traverse((object) => {
+    if (!object.userData.hangarDamageGroup) return;
+    allParts.push(object);
+    originalVisibility.set(object, object.visible);
+  });
+
+  const engineSocket = model.getObjectByName("engine-housing-1");
+  const scorch = new THREE.Mesh(
+    new THREE.RingGeometry(.075, .17, 10),
+    new THREE.MeshBasicMaterial({ color: 0xff6848, transparent: true, opacity: .78, depthWrite: false }),
+  );
+  scorch.name = "hangar-inspection-scorch";
+  scorch.userData.presentationOnly = true;
+  if (engineSocket) {
+    scorch.position.copy(engineSocket.position);
+    scorch.position.y += .12;
+  } else {
+    scorch.position.set(-.45, .2, -.8);
+  }
+  scorch.rotation.x = -Math.PI / 2;
+  scorch.visible = false;
+  model.add(scorch);
+
+  model.updateMatrixWorld(true);
+  const cannons: THREE.Mesh[] = [];
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.name.startsWith("primary-cannon-")) cannons.push(object);
+  });
+  const muzzlePositions: number[] = [];
+  for (const cannon of cannons) {
+    const muzzle = cannon.localToWorld(new THREE.Vector3(0, .27, 0));
+    model.worldToLocal(muzzle);
+    muzzlePositions.push(muzzle.x, muzzle.y, muzzle.z);
+  }
+  const flashGeometry = new THREE.BufferGeometry();
+  flashGeometry.setAttribute("position", new THREE.Float32BufferAttribute(muzzlePositions, 3));
+  const flashMaterial = new THREE.PointsMaterial({
+    color: factionColor,
+    size: 8,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const muzzleFlashes = new THREE.Points(flashGeometry, flashMaterial);
+  muzzleFlashes.name = "hangar-weapon-preview-flashes";
+  muzzleFlashes.userData.presentationOnly = true;
+  muzzleFlashes.frustumCulled = false;
+  muzzleFlashes.visible = false;
+  model.add(muzzleFlashes);
+
+  const exhausts: Array<{ mesh: THREE.Mesh; scale: THREE.Vector3 }> = [];
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.name.startsWith("exhaust")) {
+      exhausts.push({ mesh: object, scale: object.scale.clone() });
+    }
+  });
+  const criticalMissingGroups = new Set(["engine-1", "weapon-1", "missile-1", "armor-port"]);
+
+  const setDamage = (state: HangarDamageState) => {
+    for (const [object, visible] of originalVisibility) object.visible = visible;
+    for (const mesh of damageable) {
+      mesh.material = state === "intact" ? originalMaterials.get(mesh)! : damagedMaterials.get(mesh)!;
+    }
+    if (state === "critical") {
+      for (const object of allParts) {
+        if (criticalMissingGroups.has(String(object.userData.hangarDamageGroup))) object.visible = false;
+      }
+      const firstMissile = model.getObjectByName("missile-round-1");
+      const firstNose = model.getObjectByName("missile-nose-1");
+      if (firstMissile) firstMissile.visible = false;
+      if (firstNose) firstNose.visible = false;
+    }
+    scorch.visible = state !== "intact";
+    model.userData.hangarDamageState = state;
+  };
+
+  const update = (view: HangarInspectionView, elapsedMs: number, animate: boolean) => {
+    const clock = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+    const animateEngines = animate && view === "engines";
+    exhausts.forEach(({ mesh, scale }, index) => {
+      const pulse = animateEngines ? .88 + .2 * (.5 + .5 * Math.sin(clock * .007 + index * .55)) : 1;
+      mesh.scale.copy(scale).multiplyScalar(pulse);
+    });
+
+    const phase = clock % 920;
+    const flash = animate && view === "weapons" && phase < 115 ? 1 - phase / 115 : 0;
+    muzzleFlashes.visible = flash > .015;
+    flashMaterial.opacity = flash * .9;
+  };
+  const dispose = () => {
+    setDamage("intact");
+    for (const materials of damagedMaterials.values()) {
+      (Array.isArray(materials) ? materials : [materials]).forEach((material) => material.dispose());
+    }
+  };
+
+  setDamage("intact");
+  update("hull", 0, false);
+  model.userData.hangarInspectionEffectCount = 2;
+  model.userData.hangarWeaponFlashCount = cannons.length;
+  return { setDamage, update, dispose };
+}
+
+function planetTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024; canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas texture support is required for the orbital environment.");
+  ctx.fillStyle = "#9a4f30"; ctx.fillRect(0, 0, 1024, 512);
+  let seed = 1938;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let i = 0; i < 14000; i++) {
+    const x = random() * 1024; const y = random() * 512; const r = 1 + random() * 22;
+    ctx.fillStyle = i % 3 ? "rgba(41,20,15,.035)" : "rgba(232,161,101,.045)";
+    ctx.beginPath(); ctx.ellipse(x, y, r * 1.7, r * .55, -.15, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 180; i++) {
+    const x = random() * 1024; const y = 25 + random() * 462; const r = 1 + random() * 9;
+    ctx.strokeStyle = "rgba(244,181,121,.25)"; ctx.lineWidth = .8;
+    ctx.beginPath(); ctx.ellipse(x, y, r * 1.4, r, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "rgba(50,25,15,.17)"; ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace; texture.wrapS = THREE.RepeatWrapping;
+  return texture;
+}
+
+export function addOrbitalEnvironment(scene: THREE.Scene) {
+  const systemFrame = new THREE.Group();
+  systemFrame.name = "mars-local-system";
+  const background = new THREE.Group();
+  background.name = "orbital-starfield";
+  const texture = planetTexture();
+  const bump = texture.clone();
+  bump.colorSpace = THREE.NoColorSpace;
+  bump.needsUpdate = true;
+  const mars = new THREE.Mesh(new THREE.SphereGeometry(65, 80, 48), new THREE.MeshStandardMaterial({ map: texture, bumpMap: bump, bumpScale: .6, roughness: .96, metalness: 0 }));
+  mars.position.set(ORBITAL_MARS_CENTER.x, ORBITAL_MARS_CENTER.y, ORBITAL_MARS_CENTER.z); mars.rotation.z = .3;
+  systemFrame.add(mars);
+  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(66.3, 64, 40), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+    vertexShader: `varying vec3 n; varying vec3 v; void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}`,
+    fragmentShader: `varying vec3 n;varying vec3 v;void main(){float f=pow(1.-abs(dot(normalize(n),normalize(v))),3.);gl_FragColor=vec4(.65,.22,.08,f*.6);}`,
+  }));
+  atmosphere.position.copy(mars.position); systemFrame.add(atmosphere);
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 24), new THREE.MeshStandardMaterial({ color: 0x77716d, roughness: 1 }));
+  moon.position.set(100, 50, -210); systemFrame.add(moon);
+  const dust = new THREE.BufferGeometry();
+  const positions = new Float32Array(1800 * 3);
+  for (let i = 0; i < 1800; i++) {
+    const a = i * 2.399963; const y = 1 - (i / 1799) * 2; const radius = Math.sqrt(1 - y * y);
+    positions.set([Math.cos(a) * radius * 410, y * 410, Math.sin(a) * radius * 410], i * 3);
+  }
+  dust.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  background.add(new THREE.Points(dust, new THREE.PointsMaterial({ color: 0xc0d4e1, size: .45, sizeAttenuation: true })));
+  const station = new THREE.Group();
+  const silver = new THREE.MeshStandardMaterial({ color: 0x68717a, metalness: .8, roughness: .45 });
+  for (let i = 0; i < 3; i++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(9 + i * 2, .25, 12, 96), silver);
+    ring.rotation.x = i * .12; station.add(ring);
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    const module = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 5, 20), silver);
+    module.position.set(Math.sin(a) * 11, Math.cos(a) * 11, 0); module.rotation.z = -a;
+    station.add(module);
+  }
+  station.position.set(65, 17, -110); station.rotation.y = -.4; systemFrame.add(station);
+  station.name = "cinder-ring-station";
+
+  const relay = new THREE.Group();
+  relay.name = "rust-disc-relay";
+  const relayMetal = new THREE.MeshStandardMaterial({ color: 0x77634e, metalness: .72, roughness: .62 });
+  const relayDark = new THREE.MeshStandardMaterial({ color: 0x272e35, metalness: .58, roughness: .72 });
+  const relaySignal = new THREE.MeshBasicMaterial({ color: 0xe0a15a });
+  const relaySpine = new THREE.Mesh(new THREE.BoxGeometry(12, 3.2, 5), relayDark);
+  relay.add(relaySpine);
+  const relayMast = new THREE.Mesh(new THREE.CylinderGeometry(.55, .9, 12, 8), relayMetal);
+  relayMast.position.set(0, 7, 0);
+  relay.add(relayMast);
+  const relayDish = new THREE.Group();
+  relayDish.position.set(0, 12, 0);
+  relayDish.rotation.x = -.38;
+  const reflector = new THREE.Mesh(new THREE.SphereGeometry(4.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), relayMetal);
+  reflector.scale.y = .24;
+  relayDish.add(reflector);
+  const dishRim = new THREE.Mesh(new THREE.TorusGeometry(4.2, .18, 6, 24), relaySignal);
+  dishRim.rotation.x = Math.PI / 2;
+  relayDish.add(dishRim);
+  relay.add(relayDish);
+  for (const side of [-1, 1]) {
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(15, .28, .55), relayMetal);
+    strut.position.set(side * 10, 0, 0);
+    strut.rotation.z = side * -.12;
+    relay.add(strut);
+    const solarPanel = new THREE.Mesh(new THREE.BoxGeometry(7, .16, 3.4), new THREE.MeshStandardMaterial({
+      color: 0x1b4052, emissive: 0x123044, emissiveIntensity: .45, metalness: .4, roughness: .48,
+    }));
+    solarPanel.position.set(side * 16, 0, 0);
+    relay.add(solarPanel);
+  }
+  relay.position.set(RUST_DISC_RELAY.position.x, RUST_DISC_RELAY.position.y + UNIVERSE_RENDER_Y_OFFSET, RUST_DISC_RELAY.position.z);
+  systemFrame.add(relay);
+
+  const nightStation = new THREE.Group();
+  nightStation.name = "mars-night-side-station";
+  const nightHull = new THREE.MeshStandardMaterial({ color: 0x57616c, metalness: .78, roughness: .5 });
+  const nightRing = new THREE.Mesh(new THREE.TorusGeometry(7, .55, 8, 40), nightHull);
+  nightStation.add(nightRing);
+  const nightHub = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.4, 8, 10), nightHull);
+  nightStation.add(nightHub);
+  for (let i = 0; i < 4; i++) {
+    const angle = i * Math.PI / 2;
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.4, 3.2), nightHull);
+    pod.position.set(Math.cos(angle) * 8, Math.sin(angle) * 8, 0);
+    pod.rotation.z = angle;
+    nightStation.add(pod);
+  }
+  const nightBeacon = new THREE.Mesh(new THREE.SphereGeometry(.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff8b54 }));
+  nightBeacon.position.set(0, 0, 3);
+  nightStation.add(nightBeacon);
+  nightStation.position.set(
+    MARS_NIGHT_SIDE_STATION.position.x,
+    MARS_NIGHT_SIDE_STATION.position.y + UNIVERSE_RENDER_Y_OFFSET,
+    MARS_NIGHT_SIDE_STATION.position.z,
+  );
+  nightStation.lookAt(ORBITAL_MARS_CENTER.x, ORBITAL_MARS_CENTER.y + UNIVERSE_RENDER_Y_OFFSET, ORBITAL_MARS_CENTER.z);
+  systemFrame.add(nightStation);
+
+  scene.add(systemFrame, background);
+  return { textures: [texture, bump], station, relay, nightStation, systemFrame, background };
+}
+
+export function orbitalRock(radius: number, seed: number) {
+  const geometry = new THREE.SphereGeometry(radius, 48, 32);
+  const positions = geometry.getAttribute("position");
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i); const y = positions.getY(i); const z = positions.getZ(i);
+    const noise = 1 + .12 * Math.sin(x * 2 + seed) * Math.cos(z * 3 + y) + .08 * Math.sin(z * 4 - y * 3);
+    positions.setXYZ(i, x * noise, y * noise * .82, z * noise);
+  }
+  geometry.computeVertexNormals();
+  return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x62564b, roughness: .92, metalness: .12 }));
+}

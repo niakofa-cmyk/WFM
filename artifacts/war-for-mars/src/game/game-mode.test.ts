@@ -71,23 +71,21 @@ test("simulation and presentation migrations are reported independently", () => 
   const rustDiscLocal = getGameModeDefinition("rust-disc-local");
   assert.equal(rustDiscLocal.simulation.migration, "canonical");
   assert.equal(rustDiscLocal.simulation.runtimeId, ORBITAL_RUNTIME_ID);
-  assert.equal(rustDiscLocal.presentation.renderer, "retired");
-  assert.equal(rustDiscLocal.presentation.lifecycleOwner, "none");
-  assert.equal(rustDiscLocal.presentation.migration, "retired");
+  assert.equal(rustDiscLocal.presentation.renderer, "rust-disc-three-v1");
+  assert.equal(rustDiscLocal.presentation.lifecycleOwner, "RustDiscFlight");
+  assert.equal(rustDiscLocal.presentation.migration, "compatibility");
 
   for (const id of ["rust-disc-sector-coop", "iron-eclipse"] as const) {
     const mode = getGameModeDefinition(id);
     assert.equal(mode.simulation.migration, "canonical");
     assert.equal(mode.simulation.runtimeId, ORBITAL_RUNTIME_ID);
-    assert.equal(mode.presentation.renderer, "retired");
-    assert.equal(mode.presentation.lifecycleOwner, "none");
-    assert.equal(mode.presentation.migration, "retired");
+    assert.equal(mode.presentation.renderer, "rust-disc-three-v1");
+    assert.equal(mode.presentation.migration, "compatibility");
   }
 
   const lab = getGameModeDefinition("orbital-combat-lab");
-  assert.equal(lab.presentation.renderer, "orbital-native-webgl2-v1");
-  assert.equal(lab.presentation.lifecycleOwner, "OrbitalFlightPreview");
-  assert.equal(lab.presentation.migration, "current");
+  assert.equal(lab.presentation.renderer, "arena-three-v1");
+  assert.equal(lab.presentation.lifecycleOwner, "Arena");
 });
 
 test("live competitive, private, and AI-fill reward boundaries are declared in the mode contract", () => {
@@ -102,7 +100,7 @@ test("offline Arcade uses canonical Orbital combat and cannot settle rewards", (
   const arcade = getGameModeDefinition("arcade-skirmish");
   assert.equal(arcade.simulation.runtimeId, ORBITAL_RUNTIME_ID);
   assert.equal(arcade.simulation.migration, "canonical");
-  assert.deepEqual(arcade.simulation.packages, ["@workspace/orbital-sim"]);
+  assert.deepEqual(arcade.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
   assert.equal(arcade.authority, "local");
   assert.equal(arcade.rewardEligibility, "none");
   assert.equal(createOrbitalRuntime(arcade).modeId, "arcade-skirmish");
@@ -112,7 +110,7 @@ test("standalone Solo Flight uses canonical Orbital combat without progression a
   const soloFlight = getGameModeDefinition("solo-flight");
   assert.equal(soloFlight.simulation.runtimeId, ORBITAL_RUNTIME_ID);
   assert.equal(soloFlight.simulation.migration, "canonical");
-  assert.deepEqual(soloFlight.simulation.packages, ["@workspace/orbital-sim"]);
+  assert.deepEqual(soloFlight.simulation.packages, ["@workspace/orbital-sim", "Arena"]);
   assert.equal(soloFlight.authority, "local");
   assert.equal(soloFlight.rewardEligibility, "none");
   assert.equal(createOrbitalRuntime(soloFlight).modeId, "solo-flight");
@@ -124,7 +122,8 @@ test("universe navigation uses Orbital spatial flight only for local docking, no
   assert.equal(universe.simulation.migration, "navigation-only");
   assert.deepEqual(universe.simulation.packages, [
     "@workspace/orbital-sim",
-    "OrbitalFlightPreview",
+    "GalaxyScreen",
+    "CinderRingDockingApproach",
     "world-operation-directory",
   ]);
   assert.equal(universe.rewardEligibility, "none");

@@ -506,7 +506,7 @@ test("Solo Flight Orbital controls move the ship on a landscape touch viewport",
   }
 });
 
-test("native Orbital flight starts without requesting the retired renderer", async ({ browser }) => {
+test("Rust Disc defers 3D startup until launch and reuses it on warm relaunch", async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 844, height: 390 },
     isMobile: true,
@@ -514,19 +514,65 @@ test("native Orbital flight starts without requesting the retired renderer", asy
     deviceScaleFactor: 2,
   });
   const page = await context.newPage();
-  const requests: string[] = [];
-  const pageErrors: string[] = [];
-  page.on("request", (request) => requests.push(request.url()));
-  page.on("pageerror", (error) => pageErrors.push(error.message));
+  let runtimeRequests = 0;
 
   try {
+    await page.route("**/three-flight-runtime*", async (route) => {
+      runtimeRequests++;
+      if (runtimeRequests === 1) await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.continue();
+    });
     await page.goto("/flight");
-    const enterFlight = page.getByTestId("button-orbital-preview-toggle");
-    await expect(enterFlight).toBeVisible();
-    await enterFlight.click();
-    await expect(page.locator('canvas[aria-label="Orbital flight scene with player ship and Cinder asteroids"]')).toBeVisible();
-    expect(requests.some((url) => /three(?:[-./]|$)/i.test(url))).toBe(false);
-    expect(pageErrors).toEqual([]);
+    await expect(page.getByTestId("button-launch")).toBeVisible();
+
+    const beforeLaunch = await page.evaluate(() =>
+      performance.getEntriesByType("resource").map((entry) => entry.name),
+    );
+    expect(beforeLaunch.some((url) => url.includes("three-flight-runtime"))).toBe(false);
+
+    const coldStart = await page.evaluate(() => performance.now());
+    await page.getByTestId("button-launch").click();
+    await expect(page.getByTestId("status-flight-engine-loading")).toBeVisible();
+    await expect(page.getByTestId("status-flight-engine-loading")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="canvas-flight"] canvas')).toBeVisible();
+    const coldFirstFrameMs = await page.evaluate((start) => performance.now() - start, coldStart);
+    expect(runtimeRequests).toBe(1);
+
+    const flightStick = page.getByTestId("stick-flight");
+    const stickBox = await flightStick.boundingBox();
+    expect(stickBox).not.toBeNull();
+    if (!stickBox) throw new Error("Rust Disc flight stick is missing its touch target.");
+    const stickCenterX = stickBox.x + stickBox.width / 2;
+    const stickCenterY = stickBox.y + stickBox.height / 2;
+    await page.mouse.move(stickCenterX, stickCenterY);
+    await page.mouse.down();
+    await page.mouse.move(stickCenterX, stickCenterY - stickBox.height * 0.32);
+    await expect.poll(async () => Number(await flightStick.getAttribute("data-axis-y"))).toBeLessThan(-0.2);
+    await page.mouse.up();
+    await expect(flightStick).toHaveAttribute("data-axis-y", "0.000");
+    await expect(flightStick).toHaveAttribute("data-recenter", "true");
+
+    const upperSectorY = stickBox.y + stickBox.height * 0.06;
+    await page.mouse.click(stickCenterX, upperSectorY);
+    await page.waitForTimeout(110);
+    await page.mouse.click(stickCenterX, upperSectorY);
+    await expect(flightStick.getByText("UP THRUST", { exact: true })).toBeVisible();
+
+    await page.getByTestId("button-pause").click();
+    await page.getByTestId("button-briefing").click();
+    await expect(page.getByTestId("button-launch")).toBeVisible();
+
+    const warmStart = await page.evaluate(() => performance.now());
+    await page.getByTestId("button-launch").click();
+    await expect(page.getByTestId("status-flight-engine-loading")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator('[data-testid="canvas-flight"] canvas')).toBeVisible();
+    const warmFirstFrameMs = await page.evaluate((start) => performance.now() - start, warmStart);
+
+    expect(runtimeRequests).toBe(1);
+    expect(warmFirstFrameMs).toBeLessThan(coldFirstFrameMs);
+    console.info(
+      `Rust Disc browser simulation: cold ${coldFirstFrameMs.toFixed(0)} ms, warm ${warmFirstFrameMs.toFixed(0)} ms; software-WebGL/mobile emulation, not physical Android timing.`,
+    );
   } finally {
     await context.close();
   }

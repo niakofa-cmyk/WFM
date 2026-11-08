@@ -8,7 +8,20 @@ import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
+import { SORTIES } from "./game/campaign";
+import { expeditionFeatureEnabled } from "./game/sector-client";
+import { resolveWfmBoot } from "./game/wfm-boot";
+
+const expeditionEnabled = expeditionFeatureEnabled({
+  DEV: import.meta.env.DEV,
+  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
+});
+
+const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 const OrbitalBoot = lazy(() => import("./game/OrbitalBoot").then((module) => ({ default: module.OrbitalBoot })));
+const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
+const SectorExpedition = lazy(() => import("./game/SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
+const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -97,7 +110,7 @@ function PublicLanding() {
             <FactionMark faction="ussf" className="h-10 w-10" />
             <span aria-hidden="true" className="h-8 w-px bg-bone/25" />
             <FactionMark faction="accord" className="h-10 w-10" />
-            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">ORBITAL-NATIVE FLIGHT · USSF VS THE ACCORD</p>
+            <p className="ml-2 font-hud text-xs tracking-[0.28em] text-solar sm:text-sm">THE INFINITE WAR · USSF VS THE ACCORD · PHOBOS THEATER · 5V5</p>
           </div>
           <h1 className="mt-6">
             <span className="sr-only">WAR FOR MARS</span>
@@ -105,8 +118,8 @@ function PublicLanding() {
           </h1>
           <span aria-hidden="true" className="wfm-sweep mt-5 block h-px w-full max-w-4xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
           <p className="wfm-rise-2 mt-6 max-w-xl text-base leading-relaxed text-bone/85 sm:text-lg">
-            Enter the Orbital universe, choose a faction and airframe, and fly the current native Cinder Ring sector.
-            Server-backed account services remain separate from local flight.
+            Fly the campaign, refit your ship, or bring a wing into a private ten-pilot match.
+            Your account keeps campaign progress and credits safe on the server.
           </p>
           <div className="wfm-rise-3 mt-8 flex max-w-2xl flex-wrap gap-3">
             {isSignedIn ? (
@@ -117,14 +130,14 @@ function PublicLanding() {
                 <Link href="/sign-in" className={`${cta} wfm-cmd-secondary`}>SIGN IN</Link>
               </>
             )}
-            <a href="/combat-lab.html?universe=1&destination=cinder-ring" data-testid="link-landing-local-universe" className={`${cta} wfm-cmd-secondary`}>ENTER ORBITAL UNIVERSE</a>
-            <Link href="/play" className={`${cta} wfm-cmd-quiet`}>OPEN NATIVE FLIGHT</Link>
+            <a href="/combat-lab.html?universe=1" data-testid="link-landing-local-universe" className={`${cta} wfm-cmd-secondary`}>ENTER ORBITAL UNIVERSE · LOCAL FLIGHT</a>
+            <Link href="/play" className={`${cta} wfm-cmd-quiet`}>TRY SOLO FLIGHT · LOCAL</Link>
           </div>
           <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
-              <span className="block">ORBITAL FLIGHT</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Native Cinder Ring scene · local / no rewards</span>
+                <span className="block">TRAINING & CO-OP OPERATIONS</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Combat Lab · server-run sectors</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
@@ -134,6 +147,12 @@ function PublicLanding() {
                 <span>ORBITAL COMBAT LAB · OFFLINE</span>
                 <span className="font-sans text-xs tracking-normal text-muted">Orbital training runtime · no rewards</span>
               </a>
+              {expeditionEnabled ? (
+                <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>
+                  <span>CO-OP SECTOR OPERATIONS</span>
+                  <span className="font-sans text-xs tracking-normal text-muted">1–8 pilots · server-run missions to Mars</span>
+                </Link>
+              ) : null}
             </div>
           </details>
         </div>
@@ -156,12 +175,18 @@ function PublicLanding() {
 
       <section className="wfm-safe relative mx-auto grid w-full max-w-6xl gap-6 pb-16 sm:px-12 md:grid-cols-[1.2fr_0.8fr]">
         <div>
-          <PanelLabel>INFINITE UNIVERSE / CURRENT BUILD</PanelLabel>
-          <p className="mt-3 font-hud text-4xl leading-none sm:text-5xl">ONE ORBITAL ENTRY.</p>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted">
-            Legacy combat and co-op presentation routes have been retired. The current native scene is local Cinder Ring flight;
-            multiplayer operations remain unavailable here until rebuilt on the Orbital renderer.
-          </p>
+          <PanelLabel>PHOBOS YARD BRIEF</PanelLabel>
+          <p className="mt-3 font-hud text-4xl leading-none sm:text-5xl">FOUR SORTIES. ONE OPEN WAR.</p>
+          <ol className="mt-6 grid gap-2 sm:grid-cols-2">
+            {SORTIES.map((sortie, i) => (
+              <li key={sortie.id} className="wfm-panel p-4">
+                <p className="font-hud text-xs tracking-[0.22em] text-muted">SORTIE {String(i + 1).padStart(2, "0")}</p>
+                <p className="font-hud text-2xl leading-none">{sortie.name.toUpperCase()}</p>
+                <p className="mt-1 font-hud text-sm tracking-widest text-solar">{sortie.objective}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 font-hud text-xs tracking-widest text-bone/70">PROGRESS IS VERIFIED BY THE SERVER</p>
         </div>
         <CommandPanel accent className="p-5">
           <PublicWingLeaderboard />
@@ -171,13 +196,13 @@ function PublicLanding() {
   );
 }
 
-function SignedInGame() {
+function SignedInGame({ universe = false, orbital = false }: { universe?: boolean; orbital?: boolean }) {
   const client = useQueryClient();
   useEffect(() => () => { client.clear(); }, [client]);
   return (
     <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
-        <OrbitalBoot />
+        <WarApp initialUniverseOpen={universe} initialOrbitalOpen={orbital} />
       </Suspense>
       <ActionRecovery />
       <div className="fixed right-3 top-3 z-[100]">
@@ -187,9 +212,12 @@ function SignedInGame() {
   );
 }
 
-function AccountGameEntry({ universe = false }: { universe?: boolean; primary?: boolean }) {
+function AccountGameEntry({ universe = false, primary = false }: { universe?: boolean; primary?: boolean }) {
   const { isLoaded, isSignedIn, userId } = useAuth();
-  if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}`} />;
+  // Discovery and solo entry remain visible while hosted authentication loads.
+  // Never mount account/progression hooks until the session is confirmed.
+  const orbital = primary && resolveWfmBoot(window.location.search, import.meta.env.VITE_WFM_ORBITAL_BOOT_ENABLED !== "false") === "orbital";
+  if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}:${orbital}`} universe={universe} orbital={orbital} />;
   if (universe) return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-void px-6 py-12 text-bone">
       <p className="font-hud text-xs tracking-widest text-solar">WAR FOR MARS / ORBITAL NAVIGATION</p>
@@ -201,6 +229,7 @@ function AccountGameEntry({ universe = false }: { universe?: boolean; primary?: 
       <Link data-testid="link-universe-home" href="/" className="min-h-11 py-3 text-sm text-muted">BACK TO COMMAND</Link>
     </main>
   );
+  if (orbital) return <Suspense fallback={<main role="status" className="lab-loading">Initializing Orbital…</main>}><OrbitalBoot /></Suspense>;
   return <PublicLanding />;
 }
 
@@ -241,18 +270,15 @@ function Routes() {
     >
       <ApiAuthBridge />
       <Switch>
-        <Route path="/"><AccountGameEntry /></Route>
+        <Route path="/"><AccountGameEntry primary /></Route>
         <Route path="/command"><AccountGameEntry /></Route>
         <Route path="/universe"><AccountGameEntry universe /></Route>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/expedition">
-          <main className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-void px-6 text-bone">
-            <p className="font-hud text-xs tracking-widest text-solar">ORBITAL REBUILD</p>
-            <h1 className="font-hud text-4xl">CO-OP FLIGHT RETIRED</h1>
-            <p className="max-w-xl text-center text-sm text-muted">The legacy sector-flight renderer has been removed. No operation session or reward can be started from this retired route.</p>
-            <a className="min-h-12 bg-solar px-6 py-3 font-hud text-void" href="/combat-lab.html?universe=1&destination=cinder-ring">ENTER ORBITAL UNIVERSE</a>
-          </main>
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading sector expedition…</main>}>
+            <SectorExpedition />
+          </Suspense>
         </Route>
         <Route component={PublicLanding} />
       </Switch>
@@ -265,10 +291,14 @@ function App() {
     <WouterRouter base={basePath}>
       <Switch>
         <Route path="/flight">
-          <Suspense fallback={<main role="status" className="lab-loading">Initializing Orbital…</main>}><OrbitalBoot standalone /></Suspense>
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
+            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
+          </Suspense>
         </Route>
         <Route path="/play">
-          <Suspense fallback={<main role="status" className="lab-loading">Initializing Orbital…</main>}><OrbitalBoot standalone /></Suspense>
+          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
+            <SoloFlight />
+          </Suspense>
         </Route>
         <Route><Routes /></Route>
       </Switch>

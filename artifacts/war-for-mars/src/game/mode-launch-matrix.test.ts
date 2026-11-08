@@ -14,26 +14,30 @@ import { resolveArenaModeId, resolveArenaRuntime } from "./arena-config";
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
 
-test("the public flight entry points use Orbital and legacy scenes are retired", () => {
+test("current UI entry points retain their actual runtime and lifecycle owners", () => {
   const app = source("../App.tsx");
   const combatLab = source("../combat-lab.tsx");
   const orbitalBoot = source("./OrbitalBoot.tsx");
+  const warApp = source("./WarApp.tsx");
   const arena = source("./Arena.tsx");
   const rustDisc = source("./RustDiscFlight.tsx");
+  const expedition = source("./SectorExpedition.tsx");
 
-  assert.match(app, /<Route path="\/flight">[\s\S]*?<OrbitalBoot standalone/);
-  assert.match(app, /<Route path="\/play">[\s\S]*?<OrbitalBoot standalone/);
-  assert.match(app, /CO-OP FLIGHT RETIRED/);
-  assert.doesNotMatch(app, /<WarApp|<RustDiscFlight|<SectorExpedition|<SoloFlight/);
+  assert.match(app, /<Route path="\/flight">[\s\S]*?<RustDiscFlight/);
+  assert.match(app, /<Route path="\/expedition">[\s\S]*?<SectorExpedition/);
   assert.match(combatLab, /createRoot\(document\.getElementById\("root"\)!\)/);
   assert.match(combatLab, /<OrbitalBoot standalone/);
-  assert.match(orbitalBoot, /if \(mode === "universe"\)[\s\S]*?<OrbitalFlightPreview/);
-  assert.match(orbitalBoot, /nativeDestinationAvailable/);
-  assert.match(arena, /LEGACY COMBAT RETIRED/);
-  assert.match(rustDisc, /LEGACY SECTOR FLIGHT RETIRED/);
-  for (const file of [app, combatLab, orbitalBoot, arena, rustDisc]) {
-    assert.doesNotMatch(file, /from ["']three["']|import\(["']three["']\)/);
-  }
+  assert.match(orbitalBoot, /modeId="orbital-combat-lab" runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.match(orbitalBoot, /modeId="orbital-universe-local"[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.ok(warApp.includes("modeId={UNIVERSE_MODE_ID}"));
+  assert.match(warApp, /resolveArenaModeId\(runConfig, Boolean\(onlineSession\), offlineMode\)/);
+  assert.match(arena, /new THREE\.WebGLRenderer/);
+  assert.match(arena, /createOrbitalRuntime\(modeDefinition, runtime\)/);
+  assert.match(arena, /The canonical orbital runtime is not yet negotiated for this live room/);
+  assert.match(rustDisc, /import\("\.\/three-flight-runtime"\)/);
+  assert.match(rustDisc, /stepFlight\(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME\.runtimeId\)/);
+  assert.match(expedition, /new WebSocket\(url\)/);
+  assert.match(expedition, /parseSectorSnapshot/);
 });
 
 test("Arena launch resolution keeps live Wing and pinned campaign authority on their declared runtimes", () => {
@@ -59,8 +63,6 @@ test("co-op mode metadata is not mistaken for the negotiated wire runtime", () =
   assert.equal(ORBITAL_SECTOR_SIMULATION_CONTRACT.runtimeId, ORBITAL_WEAPON_RUNTIME_ID);
   assert.equal(orbitalRuntimeForSectorProtocol(SECTOR_ORBITAL_PROTOCOL_VERSION), ORBITAL_WEAPON_RUNTIME_ID);
   assert.notEqual(coop.simulation.runtimeId, ORBITAL_SECTOR_SIMULATION_CONTRACT.runtimeId);
-  assert.equal(coop.presentation.lifecycleOwner, "none");
-  assert.equal(ironEclipse.presentation.lifecycleOwner, "none");
-  assert.equal(coop.presentation.migration, "retired");
-  assert.equal(ironEclipse.presentation.migration, "retired");
+  assert.equal(coop.presentation.lifecycleOwner, "RustDiscFlight");
+  assert.equal(ironEclipse.presentation.lifecycleOwner, "RustDiscFlight");
 });

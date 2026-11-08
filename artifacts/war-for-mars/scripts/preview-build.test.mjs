@@ -30,22 +30,47 @@ test('Combat Lab resources resolve inside the published static root', async () =
   }
 });
 
-test('main app and standalone Combat Lab contain no Three.js modules', async () => {
-  for (const reportName of ['wfm-bundle-audit.json', 'wfm-combat-lab-bundle-audit.json']) {
-    const report = JSON.parse(
-      await readFile(path.join(workspaceRoot, 'generated-artifacts', reportName), 'utf8'),
-    );
-    assert.equal(report.renderer, 'Orbital-owned WebGL2');
-    assert.deepEqual(report.forbiddenThreeModules, [], `${reportName} must not contain Three.js modules.`);
-    assert.ok(
-      report.chunks.every((chunk) =>
-        chunk.modules.every((module) => !/node_modules\/three(?:\/|$)/.test(module.id)),
-      ),
-      `${reportName} contains a Three.js module.`,
-    );
-    assert.ok(
-      report.initialStaticJavascriptGzipBytes <= 140 * 1024,
-      `${reportName} initial JavaScript exceeded its 140 KiB gzip budget.`,
-    );
-  }
+test('main app loads Three.js only after entering a 3D flight route', async () => {
+  const report = JSON.parse(
+    await readFile(path.join(workspaceRoot, 'generated-artifacts/wfm-bundle-audit.json'), 'utf8'),
+  );
+  const engine = report.chunks.find((chunk) => chunk.name === 'three-engine');
+  const rustDisc = report.chunks.find((chunk) => chunk.name === 'RustDiscFlight');
+  const flightRuntime = report.chunks.find((chunk) => chunk.name === 'three-flight-runtime');
+
+  assert.ok(engine, 'Expected the separately bundled Three.js engine.');
+  assert.ok(rustDisc, 'Expected a separately bundled Rust Disc flight route.');
+  assert.ok(flightRuntime, 'Expected the small deferred flight-runtime adapter.');
+  assert.equal(report.engineLoadedInInitialStaticGraph, false);
+  assert.ok(
+    report.initialStaticJavascriptGzipBytes <= 140 * 1024,
+    'Main app initial JavaScript exceeded its 140 KiB gzip budget.',
+  );
+  assert.ok(engine.bytes <= 560_000, 'Three.js raw chunk exceeded its budget.');
+  assert.ok(engine.gzipBytes <= 150 * 1024, 'Three.js gzip chunk exceeded its budget.');
+  assert.ok(
+    rustDisc.dynamicImports.includes(flightRuntime.file),
+    'Rust Disc should request the flight runtime dynamically when flight starts.',
+  );
+  assert.ok(
+    flightRuntime.imports.includes(engine.file),
+    'The deferred runtime adapter should load the Three.js engine.',
+  );
+});
+
+test('Combat Lab keeps its 3D engine out of the document initial graph', async () => {
+  const report = JSON.parse(
+    await readFile(path.join(workspaceRoot, 'generated-artifacts/wfm-combat-lab-bundle-audit.json'), 'utf8'),
+  );
+  const engineChunks = report.chunks.filter((chunk) =>
+    chunk.modules.some((module) => module.id.includes('/node_modules/three/')),
+  );
+
+  assert.ok(engineChunks.length > 0, 'Expected deferred Three.js modules in the compatibility route.');
+  assert.equal(report.engineLoadedInInitialStaticGraph, false);
+  assert.ok(
+    report.initialStaticJavascriptGzipBytes <= 140 * 1024,
+    'Combat Lab initial JavaScript exceeded its 140 KiB gzip budget.',
+  );
+  assert.ok(engineChunks.every((chunk) => !chunk.initialStaticLoad), 'Three.js modules must stay out of the Combat Lab initial graph.');
 });

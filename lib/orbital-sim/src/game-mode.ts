@@ -41,9 +41,9 @@ export type GameModeDefinition = {
   };
   /** Rendering is tracked separately so a shared simulation cannot hide a legacy scene. */
   presentation: {
-    renderer: "orbital-native-webgl2-v1" | "retired" | "universe-ui-v1" | "not-implemented";
-    lifecycleOwner: "OrbitalFlightPreview" | "GalaxyScreen" | "none";
-    migration: "current" | "navigation-only" | "planned" | "retired";
+    renderer: "arena-three-v1" | "rust-disc-three-v1" | "universe-ui-v1" | "not-implemented";
+    lifecycleOwner: "Arena" | "RustDiscFlight" | "GalaxyScreen" | "none";
+    migration: "current" | "compatibility" | "navigation-only" | "planned";
   };
 };
 
@@ -64,10 +64,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
-    presentation: { renderer: "orbital-native-webgl2-v1", lifecycleOwner: "OrbitalFlightPreview", migration: "current" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "orbital-combat-lab",
@@ -81,10 +81,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
-    presentation: { renderer: "orbital-native-webgl2-v1", lifecycleOwner: "OrbitalFlightPreview", migration: "current" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "local-arena-practice",
@@ -98,10 +98,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "rust-disc-local",
@@ -115,10 +115,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim", "flight-sector operation adapter"],
+      packages: ["@workspace/orbital-sim", "RustDiscFlight operation adapter"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "rust-disc-sector-coop",
@@ -135,7 +135,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "server-authoritative sector operation adapter"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "iron-eclipse",
@@ -152,7 +152,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["@workspace/orbital-sim", "server-authoritative sector operation adapter", "iron-eclipse"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "rust-disc-three-v1", lifecycleOwner: "RustDiscFlight", migration: "compatibility" },
   },
   {
     id: "arcade-skirmish",
@@ -166,10 +166,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "campaign-sortie",
@@ -186,7 +186,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["sim", "progression"],
       migration: "compatibility",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "campaign-contact",
@@ -200,10 +200,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "server-replay",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim", "progression"],
+      packages: ["@workspace/orbital-sim", "Arena", "progression"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "solo-flight",
@@ -217,10 +217,10 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "local",
     simulation: {
       runtimeId: ORBITAL_RUNTIME_ID,
-      packages: ["@workspace/orbital-sim"],
+      packages: ["@workspace/orbital-sim", "Arena"],
       migration: "canonical",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-competitive",
@@ -237,7 +237,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim", "rewards"],
       migration: "compatibility",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-online",
@@ -254,7 +254,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim", "rewards"],
       migration: "compatibility",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-private",
@@ -271,7 +271,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim"],
       migration: "compatibility",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "wing-casual-ai",
@@ -288,7 +288,7 @@ export const GAME_MODE_DEFINITIONS = [
       packages: ["Wing socket", "sim"],
       migration: "compatibility",
     },
-    presentation: { renderer: "retired", lifecycleOwner: "none", migration: "retired" },
+    presentation: { renderer: "arena-three-v1", lifecycleOwner: "Arena", migration: "current" },
   },
   {
     id: "universe-navigation",
@@ -306,7 +306,7 @@ export const GAME_MODE_DEFINITIONS = [
     authority: "server-authoritative",
     simulation: {
       runtimeId: "universe-navigation-v1",
-      packages: ["@workspace/orbital-sim", "OrbitalFlightPreview", "world-operation-directory"],
+      packages: ["@workspace/orbital-sim", "GalaxyScreen", "CinderRingDockingApproach", "world-operation-directory"],
       migration: "navigation-only",
     },
     presentation: { renderer: "universe-ui-v1", lifecycleOwner: "GalaxyScreen", migration: "navigation-only" },

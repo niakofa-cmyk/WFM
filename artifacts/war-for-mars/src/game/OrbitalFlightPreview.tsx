@@ -12,7 +12,11 @@ import {
 } from "./flight-sector";
 import { readOrbitalPreviewInput } from "./orbital-flight-preview-input";
 import { createOrbitalNativeFlightRenderer, type OrbitalNativeFlightRenderer } from "./orbital-native-flight-renderer";
-import { evaluateNativeCinderDock } from "./orbital-native-docking";
+import {
+  evaluateNativeCinderDock,
+  restoreDockedFlightSnapshot,
+  snapshotDockedFlightForTraining,
+} from "./orbital-native-docking";
 import {
   createNativeCinderSkirmish,
   createNativeCinderStationMooring,
@@ -136,11 +140,17 @@ export function OrbitalFlightPreview({
   faction,
   servicesHref,
   traffic = [],
+  trainingReturnSnapshot,
+  onTrainingReturnConsumed,
+  onLaunchTraining,
 }: {
   shipId: ShipId;
   faction: Faction;
   servicesHref: string;
   traffic?: WorldPatrolDirectory["traffic"];
+  trainingReturnSnapshot: FlightState | null;
+  onTrainingReturnConsumed: () => void;
+  onLaunchTraining: (snapshot: FlightState) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const busRef = useRef<Bus | null>(null);
@@ -149,6 +159,7 @@ export function OrbitalFlightPreview({
   const rendererRef = useRef<OrbitalNativeFlightRenderer | null>(null);
   const pausedRef = useRef(false);
   const dockedRef = useRef(false);
+  const pendingResumeSnapshotRef = useRef<FlightState | null>(null);
   const terminalStageRef = useRef<FlightState["stage"] | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -173,7 +184,18 @@ export function OrbitalFlightPreview({
   pausedRef.current = paused;
 
   const enterFlight = () => {
+    pendingResumeSnapshotRef.current = trainingReturnSnapshot
+      ? restoreDockedFlightSnapshot(trainingReturnSnapshot, shipId)
+      : null;
+    if (trainingReturnSnapshot) onTrainingReturnConsumed();
     setEnabled(true);
+  };
+  const launchTraining = () => {
+    const flight = flightRef.current;
+    const snapshot = flight && dockedRef.current ? snapshotDockedFlightForTraining(flight) : null;
+    if (!snapshot) return;
+    clearInput(bus);
+    onLaunchTraining(snapshot);
   };
   const launchNativeSkirmish = () => {
     const currentFlight = flightRef.current;
@@ -217,14 +239,16 @@ export function OrbitalFlightPreview({
     controls.orbital = true;
     controls.leftStickFlight = true;
     pausedRef.current = false;
+    const resumedFlight = pendingResumeSnapshotRef.current;
+    pendingResumeSnapshotRef.current = null;
     sectorRef.current = CINDER_ASTEROID_SECTOR;
     terminalStageRef.current = null;
     setDebrief(null);
-    dockedRef.current = false;
+    dockedRef.current = resumedFlight !== null;
     setPaused(false);
-    setDocked(false);
+    setDocked(resumedFlight !== null);
 
-    let flight = createFlight(shipId, CINDER_ASTEROID_SECTOR);
+    let flight = resumedFlight ?? createFlight(shipId, CINDER_ASTEROID_SECTOR);
     flightRef.current = flight;
     let renderer: OrbitalNativeFlightRenderer | null = null;
     let raf = 0;
@@ -241,7 +265,9 @@ export function OrbitalFlightPreview({
       });
       rendererRef.current = renderer;
       renderer.setTraffic(traffic);
-      setStatus(`Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
+      setStatus(resumedFlight
+        ? "Returned from local training · restored the same docked Cinder flight · no rewards."
+        : `Orbital simulation active · Cinder asteroid sector · ${CINDER_ASTEROID_SECTOR.rocks.length} collision-matched bodies · no rewards`);
     } catch (error) {
       setStatus(`Flight preview unavailable: ${error instanceof Error ? error.message : "renderer initialization failed"}`);
       return;
@@ -403,10 +429,13 @@ export function OrbitalFlightPreview({
             <section className="uv-station-console" aria-label="Cinder Ring station activities" data-testid="orbital-station-console">
               <div>
                 <b>STATION ACTIVITY CONSOLE</b>
-                <p>Launch a native Cinder skirmish in the Orbital sector simulation. It is local and no-reward.</p>
+                <p>Launch a native Cinder skirmish in the Orbital sector simulation, or use the legacy Arena fallback. Both are local and no-reward.</p>
               </div>
               <button type="button" data-testid="button-cinder-native-skirmish" onClick={launchNativeSkirmish}>
                 LAUNCH NATIVE CINDER SKIRMISH
+              </button>
+              <button type="button" data-testid="button-cinder-local-training" onClick={launchTraining}>
+                ARENA FALLBACK · COMPATIBILITY
               </button>
               <a href={servicesHref} data-testid="link-cinder-account-operations">
                 OPEN SERVER OPERATIONS

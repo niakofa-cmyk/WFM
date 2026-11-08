@@ -40,7 +40,7 @@ test("local universe declares canonical Arena ownership with no network or rewar
   assert.equal(runtime.runtimeId, ORBITAL_RUNTIME_ID);
   assert.equal(runtime.authority, "local");
   assert.equal(runtime.rewardEligibility, "none");
-  assert.equal(definition.presentation.lifecycleOwner, "OrbitalFlightPreview");
+  assert.equal(definition.presentation.lifecycleOwner, "Arena");
   assert.ok(definition.rules.includes("streamed-local-sectors"));
   assert.ok(definition.rules.includes("no-server-location-authority"));
 });
@@ -263,14 +263,13 @@ test("canonical left thumb drives signed translation and right thumb rolls the r
   }
 });
 
-test("Orbital owns the remaining flight lifecycle and legacy combat is retired", () => {
-  const boot = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
-  const preview = readFileSync(new URL("./OrbitalFlightPreview.tsx", import.meta.url), "utf8");
-  const legacy = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
-  assert.match(boot, /<OrbitalFlightPreview/);
-  assert.match(preview, /orbital-native-flight-renderer/);
-  assert.match(legacy, /LEGACY COMBAT RETIRED/);
-  assert.doesNotMatch(`${boot}\n${preview}\n${legacy}`, /from ["']three["']|THREE\.WebGLRenderer/);
+test("universe transitions do not remount a second renderer or launch a parallel approach", () => {
+  const source = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
+  assert.equal((source.match(/new THREE.WebGLRenderer\(/g) ?? []).length, 1);
+  assert.ok(source.includes("transitionLocalUniverse(match, template, session, event)"));
+  assert.ok(source.includes("advanceLocalUniverseFlight(match, universeRef.current!, readInput(bus), FIXED)"));
+  assert.ok(source.includes("if (!localUniverse && modeId === UNIVERSE_MODE_ID)"));
+  assert.ok(!source.includes("CinderRingDockingApproach"));
   const helper = readFileSync(new URL("./orbital-universe-session.ts", import.meta.url), "utf8");
   for (const forbidden of ["requestAnimationFrame(", "WebGLRenderer", "fetch(", "new WebSocket("]) {
     assert.ok(!helper.includes(forbidden), `session helper must not own ${forbidden}`);

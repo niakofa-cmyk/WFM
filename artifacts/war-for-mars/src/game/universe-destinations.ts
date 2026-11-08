@@ -17,11 +17,11 @@ export const DESTINATIONS: Destination[] = [
   {
     id: "mars-orbit",
     name: "Mars Orbit",
-    kind: "Campaign combat theater",
-    status: "planned",
+    kind: "Combat training theater",
+    status: "training",
     x: 50, y: 52, ring: 0,
-    summary: "Mars Orbit combat is awaiting its Orbital-native rebuild.",
-    detail: ["Planned destination", "No legacy combat renderer or campaign operation can be launched here"],
+    summary: "Intercept three AI defenders above Phobos approach. Local combat training with your selected hull.",
+    detail: ["1 AI wingmate, 3 AI defenders", "Runs entirely on this device", "No rewards, matchmaking or campaign writes"],
   },
   {
     id: "cinder-ring",

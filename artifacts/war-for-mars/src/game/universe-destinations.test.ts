@@ -4,11 +4,14 @@ import test from "node:test";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
 import { MARS_ADVENTURES, MARS_ADVENTURE_STATE_LABEL } from "./mars-adventure-network";
 
-test("universe entry exposes only the Orbital-native Cinder Ring flight", () => {
+test("universe entry offers only the two existing local flight experiences", () => {
   assert.deepEqual(
     DESTINATIONS.filter((destination) => destination.status !== "planned")
       .map(({ id, status }) => ({ id, status })),
-    [{ id: "cinder-ring", status: "approach" }],
+    [
+      { id: "mars-orbit", status: "training" },
+      { id: "cinder-ring", status: "approach" },
+    ],
   );
   assert.match(STATUS_LABEL.training, /LOCAL TRAINING/);
   assert.match(STATUS_LABEL.approach, /LOCAL APPROACH/);
@@ -27,15 +30,17 @@ test("charted destinations have unique identities and bounded map positions", ()
   }
 });
 
-test("local universe entry launches only Cinder Ring and blocks retired destinations", () => {
+test("local universe entry keeps flight lazy and blocks planned destination launches", () => {
   const source = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
-  assert.match(source, /const nativeDestinationAvailable = dest\.id === "cinder-ring"/);
-  assert.match(source, /dest\.status === "planned" \|\| !nativeDestinationAvailable/);
-  assert.match(source, /data-testid="status-native-route-unavailable"/);
+  assert.match(source, /const Arena = lazy\(/);
+  assert.match(source, /const CinderRingDockingApproach = lazy\(/);
+  assert.match(source, /if \(dest.status === "planned"\) return/);
+  assert.match(source, /<button[^>]*disabled[^>]*data-testid="button-destination-unavailable"/);
   assert.doesNotMatch(source, /fetch\(|new WebSocket/);
   assert.match(source, /useGetWorldPatrols/);
   assert.match(source, /enabled: Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\) && worldQuery\.data\)/);
   assert.match(source, /serverStartLocation === startLocation/);
+  assert.match(source, /patrolDirectory,[\s\S]*canInterceptPatrol,[\s\S]*onInterceptPatrol/);
   assert.match(source, /traffic=\{localTraffic\}/);
 });
 
@@ -55,14 +60,14 @@ test("local faction briefing reflects the actual opposing training side without 
   assert.match(localFactionBrief("accord", "planned"), /no effect here/);
 });
 
-test("Mars route atlas preserves unique IDs and distinguishes active, retired, and planned routes", () => {
+test("Mars route atlas preserves unique IDs and labels local, compatibility, and planned state separately", () => {
   assert.equal(new Set(MARS_ADVENTURES.map(({ id }) => id)).size, MARS_ADVENTURES.length);
   assert.equal(MARS_ADVENTURES.length, 11);
   assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "cinder-ring" && state === "orbital-local"));
-  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "rust-disc" && state === "retired"));
-  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "night-side-station" && state === "planned"));
-  assert.notEqual(MARS_ADVENTURE_STATE_LABEL["orbital-local"], MARS_ADVENTURE_STATE_LABEL.retired);
-  assert.notEqual(MARS_ADVENTURE_STATE_LABEL.retired, MARS_ADVENTURE_STATE_LABEL.planned);
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "rust-disc" && state === "compatibility"));
+  assert.ok(MARS_ADVENTURES.some(({ id, state }) => id === "night-side-station" && state === "orbital-local"));
+  assert.notEqual(MARS_ADVENTURE_STATE_LABEL["orbital-local"], MARS_ADVENTURE_STATE_LABEL.compatibility);
+  assert.notEqual(MARS_ADVENTURE_STATE_LABEL.compatibility, MARS_ADVENTURE_STATE_LABEL.planned);
   for (const adventure of MARS_ADVENTURES) {
     assert.ok(adventure.concept.length > 0);
     assert.ok(adventure.currentEvidence.length > 0);
@@ -75,6 +80,6 @@ test("route atlas is informational and does not claim live events or launch comp
   const boot = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
   assert.match(component, /Routes are travel guidance; adventures become live only when their gameplay and authority are connected/);
   assert.match(boot, /<MarsAdventureAtlas \/>/);
-  assert.match(boot, /dest\.status === "planned" \|\| !nativeDestinationAvailable/);
+  assert.match(boot, /if \(dest.status === "planned"\) return/);
   assert.doesNotMatch(component, /fetch\(|new WebSocket|onClick=/);
 });

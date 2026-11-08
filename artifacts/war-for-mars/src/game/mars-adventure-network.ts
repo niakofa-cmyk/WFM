@@ -2,10 +2,10 @@
  * Source-backed route atlas for the Orbital universe entry.
  *
  * This is a navigation/design catalog, not an operation directory. A row marked
- * retired or planned routes cannot be launched through the current native
- * Cinder Ring scene and do not imply a live event, shared presence, or reward.
+ * compatibility or planned cannot be launched through the local Orbital
+ * sandbox and does not imply a live event, shared presence, or reward.
  */
-export type MarsAdventureState = "orbital-local" | "retired" | "planned";
+export type MarsAdventureState = "orbital-local" | "compatibility" | "planned";
 
 export type MarsAdventure = {
   id: string;
@@ -22,7 +22,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "mars-orbit",
     name: "Mars Orbit",
     region: "Departure theatre",
-    state: "retired",
+    state: "orbital-local",
     concept: "Fly the local Orbital sector and discover nearby generated space.",
     currentEvidence: "Bounded offline session; no persistent world position or rewards.",
     nextGate: "Planetary frames, rotation, and continuous orbit-to-surface navigation.",
@@ -40,7 +40,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "rust-disc",
     name: "Rust Disc",
     region: "Frontier debris field",
-    state: "retired",
+    state: "compatibility",
     concept: "Relay recovery, patrol encounters, salvage, and extraction.",
     currentEvidence: "The server-run expedition can persist the relay record after server-verified recovery; offline local recovery remains unsynced, and the operation stays on its separate server-run path.",
     nextGate: "Migrate the operation runtime and settlement through an Orbital adapter with authority and rollback proof.",
@@ -49,7 +49,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "mars-approach",
     name: "Mars Approach",
     region: "Orbital arrival corridor",
-    state: "retired",
+    state: "compatibility",
     concept: "Survey traffic, discover access corridors, and prepare for planetary entry.",
     currentEvidence: "Existing mission content does not provide an Orbital atmosphere transition.",
     nextGate: "Shared planetary coordinates and continuous orbit/atmosphere handoff.",
@@ -58,7 +58,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "pale-beacons",
     name: "Pale Beacons",
     region: "Outer signal chain",
-    state: "retired",
+    state: "compatibility",
     concept: "Triangulate a signal, investigate an anomaly, and report a discovery.",
     currentEvidence: "Existing server-run mission path; not an open-world roaming event.",
     nextGate: "Versioned Orbital encounter adapter with server-owned discovery and settlement.",
@@ -67,7 +67,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "iron-eclipse",
     name: "Iron Eclipse",
     region: "Contested Mars orbit",
-    state: "retired",
+    state: "compatibility",
     concept: "Discover a fleet engagement, attack objectives, and extract.",
     currentEvidence: "Existing server-run operation remains its own supported path.",
     nextGate: "Authorized in-world event discovery and a verified Orbital operation handoff.",
@@ -76,7 +76,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
     id: "night-side-station",
     name: "Night-side Station",
     region: "Fixed dark-hemisphere orbit",
-    state: "planned",
+    state: "orbital-local",
     concept: "Approach and dock at the night-side installation.",
     currentEvidence: "The station can be physically approached and locally docked; Mars does not rotate and no surface traversal or rescue operation is implemented.",
     nextGate: "Shared planetary clock, dynamic day/night rotation, and continuous orbit-to-surface travel.",
@@ -120,7 +120,7 @@ export const MARS_ADVENTURES: readonly MarsAdventure[] = [
 ] as const;
 
 export const MARS_ADVENTURE_STATE_LABEL: Record<MarsAdventureState, string> = {
-  "orbital-local": "CURRENT ORBITAL-NATIVE SLICE",
-  retired: "LEGACY PRESENTATION RETIRED",
+  "orbital-local": "LOCAL ORBITAL SLICE",
+  compatibility: "EXISTING COMPATIBILITY PATH",
   planned: "PLANNED · NOT LIVE",
 };
