@@ -14,8 +14,12 @@ to the staging app, API and socket with matching source pins. Railway's Lab
 initial bundle audit passed at 127,134 B gzip against the unchanged 143,360 B
 limit; Three.js remains lazy-loaded. Unauthenticated root, profile and WebSocket
 requests returned 401. No schema or flag changes; Production is unchanged.
-Fresh authenticated approach, pursuit/search, two-pilot battle and reward
-settlement verification remain pending.
+Fresh authentication passed for both pilots. An observed reconnect confirmed
+seven moving server fleet models and four hostile ships per context, but both
+pilots were already destroyed in an active encounter before live firing could
+be tested. No kill/assist/settlement or credit change was observed. Pursuit/search
+trajectories, heading alignment, shared battle contributions and continued flight
+remain unverified. Both test browser owners were stopped; see the staging report.
 
 ## Authenticated shared-flight verification — approach blocker
 

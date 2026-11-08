@@ -134,3 +134,14 @@ metadata and local unit tests did not establish runtime replay acceptance.
 backend without truncating it or weakening validation. Freeze the accepted
 balance before a duplicate request; asynchronous response listeners must not
 overwrite the comparison baseline.
+
+Attach flight observers before the sign-in redirect or universe entry can open
+the live socket. A late observer reporting zero sockets is not proof of failure.
+
+**Why:** authenticated staging sessions entered live encounters before gameplay
+inspection; a normal observed reconnect restored snapshots but preserved the
+pilots' genuine destroyed state.
+
+**How to apply:** prepare observation before entry, inspect authoritative life
+immediately, and avoid slow baseline/profile work while a live encounter runs.
+Do not revive or fabricate a new result to make a blocked verification pass.

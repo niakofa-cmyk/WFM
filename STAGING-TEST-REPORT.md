@@ -19,9 +19,23 @@ static graph. Unauthenticated root, profile and same-origin WebSocket upgrade
 requests each returned **401**.
 
 This is deployment and gateway evidence, not authenticated combat evidence.
-Fresh sign-ins and the bounded approach/pursuit/shared-battle test remain
-pending. Earlier authenticated approach failure below belongs to the previous
-runtime, not a test of this candidate.
+Both fresh sign-ins subsequently completed with authenticated profile HTTP 200.
+The two contexts showed the same faction/location and an already active encounter
+at the first gameplay inspection. After observers were attached, one ordinary
+reload per context recovered one socket each and 193/101 fresh snapshots.
+Both snapshots reported seven moving persistent fleet models and four hostile
+ships. Initial zero snapshots were late observer attachment, not a demonstrated
+socket failure.
+
+Both pilots were then authoritatively destroyed (hull and shield zero).
+No revive, replacement flight or forced state change was attempted. UI labels
+PURSUIT and PATROL appeared; SEARCH and actual pursuit trajectories were not
+verified. No player fire, kill, assist or completed settlement was observed.
+Credit deltas were zero for both accounts. Heading alignment, live assistance,
+reward settlement and continued post-battle flight remain **UNVERIFIED**.
+Both test browser owners were stopped. The next check must establish a safe
+ordinary hangar/flight start with instrumentation attached before universe entry.
+Earlier authenticated approach failure below belongs to the previous runtime.
 
 ## Current local workspace verification — 2026-10-28
 

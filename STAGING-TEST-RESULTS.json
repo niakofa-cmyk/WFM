@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "latestLocalScoutPursuitCandidate": {
-    "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",
+    "status": "STAGING_AUTHENTICATED_DISABLED_PILOTS_BLOCK_COMBAT",
     "stagingRuntimeCommit": "26ade0c268f1dd4ec1b9a0a16e083abb59128a08",
     "stagingServices": {
       "app": { "status": "SUCCESS", "deploymentId": "cd980296-b2f7-44d9-a52b-abf5ab3b574f" },
@@ -13,6 +13,29 @@
     "unauthenticatedGatewayChecks": { "rootHttpStatus": 401, "profileHttpStatus": 401, "webSocketUpgradeHttpStatus": 401 },
     "schemaOrFlagChanges": false,
     "productionChanged": false,
+    "authenticatedVerification": {
+      "bothAccountsAuthenticated": true,
+      "profileHttpStatuses": [200, 200],
+      "sameFactionAndLocation": true,
+      "movingServerFleetModelsPerContext": [7, 7],
+      "hostileShipsPerContext": [4, 4],
+      "socketCountsAfterObservedReconnect": [1, 1],
+      "snapshotCountsAfterObservedReconnect": [193, 101],
+      "pilotAliveAfterReconnect": [false, false],
+      "hullAfterReconnect": [0, 0],
+      "shieldAfterReconnect": [0, 0],
+      "designationUiObserved": ["PURSUIT", "PATROL"],
+      "searchObserved": false,
+      "ownFireIntentsObserved": 0,
+      "ownWeaponEmissionsObserved": 0,
+      "killsAssistsOrCompletedSettlementObserved": false,
+      "creditDeltas": [0, 0],
+      "headingApproachAndPostBattleFlightVerified": false,
+      "reason": "Both retained sessions entered an already active encounter before gameplay instrumentation. Both were destroyed before live firing could be tested. Observing a normal reconnect recovered fresh server snapshots without reviving either pilot.",
+      "instrumentationNote": "Initial zero snapshots were caused by attaching the observer after sockets opened, not a demonstrated socket failure.",
+      "testBrowserOwnersStopped": true,
+      "nextAction": "Inspect normal hangar-to-flight entry and disabled-pilot recovery; attach observation before universe entry and prevent an unattended sign-in handoff from consuming the live encounter."
+    },
     "sensorRangeMeters": 520,
     "engagementRangeMeters": 180,
     "lastObservationMemorySeconds": 45,
