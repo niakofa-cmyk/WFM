@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "./three-flight-runtime";
 import { SHIPS, type ShipId } from "./ships";
 import {
   MARS_NIGHT_SIDE_STATION,

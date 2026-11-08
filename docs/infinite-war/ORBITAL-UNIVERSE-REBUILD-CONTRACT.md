@@ -149,3 +149,4 @@ Related maintained documents:
 - [Implementation evidence and limitations](REDESIGN-IMPLEMENTATION-REPORT.md)
 - [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md)
 - [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md)
+- [Continuous spatial flight and return navigation](CONTINUOUS-SPATIAL-FLIGHT-AND-RETURN-NAVIGATION.md)

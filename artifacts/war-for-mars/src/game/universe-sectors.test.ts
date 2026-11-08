@@ -4,6 +4,7 @@ import {
   ORIGIN_SECTOR, UNIVERSE_SECTOR_EDGE, UNIVERSE_SECTOR_HALF_EDGE,
   isOriginSector, nearbySectorOffset, nearbyUniverseSectors, positionInCurrentSector,
   rebaseUniversePosition, sectorAddressKey, universeSectorColliders, universeSectorContents,
+  universeDisplacement, universeLocalFrameTranslation,
 } from "./universe-sectors";
 
 test("sector rebasing preserves world position at positive, negative, and multi-cell boundaries", () => {
@@ -52,6 +53,23 @@ test("nearby streaming produces a 27-cell deterministic neighborhood with local 
     x: -UNIVERSE_SECTOR_EDGE, y: 0, z: UNIVERSE_SECTOR_EDGE,
   });
   assert.equal(nearbySectorOffset(ORIGIN_SECTOR, { x: "100000000000000", y: "0", z: "0" }), null);
+});
+
+test("origin shifts keep the camera frame with the pilot and return vectors across distant sectors", () => {
+  assert.deepEqual(
+    universeLocalFrameTranslation(ORIGIN_SECTOR, { x: "1", y: "-2", z: "0" }),
+    { x: -UNIVERSE_SECTOR_EDGE, y: UNIVERSE_SECTOR_EDGE * 2, z: 0 },
+  );
+  assert.deepEqual(
+    universeLocalFrameTranslation(ORIGIN_SECTOR, { x: "98", y: "0", z: "0" }),
+    { x: -UNIVERSE_SECTOR_EDGE * 98, y: 0, z: 0 },
+  );
+
+  const outbound = rebaseUniversePosition(ORIGIN_SECTOR, { x: 50_000, y: 0, z: -12.5 });
+  assert.deepEqual(
+    universeDisplacement(outbound.address, outbound.local, ORIGIN_SECTOR, { x: 0, y: 0, z: 0 }),
+    { x: -50_000, y: 0, z: 12.5 },
+  );
 });
 
 test("Cinder stays a fixed destination while streamed sector rocks share collision coordinates", () => {

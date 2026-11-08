@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import * as THREE from "three";
+import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
@@ -31,7 +31,18 @@ import {
   disposeUniverseSectorNeighborhood,
   setOriginSystemFrame,
 } from "./universe-sector-visuals";
-import { sectorAddressKey, universeSectorContents, UNIVERSE_SECTOR_EDGE } from "./universe-sectors";
+import {
+  sectorAddressKey,
+  universeLocalFrameTranslation,
+  universeSectorContents,
+  UNIVERSE_SECTOR_EDGE,
+} from "./universe-sectors";
+import {
+  formatUniverseRange,
+  UNIVERSE_RETURN_CUE_MIN_DISTANCE_METERS,
+  universeReturnCue,
+  type UniverseNavigationAnchor,
+} from "./universe-navigation";
 import { createOrbitalStarfieldBuffers } from "./orbital-starfield";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
@@ -655,6 +666,12 @@ export function Arena({
   if (!localUniverse && modeId === UNIVERSE_MODE_ID) throw new Error("orbital-universe-local requires the localUniverse profile.");
   const universeTemplateRef = useRef<Match | null>(null);
   const universeRef = useRef<UniverseSession | null>(null);
+  const deploymentAnchorRef = useRef<UniverseNavigationAnchor | null>(null);
+  const returnNavigationRef = useRef<HTMLDivElement | null>(null);
+  const returnArrowRef = useRef<HTMLSpanElement | null>(null);
+  const returnDistanceRef = useRef<HTMLSpanElement | null>(null);
+  const returnSectorRef = useRef<HTMLSpanElement | null>(null);
+  const returnVerticalRef = useRef<HTMLSpanElement | null>(null);
   const [universe, setUniverse] = useState<UniverseSession | null>(() => {
     if (!localUniverse) return null;
     universeRef.current = universeRef.current ?? createUniverseSession();
@@ -937,6 +954,14 @@ export function Arena({
     if (localUniverse) {
       universeTemplateRef.current = copyMatch(matchRef.current);
       placeAtUniverseStart(matchRef.current.player, localUniverse.startLocation);
+      const session = universeRef.current;
+      const pilot = matchRef.current.player;
+      if (!deploymentAnchorRef.current && session && pilot.space) {
+        deploymentAnchorRef.current = {
+          sectorAddress: { ...session.sectorAddress },
+          position: { x: pilot.x, y: pilot.space.y, z: pilot.z },
+        };
+      }
     }
   }
   const dispatchUniverse = (event: LocalUniverseCommand) => {
@@ -2017,6 +2042,7 @@ export function Arena({
     }
     const FIXED = 1 / 60;
     let lastDockKey = "";
+    let nextNavigationUpdateAt = 0;
     glReadyRef.current = true;
     setGlReady(true);
 
@@ -2065,6 +2091,15 @@ export function Arena({
             localFreeFlightGravity(pilot),
           );
           if (nextSector) {
+            const previousSector = universeRef.current!.sectorAddress;
+            const frameTranslation = universeLocalFrameTranslation(previousSector, nextSector);
+            if (frameTranslation) {
+              // Shift the camera with the changing local origin so its position
+              // relative to the pilot stays constant across sector boundaries.
+              camera.position.x += frameTranslation.x;
+              camera.position.y += frameTranslation.y;
+              camera.position.z += frameTranslation.z;
+            }
             const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
             universeRef.current = nextSession;
             setUniverse(nextSession);
@@ -2072,6 +2107,47 @@ export function Arena({
           }
           acc -= FIXED;
           steps += 1;
+        }
+        if (now >= nextNavigationUpdateAt) {
+          nextNavigationUpdateAt = now + 250;
+          const cueRoot = returnNavigationRef.current;
+          const anchor = deploymentAnchorRef.current;
+          const session = universeRef.current;
+          const pilot = match.player;
+          const cue = anchor && session && pilot.space
+            ? universeReturnCue(
+              session.sectorAddress,
+              { x: pilot.x, y: pilot.space.y, z: pilot.z },
+              anchor,
+              pilot.space.q,
+            )
+            : null;
+          if (cueRoot && cue && cue.distanceMeters >= UNIVERSE_RETURN_CUE_MIN_DISTANCE_METERS) {
+            cueRoot.style.display = "flex";
+            if (returnArrowRef.current) {
+              returnArrowRef.current.style.transform = `rotate(${cue.bearingDegrees}deg)`;
+            }
+            if (returnDistanceRef.current) {
+              returnDistanceRef.current.textContent = formatUniverseRange(cue.distanceMeters);
+            }
+            if (returnSectorRef.current && session) {
+              returnSectorRef.current.textContent =
+                `${session.sectorAddress.x},${session.sectorAddress.y},${session.sectorAddress.z}`;
+            }
+            if (returnVerticalRef.current) {
+              returnVerticalRef.current.textContent = cue.elevationDegrees > 25
+                ? "UP"
+                : cue.elevationDegrees < -25
+                  ? "DOWN"
+                  : "";
+            }
+            cueRoot.setAttribute(
+              "aria-label",
+              `Flight origin ${formatUniverseRange(cue.distanceMeters)} away, sector ${session?.sectorAddress.x}, ${session?.sectorAddress.y}, ${session?.sectorAddress.z}.`,
+            );
+          } else if (cueRoot) {
+            cueRoot.style.display = "none";
+          }
         }
         const latestSharedFrame = freeFlightFramesRef.current.current;
         const sharedTrafficFresh = Boolean(
@@ -3003,6 +3079,23 @@ export function Arena({
       data-local-endurance={localEndurance ? "true" : "false"}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
+      {localUniverse ? (
+        <div
+          ref={returnNavigationRef}
+          data-testid="universe-return-navigation"
+          role="status"
+          aria-live="off"
+          style={{ display: "none" }}
+          className="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+3.75rem)] z-20 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap font-hud text-[9px] tracking-[0.12em] text-bone/75"
+        >
+          <span className="text-solar/80">ORIGIN</span>
+          <span ref={returnArrowRef} aria-hidden="true" className="inline-block origin-center text-sm text-solar">↑</span>
+          <span ref={returnDistanceRef} className="text-bone" />
+          <span ref={returnVerticalRef} className="text-solar/80" />
+          <span className="text-bone/35">· SEC</span>
+          <span ref={returnSectorRef} className="text-bone/55" />
+        </div>
+      ) : null}
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (

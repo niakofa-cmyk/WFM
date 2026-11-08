@@ -190,11 +190,11 @@ export default defineConfig(({ mode }) => ({
       input: path.resolve(import.meta.dirname, mode === 'combat-lab' ? 'combat-lab.html' : 'index.html'),
       output: {
         manualChunks(id) {
-          // Manual vendor extraction is useful in the main app, but it causes
-          // Rollup to hoist Three.js into the standalone Combat Lab entry when
-          // several lazy gameplay chunks share the renderer. Let the standalone
-          // build perform its own dynamic chunking instead.
-          if (mode !== 'combat-lab' && id.includes('/node_modules/three/')) return 'three-engine';
+          // All 3D routes use the same renderer adapter. Keeping Three.js in
+          // one vendor chunk avoids counting its core and renderer modules as
+          // separate oversized engines; the bundle audit still requires it to
+          // remain outside each entry's initial static graph.
+          if (id.includes('/node_modules/three/')) return 'three-engine';
         },
       },
     },

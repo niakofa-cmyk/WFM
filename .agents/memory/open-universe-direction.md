@@ -82,3 +82,17 @@ world state, reserve a fleet for one encounter, attribute damage and assists
 from server simulation, and settle casualties/rewards idempotently. Aborted
 encounters must not pay credits. Do not infer human players or a seamless
 continuous-world battle from a strategic AI patrol.
+
+**Continuous-flight rule:** when a streamed sector origin changes, translate the
+camera and other local presentation state by the same local-frame offset as the
+pilot. Keep the deployment anchor in sector-plus-local coordinates and show a
+compact return range/vector; never snap or redirect the camera at a boundary.
+
+**Why:** the owner explicitly wants pilots to continue flying outward and
+physically return across the traveled distance, with spatial awareness but no
+forced camera framing.
+
+**How to apply:** preserve the active deterministic flight step and exact
+integer sector address. Do not convert unbounded sector integers to floating
+point for authority, persist client-only location as account state, or apply
+radiation/hull effects without a versioned server-owned rule.

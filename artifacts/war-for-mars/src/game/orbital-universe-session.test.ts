@@ -270,6 +270,8 @@ test("universe transitions do not remount a second renderer or launch a parallel
   assert.ok(source.includes("const controls = readInput(bus);"));
   assert.ok(source.includes("advanceLocalUniverseFlight("));
   assert.ok(source.includes("localFreeFlightGravity(pilot)"));
+  assert.ok(source.includes("universeLocalFrameTranslation(previousSector, nextSector)"));
+  assert.ok(source.includes("camera.position.x += frameTranslation.x"));
   assert.ok(source.includes("if (!localUniverse && modeId === UNIVERSE_MODE_ID)"));
   assert.ok(!source.includes("CinderRingDockingApproach"));
   const helper = readFileSync(new URL("./orbital-universe-session.ts", import.meta.url), "utf8");

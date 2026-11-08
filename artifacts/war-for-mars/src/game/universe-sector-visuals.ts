@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "./three-flight-runtime";
 import type { AnomalyGravityWellV1 } from "@workspace/orbital-sim";
 import {
   nearbyUniverseSectors, type UniverseSectorAddress, type UniversePosition,

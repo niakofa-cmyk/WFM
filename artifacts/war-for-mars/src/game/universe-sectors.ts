@@ -87,6 +87,50 @@ export function nearbySectorOffset(
   };
 }
 
+/**
+ * Local-frame translation to apply when the active sector origin changes.
+ * Cameras and local render state move with the rebased universe instead of
+ * easing across the old coordinate frame.
+ */
+export function universeLocalFrameTranslation(
+  previous: UniverseSectorAddress,
+  next: UniverseSectorAddress,
+): UniversePosition | null {
+  const from = [coordinate(previous.x), coordinate(previous.y), coordinate(previous.z)] as const;
+  const to = [coordinate(next.x), coordinate(next.y), coordinate(next.z)] as const;
+  const translation = from.map((value, index) =>
+    Number(value - to[index]!) * UNIVERSE_SECTOR_EDGE,
+  );
+  if (!translation.every(Number.isFinite)) return null;
+  return { x: translation[0]!, y: translation[1]!, z: translation[2]! };
+}
+
+/** World-space vector from one local sector position to another. */
+export function universeDisplacement(
+  fromAddress: UniverseSectorAddress,
+  fromPosition: UniversePosition,
+  toAddress: UniverseSectorAddress,
+  toPosition: UniversePosition,
+): UniversePosition | null {
+  const localValues = [
+    fromPosition.x, fromPosition.y, fromPosition.z,
+    toPosition.x, toPosition.y, toPosition.z,
+  ];
+  if (!localValues.every(Number.isFinite)) return null;
+  const from = [coordinate(fromAddress.x), coordinate(fromAddress.y), coordinate(fromAddress.z)] as const;
+  const to = [coordinate(toAddress.x), coordinate(toAddress.y), coordinate(toAddress.z)] as const;
+  const localDelta = [
+    toPosition.x - fromPosition.x,
+    toPosition.y - fromPosition.y,
+    toPosition.z - fromPosition.z,
+  ];
+  const vector = from.map((value, index) =>
+    Number(to[index]! - value) * UNIVERSE_SECTOR_EDGE + localDelta[index]!,
+  );
+  if (!vector.every(Number.isFinite)) return null;
+  return { x: vector[0]!, y: vector[1]!, z: vector[2]! };
+}
+
 /** Pure, address-seeded local sector content. It creates no multiplayer operation or reward. */
 export function universeSectorContents(address: UniverseSectorAddress): UniverseSectorContents {
   const key = sectorAddressKey(address);
