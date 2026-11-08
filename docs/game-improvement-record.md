@@ -1,5 +1,17 @@
 # WAR FOR MARS — Game improvement record
 
+## Hangar entry, recovery and training parity — source audit
+
+Reviewed the primary boot, disabled-seat lifecycle and shared-flight combat
+against compatibility training. The default account boot can mount live flight
+without a fresh hangar launch. Shared-flight pause messaging is misleading,
+disabled recovery is indirect, and loadout-change rejoin reconstructs craft
+health without an explicit recovery restriction in that branch. No exploit
+test or runtime modification was performed. Core rendering/flight/weapons are
+shared, but training ability, countermeasure, obstacle and lifecycle parity is
+incomplete. See [audit and implementation order](infinite-war/TRAINING-TO-SHARED-FLIGHT-AUDIT.md).
+Authenticated reward and post-battle flight verification remain blocked.
+
 ## Scout pursuit and approach alignment — staging verification pending
 
 Implemented server-owned scout detection, pursuit and bounded last-observation
