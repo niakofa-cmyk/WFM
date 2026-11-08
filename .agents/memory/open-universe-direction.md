@@ -34,6 +34,8 @@ vertical slice over a large but disconnected map.
 **How to apply:** expose live operation visibility in navigation, but never
 fabricate active pilots, competition status or reward eligibility.
 
+**Live shared-flight requirement:** enemy fleets and authenticated pilot ships must be live 3D actors in the same Orbital free-flight universe, with server-owned movement/combat state. Public presence remains anonymous; exact nearby pilot positions are session-authorized only. Apply [`docs/infinite-war/LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](../../docs/infinite-war/LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md) and [`docs/infinite-war/PERSISTENT-ENEMY-FLEET-PATROLS.md`](../../docs/infinite-war/PERSISTENT-ENEMY-FLEET-PATROLS.md). Do not treat the first in-memory movement/snapshot slice as completed combat, persistence or production readiness.
+
 **Architecture rule:** maintain one persistent universe layer for destinations,
 server-owned travel and short-lived player presence. The latest master directive
 targets one Orbital main engine; preserve existing combat runtimes as explicit
