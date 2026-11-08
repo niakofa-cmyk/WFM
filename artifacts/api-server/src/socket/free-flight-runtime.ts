@@ -371,6 +371,9 @@ export function createFreeFlightRuntime(options: {
     const seat = seats.get(socket);
     if (!seat) return;
     seats.delete(socket);
+    // A delayed close from a replaced socket must not detach the new socket
+    // that now owns this same server-side pilot actor.
+    if (seat.actor.socket !== socket) return;
     if (userSeats.get(seat.userId)?.actor === seat.actor) userSeats.delete(seat.userId);
     seat.actor.socket = null;
     seat.actor.input = { ...IDLE };
