@@ -39,6 +39,7 @@ export class FreeFlightClient {
   private nextInputSeq = 1;
   private generation = 0;
   private joined = false;
+  private sessionInstanceId: string | null = null;
 
   constructor(private readonly options: FreeFlightClientOptions) {}
 
@@ -52,6 +53,7 @@ export class FreeFlightClient {
     this.stopped = true;
     this.generation += 1;
     this.joined = false;
+    this.sessionInstanceId = null;
     if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     const socket = this.socket;
@@ -179,7 +181,9 @@ export class FreeFlightClient {
       }
       if (packet.type === "error" && typeof packet.reason === "string") {
         if (this.joined) {
-          this.options.onCombatPacket?.({ type: "freeflight_error", reason: packet.reason });
+          if (packet.reason !== "freeflight_unknown_message") {
+            this.options.onCombatPacket?.({ type: "freeflight_error", reason: packet.reason });
+          }
           return;
         }
         this.options.onState?.("unavailable", packet.reason);
@@ -196,6 +200,7 @@ export class FreeFlightClient {
       if (!this.current(socket, generation)) return;
       this.socket = null;
       this.joined = false;
+      this.sessionInstanceId = null;
       this.scheduleReconnect("socket_closed");
     });
     socket.addEventListener("error", () => {
@@ -208,6 +213,7 @@ export class FreeFlightClient {
       this.options.onState?.("unavailable", "invalid_snapshot");
       return;
     }
+    this.sessionInstanceId = value.sessionInstanceId;
     this.options.onSnapshot({
       snapshot: value,
       receivedAt: typeof performance === "undefined" ? Date.now() : performance.now(),
@@ -215,14 +221,18 @@ export class FreeFlightClient {
   }
 
   private acceptEnvironment(value: unknown) {
-    this.options.onEnvironment?.(
-      isFreeFlightEnvironmentV1(value) ? value : null,
-    );
+    if (!isFreeFlightEnvironmentV1(value)) {
+      this.options.onEnvironment?.(null);
+      return;
+    }
+    if (this.sessionInstanceId !== value.sessionInstanceId) return;
+    this.options.onEnvironment?.(value);
   }
 
   private scheduleReconnect(reason: string) {
     if (this.stopped || this.reconnectTimer !== null) return;
     this.joined = false;
+    this.sessionInstanceId = null;
     this.options.onState?.("reconnecting", reason);
     const delay = reconnectDelayMs(this.attempt++);
     this.reconnectTimer = setTimeout(() => {

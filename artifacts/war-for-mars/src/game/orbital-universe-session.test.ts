@@ -268,7 +268,8 @@ test("universe transitions do not remount a second renderer or launch a parallel
   assert.equal((source.match(/new THREE.WebGLRenderer\(/g) ?? []).length, 1);
   assert.ok(source.includes("transitionLocalUniverse(match, template, session, event)"));
   assert.ok(source.includes("const controls = readInput(bus);"));
-  assert.ok(source.includes("advanceLocalUniverseFlight(match, universeRef.current!, controls, FIXED)"));
+  assert.ok(source.includes("advanceLocalUniverseFlight("));
+  assert.ok(source.includes("localFreeFlightGravity(pilot)"));
   assert.ok(source.includes("if (!localUniverse && modeId === UNIVERSE_MODE_ID)"));
   assert.ok(!source.includes("CinderRingDockingApproach"));
   const helper = readFileSync(new URL("./orbital-universe-session.ts", import.meta.url), "utf8");

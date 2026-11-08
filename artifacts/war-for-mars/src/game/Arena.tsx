@@ -665,14 +665,16 @@ export function Arena({
       y: pilot.space.y - ownActor.position.y,
       z: pilot.z - ownActor.position.z,
     };
-    return environment.gravityWells.map((well) => ({
-      ...well,
-      center: {
+    return environment.gravityWells.flatMap((well) => {
+      const center = {
         x: well.center.x + offset.x,
         y: well.center.y + offset.y,
         z: well.center.z + offset.z,
-      },
-    }));
+      };
+      // A distant server field is irrelevant to this bounded local physics frame.
+      if ([center.x, center.y, center.z].some((value) => Math.abs(value) > 4_096)) return [];
+      return [{ ...well, center }];
+    });
   };
   useEffect(() => {
     if (!freeFlightEnabled) return;
@@ -2001,7 +2003,13 @@ export function Arena({
             fire: freeFlightCombatActiveRef.current && controls.fire,
             missile: freeFlightCombatActiveRef.current && controls.missile,
           });
-          const nextSector = advanceLocalUniverseFlight(match, universeRef.current!, controls, FIXED);
+          const nextSector = advanceLocalUniverseFlight(
+            match,
+            universeRef.current!,
+            controls,
+            FIXED,
+            localFreeFlightGravity(pilot),
+          );
           if (nextSector) {
             const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
             universeRef.current = nextSession;
@@ -2088,7 +2096,9 @@ export function Arena({
             lastDockKey = key;
             setDockState(dock);
           }
-          const scan = evaluateLocalAnomalyScan(match, universeRef.current!);
+          const scan = freeFlightEnabled
+            ? null
+            : evaluateLocalAnomalyScan(match, universeRef.current!);
           const scanKey = scan ? `${scan.id}:${Math.floor(scan.distance)}:${scan.scanned}:${scan.ready}` : "none";
           if (scanKey !== anomalyScanKeyRef.current) {
             anomalyScanKeyRef.current = scanKey;
@@ -2468,7 +2478,55 @@ export function Arena({
       }
       camera.lookAt(_look);
       if (mag > 0.001) camera.rotateZ(shakeNoise(now * 0.001, 4) * mag * 0.05);
-      if (starMaterial) starMaterial.uniforms.uTime.value = now * 0.001;
+      const liveGravityWells = localFreeFlightGravity(player);
+      const liveAnomaly = liveGravityWells?.[0];
+      syncServerAnomalyVisual(liveAnomaly);
+      if (serverAnomalyVisual && liveAnomaly) {
+        serverAnomalyVisual.position.set(
+          liveAnomaly.center.x,
+          UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+          liveAnomaly.center.z,
+        );
+        serverAnomalyVisual.rotation.y = now * 0.00008;
+      }
+      if (starMaterial) {
+        starMaterial.uniforms.uTime.value = now * 0.001;
+        if (liveAnomaly && player.space) {
+          const distance = Math.hypot(
+            liveAnomaly.center.x - player.x,
+            liveAnomaly.center.y - player.space.y,
+            liveAnomaly.center.z - player.z,
+          );
+          const visibility = THREE.MathUtils.clamp(1 - distance / 520, 0, 1);
+          camera.updateMatrixWorld();
+          lensWorldPosition.set(
+            liveAnomaly.center.x,
+            UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+            liveAnomaly.center.z,
+          ).project(camera);
+          if (visibility > 0 && lensWorldPosition.z > -1 && lensWorldPosition.z < 1) {
+            lensEdgePosition.set(
+              liveAnomaly.center.x + liveAnomaly.influenceRadius,
+              UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+              liveAnomaly.center.z,
+            ).project(camera);
+            (starMaterial.uniforms.uLensCenter.value as THREE.Vector2).set(
+              lensWorldPosition.x,
+              lensWorldPosition.y,
+            );
+            starMaterial.uniforms.uLensRadius.value = THREE.MathUtils.clamp(
+              Math.abs(lensEdgePosition.x - lensWorldPosition.x),
+              0.035,
+              0.35,
+            );
+            starMaterial.uniforms.uLensStrength.value = 0.015 * visibility;
+          } else {
+            starMaterial.uniforms.uLensStrength.value = 0;
+          }
+        } else {
+          starMaterial.uniforms.uLensStrength.value = 0;
+        }
+      }
       tickSparks(sparkPool, delta);
       for (let i = 0; i < SPARK_N; i++) {
         sparkPos[i * 3] = sparkPool[i].x;

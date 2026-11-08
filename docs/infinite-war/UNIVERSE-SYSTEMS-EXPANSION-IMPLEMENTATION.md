@@ -67,18 +67,53 @@ been changed to deterministic per-sector samples with GPU twinkle in that same
 renderer. Sector changes reseed the visual field from the canonical sector
 content; no extra renderer or simulation state is created.
 
+## Implemented: anomaly gravity and lensing
+
+The first bounded live slice is implemented through the shared Orbital flight
+kernel:
+
+- A seeded anomaly produces a versioned gravity field with a finite influence
+  radius, a softened core, and capped acceleration. It bends movement only; it
+  does not teleport, damage, destroy, or award anything by itself.
+- Offline sector flight derives fields from the same deterministic sector
+  contents. The authenticated free-flight server derives its field only from
+  the server-selected location shard and applies it to every simulated actor,
+  including patrols.
+- The client requests the V1 environment after joining. The server enables the
+  force only when every connected pilot in that shard has negotiated support.
+  This keeps older clients on prior physics rules during a rolling deploy. The
+  environment payload is strict and separate from snapshot V1, so the existing
+  snapshot and combat-settlement contracts remain unchanged.
+- For local prediction, the client translates the server field into its
+  rebased local frame using the difference between its local pilot and the
+  authoritative own-actor snapshot. Far fields outside the bounded local
+  physics frame are ignored.
+- The live Three.js universe renders the server field with a lens marker and an
+  optional bounded starfield warp in its existing shader. The visual uses the
+  current scene and renderer; it creates no second WebGL renderer. The
+  standalone native training preview is not connected to this live environment
+  contract, so it does not display or simulate this server field.
+
+This slice is not a persistent anomaly-claim or reward system. It does not add
+event damage, black-hole destruction, kill attribution, faction consequences,
+or new rewards. Existing online combat results remain the authority for those
+outcomes. A deployed staging or physical-device verification has not been
+performed by this code change.
+
 ## Safe implementation sequence
 
 1. **Complete:** Keep the bundle gate passing for both builds, including the standalone
    Combat Lab entry. Treat the generated report, not a visual estimate, as the
    evidence.
-2. Add black-hole/anomaly forces only as a versioned deterministic rule shared
-   by the client simulation and the authoritative multiplayer server. Add
-   boundary, determinism, collision, and renderer-parity tests before enabling
-   a live route.
-3. Add anomaly lensing to the existing Three.js render pipeline and a
-   corresponding supported native-WebGL2 treatment where the view is used.
-   Keep the effect local, bounded, and optional on mobile.
+2. **Complete for bounded gravity:** The shared fixed-step kernel applies the
+   same seeded, capped field in local exploration and negotiated live flight.
+   Tests cover determinism, finite acceleration, influence boundaries, strict
+   environment validation, and client-capability compatibility. Damage and
+   survival effects remain out of scope.
+3. **Complete for the live Three.js universe:** The existing starfield shader
+   and one in-scene lens assembly visualize a server-issued field, bounded by
+   view distance and influence size. The native training preview remains
+   separate and is not yet an alternate view of this live environment.
 4. Extend the existing world service and progression ledger for cargo
    commodities and faction contracts. Review an additive database migration,
    use server-calculated prices/rewards and idempotent settlement, and keep

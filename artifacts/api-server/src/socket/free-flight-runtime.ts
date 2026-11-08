@@ -198,6 +198,7 @@ function createPatrols(session: Session, radius = 360) {
         inputWindowAt: 0, inputCount: 0, disconnectedAt: null,
         waypointIndex: 1, waypoints, primaryCooldown: 0, lastDamageTick: -1,
         kills: 0, assists: 0, creditsAwarded: 0,
+        gravityEnvironmentV1: false,
       });
     }
   }
@@ -230,6 +231,7 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       waypointIndex: 1, waypoints, persistentPatrolId: patrol.patrolId,
       persistentShipId: ship.id, primaryCooldown: 0, lastDamageTick: -1,
       kills: 0, assists: 0, creditsAwarded: 0,
+      gravityEnvironmentV1: false,
     });
   });
   session.persistentPatrols.set(patrol.patrolId, patrol);
@@ -340,11 +342,10 @@ export function createFreeFlightRuntime(options: {
       return session;
     }
     if (sessions.size >= MAX_SESSIONS) return null;
+    const anomalyGravityWell = anomalyGravityWellForSector(key);
     session = {
       key, instanceId: randomUUID(), actors: new Map(), pilotByUser: new Map(),
-      anomalyGravityWells: anomalyGravityWellForSector(key)
-        ? [anomalyGravityWellForSector(key)!]
-        : [],
+      anomalyGravityWells: anomalyGravityWell ? [anomalyGravityWell] : [],
       gravityEnvironmentEnabled: false,
       persistentPatrols: new Map(), projectiles: [], combat: null,
       engagementPending: false, nextProjectileId: 1,

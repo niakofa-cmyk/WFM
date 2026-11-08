@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { isFreeFlightSnapshotV1 } from "@workspace/orbital-sim";
+import {
+  anomalyGravityWellForSector,
+  isFreeFlightEnvironmentV1,
+  isFreeFlightSnapshotV1,
+} from "@workspace/orbital-sim";
 import { readExplorationReceipt } from "../game/exploration-encounter";
 import type { PersistentPatrolShip } from "@workspace/db";
 import { startWingSocketServer } from "./server";
@@ -344,6 +348,66 @@ test("a client cannot choose a free-flight location or join without admission", 
     assert.equal((await error).reason, "invalid_freeflight_join");
   } finally {
     await close(socket);
+    await runtime.close();
+  }
+});
+
+test("server anomaly gravity is enabled only after every connected client negotiates support", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: auth.verifySessionToken,
+    enableFreeFlight: true,
+    resolveFreeFlightAdmission: async (userId) => ({
+      sessionKey: "mars:mars-orbit",
+      faction: "ussf",
+      shipId: "duskbreaker",
+    }),
+  });
+  const url = `ws://127.0.0.1:${runtime.port}/ws?freeflight=1`;
+  let modern: WebSocket | null = null;
+  let legacy: WebSocket | null = null;
+  try {
+    modern = await connect(url, "gravity-modern");
+    const firstJoin = nextPacket(modern, (packet) => packet.type === "freeflight_joined");
+    modern.send(JSON.stringify({ type: "freeflight_join" }));
+    const joined = await firstJoin;
+    assert.ok(isFreeFlightEnvironmentV1(joined.environment));
+    assert.equal((joined.environment as { enabled: boolean }).enabled, false);
+
+    const enabledForModern = nextPacket(modern, (packet) =>
+      packet.type === "freeflight_environment" &&
+      isFreeFlightEnvironmentV1(packet.environment) &&
+      packet.environment.enabled,
+    );
+    modern.send(JSON.stringify({ type: "freeflight_environment_request" }));
+    const enabled = await enabledForModern;
+    const expectedWell = anomalyGravityWellForSector("mars:mars-orbit");
+    assert.ok(expectedWell);
+    assert.deepEqual((enabled.environment as { gravityWells: unknown[] }).gravityWells, [expectedWell]);
+
+    legacy = await connect(url, "gravity-legacy");
+    const disabledForModern = nextPacket(modern, (packet) =>
+      packet.type === "freeflight_environment" &&
+      isFreeFlightEnvironmentV1(packet.environment) &&
+      !packet.environment.enabled,
+    );
+    const secondJoin = nextPacket(legacy, (packet) => packet.type === "freeflight_joined");
+    legacy.send(JSON.stringify({ type: "freeflight_join" }));
+    const legacyJoined = await secondJoin;
+    assert.ok(isFreeFlightEnvironmentV1(legacyJoined.environment));
+    assert.equal((legacyJoined.environment as { enabled: boolean }).enabled, false);
+    await disabledForModern;
+
+    const restoredForModern = nextPacket(modern, (packet) =>
+      packet.type === "freeflight_environment" &&
+      isFreeFlightEnvironmentV1(packet.environment) &&
+      packet.environment.enabled,
+    );
+    await close(legacy);
+    legacy = null;
+    await restoredForModern;
+  } finally {
+    if (legacy) await close(legacy);
+    if (modern) await close(modern);
     await runtime.close();
   }
 });

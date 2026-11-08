@@ -47,4 +47,5 @@
 - [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — public presence stays aggregate; nearby authorized pilots render as server-owned 3D ships in shared flight.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
+- [Anomaly gravity contract](anomaly-gravity-contract.md) — negotiate versioned server fields before applying shared movement forces; visuals remain non-authoritative.
 - [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.
