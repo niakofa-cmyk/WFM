@@ -135,7 +135,7 @@ test("authenticated pilots receive exact nearby 3D actors only inside their serv
       assert.equal(Object.hasOwn(actor, "userId"), false);
       assert.equal(Object.hasOwn(actor, "playerId"), false);
     }
-    assert.equal(firstOtherPilots[0]!.callsign, "WING PILOT");
+    assert.equal(firstOtherPilots[0]!.callsign, "UNIDENTIFIED CONTACT");
   } finally {
     await Promise.all(sockets.map(close));
     await runtime.close();
