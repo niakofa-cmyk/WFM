@@ -1516,3 +1516,58 @@ no manual rewards, account-location edits or Production changes were made.
 **Result: rollout, server admission, incoming combat damage and active-state
 recovery PASS; player firing and end-to-end reward flow INCOMPLETE. Overall
 promotion remains PENDING.**
+
+## 2026-11-08 — Local firing/life-state trace and correction
+
+The owner approved tracing the missing player-shot events. No staging or
+Production changes were made during this investigation.
+
+A deterministic local runtime regression first verified that a living
+participant emits primary shots. Ordinary hostile fire then destroyed that
+idle participant. Before correction, the runtime still accepted firing intent,
+while its tick loop correctly skipped the destroyed craft. The encounter could
+remain active, and the browser used a fresh local craft's health for its HUD
+instead of copying authoritative own-pilot health. The new regression failed
+at the missing explicit destroyed-pilot rejection before the fix.
+
+This is a reproduced failure mode, **not proof of the exact cause of the
+earlier staging symptom**: that trace did not retain the own pilot's life and
+health alongside the missing shot events.
+
+### Corrections
+
+- Destroyed-pilot primary/missile intent now returns
+  `freeflight_pilot_destroyed`, not an acceptance acknowledgement.
+- Encounter state includes pilot life on rejoin and fatal hits. Encounter
+  participation remains separate from an individual pilot's ability to act.
+- Shared-flight presentation copies own-pilot hull, shields and life from
+  server snapshots. Weapon/engagement controls require both an active encounter
+  and an authoritative living own pilot; disabled pilots receive a compact
+  return-to-hangar status. This does not grant repairs, rewards or local revival.
+- A primary-button pulse now survives release before the next simulation
+  sample. Cancellation clears it; it does not enable continuous auto-fire.
+- Input acknowledgements echo the accepted primary/missile intent and pilot
+  life. An acknowledgement is still **not** evidence of a projectile or a hit.
+
+### Local verification and boundaries
+
+All **11 free-flight server tests** passed, including living primary emission,
+destroyed-pilot primary/missile rejection, same-seat rejoin and the existing
+server-owned damage/attribution/settlement regression under co-op V1. All **21
+frontend input/state tests**, both type checks, both production builds and **4
+static build checks** passed.
+
+Initial static JavaScript gzip: **125,706 B main**, **126,487 B Combat Lab**.
+The Lab remains below the unchanged **143,360 B** cap. Three.js remains a lazy
+rendering foundation, outside both initial static graphs.
+
+Local web/socket workflows restarted cleanly. The public compatibility-entry
+screenshot loaded without a browser error; it does not exercise authenticated
+health/control rendering. Local socket startup reports its existing co-op V2
+configuration; the staged V1 configuration was not changed.
+
+The server/local heading mismatch after rejoin is still unresolved. No camera
+snap, position injection, range change, new universe or renderer replacement was
+introduced to conceal it. A fresh staging player-emission/hit/result check needs
+an approved rollout of this candidate. Staging remains on `8827015`, and overall
+promotion remains **PENDING**.

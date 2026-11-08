@@ -1241,3 +1241,27 @@ Evidence and exact deployment identifiers are recorded in
 `STAGING-TEST-REPORT.md`; scoped JSON remains promotion-PENDING. The test browser
 was closed with inputs neutralized. No Production or account-location changes
 were made.
+
+## 2026-11-08 — Firing investigation: authoritative pilot life
+
+A local regression reproduced a silent failure mode: a living pilot emits
+shots, hostile fire destroys it, and subsequent fire intent was still accepted
+even though dead craft are excluded from simulation. The client HUD also used
+local rather than authoritative own-pilot health. This could explain the
+staging symptom, but the earlier trace did not retain enough life-state data to
+prove that cause.
+
+Destroyed-pilot weapon intent is now explicitly rejected. Rejoin/fatal-hit
+state carries pilot life; the client displays authoritative health and gates
+weapons and engagement on the own pilot being alive. A short primary-button tap
+is latched to the next simulation sample. Accepted intent has diagnostic
+metadata but is not counted as an emitted shot or hit.
+
+Verification: 11 server tests, 21 frontend input/state tests, both type checks,
+both production builds and 4 static build checks passed. Combat Lab initial JS
+is 126,487 B gzip, below the unchanged 143,360 B cap; Three.js stays lazy.
+
+This candidate is local, not deployed. Staging remains on `8827015`; Production,
+database schema, network settings and feature flags were untouched. Fresh
+staging own-shot/reward verification and server/local heading alignment remain
+open; no local repair or respawn was added.

@@ -3,6 +3,20 @@ import test from "node:test";
 import { clearInput, createBus, MAX_CIRCULAR_ROLL_HOLD_MS, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl } from "./input";
 import { pulseForSector } from "./pilot-stick-gestures";
 
+test("a released primary tap survives until one simulation sample, without auto-fire", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.fireButton = true;
+  bus.firePulse = true;
+  bus.fireButton = false;
+  assert.equal(readInput(bus).fire, true);
+  assert.equal(readInput(bus).fire, false);
+  bus.firePulse = true;
+  clearInput(bus);
+  assert.equal(readInput(bus).fire, false, "blur/cancel clears queued firing");
+});
+
 test("offline Orbital left stick drives signed forward/reverse throttle and coordinated steering", () => {
   const bus = createBus("arc");
   bus.orbital = true;

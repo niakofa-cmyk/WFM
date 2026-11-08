@@ -38,3 +38,15 @@ been misreported as an encounter failure.
 **How to apply:** use server-space geometry with server heading for network
 diagnostics, and verify the renderer/prediction frame separately. Do not inject
 poses or weaken engagement range to make an automated approach succeed.
+
+Encounter participation and the pilot's ability to act are separate states:
+an ongoing fleet battle can include a destroyed participant.
+
+**Why:** acknowledging controls for a craft skipped by the simulation appears
+like lost weapon traffic, especially if a freshly initialized local HUD still
+shows full health.
+
+**How to apply:** display authoritative own-pilot health/life, reject disabled
+weapon intent explicitly, and measure accepted intent, emitted projectiles and
+impacts separately. Never infer a shot from an acknowledgement or revive a
+pilot locally to make a firing test pass.

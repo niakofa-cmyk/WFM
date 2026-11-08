@@ -341,6 +341,73 @@ test("rejected secondary claims refresh departed ships and reconnect restores ex
   }
 });
 
+test("a destroyed pilot must not silently accept fire or regain weapons on rejoin", async () => {
+  const contact: UniversePatrolEncounter = {
+    patrolId: "disabled-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Interceptors", route: ["phobos-yard", "cinder-asteroid"], revision: 0,
+    ships: Array.from({ length: 4 }, (_, i) => ({
+      id: `disabled-ship-000${i}`, hullId: "shakuna" as const,
+      name: "Interceptor", callsign: `Interceptor ${i}`,
+    })),
+  };
+  const packets: Packet[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN, bufferedAmount: 0,
+    send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "glide",
+    }),
+    resolveUniversePatrols: async () => [contact],
+    reserveUniversePatrol: async () => contact,
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async () => { throw new Error("idle pilot cannot win"); },
+    patrolSpawnDistanceMeters: 30,
+  });
+  const latestOwn = () => {
+    const snapshot = [...packets].reverse().find((p) => p.type === "freeflight_snapshot" ||
+      p.type === "freeflight_joined")?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    const actor = snapshot.actors.find((a) => a.actorId === snapshot.ownActorId);
+    assert.ok(actor);
+    return actor;
+  };
+  try {
+    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_join" });
+    const ownId = latestOwn().actorId;
+    await runtime.handle(socket, "disabled-pilot", {
+      type: "freeflight_engage", targetActorId: `patrol-ship:${contact.ships[0].id}`,
+    });
+    await runtime.handle(socket, "disabled-pilot", {
+      type: "freeflight_input", input: input(1, { fire: true }),
+    });
+    let clock = Date.now();
+    runtime.advance(clock += 100);
+    assert.ok(packets.some((p) => p.type === "freeflight_weapon_fired" &&
+      p.sourceActorId === ownId), "a living participant emits primary shots");
+    await runtime.handle(socket, "disabled-pilot", {
+      type: "freeflight_input", input: input(2),
+    });
+    for (let i = 0; i < 3_000 && latestOwn().alive; i++) runtime.advance(clock += 40);
+    assert.equal(latestOwn().alive, false, "ordinary hostile fire disables the idle pilot");
+    const before = packets.length;
+    for (const values of [{ fire: true }, { missile: true }]) {
+      await runtime.handle(socket, "disabled-pilot", {
+        type: "freeflight_input", input: input(3, values),
+      });
+    }
+    assert.equal(packets.slice(before).filter((p) =>
+      p.reason === "freeflight_pilot_destroyed").length, 2);
+    assert.equal(packets.slice(before).some((p) => p.type === "freeflight_input_accepted"), false);
+    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_join" });
+    assert.equal([...packets].reverse().find((p) => p.type === "freeflight_engagement_state")?.pilotAlive, false);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("shared-flight patrol combat settles independently of the co-op V1 rollback protocol", async () => {
   const ship: PersistentPatrolShip = {
     id: "persistent-test-ship-0001",

@@ -1,6 +1,39 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals } from "./free-flight-combat-state";
+
+const pilot = {
+  actorId: "pilot-test", callsign: "Pilot", kind: "pilot", faction: "ussf",
+  shipId: "glide", own: true, alive: true,
+  hull: 40, hullMax: 80, shield: 12, shieldMax: 30,
+  position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
+  orientation: { x: 0, y: 0, z: 0, w: 1 }, yaw: 0, pitch: 0, speed: 0,
+} as const;
+
+test("shared-flight health selects only the authoritative own pilot", () => {
+  const snapshot = { ownActorId: pilot.actorId, actors: [pilot] };
+  const vitals = freeFlightPilotVitals(snapshot);
+  assert.deepEqual(vitals, { alive: true, hull: 40, hullMax: 80, shield: 12, shieldMax: 30 });
+  assert.equal(sameFreeFlightPilotVitals(vitals, freeFlightPilotVitals(snapshot)), true);
+  assert.equal(freeFlightPilotVitals(undefined), null);
+  assert.equal(freeFlightPilotVitals({ ...snapshot, ownActorId: "someone-else" }), null);
+  assert.equal(freeFlightPilotVitals({ ...snapshot, actors: [{ ...pilot, own: false }] }), null);
+  assert.equal(freeFlightPilotVitals({ ...snapshot, actors: [{ ...pilot, kind: "patrol" }] }), null);
+});
+
+test("an active encounter cannot arm a destroyed, unknown or idle pilot", () => {
+  const living = freeFlightPilotVitals({ ownActorId: pilot.actorId, actors: [pilot] });
+  const destroyed = freeFlightPilotVitals({
+    ownActorId: pilot.actorId, actors: [{ ...pilot, alive: false, hull: 0, shield: 0 }],
+  });
+  assert.equal(freeFlightWeaponsEnabled(true, living), true);
+  assert.equal(freeFlightWeaponsEnabled(false, living), false);
+  assert.equal(freeFlightWeaponsEnabled(true, destroyed), false);
+  assert.equal(freeFlightWeaponsEnabled(true, null), false);
+  assert.equal(sameFreeFlightPilotVitals(living, destroyed), false);
+  assert.equal(combatStatusAfterError("active", true, "freeflight_pilot_destroyed"), "disabled");
+  assert.match(freeFlightCombatNotice("freeflight_pilot_destroyed"), /Ship disabled/);
+});
 
 test("secondary fleet requests and reservation failures retain active combat controls", () => {
   assert.equal(combatStatusAfterRequest(true), "active");

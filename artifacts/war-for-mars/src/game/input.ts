@@ -13,6 +13,7 @@ export type Bus = {
   rightY: number;
   fireCanvas: boolean;
   fireButton: boolean;
+  firePulse: boolean;
   ultPulse: boolean;
   lockPulse: boolean;
   missilePulse: boolean;
@@ -53,6 +54,7 @@ export function createBus(scheme: Scheme): Bus {
     rightY: 0,
     fireCanvas: false,
     fireButton: false,
+    firePulse: false,
     ultPulse: false,
     lockPulse: false,
     missilePulse: false,
@@ -93,6 +95,7 @@ export function clearInput(bus: Bus) {
   bus.rightY = 0;
   bus.fireCanvas = false;
   bus.fireButton = false;
+  bus.firePulse = false;
   bus.ultPulse = false;
   bus.lockPulse = false;
   bus.missilePulse = false;
@@ -215,7 +218,8 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
   const flightPitch = orbitalFlightStick?.pitch ?? 0;
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
-  const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
+  const fire = bus.fireCanvas || bus.fireButton || bus.firePulse || keys.has("Space");
+  bus.firePulse = false;
   const circularRoll = bus.orbital && bus.leftStickFlight &&
     Number.isFinite(at) && at >= 0 &&
     Number.isFinite(bus.circularRoll) && Number.isFinite(bus.circularRollUntil) &&

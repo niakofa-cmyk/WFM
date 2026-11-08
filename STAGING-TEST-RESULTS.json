@@ -1,5 +1,40 @@
 {
   "overallStatus": "PENDING",
+  "latestLocalFiringTrace": {
+    "checkedOn": "2026-11-08",
+    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
+    "stagingRuntimeStillAtCommit": "88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec",
+    "reproduction": "A living pilot emitted shots; ordinary NPC fire destroyed the idle pilot; the old runtime then accepted fire without an explicit destroyed-pilot rejection.",
+    "stagingRootCauseConfirmed": false,
+    "fixes": [
+      "Explicitly reject destroyed-pilot primary/missile intent without accepting it.",
+      "Include pilot life in encounter state, including fatal-hit notification and same-seat rejoin.",
+      "Apply authoritative own-pilot health/life to the local HUD and gate weapon/engage controls on life as well as encounter phase.",
+      "Preserve a short primary-button tap until the next simulation sample and clear it on cancellation.",
+      "Echo accepted primary/missile intent for diagnosis; acknowledgement is not proof of emission or impact."
+    ],
+    "verification": {
+      "serverFreeFlightTests": "11 passed, including living shots and destroyed-pilot fire/missile rejection plus rejoin.",
+      "frontendInputAndCombatStateTests": "21 passed",
+      "apiAndGameTypechecks": "PASS",
+      "mainAndStandaloneCombatLabBuilds": "PASS",
+      "staticPreviewBuildTests": "4 passed",
+      "mainInitialJavascriptGzipBytes": 125706,
+      "combatLabInitialJavascriptGzipBytes": 126487,
+      "combatLabInitialGzipLimitBytes": 143360,
+      "threeJsInEitherInitialStaticGraph": false,
+      "localWorkflowsRestarted": true,
+      "publicCompatibilityEntryScreenshot": "PASS; this does not verify authenticated combat UI."
+    },
+    "notVerified": [
+      "fresh staging player-shot emission or hits",
+      "staging kills, assists, reward settlement and post-result flight",
+      "server/local heading alignment after reconnect"
+    ],
+    "schemaOrFlagChanges": false,
+    "stagingOrProductionChanged": false,
+    "promotionCertified": false
+  },
   "latestLocalEncounterRecoveryFix": {
     "checkedOn": "2026-11-08",
     "status": "LOCAL_CHECKS_PASSED_STAGING_PARTIAL",

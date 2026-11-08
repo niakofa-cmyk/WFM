@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
@@ -687,6 +687,7 @@ export function Arena({
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
+  const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
   const [freeFlightNotice, setFreeFlightNotice] = useState("");
   const [freeFlightTally, setFreeFlightTally] = useState({ kills: 0, assists: 0, credits: 0 });
   const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
@@ -750,6 +751,9 @@ export function Arena({
         onSnapshot: (frame) => {
           const previous = freeFlightFramesRef.current.current;
           freeFlightFramesRef.current = { previous, current: frame };
+          const vitals = freeFlightPilotVitals(frame.snapshot);
+          setFreeFlightPilot((current) =>
+            sameFreeFlightPilotVitals(current, vitals) ? current : vitals);
           const nextContact = sharedFlightPatrolContact(frame.snapshot);
           setSharedPatrolContact((previousContact) =>
             sameSharedPatrolContact(previousContact, nextContact)
@@ -767,6 +771,7 @@ export function Arena({
           setFreeFlightStatus(reason ?? state);
           if (state !== "joined") {
             freeFlightCombatActiveRef.current = false;
+            setFreeFlightPilot(null);
             setFreeFlightCombatStatus("idle");
             setFreeFlightNotice("");
             freeFlightEnvironmentRef.current = null;
@@ -812,8 +817,8 @@ export function Arena({
             setFreeFlightNotice("");
           } else if (packet.type === "freeflight_engagement_state" &&
               typeof packet.phase === "string") {
-            freeFlightCombatActiveRef.current = packet.phase === "active";
-            setFreeFlightCombatStatus(packet.phase);
+            freeFlightCombatActiveRef.current = packet.phase === "active" && packet.pilotAlive !== false;
+            setFreeFlightCombatStatus(packet.pilotAlive === false ? "disabled" : packet.phase);
             if ([packet.kills, packet.assists, packet.creditsAwarded].every(
               (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
             )) {
@@ -836,7 +841,8 @@ export function Arena({
               credits: previous.credits + (packet.creditsAwarded as number),
             }));
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
-            if (packet.reason === "freeflight_engagement_required") {
+            if (packet.reason === "freeflight_engagement_required" ||
+                packet.reason === "freeflight_pilot_destroyed") {
               freeFlightCombatActiveRef.current = false;
             }
             if (packet.reason === "freeflight_rate_limited") return;
@@ -1996,7 +2002,8 @@ export function Arena({
         const craft = pilotCraft(match, slotIdRef.current);
         return { x: craft.x, y: craft.space?.y ?? 0, z: craft.z };
       },
-      getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
+      getFiring: () => bus.fireCanvas || bus.fireButton || bus.firePulse ||
+        (bus.override ?? bus.keys).has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
       },
@@ -2081,18 +2088,28 @@ export function Arena({
       const exploringUniverse = universePhase !== null && universePhase !== "training";
       for (const rockMesh of rockMeshes) rockMesh.visible = !exploringUniverse;
       if (exploringUniverse) {
-        // Flight inputs remain local/session-only. Patrol meshes below are a
-        // read-only projection of server contacts; combat and settlement live
-        // in the separate authenticated Orbital operation.
+        // Predict local presentation with the same controls sent to shared
+        // flight. Damage, life state and settlement remain server-owned.
         if (universeFrozen(universePhase)) acc = 0;
         let steps = 0;
         const pilot = match.player;
+        const serverVitals = freeFlightEnabled
+          ? freeFlightPilotVitals(freeFlightFramesRef.current.current?.snapshot)
+          : null;
+        if (serverVitals) {
+          // Health/life comes from the server, not the freshly created local
+          // presentation craft after a reload. Never revive or repair locally.
+          Object.assign(pilot, serverVitals);
+          if (!serverVitals.alive) clearInput(bus);
+        }
+        const weaponsEnabled = freeFlightWeaponsEnabled(
+          freeFlightCombatActiveRef.current, serverVitals);
         while (acc >= FIXED && steps < 5 && pilot.space) {
           const controls = readInput(bus);
           freeFlightClientRef.current?.sendControls({
             ...controls,
-            fire: freeFlightCombatActiveRef.current && controls.fire,
-            missile: freeFlightCombatActiveRef.current && controls.missile,
+            fire: weaponsEnabled && controls.fire,
+            missile: weaponsEnabled && controls.missile,
           });
           const nextSector = advanceLocalUniverseFlight(
             match,
@@ -2718,7 +2735,7 @@ export function Arena({
       engineGain(pausedRef.current || !player.alive ? 0 : Math.min(1, Math.abs(player.speed) / Math.max(1, top)));
 
       if (shieldRef.current) {
-        shieldRef.current.style.width = `${Math.max(0, (player.shield / player.shieldMax) * 100)}%`;
+        shieldRef.current.style.width = `${Math.max(0, (player.shield / Math.max(1, player.shieldMax)) * 100)}%`;
       }
       if (hullRef.current) {
         hullRef.current.style.width = `${Math.max(0, (player.hull / player.hullMax) * 100)}%`;
@@ -3073,7 +3090,9 @@ export function Arena({
       : freeFlightEnabled
         ? "LINK UNAVAILABLE"
         : "LOCAL PREVIEW";
-  const freeFlightCombatLabel = freeFlightCombatStatus === "active"
+  const freeFlightCombatLabel = freeFlightPilot?.alive === false
+    ? "SHIP DISABLED · RETURN TO HANGAR"
+    : freeFlightCombatStatus === "active"
     ? "ENGAGED"
     : freeFlightCombatStatus === "requesting"
       ? "REQUESTING"
@@ -3081,13 +3100,15 @@ export function Arena({
         ? "RESULT"
         : "";
   const sharedFreeFlightEngagementActive =
-    sharedFreeFlightJoined && freeFlightCombatStatus === "active";
+    sharedFreeFlightJoined && freeFlightWeaponsEnabled(
+      freeFlightCombatStatus === "active", freeFlightPilot);
   return (
     <div
       data-testid="arena-stage"
       data-mode-id={modeId}
       data-runtime-id={runtime}
       data-local-endurance={localEndurance ? "true" : "false"}
+      data-shared-pilot-alive={sharedFreeFlightJoined ? freeFlightPilot?.alive : undefined}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
       {localUniverse ? (
@@ -3153,9 +3174,9 @@ export function Arena({
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
           contact={sharedPatrolContact ?? patrolContact}
-          enabled={sharedFreeFlightJoined}
+          enabled={sharedFreeFlightJoined && freeFlightPilot?.alive === true}
           notice={freeFlightNotice}
-          onEngage={sharedFreeFlightJoined ? () => {
+          onEngage={sharedFreeFlightJoined && freeFlightPilot?.alive === true ? () => {
             const actorId = sharedPatrolContact?.actorId;
             if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
               setFreeFlightNotice("");
@@ -3521,12 +3542,11 @@ export function Arena({
                         testId="button-fire"
                         accent
                         fireAction
-                        onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                        onPress={() => { unlockAudio(); if (bus) { bus.fireButton = true; bus.firePulse = true; } }}
                         onRelease={() => { if (bus) bus.fireButton = false; }}
                         onActivate={() => {
                           unlockAudio();
-                          if (bus) bus.fireButton = true;
-                          requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                          if (bus) bus.firePulse = true;
                         }}
                         className="pilot-action-fire"
                       />}

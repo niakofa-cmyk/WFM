@@ -635,6 +635,7 @@ export function createFreeFlightRuntime(options: {
       hullDamage,
       destroyed: !target.craft.alive,
     });
+    if (!target.craft.alive && target.kind === "pilot") sendCombatState(session, target);
   }
 
   function stepProjectiles(session: Session) {
@@ -732,6 +733,7 @@ export function createFreeFlightRuntime(options: {
     send(actor.socket, {
       type: "freeflight_engagement_state",
       phase: active.length ? "active" : encounters.length ? "settling" : "idle",
+      pilotAlive: actor.craft.alive,
       activeEncounterCount: active.length,
       kills: actor.kills, assists: actor.assists, creditsAwarded: actor.creditsAwarded,
     });
@@ -1207,6 +1209,11 @@ export function createFreeFlightRuntime(options: {
         error("freeflight_target_selection_server_owned");
         return;
       }
+      if ((input.fire || input.missile) && !seat.actor.craft.alive) {
+        error("freeflight_pilot_destroyed");
+        sendCombatState(seat.session, seat.actor);
+        return;
+      }
       if ((input.fire || input.missile) &&
           !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
         error("freeflight_engagement_required");
@@ -1231,7 +1238,11 @@ export function createFreeFlightRuntime(options: {
         drift: input.drift, inertial: input.inertial, aimAssist: input.aimAssist,
         fire: input.fire, missile: input.missile, targetId: null,
       };
-      send(socket, { type: "freeflight_input_accepted", seq: input.seq });
+      // Accepted intent is not proof of a projectile or a hit.
+      send(socket, {
+        type: "freeflight_input_accepted", seq: input.seq,
+        fire: input.fire, missile: input.missile, pilotAlive: seat.actor.craft.alive,
+      });
       return;
     }
     if (packet.type === "freeflight_ping" && Object.keys(packet).length === 2 &&
