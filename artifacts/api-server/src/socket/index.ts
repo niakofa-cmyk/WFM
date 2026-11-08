@@ -71,7 +71,7 @@ const resolveFreeFlightAdmission = enableFreeFlight
       return { sessionKey: `mars:${row.locationId}`, faction, shipId };
     }
   : undefined;
-process.stdout.write(`${JSON.stringify({ event: "orbital_freeflight_readiness", enabled: enableFreeFlight, admission: enableFreeFlight ? "database-backed" : "disabled" })}\\n`);
+process.stdout.write(`${JSON.stringify({ event: "orbital_freeflight_readiness", enabled: enableFreeFlight, admission: enableFreeFlight ? "database-backed" : "disabled" })}\n`);
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
