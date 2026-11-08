@@ -52,6 +52,10 @@ math, versioned snapshots/inputs, server input/weapon validation, state-converge
 and cross-runtime replay tests. Existing Node/Chromium deterministic guarantees
 for `sim.ts` cannot be claimed for this separate trainer.
 
+## Shared 3D universe runtime requirement
+
+The live movement/presence and privacy contract is now specified in [`infinite-war/LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](infinite-war/LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md), with patrol lifecycle requirements in [`infinite-war/PERSISTENT-ENEMY-FLEET-PATROLS.md`](infinite-war/PERSISTENT-ENEMY-FLEET-PATROLS.md). The first server movement/snapshot implementation is opt-in; the local `/flight` trainer remains separate and is not evidence of shared multiplayer flight.
+
 ## Next engineering gates
 
 1. Validate flight comfort, spatial navigation, thermals and memory on the
