@@ -48,8 +48,11 @@ The owner-provided November 7 patrol references are preserved verbatim in
 slice and remaining gates are tracked in
 [`PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md`](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md):
 server-persisted, multi-ship USSF/Accord patrols now move through the existing
-world route graph and appear in the Galaxy screen. This is strategic AI
-visibility only; it is not yet a 3D free-flight encounter or a reward source.
+world route graph, appear in the Galaxy screen, and project as 3D ship models
+into local free flight. The strategic directory is read-only for flight combat.
+A separate authenticated V2 patrol operation can be explicitly requested,
+fought, tallied, and settled server-side, but it runs in its own sector session
+and does not inherit the visible ship's free-flight position.
 
 ## Current connected-universe redesign direction — 2026-11-06
 
