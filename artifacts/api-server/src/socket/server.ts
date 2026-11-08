@@ -148,6 +148,8 @@ export async function startWingSocketServer(
       contact: Pick<import("../game/universe-patrols").UniversePatrolEncounter, "patrolId" | "locationId" | "faction">,
       encounterId: string,
     ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
+    releaseUniversePatrol?: (patrolId: string, encounterId: string) => Promise<void>;
+    freeFlightPatrolSpawnDistanceMeters?: number;
     publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     publishCompetitiveMatch?: (state: {
       matchId: string;
@@ -183,7 +185,14 @@ export async function startWingSocketServer(
     protocolVersion: options.sectorProtocolVersion,
   });
   const freeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
-    ? createFreeFlightRuntime({ resolveAdmission: options.resolveFreeFlightAdmission })
+    ? createFreeFlightRuntime({
+        resolveAdmission: options.resolveFreeFlightAdmission,
+        resolveUniversePatrol: options.resolveUniversePatrol,
+        reserveUniversePatrol: options.reserveUniversePatrol,
+        settleScoutEncounter: options.settleScoutEncounter,
+        releaseUniversePatrol: options.releaseUniversePatrol,
+        patrolSpawnDistanceMeters: options.freeFlightPatrolSpawnDistanceMeters,
+      })
     : null;
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();

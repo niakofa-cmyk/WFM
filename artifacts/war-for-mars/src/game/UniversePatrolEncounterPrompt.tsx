@@ -3,6 +3,8 @@ import { SHIPS, type Faction, type ShipId } from "./ships";
 import { PATROL_INTERCEPT_RANGE_METERS } from "./universe-patrol-flight";
 
 export type UniversePatrolEncounterNotice = {
+  actorId?: string;
+  engageable?: boolean;
   callsign: string;
   faction: Faction;
   shipId?: ShipId;
@@ -35,10 +37,12 @@ function IntegrityBar({ label, value, maximum }: {
 export function UniversePatrolEncounterPrompt({
   contact,
   enabled,
+  onEngage,
   onIntercept,
 }: {
   contact: UniversePatrolEncounterNotice | null;
   enabled: boolean;
+  onEngage?: () => void;
   onIntercept?: () => void;
 }) {
   if (!contact) return null;
@@ -47,6 +51,8 @@ export function UniversePatrolEncounterPrompt({
   const hasIntegrity = contact.source === "server-snapshot" &&
     Number.isFinite(contact.shield) && Number.isFinite(contact.shieldMax) &&
     Number.isFinite(contact.hull) && Number.isFinite(contact.hullMax);
+  const liveEngage = contact.source === "server-snapshot" &&
+    contact.engageable === true && Boolean(onEngage);
   return (
     <aside
       className="pointer-events-auto absolute left-3 top-[calc(env(safe-area-inset-top)+5.25rem)] z-30 w-[min(17rem,calc(100vw-1.5rem))] border border-[#f0a95d]/65 bg-[#080b12]/95 p-3 shadow-xl"
@@ -69,15 +75,19 @@ export function UniversePatrolEncounterPrompt({
           <p className="mt-1 text-[8px] tracking-[0.14em] text-muted">DAMAGE STATE · SERVER REPORTED</p>
         </div>
       ) : null}
-      {inRange ? enabled ? (
+      {inRange ? liveEngage || enabled && contact.source !== "server-snapshot" ? (
         <button
           type="button"
           className="mt-3 min-h-10 w-full border border-[#f0a95d] bg-[#f0a95d] px-3 font-hud text-[10px] tracking-[0.16em] text-[#101116]"
           data-testid="button-intercept-in-flight-patrol"
-          onClick={onIntercept}
+          onClick={liveEngage ? onEngage : onIntercept}
         >
-          REQUEST PATROL INTERCEPT
+          {liveEngage ? "ENGAGE IN FREE FLIGHT" : "REQUEST PATROL INTERCEPT"}
         </button>
+      ) : contact.source === "server-snapshot" ? (
+        <p className="mt-3 border border-bone/15 px-2 py-2 text-[10px] text-muted" data-testid="status-patrol-engagement-unavailable">
+          PERSISTENT PATROL RESERVATION UNAVAILABLE
+        </p>
       ) : (
         <p className="mt-3 border border-bone/15 px-2 py-2 text-[10px] text-muted" data-testid="status-patrol-intercept-disabled">
           INTERCEPT LINK UNAVAILABLE IN THIS DEPLOYMENT

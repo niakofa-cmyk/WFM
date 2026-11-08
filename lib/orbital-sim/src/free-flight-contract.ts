@@ -81,7 +81,9 @@ function validActor(value: unknown): value is FreeFlightActorV1 {
   return (actor.hull as number) <= (actor.hullMax as number) &&
     (actor.shield as number) <= (actor.shieldMax as number) &&
     (actor.kind !== "pilot" || actor.actorId.startsWith("pilot:")) &&
-    (actor.kind !== "patrol" || actor.actorId.startsWith("patrol:"));
+    (actor.kind !== "patrol" ||
+      actor.actorId.startsWith("patrol:") ||
+      actor.actorId.startsWith("patrol-ship:"));
 }
 
 /** Validate server-produced free-flight snapshots before any client rendering. */

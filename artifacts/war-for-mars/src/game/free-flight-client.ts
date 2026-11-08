@@ -24,6 +24,7 @@ type FreeFlightClientOptions = {
   getSessionToken: () => Promise<string | null>;
   onSnapshot: (frame: ReceivedFreeFlightSnapshot) => void;
   onState?: (state: FreeFlightConnectionState, reason?: string) => void;
+  onCombatPacket?: (packet: Record<string, unknown>) => void;
 };
 
 /** Authenticated adapter for the feature-gated server-owned free-flight stream. */
@@ -71,15 +72,23 @@ export class FreeFlightClient {
       strafe: controls.strafe,
       vertical: controls.vertical,
       roll: controls.roll,
-      fire: false,
-      missile: false,
+      fire: controls.fire,
+      missile: controls.missile,
       boost: controls.boost,
       brake: controls.brake,
       inertial: controls.inertial,
       aimAssist: controls.aimAssist,
-      countermeasure: false,
+      countermeasure: controls.countermeasure,
     };
     socket.send(JSON.stringify({ type: "freeflight_input", input }));
+  }
+
+  engagePatrol(targetActorId: string) {
+    const socket = this.socket;
+    if (!this.joined || !socket || socket.readyState !== WebSocket.OPEN ||
+        !/^([A-Za-z0-9_:-]){8,80}$/.test(targetActorId)) return false;
+    socket.send(JSON.stringify({ type: "freeflight_engage", targetActorId }));
+    return true;
   }
 
   private connect() {
@@ -149,7 +158,18 @@ export class FreeFlightClient {
         this.acceptSnapshot(packet.snapshot);
         return;
       }
+      if (packet.type === "freeflight_engagement_started" ||
+          packet.type === "freeflight_engagement_state" ||
+          packet.type === "freeflight_weapon_event" ||
+          packet.type === "freeflight_combat_result") {
+        this.options.onCombatPacket?.(packet);
+        return;
+      }
       if (packet.type === "error" && typeof packet.reason === "string") {
+        if (this.joined) {
+          this.options.onCombatPacket?.({ type: "freeflight_error", reason: packet.reason });
+          return;
+        }
         this.options.onState?.("unavailable", packet.reason);
         if (!this.joined ||
             packet.reason === "freeflight_not_authorized" ||

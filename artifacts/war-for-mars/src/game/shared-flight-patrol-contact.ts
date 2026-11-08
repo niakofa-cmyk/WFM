@@ -35,6 +35,8 @@ export function sharedFlightPatrolContact(
   if (!nearest) return null;
 
   return {
+    actorId: nearest.actor.actorId,
+    engageable: nearest.actor.actorId.startsWith("patrol-ship:"),
     callsign: nearest.actor.callsign,
     faction: nearest.actor.faction,
     shipId: nearest.actor.shipId as ShipId,

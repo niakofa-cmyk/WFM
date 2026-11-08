@@ -602,6 +602,8 @@ export function Arena({
   const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
+  const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
+  const [freeFlightTally, setFreeFlightTally] = useState({ kills: 0, assists: 0, credits: 0 });
   const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
@@ -654,6 +656,27 @@ export function Arena({
           if (state !== "joined") {
             setVisibleEnemyPatrols(0);
             setSharedPatrolContact(null);
+          }
+        },
+        onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_engagement_started") {
+            setFreeFlightCombatStatus("active");
+          } else if (packet.type === "freeflight_engagement_state" &&
+              typeof packet.phase === "string") {
+            setFreeFlightCombatStatus(packet.phase);
+          } else if (packet.type === "freeflight_combat_result" &&
+              packet.status === "settled" &&
+              Number.isSafeInteger(packet.kills) &&
+              Number.isSafeInteger(packet.assists) &&
+              Number.isSafeInteger(packet.creditsAwarded)) {
+            setFreeFlightCombatStatus("complete");
+            setFreeFlightTally((previous) => ({
+              kills: previous.kills + (packet.kills as number),
+              assists: previous.assists + (packet.assists as number),
+              credits: previous.credits + (packet.creditsAwarded as number),
+            }));
+          } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
+            setFreeFlightCombatStatus(packet.reason);
           }
         },
       });
@@ -2527,6 +2550,7 @@ export function Arena({
   }, [ship.ultShort]);
 
   const bus = busRef.current;
+  const sharedFreeFlightCombat = freeFlightStatus === "joined";
   return (
     <div
       data-testid="arena-stage"
@@ -2546,6 +2570,9 @@ export function Arena({
         <p data-testid="free-flight-network-status" className="absolute right-3 top-3 z-30 border border-solar/40 bg-void/85 px-2 py-1 font-hud text-[10px] tracking-widest text-solar">
           SHARED FLIGHT · {freeFlightStatus.replaceAll("_", " ").toUpperCase()}
           {freeFlightStatus === "joined" ? ` · ENEMY PATROLS ${visibleEnemyPatrols}` : ""}
+          {sharedFreeFlightCombat && freeFlightCombatStatus !== "idle"
+            ? ` · PATROL ${freeFlightCombatStatus.replaceAll("-", " ").toUpperCase()} · K/A ${freeFlightTally.kills}/${freeFlightTally.assists} · CR ${freeFlightTally.credits}`
+            : ""}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (
@@ -2573,7 +2600,13 @@ export function Arena({
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
           contact={sharedPatrolContact ?? patrolContact}
-          enabled={Boolean(localUniverse.canInterceptPatrol)}
+          enabled={sharedFreeFlightCombat || Boolean(localUniverse.canInterceptPatrol)}
+          onEngage={sharedFreeFlightCombat ? () => {
+            const actorId = sharedPatrolContact?.actorId;
+            if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
+              setFreeFlightCombatStatus("requesting");
+            }
+          } : undefined}
           onIntercept={() => localUniverseRef.current?.onInterceptPatrol?.()}
         />
       ) : null}
@@ -2799,7 +2832,7 @@ export function Arena({
                       </div>
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
-                    {exploringHud ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
+                    {exploringHud && !sharedFreeFlightCombat ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -2898,7 +2931,7 @@ export function Arena({
                         }}
                       />
                     )}
-                    {exploringHud ? null : <PilotActionButton
+                    {exploringHud && !sharedFreeFlightCombat ? null : <PilotActionButton
                       ref={missileRef}
                       icon="missile"
                       label="Launch guided missile"
@@ -2927,7 +2960,7 @@ export function Arena({
                           requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
                         }}
                       />
-                      {exploringHud ? null : <PilotActionButton
+                      {exploringHud && !sharedFreeFlightCombat ? <span className="sr-only">Primary guns unavailable outside a live encounter</span> : <PilotActionButton
                         icon="fire"
                         label="Hold primary guns"
                         testId="button-fire"
@@ -2962,9 +2995,9 @@ export function Arena({
           ) : (
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
-                <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                {!exploringHud || sharedFreeFlightCombat ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
                 {orbital ? (
-                  <PilotActionButton
+                  !exploringHud || sharedFreeFlightCombat ? <PilotActionButton
                     ref={missileRef}
                     icon="missile"
                     label="Launch guided missile"
@@ -2976,7 +3009,7 @@ export function Arena({
                       unlockAudio();
                       if (bus) bus.missilePulse = true;
                     }}
-                  />
+                  /> : null
                 ) : (
                   <>
                     <PilotActionButton
@@ -2996,7 +3029,7 @@ export function Arena({
                     />
                   </>
                 )}
-                <PilotActionButton
+                {!exploringHud || sharedFreeFlightCombat ? <PilotActionButton
                   icon="fire"
                   label="Hold primary guns"
                   testId="button-fire"
@@ -3010,7 +3043,7 @@ export function Arena({
                     requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
                   }}
                   className="pilot-action-fire"
-                />
+                /> : null}
               </div>
               <div className="pointer-events-auto">
                 <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {

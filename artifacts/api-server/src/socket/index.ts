@@ -10,6 +10,7 @@ import { getSocketFeatureReadiness } from "./reward-config";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "../game/sector-missions";
 import {
+  releaseUniversePatrolEncounter,
   reserveUniversePatrolEncounter,
   resolveUniversePatrolEncounter,
 } from "../game/universe-patrols";
@@ -99,7 +100,7 @@ process.stdout.write(`${JSON.stringify({
 const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/sector-progression")
   : undefined;
-const explorationRewards = enableSectorFlight && Boolean(process.env.DATABASE_URL)
+const explorationRewards = (enableSectorFlight || enableFreeFlight) && Boolean(process.env.DATABASE_URL)
   ? await import("../game/exploration-rewards")
   : undefined;
 const storyEvidence = enableSectorFlight && Boolean(process.env.DATABASE_URL)
@@ -156,13 +157,17 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
       ? storyEvidence.recoverNarrativeEvidence
       : undefined,
   isAtCinderRing: operationNetwork?.operationCoordinator.isAtCinderRing,
-  resolveUniversePatrol: sectorProgression && explorationRewards &&
+  resolveUniversePatrol: enableFreeFlight && explorationRewards &&
     sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
       ? resolveUniversePatrolEncounter
       : undefined,
-  reserveUniversePatrol: sectorProgression && explorationRewards &&
+  reserveUniversePatrol: enableFreeFlight && explorationRewards &&
     sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
       ? reserveUniversePatrolEncounter
+      : undefined,
+  releaseUniversePatrol: enableFreeFlight && explorationRewards &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? releaseUniversePatrolEncounter
       : undefined,
   publishSectorOperation,
   publishCompetitiveMatch,

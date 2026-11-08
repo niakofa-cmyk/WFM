@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   playerWorldStateTable,
@@ -114,6 +114,22 @@ export async function reserveUniversePatrolEncounter(
       revision: reserved.revision,
     };
   });
+}
+
+/** Release a live-flight reservation when the socket runtime shuts down before settlement. */
+export async function releaseUniversePatrolEncounter(
+  patrolId: string,
+  encounterId: string,
+): Promise<void> {
+  await db.update(universePatrolsTable).set({
+    activeEncounterId: null,
+    encounterLeaseExpiresAt: null,
+    revision: sql`${universePatrolsTable.revision} + 1`,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(universePatrolsTable.patrolId, patrolId),
+    eq(universePatrolsTable.activeEncounterId, encounterId),
+  ));
 }
 
 /**

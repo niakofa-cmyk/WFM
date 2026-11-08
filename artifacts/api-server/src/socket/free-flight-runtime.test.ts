@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { isFreeFlightSnapshotV1 } from "@workspace/orbital-sim";
+import { readExplorationReceipt } from "../game/exploration-encounter";
+import type { PersistentPatrolShip } from "@workspace/db";
 import { startWingSocketServer } from "./server";
 import { authenticateTestSocket, createSocketTestAuth } from "./test-session-auth";
 
@@ -153,13 +155,114 @@ test("the server advances 3D pilot and patrol movement and rejects client combat
 
     const combatError = nextPacket(socket, (packet) => packet.type === "error");
     socket.send(JSON.stringify({ type: "freeflight_input", input: input(2, { fire: true }) }));
-    assert.equal((await combatError).reason, "freeflight_combat_not_enabled");
+    assert.equal((await combatError).reason, "freeflight_engagement_required");
     const spatialError = nextPacket(socket, (packet) => packet.type === "error");
     socket.send(JSON.stringify({
       type: "freeflight_input",
       input: { ...input(2), position: { x: 1e9, y: 0, z: 0 } },
     }));
     assert.equal((await spatialError).reason, "freeflight_invalid_packet");
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
+test("persistent patrol combat resolves server-side damage, kill attribution, and reward settlement in shared flight", async () => {
+  const ship: PersistentPatrolShip = {
+    id: "persistent-test-ship-0001",
+    hullId: "mandjet",
+    name: "Accord interceptor",
+    callsign: "Vesper",
+  };
+  const contact = {
+    patrolId: "persistent-test-patrol-0001",
+    locationId: "phobos-yard",
+    faction: "accord" as const,
+    callsign: "Vesper Flight",
+    route: ["phobos-yard", "cinder-asteroid"],
+    ships: [ship],
+    revision: 0,
+  };
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: auth.verifySessionToken,
+    enableFreeFlight: true,
+    resolveFreeFlightAdmission: async () => ({
+      sessionKey: "mars:phobos-yard",
+      faction: "ussf",
+      shipId: "duskbreaker",
+    }),
+    resolveUniversePatrol: async (_userId, pilotFaction) =>
+      pilotFaction === "ussf" ? contact : null,
+    reserveUniversePatrol: async (userIds, pilotFaction, reservation, encounterId) => {
+      assert.deepEqual(userIds, ["combat-pilot"]);
+      assert.equal(pilotFaction, "ussf");
+      assert.equal(reservation.patrolId, contact.patrolId);
+      assert.match(encounterId, /^[0-9a-f-]{36}$/i);
+      return contact;
+    },
+    settleScoutEncounter: async (receipt) => {
+      const result = readExplorationReceipt(receipt);
+      return {
+        status: "settled",
+        awards: result.pilots.map((pilot) => ({
+          ...pilot,
+          balanceAfter: pilot.credits,
+          revision: 1,
+        })),
+      };
+    },
+    freeFlightPatrolSpawnDistanceMeters: 30,
+    snapshotIntervalMs: 50,
+  });
+  const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?freeflight=1`, "combat-pilot");
+  try {
+    const initial = await join(socket);
+    const target = initial.actors.find((actor) =>
+      actor.actorId === `patrol-ship:${ship.id}`,
+    );
+    assert.ok(target, "the persistent fleet must be present in the shared-flight snapshot");
+    const started = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_engagement_started");
+    socket.send(JSON.stringify({ type: "freeflight_engage", targetActorId: target.actorId }));
+    const engagement = await started;
+    assert.equal(engagement.patrolId, contact.patrolId);
+
+    let finished = false;
+    const resultPromise = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_combat_result", 15_000).then((packet) => {
+        finished = true;
+        return packet;
+      });
+    const diagnostics: string[] = [];
+    const onDiagnostic = (data: Buffer) => {
+      try {
+        const packet = JSON.parse(data.toString()) as Packet;
+        if (packet.type === "freeflight_weapon_event") {
+          diagnostics.push(`hit:${packet.targetActorId}:h${packet.hullDamage}:s${packet.shieldDamage}:dead${packet.destroyed}`);
+        } else if (packet.type === "freeflight_engagement_state" || packet.type === "error") {
+          diagnostics.push(`${packet.type}:${packet.reason ?? packet.phase ?? ""}`);
+        }
+      } catch { /* Ignore malformed test data. */ }
+    };
+    socket.on("message", onDiagnostic);
+    let seq = 1;
+    for (let index = 0; index < 100 && !finished; index += 1) {
+      const accepted = nextPacket(socket, (packet) =>
+        packet.type === "freeflight_input_accepted" && packet.seq === seq, 2_000);
+      socket.send(JSON.stringify({
+        type: "freeflight_input",
+        input: input(seq, { fire: true }),
+      }));
+      await accepted;
+      seq += 1;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (!finished) console.log("free-flight combat diagnostics", diagnostics);
+    const result = await resultPromise;
+    assert.equal(result.status, "settled");
+    assert.ok(Number(result.kills) >= 1);
+    assert.ok(Number(result.creditsAwarded) > 0);
   } finally {
     await close(socket);
     await runtime.close();
