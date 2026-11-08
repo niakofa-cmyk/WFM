@@ -1164,3 +1164,18 @@ retained for a fresh code through Secrets. No code was submitted and no active
 session/profile or gameplay result has been verified. The authenticated
 multi-fleet encounter check is blocked, not passed. Deployment identifiers and
 the evidence boundary are recorded in `STAGING-TEST-REPORT.md`.
+
+## 2026-11-08 — Authenticated staging exposed a protocol-coupling defect
+
+The retained browser completed fresh verification and its authenticated profile
+returned HTTP 200. Shared-flight traffic appeared in the HUD, but proximity
+combat was unavailable. Staging retained co-op V1 as intended; the socket
+incorrectly used the co-op V2 gate for the independent free-flight combat
+adapters, leaving fallback contacts that could not engage.
+
+The correction gives continuous free flight dedicated persistent patrol,
+reservation, settlement and release adapters while preserving all co-op
+protocol gates. A regression exercises weapons, reinforcement, attribution and
+settlement with co-op V1 selected. All 35 focused free-flight/co-op/feature tests
+and the API typecheck passed. The corrected code still needs an approved
+staging rollout; no deployed combat or reward pass is claimed.

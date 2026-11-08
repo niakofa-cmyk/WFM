@@ -1311,3 +1311,33 @@ code for this challenge must be supplied through Secrets before the test can
 continue. Older stored codes are not evidence of current challenge completion.
 Encounter verification remains **BLOCKED — FRESH VERIFICATION REQUIRED**;
 machine-readable promotion evidence remains pending.
+
+## 2026-11-08 — Authentication passed; encounter adapter gate identified
+
+The fresh code was submitted once to the retained challenge. A UI interaction
+timed out, so no retry was made; inspection then confirmed an active Clerk
+session and an authenticated `/api/game/profile` response of **HTTP 200**.
+Authentication is verified for this browser session, not two physical devices.
+
+The browser opened directly into a 3D shared-flight HUD. The main hangar's
+Enter Universe action was not visible/exercised in this session. The HUD
+reported two hostile ships and a moving-range patrol contact. At approximately
+164–169 m it displayed **SHARED COMBAT LINK UNAVAILABLE** with no engage action.
+Individual persistent 3D ship models, weapons, damage, kills, assists, reward
+settlement and post-result flight were **not verified**. The tester stopped
+without forced packets, actor relocation or reward grants.
+
+Read-only socket startup metadata for the deployed revision showed free flight
+enabled with database-backed admission and `sectorWireProtocolVersion: 1`.
+Source inspection established that persistent patrol and settlement adapters
+were incorrectly gated on co-op sector V2, even though continuous free flight
+has its own contract. This produces fallback traffic rather than engageable
+persistent fleets under the intended co-op rollback default.
+
+A local correction now supplies dedicated free-flight combat adapters without
+changing the co-op protocol flags or its settlement wiring. All **35** focused
+free-flight/co-op/feature-gate checks and the API typecheck passed, including real
+free-flight combat and settlement while co-op V1 is selected. This correction
+is **not yet deployed**; the current staging encounter result is blocked, not
+passed. It requires a new approved staging source rollout and a focused retry.
+Production and the machine-readable promotion status remain unchanged.

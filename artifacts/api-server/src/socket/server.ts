@@ -122,6 +122,9 @@ export async function startWingSocketServer(
     enableSectorFlight?: boolean;
     enableFreeFlight?: boolean;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
+    freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
+      "resolveUniversePatrols" | "reserveUniversePatrol" |
+      "settleScoutEncounter" | "releaseUniversePatrol">>;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
@@ -191,11 +194,13 @@ export async function startWingSocketServer(
   const freeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
     ? createFreeFlightRuntime({
         resolveAdmission: options.resolveFreeFlightAdmission,
-        resolveUniversePatrol: options.resolveUniversePatrol,
-        resolveUniversePatrols: options.resolveUniversePatrols,
-        reserveUniversePatrol: options.reserveUniversePatrol,
-        settleScoutEncounter: options.settleScoutEncounter,
-        releaseUniversePatrol: options.releaseUniversePatrol,
+        ...(options.freeFlightCombat ?? {
+          resolveUniversePatrol: options.resolveUniversePatrol,
+          resolveUniversePatrols: options.resolveUniversePatrols,
+          reserveUniversePatrol: options.reserveUniversePatrol,
+          settleScoutEncounter: options.settleScoutEncounter,
+          releaseUniversePatrol: options.releaseUniversePatrol,
+        }),
         patrolSpawnDistanceMeters: options.freeFlightPatrolSpawnDistanceMeters,
       })
     : null;

@@ -104,6 +104,12 @@ const sectorProgression = enableSectorFlight && Boolean(process.env.DATABASE_URL
 const explorationRewards = (enableSectorFlight || enableFreeFlight) && Boolean(process.env.DATABASE_URL)
   ? await import("../game/exploration-rewards")
   : undefined;
+process.stdout.write(`${JSON.stringify({
+  event: "orbital_freeflight_combat_readiness",
+  enabled: Boolean(enableFreeFlight && explorationRewards),
+  contract: "freeflight-v1",
+  sectorWireProtocolVersion,
+})}\n`);
 const storyEvidence = enableSectorFlight && Boolean(process.env.DATABASE_URL)
   ? await import("../game/story-evidence")
   : undefined;
@@ -145,6 +151,14 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableSectorFlight,
   enableFreeFlight,
   resolveFreeFlightAdmission,
+  // Continuous flight has its own versioned contract. Do not couple its
+  // persistent combat adapters to the co-op sector protocol rollout.
+  freeFlightCombat: enableFreeFlight && explorationRewards ? {
+    resolveUniversePatrols: resolveUniversePatrolEncounters,
+    reserveUniversePatrol: reserveUniversePatrolEncounter,
+    releaseUniversePatrol: releaseUniversePatrolEncounter,
+    settleScoutEncounter: (receipt) => explorationRewards.settleCompletedExploration(receipt, true),
+  } : undefined,
   sectorProtocolVersion: sectorWireProtocolVersion,
   loadSectorProgress: sectorProgression?.loadSectorProgress,
   settleSectorDiscovery: sectorProgression?.settleSectorDiscovery,

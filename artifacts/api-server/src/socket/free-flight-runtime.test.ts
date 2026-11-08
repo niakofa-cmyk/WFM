@@ -269,7 +269,7 @@ test("a changed reserved fleet roster fails closed instead of creating ghost tar
   }
 });
 
-test("persistent patrol combat resolves server-side damage, kill attribution, and reward settlement in shared flight", async () => {
+test("shared-flight patrol combat settles independently of the co-op V1 rollback protocol", async () => {
   const ship: PersistentPatrolShip = {
     id: "persistent-test-ship-0001",
     hullId: "shakuna",
@@ -300,29 +300,33 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
       faction: "ussf",
       shipId: "duskbreaker",
     }),
-    resolveUniversePatrols: async (_userId, pilotFaction) =>
-      pilotFaction === "ussf" ? [contact, secondContact] : [],
-    reserveUniversePatrol: async (userIds, pilotFaction, reservation, encounterId) => {
-      assert.deepEqual(userIds, ["combat-pilot"]);
-      assert.equal(pilotFaction, "ussf");
-      assert.match(encounterId, /^[0-9a-f-]{36}$/i);
-      const reserved = [contact, secondContact].find(
-        (candidate) => candidate.patrolId === reservation.patrolId,
-      );
-      assert.ok(reserved, "each persistent fleet must be reserved by its own identity");
-      reservedPatrolIds.push(reserved.patrolId);
-      return reserved;
-    },
-    settleScoutEncounter: async (receipt) => {
-      const result = readExplorationReceipt(receipt);
-      return {
-        status: "settled",
-        awards: result.pilots.map((pilot) => ({
-          ...pilot,
-          balanceAfter: pilot.credits,
-          revision: 1,
-        })),
-      };
+    sectorProtocolVersion: 1,
+    freeFlightCombat: {
+      resolveUniversePatrols: async (_userId, pilotFaction) =>
+        pilotFaction === "ussf" ? [contact, secondContact] : [],
+      reserveUniversePatrol: async (userIds, pilotFaction, reservation, encounterId) => {
+        assert.deepEqual(userIds, ["combat-pilot"]);
+        assert.equal(pilotFaction, "ussf");
+        assert.match(encounterId, /^[0-9a-f-]{36}$/i);
+        const reserved = [contact, secondContact].find(
+          (candidate) => candidate.patrolId === reservation.patrolId,
+        );
+        assert.ok(reserved, "each persistent fleet must be reserved by its own identity");
+        reservedPatrolIds.push(reserved.patrolId);
+        return reserved;
+      },
+      settleScoutEncounter: async (receipt) => {
+        const result = readExplorationReceipt(receipt);
+        return {
+          status: "settled",
+          awards: result.pilots.map((pilot) => ({
+            ...pilot,
+            balanceAfter: pilot.credits,
+            revision: 1,
+          })),
+        };
+      },
+      releaseUniversePatrol: async () => {},
     },
     freeFlightPatrolSpawnDistanceMeters: 30,
     snapshotIntervalMs: 50,
