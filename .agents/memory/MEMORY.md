@@ -3,7 +3,7 @@
 - [Unified hangar entry](unified-hangar-entry.md) — landscape-first hangar, saved USSF/Accord choice, one universe gateway, and Orbital-native ship inspection.
 - [Infinite War blueprint](infinite-war-blueprint.md) — Story connects exploration, routes, combat, and validated consequences; the universe remains the battlefield.
 - [WFM storyline foundation](storyline-foundation.md) — Dusk’s Mars seizure, Accord capture, Earth’s response, and the slowly revealed First Witness ground the connected narrative.
-- [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull selection to a 3D hangar, operation briefing, Rust Disc mission, objective, and debrief without replacing proven systems.
+- [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull, hangar, briefing, Rust Disc objective, and debrief into one playable loop.
 - [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; user reports a two-device private-room flight smoke test passed.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
@@ -35,16 +35,16 @@
 - [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.
 - [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
 - [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
-- [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve the original eight identities and evolve their hulls into distinct faction-specific 3D silhouettes before fleet expansion.
+- [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve eight original hull identities and add distinct faction silhouettes before fleet expansion.
 - [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
-- [Open-universe direction](open-universe-direction.md) — chosen faction sets opposing patrols; server owns kills, shared fleet losses, and completed-extraction rewards.
+- [Open-universe direction](open-universe-direction.md) — server-owned enemy fleets and nearby authenticated pilots must appear as live 3D ships in shared free flight.
 - [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
 - [Three.js mobile loading](threejs-mobile-loading.md) — keep the Three.js renderer lazy and tree-shaken on mobile; never pass its full namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — one Orbital universe; Three.js is the main renderer and native WebGL2 is a supported companion path.
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
 - [Canonical engine strategy](orbital-canonical-gameplay.md) — shared Orbital gameplay/world state may use both Three.js and native WebGL2 renderers.
-- [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — regional AI routes project into 3D; nearby human presence stays aggregate, and shared human flight remains separate.
+- [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — public presence stays aggregate; nearby authorized pilots render as server-owned 3D ships in shared flight.
 - [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
-- [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep current multiplayer contracts until chunking, binary transport, and recovery changes pass measured compatibility gates.
+- [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.

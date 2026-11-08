@@ -54,6 +54,12 @@ A separate authenticated V2 patrol operation can be explicitly requested,
 fought, tallied, and settled server-side, but it runs in its own sector session
 and does not inherit the visible ship's free-flight position.
 
+The required next state is live 3D enemy fleets and authenticated pilot ships
+patrolling in the same shared Orbital free-flight region, with server-owned
+movement and seamless encounter/resume. The full owner direction, current
+baseline, privacy boundary, and acceptance gates are in
+[`LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md).
+
 ## Current connected-universe redesign direction — 2026-11-06
 
 The owner has now explicitly authorized starting the visual redesign and

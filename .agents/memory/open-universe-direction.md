@@ -35,22 +35,22 @@ vertical slice over a large but disconnected map.
 **How to apply:** expose live operation visibility in navigation, but never
 fabricate active pilots, competition status or reward eligibility.
 
-**Architecture rule:** maintain one persistent universe layer for destinations,
-server-owned travel and short-lived player presence. The latest master directive
-targets one Orbital main engine; preserve existing combat runtimes as explicit
-migration/rollback adapters until parity is proven. Surface live activities from real operation
-instances; publish presence only as anonymous destination-level counts, never
-player identities or exact coordinates.
+**Architecture rule:** keep public destination presence as anonymous aggregate
+counts, while the owner now requires nearby authenticated player ships to be
+visible as live 3D actors inside the same shared Orbital free-flight session.
+Exact poses belong only to authorized participants in a bounded spatial
+interest group, never to public lookup APIs. Preserve existing combat runtimes
+as compatibility/rollback adapters until parity is proven.
 
-**Why:** the owner explicitly wants a shared multiplayer ecosystem without
-forcing every battle system into one simulation or destabilizing the open-world
-layer.
+**Why:** the owner explicitly clarified that both opposing fleets and pilots
+must patrol visibly in live 3D free flight; aggregate-only presence does not
+satisfy the intended in-world multiplayer experience.
 
-**How to apply:** send heartbeats only while the pilot is in universe
-navigation; derive locations from saved world state, expire leases quickly, and
-stop updates when an operation starts. Keep discovery/event feeds read-only.
-Do not claim shared continuous 3D flight or nearby ship positions until those
-systems are actually implemented and verified.
+**How to apply:** make the server own movement, pose, faction, and encounter
+state; distribute short-lived snapshots only to nearby authenticated flight
+participants. Keep public discovery read-only and anonymous. Do not fabricate
+ships or claim continuous shared flight until multi-client server-owned
+positions and encounter results are verified.
 
 **Correction:** authenticated multiplayer exploration is intended to be
 server-authoritative and reward-capable, including confirmed enemy-hull tallies.

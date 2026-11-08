@@ -2,7 +2,7 @@
 
 ## Direction and source documents
 
-This feature implements the patrol and faction-actor direction from the two
+This feature implements the strategic patrol and faction-actor foundation from the two
 owner-provided references, preserved verbatim at:
 
 - [`references/redesign/MASTER-AI-GAME-DEVELOPMENT-DIRECTIVE-2026-11-07-SOURCE.txt`](references/redesign/MASTER-AI-GAME-DEVELOPMENT-DIRECTIVE-2026-11-07-SOURCE.txt)
@@ -12,6 +12,11 @@ The universe remains the game world, and patrols are persistent faction actors
 with routes and purposes. The patrol layer is strategic world simulation; it is
 not another combat engine, a set of disconnected missions, or evidence that a
 live multiplayer battle is occurring.
+
+The owner requires the next stage to show server-patrolling fleets and
+authenticated pilots as live 3D ships in the same free-flight universe. See
+[Live 3D patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md)
+for that target and the precise gap between it and the bounded operation below.
 
 ## Implemented slice
 
