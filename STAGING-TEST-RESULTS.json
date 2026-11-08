@@ -2,7 +2,7 @@
   "overallStatus": "PENDING",
   "latestLocalEncounterRecoveryFix": {
     "checkedOn": "2026-11-08",
-    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
+    "status": "LOCAL_CHECKS_PASSED_STAGING_PARTIAL",
     "scope": "Reconnect combat-state hydration, secondary-request control preservation, targeted stale-fleet refresh after rejected claims, contact integrity/identity updates, and explicit dock-target labeling. Does not replace live staging evidence or certify the full workspace.",
     "apiTypecheck": "PASS",
     "gameTypecheck": "PASS",
@@ -15,12 +15,60 @@
     "threeJsInInitialStaticGraph": false,
     "localSocketAndWebStarted": true,
     "publicLabEntryScreenshot": "PASS; entry page only, not authenticated combat",
-    "stagingRuntimeStillAtCommit": "70ee4bbe04f4f12c003674052edefc308d974fd2",
-    "freshStagingEncounterCheck": "NOT_RUN",
+    "stagingRuntimeCommit": "88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec",
+    "freshStagingEncounterCheck": "PARTIAL: admission, incoming damage and active-state restoration passed; player firing, kills and rewards remain unverified.",
     "productionUntouched": true,
     "promotionCertified": false
   },
   "latestSharedFreeFlightStagingCheck": {
+    "checkedOn": "2026-11-08",
+    "sourceCommit": "88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec",
+    "scope": "Owner-approved staging-only recovery rollout and a bounded continuation of one authenticated browser journey. This is not a full promotion or physical-device pass.",
+    "deployments": {
+      "app": "0d67ce4f-c5f4-4252-b0ec-0d6e2cebd1a5",
+      "api": "c56256cf-c4e9-46a9-8976-4153d5745340",
+      "socket": "d1a1f264-0c70-40d3-b68e-cfa03ae3b1a2",
+      "allExactSourceSuccess": true
+    },
+    "sourceOnlyDiff": true,
+    "gatewayHealthHttpStatus": 200,
+    "freshChallengeCompletedOnce": true,
+    "authenticatedProfileHttpStatus": 200,
+    "profileMatchesOwnServerActor": true,
+    "socketReadiness": {
+      "freeFlightEnabled": true,
+      "admission": "database-backed",
+      "freeFlightCombatEnabled": true,
+      "contract": "freeflight-v1",
+      "coOpSectorProtocolVersion": 1
+    },
+    "persistentPatrolEvidence": {
+      "serverPatrolActors": 7,
+      "hostileServerPatrolActors": 4,
+      "movingServerPatrolActors": "6–7 across observed snapshots",
+      "individualDistantShipModelVisibility": "NOT_FULLY_VERIFIED",
+      "workspaceScreenshot": "generated-artifacts/wfm-staging-combat-04.jpg"
+    },
+    "serverEncounterAdmission": "PASS: ordinary approach reached approximately 162 m and a genuine active encounter.",
+    "activeBattleRecovery": "PASS: same-context reload retained authentication, restored authoritative active phase, displayed ENGAGED and the normal fire control.",
+    "incomingEnemyDamage": "PASS: observed hostile weapon events attributed to the own pilot, including 3.6 and 4.4 hull damage.",
+    "playerWeaponEmission": "NOT_VERIFIED: visible-control clicks and one bounded 800 ms Space hold did not yield observed own-fired events.",
+    "secondaryRequestFailureRecovery": "NOT_EXERCISED in staging; covered by local regression checks.",
+    "headingObservation": "Server and local headings differed after reload. The test driver used server heading to approach without altering game coordinates. Visual aiming alignment is not certified.",
+    "unverified": [
+      "player shots and hits",
+      "kills and assists",
+      "reward settlement and duplicate protection",
+      "continued flight after a result",
+      "main hangar Enter Universe action",
+      "physical Android and two-device interception"
+    ],
+    "controlsNeutralized": true,
+    "testBrowserClosed": true,
+    "productionUntouched": true,
+    "promotionCertified": false
+  },
+  "previousSharedFreeFlightStagingCheck": {
     "checkedOn": "2026-11-08",
     "sourceCommit": "70ee4bbe04f4f12c003674052edefc308d974fd2",
     "scope": "Owner-approved staging-only rollout and one focused retry of the previously blocked free-flight encounter. This does not replace the historical promotion baseline below.",

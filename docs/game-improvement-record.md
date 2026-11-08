@@ -1218,3 +1218,26 @@ and main/Lab builds passed. The Lab audit remains below its unchanged size
 budget with Three.js lazy. A public entry screenshot and clean workflow startup
 are local-only checks. Staging remains at `70ee4bb`; this recovery candidate
 still needs approved rollout and authenticated encounter verification.
+
+## 2026-11-08 — Staging recovery verification
+
+The approved recovery build `88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec` is live on
+all three staging services. Only source pins changed; co-op V1, secrets/network
+settings and Production were unchanged.
+
+A fresh challenge completed once and authenticated profile returned HTTP 200.
+The bounded shared-flight check confirmed seven persistent moving patrol
+actors, four hostiles, genuine encounter admission near 162 m, incoming enemy
+damage, and same-context reload restoring authoritative active phase, ENGAGED
+and the normal fire control.
+
+Player shot emission was not verified by control clicks or a bounded held-input
+check. Kills, assists, rewards and post-result flight remain unverified. Local
+and server headings differed after reload; the test driver used server heading
+to approach, not a game-pose override. Aiming alignment and the input-to-weapon
+path require investigation before claiming a full combat pass.
+
+Evidence and exact deployment identifiers are recorded in
+`STAGING-TEST-REPORT.md`; scoped JSON remains promotion-PENDING. The test browser
+was closed with inputs neutralized. No Production or account-location changes
+were made.

@@ -1442,3 +1442,77 @@ the public Lab entry loads; it is not authenticated combat evidence. These
 corrections have **not** been deployed to staging or Production. Staging remains
 at `70ee4bb` with the blocked outcome above. Promotion remains PENDING until a
 new approved rollout and a successful encounter/reward check.
+
+## 2026-11-08 — Recovery build deployed; admission/reconnect passed
+
+The owner approved rollout and verification of
+`88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec`. An initial source-update response
+carried a failure flag after staging the app pin. Work stopped for the owner's
+approved safe metadata inspection. Current metadata showed only that
+non-destructive source change; subsequent API/socket updates returned no error
+or security warning. The final diff contained only the three approved source
+updates, without variable, network or co-op setting changes.
+
+All three exact-source deployments reached **SUCCESS**:
+
+| Staging service | Deployment |
+| --- | --- |
+| App | `0d67ce4f-c5f4-4252-b0ec-0d6e2cebd1a5` |
+| API | `c56256cf-c4e9-46a9-8976-4153d5745340` |
+| Wing Socket | `d1a1f264-0c70-40d3-b68e-cfa03ae3b1a2` |
+
+Gateway health returned HTTP 200. Socket startup metadata confirmed enabled,
+database-backed free flight and `freeflight-v1` combat with co-op protocol **1**
+unchanged. Production was untouched.
+
+### Authentication and prepared test owner
+
+The private asynchronous IPC self-test passed before sign-in. A new browser
+was retained at its actual device-verification challenge; the owner supplied a
+fresh code through Secrets. It was submitted once by a new workspace-side
+client into the same private browser owner. An active Clerk session and
+authenticated profile HTTP 200 were confirmed. No credential/session state was
+exported; the gameplay helper exposed only bounded allowlisted operations.
+
+### Verified in the focused browser journey
+
+- Profile and server actor faction/ship matched. Snapshots contained **7
+  persistent patrol ships**, **4 hostile**, with **6–7 moving** across observed
+  snapshots. The HUD displayed live fleet contacts.
+- The first short approach stayed outside the engagement radius and was not
+  counted as an admission failure. The test helper initially compared a
+  server-space target bearing to local yaw. Its ignored observer/driver was
+  corrected to use server yaw; normal flight inputs then brought the contact
+  from 226 m to 186 m, followed by a fresh snapshot at approximately **162 m**
+  and a genuine authoritative active encounter. No game coordinates or packets
+  were injected.
+- Re-arming the test observer and reloading the **same signed-in context**
+  restored server phase **active**, **ENGAGED** in the HUD and the normal fire
+  control. Profile remained HTTP 200 without another sign-in/challenge.
+- Hostile weapon events attributed incoming damage to the own pilot, including
+  observed hull-damage values of **3.6** and **4.4**.
+
+### Remaining gaps — not a complete battle/reward pass
+
+Two visible-control clicks did not produce an observed own-fired event. One
+additional bounded **800 ms Space hold**, while the observer reported an active
+encounter and the fire control was visible, also yielded no observed own-fired
+event. Controls were neutralized afterward. This needs investigation; the run
+does not prove player weapon emission/hits, kills, assists, settlement, duplicate
+protection or continued flight after a result.
+
+The local and server headings differed after reload. Using server heading
+allowed the test to approach, but does not certify visual aiming alignment.
+Secondary-request error recovery and the new reservation-reason diagnostics
+were not exercised by the admitted staging encounter; their regression checks
+remain local evidence. Individual distant hull visibility, main-hangar entry,
+physical Android and two-device behavior were not certified.
+
+The main agent inspected the sanitized workspace screenshot
+`generated-artifacts/wfm-staging-combat-04.jpg`, which shows ENGAGED and the
+visible fire control. The test browser was closed after input neutralization;
+no manual rewards, account-location edits or Production changes were made.
+
+**Result: rollout, server admission, incoming combat damage and active-state
+recovery PASS; player firing and end-to-end reward flow INCOMPLETE. Overall
+promotion remains PENDING.**

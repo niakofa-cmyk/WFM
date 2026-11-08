@@ -27,3 +27,14 @@ cadences; stale visibility is not permission to reserve or reward a fleet.
 **How to apply:** serialize claim/revalidation/refresh and preserve existing
 active contracts. Treat a nearby station name as a docking target, not proof
 that the pilot's canonical world location changed.
+
+Approach/aim diagnostics must compare positions and headings from the same
+coordinate frame.
+
+**Why:** a staging driver used server target bearings with local yaw after
+rejoin; the different headings prevented a reliable approach and could have
+been misreported as an encounter failure.
+
+**How to apply:** use server-space geometry with server heading for network
+diagnostics, and verify the renderer/prediction frame separately. Do not inject
+poses or weaken engagement range to make an automated approach succeed.
