@@ -15,13 +15,11 @@ import { MarsAdventureAtlas } from "./MarsAdventureAtlas";
 import { OrbitalFlightPreview } from "./OrbitalFlightPreview";
 import { DESTINATIONS, STATUS_LABEL, localFactionBrief } from "./universe-destinations";
 import type { FlightState } from "./flight-sector";
-import { sectorOrbitalV2Enabled } from "./sector-client";
 import "./combat-lab.css";
 import "./orbital-universe.css";
 
 const Arena = lazy(() => import("./Arena").then((m) => ({ default: m.Arena })));
 const CinderRingDockingApproach = lazy(() => import("./CinderRingDockingApproach").then((m) => ({ default: m.CinderRingDockingApproach })));
-const SectorExpedition = lazy(() => import("./SectorExpedition").then((m) => ({ default: m.SectorExpedition })));
 type Mode = "entry" | "arena" | "approach" | "universe";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const HUB = `${BASE}/universe`;
@@ -50,7 +48,6 @@ function OrbitalBootCore({
   const [faction, setFaction] = useState<Faction>("ussf");
   const [ship, setShip] = useState<ShipId>("duskbreaker");
   const [mode, setMode] = useState<Mode>(() => new URLSearchParams(window.location.search).get("universe") === "1" ? "universe" : "entry");
-  const [patrolInterceptOpen, setPatrolInterceptOpen] = useState(false);
   const [run, setRun] = useState(0);
   const [summary, setSummary] = useState("");
   const [trainingReturnSnapshot, setTrainingReturnSnapshot] = useState<FlightState | null>(null);
@@ -79,75 +76,51 @@ function OrbitalBootCore({
     ? patrolsQuery.data
     : null;
   const localTraffic = patrolDirectory?.traffic ?? [];
-  const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
-    && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
   const freeFlightEnabled = isOrbitalFreeFlightEnabled({
     environment: import.meta.env.MODE,
     featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
     prerequisitesReady: Boolean(userId),
-  });
-  const canInterceptPatrol = expeditionEnabled && sectorOrbitalV2Enabled({
-    DEV: import.meta.env.DEV,
-    VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
   });
   const loading = (text: string) => <main role="status" className="lab-loading">{text}</main>;
 
   if (mode === "arena") return <div className="combat-lab"><Suspense fallback={loading("Loading flight systems…")}><Arena key={run} modeId="orbital-combat-lab" runtime={ORBITAL_RUNTIME_ID} shipId={ship} faction={faction} scheme="arc" refit={0} pace="practice" goal="disc" disc="rust" allyCount={1} foeCount={3} objective="MARS ORBIT · COMBAT LAB" tech={null} serverSeed={1938} gyro={false} drilled onDrill={() => {}} onNetworkExit={() => { throw new Error("Offline training must not open a network session."); }} onDone={(result) => { setSummary(`Mars Orbit training complete. ${result.kills} defenders destroyed. ${result.reason}`); setMode("entry"); }} /></Suspense></div>;
   if (mode === "universe") return (
     <div className="combat-lab">
-      <div className={patrolInterceptOpen ? "invisible pointer-events-none" : ""}>
-        <Suspense fallback={loading("Entering Orbital universe flight…")}>
-          <Arena
-            key={`u${run}`}
-            modeId="orbital-universe-local"
-            runtime={ORBITAL_RUNTIME_ID}
-            shipId={ship}
-            faction={faction}
-            scheme="arc"
-            refit={0}
-            pace="practice"
-            goal="disc"
-            disc="rust"
-            allyCount={1}
-            foeCount={3}
-            objective="MARS ORBIT · FREE FLIGHT"
-            tech={null}
-            serverSeed={1938}
-            gyro={false}
-            drilled
-            onDrill={() => {}}
-            localUniverse={{
-              startLocation,
-              servicesHref: HUB,
-              servicesOpen: patrolInterceptOpen,
-              patrolDirectory,
-              canInterceptPatrol,
-              getSessionToken,
-              freeFlightEnabled,
-              onInterceptPatrol: () => setPatrolInterceptOpen(true),
-              onExit: () => {
-                setPatrolInterceptOpen(false);
-                setSummary("Exited Orbital flight. Local flight itself did not grant kills or rewards.");
-                setMode("entry");
-              },
-            }}
-            onNetworkExit={() => { throw new Error("Local flight must not open a network session."); }}
-            onDone={() => setMode("entry")}
-          />
-        </Suspense>
-      </div>
-      {patrolInterceptOpen && (
-        <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
-          <Suspense fallback={loading("Connecting to server-authoritative patrol combat…")}>
-            <SectorExpedition
-              embedded
-              initialMissionId="universe-patrol"
-              initialShipId={ship}
-              onReturnToUniverse={() => setPatrolInterceptOpen(false)}
-            />
-          </Suspense>
-        </div>
-      )}
+      <Suspense fallback={loading("Entering Orbital universe flight…")}>
+        <Arena
+          key={`u${run}`}
+          modeId="orbital-universe-local"
+          runtime={ORBITAL_RUNTIME_ID}
+          shipId={ship}
+          faction={faction}
+          scheme="arc"
+          refit={0}
+          pace="practice"
+          goal="disc"
+          disc="rust"
+          allyCount={1}
+          foeCount={3}
+          objective="MARS ORBIT · FREE FLIGHT"
+          tech={null}
+          serverSeed={1938}
+          gyro={false}
+          drilled
+          onDrill={() => {}}
+          localUniverse={{
+            startLocation,
+            servicesHref: HUB,
+            patrolDirectory,
+            getSessionToken,
+            freeFlightEnabled,
+            onExit: () => {
+              setSummary("Exited Orbital flight. Server-confirmed results remain authoritative; local preview actions grant nothing.");
+              setMode("entry");
+            },
+          }}
+          onNetworkExit={() => { throw new Error("Local flight must not open a network session."); }}
+          onDone={() => setMode("entry")}
+        />
+      </Suspense>
     </div>
   );
   if (mode === "approach") return <div className="combat-lab"><Suspense fallback={loading("Plotting Cinder Ring approach…")}><CinderRingDockingApproach shipId={ship} faction={faction} onDock={() => { setSummary("Local docking complete. Account services validate location, match entry and rewards separately."); setMode("entry"); }} onAbort={() => { setSummary("Approach aborted. No progress recorded."); setMode("entry"); }} /></Suspense></div>;
@@ -206,7 +179,7 @@ function OrbitalBootCore({
         </button>
         <p className="uv-map__hint" data-testid="text-local-universe-scope">
           {freeFlightEnabled
-            ? "Live shared flight is enabled for this authenticated profile. Server movement and roaming ships are active; combat and rewards remain disabled in this slice."
+            ? "Shared flight is enabled for this authenticated profile. Persistent patrols and server-authoritative combat require a live flight link."
             : "Current flight profile: session-only sandbox, no rewards or shared ships. Authenticated shared flight requires the server feature gate."}
         </p>
         {!standalone ? <p className="uv-map__hint">Combat training is a station activity at Cinder Ring inside this same flight session.</p>

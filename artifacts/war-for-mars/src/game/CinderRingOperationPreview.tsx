@@ -14,12 +14,13 @@ export function CinderRingOperationPreview({ onOpenOperations }: Props) {
   });
   const fresh = isOperationDirectoryFresh(query.data);
   const operations = fresh ? selectCinderLiveOperations(query.data) : [];
+  if (operations.length === 0) return null;
 
   return (
     <section
       aria-label="Cinder Ring live operations"
       data-testid="cinder-live-operations"
-      className="pointer-events-auto border border-bone/15 bg-void/90 px-3 py-2 backdrop-blur-sm"
+      className="pointer-events-auto max-w-full bg-void/45 px-2 py-1 text-shadow"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="font-hud text-[9px] tracking-[0.18em] text-solar">
@@ -30,32 +31,20 @@ export function CinderRingOperationPreview({ onOpenOperations }: Props) {
             type="button"
             data-testid="button-open-cinder-operations"
             onClick={onOpenOperations}
-            className="min-h-9 border border-solar/50 px-2 font-hud text-[9px] tracking-widest text-bone hover:border-solar"
+            className="min-h-9 px-2 font-hud text-[9px] tracking-widest text-solar hover:text-bone"
           >
             OPERATIONS
           </button>
         ) : null}
       </div>
-      {query.isLoading && !query.data ? (
-        <p role="status" className="mt-1 text-[10px] text-muted">Reading public operation signals…</p>
-      ) : operations.length ? (
-        <ul className="mt-1 space-y-1">
-          {operations.slice(0, 2).map((operation) => (
-            <li key={operation.id} data-testid={`cinder-live-operation-${operation.id}`} className="text-[10px] leading-snug text-bone/85">
-              <span className="font-hud text-solar">{operation.title}</span>
-              <span className="ml-2 text-muted">{operation.experience.toUpperCase()} · {operation.currentPlayers}/{operation.capacity}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-1 text-[10px] text-muted">
-          {query.isError || streamState === "unavailable"
-            ? "Live operation data is unavailable."
-            : query.data && !fresh
-              ? "The last server snapshot is too old to show matches."
-              : "No active public matches reported here."}
-        </p>
-      )}
+      <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        {operations.slice(0, 2).map((operation) => (
+          <li key={operation.id} data-testid={`cinder-live-operation-${operation.id}`} className="text-[10px] leading-snug text-bone/85">
+            <span className="font-hud text-solar">{operation.title}</span>
+            <span className="ml-2 text-muted">{operation.experience.toUpperCase()} · {operation.currentPlayers}/{operation.capacity}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

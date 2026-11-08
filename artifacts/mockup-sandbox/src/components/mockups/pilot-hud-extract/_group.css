@@ -1,0 +1,189 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap");
+
+@theme {
+  --color-void: #07080d;
+  --color-bone: #e6e1d6;
+  --color-solar: #e0a15a;
+  --color-alert: #c45c48;
+  --color-muted: #a7a6a3;
+  --color-panel: #141820;
+  --font-hud: "Barlow Condensed", sans-serif;
+  --font-sans: "Figtree", sans-serif;
+}
+
+.wfm-flight-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 405px;
+  overflow: hidden;
+  color: #e6e1d6;
+  background:
+    radial-gradient(ellipse at 50% 48%, #132236 0%, #070a12 43%, #030509 100%);
+  font-family: "Figtree", sans-serif;
+}
+
+.wfm-flight-preview .font-hud {
+  font-family: "Barlow Condensed", sans-serif;
+}
+
+.wfm-flight-preview .text-bone { color: #e6e1d6; }
+.wfm-flight-preview .text-muted { color: #a7a6a3; }
+.wfm-flight-preview .text-solar { color: #e0a15a; }
+.wfm-flight-preview .text-alert { color: #c45c48; }
+.wfm-flight-preview .bg-void { background: #07080d; }
+.wfm-flight-preview .bg-panel { background: #141820; }
+
+.wfm-starfield {
+  position: absolute;
+  inset: 0;
+  opacity: .9;
+  background-image:
+    radial-gradient(1px 1px at 11% 22%, #dce8ff 60%, transparent),
+    radial-gradient(1px 1px at 28% 73%, #f0a95d 60%, transparent),
+    radial-gradient(1px 1px at 47% 31%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 72% 16%, #b8d9ff 60%, transparent),
+    radial-gradient(1px 1px at 88% 67%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 62% 84%, #dce8ff 60%, transparent);
+  background-size: 190px 145px;
+}
+
+.wfm-mars {
+  position: absolute;
+  width: 235px;
+  height: 235px;
+  left: 52%;
+  top: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #77432d, #351a16 62%, #130e12 76%);
+  box-shadow: 0 0 46px #b5663922, inset -24px -12px 40px #02040b;
+}
+
+.wfm-player-ship {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  width: 42px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #edc789, #8f613a 50%, #25242a);
+  clip-path: polygon(50% 0, 64% 38%, 100% 70%, 70% 80%, 58% 100%, 42% 100%, 30% 80%, 0 70%, 36% 38%);
+  filter: drop-shadow(0 0 8px #e0a15a99);
+}
+
+.wfm-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #e0a15a99;
+  transform: translate(-50%, -50%);
+}
+
+.wfm-stick {
+  position: absolute;
+  bottom: 18px;
+  width: 98px;
+  height: 98px;
+  border: 1px solid #e6e1d64a;
+  border-radius: 50%;
+  background: #080b1280;
+}
+
+.wfm-stick::before,
+.wfm-stick::after {
+  content: "";
+  position: absolute;
+  background: #e6e1d626;
+}
+
+.wfm-stick::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+.wfm-stick::after { top: 50%; left: 0; right: 0; height: 1px; }
+.wfm-stick--left { left: 18px; }
+.wfm-stick--right { right: 18px; }
+
+.wfm-stick__knob {
+  position: absolute;
+  top: 35px;
+  left: 35px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e6e1d6a0;
+  border-radius: 50%;
+  background: #e6e1d625;
+}
+
+.wfm-reference-panel {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid #e6e1d633;
+  background: #080b12c9;
+  padding: 8px 12px;
+  font: 11px "Barlow Condensed", sans-serif;
+  letter-spacing: .13em;
+}
+
+.wfm-reference-empty {
+  position: absolute;
+  top: 112px;
+  left: 14px;
+  border: 1px solid #e6e1d633;
+  background: #080b12bd;
+  padding: 9px 12px;
+  color: #a7a6a3;
+  font-size: 10px;
+}
+
+.wfm-compact-dock {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e6e1d6;
+  font: 12px "Barlow Condensed", sans-serif;
+  letter-spacing: .13em;
+  text-shadow: 0 1px 6px #000;
+}
+
+.wfm-compact-contact {
+  position: absolute;
+  top: 90px;
+  left: 18px;
+  max-width: 280px;
+  color: #e6e1d6;
+  text-shadow: 0 1px 6px #000;
+}
+
+.wfm-compact-contact .contact-kicker {
+  color: #f0a95d;
+  font: 11px "Barlow Condensed", sans-serif;
+  letter-spacing: .2em;
+}
+
+.wfm-compact-contact .contact-line {
+  margin-top: 3px;
+  font: 13px "Barlow Condensed", sans-serif;
+  letter-spacing: .12em;
+}
+
+.wfm-compact-contact .integrity-line {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+  color: #c8c7c3;
+  font: 10px "Barlow Condensed", sans-serif;
+  letter-spacing: .1em;
+}
+
+.wfm-compact-contact button {
+  margin-top: 7px;
+  border: 1px solid #f0a95d;
+  padding: 5px 12px;
+  color: #f0a95d;
+  background: #080b1270;
+  font: 11px "Barlow Condensed", sans-serif;
+  letter-spacing: .14em;
+}

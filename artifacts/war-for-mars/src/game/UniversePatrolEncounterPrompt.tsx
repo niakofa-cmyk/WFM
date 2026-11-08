@@ -38,12 +38,10 @@ export function UniversePatrolEncounterPrompt({
   contact,
   enabled,
   onEngage,
-  onIntercept,
 }: {
   contact: UniversePatrolEncounterNotice | null;
   enabled: boolean;
   onEngage?: () => void;
-  onIntercept?: () => void;
 }) {
   if (!contact) return null;
   const inRange = contact.distanceMeters <= PATROL_INTERCEPT_RANGE_METERS;
@@ -51,52 +49,51 @@ export function UniversePatrolEncounterPrompt({
   const hasIntegrity = contact.source === "server-snapshot" &&
     Number.isFinite(contact.shield) && Number.isFinite(contact.shieldMax) &&
     Number.isFinite(contact.hull) && Number.isFinite(contact.hullMax);
-  const liveEngage = contact.source === "server-snapshot" &&
+  const liveEngage = enabled && contact.source === "server-snapshot" &&
     contact.engageable === true && Boolean(onEngage);
   return (
     <aside
-      className="pointer-events-auto absolute left-3 top-[calc(env(safe-area-inset-top)+5.25rem)] z-30 w-[min(17rem,calc(100vw-1.5rem))] border border-[#f0a95d]/65 bg-[#080b12]/95 p-3 shadow-xl"
+      className="pointer-events-auto absolute left-3 top-[calc(env(safe-area-inset-top,0px)+5.25rem)] z-30 max-w-[min(20rem,calc(100vw-1.5rem))] py-1 text-shadow"
       data-testid="panel-in-flight-patrol-contact"
+      aria-label="Nearest patrol designation"
       aria-live="polite"
     >
-      <p className="font-hud text-[9px] tracking-[0.2em] text-[#f0a95d]">
-        {contact.source === "server-snapshot" ? "LIVE FLEET CONTACT" : "PATROL CONTACT"}
-      </p>
-      <p className="mt-1 font-hud text-sm tracking-widest text-bone">
-        {contact.faction.toUpperCase()} · {ship?.name.toUpperCase() ?? contact.callsign}
-      </p>
-      <p className="mt-1 text-[10px] tracking-wide text-muted">
-        {contact.callsign} · {contact.shipCount} SHIPS · {Math.round(contact.distanceMeters)}M
-      </p>
-      {hasIntegrity ? (
-        <div className="mt-2 grid gap-1 border-t border-white/10 pt-2" data-testid="patrol-integrity-from-server">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[#f0a95d] shadow-[0_0_9px_#f0a95d]" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="font-hud text-[9px] tracking-[0.2em] text-[#f0a95d]">
+            {contact.source === "server-snapshot" ? "LIVE FLEET CONTACT" : "LOCAL PATROL CONTACT"}
+          </p>
+          <p className="truncate font-hud text-sm tracking-widest text-bone">
+            {contact.faction.toUpperCase()} · {ship?.name.toUpperCase() ?? contact.callsign}
+          </p>
+          <p className="truncate text-[10px] tracking-wide text-muted">
+            {contact.callsign} · {contact.shipCount} SHIPS · {Math.round(contact.distanceMeters)}M
+          </p>
+        </div>
+        {inRange && liveEngage ? (
+          <button
+            type="button"
+            className="min-h-10 shrink-0 border border-[#f0a95d]/80 bg-[#080b12]/70 px-3 font-hud text-[10px] tracking-[0.16em] text-[#f0a95d]"
+            data-testid="button-intercept-in-flight-patrol"
+            aria-label="Engage patrol in server-authoritative free flight"
+            onClick={onEngage}
+          >
+            ENGAGE
+          </button>
+        ) : null}
+      </div>
+      {hasIntegrity && inRange ? (
+        <div className="mt-1 grid max-w-56 gap-1 pl-4" data-testid="patrol-integrity-from-server">
           <IntegrityBar label="SHD" value={contact.shield!} maximum={contact.shieldMax!} />
           <IntegrityBar label="HULL" value={contact.hull!} maximum={contact.hullMax!} />
-          <p className="mt-1 text-[8px] tracking-[0.14em] text-muted">DAMAGE STATE · SERVER REPORTED</p>
         </div>
       ) : null}
-      {inRange ? liveEngage || enabled && contact.source !== "server-snapshot" ? (
-        <button
-          type="button"
-          className="mt-3 min-h-10 w-full border border-[#f0a95d] bg-[#f0a95d] px-3 font-hud text-[10px] tracking-[0.16em] text-[#101116]"
-          data-testid="button-intercept-in-flight-patrol"
-          onClick={liveEngage ? onEngage : onIntercept}
-        >
-          {liveEngage ? "ENGAGE IN FREE FLIGHT" : "REQUEST PATROL INTERCEPT"}
-        </button>
-      ) : contact.source === "server-snapshot" ? (
-        <p className="mt-3 border border-bone/15 px-2 py-2 text-[10px] text-muted" data-testid="status-patrol-engagement-unavailable">
-          PERSISTENT PATROL RESERVATION UNAVAILABLE
+      {inRange && !liveEngage ? (
+        <p className="mt-1 pl-4 font-hud text-[9px] tracking-widest text-muted" data-testid="status-patrol-engagement-unavailable">
+          {contact.source === "server-snapshot" ? "SHARED COMBAT LINK UNAVAILABLE" : "LOCAL PREVIEW · NO SERVER COMBAT"}
         </p>
-      ) : (
-        <p className="mt-3 border border-bone/15 px-2 py-2 text-[10px] text-muted" data-testid="status-patrol-intercept-disabled">
-          INTERCEPT LINK UNAVAILABLE IN THIS DEPLOYMENT
-        </p>
-      ) : (
-        <p className="mt-3 text-[10px] tracking-wide text-muted" data-testid="status-patrol-approach">
-          CLOSE TO {PATROL_INTERCEPT_RANGE_METERS}M TO REQUEST APPROACH
-        </p>
-      )}
+      ) : null}
     </aside>
   );
 }
