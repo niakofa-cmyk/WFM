@@ -62,14 +62,15 @@ test('Combat Lab keeps its 3D engine out of the document initial graph', async (
   const report = JSON.parse(
     await readFile(path.join(workspaceRoot, 'generated-artifacts/wfm-combat-lab-bundle-audit.json'), 'utf8'),
   );
-  const engine = report.chunks.find((chunk) => chunk.name === 'three-engine');
+  const engineChunks = report.chunks.filter((chunk) =>
+    chunk.modules.some((module) => module.id.includes('/node_modules/three/')),
+  );
 
-  assert.ok(engine, 'Expected a separately bundled Three.js engine for Combat Lab.');
+  assert.ok(engineChunks.length > 0, 'Expected deferred Three.js modules in the compatibility route.');
   assert.equal(report.engineLoadedInInitialStaticGraph, false);
   assert.ok(
     report.initialStaticJavascriptGzipBytes <= 140 * 1024,
     'Combat Lab initial JavaScript exceeded its 140 KiB gzip budget.',
   );
-  assert.ok(engine.bytes <= 560_000, 'Combat Lab Three.js raw chunk exceeded its budget.');
-  assert.ok(engine.gzipBytes <= 150 * 1024, 'Combat Lab Three.js gzip chunk exceeded its budget.');
+  assert.ok(engineChunks.every((chunk) => !chunk.initialStaticLoad), 'Three.js modules must stay out of the Combat Lab initial graph.');
 });

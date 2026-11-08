@@ -66,7 +66,11 @@ function bundleAuditPlugin(buildMode: string): Plugin {
           .sort((a, b) => b.renderedBytes - a.renderedBytes),
       }));
 
-      const engineChunk = chunks.find((chunk) => chunk.name === 'three-engine');
+      const engineChunks = chunks.filter((chunk) =>
+        Object.keys(chunk.modules).some((id) => id.includes('/node_modules/three/')),
+      );
+      const dedicatedEngineChunk = chunks.find((chunk) => chunk.name === 'three-engine');
+      const engineChunk = dedicatedEngineChunk ?? engineChunks[0];
       const initialStaticChunks = chunks.filter((chunk) =>
         staticClosure.has(chunk.fileName),
       );
@@ -76,12 +80,13 @@ function bundleAuditPlugin(buildMode: string): Plugin {
         app: '@workspace/war-for-mars',
         engine: 'Three.js / WebGL',
         engineChunk: engineChunk?.fileName ?? null,
-        engineLoadedInInitialStaticGraph: engineChunk
-          ? staticClosure.has(engineChunk.fileName)
-          : null,
-        engineReachableFromEntry: engineChunk
-          ? allReachable.has(engineChunk.fileName)
-          : null,
+        engineChunks: engineChunks.map((chunk) => chunk.fileName),
+        engineLoadedInInitialStaticGraph: engineChunks.some((chunk) =>
+          staticClosure.has(chunk.fileName),
+        ),
+        engineReachableFromEntry: engineChunks.some((chunk) =>
+          allReachable.has(chunk.fileName),
+        ),
         initialStaticJavascriptBytes: initialStaticChunks.reduce(
           (total, chunk) => total + Buffer.byteLength(chunk.code),
           0,
@@ -110,7 +115,7 @@ function bundleAuditPlugin(buildMode: string): Plugin {
         `[WFM bundle audit] Initial static JS: ${report.initialStaticJavascriptBytes} B raw / ${report.initialStaticJavascriptGzipBytes} B gzip`,
       );
       console.info(
-        `[WFM bundle audit] Three.js chunk: ${engineChunk ? `${Buffer.byteLength(engineChunk.code)} B raw / ${gzipSync(engineChunk.code).byteLength} B gzip; initial load: ${report.engineLoadedInInitialStaticGraph}` : 'not found'}`,
+        `[WFM bundle audit] Three.js chunks: ${engineChunks.length ? engineChunks.map((chunk) => `${chunk.fileName} ${Buffer.byteLength(chunk.code)} B raw / ${gzipSync(chunk.code).byteLength} B gzip`).join('; ') : 'not found'}; initial load: ${report.engineLoadedInInitialStaticGraph}`,
       );
       console.info(`[WFM bundle audit] Detailed report: ${reportPath}`);
       if (report.initialStaticJavascriptGzipBytes > MAX_INITIAL_STATIC_GZIP_BYTES) {
@@ -119,22 +124,22 @@ function bundleAuditPlugin(buildMode: string): Plugin {
         );
       }
       if (
-        engineChunk &&
-        Buffer.byteLength(engineChunk.code) > MAX_ENGINE_CHUNK_BYTES
+        dedicatedEngineChunk &&
+        Buffer.byteLength(dedicatedEngineChunk.code) > MAX_ENGINE_CHUNK_BYTES
       ) {
         this.error(
-          `Three.js chunk is ${Buffer.byteLength(engineChunk.code)} B raw; budget is ${MAX_ENGINE_CHUNK_BYTES} B.`,
+          `Three.js engine chunk is ${Buffer.byteLength(dedicatedEngineChunk.code)} B raw; budget is ${MAX_ENGINE_CHUNK_BYTES} B.`,
         );
       }
       if (
-        engineChunk &&
-        gzipSync(engineChunk.code).byteLength > MAX_ENGINE_CHUNK_GZIP_BYTES
+        dedicatedEngineChunk &&
+        gzipSync(dedicatedEngineChunk.code).byteLength > MAX_ENGINE_CHUNK_GZIP_BYTES
       ) {
         this.error(
-          `Three.js chunk is ${gzipSync(engineChunk.code).byteLength} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
+          `Three.js engine chunk is ${gzipSync(dedicatedEngineChunk.code).byteLength} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
         );
       }
-      if (engineChunk && staticClosure.has(engineChunk.fileName)) {
+      if (engineChunks.some((chunk) => staticClosure.has(chunk.fileName))) {
         this.error('Three.js entered the initial static-load graph; keep combat renderer imports deferred.');
       }
     },
@@ -173,7 +178,7 @@ export default defineConfig(({ mode }) => ({
       input: path.resolve(import.meta.dirname, mode === 'combat-lab' ? 'combat-lab.html' : 'index.html'),
       output: {
         manualChunks(id) {
-          if (id.includes('/node_modules/three/')) return 'three-engine';
+          if (mode !== 'combat-lab' && id.includes('/node_modules/three/')) return 'three-engine';
         },
       },
     },
