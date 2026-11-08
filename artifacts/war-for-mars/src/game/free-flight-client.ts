@@ -180,6 +180,7 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_engagement_started" ||
+          packet.type === "freeflight_ally_joined" ||
           packet.type === "freeflight_engagement_state" ||
           packet.type === "freeflight_weapon_fired" ||
           packet.type === "freeflight_weapon_event" ||

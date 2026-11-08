@@ -61,7 +61,10 @@ export function UniversePatrolEncounterPrompt({
       aria-live="polite"
     >
       <div className="flex items-center gap-2">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-[#f0a95d] shadow-[0_0_9px_#f0a95d]" aria-hidden="true" />
+        <span className="relative h-2 w-2 shrink-0" aria-hidden="true">
+          {liveEngage && inRange ? <span className="absolute inset-0 rounded-full bg-[#f0a95d]/60 motion-safe:animate-ping" /> : null}
+          <span className="absolute inset-0 rounded-full bg-[#f0a95d] shadow-[0_0_9px_#f0a95d]" />
+        </span>
         <div className="min-w-0">
           <p className="font-hud text-[9px] tracking-[0.2em] text-[#f0a95d]">
             {contact.source === "server-snapshot" ? "LIVE FLEET CONTACT" : "LOCAL PATROL CONTACT"}
@@ -93,6 +96,12 @@ export function UniversePatrolEncounterPrompt({
       ) : null}
       {notice ? <p role="status" data-testid="status-patrol-request"
         className="mt-1 pl-4 font-hud text-[9px] text-bone/80">{notice}</p> : null}
+      {!notice && liveEngage ? (
+        <p className="mt-1 pl-4 font-hud text-[9px] tracking-widest text-muted">
+          {inRange ? "PROXIMITY INTERCEPT · ALLIED ASSISTANCE IN THIS UNIVERSE"
+            : `INTERCEPT ENVELOPE · ${PATROL_INTERCEPT_RANGE_METERS}M`}
+        </p>
+      ) : null}
       {inRange && !liveEngage ? (
         <p className="mt-1 pl-4 font-hud text-[9px] tracking-widest text-muted" data-testid="status-patrol-engagement-unavailable">
           {contact.source === "server-snapshot"

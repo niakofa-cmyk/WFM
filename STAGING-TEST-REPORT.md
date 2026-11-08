@@ -1569,5 +1569,24 @@ configuration; the staged V1 configuration was not changed.
 The server/local heading mismatch after rejoin is still unresolved. No camera
 snap, position injection, range change, new universe or renderer replacement was
 introduced to conceal it. A fresh staging player-emission/hit/result check needs
-an approved rollout of this candidate. Staging remains on `8827015`, and overall
-promotion remains **PENDING**.
+an approved rollout of this candidate.
+
+### Rollout update and shared-universe assistance — 2026-11-08
+
+The approved firing-state candidate `5599bb1` subsequently reached SUCCESS on
+all three staging services (app, API and socket), with matching source pins.
+Fresh authenticated player-shot/hit/result verification remains incomplete;
+overall promotion is still **PENDING**. Production was not changed.
+
+The next local candidate adds native late allied assistance inside an existing
+free-flight patrol battle, a compact proximity pulse and real support messages.
+It preserves the 180 m close-approach rule, capped verified bounties, and legacy
+sector rollback paths. It has not been deployed. Local checks: 22 server tests,
+7 frontend state/input tests, API/game typechecks, both production builds and
+4 static-build checks passed. Main/Lab initial gzip was 125,768/126,488 B,
+below the unchanged 143,360 B Lab limit with Three.js still lazy.
+
+See [the implementation and source-reference assessment](docs/infinite-war/UNIFIED-UNIVERSE-COOPERATION-AND-ASSISTANCE.md)
+for implemented behavior, rejected unsafe sample code, and deferred radar,
+radius-scaling and reward-policy proposals. Local tests are not authenticated
+staging or two-device certification.

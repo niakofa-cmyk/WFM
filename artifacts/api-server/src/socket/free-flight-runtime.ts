@@ -813,19 +813,63 @@ export function createFreeFlightRuntime(options: {
       error("invalid_freeflight_target");
       return;
     }
-    if (liveCombats(session).length >= MAX_ACTIVE_ENCOUNTERS) {
-      error("freeflight_encounter_capacity");
-      return;
-    }
     const target = session.actors.get(targetActorId);
     if (!target || target.kind !== "patrol" || !target.persistentPatrolId ||
         !target.persistentShipId || target.faction === actor.faction || !target.craft.alive) {
       error("freeflight_target_unavailable");
       return;
     }
-    if (session.combats.get(target.persistentPatrolId)?.phase !== undefined &&
-        session.combats.get(target.persistentPatrolId)?.phase !== "complete") {
+    const existingCombat = session.combats.get(target.persistentPatrolId);
+    if (existingCombat?.phase === "active") {
+      if (!actor.craft.alive || distanceBetween(actor, target) > PATROL_ENGAGEMENT_RANGE) {
+        error("freeflight_patrol_approach_required");
+        return;
+      }
+      if (existingCombat.participantActorIds.has(actor.actorId)) {
+        sendCombatState(session, actor);
+        return;
+      }
+      // Admission may have changed through world travel since the socket joined.
+      const admission = await options.resolveAdmission(seat.userId).catch(() => null);
+      if (!admission || admission.sessionKey !== session.key ||
+          admission.faction !== actor.faction || admission.shipId !== actor.shipId) {
+        error("freeflight_location_changed");
+        return;
+      }
+      if (closed || sessions.get(session.key) !== session || seats.get(socket) !== seat ||
+          socket.readyState !== OPEN || !actor.craft.alive || !target.craft.alive ||
+          existingCombat.phase !== "active" || existingCombat.faction !== actor.faction ||
+          existingCombat.participantActorIds.size >= MAX_ENCOUNTER_PILOTS ||
+          distanceBetween(actor, target) > PATROL_ENGAGEMENT_RANGE) {
+        error("freeflight_encounter_participant_unavailable");
+        return;
+      }
+      existingCombat.contract.addPilot({
+        id: encounterActorId(actor), faction: actor.faction,
+        hull: actor.craft.hullMax, playerId: seat.userId,
+      }, session.tick);
+      existingCombat.participantActorIds.add(actor.actorId);
+      send(socket, {
+        type: "freeflight_engagement_started", encounterId: existingCombat.id,
+        patrolId: existingCombat.patrol.patrolId, callsign: existingCombat.patrol.callsign,
+        opposingFaction: target.faction, assistance: true, reinforcement: false,
+      });
+      for (const participantId of existingCombat.participantActorIds) {
+        send(session.actors.get(participantId)?.socket ?? null, {
+          type: "freeflight_ally_joined", encounterId: existingCombat.id,
+          participantCount: existingCombat.participantActorIds.size,
+        });
+      }
+      sendCombatState(session, actor);
+      publish(session);
+      return;
+    }
+    if (existingCombat && existingCombat.phase !== "complete") {
       error("freeflight_encounter_active");
+      return;
+    }
+    if (liveCombats(session).length >= MAX_ACTIVE_ENCOUNTERS) {
+      error("freeflight_encounter_capacity");
       return;
     }
     const distanceToTarget = distanceBetween(actor, target);
@@ -964,10 +1008,25 @@ export function createFreeFlightRuntime(options: {
 
   function maybeStartAutomaticEngagement(session: Session) {
     const now = Date.now();
-    if (session.engagementPending || now < session.nextAutoEngagementAt ||
-        liveCombats(session).length >= MAX_ACTIVE_ENCOUNTERS) return;
+    if (session.engagementPending || now < session.nextAutoEngagementAt) return;
     session.nextAutoEngagementAt = now + 750;
     const active = activeCombats(session);
+    for (const combat of active) {
+      if (combat.participantActorIds.size >= MAX_ENCOUNTER_PILOTS) continue;
+      for (const pilot of session.pilotByUser.values()) {
+        if (!pilot.craft.alive || pilot.faction !== combat.faction ||
+            pilot.socket?.readyState !== OPEN || combat.participantActorIds.has(pilot.actorId)) continue;
+        const target = [...session.actors.values()].find((candidate) =>
+          candidate.persistentPatrolId === combat.patrol.patrolId && candidate.craft.alive &&
+          distanceBetween(pilot, candidate) <= PATROL_ENGAGEMENT_RANGE);
+        const seat = seats.get(pilot.socket);
+        if (target && seat) {
+          void startEngagement(pilot.socket, seat, target.actorId);
+          return;
+        }
+      }
+    }
+    if (liveCombats(session).length >= MAX_ACTIVE_ENCOUNTERS) return;
     for (const patrol of session.actors.values()) {
       if (patrol.kind !== "patrol" || !patrol.persistentPatrolId ||
           !patrol.craft.alive || session.combats.get(patrol.persistentPatrolId)?.phase !== undefined &&

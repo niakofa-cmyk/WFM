@@ -1,5 +1,24 @@
 # WAR FOR MARS — Game improvement record
 
+## 2026-11-08 — Native shared-universe allied assistance
+
+Read and preserved both uploaded cooperation/tactical documents verbatim under
+the existing fleet references. Their implementation claims are treated as
+proposals, not rollout evidence. Cooperation uses the same continuous universe,
+not a new co-op world. Nearby late allies can now join an active server-owned
+patrol encounter after admission/location/life/range revalidation, emit actual
+server weapons, and receive only their subsequent verified contributions.
+No duplicate fleet reservation or fabricated observer kills/credits.
+
+Added compact proximity/support cues and clearer compatibility labels; retained
+legacy sector routes and rollback. The implementation assessment and deferred
+fleet-size thresholds, team bonus and full 3D sweep are documented in
+[Shared-universe cooperation](infinite-war/UNIFIED-UNIVERSE-COOPERATION-AND-ASSISTANCE.md).
+22 server tests, 7 frontend tests, both typechecks/builds and 4 static checks
+passed locally. This candidate is not yet staged. The prior approved firing fix
+reached SUCCESS on all three staging services; its authenticated firing check
+is incomplete. Production is unchanged.
+
 ## 2026-11-03 — First campaign-to-orbital combat slice
 
 Migrated capable **Contact** campaign sorties into the existing canonical

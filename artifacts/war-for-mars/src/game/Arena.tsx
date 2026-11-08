@@ -814,7 +814,14 @@ export function Arena({
           } else if (packet.type === "freeflight_engagement_started") {
             freeFlightCombatActiveRef.current = true;
             setFreeFlightCombatStatus("active");
-            setFreeFlightNotice("");
+            setFreeFlightNotice(packet.assistance === true
+              ? "WING SUPPORT · Joined the live fleet battle."
+              : "HOSTILE INTERCEPT · Live fleet battle engaged.");
+          } else if (packet.type === "freeflight_ally_joined" &&
+              Number.isSafeInteger(packet.participantCount) &&
+              (packet.participantCount as number) >= 2 &&
+              (packet.participantCount as number) <= 8) {
+            setFreeFlightNotice(`ALLIED SUPPORT · ${packet.participantCount} pilots linked to this battle.`);
           } else if (packet.type === "freeflight_engagement_state" &&
               typeof packet.phase === "string") {
             freeFlightCombatActiveRef.current = packet.phase === "active" && packet.pilotAlive !== false;

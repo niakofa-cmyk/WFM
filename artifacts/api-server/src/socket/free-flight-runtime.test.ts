@@ -62,6 +62,75 @@ function input(seq: number, values: Record<string, unknown> = {}) {
   };
 }
 
+test("a nearby late ally automatically joins the existing battle without another reservation", async () => {
+  const contact: UniversePatrolEncounter = {
+    patrolId: "assist-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Shared intercept", route: ["phobos-yard"], revision: 0,
+    ships: [{ id: "assist-ship-0001", hullId: "mandjet", name: "Mandjet", callsign: "INTERCEPT ONE" }],
+  };
+  const leadPackets: Packet[] = [];
+  const allyPackets: Packet[] = [];
+  const socketFor = (packets: Packet[]) => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  });
+  const lead = socketFor(leadPackets);
+  const ally = socketFor(allyPackets);
+  let reservations = 0;
+  let travelledUser: string | null = null;
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async (userId) => ({
+      sessionKey: userId === travelledUser ? "mars:other-location" : "mars:phobos-yard",
+      faction: "ussf", shipId: "glide",
+    }),
+    resolveUniversePatrols: async () => [contact],
+    reserveUniversePatrol: async () => { reservations++; return contact; },
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async () => { throw new Error("test does not complete the fleet"); },
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    await runtime.handle(lead, "assist-lead", { type: "freeflight_join" });
+    await runtime.handle(lead, "assist-lead", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:assist-ship-0001",
+    });
+    await runtime.handle(ally, "assist-ally", { type: "freeflight_join" });
+    const snapshot = allyPackets.find((p) => p.type === "freeflight_joined")?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    let clock = Date.now();
+    runtime.advance(clock += 100);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(allyPackets.some((p) => p.type === "freeflight_engagement_started" &&
+      p.assistance === true));
+    assert.ok(leadPackets.some((p) => p.type === "freeflight_ally_joined" && p.participantCount === 2));
+    assert.equal(reservations, 1);
+    await runtime.handle(ally, "assist-ally", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:assist-ship-0001",
+    });
+    assert.equal(leadPackets.filter((p) => p.type === "freeflight_ally_joined").length, 1);
+    await runtime.handle(ally, "assist-ally", { type: "freeflight_input", input: input(1, { fire: true }) });
+    runtime.advance(clock += 100);
+    assert.ok(allyPackets.some((p) => p.type === "freeflight_weapon_fired" &&
+      p.sourceActorId === snapshot.ownActorId), "late ally can emit real server weapons");
+    const travellerPackets: Packet[] = [];
+    const traveller = socketFor(travellerPackets);
+    await runtime.handle(traveller, "assist-traveller", { type: "freeflight_join" });
+    travelledUser = "assist-traveller";
+    await runtime.handle(traveller, "assist-traveller", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:assist-ship-0001",
+    });
+    assert.ok(travellerPackets.some((p) => p.reason === "freeflight_location_changed"));
+    await runtime.handle(traveller, "assist-traveller", {
+      type: "freeflight_input", input: input(1, { fire: true }),
+    });
+    assert.ok(travellerPackets.some((p) => p.reason === "freeflight_engagement_required"));
+    assert.equal(leadPackets.filter((p) => p.type === "freeflight_ally_joined").length, 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
 function makeRuntime() {
   return startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: auth.verifySessionToken,

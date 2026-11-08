@@ -38,7 +38,7 @@
 - [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve eight original hull identities and add distinct faction silhouettes before fleet expansion.
 - [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
 - [Open-universe direction](open-universe-direction.md) — server-owned enemy fleets and nearby authenticated pilots must appear as live 3D ships in shared free flight.
-- [Cooperative sector missions](cooperative-sector-missions.md) — Rust Disc → Mars Approach → Pale Beacons are server-flight discoveries, separate from Wing and campaign progression.
+- [Shared-universe cooperation](cooperative-sector-missions.md) — allies assist inside the same live fleet battle; retain legacy sector compatibility until continuous-world objectives are verified.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
 - [Three.js mobile loading](threejs-mobile-loading.md) — keep the Three.js renderer lazy and tree-shaken on mobile; never pass its full namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — one Orbital universe; Three.js is the main renderer and native WebGL2 is a supported companion path.

@@ -2,8 +2,9 @@
   "overallStatus": "PENDING",
   "latestLocalFiringTrace": {
     "checkedOn": "2026-11-08",
-    "status": "LOCAL_CHECKS_PASSED_NOT_DEPLOYED",
-    "stagingRuntimeStillAtCommit": "88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec",
+    "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",
+    "stagingRuntimeCommit": "5599bb176d5d11fd02c663df1b1abd4135df8874",
+    "stagingServices": { "app": "SUCCESS", "api": "SUCCESS", "socket": "SUCCESS" },
     "reproduction": "A living pilot emitted shots; ordinary NPC fire destroyed the idle pilot; the old runtime then accepted fire without an explicit destroyed-pilot rejection.",
     "stagingRootCauseConfirmed": false,
     "fixes": [

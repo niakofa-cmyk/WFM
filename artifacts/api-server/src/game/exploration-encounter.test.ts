@@ -16,6 +16,39 @@ const contact = (overrides: Partial<Parameters<typeof decideFactionContact>[0]> 
     ...overrides,
   });
 
+test("late allied pilots earn only subsequent contributions, never every participant's kills", () => {
+  const battle = new ExplorationEncounter({
+    encounterId: "shared-patrol-battle", missionId: "universe-patrol",
+    sectorId: "phobos-yard", runtime: ORBITAL_RUNTIME_ID,
+    authority: "server", mode: "universe-exploration",
+    patrol: { patrolId: "shared-patrol", locationId: "phobos-yard", faction: "accord" },
+    actors: [
+      { id: "lead-actor", playerId: "lead-pilot", faction: "ussf", hull: 100 },
+      { id: "enemy-one", faction: "accord", hull: 100, rewardEligible: true },
+      { id: "enemy-two", faction: "accord", hull: 100, rewardEligible: true },
+    ],
+    rewardPolicy: { id: "universe-patrol-bounty-v1", creditsPerNpcKill: 12,
+      completionCredits: 0, maxCreditsPerEncounter: 48 },
+  });
+  battle.recordDamage({ eventId: "before-assist", tick: 1, attackerActorId: "lead-actor",
+    targetActorId: "enemy-one", hullDamage: 100 });
+  const ally = { id: "ally-actor", playerId: "ally-pilot", faction: "ussf" as const, hull: 100 };
+  assert.equal(battle.addPilot(ally, 2), true);
+  assert.equal(battle.addPilot(ally, 2), false);
+  assert.throws(() => battle.addPilot({ ...ally, id: "duplicate-actor" }, 2), /roster/);
+  assert.throws(() => battle.addPilot({ ...ally, id: "hostile-actor", faction: "accord" }, 2), /Invalid/);
+  battle.addPilot({ ...ally, id: "observer-actor", playerId: "observer-pilot" }, 2);
+  battle.recordDamage({ eventId: "lead-assists", tick: 3, attackerActorId: "lead-actor",
+    targetActorId: "enemy-two", hullDamage: 10 });
+  battle.recordDamage({ eventId: "ally-finishes", tick: 4, attackerActorId: "ally-actor",
+    targetActorId: "enemy-two", hullDamage: 90 });
+  const result = readExplorationReceipt(battle.finalize(5, "completed", true));
+  assert.deepEqual(result.pilots.map((p) => [p.playerId, p.kills, p.assists, p.credits]), [
+    ["ally-pilot", 1, 0, 12], ["lead-pilot", 1, 1, 12], ["observer-pilot", 0, 0, 0],
+  ]);
+  assert.throws(() => battle.addPilot({ ...ally, id: "too-late", playerId: "late-pilot" }, 6), /open/);
+});
+
 test("USSF patrol investigates, challenges, warns, then intercepts or requests support from server state", () => {
   assert.equal(contact().action, "scan");
   assert.equal(contact({ transponder: "silent" }).action, "challenge");

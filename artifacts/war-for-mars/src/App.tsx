@@ -136,8 +136,8 @@ function PublicLanding() {
           <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
-                <span className="block">TRAINING & CO-OP OPERATIONS</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Combat Lab · server-run sectors</span>
+                <span className="block">TRAINING & COMPATIBILITY</span>
+                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Cooperate in the shared universe · legacy operations retained for rollback</span>
               </span>
               <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
               <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
@@ -148,9 +148,9 @@ function PublicLanding() {
                 <span className="font-sans text-xs tracking-normal text-muted">Orbital training runtime · no rewards</span>
               </a>
               {expeditionEnabled ? (
-                <Link href="/expedition" data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>
-                  <span>CO-OP SECTOR OPERATIONS</span>
-                  <span className="font-sans text-xs tracking-normal text-muted">1–8 pilots · server-run missions to Mars</span>
+                <Link href={isSignedIn ? "/" : "/sign-in"} data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>
+                  <span>SHARED UNIVERSE · ALLIED SUPPORT</span>
+                  <span className="font-sans text-xs tracking-normal text-muted">Enter through the hangar · assist nearby allied pilots in live flight</span>
                 </Link>
               ) : null}
             </div>

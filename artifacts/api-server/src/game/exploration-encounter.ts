@@ -262,6 +262,39 @@ export class ExplorationEncounter {
     this.chain = hash(this.spec);
   }
 
+  /** Only the authenticated live runtime may extend an open patrol roster. */
+  addPilot(actor: ExplorationActor, tick: number): boolean {
+    if (this.receipt || this.spec.missionId !== "universe-patrol" || !this.spec.patrol) {
+      throw new Error("Only an open universe patrol accepts assisting pilots.");
+    }
+    id(actor.id);
+    if (!actor.playerId) throw new Error("Assisting pilot requires a server-owned player.");
+    id(actor.playerId);
+    integer(tick);
+    if (tick < this.tick || actor.faction === this.spec.patrol.faction ||
+        !["ussf", "accord"].includes(actor.faction) || actor.rewardEligible ||
+        !Number.isFinite(actor.hull) || actor.hull <= 0 || actor.hull > 1_000_000) {
+      throw new Error("Invalid assisting pilot.");
+    }
+    const existing = this.actors.get(actor.id);
+    if (existing) {
+      if (existing.playerId !== actor.playerId || existing.faction !== actor.faction) {
+        throw new Error("Conflicting assisting pilot identity.");
+      }
+      return false;
+    }
+    if (this.kills.has(actor.playerId) || this.kills.size >= 8 || this.actors.size >= 128) {
+      throw new Error("Invalid assisting pilot roster.");
+    }
+    this.actors.set(actor.id, { ...actor });
+    this.kills.set(actor.playerId, []);
+    this.assists.set(actor.playerId, 0);
+    this.spec.actors = [...this.spec.actors, { ...actor }].sort((a, b) => a.id.localeCompare(b.id));
+    this.tick = tick;
+    this.chain = hash([this.chain, { type: "pilot_joined", tick, actor }]);
+    return true;
+  }
+
   recordDamage(event: ServerDamageEvent): boolean {
     if (this.receipt) throw new Error("Exploration encounter already finalized.");
     id(event.eventId); integer(event.tick);

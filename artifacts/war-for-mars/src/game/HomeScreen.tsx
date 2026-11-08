@@ -303,8 +303,8 @@ function MainMenu(props: HomeProps & {
           </div>
           {EXPEDITION_ENABLED ? (
             <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
-              <span className="font-hud tracking-widest text-spectral">SECTOR OPERATIONS · CO-OP</span>
-              <span className="text-xs text-muted">1–8 pilots · server-run missions across the Mars route</span>
+              <span className="font-hud tracking-widest text-spectral">LEGACY SECTOR COMPATIBILITY</span>
+              <span className="text-xs text-muted">Separate validation runtime · shared-universe cooperation uses Enter Universe</span>
             </Link>
           ) : null}
           <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
