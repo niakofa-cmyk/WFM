@@ -38,13 +38,13 @@ authority adapters, not one monolithic multiplayer server. See the
 [current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
 [mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
 and checkpoints below are historical where they conflict with this directive.
-For the updated renderer relationship and the new Mars route/adventure model,
-see [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md):
-Orbital owns the final renderer and runtime; Three.js is a technique/reference
-source only, not a renderer to retain under Orbital. Do not preserve a duplicate
-universe game or remove existing compatibility rendering without parity and
-benchmark proof. See the controlling
-[Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+For the current renderer relationship and Mars route/adventure model, see
+[Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md)
+and [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md):
+the Orbital universe is the single gameplay/world owner; Three.js is its primary
+renderer, with native WebGL2 retained as a companion backend. Do not create a
+duplicate universe, and do not remove either renderer under the superseded
+one-renderer rule.
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
@@ -88,12 +88,12 @@ until the shared story, route, and operation identities are reconciled.
 
 ## Preserve before replacing
 
-- The final game uses Orbital Engine as its single gameplay and rendering
-  foundation. The current Three.js implementation is a temporary renderer to
-  migrate away from, not a permanent universe layer. Study its proven
-  presentation techniques and reimplement them in Orbital; remove the package
-  only after renderer parity, target-device performance, and rollback gates pass.
-  See [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+- The final game uses Orbital Combat Lab as its single gameplay and universe
+  foundation. Keep and use the Three.js and native Orbital WebGL2 renderers as
+  presentation backends over shared Orbital state; Three.js is the primary
+  renderer for the main open universe. Preserve the historical renderer audit
+  for its testing and performance gates, not its recommendation to remove
+  Three.js.
 - Re-engineer Orbital Combat Lab into the main playable universe runtime,
   retaining training as an internal activity and validation profile. Consolidate
   simulation/render/input ownership without flattening different mode rules;

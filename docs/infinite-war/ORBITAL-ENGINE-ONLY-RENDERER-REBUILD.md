@@ -1,21 +1,27 @@
 # Orbital Engine-only renderer — rebuild directive
 
-## Controlling owner decision
+> **Superseded renderer recommendation (2026-11-08):** The current owner
+> direction is to keep and use both Three.js and native Orbital WebGL2 rendering,
+> with Three.js as the primary renderer for the main Orbital universe. This file
+> remains useful as a historical audit and source of performance/parity gates;
+> its recommendation to remove Three.js is no longer controlling. See
+> [Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
-WAR FOR MARS: INFINITE WAR will use Orbital Engine as its sole game engine and
-rendering foundation. Do not build the universe around a separate Three.js game
-or keep Three.js as a direct runtime dependency in the finished game. Study
-Three.js-based work only for useful techniques and capabilities, then implement
-those capabilities in Orbital Engine.
+## Historical owner decision
 
-One engine does not mean one monolithic system. Rendering, simulation, flight,
+The earlier direction designated Orbital Engine as the sole game engine and
+rendering foundation and prohibited Three.js as a shipped renderer. That
+renderer-specific prohibition was explicitly revised by the owner on
+2026-11-08. The enduring requirement is one Orbital-owned universe and gameplay
+state, not one rendering implementation.
+
+The architectural distinction remains useful: rendering, simulation, flight,
 combat, world streaming, fleet logic, multiplayer authority, persistence, and
-React application UI can remain modular, provided the game has one owned engine
-runtime and no competing renderer/game runtime.
+React application UI can remain modular without becoming separate games or
+universe authorities.
 
-This directive supersedes earlier wording that Three.js may remain as the
-Orbital renderer. The earlier recommendation remains useful only as historical
-context; it is not the target architecture.
+The current renderer decision is documented in
+[Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 ## Preserved source
 

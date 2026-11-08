@@ -94,48 +94,23 @@ The current source audit is in
 and ordered migration proof gates are in
 `docs/infinite-war/INFINITE-UNIVERSE-ORBITAL-RUNTIME-DIRECTION.md`.
 
-The evolving Orbital foundation connects Rust Disc, Iron Eclipse, Route to
-Mars, Arcade, Campaign, co-op, and Wing through versioned, tested operation
-adapters while preserving specialist experiences and temporary rollback. Do not
-transplant the legacy Rust Disc flight scene. The owner's latest correction
-requires Orbital Engine to own the finished game's renderer and gameplay; use
-Three.js only as a source of techniques, not as a shipped dependency. Current
-Three.js presentation remains until an Orbital-native renderer passes parity,
-performance, and rollback gates.
+Current renderer decision: retain and use Three.js and native Orbital WebGL2
+rendering. Build primarily on the main Orbital Combat Lab open-universe
+experience, using Three.js as its primary renderer and native WebGL2 as a
+companion/backup or specialized render path. Orbital remains the single owner of
+the universe, gameplay state, simulation, flight, and authority. Multiple
+renderers do not authorize duplicate worlds or physics. Rust Disc and the
+attached flight reference provide behaviors to preserve and integrate as
+in-world routes and operations.
 
-**Why:** the newest owner directive explicitly designates Orbital Combat as the
-main engine and calls for extraction of verified systems, not a visual-only
-rebuild. It also requires mobile controls, deterministic simulation, server
-authority, compatibility, and rollback during migration.
+**Why:** on 2026-11-08 the user explicitly corrected the prior renderer decision
+and asked to save this direction: keep both Three.js and Orbital WebGL2, build
+the main game in the Orbital universe, and continue using Three.js there.
 
-**How to apply:** use the source-backed extraction matrix before broad rewrites.
-Build and verify an Orbital-owned renderer, then migrate one visual/mode surface
-at a time before removing Three.js. Preserve Clerk identity, Wing
-matchmaking/rewards, co-op progression, campaign claims, and account data.
-Integrate one versioned slice at a time; keep training no-reward; do not claim
-mobile performance, live ten-human orbital combat, or full mode migration without
-their acceptance evidence.
-
-The new directive makes Rust Disc pilot controls and co-op operation behavior
-required extraction sources, and defines the intended extended universe. Keep
-that target distinct from current bounded sectors and navigation. Track
-simulation migration separately from presentation migration: a mode must not
-be called fully consolidated while a legacy scene owns its rendering lifecycle.
-Preserve identity, server authority, progression and rewards throughout migration.
-
-The owner's renewed master-engine and Orbital Operations Network directives
-also require independently operating battle instances and preserving a
-specialized Rust Disc side experience where forced simulation migration would
-break working mechanics. Orbital stays the primary shared flight/combat
-foundation; a retained specialist runtime is a versioned operation adapter,
-not a new identity, economy, or universe authority.
-
-**Why:** the user supplied both one-main-engine and multiple-specialized-
-experience directives together; forcing either a monolithic server or a new
-parallel game would violate the shared, staged design.
-
-**How to apply:** preserve verified runtimes until replacement parity is
-proven; distinguish a compatible specialist experience from a second game
-foundation. Refer to the source reconciliation in
-`docs/infinite-war/MASTER-DIRECTIVE-RECONCILIATION.md` before changing
-operation adapters or retiring a runtime.
+**How to apply:** follow
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`. Keep the shared
+Orbital simulation and controls authoritative across renderers; keep multiplayer,
+identity, progression, and rewards server-owned. Do not remove Three.js or
+discard Rust Disc flight/mission behavior under the superseded Orbital-only
+renderer rule. Retain measurement, parity, performance, accessibility, and
+rollback checks before changing a renderer path.

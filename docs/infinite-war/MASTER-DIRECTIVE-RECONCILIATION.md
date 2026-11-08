@@ -1,6 +1,6 @@
 # Orbital master directives — source reconciliation and next verified slice
 
-## Latest owner clarification
+## Current owner clarification
 
 The [Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)
 controls the execution target: the new universe/game lives inside the rebuilt
@@ -8,7 +8,15 @@ Orbital runtime. Orbital is not a permanently separate offline training module.
 The account-world link, separate approach scene and shared chart described
 below are interim bridges, not the completed main game. Preserve specialist
 operation adapters and server authority without using them as a reason to
-build the main universe in a separate engine.
+build the main universe as a separate game or world.
+
+The renderer choice was clarified on 2026-11-08. Keep and use both Three.js and
+native Orbital WebGL2 rendering, with Three.js as the primary renderer for the
+main Orbital universe. Orbital remains the owner of shared simulation, flight,
+world state, identity, and gameplay authority. Multiple renderers are allowed as
+presentation backends over that shared state; they are not separate engines or
+separate universes. The current authoritative wording is in
+[Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 The five new owner documents were read **in full** and copied byte-for-byte.
 One multiplayer-architecture document is a resend of the already saved source;
@@ -66,21 +74,16 @@ implemented by the atlas/thread display.
 
 ## Reconcile the engine terminology
 
-Orbital Combat Engine is the **exclusive target game engine, renderer, and
-runtime** of Infinite War. The repository still contains Three.js-based
-rendering, so the target is not a completed migration. One universe and shared
-account/operation contracts do not mean forcing
-every existing experience into one giant server process or identical physics.
-Different modes keep their objectives and specialized adapters; existing
-Rust Disc, sector, campaign and Wing runtimes stay playable while a versioned
-Orbital replacement is proven. Current Three.js paths are compatibility
-implementations only and must be retired after their Orbital replacements pass
-parity, performance, authority, and rollback gates; Three.js is not the final
-renderer. A specialized side experience may continue behind an adapter when
-consolidation would destroy its mechanics or break authority. It must not become
-a *new*, incompatible universe, identity, progression or reward owner. No
-legacy deletion or network protocol switch is authorized by saving these
-documents alone.
+Orbital Combat Lab is the **single game/universe and gameplay-state owner** of
+Infinite War. Three.js and native Orbital WebGL2 are both retained; Three.js is
+the primary renderer for the main open universe, while native WebGL2 can support
+preview, specialized, and measured fallback use. Different modes keep their
+objectives and specialized adapters; existing Rust Disc, sector, campaign, and
+Wing features remain part of the same product. Route integration must not create
+a new universe, identity, progression, or reward owner. No legacy feature or
+renderer is removed merely to enforce a one-renderer rule. See the current
+[renderer strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md); this section
+replaces the older Three.js-retirement recommendation.
 
 The preserved sources describe a future live observer watching actual matches.
 Today's local docking scene, public directory marker and two-device private

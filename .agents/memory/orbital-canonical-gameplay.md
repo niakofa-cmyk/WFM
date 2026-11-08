@@ -17,26 +17,26 @@ maintained roadmap and asteroid-hub contract for current implementation.
 The newest controlling source and its one-main-engine precedence are recorded
 in [master development directive](master-development-directive.md).
 
-**Rule:** One Orbital engine must own the finished game's rendering and gameplay
-runtime, with specialist experiences connected through adapters. Three.js is a
-reference for techniques only, not a library to ship in the finished game. The
-current repository still uses it for rendering and has no complete Orbital-native
-renderer, so remove it only after a replacement passes feature, performance,
-authority, and rollback gates. Preserve existing identity, matchmaking, economy,
-progression, reward services, and working compatibility paths during migration.
+**Rule:** Orbital Combat Lab owns the finished game's single universe, gameplay
+state, flight/combat simulation, and authority. Keep and use both Three.js and
+native Orbital WebGL2 rendering. Three.js is the primary renderer for the main
+open universe; native WebGL2 is a supported companion path. Both render the same
+Orbital-owned state and must not become separate game worlds or simulation
+owners. Preserve identity, matchmaking, economy, progression, reward services,
+and working operation paths.
 
-**Why:** the owner explicitly corrected the renderer decision: the game's scale
-requires one Orbital rendering and simulation foundation, while repository
-inspection shows that Three.js currently supplies the only working 3D renderer.
-The migration must honor the target without breaking the current game prematurely.
+**Why:** on 2026-11-08 the owner explicitly revised the earlier one-renderer
+recommendation and asked to continue building the main Orbital universe with
+Three.js while retaining native WebGL2 and other useful rendering support.
 
-**How to apply:** follow
-`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md` for the audited
-current state and renderer removal gates. Build an Orbital-owned renderer proof,
-then migrate and test one surface/mode at a time. Use explicit operation
-adapters; version network/replay contracts and change client/API/socket
-authority together. The local Cinder approach cannot authorize a queue or create
-an operation. Retain Wing's server-owned competitive and reward gates.
+**How to apply:** use
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md` as the current
+renderer decision. Integrate Rust Disc and Mars routes as activities in the
+shared universe; preserve their flight controls and mission behavior without
+forking Orbital physics. Keep renderers behind clear presentation boundaries,
+measure parity and device performance, and retain server-owned competitive and
+reward gates. Older Orbital-only-renderer documents are historical on renderer
+removal, not on shared simulation, authority, or validation requirements.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc

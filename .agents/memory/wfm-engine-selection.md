@@ -1,25 +1,22 @@
 ---
-name: WFM engine selection
-description: Owner's engine guidance and the measured-before-migration rule for the WFM renderer and mobile client.
+name: WFM rendering strategy
+description: One Orbital universe uses Three.js as its primary renderer and native WebGL2 as a supported companion.
 ---
 
-The owner's historical engine assessments are preserved in the attached assets
-referenced at the top of `docs/references/wfm-engine-selection.md`. The latest
-owner direction supersedes their renderer choice: Orbital Engine must own final
-gameplay and rendering; Three.js is a technique reference, not a shipped library.
+The owner clarified on 2026-11-08: keep and use both Three.js and native Orbital
+WebGL2 rendering. Orbital Combat Lab remains the one game/universe and shared
+simulation owner. Three.js is the primary renderer for the main open universe;
+native WebGL2 remains an additional preview, specialized, or measured fallback
+path. Neither renderer may create its own gameplay state or a duplicate universe.
 
-The current repository still uses Three.js as its only working 3D renderer, so
-keep it operational only until an Orbital-native replacement passes parity,
-performance, and rollback gates. Do not remove it prematurely or introduce a
-second renderer. Preserve backend authority for multiplayer, progression, and
-the persistent universe.
+**Why:** the owner directly revised the previous renderer-retirement direction
+and asked that both rendering paths be retained while the main Combat Lab
+universe remains the focus.
 
-**Why:** the owner explicitly corrected the goal to a single Orbital rendering
-and simulation foundation, while the present source has no complete Orbital
-renderer. Performance should be measured, not inferred from Three.js package size.
-
-**How to apply:** follow
-`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md`. Before retiring the
-current renderer, compare bundle/assets, startup, frame time, memory, thermals,
-feature behavior, and sustained combat on equivalent target devices. Do not
-describe proposed targets as achieved.
+**How to apply:** use
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md` as the current
+source. Preserve shared Orbital controls, physics, world coordinates, and
+authority across renderers. Measure performance and parity rather than
+inferring them from package size. Older Orbital-only-renderer documents are
+historical on renderer removal, but their audit evidence and safety gates remain
+useful.
