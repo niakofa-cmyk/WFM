@@ -22,6 +22,50 @@ export type NativeSpectatorRenderer = {
   dispose(): void;
 };
 
+export const ORBITAL_ENGINE_TRAIL_MAX_CONTACTS = 64;
+const TRAIL_FLOATS_PER_VERTEX = 6;
+const TRAIL_VERTICES_PER_CONTACT = 2;
+const SPECTATOR_TEAM_COLORS: Record<0 | 1, readonly [number, number, number]> = {
+  0: [0.88, 0.56, 0.24],
+  1: [0.28, 0.64, 0.94],
+};
+
+/** Writes one deterministic, presentation-only exhaust line into a reused buffer. */
+export function writeOrbitalEngineTrail(
+  contact: NativeSpectatorContact,
+  target: Float32Array,
+  vertexOffset: number,
+): number {
+  const offset = vertexOffset * TRAIL_FLOATS_PER_VERTEX;
+  if (!contact.alive || offset < 0 || offset + TRAIL_FLOATS_PER_VERTEX * TRAIL_VERTICES_PER_CONTACT > target.length ||
+      !Number.isFinite(contact.x) || !Number.isFinite(contact.z) || !Number.isFinite(contact.yaw)) return 0;
+
+  const vx = Number.isFinite(contact.velocity?.x) ? contact.velocity!.x : 0;
+  const vz = Number.isFinite(contact.velocity?.z) ? contact.velocity!.z : 0;
+  const speed = Math.hypot(vx, vz);
+  const directionX = speed > 0.05 ? vx / speed : Math.sin(contact.yaw);
+  const directionZ = speed > 0.05 ? vz / speed : Math.cos(contact.yaw);
+  const nozzleX = contact.x - directionX * 3.5;
+  const nozzleZ = contact.z - directionZ * 3.5;
+  const trailLength = Math.max(3, Math.min(24, 3 + speed * 0.75));
+  const tailX = nozzleX - directionX * trailLength;
+  const tailZ = nozzleZ - directionZ * trailLength;
+  const color = SPECTATOR_TEAM_COLORS[contact.team];
+  target[offset] = nozzleX;
+  target[offset + 1] = 0.18;
+  target[offset + 2] = nozzleZ;
+  target[offset + 3] = color[0] * 0.9;
+  target[offset + 4] = color[1] * 0.9;
+  target[offset + 5] = color[2] * 0.9;
+  target[offset + 6] = tailX;
+  target[offset + 7] = 0.18;
+  target[offset + 8] = tailZ;
+  target[offset + 9] = color[0] * 0.16;
+  target[offset + 10] = color[1] * 0.16;
+  target[offset + 11] = color[2] * 0.16;
+  return TRAIL_VERTICES_PER_CONTACT;
+}
+
 const VERTEX_SHADER = `#version 300 es
 in vec3 aPosition;
 in vec3 aColor;
@@ -156,10 +200,18 @@ export function createOrbitalNativeSpectatorRenderer(
   const mvp = gl.getUniformLocation(program, "uMvp");
   const buffers = new Map<string, WebGLBuffer>();
   const geometries = new Map<string, Float32Array>();
-  const teamColors: Record<0 | 1, readonly [number, number, number]> = {
-    0: [0.88, 0.56, 0.24],
-    1: [0.28, 0.64, 0.94],
-  };
+  const trailBuffer = context.createBuffer();
+  if (!trailBuffer) {
+    context.deleteProgram(program);
+    context.deleteShader(vertex);
+    context.deleteShader(fragment);
+    throw new Error("Unable to allocate Orbital engine-trail buffer.");
+  }
+  const trailVertices = new Float32Array(
+    ORBITAL_ENGINE_TRAIL_MAX_CONTACTS * TRAIL_VERTICES_PER_CONTACT * TRAIL_FLOATS_PER_VERTEX,
+  );
+  context.bindBuffer(context.ARRAY_BUFFER, trailBuffer);
+  context.bufferData(context.ARRAY_BUFFER, trailVertices.byteLength, context.DYNAMIC_DRAW);
 
   function getBuffer(shipId: ShipId, team: 0 | 1): { buffer: WebGLBuffer; geometry: Float32Array } {
     const key = `${shipId}:${team}`;
@@ -168,7 +220,7 @@ export function createOrbitalNativeSpectatorRenderer(
     if (!buffer || !geometry) {
       buffer = context.createBuffer() ?? undefined;
       if (!buffer) throw new Error("Unable to allocate native spectator hull buffer.");
-      geometry = buildOrbitalNativeShipGeometry(shipId, teamColors[team]);
+      geometry = buildOrbitalNativeShipGeometry(shipId, SPECTATOR_TEAM_COLORS[team]);
       buffers.set(key, buffer);
       geometries.set(key, geometry);
       context.bindBuffer(context.ARRAY_BUFFER, buffer);
@@ -199,6 +251,7 @@ export function createOrbitalNativeSpectatorRenderer(
       const elapsed = state.receivedAt === undefined
         ? 0
         : Math.min(5, Math.max(0, (Date.now() - state.receivedAt) / 1000));
+      let trailVertexCount = 0;
       for (const contact of state.contacts) {
         if (!contact.alive || !Number.isFinite(contact.x) || !Number.isFinite(contact.z) ||
             !Number.isFinite(contact.yaw) || !Number.isFinite(contact.health)) continue;
@@ -213,14 +266,28 @@ export function createOrbitalNativeSpectatorRenderer(
           x: contact.x + (contact.velocity?.x ?? 0) * elapsed,
           z: contact.z + (contact.velocity?.z ?? 0) * elapsed,
         };
+        if (trailVertexCount < ORBITAL_ENGINE_TRAIL_MAX_CONTACTS * TRAIL_VERTICES_PER_CONTACT) {
+          trailVertexCount += writeOrbitalEngineTrail(interpolated, trailVertices, trailVertexCount);
+        }
         gl.uniformMatrix4fv(mvp, false, multiply(viewProjection, shipTransform(interpolated)));
         gl.drawArrays(gl.TRIANGLES, 0, geometry.length / 6);
+      }
+      if (trailVertexCount > 0) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, trailBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, trailVertices);
+        gl.enableVertexAttribArray(position);
+        gl.enableVertexAttribArray(color);
+        gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 24, 0);
+        gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 24, 12);
+        gl.uniformMatrix4fv(mvp, false, viewProjection);
+        gl.drawArrays(gl.LINES, 0, trailVertexCount);
       }
     },
     dispose() {
       for (const buffer of buffers.values()) gl.deleteBuffer(buffer);
       buffers.clear();
       geometries.clear();
+      gl.deleteBuffer(trailBuffer);
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
