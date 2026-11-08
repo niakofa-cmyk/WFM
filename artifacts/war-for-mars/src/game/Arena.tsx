@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
 import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl, type Bus } from "./input";
@@ -44,6 +45,7 @@ import {
   createUniverseSession,
   evaluateUniverseDock,
   ORBITAL_SUN_POSITION,
+  UNIVERSE_RENDER_Y_OFFSET,
   placeAtUniverseStart,
   universeFrozen,
   type UniverseStartLocation,
@@ -60,6 +62,8 @@ import {
   type LocalUniverseCommand,
 } from "./orbital-universe-runtime";
 import { UniverseStationOverlay } from "./UniverseStationOverlay";
+import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
+import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -148,8 +152,9 @@ type ArenaProps = {
   modeId: GameModeId;
   orbitalCampaign?: boolean;
   /**
-   * Opt-in local Orbital universe profile: bounded offline exploration with a
-   * physical Cinder Ring dock and a subordinate training activity. No rewards.
+   * Local Orbital flight stays session-only. A signed-in caller may provide a
+   * read-only server patrol picture; intercepts still leave through the
+   * authenticated server operation instead of authorizing local kills.
    */
   localUniverse?: {
     onExit: () => void;
@@ -157,6 +162,9 @@ type ArenaProps = {
     startLocation?: UniverseStartLocation;
     servicesOpen?: boolean;
     onOpenOperations?: () => void;
+    patrolDirectory?: WorldPatrolDirectory | null;
+    canInterceptPatrol?: boolean;
+    onInterceptPatrol?: () => void;
   };
 };
 
@@ -171,6 +179,16 @@ function pilotCraft(match: Match, slotId: number): Craft {
   if (slotId === 0) return match.player;
   if (slotId < 5) return match.allies[slotId - 1] ?? match.player;
   return match.enemies[slotId - 5] ?? match.player;
+}
+
+function disposePatrolShipGroup(group: THREE.Group) {
+  group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.geometry.dispose();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) material.dispose();
+  });
+  group.removeFromParent();
 }
 
 function copyMatch(source: Match): Match {
@@ -577,10 +595,17 @@ export function Arena({
   const anomalyScanKeyRef = useRef("");
   const [relayInteraction, setRelayInteraction] = useState<LocalRelayInteraction | null>(null);
   const relayInteractionKeyRef = useRef("");
+  const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [glReady, setGlReady] = useState(false);
   const glReadyRef = useRef(false);
   const universeExitRef = useRef(localUniverse?.onExit);
   universeExitRef.current = localUniverse?.onExit;
+  const localUniverseRef = useRef(localUniverse);
+  localUniverseRef.current = localUniverse;
+  const localUniverseActive = Boolean(localUniverse);
+  useEffect(() => {
+    if (!localUniverseActive || universe?.phase !== "exploration") setPatrolContact(null);
+  }, [localUniverseActive, universe?.phase]);
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
   const countermeasureRef = useRef<HTMLButtonElement>(null);
@@ -1163,6 +1188,14 @@ export function Arena({
       scene.add(group);
       return group;
     });
+    const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId }>();
+    const universePatrolOrigin = localUniverse ? {
+      x: match.player.x,
+      y: match.player.space?.y ?? 0,
+      z: match.player.z,
+    } : null;
+    let lastPatrolProjectionAt = 0;
+    let lastPatrolNoticeAt = 0;
     const enemyGroups = match.enemies.map((enemy) => {
       const group = makeShip(enemy.ship);
       if (enemy.ace) {
@@ -1501,7 +1534,9 @@ export function Arena({
       const exploringUniverse = universePhase !== null && universePhase !== "training";
       for (const rockMesh of rockMeshes) rockMesh.visible = !exploringUniverse;
       if (exploringUniverse) {
-        // Local universe exploration: player-only spatial flight, no AI, no clock, no rewards.
+        // Flight inputs remain local/session-only. Patrol meshes below are a
+        // read-only projection of server contacts; combat and settlement live
+        // in the separate authenticated Orbital operation.
         if (universeFrozen(universePhase)) acc = 0;
         let steps = 0;
         const pilot = match.player;
@@ -1515,6 +1550,67 @@ export function Arena({
           }
           acc -= FIXED;
           steps += 1;
+        }
+        if (universePhase === "exploration" && universePatrolOrigin && now - lastPatrolProjectionAt >= 120) {
+          lastPatrolProjectionAt = now;
+          const liveUniverse = localUniverseRef.current;
+          const projection = projectUniversePatrolTraffic(
+            liveUniverse?.patrolDirectory,
+            faction,
+            universePatrolOrigin,
+            { x: pilot.x, y: pilot.space?.y ?? 0, z: pilot.z },
+            Date.now(),
+          );
+          const visibleIds = new Set<string>();
+          for (const contact of projection.contacts) {
+            visibleIds.add(contact.contactId);
+            let entry = patrolGroups.get(contact.contactId);
+            if (entry && entry.shipId !== contact.shipId) {
+              disposePatrolShipGroup(entry.group);
+              patrolGroups.delete(contact.contactId);
+              entry = undefined;
+            }
+            if (!entry) {
+              const group = buildOrbitalShip(contact.shipId);
+              group.scale.setScalar(2.4);
+              scene.add(group);
+              entry = { group, shipId: contact.shipId };
+              patrolGroups.set(contact.contactId, entry);
+            }
+            entry.group.visible = true;
+            entry.group.position.set(
+              contact.position.x,
+              UNIVERSE_RENDER_Y_OFFSET + contact.position.y,
+              contact.position.z,
+            );
+            entry.group.rotation.set(0, contact.yaw, 0);
+          }
+          for (const [contactId, entry] of patrolGroups) {
+            if (!visibleIds.has(contactId)) entry.group.visible = false;
+          }
+          if (now - lastPatrolNoticeAt >= 400) {
+            lastPatrolNoticeAt = now;
+            const next = projection.nearestOpposing
+              ? {
+                  callsign: projection.nearestOpposing.callsign,
+                  faction: projection.nearestOpposing.faction,
+                  shipCount: projection.nearestOpposing.shipCount,
+                  distanceMeters: Math.round(projection.nearestOpposing.distanceMeters),
+                }
+              : null;
+            setPatrolContact((previous) => {
+              if (
+                previous?.callsign === next?.callsign
+                && previous?.faction === next?.faction
+                && previous?.shipCount === next?.shipCount
+                && previous?.distanceMeters === next?.distanceMeters
+              ) return previous;
+              return next;
+            });
+          }
+        } else if (universePhase !== "exploration") {
+          for (const entry of patrolGroups.values()) entry.group.visible = false;
+          if (patrolContact) setPatrolContact(null);
         }
         if (universePhase === "exploration") {
           const dock = evaluateUniverseDock(pilot, universeRef.current!.sectorAddress);
@@ -2309,6 +2405,13 @@ export function Arena({
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      {localUniverse ? (
+        <UniversePatrolEncounterPrompt
+          contact={patrolContact}
+          enabled={Boolean(localUniverse.canInterceptPatrol)}
+          onIntercept={() => localUniverseRef.current?.onInterceptPatrol?.()}
+        />
       ) : null}
       {localUniverse && universe ? (
         <UniverseStationOverlay

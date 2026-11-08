@@ -38,8 +38,17 @@ test("local universe entry keeps flight lazy and blocks planned destination laun
   assert.match(source, /<button[^>]*disabled[^>]*data-testid="button-destination-unavailable"/);
   assert.doesNotMatch(source, /fetch\(|new WebSocket/);
   assert.match(source, /useGetWorldPatrols/);
-  assert.match(source, /enabled: Boolean\(userId && !standalone && mode === "entry" && worldQuery\.data\)/);
+  assert.match(source, /enabled: Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\) && worldQuery\.data\)/);
+  assert.match(source, /serverStartLocation === startLocation/);
+  assert.match(source, /patrolDirectory,[\s\S]*canInterceptPatrol,[\s\S]*onInterceptPatrol/);
   assert.match(source, /traffic=\{localTraffic\}/);
+});
+
+test("standalone boot does not call Clerk auth outside a provider", () => {
+  const source = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
+  assert.match(source, /return standalone[\s\S]*?<OrbitalBootCore standalone/);
+  assert.match(source, /function AuthenticatedOrbitalBoot\(\) \{\s*const \{ userId \} = useAuth\(\);/);
+  assert.match(source, /function OrbitalBootCore\(/);
 });
 
 test("local faction briefing reflects the actual opposing training side without inventing a world", () => {

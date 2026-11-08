@@ -28,7 +28,7 @@ test("current UI entry points retain their actual runtime and lifecycle owners",
   assert.match(combatLab, /createRoot\(document\.getElementById\("root"\)!\)/);
   assert.match(combatLab, /<OrbitalBoot standalone/);
   assert.match(orbitalBoot, /modeId="orbital-combat-lab" runtime=\{ORBITAL_RUNTIME_ID\}/);
-  assert.match(orbitalBoot, /modeId="orbital-universe-local" runtime=\{ORBITAL_RUNTIME_ID\}/);
+  assert.match(orbitalBoot, /modeId="orbital-universe-local"[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.ok(warApp.includes("modeId={UNIVERSE_MODE_ID}"));
   assert.match(warApp, /resolveArenaModeId\(runConfig, Boolean\(onlineSession\), offlineMode\)/);
   assert.match(arena, /new THREE\.WebGLRenderer/);

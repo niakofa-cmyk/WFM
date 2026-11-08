@@ -1,6 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/react";
-import { getGetWorldQueryKey, useGetWorld } from "@workspace/api-client-react";
+import {
+  getGetWorldPatrolsQueryKey,
+  getGetWorldQueryKey,
+  useGetWorld,
+  useGetWorldPatrols,
+} from "@workspace/api-client-react";
 import type {
   StrikeResult,
   OnlineRoom,
@@ -64,6 +69,10 @@ const competitiveQueueAvailable =
   import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
 const casualAiQueueAvailable =
   import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
+const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
+  && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
+const universePatrolInterceptionEnabled = expeditionEnabled
+  && import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true";
 
 type StagingRewardDiagnostic = {
   runId: string;
@@ -170,6 +179,20 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   const [universeEntryError, setUniverseEntryError] = useState("");
   const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
   const [universeExpeditionMission, setUniverseExpeditionMission] = useState<SectorMissionId | null>(null);
+  const universePatrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && orbitalUniverseOpen && narrativeWorld.data?.currentLocation),
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
+      queryKey: [...getGetWorldPatrolsQueryKey(), narrativeWorld.data?.currentLocation],
+    },
+  });
+  const universePatrolDirectory =
+    narrativeWorld.data
+    && universePatrolsQuery.data?.currentLocationId === narrativeWorld.data.currentLocation
+    && orbitalStartLocation === orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation)
+      ? universePatrolsQuery.data
+      : null;
   const returnToOrbitalAfterOperationRef = useRef(false);
   useEffect(() => {
     if (!userId) {
@@ -1275,11 +1298,17 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 servicesHref: "/universe",
                 startLocation: orbitalStartLocation ?? "mars-orbit",
                 servicesOpen: universeServicesOpen,
+                patrolDirectory: universePatrolDirectory,
+                canInterceptPatrol: universePatrolInterceptionEnabled,
                 onExit: () => {
                   setUniverseServicesOpen(false);
                   setOrbitalUniverseOpen(false);
                 },
                 onOpenOperations: () => setUniverseServicesOpen(true),
+                onInterceptPatrol: () => {
+                  setUniverseExpeditionMission("universe-patrol");
+                  setUniverseServicesOpen(true);
+                },
               }}
               onNetworkExit={() => {
                 throw new Error("The local Orbital universe must not open a network session.");
