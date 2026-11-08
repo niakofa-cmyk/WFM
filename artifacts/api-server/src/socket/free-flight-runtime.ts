@@ -20,9 +20,9 @@ const INPUT_TIMEOUT_MS = 350;
 const DISCONNECT_GRACE_MS = 15_000;
 const EMPTY_SESSION_TTL_MS = 60_000;
 const NEARBY_RADIUS = 2_500;
-const MAX_NEARBY_ACTORS = 48;
-const MAX_SESSIONS = 128;
-const MAX_PILOTS_PER_SESSION = 64;
+const MAX_NEARBY_ACTORS = 32;
+const MAX_SESSIONS = 32;
+const MAX_PILOTS_PER_SESSION = 24;
 
 export type FreeFlightAdmission = {
   /** Server-derived spatial session key. Never accept this value from a client packet. */
