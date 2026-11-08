@@ -1,5 +1,32 @@
 {
   "overallStatus": "PENDING",
+  "latestSharedAssistanceRollout": {
+    "checkedOn": "2026-11-08",
+    "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",
+    "runtimeCommit": "61fd952c4860171ebaff4c40989d934ba4addf97",
+    "environment": "staging",
+    "services": {
+      "app": { "status": "SUCCESS", "deploymentId": "1a5f51cf-28f4-4f13-bb20-bdcd6fda4c05" },
+      "api": { "status": "SUCCESS", "deploymentId": "eb3f9fd2-57c4-4507-a2a4-2618a05e464a" },
+      "socket": { "status": "SUCCESS", "deploymentId": "19cd67b6-9ab3-4728-80c8-3db51d774d2f" }
+    },
+    "matchingSourcePins": true,
+    "socketReadiness": {
+      "freeFlightEnabled": true,
+      "admission": "database-backed",
+      "combatEnabled": true,
+      "contract": "freeflight-v1",
+      "sectorWireProtocolVersion": 1
+    },
+    "railwayCombatLabInitialJavascriptGzipBytes": 127135,
+    "combatLabInitialGzipLimitBytes": 143360,
+    "threeJsInInitialStaticGraph": false,
+    "unauthenticatedGatewayChecks": { "rootHttpStatus": 401, "profileHttpStatus": 401, "webSocketUpgradeHttpStatus": 401 },
+    "freshAuthenticatedTwoPilotBattleVerified": false,
+    "freshStagingKillAssistAndRewardSettlementVerified": false,
+    "schemaOrFlagChanges": false,
+    "productionChanged": false
+  },
   "latestLocalFiringTrace": {
     "checkedOn": "2026-11-08",
     "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",

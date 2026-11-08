@@ -15,9 +15,12 @@ legacy sector routes and rollback. The implementation assessment and deferred
 fleet-size thresholds, team bonus and full 3D sweep are documented in
 [Shared-universe cooperation](infinite-war/UNIFIED-UNIVERSE-COOPERATION-AND-ASSISTANCE.md).
 22 server tests, 7 frontend tests, both typechecks/builds and 4 static checks
-passed locally. This candidate is not yet staged. The prior approved firing fix
-reached SUCCESS on all three staging services; its authenticated firing check
-is incomplete. Production is unchanged.
+passed locally. Following explicit approval, candidate `61fd952` reached SUCCESS
+on all three staging services at matching source pins. Startup reported free
+flight/combat enabled; unauthenticated staging page/API/WebSocket requests
+returned 401. Railway's Lab audit passed at 127,135 B gzip. No schema/flag change.
+Authenticated firing, two-pilot assistance and settlement checks remain
+incomplete. Production is unchanged.
 
 ## 2026-11-03 — First campaign-to-orbital combat slice
 

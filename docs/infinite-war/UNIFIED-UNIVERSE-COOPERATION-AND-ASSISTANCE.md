@@ -80,6 +80,13 @@ static graph. No schema, feature-flag or deployment-network change was needed.
 
 The prior firing-state candidate `5599bb1` reached SUCCESS on staging app, API
 and socket services. Its fresh authenticated firing/settlement check remains
-incomplete. This cooperation candidate is **not deployed**. Local automated
-checks are not two-human, two-physical-device, Android, or production proof.
-Production is unchanged.
+incomplete. With subsequent explicit approval, cooperation candidate `61fd952`
+reached SUCCESS on staging app, API and socket services at the same revision.
+Socket startup reported database-backed free flight and combat enabled.
+Unauthenticated gateway root/profile/WebSocket requests all returned 401.
+The Railway Lab audit passed at 127,135 B gzip with Three.js still lazy.
+No schema or feature-flag changes were applied.
+
+These checks are not authenticated two-human, two-physical-device, Android,
+kill/assist settlement, or production proof. Those remain outstanding; the
+overall promotion status remains PENDING. Production is unchanged.

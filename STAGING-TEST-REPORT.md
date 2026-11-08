@@ -1590,3 +1590,27 @@ See [the implementation and source-reference assessment](docs/infinite-war/UNIFI
 for implemented behavior, rejected unsafe sample code, and deferred radar,
 radius-scaling and reward-policy proposals. Local tests are not authenticated
 staging or two-device certification.
+
+### Approved shared-assistance rollout — 2026-11-08
+
+Deployed `61fd952c4860171ebaff4c40989d934ba4addf97` to the existing isolated
+staging environment with explicit user approval. All three exact-revision
+deployments reached SUCCESS:
+
+- App: `1a5f51cf-28f4-4f13-bb20-bdcd6fda4c05`
+- API: `eb3f9fd2-57c4-4507-a2a4-2618a05e464a`
+- Socket: `19cd67b6-9ab3-4728-80c8-3db51d774d2f`
+
+The reviewed environment diff changed source pins only. No schema, flag,
+network, authentication or Production change. Socket startup reported database-backed
+free-flight admission and combat enabled with the existing V1 sector rollback
+protocol. Railway's Lab build audit passed at **127,135 B gzip** against the
+unchanged **143,360 B** limit, with Three.js outside the initial static graph.
+
+Unauthenticated root, profile API and valid same-origin WebSocket upgrade
+requests through the staging gateway all returned **401**. No sign-in or
+verification-code submission was performed for these readiness checks.
+
+Deployment and access protection passed; fresh authenticated player firing,
+two-pilot late assistance, damage/kill attribution, settlement and post-battle
+flight remain unverified. Overall promotion remains **PENDING**.
