@@ -1287,8 +1287,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
               objective={
                 orbitalStartLocation === "rust-disc" ? "RUST DISC · RELAY APPROACH"
                   : orbitalStartLocation === "mars-night-side" ? "MARS NIGHT-SIDE · STATION APPROACH"
-                    : orbitalStartLocation === "cinder-ring" ? "CINDER RING · LOCAL TRAINING"
-                      : "MARS ORBIT · LOCAL TRAINING"
+                    : orbitalStartLocation === "cinder-ring" ? "CINDER RING · OPEN UNIVERSE"
+                      : "MARS ORBIT · OPEN UNIVERSE"
               }
               tech={null}
               gyro={save.gyro}
@@ -1297,6 +1297,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
               localUniverse={{
                 servicesHref: "/universe",
                 startLocation: orbitalStartLocation ?? "mars-orbit",
+                openingEncounter: true,
                 servicesOpen: universeServicesOpen,
                 patrolDirectory: universePatrolDirectory,
                 getSessionToken: getToken,

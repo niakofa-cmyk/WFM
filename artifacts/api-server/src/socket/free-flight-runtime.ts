@@ -528,14 +528,18 @@ export function createFreeFlightRuntime(options: {
     const distance = detHypot(detHypot(dx, dy), dz);
     const q = space.q;
     const local = rotate([-q[0], -q[1], -q[2], q[3]], dx, dy, dz);
+    const yawError = detAtan2(-local.x, -local.z);
+    const pitchError = detAtan2(local.y, detHypot(local.x, local.z));
     return {
       ...IDLE,
       throttle: distance > 150 ? 0.32 : 0.12,
-      yaw: clamp(detAtan2(-local.x, -local.z) * 1.6),
-      pitch: clamp(detAtan2(local.y, detHypot(local.x, local.z)) * 1.4),
+      yaw: clamp(yawError * 1.6),
+      pitch: clamp(pitchError * 1.4),
       strafe: clamp(local.x * 0.001, -0.16, 0.16),
       vertical: clamp(local.y * 0.001, -0.16, 0.16),
-      fire: distance < 170,
+      // Training's readable aim-before-fire rule, in shared 3D space.
+      // Proximity alone is not permission to shoot sideways/backwards.
+      fire: distance < 170 && Math.abs(yawError) < 0.18 && Math.abs(pitchError) < 0.18,
     };
   }
 
@@ -1167,7 +1171,9 @@ export function createFreeFlightRuntime(options: {
     const error = (reason: string) => send(socket, { type: "error", reason });
     if (closed) { error("server_restart"); return; }
     if (packet.type === "freeflight_join") {
-      if (Object.keys(packet).length !== 1 || seats.has(socket) || joiningUsers.has(userId)) {
+      if (Object.keys(packet).some((key) => key !== "type" && key !== "openingEncounter") ||
+          (packet.openingEncounter !== undefined && packet.openingEncounter !== true) ||
+          seats.has(socket) || joiningUsers.has(userId)) {
         error("invalid_freeflight_join");
         return;
       }
@@ -1226,6 +1232,9 @@ export function createFreeFlightRuntime(options: {
         const session = sessionFor(admission.sessionKey, now, initialPatrols);
         if (!session) { error("freeflight_capacity"); return; }
         let actor = session.pilotByUser.get(userId);
+        let openingTarget: Actor | undefined;
+        let openingStatus: "ready" | "resumed" | "unavailable" | undefined =
+          packet.openingEncounter === true ? (actor ? "resumed" : "unavailable") : undefined;
         if (!actor) {
           if (session.pilotByUser.size >= MAX_PILOTS_PER_SESSION ||
               session.actors.size >= MAX_ACTORS_PER_SESSION) {
@@ -1245,6 +1254,33 @@ export function createFreeFlightRuntime(options: {
             primaryCooldown: 0, lastDamageTick: -1, kills: 0, assists: 0, creditsAwarded: 0,
             gravityEnvironmentV1: false,
           };
+          // Only a genuinely new seat may receive the opening insertion.
+          // Never move/heal a retained actor, reset a roster or mint a fleet.
+          if (packet.openingEncounter === true &&
+              options.reserveUniversePatrol && options.settleScoutEncounter) {
+            openingTarget = [...session.actors.values()]
+              .filter((candidate) => candidate.kind === "patrol" &&
+                candidate.persistentPatrolId && candidate.persistentShipId &&
+                candidate.faction !== admission.faction && candidate.craft.alive &&
+                distanceBetween(actor!, candidate) <= 700 &&
+                (!session.combats.has(candidate.persistentPatrolId) ||
+                  session.combats.get(candidate.persistentPatrolId)?.phase === "active" ||
+                  session.combats.get(candidate.persistentPatrolId)?.phase === "complete"))
+              .sort((a, b) => distanceBetween(actor!, a) - distanceBetween(actor!, b) ||
+                a.actorId.localeCompare(b.actorId))[0];
+            if (openingTarget) {
+              const target = openingTarget.craft;
+              const dx = target.x - actor.craft.x;
+              const dz = target.z - actor.craft.z;
+              const length = detHypot(dx, dz) || 1;
+              const lateral = ((index % 5) - 2) * 10;
+              const x = target.x - dx / length * 145 - dz / length * lateral;
+              const z = target.z - dz / length * 145 + dx / length * lateral;
+              actor.craft = craftFor(numericId, admission.shipId, x, target.space!.y, z,
+                detAtan2(-(target.x - x), -(target.z - z)));
+              openingStatus = "ready";
+            }
+          }
           session.actors.set(actor.actorId, actor);
           session.pilotByUser.set(userId, actor);
         } else if (actor.craft.alive &&
@@ -1277,10 +1313,14 @@ export function createFreeFlightRuntime(options: {
           nextInputSeq: actor.lastSeq + 1,
           snapshot: snapshotFor(session, actor),
           environment: environmentFor(session),
+          ...(openingStatus ? { openingEncounter: openingStatus } : {}),
         });
         sendCombatState(session, actor);
         if (environmentChanged) broadcastEnvironment(session, socket);
         publish(session);
+        // Same lease, participants, weapons and settlement as later encounters.
+        // Failures remain visible through the ordinary encounter-error channel.
+        if (openingTarget) await startEngagement(socket, seat, openingTarget.actorId);
       } catch {
         error("freeflight_admission_unavailable");
       } finally {

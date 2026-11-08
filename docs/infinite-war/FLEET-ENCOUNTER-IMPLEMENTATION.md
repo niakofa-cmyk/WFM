@@ -1,5 +1,15 @@
 # Open-universe patrol encounter slice
 
+## Current continuous-flight opening direction
+
+The bounded pocket below is a historical implementation slice, not the desired
+opening architecture. The owner's current direction and implementation are in
+[Combat Lab-style opening inside the live universe](LAB-STYLE-OPENING-ENCOUNTER.md):
+explicit hangar launch inserts a new pilot facing a real hostile patrol, reserves
+the ordinary shared encounter, and retains the same universe after battle.
+Training behavior is reused without importing local authority or respawning
+rewardable fleets. Reconnects preserve the existing craft and battle.
+
 ## Direction retained
 
 The two owner-supplied fleet references are retained verbatim in

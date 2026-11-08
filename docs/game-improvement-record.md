@@ -1,5 +1,11 @@
 # Hangar-first entry and disabled recovery
 
+New local implementation: [Lab-style opening encounter](infinite-war/LAB-STYLE-OPENING-ENCOUNTER.md).
+Explicit hangar launch can insert a new pilot facing an existing hostile fleet
+and claim an ordinary live battle without leaving the universe. Retained pilots
+are not repositioned or repaired. This is newer than the staging rollout below;
+no deployment or authenticated gameplay certification is claimed for this change.
+
 Staging app/API/socket now run the owner-approved `128882c` source at matching
 SUCCESS deployments. The Railway Combat Lab audit passed at 127,135 bytes gzip;
 root/profile/WebSocket gateway probes returned 401. Fresh authenticated

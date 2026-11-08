@@ -10,6 +10,7 @@ import {
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { reconnectDelayMs } from "./reconnect-policy";
 import { FreeFlightInputScheduler } from "./free-flight-input-scheduler";
+import { freeFlightJoinPacket } from "./free-flight-opening";
 
 export type FreeFlightConnectionState =
   | "connecting"
@@ -24,6 +25,7 @@ export type ReceivedFreeFlightSnapshot = {
 };
 
 type FreeFlightClientOptions = {
+  openingEncounter?: boolean;
   getSessionToken: () => Promise<string | null>;
   onSnapshot: (frame: ReceivedFreeFlightSnapshot) => void;
   onEnvironment?: (environment: FreeFlightEnvironmentV1 | null) => void;
@@ -155,7 +157,7 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "authenticated") {
-        socket.send(JSON.stringify({ type: "freeflight_join" }));
+        socket.send(JSON.stringify(freeFlightJoinPacket(this.options.openingEncounter)));
         return;
       }
       if (packet.type === "freeflight_joined") {
@@ -173,6 +175,9 @@ export class FreeFlightClient {
         this.options.onState?.("joined");
         this.acceptSnapshot(packet.snapshot);
         this.acceptEnvironment(packet.environment);
+        if (packet.openingEncounter) this.options.onCombatPacket?.({
+          type: "freeflight_opening", status: packet.openingEncounter,
+        });
         // Capability negotiation keeps older server/client pairs on their
         // existing movement rules during a rolling deployment.
         socket.send(JSON.stringify({ type: "freeflight_environment_request" }));

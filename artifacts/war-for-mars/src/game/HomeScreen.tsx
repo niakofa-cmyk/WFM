@@ -219,7 +219,7 @@ function MainMenu(props: HomeProps & {
           <HangarShip ship={ship} faction={faction} />
           <section className="wfm-universe-gateway wfm-universe-gateway--overlay wfm-rise-3" aria-label="Enter the Infinite Universe">
             <div className="wfm-universe-gateway__orbit" aria-hidden="true" />
-            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">ORBITAL UNIVERSE · FLIGHT / COMBAT / OPERATIONS</p>
+            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">ENTRY PATROL · LIVE COMBAT · THEN EXPLORE</p>
           <button type="button" onClick={onEnterUniverse} data-testid="button-enter-universe" aria-label="Enter the Orbital universe runtime" className="wfm-universe-gateway__button">
               <span><small>ENTER THE</small><b>UNIVERSE</b></span><span aria-hidden="true" className="wfm-universe-gateway__arrow">»</span>
             </button>

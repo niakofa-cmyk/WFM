@@ -20,3 +20,16 @@ persist faction selection through the existing loadout service; retain offline
 flight only as explicitly no-reward practice. Three.js remains the primary
 universe renderer, with native WebGL2 a companion; neither owns separate
 gameplay authority. Historical renderer-removal directions are superseded.
+
+The explicit hangar launch should open with a Combat Lab-style live patrol
+battle, then let the pilot continue exploring the same universe. This is a
+present-day encounter, not a forced historical Dusk defeat or another training
+destination. A reconnect must preserve the existing craft, not replay an
+opening or repair damage.
+
+**Why:** the owner explicitly requested the training-style initial air battle
+as the game's entry encounter and asked to save that direction.
+
+**How to apply:** integrate training behavior through the shared server's
+existing patrol/flight/settlement authority; do not mint rewardable training
+enemies or replace hangar-first explicit entry.

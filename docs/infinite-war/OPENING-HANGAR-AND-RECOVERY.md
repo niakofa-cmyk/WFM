@@ -42,6 +42,12 @@ from sample UI prose. Preserve the later player-specific Cage branches.
 
 ## Implemented slice
 
+**New opening encounter direction:** after explicit hangar launch, a fresh pilot
+now requests a Lab-style live patrol battle inside this same universe. This is
+not the historical prologue or a separate training mission. Read
+[the opening encounter contract](LAB-STYLE-OPENING-ENCOUNTER.md) for insertion,
+reservation, reconnect and unavailable-contact rules.
+
 1. Account boot no longer mounts shared flight automatically. Runtime selection,
    chart/invite handling and compatibility rollback remain; the existing primary
    hangar button still fetches the verified world anchor before mounting Arena.

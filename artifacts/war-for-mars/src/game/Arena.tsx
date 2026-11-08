@@ -9,6 +9,7 @@ import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, se
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
+import { openingEncounterNotice } from "./free-flight-opening";
 import {
   CLIENT_RECONNECT_WINDOW_MS,
   SOCKET_HANDSHAKE_TIMEOUT_MS,
@@ -205,6 +206,7 @@ type ArenaProps = {
     patrolDirectory?: WorldPatrolDirectory | null;
     getSessionToken?: () => Promise<string | null>;
     freeFlightEnabled?: boolean;
+    openingEncounter?: boolean;
   };
 };
 
@@ -745,6 +747,7 @@ export function Arena({
     void import("./free-flight-client").then(({ FreeFlightClient: Client }) => {
       if (disposed) return;
       client = new Client({
+        openingEncounter: localUniverseRef.current?.openingEncounter === true,
         getSessionToken: () => freeFlightTokenRef.current?.() ?? Promise.resolve(null),
         onEnvironment: (environment) => {
           freeFlightEnvironmentRef.current = environment;
@@ -785,7 +788,9 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
-          if (packet.type === "freeflight_recovered") {
+          if (packet.type === "freeflight_opening") {
+            setFreeFlightNotice(openingEncounterNotice(packet.status));
+          } else if (packet.type === "freeflight_recovered") {
             client?.stop();
             localUniverseRef.current?.onExit();
           } else if (packet.type === "freeflight_weapon_fired" &&
