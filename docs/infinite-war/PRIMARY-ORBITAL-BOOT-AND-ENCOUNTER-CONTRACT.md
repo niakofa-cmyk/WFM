@@ -67,7 +67,9 @@ therefore no public OpenAPI write contract was added.
 `exploration-rewards.ts` supplies the existing PostgreSQL account/ledger adapter.
 
 - Settlement is disabled by default and requires an explicit trusted-server
-  boolean gate. No live operation or browser calls it yet.
+  boolean gate. The authenticated Orbital V2 `pale-beacons` and
+  `universe-patrol` sector operations call it when the server feature gates and
+  callbacks are enabled; local free flight does not.
 - Only completed server-issued receipts can settle.
 - Existing participant profiles are locked in sorted order; missing profiles
   fail closed rather than creating account identities.
@@ -87,20 +89,26 @@ already committed result; arbitrary JSON deserialization must remain rejected.
 
 ## Remaining activation gates
 
-Before live universe rewards are enabled:
+Before extending rewards from the bounded server operations into continuous
+shared free flight:
 
-1. Connect a server-owned roaming Orbital encounter instance to the contract.
-2. Persist/recover its spec, ordered authoritative events and completion.
-3. Define the actual exploration/NPC reward policy, participation and anti-farm
-   limits, including any PvP policy separately.
-4. Add owner-scoped read-only results/debrief projections and account freshness.
+1. Connect the local free-flight contact to a server-owned continuous Orbital
+   session; do not treat local position or the current approach prompt as
+   authoritative.
+2. Preserve the server-issued encounter identity, ordered simulation events,
+   reconnect recovery, and completion across the shared flight.
+3. Define any new exploration/NPC reward policy, participation, and anti-farm
+   limits; keep PvP policy separate.
+4. Keep owner-scoped results/debrief reads and account freshness correct when a
+   pilot returns to free flight.
 5. Prove multi-pilot movement, damage, disconnect/reconnect, replay, settlement
-   atomicity and privacy against staging and the actual PostgreSQL adapter.
+   atomicity, patrol casualty persistence, and privacy against staging and the
+   actual PostgreSQL adapter.
 
 Unit tests exercise authority rejection, kill/assist attribution, event retries,
 aborts, exact replay fingerprints, concurrent settlement, missing profiles,
-conflicts and transaction rollback. They do not certify the future roaming
-network runtime, physical-phone controls, or live PostgreSQL contention.
+conflicts and transaction rollback. They do not certify continuous shared
+free-flight combat, physical-phone controls, or live PostgreSQL contention.
 
 ### Local verification evidence
 

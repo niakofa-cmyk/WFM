@@ -190,22 +190,34 @@ matches or flight-level combat actors. See
 [Persistent multi-ship universe patrols](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
 for schema, scope, and acceptance boundaries.
 
-The strategic patrol implementation does not apply hull damage, resolve kills
-or assists, create faction-wide knowledge, or grant rewards. The existing
-server settlement pays 12 credits per confirmed eligible NPC kill after
-successful extraction (capped at 24 per encounter); evidence recovery itself
-has no reward. No faction-wide knowledge or global NPC consequence is written.
-Private, AI-fill, Wing and local-training reward rules are unchanged. Orbital
-V2 remains opt-in and the V1 rollback path is intact.
+The strategic patrol directory itself does not apply hull damage or grant
+rewards. A separate, bounded authenticated Orbital V2 `universe-patrol`
+operation now reserves a persistent opposing patrol and runs its ships in a
+server-owned sector session. Pilots explicitly request that operation from the
+free-flight contact panel; the current local free-flight position is not handed
+off as authoritative state. In the server session, weapons are disabled until
+the server-computed patrol distance is at most 180 meters. Confirmed kills and
+assists are written to the pilot's private result history; successful completion
+settles the configured bounty and removes destroyed ships from the persisted
+patrol roster in the same transaction. Aborted operations do not receive credits.
+
+The bounded policies currently award 12 credits per eligible NPC ship, capped
+at 24 for Pale Beacons and 48 for a universe-patrol encounter. Evidence recovery
+itself has no credit reward. The patrol operation does not yet change
+faction-wide reputation, knowledge, or territory. Private, AI-fill, Wing and
+local-training reward rules are unchanged. Orbital V2 remains opt-in and the V1
+rollback path is intact.
 
 Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
 operations, a read-only Wing spectator path, the bounded Pale Beacons patrol
 and evidence slice, and a persistent strategic multi-ship patrol directory.
-It does not yet implement shared free-flight NPC combat, persistent combat
-encounters, a world-wide faction consequence simulation, or a complete
-spatially-authoritative encounter director. Do not use local procedural scenery
-or client-side scan records as a substitute for those capabilities.
+It does not yet implement continuous shared free-flight NPC combat. The bounded
+patrol operation is a separate server sector session, not a seamless battle at
+the visible contact's current free-flight position. A complete spatially
+authoritative encounter director and world-wide faction consequence simulation
+remain future work. Do not use local procedural scenery or client-side scan
+records as a substitute for those capabilities.
 
 ## Implementation order
 
@@ -216,13 +228,16 @@ or client-side scan records as a substitute for those capabilities.
    route movement, authenticated region reads, and Galaxy visibility. The
    implementation and current limits are recorded in
    `PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md`.
-3. Extend selected patrols into bounded Orbital flight encounters with
-   server-owned detection, movement, combat, and resolution.
-4. Expand authenticated multiplayer exploration beyond the existing co-op
-   sector room; do not treat the local streamed sandbox as shared authority.
-5. Add validated world consequences at account or faction scope only after their
-   ownership and isolation rules are defined; preserve existing reward gates.
-6. Surface active events at physical destinations, add safe spectator/admission
+3. **Implemented as a bounded operation:** selected patrols can be reserved,
+   fought, tallied, settled, and have confirmed casualties removed from their
+   persistent roster.
+4. Connect that operation to server-authoritative continuous free flight so
+   approaching a visible contact starts the battle at the actual shared position.
+5. Expand authenticated multiplayer exploration beyond the separate sector
+   operation; do not treat local free flight as shared authority.
+6. Add validated faction consequences only after ownership and isolation rules
+   are defined; preserve existing reward gates.
+7. Surface active events at physical destinations, add safe spectator/admission
    paths, and prove both factions and multiple devices on staging before rollout.
-7. Validate mobile frame cost, reconnect behavior, privacy, anti-replay, and
+8. Validate mobile frame cost, reconnect behavior, privacy, anti-replay, and
    production safety before widening encounter scale.

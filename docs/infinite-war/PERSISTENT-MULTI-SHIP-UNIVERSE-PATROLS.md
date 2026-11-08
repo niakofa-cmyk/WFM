@@ -44,8 +44,15 @@ fleets for every possible future sector.
   server-owned and persist across API restarts once their region is materialized.
 - The UI labels these as strategic AI contacts, not human pilots or active
   matches.
-- This slice does not spawn a flight-level enemy, apply hull damage, resolve
-  kills or assists, write faction-wide knowledge, or award credits.
+- This strategic directory layer does not itself spawn flight actors or apply
+  hull damage. Separately, an authenticated Orbital V2 `universe-patrol`
+  operation can reserve the persistent patrol, spawn its server-owned ships,
+  validate combat, attribute kills/assists, settle eligible rewards, and remove
+  destroyed ships from the saved patrol roster. That operation is explicitly
+  requested from free flight and runs in its own server sector session; it does
+  not inherit or validate the local free-flight pose.
+- Neither the strategic directory nor the bounded patrol operation currently
+  writes faction-wide reputation, knowledge, or territory changes.
 - Existing Wing matchmaking/rewards, private rooms, AI-fill rooms, local Orbital
   training, and the separate V2 Pale Beacons patrol are unchanged.
 - Story evidence and narrative consequences remain player-scoped and must be
@@ -54,15 +61,15 @@ fleets for every possible future sector.
 
 ## Remaining implementation gates
 
-1. Connect nearby strategic contacts to server-authoritative Orbital free-flight
-   sessions using validated spatial position, sensor range, transponder,
-   reputation, weapon state, and territory rules.
-2. Promote selected patrol ships into bounded encounter actors with deterministic
-   server movement, damage, retreat/reinforcement rules, and reconnect-safe
-   encounter identity.
-3. Link confirmed destruction and evidence recovery to an explicit exploration
-   result contract and idempotent settlement policy. Do not invent rewards or
-   modify Wing reward gates as part of that work.
+1. Connect nearby strategic contacts directly to a shared, server-authoritative
+   free-flight session. The current client-side range prompt is not proof of
+   location and must not authorize combat or rewards.
+2. Carry the bounded patrol operation's validated actors, damage, kill/assist
+   attribution, and reconnect-safe identity into that shared flight without
+   creating a second simulation or losing the existing rollback path.
+3. Extend the existing result settlement to continuous free-flight outcomes and
+   define any faction-wide consequences separately. Keep the current bounded
+   operation's idempotency and reward gates; do not modify Wing rewards.
 4. Expand beyond the current named route graph through versioned sector IDs,
    sparse world-state storage, interest management, and measured mobile/network
    budgets. Do not claim an infinite simulation merely because the generator is
