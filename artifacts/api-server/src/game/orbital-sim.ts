@@ -4,6 +4,7 @@ import {
   ORBITAL_COUNTERMEASURE_RULES_VERSION,
   ORBITAL_FLEET_RULES_VERSION,
   ORBITAL_RULES_VERSION,
+  resolveOrbitalMatchOutcome,
   type OrbitalRulesVersion,
 } from "@workspace/orbital-sim";
 import { detAtan2, detCos, detHypot, detSin } from "./detmath";
@@ -239,7 +240,12 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
   }
   match.time += dt;
   match.painted = match.enemies.filter((c) => c.alive && targetSolution(c, player, match.rocks).available).map((c) => c.id);
-  if (!player.alive) match.over = "loss";
-  else if (match.enemies.every((c) => !c.alive)) match.over = "win";
-  else if (match.time >= match.limit) match.over = "loss";
+  const outcome = resolveOrbitalMatchOutcome({
+    playerAlive: player.alive,
+    livingEnemies: match.enemies.filter((craft) => craft.alive).length,
+    elapsedSeconds: match.time,
+    timeLimitSeconds: match.limit,
+    rulesVersion: match.orbitalRulesVersion,
+  });
+  if (outcome) match.over = outcome;
 }

@@ -1,22 +1,26 @@
 ---
-name: Connected universe and mode-specific runtimes
-description: The universe connects destinations while established combat engines remain explicit and independently authoritative.
+name: Canonical Orbital engine and migration adapters
+description: One main Orbital engine is the target; existing runtimes remain explicit compatibility paths until verified migration.
 ---
 
 Earlier owner reconstruction references are
 `attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
 and `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`.
-The current owner direction is preserved in
+Earlier owner direction is preserved in
 `attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793989681065.txt`,
 `attached_assets/Pasted--War-for-Mars-Infinite-War-Orbital-Combat-Lab-Infinite-_1793990090269.txt`,
 `attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
 and `attached_assets/Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
 The earlier repository audit is historical at
 `docs/infinite-war/UPDATED-REPOSITORY-FORENSIC-EVALUATION.md`; follow the newer
-maintained roadmap and asteroid-hub contract for current architecture.
+maintained roadmap and asteroid-hub contract for current implementation.
+The newest controlling source and its one-main-engine precedence are recorded
+in [master development directive](master-development-directive.md).
 
-**Rule:** WFM is one connected universe, but it hosts multiple explicit
-operation runtimes. The Three.js/Vite universe owns navigation, destination
+**Rule:** The latest master directive supersedes the earlier permanent
+multiple-engine direction: one main Orbital engine supports distinct
+experiences through adapters. Existing runtimes remain explicit compatibility
+paths until migration is verified. The Three.js/Vite layer owns navigation, destination
 presentation, and local approach scenes; it is not the multiplayer combat
 engine. Orbital Combat Lab is a simulation foundation and validation environment
 that may be integrated per mode after proof. Preserve Rust Disc, Arcade Skirmish,
@@ -24,10 +28,10 @@ and Wing as independent playable/authoritative experiences until each proposed
 migration passes gameplay, network, reward, and rollback checks. Retain existing
 identity, matchmaking, economy, progression, and reward services.
 
-**Why:** the owner clarified that Cinder Ring is the physical competition hub,
-the universe is its navigation/presentation layer, and established combat
-engines still execute their battles. Earlier prompts proposed a universal Orbital
-runtime; the current architecture clarification takes precedence.
+**Why:** the owner's newest master directive explicitly makes Orbital the primary
+foundation without allowing a reckless rewrite or removal of working systems.
+Cinder Ring remains the physical competition hub, and current combat runtimes
+continue executing their battles until each replacement passes proof.
 
 **How to apply:** use explicit operation definitions/adapters to connect
 destination, discovery, and launch to the correct existing runtime. The Cinder

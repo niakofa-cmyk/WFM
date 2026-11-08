@@ -1,5 +1,23 @@
 # WAR FOR MARS: THE INFINITE WAR — structural rebuild roadmap
 
+## Current precedence
+
+The 2026-11-06 master directive
+`Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`
+now controls the immediate sequence: engine source audit and consolidation
+before universe appearance redesign. The target is one Orbital main engine
+with distinct configurations/adapters; independently retained engines are
+compatibility and rollback paths, not a permanent end state. See the
+[current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
+[mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
+and checkpoints below are historical where they conflict with this directive.
+
+The renderer clarification of 2026-11-08 keeps Three.js as the primary 3D
+renderer and scene-runtime foundation, with native Orbital WebGL2 as a
+companion. Orbital owns shared gameplay and world-state contracts; do not read
+"engine consolidation" as a plan to remove Three.js. See
+[`RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
 The controlling full-game orbital migration source is preserved unchanged in
@@ -15,8 +33,9 @@ multiplayer-universe briefs remain unchanged in `attached_assets/`:
 `Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
 and `Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
 This maintained guide summarizes its decisions and applies them to the current
-codebase. The source document remains authoritative if this summary and the
-original differ.
+codebase. The source records the original direction; the 2026-11-08 owner
+clarification in this roadmap and the rendering strategy governs where renderer
+choice differs.
 
 ## Product direction
 
@@ -32,10 +51,10 @@ unbounded count of live ships or a literally infinite galaxy.
 
 ## Preserve before replacing
 
-- Keep the custom Three.js/Vite runtime as the initial foundation. Needle remains
-  a research/authoring candidate, not a second production runtime. The Three.js
-  universe is the navigation/presentation layer; it is not itself a multiplayer
-  combat engine.
+- Keep Three.js/Vite as the primary 3D rendering foundation. Needle remains a
+  research/authoring candidate, not an approved replacement or second production
+  runtime. Orbital owns the shared gameplay simulation and world state; neither
+  renderer is a separate multiplayer authority.
 - Develop Orbital Combat Lab as a combat simulation foundation and validation
   environment. Integrate its simulation and rendering per operation only after
   parity, authority, networking, progression, and rollback are proven. Do not

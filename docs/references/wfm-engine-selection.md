@@ -13,11 +13,18 @@ This guide reconciles their recommendations with the current WFM repository; it
 does not claim that a Needle prototype or physical-device certification has
 happened.
 
-**Current implementation:** continue the custom Three.js + React/Vite client
-and WFM TypeScript simulation. Keep direct Three.js rendering; React Three
-Fiber is optional only if a measured change simplifies the existing integration.
-Custom six-degree-of-freedom flight and combat remain WFM-owned. Keep the current
-backend authoritative for multiplayer and progression.
+**Current owner direction, clarified 2026-11-08:** Three.js remains the primary
+3D renderer and scene-runtime foundation for the Orbital open universe and
+Combat Lab. Orbital owns the shared gameplay/simulation and world-state
+contracts; native Orbital WebGL2 is a supported companion renderer. Do not
+remove Three.js or treat it as temporary migration infrastructure. The
+authoritative decision is maintained in
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`.
+
+The current code uses the custom Three.js + React/Vite client and WFM TypeScript
+simulation. React Three Fiber remains optional only if a measured, isolated need
+justifies it. Custom six-degree-of-freedom flight and combat remain WFM-owned;
+the backend remains authoritative for multiplayer and progression.
 
 **Leading visual-authoring experiment:** Needle Engine is the first candidate to
 prototype because the documents identify its Unity/Blender workflows, Three.js

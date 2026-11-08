@@ -7,18 +7,18 @@ The owner's four engine assessments are preserved in the attached assets
 referenced at the top of `docs/references/wfm-engine-selection.md`; that guide
 reconciles them with the current implementation and benchmark gate.
 
-Keep the custom Three.js/Vite game operational. Needle is the leading
-scene-authoring/runtime experiment, not an approved migration; Unity remains a
-candidate if native distribution dominates. Build and compare a small equivalent
-combat slice before changing engines. Keep WFM flight/simulation custom and
-renderer-independent, and preserve backend authority for multiplayer,
-progression, and the persistent universe. Consider Rapier or React Three Fiber
-only when an isolated benchmark shows a concrete benefit.
+Keep Three.js as the primary 3D renderer and scene-runtime foundation for the
+Orbital open universe and Combat Lab. Orbital owns shared simulation and
+world-state contracts; native WebGL2 is a supported companion renderer. Do not
+remove Three.js or treat it as temporary migration infrastructure. Keep
+multiplayer authority, progression, and persistent-world consequences on their
+trusted services.
 
-**Why:** the owner supplied the engine assessment as implementation guidance;
-the newer documents favor custom Three.js and a Needle prototype but still
-require measured integration and device performance before choosing a new runtime.
+**Why:** the owner clarified on 2026-11-08 that Three.js is the main rendering
+foundation under Orbital; older renderer-removal recommendations are no longer
+controlling.
 
-**How to apply:** before adding an engine/physics framework or migrating, compare
-scene authoring, integration, bundle/assets, frame-time, memory, thermals, and
-sustained combat on defined devices. Do not describe proposed targets as achieved.
+**How to apply:** keep Three.js code-split and bundle-audited, and measure device
+performance before adding another renderer or runtime. Do not infer from a
+renderer decision that authentication, multiplayer authority, or deployment
+readiness has been verified.

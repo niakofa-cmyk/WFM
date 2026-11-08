@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
 import {
   isOrbitalSectorSimulationContract,
-  ORBITAL_RUNTIME_ID,
+  orbitalRuntimeForSectorProtocol,
   ORBITAL_SECTOR_SIMULATION_CONTRACT,
   SECTOR_ORBITAL_PROTOCOL_VERSION,
 } from "@workspace/orbital-sim";
@@ -131,8 +131,9 @@ export function createSectorRuntime(options: Options) {
   let closed = false, lastTick: number | null = null, accumulated = 0, lastSnapshot = 0;
   const inputBudget = new WeakMap<WebSocket, { windowAt: number; count: number }>();
   const latencyProbeBudget = new WeakMap<WebSocket, number>();
+  const roomRuntime = orbitalRuntimeForSectorProtocol(protocolVersion);
   const orbitalSectorPhysics: typeof stepFlight = (state, input, seconds, sector) =>
-    stepFlight(state, input, seconds, sector, ORBITAL_RUNTIME_ID);
+    stepFlight(state, input, seconds, sector, roomRuntime);
   const physics = options.physics ?? orbitalSectorPhysics;
   function publishOperationState(room: Room): void {
     if (!options.publishOperation || room.mission.id !== "rust-disc") return;

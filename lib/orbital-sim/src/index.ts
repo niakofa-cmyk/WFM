@@ -8,3 +8,5 @@ export * from "./game-mode";
 export * from "./sector-flight";
 export * from "./sector-contract";
 export * from "./lineup";
+export * from "./pilot-controls";
+export * from "./combat-outcome";

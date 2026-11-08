@@ -1,5 +1,9 @@
 # Infinite War feature integration matrix
 
+Current controlling direction and source-backed migration evidence are in
+[`engine/MASTER-ENGINE-ARCHITECTURE.md`](engine/MASTER-ENGINE-ARCHITECTURE.md).
+The newest directive requires engine consolidation before appearance redesign.
+
 | Existing feature | Decision | Destination in the unified game | Preserve unchanged until | First integration proof |
 |---|---|---|---|---|
 | Orbital Combat Lab | **Evolve** | Canonical runtime for every operation; offline/no-reward training harness | Deterministic parity, mission ownership, offline/no-reward boundary | Repeatable end-to-end combat objective and result |
@@ -20,17 +24,19 @@
 ## Mobile flight-control migration slice
 
 Orbital Lab and the already-authorized Orbital Contact sortie share the same
-Arena input path. That path now exposes a compact third touch stick for lateral
-and vertical vector thrust, alongside steering and aiming. It maps to the
-existing Orbital `strafe` and `vertical` controls, starts neutral, and clears
-when focus is lost. Legacy surface modes do not receive those axes.
+Arena input path. The current layout uses two primary thumb sticks, not the
+earlier third-vector-stick experiment. Local Orbital pilot controls support
+signed left-stick thrust and right-stick aim/live roll. Sector networking and
+live Wing retain explicit protocol restrictions.
 
-The local Rust Disc entry now also opts into `orbital-motion-v1` for six-axis
-movement through a cached adapter around `integrateSpatialFlight`. The existing
-operation wrapper still owns relay/drone/extraction objectives, collision
-damage, and projectiles. Networked expeditions remain on `sector-motion-v1`;
-their socket contract, rewards, and progression were not changed. This is a
-movement slice, not a completed Orbital Rust Disc operation.
+Local Rust Disc and the sector server now call shared Orbital movement through
+the operation adapter, while `sector-motion-v1` remains a compatibility path.
+Rust Disc still owns separate presentation and relay/drone/extraction logic;
+full interaction and renderer parity has not been established. The shared
+runtime resolver now maps protocol v2 to its advertised v2 rules and preserves
+the protocol v1 fallback. The remaining rollout gates are detailed in
+[`engine/MULTIPLAYER-OPERATION-ARCHITECTURE.md`](engine/MULTIPLAYER-OPERATION-ARCHITECTURE.md).
+The pilot frame, normalization and axis mapping now belong to the shared engine.
 
 The next mode-runtime sequence remains:
 
@@ -45,6 +51,9 @@ Do not count a shared touch control or an Orbital Lab demonstration as proof tha
 those complete mode migrations have shipped.
 
 ## Connected-universe implementation note — 2026-11-04
+
+Historical first-slice record: the current directory also includes Wing Relay
+and cooperative Rust Disc. This paragraph is not the current catalog inventory.
 
 The first Orbital Operations Network slice adds a public operation directory,
 read-only SSE snapshots, and the Cinder Ring world destination. The only catalog

@@ -3,7 +3,25 @@ name: WFM master development directive
 description: Owner-designated execution order and consolidation rules for Infinite War.
 ---
 
-The latest reconstruction references are retained unchanged at
+The controlling owner directive is now
+`attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
+It explicitly says to consolidate the actual Orbital main engine before
+redesigning the universe's appearance. One main engine supports distinct
+experiences through configurations/adapters; retained engines are migration
+and rollback paths, not the permanent product architecture.
+
+**Why:** the user repeated that the new game is built through Orbital Combat Lab
+and supplied a directive explicitly resolving the older multiple-engine wording.
+
+**How to apply:** start from the current engine architecture in
+`docs/infinite-war/engine/MASTER-ENGINE-ARCHITECTURE.md`; extract verified
+capabilities, preserve distinctive mechanics and authority, and never call a
+visual/menu redesign an engine migration.
+Keep normalized pilot intent distinct from versioned replay/network commands:
+unsupported capabilities must remain omitted, not merely set to false.
+**Why:** consolidating input must not silently widen older accepted contracts.
+
+Earlier reconstruction references are retained unchanged at
 `attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
 and `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`.
 The current source audit is in
