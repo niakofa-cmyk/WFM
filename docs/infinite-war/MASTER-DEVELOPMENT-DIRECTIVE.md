@@ -13,6 +13,15 @@ The current source-backed architecture and ten required deliverables begin at
 Historical references below remain evidence, not authority to contradict the
 new directive. Existing systems must remain available until replacement proof.
 
+## Renderer clarification — 2026-11-08
+
+The current renderer decision is maintained in
+[`RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+Three.js remains the primary 3D renderer and scene-runtime foundation for the
+Orbital open universe and Combat Lab. Orbital remains the shared gameplay,
+simulation, and world-state owner; native WebGL2 is a supported companion
+renderer. Earlier renderer-removal language is superseded on that point.
+
 ## Canonical owner reference
 
 The complete owner-provided directive is retained unchanged at:
@@ -74,9 +83,12 @@ parity and acceptance pass.
 
 ## Required integration policy
 
-1. Treat the existing custom Three.js/Vite game as the production runtime.
-   Needle remains an authoring/research candidate; do not add a second runtime
-   without an evaluated, measured migration decision.
+1. Keep Three.js as the primary 3D renderer and scene runtime for the main
+   Orbital universe. Integrate it with the canonical Orbital simulation and
+   shared world state; do not remove it or treat it as a temporary prototype.
+   Native WebGL2 remains a supported companion renderer; neither path may own
+   a duplicate simulation or universe. Needle remains an authoring/research
+   candidate, not an approved replacement.
 2. Migrate every mode toward the canonical orbital combat foundation; do not
    assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session

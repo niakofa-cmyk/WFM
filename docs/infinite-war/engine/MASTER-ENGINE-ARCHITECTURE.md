@@ -12,7 +12,10 @@ experiences need not share identical physics parameters or objectives.
 Section 16 requires engine consolidation before appearance redesign. Existing
 Rust Disc, Wing, account records, issued replays and multiplayer safeguards stay
 operational until replacement paths pass compatibility and rollback gates.
-Three.js remains a renderer dependency, not the combat authority.
+Three.js is the primary 3D renderer and scene-runtime foundation, not merely a
+dependency to remove. Orbital owns the shared simulation/world-state contracts;
+native WebGL2 remains a supported companion renderer. See
+[`../RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](../RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 ## Actual architecture, source audited 2026-11-06
 
