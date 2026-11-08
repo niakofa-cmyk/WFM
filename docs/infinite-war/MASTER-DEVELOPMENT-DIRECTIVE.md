@@ -94,6 +94,15 @@ The current source-backed architecture and ten required deliverables begin at
 Historical references below remain evidence, not authority to contradict the
 new directive. Existing systems must remain available until replacement proof.
 
+## Renderer clarification — 2026-11-08
+
+The current renderer decision is maintained in
+[`RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+Three.js remains the primary 3D renderer and scene-runtime foundation for the
+Orbital open universe and Combat Lab. Orbital remains the shared gameplay,
+simulation, and world-state owner; native WebGL2 is a supported companion
+renderer. Earlier renderer-removal language is superseded on that point.
+
 ## Canonical owner reference
 
 The complete owner-provided directive is retained unchanged at:

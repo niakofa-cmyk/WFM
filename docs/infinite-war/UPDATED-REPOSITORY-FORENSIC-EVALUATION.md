@@ -13,11 +13,12 @@ This source-backed audit follows the owner's latest reconstruction references:
 - `attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
 - `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`
 
-The attachments are retained unchanged. The latest direction is one game and
-one canonical Orbital gameplay runtime. Rust Disc, co-op, and other modes are
-engineering sources whose controls, missions, environments, and systems must be
-extracted into that runtime. The old Rust Disc flight scene must not become the
-new game's presentation runtime.
+The attachments are retained unchanged. The current direction is one game and
+one shared Orbital gameplay/simulation foundation, rendered primarily with
+Three.js. Native Orbital WebGL2 is a supported companion path, not a separate
+universe. Preserve useful Rust Disc controls, missions, and environments while
+connecting their route-specific presentation and operations to the shared
+universe; do not duplicate simulation or authority.
 
 ## What this checkout proves
 
@@ -34,17 +35,18 @@ new game's presentation runtime.
 
 The public landing and hangar no longer expose a separate **Rust Disc** local
 flight command. The `/flight` route remains an internal compatibility path for
-the legacy scene and server-run sector operations; it is not evidence that the
-scene has been retired or that those operations have migrated to an
-Orbital-owned renderer.
+the Three.js scene and server-run sector operations; it is not evidence that the
+scene has been retired or that those operations already share the main
+universe's route and world lifecycle.
 
-## Three.js boundary
+## Renderer and legacy-scene boundary
 
-The new direction is **not** to transplant the legacy Rust Disc flight scene.
-Transfer the useful rendering and flight knowledge—scene-graph organization,
-camera tracking, spatial transforms, environment composition, culling/LOD,
-large-distance precision, and mobile frame pacing—into the Orbital-owned
-presentation lifecycle.
+Three.js is the primary 3D renderer and scene-runtime foundation for the main
+Orbital universe; native WebGL2 remains a supported companion renderer. Keep
+Three.js as a shipped dependency rather than reducing it to a low-level library
+or techniques-only source. Orbital owns the shared simulation and world-state
+contracts integrated with those renderer backends. Code-splitting Three.js is a
+loading optimization, not a removal plan.
 
 Three.js remains the primary 3D renderer and scene-runtime foundation; Orbital
 supplies shared simulation and world-state contracts integrated with it. The
@@ -61,9 +63,10 @@ from being mistaken for a fully unified game engine.
 
 ## Safe migration direction
 
-1. **Engine boundary:** define an Orbital-owned renderer/scene lifecycle and
-   explicit mode launch contract. Keep the deterministic simulation package
-   independent from WebGL and UI frameworks.
+1. **Engine boundary:** keep one shared Orbital simulation/world-state contract,
+   Three.js as the primary renderer, and an explicit mode launch contract.
+   Native WebGL2 remains a companion; deterministic simulation stays independent
+   from WebGL and UI frameworks.
 2. **Pilot behavior:** preserve Rust Disc's tested left-stick steering, pitch,
    coordinated bank, aiming, vector-thrust gestures, pause/release neutralizing,
    combat feedback, map, and performance instrumentation. Port behaviors, not

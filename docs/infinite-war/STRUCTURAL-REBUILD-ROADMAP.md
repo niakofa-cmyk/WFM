@@ -61,8 +61,9 @@ multiplayer-universe briefs remain unchanged in `attached_assets/`:
 `Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
 and `Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
 This maintained guide summarizes its decisions and applies them to the current
-codebase. The source document remains authoritative if this summary and the
-original differ.
+codebase. The source records the original direction; the 2026-11-08 owner
+clarification in this roadmap and the rendering strategy governs where renderer
+choice differs.
 
 ## Product direction
 
