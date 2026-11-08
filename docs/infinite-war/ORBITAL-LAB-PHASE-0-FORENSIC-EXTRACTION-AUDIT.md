@@ -1,10 +1,5 @@
 # Orbital Lab Phase 0 forensic extraction audit
 
-> **Historical source audit:** Renderer and route findings below predate the
-> owner-authorized Three.js removal and retirement of unported UI. For current
-> code status, see
-> [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Baseline status
 
 The source inventory below is the extraction baseline, not the latest boot

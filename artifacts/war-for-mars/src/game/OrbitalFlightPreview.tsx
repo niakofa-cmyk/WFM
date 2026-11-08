@@ -136,15 +136,11 @@ export function OrbitalFlightPreview({
   faction,
   servicesHref,
   traffic = [],
-  autoStart = false,
-  immersive = false,
 }: {
   shipId: ShipId;
   faction: Faction;
   servicesHref: string;
   traffic?: WorldPatrolDirectory["traffic"];
-  autoStart?: boolean;
-  immersive?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const busRef = useRef<Bus | null>(null);
@@ -154,7 +150,7 @@ export function OrbitalFlightPreview({
   const pausedRef = useRef(false);
   const dockedRef = useRef(false);
   const terminalStageRef = useRef<FlightState["stage"] | null>(null);
-  const [enabled, setEnabled] = useState(autoStart);
+  const [enabled, setEnabled] = useState(false);
   const [paused, setPaused] = useState(false);
   const [docked, setDocked] = useState(false);
   const [debrief, setDebrief] = useState<SortieDebrief | null>(null);
@@ -355,7 +351,7 @@ export function OrbitalFlightPreview({
   };
 
   return (
-    <section className={`uv-renderer-proof${immersive ? " uv-renderer-proof--immersive" : ""}`} aria-label="Orbital local flight preview">
+    <section className="uv-renderer-proof" aria-label="Orbital local flight preview">
       <div className="uv-renderer-proof__heading">
         <div>
           <b>ORBITAL FLIGHT PREVIEW</b>

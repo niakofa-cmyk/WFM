@@ -78,10 +78,10 @@ cooperative operations, campaigns, specialist flight experiences and anomalies
 belong to locations in that universe rather than disconnected applications.
 Orbital is the final canonical spatial-flight/combat/runtime owner. Preserve
 specialist experiences as distinct mode configurations and operation adapters.
-The owner chose immediate Three.js removal and retirement of unported
-presentation routes; preserve their authoritative contracts, but do not expose
-them as rollback paths or claim they have migrated. Rebuild distinctive
-mechanics inside Orbital before restoring entry.
+Existing runtimes remain available as migration/rollback paths until parity,
+authority and acceptance gates pass; they are not a permanent competing engine
+architecture. Preserve distinctive mechanics rather than flattening every mode
+into one generic arena.
 
 The intended experience is:
 
@@ -220,10 +220,11 @@ The latest engine correction is maintained in the
 the finished game must use Orbital Engine for both gameplay and rendering, with
 Three.js serving only as a source of techniques, not a shipped runtime library.
 The repository now has a bounded Orbital-native local flight renderer connected
-to the shared fixed-step sector simulation. The previous Arena and other
-Three.js presentation surfaces were removed with their player entry routes;
-they have not been migrated. The route model defines routes as navigation
-guidance and adventures as authority-backed gameplay contracts.
+to the shared fixed-step sector simulation, but the production Arena and other
+Three.js presentation surfaces are not migrated. Removing the current renderer
+is still gated on feature parity, authority preservation, device performance,
+and rollback checks. The route model defines routes as navigation guidance and
+adventures as authority-backed gameplay contracts.
 The primary Orbital boot now includes an atlas with separate local,
 compatibility, and planned states; this is catalog/UI groundwork, not a
 planetary or multiplayer migration.

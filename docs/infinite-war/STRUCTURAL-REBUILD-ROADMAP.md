@@ -89,20 +89,20 @@ until the shared story, route, and operation identities are reconciled.
 ## Preserve before replacing
 
 - The final game uses Orbital Engine as its single gameplay and rendering
-  foundation. The owner chose immediate Three.js removal and retirement of
-  modes without an Orbital-native presentation. This is not feature parity:
-  only the Cinder Ring flight slice is currently playable. Rebuild and verify
-  each retired mode in Orbital before restoring its entry point. See
-  [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
+  foundation. The current Three.js implementation is a temporary renderer to
+  migrate away from, not a permanent universe layer. Study its proven
+  presentation techniques and reimplement them in Orbital; remove the package
+  only after renderer parity, target-device performance, and rollback gates pass.
+  See [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 - Re-engineer Orbital Combat Lab into the main playable universe runtime,
-  retaining training as an internal activity and validation profile. The
-  current entry mounts Orbital directly; campaign, co-op, arcade, and Wing
-  gameplay presentations remain retired until their authoritative adapters and
-  Orbital-native surfaces are rebuilt.
-- Preserve Rust Disc, Mars Approach, Pale Beacons, Iron Eclipse, Arcade Skirmish,
-  and Wing as distinct canonical operation identities and server contracts.
-  Their old presentation routes are retired and are not currently playable;
-  restore each only after Orbital rendering and its authority contracts verify.
+  retaining training as an internal activity and validation profile. Consolidate
+  simulation/render/input ownership without flattening different mode rules;
+  migrate authoritative operation adapters only after parity, networking,
+  progression and rollback are proven.
+- Retain Rust Disc, Mars Approach, Pale Beacons, Iron Eclipse, Arcade Skirmish,
+  and Wing as distinct playable/authoritative experiences behind explicit
+  operation entry points. Preserve their existing combat engines until a
+  replacement is certified.
 - Retain the existing authenticated 5v5 Wing matchmaking, reward ledger,
   account isolation, reconnect behavior, and private/AI-fill boundaries.
 - Retain the existing campaign, Armory, market, inventory, persistent Galaxy,

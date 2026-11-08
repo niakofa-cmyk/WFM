@@ -1,11 +1,5 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
-> **Current renderer decision:** The owner explicitly chose immediate Three.js
-> removal and retirement of unported presentation modes. This supersedes older
-> parity-before-removal language below and in earlier planning references.
-> Current implementation scope is documented in
-> [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Latest rebuild direction — Phase 0 before more prototypes
 
 The user's latest controlling rebuild reference is preserved verbatim at
@@ -154,10 +148,11 @@ parity and acceptance pass.
 
 ## Required integration policy
 
-1. Make Orbital Engine the sole final game and rendering runtime. Three.js has
-   been removed; old modes without Orbital-native presentation are retired,
-   not rollback paths. Study useful techniques from prior work and rebuild them
-   in Orbital. Do not restore a legacy renderer; see
+1. Make Orbital Engine the sole final game and rendering runtime. Treat current
+   Three.js rendering as temporary migration infrastructure, not the target.
+   Study its useful techniques and rebuild them in Orbital; do not remove its
+   current implementation until the Orbital replacement passes parity,
+   performance, and rollback gates. See
    [the renderer migration directive](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 2. Migrate every mode toward the canonical orbital combat foundation; do not
    assume the existing modes already share one combat protocol.

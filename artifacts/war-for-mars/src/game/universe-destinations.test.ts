@@ -37,7 +37,6 @@ test("local universe entry launches only Cinder Ring and blocks retired destinat
   assert.match(source, /enabled: Boolean\(userId && !standalone && \(mode === "entry" \|\| mode === "universe"\) && worldQuery\.data\)/);
   assert.match(source, /serverStartLocation === startLocation/);
   assert.match(source, /traffic=\{localTraffic\}/);
-  assert.match(source, /autoStart\s+immersive/);
 });
 
 test("standalone boot does not call Clerk auth outside a provider", () => {

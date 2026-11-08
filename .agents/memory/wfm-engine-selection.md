@@ -8,17 +8,18 @@ referenced at the top of `docs/references/wfm-engine-selection.md`. The latest
 owner direction supersedes their renderer choice: Orbital Engine must own final
 gameplay and rendering; Three.js is a technique reference, not a shipped library.
 
-The owner explicitly chose immediate Three.js removal and accepted retiring
-unported presentation modes. Keep Three.js absent; the active playable scope is
-the Orbital-native Cinder Ring flight slice, not full feature parity. Preserve
-backend authority for multiplayer, progression, and the persistent universe.
+The current repository still uses Three.js as its only working 3D renderer, so
+keep it operational only until an Orbital-native replacement passes parity,
+performance, and rollback gates. Do not remove it prematurely or introduce a
+second renderer. Preserve backend authority for multiplayer, progression, and
+the persistent universe.
 
-**Why:** the owner confirmed that Orbital must be the exclusive renderer and
-chose retiring legacy modes rather than keeping a deferred Three.js compatibility
-runtime. Removing the library does not mean those modes have been migrated.
+**Why:** the owner explicitly corrected the goal to a single Orbital rendering
+and simulation foundation, while the present source has no complete Orbital
+renderer. Performance should be measured, not inferred from Three.js package size.
 
 **How to apply:** follow
-`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md`. Do not restore
-Three.js chunks or advertise retired modes as playable. Rebuild each mode on
-Orbital with its server-owned authority and reward contracts verified before
-restoring its entry point.
+`docs/infinite-war/ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md`. Before retiring the
+current renderer, compare bundle/assets, startup, frame time, memory, thermals,
+feature behavior, and sustained combat on equivalent target devices. Do not
+describe proposed targets as achieved.

@@ -1,11 +1,5 @@
 # Mars planetary routes and live adventures — rebuild direction
 
-> **Current route availability:** The owner chose immediate Three.js removal
-> and retirement of unported route presentation. Cinder Ring is the current
-> Orbital-native flight slice; other routes in this document are direction or
-> retired content, not launchable destinations. See
-> [renderer rebuild status](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Governing decision
 
 WAR FOR MARS: INFINITE WAR is being rebuilt through the Orbital Engine runtime

@@ -1,11 +1,5 @@
 # Cinder Ring Asteroid Arena — Architecture and Roadmap
 
-> **Current renderer status:** The owner chose immediate Three.js removal and
-> retirement of unported combat presentation. Preserve the server-owned Wing
-> contracts, but the arena is not currently playable through Orbital until its
-> native presentation is rebuilt. See
-> [renderer rebuild status](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Product direction
 
 **The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.**

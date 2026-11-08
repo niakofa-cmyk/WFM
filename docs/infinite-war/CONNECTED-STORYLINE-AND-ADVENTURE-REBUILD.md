@@ -1,11 +1,5 @@
 # WAR FOR MARS: INFINITE WAR — connected storyline and adventure rebuild
 
-> **Current renderer decision:** The owner chose immediate Three.js removal and
-> retirement of unported story/mission presentation. Preserve narrative and
-> server-side operation contracts; do not describe legacy mission screens as
-> playable until rebuilt in Orbital. See
-> [renderer rebuild status](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Purpose and precedence
 
 This document makes the narrative requirement explicit: the game is not a

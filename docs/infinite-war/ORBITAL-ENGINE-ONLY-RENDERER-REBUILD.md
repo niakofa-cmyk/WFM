@@ -31,26 +31,25 @@ bundle numbers do not establish a current performance failure. The reason to
 move is one coherent, owned engine architecture, with performance decisions
 validated by current measurements.
 
-## Current repository state after authorized retirement
+## Current repository audit — checked-out branch
 
-The owner explicitly chose immediate Three.js removal and accepted retiring
-unmigrated modes. This is not a claim of feature parity: the current playable
-Orbital-native scope is a local Cinder Ring flight slice.
+The repository does **not yet** contain the Orbital-native renderer described
+by the target. Current source evidence:
 
 | Area | Current implementation | Consequence |
 |---|---|---|
-| Shared Orbital package | `lib/orbital-sim` supplies deterministic math, flight, weapons, input/rules, runtime IDs, and mode contracts | It remains the simulation foundation; it does not by itself implement the entire persistent online game |
-| Active local flight | `OrbitalFlightPreview.tsx` and `orbital-native-flight-renderer.ts` own the WebGL2 loop, Cinder approach, docking, and local skirmish | This is the only currently playable flight slice; it does not grant shared combat authority or rewards |
-| Hangar | `HangarShip.tsx` and `orbital-native-hangar-renderer.ts` use the Orbital-owned renderer | Hangar inspection remains available without Three.js |
-| Legacy Arena and sector routes | `Arena.tsx` and `RustDiscFlight.tsx` are explicit retired-route notices; `/expedition` is retired | Existing campaign, competitive, co-op, and sector simulations are not migrated to the native renderer and are not launchable through these routes |
-| Cinder approach route | `CinderRingDockingApproach.tsx` is a redirect to the native Cinder flight scene | No separate approach renderer remains |
-| Build output | The WFM package no longer declares `three` or `@types/three`; Vite rejects any Three.js module in either production bundle | Three.js is removed rather than deferred in compatibility chunks |
+| Shared Orbital package | `lib/orbital-sim` supplies deterministic math, flight, weapons, input/rules, runtime IDs, and mode contracts | It is a simulation/runtime-rules library, not a complete renderer/game engine |
+| Main Orbital Arena | `artifacts/war-for-mars/src/game/Arena.tsx` directly imports Three.js and creates `WebGLRenderer`, `Scene`, camera, geometry, material, lighting, effects, and teardown | Removing Three.js now removes the only working Arena renderer and breaks playable Orbital modes |
+| Rust Disc flight | `RustDiscFlight.tsx` and `three-flight-runtime.ts` directly create Three.js presentation/rendering | Legacy flight presentation remains a separate migration path |
+| Hangar and visuals | `HangarShip.tsx`, `orbital-visuals.ts`, `theater-surfaces.ts`, and sector visuals use Three.js objects and GPU resources | Ship inspection, damage/weapon presentation, planetary limb, and streamed-sector visuals depend on it |
+| Cinder approach | `CinderRingDockingApproach.tsx` dynamically imports Three.js for its local scene | The approach is also not yet Orbital-native rendering |
+| Build output | `vite.config.ts` explicitly names a `three-engine` chunk; the WFM package declares Three.js | The dependency is intentionally deferred, not absent |
 
-The checked-in Orbital code includes an owned WebGL2 renderer and a connected
-local flight loop. The open-universe multiplayer, server-authoritative
-encounter/reward flow, campaign scenes, and co-op operation presentation are
-not thereby complete. Historical bundle measurements are not current device
-performance evidence.
+The checked-in Orbital package already provides a meaningful simulation
+foundation, but there is no complete Orbital-owned renderer or renderer adapter
+in the inspected source. Three.js is not automatically too heavy: the supplied
+historical mobile report says the combat bundle was deferred. Those October
+measurements must be refreshed before drawing current performance conclusions.
 
 ## Required target boundary
 
@@ -71,13 +70,12 @@ render engine-provided state; it must not create a second gameplay scene,
 simulation tick, or renderer. Existing authority services remain authoritative.
 The offline sandbox remains no-reward.
 
-## Immediate retirement decision and follow-up engine gates
+## Migration and removal gates
 
-The owner approved removing Three.js now and retiring modes that had no
-Orbital-native presentation. Their previous renderers were not silently
-replaced or declared equivalent. The active routes are limited to the native
-Cinder Ring slice and account-facing screens. Rebuild each retired mode as an
-Orbital-owned experience before restoring its entry point.
+Do not uninstall Three.js or delete its renderer code before a working
+replacement exists. Removing the current library at this point would break
+Arena, Hangar, Cinder approach, Rust Disc presentation, and visual helpers
+without providing an Orbital renderer in their place.
 
 1. **Specify the engine API.** Define engine start/stop, render surface, scene
    resources, camera, resize/device-loss, input, fixed-step simulation,
@@ -90,30 +88,31 @@ Orbital-owned experience before restoring its entry point.
 3. **Prove behavior parity.** Compare identical flight/input traces, transforms,
    hit/damage/weapon outcomes, station approach, camera behavior, and replay
    determinism. Keep simulation rules independent of renderer APIs.
-4. **Rebuild retired modes individually.** Migrate campaign, Rust Disc,
-   cooperative sectors, and multiplayer presentation into Orbital only when
-   their simulation, authority, replay, and UI contracts are connected and
-   verified. Retired renderers are not rollback paths.
+4. **Migrate one visual surface at a time.** Begin with a bounded local Orbital
+   universe slice, then Hangar/ship visuals and mode presentation. Keep
+   Rust Disc, Cinder approach, and other existing paths available as rollback
+   until their own acceptance gates pass.
 5. **Measure supported devices.** Capture bundle transfer/parse, startup, p95/p99
    frame time, memory/GPU resource trends, draw calls, battery/thermal behavior,
    and network load on real target phones and desktop. Compare the same scene,
    quality, hardware, and asset set before and after. Do not assume an engine
    rewrite inherently improves performance.
-6. **Keep the dependency absent.** Both production builds fail if a Three.js
-   module is present. Do not add a second renderer or a compatibility chunk;
-   prove new Orbital renderers through bundle, route, replay, and device checks.
+6. **Remove the dependency.** Only after all production paths are migrated,
+   delete direct Three.js usage and its package/build chunk, confirm no transitive
+   runtime dependency is introduced by Orbital, and verify both production
+   builds, route contracts, replays, and rollback strategy.
 
 ## Acceptance criteria
 
-- Every currently playable WFM flight route uses one Orbital-owned rendering
-  and simulation lifecycle; unported modes are clearly retired.
-- No production WFM game path imports or executes Three.js; neither production
-  bundle contains Three.js modules or chunks.
+- The main game and all promoted modes use one Orbital-owned rendering and
+  simulation lifecycle.
+- No production WFM game path imports or executes Three.js after the removal
+  gate; the final bundle has no Three.js engine chunk.
 - Render lifecycle, graphics resources, camera, and input are owned and
   disposed by Orbital, with no duplicate loops across transitions.
-- The Cinder Ring slice retains its verified local flight and docking behavior.
-  Server authority remains server-owned; no retired route claims match, campaign,
-  or reward parity.
+- Existing ship identities, flight controls, combat, damage, effects, account
+  flows, multiplayer authority, and mode-specific behavior pass agreed parity
+  tests before each old path is retired.
 - Android/iOS and desktop performance claims come from the same measured
   scenarios on target hardware. The source's 60 FPS and 1.5 GB values are
   targets to evaluate, not proof or universal acceptance budgets.
@@ -141,9 +140,7 @@ The current branch now contains these bounded foundations:
   world time and Sun direction.
 - `OrbitalFlightPreview.tsx` uses the existing two-stick pilot UI and keyboard
   actions to drive `createFlight` / `stepFlight` in the shared Orbital sector
-  simulation. Entering the universe through `/universe`, `/flight`, `/play`, or
-  the standalone Combat Lab auto-starts this scene in an immersive viewport.
-  It is explicitly local and no-reward.
+  simulation. It is explicitly local and no-reward.
 - `orbital-native-flight-renderer.ts` draws the resulting ship pose, target,
   projectiles, and the same Cinder-sector rock coordinates used by collision,
   with rocks batched as instances. Camera pose follows the simulated craft.
@@ -154,28 +151,30 @@ The current branch now contains these bounded foundations:
   preview fixed-steps the shared simulation and clears held input on blur and
   app backgrounding.
 
-This is the current playable flight slice. It includes a visual Cinder Ring
-station and local approach/dock/undock gate at the established 22 m range, 4 m/s
-closure-speed limit, and 35-degree heading tolerance. The native renderer builds
-distinct lightweight silhouettes for the selectable ship IDs. These are
-presentation-only; they do not change collision or combat authority. Docking
-exposes a station activity console with a bounded native Orbital skirmish
-against one training drone. It exercises lock, primary fire, guided missiles,
-hostile guided fire, countermeasures, extraction, and local debrief through the
-shared sector simulation. The server-services link remains server-owned and
-does not treat local docking as an authenticated location.
+This is the first connected flight-renderer migration slice, **not** a
+replacement for the primary Arena. It now includes a visual Cinder Ring station
+and local approach/dock/undock gate at the established 22 m range, 4 m/s
+closure-speed limit, and 35-degree heading tolerance. The native renderer also
+builds distinct lightweight silhouettes for all sixteen selectable ship IDs.
+These are presentation-only; they do not change collision or combat authority.
+Docking exposes a station activity console with a bounded native Orbital
+skirmish against one training drone. It exercises lock, primary fire, guided
+missiles, hostile guided fire, countermeasures, extraction, and local debrief
+through the shared sector simulation. The server-services link remains
+server-owned and does not treat local docking as an authenticated location.
 
-The user chose to retire the separate Arena and legacy sector renderers
-immediately. The previous snapshot handoff and compatibility UI are removed;
-campaign, co-op, competitive, and older sector experiences have not been
-migrated and must not be described as playable through Orbital until rebuilt.
-Server authority and settlement services remain in place, but no retired UI
-route can start a match or claim rewards.
+The established Orbital Combat Lab Arena remains available as an explicit
+compatibility fallback. Its handoff stores the exact native docked flight
+snapshot and restores it after training. This is a temporary compatibility
+bridge, not full fleet-combat parity.
 
-The Night-side Station, Mars surface traversal, persistent shared free flight,
-and live Orbital multiplayer combat remain not implemented. No parity gate
-blocks removal of the retired renderer; future mode launches require their own
-Orbital-native and server-authority verification.
+It does not yet migrate the full combat scene, streamed planetary travel,
+authenticated multiplayer, or persistent universe state. The primary Arena,
+server authority, and existing Three.js compatibility renderer remain intact as
+rollback paths. The Night-side Station remains planned/not-live.
+
+The main-renderer retirement checklist and current evidence status are tracked
+in [Orbital native renderer parity gate](ORBITAL-NATIVE-RENDERER-PARITY-GATE.md).
 
 Related maintained references:
 

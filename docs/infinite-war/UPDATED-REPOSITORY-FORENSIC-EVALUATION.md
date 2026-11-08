@@ -1,10 +1,5 @@
 # Updated Repository Forensic Evaluation
 
-> **Historical snapshot:** This audit predates the owner-authorized removal of
-> Three.js and retirement of its unported presentation routes. Its renderer and
-> route inventories are no longer current; see
-> [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Governing references
 
 This source-backed audit follows the owner's latest reconstruction references:

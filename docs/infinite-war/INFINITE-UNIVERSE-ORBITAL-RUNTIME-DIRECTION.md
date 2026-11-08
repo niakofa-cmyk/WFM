@@ -1,10 +1,5 @@
 # Infinite Universe and Orbital Runtime Direction
 
-> **Current implementation note:** This source audit predates the owner-directed
-> Three.js removal. Unported modes are now retired rather than compatibility
-> renderers; the active flight slice is Cinder Ring. See
-> [renderer rebuild status](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Owner's leading sources
 
 The complete 958-line owner directive is preserved unchanged at

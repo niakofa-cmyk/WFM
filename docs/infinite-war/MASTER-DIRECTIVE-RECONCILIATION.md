@@ -1,10 +1,5 @@
 # Orbital master directives — source reconciliation and next verified slice
 
-> **Current renderer decision:** Immediate Three.js removal and retirement of
-> unported UI supersede earlier parity-before-removal recommendations. The
-> controlling current state is documented in
-> [Orbital Engine-only renderer rebuild](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
-
 ## Latest owner clarification
 
 The [Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md)

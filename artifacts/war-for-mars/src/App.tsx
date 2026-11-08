@@ -187,7 +187,7 @@ function SignedInGame() {
   );
 }
 
-function AccountGameEntry({ universe = false }: { universe?: boolean }) {
+function AccountGameEntry({ universe = false }: { universe?: boolean; primary?: boolean }) {
   const { isLoaded, isSignedIn, userId } = useAuth();
   if (isLoaded && isSignedIn) return <SignedInGame key={`${userId}:${universe}`} />;
   if (universe) return (

@@ -1,10 +1,10 @@
 ---
-name: Three.js retirement
-description: Orbital is exclusive; retired legacy modes must not return as deferred Three.js chunks.
+name: Three.js mobile loading
+description: Keep 3D renderer code out of non-flight screens without defeating Three.js tree-shaking.
 ---
 
-The owner chose immediate removal of Three.js and retirement of unported combat, campaign, and sector presentation. Keep Three.js absent from dependencies and all build chunks. The active native flight scope is Cinder Ring; it does not imply parity for the retired modes.
+For WFM mobile loading, import the renderer only after the player starts a 3D flight and show an explicit loading state until the first frame renders. Use a small adapter that re-exports only the named Three.js APIs the renderer needs. Do not retain or pass the full dynamic-import namespace through React state: that made Rollup preserve much more engine code and increased the chunk from its prior measured size.
 
-**Why:** The owner preferred retiring old modes over retaining a competing renderer. Deferred chunks would still violate the exclusive Orbital-engine direction.
+**Why:** Deferring download is useful only if the lazy chunk remains within its measured budget. A namespace flowing through state obscures property usage from tree-shaking.
 
-**How to apply:** Reject Three.js module IDs in both production builds. Reintroduce a retired mode only after rebuilding its presentation in Orbital and reconnecting its established server authority; never treat removal as feature migration.
+**How to apply:** Keep the initial static graph, compressed size, and engine chunk budgets in the production build audit. Check that briefing chunks dynamically import the small adapter, which then statically imports the engine. Measure first-frame behavior on a real Android device before claiming a frame-time or latency improvement.

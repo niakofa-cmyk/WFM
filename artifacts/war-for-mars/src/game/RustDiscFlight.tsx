@@ -3,9 +3,13 @@ import type { FlightInput } from "./flight-sector";
 import type {
   IronEclipseCommandRequest,
   SectorCommandRequest,
+  SectorEvidencePickup,
   SectorEvidenceRecoveryRequest,
+  SectorFactionContact,
   SectorMission,
+  SectorPatrolApproach,
   SectorSnapshot,
+  SectorTacticalCommand,
   SectorTransponderRequest,
 } from "./sector-missions";
 import type { ShipId } from "./ships";
