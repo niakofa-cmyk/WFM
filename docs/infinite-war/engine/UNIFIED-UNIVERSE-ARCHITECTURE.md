@@ -18,6 +18,12 @@ page is an offline entry point today, not evidence of an integrated universe.
 | Cinder approach | `CinderRingDockingApproach.tsx` | Local no-reward docking; not server authorization |
 | Mars/sector environments | Sector geometry and mission definitions | Bounded authored worlds, not infinite streaming |
 
+## Live shared 3D flight and pilot presence
+
+The authoritative contract is [`../LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](../LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md). Persistent faction fleet behavior is specified in [`../PERSISTENT-ENEMY-FLEET-PATROLS.md`](../PERSISTENT-ENEMY-FLEET-PATROLS.md).
+
+Enemy fleets and authenticated pilots are intended to be live 3D actors in one Orbital free-flight universe. The server owns movement and combat state. Public presence stays anonymous and aggregate-only; exact nearby pilot positions are available only to authenticated participants admitted into the same server-derived spatial session. The current location-scoped socket movement/snapshot slice is process-local and opt-in. It is not yet the client-rendered, combat-complete, durable or horizontally scaled universe.
+
 ## Main-engine target contracts
 
 Keep stable IDs for system/sector/location/operation; separate persistent sector
