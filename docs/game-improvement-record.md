@@ -1126,3 +1126,28 @@ revision cannot verify the pushed source. The API deployment's pre-deploy
 command runs the staging database schema push; changing service pins and
 deploying the candidate needs explicit staging-deployment approval. No staging
 or Production database/configuration changes were made.
+
+## 2026-11-08 — Shared-flight fleet escalation and authority review
+
+The current saved-location patrol directory supplies multiple persistent fleets
+to the same Orbital 3D scene. Close approach starts a reserved encounter; nearby
+opposing patrols can join an active weapons-hot battle. Encounters are bounded
+to three live patrol contracts and remain inside the same free-flight session,
+with independent casualty/reward receipts and cumulative kill/assist tallies.
+Three.js remains the primary renderer; no new rendered universe was introduced.
+
+Review corrected false reinforcement alerts from an uninitialized damage timer,
+cross-encounter projectile damage, session-wide settlement state, and a delayed
+reservation surviving its initiating pilot's disconnect. Regression checks
+exercise authorized damage, untouched patrol behavior, reservation interruption,
+actual weapons/impacts/rewards and continued combat after one fleet settles.
+
+The earlier full workspace typecheck, tests and builds passed, including the
+unchanged standalone Combat Lab bundle audit. The review's full API run passed
+220 tests; after the final roster guard, all nine focused free-flight checks
+and API typecheck passed. The socket rebuilt and restarted with database-backed
+free flight enabled. A screenshot confirmed the public offline Lab entry loads,
+not an authenticated 3D battle. Current behavior remains scoped to a saved-location
+session, not continuous spatial-shard handoff or physical-device certification.
+The approved staging rollout is recorded in `STAGING-TEST-REPORT.md`; the new
+combat changes have not been deployed or authenticated on staging.

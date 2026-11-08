@@ -1259,3 +1259,23 @@ The API service's staging pre-deploy command runs `pnpm --filter @workspace/db
 push`. Updating the source pins and deploying the current branch therefore
 requires explicit staging-deployment approval before the fresh challenge and
 encounter test can validate this source. Production remains **NOT CLAIMED**.
+
+## 2026-11-08 — Approved staging rollout and subsequent combat review
+
+After the owner approved deploying the pushed commit to staging, the app, API
+and Wing Socket were deployed successfully at GitHub source
+`5fb193b714226f3c215824055a49fdbcc52ac052`. Railway reported all three deployments
+successful and live. The API pre-deploy schema push reported changes applied;
+the API readiness check and protected gateway health/access routes returned
+HTTP 200. No Production service or database was changed.
+
+This supersedes the source-mismatch blocker above for that deployed revision
+only. It does **not** establish a completed authenticated UI challenge or a
+verified combat encounter. No fresh authenticated encounter has been completed;
+its result remains **NOT RUN**. The machine-readable promotion result remains
+pending.
+
+Later local changes add concurrent persistent patrol encounters, reinforcement
+response and per-participant damage/result isolation. Those changes are not
+included in the deployed revision above. Local checks are separate evidence,
+not staging certification.

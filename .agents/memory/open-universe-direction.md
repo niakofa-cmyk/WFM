@@ -96,3 +96,15 @@ forced camera framing.
 integer sector address. Do not convert unbounded sector integers to floating
 point for authority, persist client-only location as account state, or apply
 radiation/hull effects without a versioned server-owned rule.
+
+**Concurrent battle authority:** keep each persistent fleet's encounter rights
+and settlement separate even when several fleets fight in one rendered scene.
+Pilot combat state is participant-scoped, not a session-wide switch.
+
+**Why:** seamless presentation must not let one patrol's completion disable
+another pilot's battle, authorize bystander damage, or change reward ownership.
+
+**How to apply:** check the shooter/victim relationship before applying damage,
+and derive each recipient's remaining combat state from that pilot's active
+encounters. Treat live shared-flight tests and deployed staging evidence as
+separate verification gates.

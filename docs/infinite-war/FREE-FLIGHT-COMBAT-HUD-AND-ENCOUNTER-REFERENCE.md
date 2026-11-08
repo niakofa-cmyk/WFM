@@ -60,6 +60,23 @@ intercept request remains subject to the server's approach and combat gates.
   extended docking telemetry are hidden from the sightline; full station,
   training, and debrief controls remain available when appropriate.
 
+### Review hardening
+
+- A never-damaged patrol's sentinel timestamp is not a hostile signal.
+- Projectile collision and damage both require the shooter and victim to share
+  the same active reserved encounter. Bystanders and unrelated patrol contracts
+  cannot take damage or supply unattributed kills.
+- Settlement sends combat state only to the affected participants, computed per
+  pilot. Finishing one patrol must not stop another pilot's unrelated fight.
+- After an asynchronous reservation, the server rechecks the seat, connection,
+  live actors, session and approach range. Interrupted reservations are released
+  without starting a battle or paying rewards.
+- A changed reserved fleet roster fails closed and releases the reservation.
+  Automatically refreshing those stale visible actors remains follow-up work.
+- Regression checks cover these damage permissions, an untouched reinforcement,
+  disconnect during reservation, and accepted weapons input after the first
+  fleet settles while another fleet remains active.
+
 This describes implemented local source behavior, not a staging or Production
 verification. The existing test exercises persistent reservations, real
 server-fired projectiles, hull impacts, kill attribution, settlement, and a

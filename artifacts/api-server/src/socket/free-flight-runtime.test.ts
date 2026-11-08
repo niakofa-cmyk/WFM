@@ -10,6 +10,8 @@ import {
 import { readExplorationReceipt } from "../game/exploration-encounter";
 import type { PersistentPatrolShip } from "@workspace/db";
 import { startWingSocketServer } from "./server";
+import { canDamageFreeFlightActor, createFreeFlightRuntime } from "./free-flight-runtime";
+import type { UniversePatrolEncounter } from "../game/universe-patrols";
 import { authenticateTestSocket, createSocketTestAuth } from "./test-session-auth";
 
 type Packet = { type?: string; reason?: string; [key: string]: unknown };
@@ -173,6 +175,100 @@ test("the server advances 3D pilot and patrol movement and rejects client combat
   }
 });
 
+test("damage requires opposing actors in the same active reserved encounter", () => {
+  const pilot = { kind: "pilot" as const, actorId: "pilot-a", faction: "ussf" as const };
+  const patrol = { kind: "patrol" as const, actorId: "patrol-a", faction: "accord" as const };
+  const combat = { phase: "active" as const, participantActorIds: new Set(["pilot-a"]) };
+  assert.equal(canDamageFreeFlightActor(pilot, patrol, combat), true);
+  assert.equal(canDamageFreeFlightActor(patrol, pilot, combat), true);
+  assert.equal(canDamageFreeFlightActor({ ...pilot, actorId: "bystander" }, patrol, combat), false);
+  assert.equal(canDamageFreeFlightActor(patrol, { ...pilot, actorId: "bystander" }, combat), false);
+  assert.equal(canDamageFreeFlightActor(pilot, { ...patrol, faction: "ussf" }, combat), false);
+  assert.equal(canDamageFreeFlightActor(pilot, patrol, { ...combat, phase: "complete" }), false);
+  assert.equal(canDamageFreeFlightActor(pilot, patrol, undefined), false);
+  assert.equal(canDamageFreeFlightActor(pilot, { ...pilot, faction: "accord" }, combat), false);
+});
+
+test("a disconnected pilot cannot start combat after a delayed patrol reservation", async () => {
+  const contact: UniversePatrolEncounter = {
+    patrolId: "delayed-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Delayed Flight", route: ["phobos-yard", "cinder-asteroid"],
+    ships: [{ id: "delayed-ship-0001", hullId: "shakuna", name: "Hunter", callsign: "Hunter" }],
+    revision: 0,
+  };
+  let finishReservation!: (value: UniversePatrolEncounter) => void;
+  const reservation = new Promise<UniversePatrolEncounter>((resolve) => { finishReservation = resolve; });
+  const released: string[] = [];
+  const packets: Packet[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN, bufferedAmount: 0,
+    send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "duskbreaker",
+    }),
+    resolveUniversePatrols: async (_id, faction) => faction === "ussf" ? [contact] : [],
+    reserveUniversePatrol: async () => reservation,
+    releaseUniversePatrol: async (patrolId) => { released.push(patrolId); },
+    settleScoutEncounter: async () => { throw new Error("must not settle disconnected engagement"); },
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    await runtime.handle(socket, "delayed-pilot", { type: "freeflight_join" });
+    const engagement = runtime.handle(socket, "delayed-pilot", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:delayed-ship-0001",
+    });
+    runtime.detach(socket);
+    finishReservation(contact);
+    await engagement;
+    assert.deepEqual(released, [contact.patrolId]);
+    assert.equal(packets.some((packet) => packet.type === "freeflight_engagement_started"), false);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("a changed reserved fleet roster fails closed instead of creating ghost targets", async () => {
+  const contact: UniversePatrolEncounter = {
+    patrolId: "changed-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Changed Flight", route: ["phobos-yard", "cinder-asteroid"],
+    ships: [{ id: "changed-ship-0001", hullId: "shakuna", name: "Hunter", callsign: "Hunter" }],
+    revision: 0,
+  };
+  const packets: Packet[] = [];
+  const released: string[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN, bufferedAmount: 0,
+    send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "duskbreaker",
+    }),
+    resolveUniversePatrols: async (_id, faction) => faction === "ussf" ? [contact] : [],
+    reserveUniversePatrol: async () => ({
+      ...contact, revision: 1, ships: [{ ...contact.ships[0], id: "changed-ship-0002" }],
+    }),
+    releaseUniversePatrol: async (patrolId) => { released.push(patrolId); },
+    settleScoutEncounter: async () => { throw new Error("must not settle a mismatched roster"); },
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    await runtime.handle(socket, "roster-pilot", { type: "freeflight_join" });
+    await runtime.handle(socket, "roster-pilot", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:changed-ship-0001",
+    });
+    assert.deepEqual(released, [contact.patrolId]);
+    assert.ok(packets.some((packet) => packet.reason === "freeflight_patrol_roster_changed"));
+    assert.equal(packets.some((packet) => packet.type === "freeflight_engagement_started"), false);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("persistent patrol combat resolves server-side damage, kill attribution, and reward settlement in shared flight", async () => {
   const ship: PersistentPatrolShip = {
     id: "persistent-test-ship-0001",
@@ -195,6 +291,7 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
     callsign: "Vesper Reinforcements",
     ships: [{ ...ship, id: "persistent-test-ship-0002", callsign: "Vesper Two" }],
   };
+  const reservedPatrolIds: string[] = [];
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: auth.verifySessionToken,
     enableFreeFlight: true,
@@ -213,6 +310,7 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
         (candidate) => candidate.patrolId === reservation.patrolId,
       );
       assert.ok(reserved, "each persistent fleet must be reserved by its own identity");
+      reservedPatrolIds.push(reserved.patrolId);
       return reserved;
     },
     settleScoutEncounter: async (receipt) => {
@@ -240,6 +338,9 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
     assert.ok(target, "the persistent fleet must be present in the shared-flight snapshot");
     const engagement = await started;
     assert.equal(engagement.patrolId, contact.patrolId);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    assert.deepEqual(reservedPatrolIds, [contact.patrolId],
+      "an untouched patrol must not treat its uninitialized damage timestamp as a hostile signal");
     const reinforcementStarted = nextPacket(socket, (packet) =>
       packet.type === "freeflight_engagement_started" &&
       packet.patrolId === secondContact.patrolId, 10_000);
@@ -302,11 +403,16 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
     assert.equal(reinforcement.reinforcement, true);
     assert.equal(reinforcement.patrolId, secondContact.patrolId);
     assert.equal(result.status, "settled");
+    assert.equal(result.phase, "active", "the remaining fleet must keep the pilot in combat");
     assert.ok(playerShotsFired > 0, "the server must create and broadcast real weapon projectiles");
     assert.ok(playerMissilesFired > 0, "the server must launch an acquired, server-owned missile");
     assert.ok(playerWeaponHits > 0, "the player's server-fired weapon must hit the patrol ship");
     assert.ok(Number(result.kills) >= 1);
     assert.ok(Number(result.creditsAwarded) > 0);
+    const acceptedAfterResult = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_input_accepted" && packet.seq === seq);
+    socket.send(JSON.stringify({ type: "freeflight_input", input: input(seq, { fire: true }) }));
+    await acceptedAfterResult;
   } finally {
     await close(socket);
     await runtime.close();
