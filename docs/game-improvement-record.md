@@ -1,5 +1,16 @@
 # WAR FOR MARS — Game improvement record
 
+## Authenticated shared-flight verification — approach blocker
+
+Both staging test pilots completed fresh sign-in and returned authenticated
+profile HTTP 200 at the same faction/location. Both received seven moving
+server fleet models and four hostile contacts. A bounded normal-input approach
+stopped short of the 180 m encounter envelope (closest reported 189 m), with
+changing target selection and differing local/server headings. No battle began,
+no reward changed, and assistance, kill/assist attribution, settlement and
+post-battle flight remain unverified. See the staging report for evidence.
+No gameplay code or environment changes were made during verification.
+
 ## 2026-11-08 — Native shared-universe allied assistance
 
 Read and preserved both uploaded cooperation/tactical documents verbatim under

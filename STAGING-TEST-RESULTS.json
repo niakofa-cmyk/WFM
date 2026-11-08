@@ -2,7 +2,7 @@
   "overallStatus": "PENDING",
   "latestSharedAssistanceRollout": {
     "checkedOn": "2026-11-08",
-    "status": "STAGING_DEPLOYED_AUTHENTICATED_CHECK_PENDING",
+    "status": "STAGING_AUTHENTICATED_APPROACH_BLOCKED",
     "runtimeCommit": "61fd952c4860171ebaff4c40989d934ba4addf97",
     "environment": "staging",
     "services": {
@@ -25,13 +25,26 @@
     "freshAuthenticatedTwoPilotBattleVerified": false,
     "freshStagingKillAssistAndRewardSettlementVerified": false,
     "authenticatedVerificationAttempt": {
-      "status": "BLOCKED_PENDING_FRESH_SIGN_INS",
+      "status": "AUTHENTICATED_BOTH_APPROACH_BLOCKED",
       "developmentGuardPassedForBothContexts": true,
-      "verificationCodesSubmitted": false,
-      "bothAccountsAuthenticated": false,
+      "verificationCodesSubmitted": true,
+      "bothAccountsAuthenticated": true,
+      "bothProfileHttpStatuses": [200, 200],
+      "sameFactionAndLocation": true,
+      "movingServerFleetModelsPerContext": [7, 7],
+      "hostileContactsPerContext": [4, 4],
       "battleStarted": false,
-      "reason": "Initial browser owners were lost during workspace sleep; replacement finite browser jobs later expired before sign-in completed.",
-      "nextAction": "Open new challenges only when the user is ready, require fresh matching codes, then verify both active sessions and profile responses before gameplay."
+      "approachBudgetSeconds": 45,
+      "closestReportedRangeMeters": 189,
+      "requiredRangeMeters": 180,
+      "finalServerRangeMeters": 332,
+      "finalLocalHeadingRadians": -0.019,
+      "finalServerHeadingRadians": -0.8,
+      "ownWeaponEmissionsObserved": 0,
+      "killsAssistsOrResultsObserved": false,
+      "rewardBalanceChanged": false,
+      "reason": "Fresh sign-ins completed for both pilots. Lead approach did not reach the server encounter envelope; target contact changed and browser/server headings differed. No engagement control appeared.",
+      "nextAction": "Trace local control sampling and server heading/target selection during approach before another staging combat attempt."
     },
     "schemaOrFlagChanges": false,
     "productionChanged": false

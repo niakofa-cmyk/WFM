@@ -1631,3 +1631,32 @@ authentication setup as a passed two-pilot gameplay check.
 Stop reopening challenges until a coordinated sign-in can be completed.
 Previously supplied codes must not be used against replacement challenges.
 Staging gameplay remains pinned to `61fd952`; Production is unchanged.
+
+### Coordinated sign-in completed — approach blocked before combat
+
+On the next user-authorized attempt, both fresh challenges were submitted once
+through their own retained browser owners. Both active sessions returned profile
+HTTP 200 and were Accord at the same `phobos-yard` location.
+
+Both observers received seven moving persistent fleet models and four hostile
+contacts. This is server-model movement evidence, not proof that every enemy
+hull is clearly visible at combat range. Gameplay screenshots were inspected;
+the scene loaded, but they do not certify full enemy-fleet visual readability.
+
+The lead pilot used the bounded 45-second approach budget. Closest reported
+range was 189 m, outside the unchanged 180 m envelope; the final server range
+was 332 m. The selected contact changed, controls showed near-zero local speed,
+and final local/server headings differed (-0.019 versus -0.8 radians). No
+engagement button appeared. The ally was not sent to join a nonexistent battle.
+Both pilots remained alive with full hull and shields.
+
+No fire intent, player emission, impact, damage, kill, assist or result was
+observed. Credit balances did not change. Same-battle assistance, kill/assist
+attribution, exactly-once settlement and continued flight after victory remain
+**unverified**, and promotion remains **PENDING**.
+
+The private helper's quick `status` operation returned `operation_failed`;
+its slower `inspect` operation provided the evidence. This diagnostic issue
+does not establish an application failure. No pose/health injection, reset,
+new challenge or environment change was used. Both bounded browser owners
+were stopped after collecting results. Production remains unchanged.
