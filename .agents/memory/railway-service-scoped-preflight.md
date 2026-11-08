@@ -11,6 +11,16 @@ The Railway MCP toolset provides project, service, deployment, status, and log i
 
 When diagnosing a specific Railway release, request logs by deployment ID. Broad service/environment log queries can include older build or healthcheck failures and make them look current; correlate timestamps and deployment IDs before assigning a warning or error to the active release.
 
+Structured JSON stdout can appear in Railway logs as an empty `message` with
+the event and fields stored in `attributes`, not as searchable message text.
+
+**Why:** message-only searches missed WFM's startup readiness records even
+though the exact deployment had emitted them.
+
+**How to apply:** inspect attribute names first, then print only allowlisted
+readiness event/boolean/version fields. Do not dump arbitrary attributes or
+interpret a blank message as missing telemetry.
+
 Do not infer missing Railway workspace membership from a CLI project list alone when the connected Railway account can see the project. Even a matching `whoami` email does not explain why CLI and connector visibility differ. Do not invite another account or change workspace membership solely because the CLI list omits the project; first reconcile the local CLI session, supported workspace-selection behavior, and connector context.
 
 **Why:** The API and Postgres services are separate Railway targets, so a shell on the API service cannot accept SQL directly. The Replit workspace does not provide a shell inside a Railway service. Service-scoped variable injection is a safer read-only alternative, but Railway sealed variables may not be available locally, and a script's target label remains an operator assertion rather than proof of identity-provider authorization or key pairing. Railway's connected account and local CLI can also disagree on project visibility; a rejected or missing CLI result alone does not prove the owner must invite another account. A rejected narrow token must not be silently replaced with a broader credential. Service-level log results can span multiple releases, so exact deployment scoping is needed to distinguish a current fault from superseded healthcheck failures. Replit's SQL callback does not reach external Railway Postgres, and the Railway MCP connection has no SQL executor.

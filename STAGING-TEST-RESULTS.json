@@ -1,5 +1,56 @@
 {
   "overallStatus": "PENDING",
+  "latestSharedFreeFlightStagingCheck": {
+    "checkedOn": "2026-11-08",
+    "sourceCommit": "70ee4bbe04f4f12c003674052edefc308d974fd2",
+    "scope": "Owner-approved staging-only rollout and one focused retry of the previously blocked free-flight encounter. This does not replace the historical promotion baseline below.",
+    "deployments": {
+      "app": "f25c9f49-4785-4f73-b122-21b821a8b999",
+      "api": "78975353-f7c7-44e6-b263-3673a58769fc",
+      "socket": "b3e73d7a-f427-438a-985b-7d9a01219251",
+      "allExactSourceSuccess": true
+    },
+    "gatewayHealthHttpStatus": 200,
+    "authenticatedProfileHttpStatus": 200,
+    "profileMatchesOwnServerActor": true,
+    "socketReadiness": {
+      "freeFlightEnabled": true,
+      "admission": "database-backed",
+      "freeFlightCombatEnabled": true,
+      "contract": "freeflight-v1",
+      "coOpSectorProtocolVersion": 1
+    },
+    "persistentPatrolEvidence": {
+      "serverPatrolActors": 7,
+      "movingServerPatrolActors": 7,
+      "hostileServerPatrolActors": 4,
+      "directoryHttpStatus": 200,
+      "directoryPatrolRecords": 2,
+      "directoryRosteredShips": 7,
+      "directoryTrafficEntries": 14,
+      "individual3dShipModelVisibility": "NOT_FULLY_VERIFIED",
+      "engageControlVisibleWithinRange": true
+    },
+    "encounterResult": "BLOCKED",
+    "observedBlockers": [
+      "freeflight_patrol_reservation_unavailable",
+      "Engage remained offered and the player fire control was absent after one normal click at approximately 161 m.",
+      "Scene header Cinder Ring did not match the authenticated directory location phobos-yard."
+    ],
+    "weaponEvidence": "The bounded observer recorded 39 weapon-fired and 41 weapon-event packets from hostile raider-pulse weapons, including some damage fields. These were not attributable to the clicked encounter or verified player damage.",
+    "unverified": [
+      "successful player encounter admission",
+      "player weapons and damage",
+      "kills and assists",
+      "reward settlement and duplicate protection",
+      "continued flight after a result",
+      "main hangar Enter Universe action",
+      "physical Android and two-device interception"
+    ],
+    "testBrowserClosed": true,
+    "productionUntouched": true,
+    "promotionCertified": false
+  },
   "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
   "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on source commit 798d6e94896411b1ddd1dc4bab13a369c7d91c60. Later staging-branch commits changed only evidence documentation. The frontend runtime remains at commit 5255198; API and socket have since been redeployed at documentation-only commit 4b114d67b93f0996172ead95b164a9b33cd7a046. Runtime code is unchanged across these revisions. Production was not changed.",
   "environment": {

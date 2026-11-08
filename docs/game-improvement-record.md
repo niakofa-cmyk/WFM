@@ -1179,3 +1179,23 @@ protocol gates. A regression exercises weapons, reinforcement, attribution and
 settlement with co-op V1 selected. All 35 focused free-flight/co-op/feature tests
 and the API typecheck passed. The corrected code still needs an approved
 staging rollout; no deployed combat or reward pass is claimed.
+
+## 2026-11-08 — Independent free-flight adapters live; patrol reservation follow-up
+
+Owner-approved commit `70ee4bbe04f4f12c003674052edefc308d974fd2` reached SUCCESS
+on the staging app, API and socket. Runtime metadata confirms free-flight
+combat enabled with co-op V1 unchanged. Gateway health and the retained
+browser's authenticated profile returned HTTP 200.
+
+The focused retry confirmed seven moving persistent patrol actors in server
+snapshots, including four hostile ships, and the normal Engage action within
+range. The directory returned two fleets with seven rostered ships. However,
+reservation failures occurred; Engage stayed visible and the player fire
+control was absent after the click. Hostile weapon packets alone do not prove
+player encounter admission, damage, kills or rewards. Those remain blocked.
+
+The scene's Cinder Ring label and the server directory's `phobos-yard` location
+also differed. Follow-up must trace reservation ownership/location and preserve
+active combat controls when another fleet request is rejected, rather than
+bypassing reservations or changing account flags. The test browser was closed
+after controls were neutralized; no Production or promotion changes occurred.

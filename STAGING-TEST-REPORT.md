@@ -1341,3 +1341,60 @@ free-flight combat and settlement while co-op V1 is selected. This correction
 is **not yet deployed**; the current staging encounter result is blocked, not
 passed. It requires a new approved staging source rollout and a focused retry.
 Production and the machine-readable promotion status remain unchanged.
+
+## 2026-11-08 — Combat adapter fix deployed; reservation/UI blocker remains
+
+The owner approved staging rollout of
+`70ee4bbe04f4f12c003674052edefc308d974fd2`. All three services reached
+**SUCCESS** on that exact revision:
+
+| Staging service | Deployment |
+| --- | --- |
+| App | `f25c9f49-4785-4f73-b122-21b821a8b999` |
+| API | `78975353-f7c7-44e6-b263-3673a58769fc` |
+| Wing Socket | `b3e73d7a-f427-438a-985b-7d9a01219251` |
+
+The staged diff changed only service sources; no flags or network settings were
+changed. Gateway health returned HTTP 200. Socket startup metadata confirmed
+database-backed free flight and `freeflight-v1` combat enabled while co-op
+remained on protocol **1**. Thus the adapter-gate correction is deployed without
+turning on the unrelated co-op V2 rollout. Production was untouched.
+
+### Focused authenticated retry
+
+The retained browser remained signed in; its authenticated profile returned
+HTTP 200 and its faction/ship matched the server's own actor. After reload the
+protected staging access gate reappeared; it was passed with the existing
+approved secret without creating another Clerk challenge.
+
+An allowlisted WebSocket observer was attached before reload/rejoin. It
+confirmed **7 live moving persistent patrol actors**, identified by the
+`patrol-ship:` prefix: **4 hostile USSF ships and 3 Accord ships**. The HUD
+reported four hostile ships and persistent fleet contacts. Authenticated
+read-only `/api/world/patrols` returned HTTP 200 with two patrol records,
+seven rostered ships and fourteen traffic entries. This confirms persistent
+server traffic, not fully verified individual ship-model visibility.
+
+At approximately **161 m** the normal Engage action was available and clicked
+once. The observation included five
+`freeflight_patrol_reservation_unavailable` errors; at the end Engage remained
+offered and the player fire control was absent. A bounded observer buffer
+contained 39 hostile weapon-fired and 41 weapon-event packets, some with damage
+fields. These packets do **not** establish admission to the clicked encounter,
+verified player damage, a kill/assist, or a settled reward.
+
+The scene header also said Cinder Ring while the authenticated directory's
+saved location was `phobos-yard`; neither was forcibly changed. Main-hangar
+entry, completed same-scene player combat, reward settlement, post-result
+flight, physical Android and two-device interception remain unverified.
+
+The tester stopped repeated approach attempts, cleared all flight controls and
+left speed effectively zero. The main agent inspected the sanitized workspace
+image at `generated-artifacts/wfm-staging-flight-reservation-blocker.jpg`, then
+closed the managed browser owner and its loopback debugger. No browser session
+was exported. No account flags/location edits, forged authority packets,
+manual rewards or Production changes were made.
+
+**Result: staging rollout PASS; persistent server patrol traffic verified;
+end-to-end encounter/reward check BLOCKED.** The scoped machine-readable record
+was updated without changing overall promotion status from PENDING.
