@@ -8,6 +8,10 @@
 
 ## Scout pursuit and flight alignment rollout — 2026-11-08
 
+**Newer deployment:** the hangar/recovery rollout below supersedes this section's
+runtime as the current staging source. These scout observations remain
+historical evidence, not a retest of the new build.
+
 Owner-approved staging-only runtime `26ade0c268f1dd4ec1b9a0a16e083abb59128a08`
 reached SUCCESS on the app, API and socket at matching source pins.
 Deployment IDs are recorded in `latestLocalScoutPursuitCandidate` in the JSON
@@ -36,6 +40,30 @@ reward settlement and continued post-battle flight remain **UNVERIFIED**.
 Both test browser owners were stopped. The next check must establish a safe
 ordinary hangar/flight start with instrumentation attached before universe entry.
 Earlier authenticated approach failure below belongs to the previous runtime.
+
+## Hangar-first entry and disabled recovery rollout — 2026-11-08
+
+Owner-approved commit `128882c3548f0cb38b8dc92259e4e8da471813e7` deployed
+successfully to all three services in the separate Railway staging environment:
+
+- App: `1e2fdcae-5b43-462b-a2d5-7a9e14fe3a1b`
+- API: `4012b0a1-5efc-4341-be43-b80799cff784`
+- Socket: `08ff693c-0833-4ac8-8c24-05303a1fa595`
+
+Deployment metadata confirms the same exact source commit for all three.
+The staging build passed its unchanged Combat Lab initial budget:
+**127,135 bytes gzip** against **143,360 bytes**, with Three.js outside the
+initial static graph. Four static-build checks passed.
+
+Unauthenticated root, profile and same-origin free-flight WebSocket upgrade
+requests returned **401**. A browser screenshot showed the existing Private
+Playtest Access form rather than exposing the game.
+
+No fresh sign-ins were started, no verification code was submitted and no old
+code was reused. Authenticated hangar entry, recovery, redeployment and two-pilot
+combat remain **NOT VERIFIED**. A fresh coordinated sign-in window is needed.
+This is a successful staging deployment, not gameplay certification.
+Schema, flags, authentication configuration and Production were unchanged.
 
 ## Current local workspace verification — 2026-10-28
 

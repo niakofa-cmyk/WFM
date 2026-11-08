@@ -1,5 +1,37 @@
 {
   "overallStatus": "PENDING",
+  "latestHangarRecoveryRollout": {
+    "status": "STAGING_DEPLOYED_AUTHENTICATED_VERIFICATION_PENDING",
+    "stagingRuntimeCommit": "128882c3548f0cb38b8dc92259e4e8da471813e7",
+    "stagingServices": {
+      "app": { "status": "SUCCESS", "deploymentId": "1e2fdcae-5b43-462b-a2d5-7a9e14fe3a1b" },
+      "api": { "status": "SUCCESS", "deploymentId": "4012b0a1-5efc-4341-be43-b80799cff784" },
+      "socket": { "status": "SUCCESS", "deploymentId": "08ff693c-0833-4ac8-8c24-05303a1fa595" }
+    },
+    "matchingStagingSourcePins": true,
+    "railwayCombatLabInitialJavascriptGzipBytes": 127135,
+    "combatLabInitialJavascriptBudgetBytes": 143360,
+    "threeJsInInitialStaticGraph": false,
+    "staticBuildChecksPassed": 4,
+    "unauthenticatedGatewayChecks": {
+      "rootHttpStatus": 401,
+      "profileHttpStatus": 401,
+      "webSocketUpgradeHttpStatus": 401,
+      "privatePlaytestGateVisible": true
+    },
+    "authenticatedVerification": {
+      "status": "NOT_STARTED",
+      "freshSignInsStarted": false,
+      "verificationCodesSubmitted": false,
+      "hangarEntryVerified": false,
+      "disabledRecoveryVerified": false,
+      "redeploymentVerified": false,
+      "twoPilotCombatVerified": false,
+      "reason": "Deployment and unauthenticated gateway checks completed. Authenticated verification awaits a fresh coordinated sign-in window; earlier verification codes were not reused."
+    },
+    "schemaOrFlagChanges": false,
+    "productionChanged": false
+  },
   "latestLocalScoutPursuitCandidate": {
     "status": "STAGING_AUTHENTICATED_DISABLED_PILOTS_BLOCK_COMBAT",
     "stagingRuntimeCommit": "26ade0c268f1dd4ec1b9a0a16e083abb59128a08",

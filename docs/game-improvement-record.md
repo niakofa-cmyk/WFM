@@ -1,5 +1,11 @@
 # Hangar-first entry and disabled recovery
 
+Staging app/API/socket now run the owner-approved `128882c` source at matching
+SUCCESS deployments. The Railway Combat Lab audit passed at 127,135 bytes gzip;
+root/profile/WebSocket gateway probes returned 401. Fresh authenticated
+hangar/recovery and two-pilot checks have not started; see the root staging
+report/results. No schema, flags, authentication settings or Production changed.
+
 See [opening history, entry and authoritative recovery](infinite-war/OPENING-HANGAR-AND-RECOVERY.md).
 Four uploaded references are preserved verbatim. Account boot is command-first;
 disabled recovery requires server acknowledgement and resolved results. Total
