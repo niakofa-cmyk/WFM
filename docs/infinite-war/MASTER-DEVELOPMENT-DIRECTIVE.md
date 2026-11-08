@@ -72,6 +72,10 @@ a client-only toggle: migrate each mode through coordinated runtime-versioned
 client/API/socket changes, preserve already-issued runs, and keep rollback until
 parity and acceptance pass.
 
+## Live 3D free-flight and patrol requirement
+
+The live shared-universe movement, nearby-pilot privacy and enemy-fleet patrol contract is maintained in [`LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md). Persistent faction patrol lifecycle and implementation gates are maintained in [`PERSISTENT-ENEMY-FLEET-PATROLS.md`](PERSISTENT-ENEMY-FLEET-PATROLS.md). These are target requirements; consult their current runtime-status sections before claiming implementation. The first server movement/snapshot slice is opt-in and does not yet provide client rendering, combat authority, durable multi-instance sessions or Production certification.
+
 ## Required integration policy
 
 1. Treat the existing custom Three.js/Vite game as the production runtime.
