@@ -1,3 +1,12 @@
+# Hangar-first entry and disabled recovery
+
+See [opening history, entry and authoritative recovery](infinite-war/OPENING-HANGAR-AND-RECOVERY.md).
+Four uploaded references are preserved verbatim. Account boot is command-first;
+disabled recovery requires server acknowledgement and resolved results. Total
+wing defeat now records real attribution with zero-credit aborted settlement.
+Three.js remains primary. Restart-durable hull state, a rendered prologue and
+authenticated staging verification are not claimed by this implementation.
+
 # WAR FOR MARS — Game improvement record
 
 ## Hangar entry, recovery and training parity — source audit

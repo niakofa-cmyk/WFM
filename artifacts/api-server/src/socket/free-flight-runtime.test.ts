@@ -450,7 +450,7 @@ test("rejected secondary claims refresh departed ships and reconnect restores ex
   }
 });
 
-test("a destroyed pilot must not silently accept fire or regain weapons on rejoin", async () => {
+test("disabled recovery preserves attribution, survives reconnect/expiry, and requires settled results", async () => {
   const contact: UniversePatrolEncounter = {
     patrolId: "disabled-patrol-0001", locationId: "phobos-yard", faction: "accord",
     callsign: "Interceptors", route: ["phobos-yard", "cinder-asteroid"], revision: 0,
@@ -465,14 +465,25 @@ test("a destroyed pilot must not silently accept fire or regain weapons on rejoi
     send: (data: string) => { packets.push(JSON.parse(data) as Packet); },
     close: () => {},
   };
+  let admission = {
+    sessionKey: "mars:phobos-yard", faction: "ussf" as const, shipId: "glide" as "glide" | "duskbreaker",
+  };
+  let finishSettlement: (() => void) | undefined;
+  let settlements = 0;
   const runtime = createFreeFlightRuntime({
-    resolveAdmission: async () => ({
-      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "glide",
-    }),
+    resolveAdmission: async () => admission,
     resolveUniversePatrols: async () => [contact],
     reserveUniversePatrol: async () => contact,
     releaseUniversePatrol: async () => {},
-    settleScoutEncounter: async () => { throw new Error("idle pilot cannot win"); },
+    settleScoutEncounter: async (receipt) => {
+      settlements++;
+      const result = readExplorationReceipt(receipt);
+      assert.equal(result.outcome, "aborted");
+      assert.equal(result.objectiveCompleted, false);
+      assert.ok(result.pilots.every((pilot) => pilot.credits === 0));
+      await new Promise<void>((resolve) => { finishSettlement = resolve; });
+      return { status: "settled", awards: [] };
+    },
     patrolSpawnDistanceMeters: 30,
   });
   const latestOwn = () => {
@@ -486,6 +497,10 @@ test("a destroyed pilot must not silently accept fire or regain weapons on rejoi
   try {
     await runtime.handle(socket, "disabled-pilot", { type: "freeflight_join" });
     const ownId = latestOwn().actorId;
+    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_recover" });
+    assert.equal(packets.at(-1)?.reason, "freeflight_recovery_not_disabled");
+    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_recover", hull: 100 });
+    assert.equal(packets.at(-1)?.reason, "invalid_freeflight_recovery");
     await runtime.handle(socket, "disabled-pilot", {
       type: "freeflight_engage", targetActorId: `patrol-ship:${contact.ships[0].id}`,
     });
@@ -510,8 +525,36 @@ test("a destroyed pilot must not silently accept fire or regain weapons on rejoi
     assert.equal(packets.slice(before).filter((p) =>
       p.reason === "freeflight_pilot_destroyed").length, 2);
     assert.equal(packets.slice(before).some((p) => p.type === "freeflight_input_accepted"), false);
-    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_join" });
+    await runtime.handle(socket, "disabled-pilot", { type: "freeflight_recover" });
+    assert.equal(packets.at(-1)?.reason, "freeflight_recovery_pending_settlement");
+    assert.equal(packets.some((p) => p.type === "freeflight_recovered"), false);
+    runtime.detach(socket);
+    runtime.advance(clock += 90_000); // Neither grace expiry nor empty-session TTL repairs death.
+    const replacement = { ...socket };
+    admission = { ...admission, shipId: "duskbreaker" };
+    await runtime.handle(replacement, "disabled-pilot", { type: "freeflight_join" });
+    assert.equal(latestOwn().actorId, ownId);
+    assert.equal(latestOwn().alive, false);
+    assert.equal(latestOwn().shipId, "glide", "new loadout must not reconstruct a destroyed craft");
     assert.equal([...packets].reverse().find((p) => p.type === "freeflight_engagement_state")?.pilotAlive, false);
+    assert.ok(finishSettlement, "ordinary defeat reaches authoritative settlement");
+    finishSettlement();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    admission = { ...admission, sessionKey: "mars:rust-disc" };
+    await runtime.handle(replacement, "disabled-pilot", { type: "freeflight_recover" });
+    assert.equal(packets.at(-1)?.reason, "freeflight_recovery_location_changed");
+    admission = { ...admission, sessionKey: "mars:phobos-yard" };
+    await runtime.handle(replacement, "disabled-pilot", { type: "freeflight_recover" });
+    assert.ok(packets.some((p) => p.type === "freeflight_recovered"));
+    assert.equal(settlements, 1, "recovery never settles or rewards the encounter again");
+    const redeployed = { ...socket };
+    await runtime.handle(redeployed, "disabled-pilot", { type: "freeflight_join" });
+    assert.notEqual(latestOwn().actorId, ownId);
+    assert.equal(latestOwn().alive, true);
+    assert.equal(latestOwn().shipId, "duskbreaker");
+    assert.ok(Math.abs(latestOwn().position.x) <= 28, "normal server anchor, not the old battle pose");
+    await runtime.handle(redeployed, "disabled-pilot", { type: "freeflight_recover" });
+    assert.equal(packets.at(-1)?.reason, "freeflight_recovery_not_disabled");
   } finally {
     await runtime.close();
   }

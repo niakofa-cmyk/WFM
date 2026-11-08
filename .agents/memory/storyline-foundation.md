@@ -9,4 +9,15 @@ Story must connect narrative truth, playable operations/evidence/dialogue, and p
 
 **Why:** the user repeatedly directed that the storyline live inside the open universe and that verified events persist; the current implementation deliberately keeps player discoveries separate from global faction state.
 
-**How to apply:** preserve the distinction between owner-directed premise, existing campaign implementation, reconstructed dialogue, proposed connective lore, and unresolved details. Keep the inner-circle versus wider-government knowledge distinction clear. Tie evidence to server-verified operations; label the later Cage transfer as disputed and the First Witness as an unresolved clue. The Orbital-only engine remains the target; current Three.js paths are uncompleted compatibility migration, not the desired architecture.
+**How to apply:** preserve the distinction between owner-directed premise, existing campaign implementation, reconstructed dialogue, proposed connective lore, and unresolved details. Keep the inner-circle versus wider-government knowledge distinction clear. Tie evidence to server-verified operations; label the later Cage transfer as disputed and the First Witness as an unresolved clue. The owner's later renderer clarification retains Three.js as the primary rendering foundation under the single Orbital universe, with native WebGL2 as a companion.
+
+The historical opening, pilot entry and ongoing war are separate: Dusk's defeat
+establishes the premise; the player enters command and explicitly deploys. Do
+not force every pilot to suffer the historical defeat or count a replay as live
+campaign evidence, kills or reward authority.
+
+**Why:** the owner adopted the opening-history documents alongside hangar-first
+entry and server-owned recovery, while requiring cohesive free-flight gameplay.
+
+**How to apply:** keep historical replay optional and distinct from verified
+Contact/Beacon/Warden/Cage outcomes, and keep shared cooperation in live flight.

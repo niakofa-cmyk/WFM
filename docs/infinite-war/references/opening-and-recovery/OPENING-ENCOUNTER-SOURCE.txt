@@ -1,0 +1,291 @@
+# WFM — The opening encounter and the birth of the Infinite War
+
+My recommendation is to keep the initial Eon Dusk fleet encounter. Do not launch the game directly into an empty, peaceful universe.
+
+However, I would change how we use that encounter.
+
+The destruction of Eon Dusk's special USSF expeditionary fleet, his first confrontation with the Accord, and his eventual capture should become the historical event that establishes the entire premise of War for Mars: Infinite War.
+
+It should not simply be another introductory tutorial battle.
+
+It should be the event that changes the political, military and strategic balance of the universe.
+
+There is an important distinction:
+
+- The opening story: Eon Dusk's expedition, the destruction of his fleet and his capture.
+- The player's entry: Arriving in the hangar, entering the military infrastructure and choosing when and where to deploy into the living universe.
+- The ongoing game: A persistent, evolving war in which USSF and Accord forces, patrols, players and military operations coexist.
+
+This gives us a strong cinematic beginning without forcing every player to experience an unavoidable defeat before they can play.
+
+## 1. What the repository actually establishes
+
+I inspected the integration branch's campaign, opening experience, menu state machine, universe architecture and the latest recovery audit.
+
+There is already a narrative foundation, and it is important that we don't accidentally discard it.
+
+The current campaign is a four-sortie story:
+
+| Order | Operation | Story purpose                                                                    |
+| ----- | --------- | -------------------------------------------------------------------------------- |
+| 1     | Contact   | Discover the mysterious signal at the Rust Disc relay.                           |
+| 2     | Beacon    | Discover that the relay network is receiving an older signal.                    |
+| 3     | Warden    | Discover that a command ship was ordered to erase the transport and its records. |
+| 4     | Cage      | Intercept Eon Dusk's transport and uncover the deeper mystery.                   |
+
+The existing campaign contains a particularly interesting revelation: Dusk knew the transport was a trap, but chose the route because it was the only way to make the mysterious signal public.
+
+That is a much more interesting character motivation than simply making him an ordinary defeated commander.
+
+Source: `artifacts/war-for-mars/src/game/campaign.ts`.
+
+### The problem with the current opening
+
+The existing campaign dispatch at the beginning already tells the player:
+
+> Dusk's fleet is ash. He is a prisoner of the Accord.
+
+But the game does not yet establish this through an actual opening cinematic or playable historical encounter.
+
+This creates a narrative gap.
+
+The player is told about a major military event that supposedly changed the course of the war, but does not experience its significance.
+
+My recommendation is to close that gap with a dedicated historical prologue, while preserving the four-sortie campaign's discoveries.
+
+## 2. The updated storyline confirms that the opening battle is the right direction
+
+I found something particularly important in the newer repository snapshot.
+
+The file:
+
+[ MARS-STORY-CHRONOLOGY-AND-CANON.md ](https://github.com/niakofa-cmyk/WFM/blob/f84213d3cf93630a3db586c045136ab9fce52e54/docs/infinite-war/MARS-STORY-CHRONOLOGY-AND-CANON.md?utm_source=chatgpt.com)
+
+now establishes this chronological sequence:
+
+## The historical beginning of the Infinite War
+
+1. The Making of Eon Dusk
+
+   A scandal-enriched billionaire builds political influence by exploiting fears about humanity's survival.
+2. The Quiet Mandate
+
+   Powerful insiders secretly enable his private military expedition.
+3. The Unlisted Expedition
+
+   Dusk assembles a special-force fleet using USSF resources and private technology networks.
+4. Mars Is Not Empty
+
+   His expedition reaches Mars and encounters the established Accord civilization.
+5. The Last Fleet
+
+   The Accord destroys Dusk's expedition. Dusk becomes its only known survivor and is captured.
+6. Earth's First Response
+
+   A transmission reporting Dusk's capture reaches Earth before the fleet is destroyed. The political and military crisis begins.
+7. The First USSF–Accord Campaign
+
+   The conflict expands into a military war across the Martian theater.
+
+Existing canonical chronology
+
+This is precisely the foundation I would use for the opening of the game.
+
+One important correction to the earlier storyline: Dusk did not voluntarily surrender to the Accord, and he did not choose the later Cage transfer to expose the mysterious signal. The newer canon explicitly corrects those earlier inconsistencies.
+
+See also [WAR FOR MARS: Foundational Storyline](https://github.com/niakofa-cmyk/WFM/blob/f84213d3cf93630a3db586c045136ab9fce52e54/docs/infinite-war/WAR-FOR-MARS-STORYLINE-FOUNDATION.md?utm_source=chatgpt.com).
+
+## 3. How I would actually introduce this story
+
+I recommend a three-part opening experience.
+
+[Comprar Iron Sky Invasion: The Second Fleet - PC & Mac (Steam)](https://images.openai.com/static-rsc-4/Ra_oeFeRXja22hwmC_eWyWZPdq9Fc1Llbf3cotjA5q77ScNX8qp_1nBeooWIsI0uwLJzx4Lwejo7KpkIMPAYhUETj020cbaOdyoxYDP1pdc5P49cG3uc3KHBzDljUOLAAN4Fx1qWDjG3T9JflBk8kaXGzKOH1HFVjGjWRdVLtMk?purpose=inline)
+
+[instant-gaming.com](https://www.instant-gaming.com/es/5455-comprar-iron-sky-invasion-the-second-fleet-pc-mac-juego-steam/?utm_source=chatgpt.com)
+
+## PART I — THE LAST EXPEDITION
+
+Historical prologue
+
+The game opens with Eon Dusk's secret expedition departing Earth.
+
+Introduce:
+
+- Dusk and his private military leadership.
+- His special-force spacecraft.
+- The USSF resources supporting his expedition.
+- His secret objective to seize Mars.
+- The political insiders behind the operation.
+
+Establish that Dusk believes he is protecting humanity, but his actions are an attempted imperial seizure.
+
+[Starship Troopers- Traitor of Mars (2017) 4K - Surprise Plasma Attack Scene | Movieclips - video Dailymotion](https://images.openai.com/static-rsc-4/kIfE_JYBRH2wQRqCSiFeuz6VDbcqnRk3xXHJ-sRgs1HEEwA519bfAUy1IYg1fentL_5FmD7Xc8uSVlNNeMqH4Lr17kZQ3FFjmLRDWpxEXMVuhMSlvHNMJ4f3uH5FwYdoNtTUaRTtFf1jsYply40TtJAKeBSlpqUFLj6HOuJTB3g?purpose=inline)
+
+[dailymotion.com](https://www.dailymotion.com/video/x9lff5c?utm_source=chatgpt.com)
+
+## PART II — THE FIRST MARTIAN CONFRONTATION
+
+The defining opening battle
+
+Dusk's expedition encounters the Accord.
+
+This should be a major cinematic military confrontation, not a small tutorial skirmish.
+
+The sequence:
+
+- The Accord issues a territorial warning.
+- Dusk refuses to withdraw.
+- Accord defense fleets mobilize.
+- Dusk's special-force ships engage.
+- Capital ships and fighter formations enter combat.
+- Dusk's fleet is overwhelmed.
+- An emergency transmission reports his capture to Earth.
+- Dusk is taken prisoner.
+
+The Accord must be portrayed as defending an established civilization, not as an evil alien enemy attacking humanity without cause.
+
+[The Ultimate Guide to Space Sci-Fi Robots and Cyborgs: From Classics to Modern Marvels - SciNexic.com | Your Ultimate Cosmic Sci-Fi Nexus for News, Reviews, and Exploration of the space sci-fi Universe](https://images.openai.com/static-rsc-4/QH9dW4bLMB5R9dWQZLXTansYgPJ16x-6zMx2Jo91tIAFfPA9sKnKWgltw_ghKJbcXhfc6AJZosdwqPDKG4op1KfRewC1Ppi7diMyHrbGZecztxC-C4xAf3rkutFK-Myzxb2pYz6xJwpfCktOFVgHe2Nn_vybnJ0DQSKI8rbrcS4?purpose=inline)
+
+[scinexic.com](https://www.scinexic.com/Blog/the-ultimate-guide-to-space-sci-fi-robots-and-cyborgs-from-classics-to-modern-marvels?utm_source=chatgpt.com)
+
+## PART III — THE NEW WAR
+
+Transition into the actual game
+
+The camera transitions from the destruction of Dusk's fleet to Earth's military response and the expanding USSF–Accord conflict.
+
+The player arrives in the present-day military command hangar.
+
+Here, the player becomes an independent pilot in the ongoing war.
+
+Their own faction, ship, fleet access, communications, operations and universe entry become available.
+
+The critical design decision: Dusk's battle should be a historical prologue, not the player's first live multiplayer deployment.
+
+I would initially deliver it as a cinematic sequence with an optional skip and replay from the archive. Once shared-flight combat is sufficiently verified, we can evolve it into an interactive, no-reward historical flight experience.
+
+This avoids building the opening around combat systems that have not yet passed full multiplayer verification.
+
+## 4. How this connects to the single-entry hangar redesign
+
+The other important finding is that the repository already contains the correct hangar direction.
+
+See [UNIFIED-HANGAR-ENTRY-REDESIGN.md](https://github.com/niakofa-cmyk/WFM/blob/f84213d3cf93630a3db586c045136ab9fce52e54/docs/infinite-war/UNIFIED-HANGAR-ENTRY-REDESIGN.md?utm_source=chatgpt.com).
+
+The hangar is intended to be the persistent military command environment, with one dominant universe entry.
+
+I would connect the opening experience as follows:
+
+## The new player journey
+
+GAME START
+
+Brand identity and title
+
+THE LAST EXPEDITION
+
+First-time historical cinematic, skippable
+
+MILITARY COMMAND HANGAR
+
+Saved pilot, faction, ship and military systems
+
+# ENTER THE UNIVERSE
+
+One exclusive primary gateway
+
+Explicit player-controlled launch
+
+LIVE ORBITAL UNIVERSE
+
+Flight, exploration, patrols, encounters, operations and multiplayer
+
+RETURN TO COMMAND HANGAR
+
+Recovery, refitting, progression and redeployment
+
+For subsequent logins, the cinematic is not replayed automatically. The player returns directly to their hangar.
+
+The hangar itself should remain safe. A player should not be destroyed by an enemy patrol while authenticating, loading their ship or configuring their equipment.
+
+That does not mean the universe should be peaceful. It means players choose when to depart into contested space.
+
+## 5. Important technical finding: fix the boot sequence before introducing the prologue
+
+The recovery audit at `f84213d` found an existing problem:
+
+`enterOrbitalOnAccountBoot()` can automatically open shared flight when an authenticated account enters the primary game.
+
+That means the current flow can bypass the intended hangar launch.
+
+The relevant implementation is:
+
+- `artifacts/war-for-mars/src/game/wfm-boot.ts`
+- `artifacts/war-for-mars/src/game/WarApp.tsx`
+- `artifacts/war-for-mars/src/App.tsx`
+
+This must be corrected before adding the new opening experience.
+
+I recommend the following engineering order:
+
+| Priority | Implementation                | Acceptance condition                                   |
+| -------- | ----------------------------- | ------------------------------------------------------ |
+| P0       | Hangar-first account boot     | No automatic live-flight connection                    |
+| P0       | Explicit universe launch      | Only the primary gateway enters shared flight          |
+| P0       | Recovery safeguards           | Reconnecting cannot restore destroyed ships improperly |
+| P1       | Eon Dusk historical prologue  | Canonical story, no reward or progression exploits     |
+| P1       | Hangar-to-universe transition | Correct saved ship, faction and location               |
+| P2       | Safe command-area spawning    | No forced combat during initial entry                  |
+| P2       | Historical battle archive     | Prologue replay and recovered evidence                 |
+| P3       | Interactive historical battle | Only after shared-flight combat certification          |
+
+We should preserve the existing Contact → Beacon → Warden → Cage campaign and its server-verified outcomes.
+
+The historical prologue is not a fifth campaign sortie. It is the prehistory of the four existing operations.
+
+## 6. One additional narrative recommendation
+
+I would make Eon Dusk one of the most important recurring characters in the entire game.
+
+Do not kill him in the opening. Do not immediately turn him into a conventional villain who disappears after his fleet is destroyed.
+
+His capture creates several powerful opportunities:
+
+- USSF wants access to him and the secrets of his expedition.
+- The Accord has legitimate reasons to hold him accountable.
+- The insiders on Earth want to conceal their involvement.
+- Dusk knows things about the expedition that neither faction fully understands.
+- The Warden and the First Witness mysteries eventually make his original mission relevant again.
+
+However, preserve the distinction between his original capture and the later Cage transfer. The latter has three possible player-specific outcomes already defined in the repository.
+
+That gives the narrative room to grow over multiple campaigns.
+
+## 7. Repository status and my final assessment
+
+What I verified
+
+- The Dusk–Accord historical chronology is documented.
+- The four existing campaign operations are preserved.
+- Server-verified narrative discoveries and dialogue records exist.
+- The unified hangar has a defined single-entry architecture.
+- The account-boot bypass and recovery issues are documented.
+- The opening battle is not yet implemented as a rendered cinematic.
+
+  Branch qualification
+
+The `f84213d` snapshot is 93 commits ahead of `integration/master-engine-consolidation`. The default `main` remains at `3ecff671` from October 22. The newer work must not be treated as already merged into Production.
+
+My final recommendation is:
+
+Make Eon Dusk's destruction and capture the defining historical opening of WAR FOR MARS: INFINITE WAR. Make the military hangar the player's permanent point of entry. Make entering the universe an explicit decision.
+
+This gives us three things that a conventional game opening often struggles to establish:
+
+1. A compelling reason for the war.
+2. A historical event that gives the two factions meaning.
+3. A player journey that transitions naturally from story into a genuinely open, persistent universe.
+
+The opening should make players understand why the war exists. The universe should give them the freedom to decide what they will do about it.
+
+I recommend implementing the hangar-first boot and recovery corrections first, then building the Eon Dusk prologue as the opening cinematic and integrating it with the existing narrative archive.

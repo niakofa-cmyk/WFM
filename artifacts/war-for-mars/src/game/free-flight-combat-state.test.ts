@@ -33,6 +33,8 @@ test("an active encounter cannot arm a destroyed, unknown or idle pilot", () => 
   assert.equal(sameFreeFlightPilotVitals(living, destroyed), false);
   assert.equal(combatStatusAfterError("active", true, "freeflight_pilot_destroyed"), "disabled");
   assert.match(freeFlightCombatNotice("freeflight_pilot_destroyed"), /Ship disabled/);
+  assert.match(freeFlightCombatNotice("freeflight_recovery_pending_settlement"), /unresolved/);
+  assert.match(freeFlightCombatNotice("freeflight_recovery_required"), /cannot repair/);
 });
 
 test("secondary fleet requests and reservation failures retain active combat controls", () => {

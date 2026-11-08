@@ -35,7 +35,12 @@ export async function settleExplorationWithStore(
 ): Promise<ExplorationSettlement> {
   const result = readExplorationReceipt(receipt);
   if (enabled !== true) return { status: "disabled", awards: [] };
-  if (result.outcome !== "completed") return { status: "not_eligible", awards: [] };
+  // An authoritative defeat is still a durable result: preserve actual
+  // attribution and release the patrol lease, but never pay completion credits.
+  if (result.outcome === "aborted" &&
+      (result.objectiveCompleted || result.pilots.some((pilot) => pilot.credits !== 0))) {
+    return { status: "not_eligible", awards: [] };
+  }
   const key = `${EXPLORATION_CONTRACT}:${result.encounterId}`;
   return store.transaction(async (tx) => {
     const players = result.pilots.map((pilot) => pilot.playerId).sort();

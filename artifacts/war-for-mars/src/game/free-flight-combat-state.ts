@@ -40,6 +40,10 @@ export function combatStatusAfterError(current: string, active: boolean, reason:
 
 export function freeFlightCombatNotice(reason: string): string {
   if (reason === "freeflight_pilot_destroyed") return "Ship disabled. Return to the hangar.";
+  if (reason === "freeflight_recovery_pending_settlement") return "Recovery waiting: your fleet battle or reward settlement is still unresolved. Retry after settlement.";
+  if (reason === "freeflight_recovery_not_disabled") return "Recovery is only available for a disabled ship.";
+  if (reason === "freeflight_recovery_location_changed") return "Recovery blocked: your verified world location changed. Return to command; no substitute destination was selected.";
+  if (reason === "freeflight_recovery_required") return "Your previous ship still has damage or an unresolved battle. Restore its saved loadout to reconnect; changing ships cannot repair it.";
   if (reason === "freeflight_rate_limited") return "";
   if (reason === "freeflight_encounter_active") return "Fleet already engaged. Continue the battle.";
   if (reason === "freeflight_patrol_departed") return "Patrol has moved on. Contacts updated.";

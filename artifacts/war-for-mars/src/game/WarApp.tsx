@@ -57,7 +57,7 @@ import { isOrbitalFreeFlightEnabled, isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } fr
 import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe-session";
 import type { SectorMissionId } from "./sector-missions";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
-import { enterOrbitalOnAccountBoot } from "./wfm-boot";
+import { accountBootMenu, enterOrbitalOnAccountBoot } from "./wfm-boot";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -758,9 +758,11 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
-    const id = window.setTimeout(() => setShell(MenuState.TITLE), 800);
+    const id = window.setTimeout(() => setShell(
+      accountBootMenu(initialOrbitalOpen, initialUniverseOpen, window.location.search),
+    ), 800);
     return () => window.clearTimeout(id);
-  }, [shell]);
+  }, [shell, initialOrbitalOpen, initialUniverseOpen]);
 
   useEffect(() => {
     if (shell !== MenuState.LOADING) return;

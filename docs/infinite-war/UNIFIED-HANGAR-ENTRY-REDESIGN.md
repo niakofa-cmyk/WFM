@@ -2,6 +2,13 @@
 
 ## Direction
 
+Current entry/recovery implementation and the optional public historical
+opening are specified in [Opening, Hangar and Recovery](OPENING-HANGAR-AND-RECOVERY.md).
+Account boot shows command; only explicit Enter Universe mounts live flight.
+The gateway enters the main Orbital flight scene, not a second universe or a
+replacement strategic chart. Historical references to account-theater-first
+navigation below are superseded on that point.
+
 WAR FOR MARS opens into one persistent military command hangar. The player's
 saved faction and airframe are visible there, and one prominent **ENTER THE
 UNIVERSE** action leads into the connected theater. It is the single primary

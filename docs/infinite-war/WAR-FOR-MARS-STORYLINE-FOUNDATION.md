@@ -2,6 +2,11 @@
 
 ## Status and precedence
 
+The historical expedition, player-controlled command entry and live war are
+reconciled in [Opening, Hangar and Recovery](OPENING-HANGAR-AND-RECOVERY.md),
+with four new verbatim source references. The optional hangar history is public
+context, not recovered evidence, a cinematic, an unlock or a reward source.
+
 This is the owner-directed foundation for the game's central premise, principal
 human antagonist, Mars conflict, and long-form mystery. The full supplied
 storyline premise is preserved verbatim at

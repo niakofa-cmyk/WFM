@@ -103,6 +103,13 @@ export class FreeFlightClient {
     return true;
   }
 
+  recoverDisabledPilot() {
+    const socket = this.socket;
+    if (!this.joined || !socket || socket.readyState !== WebSocket.OPEN) return false;
+    socket.send(JSON.stringify({ type: "freeflight_recover" }));
+    return true;
+  }
+
   private connect() {
     if (this.stopped) return;
     const generation = ++this.generation;
@@ -179,7 +186,8 @@ export class FreeFlightClient {
         this.acceptSnapshot(packet.snapshot);
         return;
       }
-      if (packet.type === "freeflight_engagement_started" ||
+      if (packet.type === "freeflight_recovered" ||
+          packet.type === "freeflight_engagement_started" ||
           packet.type === "freeflight_ally_joined" ||
           packet.type === "freeflight_engagement_state" ||
           packet.type === "freeflight_weapon_fired" ||

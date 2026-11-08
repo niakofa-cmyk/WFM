@@ -1,3 +1,10 @@
+# Implementation follow-through
+
+The entry/recovery findings below are the historical audit baseline.
+[Opening, Hangar and Recovery](OPENING-HANGAR-AND-RECOVERY.md) records the
+subsequent implementation and its remaining verification/persistence limits;
+do not treat these original findings as proof that the fixes were deployed.
+
 # Training-to-shared-flight and recovery audit
 
 ## Scope and evidence

@@ -10,6 +10,7 @@ import { ShipIllustration } from "./ShipIllustration";
 import { HangarShip } from "./HangarShip";
 import { campaignBriefing } from "./command-briefing";
 import { expeditionFeatureEnabled } from "./sector-client";
+import { OpeningHistory } from "./OpeningHistory";
 
 const EXPEDITION_ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -204,6 +205,7 @@ function MainMenu(props: HomeProps & {
         </button>
         <p>THE INFINITE WAR CONTINUES</p>
       </section>
+      <div className="col-span-full"><OpeningHistory /></div>
       <section className="wfm-hangar-hero wfm-unified-hangar__hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
         <div className="wfm-hangar-scene">
           <div className="wfm-hangar-art" aria-hidden="true" />

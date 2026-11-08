@@ -10,6 +10,17 @@ export function enterOrbitalOnAccountBoot(
   accountChart: boolean,
   search: string,
 ): boolean {
-  // Invite links must reach the existing authoritative lobby, not local flight.
-  return primary && !accountChart && !new URLSearchParams(search).get("room")?.trim();
+  // Selecting the Orbital runtime is not permission to deploy a pilot.
+  // All account boots land in command; only the hangar gateway mounts flight.
+  // Keep these arguments for compatibility with existing invite/chart callers.
+  void primary;
+  void accountChart;
+  void search;
+  return false;
+}
+
+export function accountBootMenu(primary: boolean, accountChart: boolean, search: string): "MAIN_MENU" | "TITLE" {
+  return primary && !accountChart && !new URLSearchParams(search).get("room")?.trim()
+    ? "MAIN_MENU"
+    : "TITLE";
 }

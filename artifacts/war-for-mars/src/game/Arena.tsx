@@ -774,7 +774,9 @@ export function Arena({
             freeFlightCombatActiveRef.current = false;
             setFreeFlightPilot(null);
             setFreeFlightCombatStatus("idle");
-            setFreeFlightNotice("");
+            setFreeFlightNotice(reason?.startsWith("freeflight_recovery")
+              ? freeFlightCombatNotice(reason)
+              : "");
             freeFlightEnvironmentRef.current = null;
           }
           if (state !== "joined") {
@@ -783,7 +785,10 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
-          if (packet.type === "freeflight_weapon_fired" &&
+          if (packet.type === "freeflight_recovered") {
+            client?.stop();
+            localUniverseRef.current?.onExit();
+          } else if (packet.type === "freeflight_weapon_fired" &&
               typeof packet.eventId === "string" &&
               (packet.sourceFaction === "ussf" || packet.sourceFaction === "accord") &&
               typeof packet.visualEffect === "string" &&
@@ -3138,6 +3143,26 @@ export function Arena({
       data-shared-pilot-alive={sharedFreeFlightJoined ? freeFlightPilot?.alive : undefined}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
+      {localUniverse && freeFlightPilot?.alive === false ? (
+        <section data-testid="disabled-pilot-recovery" aria-label="Disabled ship recovery"
+          className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md border border-solar/50 bg-void/95 p-3 text-center">
+          <h2 className="font-hud text-sm tracking-widest text-solar">SHIP DISABLED</h2>
+          <p className="mt-1 text-xs text-muted">
+            Recovery returns you to command after all battle results settle. Reconnecting does not repair your hull.
+          </p>
+          <button type="button" data-testid="button-recover-to-hangar"
+            className="pilot-menu-primary mt-2 w-full"
+            disabled={!sharedFreeFlightJoined}
+            onClick={() => {
+              if (freeFlightClientRef.current?.recoverDisabledPilot()) {
+                setFreeFlightNotice("RECOVERY REQUESTED · Waiting for server authorization.");
+              }
+            }}>RECOVER TO HANGAR</button>
+          <p role="status" className="mt-2 text-xs text-solar">{freeFlightNotice}</p>
+          <button type="button" className="pilot-menu-setting mt-2 w-full"
+            onClick={() => localUniverseRef.current?.onExit()}>RETURN WITHOUT RECOVERY</button>
+        </section>
+      ) : null}
       {localUniverse ? (
         <div
           ref={returnNavigationRef}
@@ -3683,7 +3708,7 @@ export function Arena({
           <div className="pilot-pause-panel">
             <p className="font-hud text-3xl tracking-widest text-bone">FLIGHT MENU</p>
             <p className="mt-2 max-w-lg font-hud text-xs leading-relaxed tracking-wider text-muted">
-              {online ? "This is a live room: the match continues while this menu is open." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
+              {online || freeFlightEnabled ? "Live shared flight continues while this menu is open. Opening this menu does not protect or repair your ship." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
             </p>
             <button type="button" data-testid="button-resume-sortie" className="pilot-menu-primary mt-4" onClick={() => {
               pausedRef.current = false;

@@ -15,8 +15,8 @@ than a vertical reflow.
 Infinite Universe. The owner's latest clarification supersedes earlier
 portrait-first source wording: the operational hangar is landscape/full-screen.
 
-**How to apply:** make the connected account theater the primary gateway;
+**How to apply:** make explicit launch into the main Orbital flight scene the primary gateway;
 persist faction selection through the existing loadout service; retain offline
-flight only as explicitly no-reward practice. Use Orbital-native rendering for
-newly migrated surfaces, but do not claim the full Three.js migration complete
-while legacy operation paths remain.
+flight only as explicitly no-reward practice. Three.js remains the primary
+universe renderer, with native WebGL2 a companion; neither owns separate
+gameplay authority. Historical renderer-removal directions are superseded.

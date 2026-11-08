@@ -87,10 +87,9 @@ test("rollback leaves no balance/tally writes and retry succeeds after a later p
   assert.equal(fixture.balance()?.credits, 97);
 });
 
-test("default rollout, aborts, missing profiles, conflicts and copied receipts fail closed", async () => {
+test("default rollout, missing profiles, conflicts and copied receipts fail closed", async () => {
   const fixture = storeFixture();
   assert.equal((await settleExplorationWithStore(receipt(), fixture.store)).status, "disabled");
-  assert.equal((await settleExplorationWithStore(receipt("aborted", "aborted"), fixture.store, true)).status, "not_eligible");
   assert.equal(fixture.entries(), 0);
   await assert.rejects(settleExplorationWithStore({ encounterId: "fake" } as ExplorationReceipt, fixture.store, true), /Server-issued/);
   await settleExplorationWithStore(receipt(), fixture.store, true);
@@ -100,6 +99,18 @@ test("default rollout, aborts, missing profiles, conflicts and copied receipts f
   missing.remove("user_b");
   await assert.rejects(settleExplorationWithStore(receipt(), missing.store, true), /missing/);
   assert.equal(missing.entries(), 0);
+});
+
+test("authoritative aborted results retain real kills once without awarding credits", async () => {
+  const fixture = storeFixture();
+  const aborted = receipt("aborted-result", "aborted");
+  const result = await settleExplorationWithStore(aborted, fixture.store, true);
+  assert.equal(result.status, "settled");
+  assert.ok(result.awards.every((award) => award.credits === 0));
+  assert.equal(result.awards[0].kills, 1);
+  assert.deepEqual(fixture.balance(), { credits: 90, revision: 1 });
+  assert.equal((await settleExplorationWithStore(aborted, fixture.store, true)).status, "duplicate");
+  assert.deepEqual(fixture.balance(), { credits: 90, revision: 1 });
 });
 
 test("partial or corrupted prior settlement fails without issuing another reward", async () => {

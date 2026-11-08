@@ -318,6 +318,18 @@ function pilotHasActiveCombat(session: Session, actorId: string): boolean {
   );
 }
 
+/** Do not discard health or attribution while a result is still unresolved. */
+function pilotHasUnresolvedCombat(session: Session, actorId: string): boolean {
+  return session.engagementPending || [...session.combats.values()].some((combat) =>
+    combat.phase !== "complete" && combat.participantActorIds.has(actorId),
+  );
+}
+
+function pilotNeedsRecovery(actor: Actor): boolean {
+  return !actor.craft.alive || actor.craft.hull < actor.craft.hullMax ||
+    actor.shield < actor.shieldMax;
+}
+
 export function canDamageFreeFlightActor(
   source: Pick<Actor, "kind" | "actorId" | "faction">,
   target: Pick<Actor, "kind" | "actorId" | "faction">,
@@ -680,8 +692,10 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
-  function persistCompletedEncounter(session: Session, combat: LiveEncounter) {
-    if (!combat.receipt) combat.receipt = combat.contract.finalize(session.tick, "completed", true);
+  function persistCompletedEncounter(session: Session, combat: LiveEncounter, defeated = false) {
+    if (!combat.receipt) combat.receipt = combat.contract.finalize(
+      session.tick, defeated ? "aborted" : "completed", !defeated,
+    );
     if (!options.settleScoutEncounter || combat.settlementTask ||
         Date.now() < combat.nextSettlementAttemptAt) return;
     combat.phase = "settling";
@@ -1120,6 +1134,12 @@ export function createFreeFlightRuntime(options: {
             return !actor || !actor.craft.alive;
           })) {
         persistCompletedEncounter(session, combat);
+      } else if (combat.phase === "active" &&
+          [...combat.participantActorIds].every((actorId) =>
+            session.actors.get(actorId)?.craft.alive === false)) {
+        // Losing the entire wing must not leave an immortal active lease.
+        // Another living ally keeps the shared battle active.
+        persistCompletedEncounter(session, combat, true);
       } else if (combat.phase === "settlement-unavailable") {
         persistCompletedEncounter(session, combat);
       }
@@ -1192,6 +1212,10 @@ export function createFreeFlightRuntime(options: {
           if (previous.key === admission.sessionKey) continue;
           const prior = previous.pilotByUser.get(userId);
           if (!prior) continue;
+          if (pilotNeedsRecovery(prior) || pilotHasUnresolvedCombat(previous, prior.actorId)) {
+            error("freeflight_recovery_required");
+            return;
+          }
           if (prior.socket?.readyState === OPEN && prior.socket !== socket) {
             error("freeflight_session_already_active");
             return;
@@ -1223,8 +1247,13 @@ export function createFreeFlightRuntime(options: {
           };
           session.actors.set(actor.actorId, actor);
           session.pilotByUser.set(userId, actor);
-        } else if (actor.faction !== admission.faction || actor.shipId !== admission.shipId) {
-          // Loadout/faction changes are server-owned; replace state only on rejoin.
+        } else if (actor.craft.alive &&
+            (actor.faction !== admission.faction || actor.shipId !== admission.shipId)) {
+          if (pilotNeedsRecovery(actor) || pilotHasUnresolvedCombat(session, actor.actorId)) {
+            error("freeflight_recovery_required");
+            return;
+          }
+          // Only an undamaged, unengaged craft can be refitted on rejoin.
           actor.faction = admission.faction;
           actor.shipId = admission.shipId;
           actor.craft = craftFor(actor.numericId, admission.shipId, actor.craft.x, actor.craft.space!.y, actor.craft.z, actor.craft.yaw);
@@ -1262,6 +1291,39 @@ export function createFreeFlightRuntime(options: {
 
     const seat = seats.get(socket);
     if (!seat || seat.userId !== userId) { error("freeflight_join_required"); return; }
+    if (packet.type === "freeflight_recover") {
+      if (Object.keys(packet).length !== 1) {
+        error("invalid_freeflight_recovery");
+        return;
+      }
+      if (seat.actor.craft.alive) { error("freeflight_recovery_not_disabled"); return; }
+      if (pilotHasUnresolvedCombat(seat.session, seat.actor.actorId)) {
+        error("freeflight_recovery_pending_settlement");
+        return;
+      }
+      // No client-selected destination, health, reward, ship or identity.
+      const admission = await options.resolveAdmission(userId).catch(() => null);
+      if (closed || seats.get(socket) !== seat || seat.actor.socket !== socket) return;
+      if (!admission || admission.sessionKey !== seat.session.key) {
+        error("freeflight_recovery_location_changed");
+        return;
+      }
+      if (pilotHasUnresolvedCombat(seat.session, seat.actor.actorId)) {
+        error("freeflight_recovery_pending_settlement");
+        return;
+      }
+      detach(socket);
+      seat.session.actors.delete(seat.actor.actorId);
+      seat.session.pilotByUser.delete(userId);
+      seat.session.projectiles = seat.session.projectiles.filter(
+        (projectile) => projectile.sourceActorId !== seat.actor.actorId,
+      );
+      // Next explicit deployment uses normal, server-derived anchor admission.
+      // No living craft is spawned while the player is in the hangar.
+      send(socket, { type: "freeflight_recovered" });
+      publish(seat.session);
+      return;
+    }
     if (packet.type === "freeflight_environment_request") {
       if (Object.keys(packet).length !== 1) {
         error("invalid_freeflight_environment_request");
@@ -1351,7 +1413,9 @@ export function createFreeFlightRuntime(options: {
       }
       for (const actor of [...session.actors.values()]) {
         if (actor.kind === "pilot" && actor.disconnectedAt !== null &&
-            now - actor.disconnectedAt > DISCONNECT_GRACE_MS) {
+            now - actor.disconnectedAt > DISCONNECT_GRACE_MS &&
+            !pilotNeedsRecovery(actor) &&
+            !pilotHasUnresolvedCombat(session, actor.actorId)) {
           session.actors.delete(actor.actorId);
           if (actor.ownerUserId) session.pilotByUser.delete(actor.ownerUserId);
         }

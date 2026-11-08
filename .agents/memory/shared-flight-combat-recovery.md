@@ -50,3 +50,16 @@ shows full health.
 weapon intent explicitly, and measure accepted intent, emitted projectiles and
 impacts separately. Never infer a shot from an acknowledgement or revive a
 pilot locally to make a firing test pass.
+
+Total wing defeat must resolve as a server-owned, zero-credit aborted result,
+not remain active forever waiting for every enemy to die. A surviving ally
+keeps the encounter live; destroyed participants cannot recover until all their
+outstanding encounter results have settled.
+
+**Why:** requiring completed settlement for recovery revealed that enemy-only
+victory detection leaves defeated wings permanently unable to recover.
+
+**How to apply:** retain real attribution in the existing idempotent ledger,
+never manufacture a victory or completion reward, and fail recovery closed
+when the durable result cannot be recorded. Distinguish disconnect retention
+within one process from restart-durable hull persistence.
