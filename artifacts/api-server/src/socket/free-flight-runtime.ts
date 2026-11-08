@@ -329,7 +329,7 @@ export function createFreeFlightRuntime(options: {
       seats.set(socket, seat);
       userSeats.set(userId, seat);
       session.emptySince = null;
-      send(socket, { type: "freeflight_joined", snapshot: snapshotFor(session, actor) });
+      send(socket, { type: "freeflight_joined", nextInputSeq: actor.lastSeq + 1, snapshot: snapshotFor(session, actor) });
       publish(session);
       return;
     }
