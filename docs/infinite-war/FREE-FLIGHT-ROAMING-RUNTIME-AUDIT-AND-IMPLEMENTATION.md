@@ -25,8 +25,8 @@ from the complete shared universe the game is intended to become.
 | Use 30 Hz movement and 10 Hz JSON snapshots | Implemented in this prototype; these are implementation targets, not measured production capacity. |
 | Use bounded session and actor counts | Implemented for this prototype. The limits do not constitute a capacity or load-test result. |
 | Treat this as infinite spatial sharding | Not yet implemented. The current session key is a coarse, server-derived destination (`mars:<anchor>`), not a 3D spatial cell or continuous route-space partition. |
-| Treat the four visible patrols as the persistent universe fleet system | Not yet implemented. They are temporary runtime actors. Persistent route records, route scheduling, casualties, and fleet objectives are still separate systems. |
-| Enable server-authoritative battles and rewards from visible proximity | Not implemented. The free-flight input explicitly rejects weapon actions. No kill attribution, encounter settlement, reward, reputation, or territory change is made by this prototype. |
+| Treat visible patrols as the persistent universe fleet system | Implemented for the authenticated pilot's saved location: the directory supplies persistent patrol records and the socket materializes bounded 3D actors. Global spatial-cell streaming and cross-location continuity remain separate work. |
+| Enable server-authoritative battles and rewards from visible proximity | Implemented in the current source slice. Closing to the server-defined approach range starts a persistent-patrol encounter; primary fire, missiles, damage, attribution, and reward settlement remain server-owned. |
 | Claim verified staging or multi-device readiness | Not verified. A later protected staging rollout reached the sign-in page, but did not confirm an authenticated profile; see the staging report below. |
 
 ## What is implemented
@@ -48,19 +48,32 @@ from the complete shared universe the game is intended to become.
 - `Arena.tsx` projects server-snapshot pilots and patrols as ship meshes into the
   already-running Orbital free-flight scene. It interpolates bounded snapshots
   and falls back to existing local traffic when the feature is absent or stale.
+- Shared free flight now loads the persistent patrol directory rather than only
+  one selected contact. A close approach starts a reserved patrol encounter in
+  the same unbounded flight scene. During an active fight, a second opposing
+  patrol inside sensor range joins after weapons fire or damage signals the
+  battle; the runtime bounds simultaneous patrol encounters and actor capacity.
+- Each joined patrol receives its own server-issued exploration contract and
+  settlement receipt. A fleet's result updates the cumulative pilot tally but
+  does not disable flight controls while another joined fleet remains active.
+- This reuses Orbital spatial flight, weapon spawn/guidance, swept collision,
+  shield/hull damage, and the existing reward ledger. It is not a copy of the
+  local trainer's match loop or a transition to another rendered universe.
 - The authenticated frontend connects automatically in development; production
   remains opt-in through `VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED=true`. Pilots see
   the current opposing patrol count after the server snapshot arrives.
 - Runtime tests cover authenticated admission, same-location pilot visibility,
   location isolation, validated snapshots, server movement, moving patrols,
-  reconnect sequence continuity, and rejection of client-authored combat or
-  position.
+  reconnect sequence continuity, automatic close engagement, a reinforcement
+  patrol joining after weapons fire, server projectile impacts, kill attribution,
+  and bounded reward settlement.
 
 The browser's own ship still uses the existing local free-flight prediction.
 The server currently maintains and broadcasts its authoritative movement copy,
 but the client does not yet reconcile its local position to the server pose.
-Therefore this is a visible server-traffic prototype, not certification that
-the player flight itself is fully server-authoritative.
+Therefore the pilot's presented ship remains locally predicted while the server
+simulates its own admitted movement copy. This is not proof that the player pose
+is fully reconciled or that a battle remains continuous across spatial shards.
 
 ## Rollout and rollback
 
@@ -80,16 +93,13 @@ therefore provides no evidence for those gates.
 
 ## Next three implementation slices
 
-1. **Make traffic spatial and persistent.** Replace coarse destination sessions
-   with bounded Orbital spatial cells and feed existing persistent faction route
-   records into nearby interest groups. Preserve server-owned route state across
-   session churn and avoid duplicating patrol authorities.
-2. **Complete player movement authority.** Reconcile the local predicted ship
-   with server snapshots, add bounded interpolation/extrapolation and recovery,
-   then verify identical snapshot behavior through the Three.js primary renderer
-   and supported native Orbital renderer.
-3. **Connect encounter results safely.** Add server detection/escalation and
-   combat attribution using the existing authoritative combat and settlement
-   contracts. Persist verified kills, assists, eligible rewards, and faction
-   consequences idempotently; then run the two-device staging interception
-   test before enabling the feature more broadly.
+1. **Make free-flight traffic spatially continuous.** Replace the coarse
+   destination session with bounded Orbital spatial cells and interest groups;
+   preserve patrol routes across cell handoff without resetting camera or pose.
+2. **Complete player movement authority.** Reconcile local prediction with
+   server snapshots, add bounded interpolation/extrapolation and recovery, then
+   verify both renderers and supported mobile devices.
+3. **Expand faction response safely.** Add the remaining server-owned sensor,
+   transponder, territory, reputation, and escalation rules; verify multiple
+   humans, both factions, reconnect, duplicate settlement, and the reward
+   boundary on staging before broader rollout.

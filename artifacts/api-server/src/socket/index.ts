@@ -13,6 +13,7 @@ import {
   releaseUniversePatrolEncounter,
   reserveUniversePatrolEncounter,
   resolveUniversePatrolEncounter,
+  resolveUniversePatrolEncounters,
 } from "../game/universe-patrols";
 
 const rawPort = process.env.PORT;
@@ -160,6 +161,10 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   resolveUniversePatrol: enableFreeFlight && explorationRewards &&
     sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
       ? resolveUniversePatrolEncounter
+      : undefined,
+  resolveUniversePatrols: enableFreeFlight && explorationRewards &&
+    sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION
+      ? resolveUniversePatrolEncounters
       : undefined,
   reserveUniversePatrol: enableFreeFlight && explorationRewards &&
     sectorWireProtocolVersion === SECTOR_ORBITAL_PROTOCOL_VERSION

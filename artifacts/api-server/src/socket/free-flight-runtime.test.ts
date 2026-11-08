@@ -189,6 +189,12 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
     ships: [ship],
     revision: 0,
   };
+  const secondContact = {
+    ...contact,
+    patrolId: "persistent-test-patrol-0002",
+    callsign: "Vesper Reinforcements",
+    ships: [{ ...ship, id: "persistent-test-ship-0002", callsign: "Vesper Two" }],
+  };
   const runtime = await startWingSocketServer(0, "127.0.0.1", {
     verifySessionToken: auth.verifySessionToken,
     enableFreeFlight: true,
@@ -197,14 +203,17 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
       faction: "ussf",
       shipId: "duskbreaker",
     }),
-    resolveUniversePatrol: async (_userId, pilotFaction) =>
-      pilotFaction === "ussf" ? contact : null,
+    resolveUniversePatrols: async (_userId, pilotFaction) =>
+      pilotFaction === "ussf" ? [contact, secondContact] : [],
     reserveUniversePatrol: async (userIds, pilotFaction, reservation, encounterId) => {
       assert.deepEqual(userIds, ["combat-pilot"]);
       assert.equal(pilotFaction, "ussf");
-      assert.equal(reservation.patrolId, contact.patrolId);
       assert.match(encounterId, /^[0-9a-f-]{36}$/i);
-      return contact;
+      const reserved = [contact, secondContact].find(
+        (candidate) => candidate.patrolId === reservation.patrolId,
+      );
+      assert.ok(reserved, "each persistent fleet must be reserved by its own identity");
+      return reserved;
     },
     settleScoutEncounter: async (receipt) => {
       const result = readExplorationReceipt(receipt);
@@ -222,16 +231,18 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
   });
   const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?freeflight=1`, "combat-pilot");
   try {
+    const started = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_engagement_started");
     const initial = await join(socket);
     const target = initial.actors.find((actor) =>
       actor.actorId === `patrol-ship:${ship.id}`,
     );
     assert.ok(target, "the persistent fleet must be present in the shared-flight snapshot");
-    const started = nextPacket(socket, (packet) =>
-      packet.type === "freeflight_engagement_started");
-    socket.send(JSON.stringify({ type: "freeflight_engage", targetActorId: target.actorId }));
     const engagement = await started;
     assert.equal(engagement.patrolId, contact.patrolId);
+    const reinforcementStarted = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_engagement_started" &&
+      packet.patrolId === secondContact.patrolId, 10_000);
 
     let finished = false;
     const resultPromise = nextPacket(socket, (packet) =>
@@ -287,6 +298,9 @@ test("persistent patrol combat resolves server-side damage, kill attribution, an
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     const result = await resultPromise;
+    const reinforcement = await reinforcementStarted;
+    assert.equal(reinforcement.reinforcement, true);
+    assert.equal(reinforcement.patrolId, secondContact.patrolId);
     assert.equal(result.status, "settled");
     assert.ok(playerShotsFired > 0, "the server must create and broadcast real weapon projectiles");
     assert.ok(playerMissilesFired > 0, "the server must launch an acquired, server-owned missile");

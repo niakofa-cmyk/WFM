@@ -62,6 +62,26 @@ export async function resolveUniversePatrolEncounter(
   };
 }
 
+/** Resolve every live opposing patrol at the pilot's saved location for shared free flight. */
+export async function resolveUniversePatrolEncounters(
+  userId: string,
+  pilotFaction: PatrolFaction,
+): Promise<UniversePatrolEncounter[]> {
+  const directory = await getUniversePatrolDirectory(userId);
+  return directory.patrols
+    .filter((patrol) => patrol.faction === opposingFaction(pilotFaction) && patrol.ships.length > 0)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((patrol) => ({
+      patrolId: patrol.id,
+      locationId: directory.currentLocationId,
+      faction: patrol.faction,
+      callsign: patrol.callsign,
+      route: patrol.route,
+      ships: patrol.ships,
+      revision: 0,
+    }));
+}
+
 /**
  * Claim the persistent fleet at launch so two rooms cannot pay out for the same
  * ships concurrently. The player's location and the roster are rechecked under

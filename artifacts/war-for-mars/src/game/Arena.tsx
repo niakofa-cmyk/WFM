@@ -818,8 +818,9 @@ export function Arena({
               Number.isSafeInteger(packet.kills) &&
               Number.isSafeInteger(packet.assists) &&
               Number.isSafeInteger(packet.creditsAwarded)) {
-            freeFlightCombatActiveRef.current = false;
-            setFreeFlightCombatStatus("complete");
+            const remainingCombat = packet.phase === "active";
+            freeFlightCombatActiveRef.current = remainingCombat;
+            setFreeFlightCombatStatus(remainingCombat ? "active" : "complete");
             setFreeFlightTally((previous) => ({
               kills: previous.kills + (packet.kills as number),
               assists: previous.assists + (packet.assists as number),

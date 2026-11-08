@@ -142,6 +142,10 @@ export async function startWingSocketServer(
       userId: string,
       faction: "ussf" | "accord",
     ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
+    resolveUniversePatrols?: (
+      userId: string,
+      faction: "ussf" | "accord",
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter[]>;
     reserveUniversePatrol?: (
       userIds: readonly string[],
       faction: "ussf" | "accord",
@@ -188,6 +192,7 @@ export async function startWingSocketServer(
     ? createFreeFlightRuntime({
         resolveAdmission: options.resolveFreeFlightAdmission,
         resolveUniversePatrol: options.resolveUniversePatrol,
+        resolveUniversePatrols: options.resolveUniversePatrols,
         reserveUniversePatrol: options.reserveUniversePatrol,
         settleScoutEncounter: options.settleScoutEncounter,
         releaseUniversePatrol: options.releaseUniversePatrol,

@@ -30,19 +30,28 @@ intercept request remains subject to the server's approach and combat gates.
 
 ## Current implementation and limits — 2026-11-08
 
-- The shared-flight server runtime contains the authoritative patrol-engagement,
-  projectile, collision, shield/hull damage, kill/assist attribution, and result
-  settlement path. Persistent-patrol reservations and settlement adapters must
-  be present for a patrol result to be eligible; source code alone does not
-  prove that the deployed environment has those adapters or feature gates.
+- The Combat Lab remains a local compatibility trainer and fallback. Its control
+  feel is carried into shared flight through the Orbital simulation contract,
+  not by moving pilots into a second training universe. The shared server uses
+  `integrateSpatialFlight`, the Orbital primary/missile projectile functions,
+  server-side missile guidance, swept collision, and shield/hull damage from
+  `@workspace/orbital-sim`.
 - `Arena` renders actors from a fresh authenticated shared-flight snapshot as
   individual Three.js ship models. Opposing patrols also receive a small
   faction-colored world-space designation. REST/local patrol projections stay
   visual-only and never authorize engagement or rewards.
-- A patrol can be engaged from the active flight scene only when the pilot is
-  joined to the shared socket and the current server snapshot marks the patrol
-  engageable. The flight HUD does not send the pilot into the separate
-  `universe-patrol` sector runtime.
+- The server resolves every persistent patrol at the authenticated saved
+  location. Closing to 180 m starts a server-reserved encounter in the current
+  flight scene; it does not teleport the pilot or redirect the camera. The live
+  flight step has no combat arena boundary.
+- While an encounter is active, a second persistent opposing patrol within the
+  520 m sensor range can detect weapons fire or damage and join as a separately
+  reserved encounter. Up to three patrol encounters may be live at once. Each
+  patrol keeps its own idempotent casualty/reward settlement contract; results
+  for one fleet do not stop controls against another fleet.
+- This is the first bounded escalation rule, not the full faction-intelligence
+  model. Reputation, transponder choice, territory ownership, sensor occlusion,
+  fleet-wide command tactics, and spatial-shard handoff are not yet simulated.
 - The client samples movement controls at 20 Hz, below the server's 35-message
   per-second limit, and preserves short primary-fire and missile taps between
   samples. A rate-limit transport error is not presented as a combat state.
@@ -51,23 +60,24 @@ intercept request remains subject to the server's approach and combat gates.
   extended docking telemetry are hidden from the sightline; full station,
   training, and debrief controls remain available when appropriate.
 
-This describes implemented source behavior, not a staging or Production
-verification. The attached screenshot showed the earlier oversized local/offline
-cards and a `FREEFLIGHT_RATE_LIMITED` status, so it did not prove live fleet
-combat. A signed-in shared session, persistent patrol reservation, server
-settlement configuration, and a multi-device check are still required before
-claiming that a deployed encounter has been verified.
+This describes implemented local source behavior, not a staging or Production
+verification. The existing test exercises persistent reservations, real
+server-fired projectiles, hull impacts, kill attribution, settlement, and a
+reinforcement joining the same shared flight. That test does not prove that
+Railway's staging feature gates, Clerk sessions, or two physical devices work.
+The server still shards by a coarse saved destination; it does not yet stream
+actors across a continuous spatial-cell network.
 
 ## Remaining verification gates
 
-1. On staging, confirm the authenticated shared socket returns actual opposing
-   patrol actors and that their 3D models move with successive server snapshots.
-2. Engage a persistent patrol from the same flight scene; verify server-owned
-   impacts, shield/hull changes, kill/assist attribution, and eligible reward
-   settlement without leaving the universe.
-3. Repeat as USSF and Accord, then test two devices, reconnect, duplicate
-   settlement, and a local no-reward preview.
-4. Verify both supported renderers and supported physical mobile devices before
+1. On staging, prove that an authenticated session receives multiple persistent
+   opposing patrols and that they move as 3D actors in successive snapshots.
+2. Verify automatic close-range engagement and a weapons-triggered second-fleet
+   response, including kill/assist attribution and idempotent settlement.
+3. Repeat as USSF and Accord with two devices, disconnect/rejoin, and the local
+   no-reward trainer; verify that a result for one patrol does not interrupt the
+   remaining battle.
+4. Profile both supported renderers and supported physical mobile devices before
    making performance or device-compatibility claims.
 
 See also:
