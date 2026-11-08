@@ -180,7 +180,7 @@ export async function startWingSocketServer(
   const httpServer = createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ status: "ok", rooms: rooms.size }));
+      response.end(JSON.stringify({ status: "ok", rooms: rooms.size, freeFlightSessions: freeFlightRuntime?.sessionCount ?? 0, freeFlightPilots: freeFlightRuntime?.pilotCount ?? 0 }));
       return;
     }
     response.writeHead(404);
