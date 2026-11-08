@@ -26,13 +26,11 @@ function advance(ship: SpatialCraft, controls: FlightControls, steps = 30) {
   }
 }
 
-test("approach selects the canonical pilot path rather than its old manual axis mapping", () => {
+test("the retired approach link routes into the native Cinder flight", () => {
   const source = readFileSync(new URL("./CinderRingDockingApproach.tsx", import.meta.url), "utf8");
-  for (const name of ["createBus", "readInput", "normalizeFlightControls", "setCircularRollControl", "clearInput", "orbitalCameraPose"]) {
-    assert.ok(source.includes(name), `missing canonical input integration: ${name}`);
-  }
-  assert.ok(!source.includes("const pitch = -inputRef.current.y"), "legacy left-stick pitch mapping remains");
-  assert.ok(source.includes("evaluateCinderRingDockingGate"), "local docking gate must remain");
+  assert.match(source, /separate legacy approach scene is retired/);
+  assert.match(source, /combat-lab\.html\?universe=1&destination=cinder-ring/);
+  assert.doesNotMatch(source, /from ["']three["']/);
 });
 
 test("the approach's shared pilot path accelerates forward and in reverse from the left thumb", () => {

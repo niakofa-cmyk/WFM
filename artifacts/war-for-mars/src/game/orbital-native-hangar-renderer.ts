@@ -1,6 +1,8 @@
 import type { Faction, ShipId } from "./ships";
 import { buildOrbitalNativeShipGeometry } from "./orbital-native-ship-geometry";
-import type { HangarDamageState, HangarInspectionView } from "./orbital-visuals";
+
+type HangarInspectionView = "hull" | "engines" | "weapons";
+type HangarDamageState = "intact" | "field" | "critical";
 
 type Matrix = Float32Array;
 type Vec3 = readonly [number, number, number];

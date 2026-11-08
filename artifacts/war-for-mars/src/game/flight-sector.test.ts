@@ -107,8 +107,8 @@ test("sector flight defaults to Orbital; the old motion model remains opt-in com
   assert.notDeepEqual(implicit.position, legacy.position, "legacy physics must require an explicit compatibility selection");
 
   const ui = await readFile(new URL("./RustDiscFlight.tsx", import.meta.url), "utf8");
-  assert.match(ui, /createOrbitalRuntime\(getGameModeDefinition\("rust-disc-local"\)\)/);
-  assert.match(ui, /stepFlight\(state, tickInput, STEP, sector, RUST_DISC_LOCAL_RUNTIME\.runtimeId\)/);
+  assert.match(ui, /LEGACY SECTOR FLIGHT RETIRED/);
+  assert.doesNotMatch(ui, /from ["']three["']|createOrbitalRuntime/);
 });
 
 test("boost consumes a bounded energy reserve; hull classes keep distinct handling", () => {
