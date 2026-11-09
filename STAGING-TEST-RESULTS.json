@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "latestPursuitRollout": {
-    "status": "DEPLOYED_AWAITING_AUTHENTICATED_BATTLE",
+    "status": "AUTHENTICATED_DESTRUCTION_REWARD_AND_CONTINUED_FLIGHT_VERIFIED",
     "configuredSourcePin": "32c326ce90134036e7dd63008601b19af919808b",
     "deploymentMetadataCommit": "748e1183c63a3d505a8f6c68b993ee9f07c645d5",
     "differenceBetweenCommits": "Documentation and memory only; no gameplay source difference",
@@ -14,7 +14,76 @@
     "unauthenticatedProfileHttpStatus": 401,
     "shipStatsOrDamageMultipliersChanged": false,
     "schemaOrFlagChanges": false,
-    "productionChanged": false
+    "productionChanged": false,
+    "authenticatedCombatVerification": {
+      "profileHttpStatuses": [200, 200],
+      "observersAttachedBeforeLaunch": true,
+      "firstSustainedCombat": {
+        "primaryProjectilesPerPilot": [106, 75],
+        "missilesPerPilot": [4, 3],
+        "enemyImpactEventsPerPilot": [60, 49],
+        "enemyShieldDamagePerPilot": [194.4, 212.2],
+        "enemyHullDamagePerPilot": [126, 105.02],
+        "confirmedEnemyDestructionsPerPilot": [2, 1],
+        "settledKillsPerPilot": [2, 1],
+        "settledAssistsPerPilot": [0, 0],
+        "playersDestroyed": [true, true],
+        "settledCreditsPerPilot": [0, 0],
+        "profileBalanceDeltas": [0, 0]
+      },
+      "normalRecoveryFollowup": {
+        "disabledRecoveryReturnedToHangar": [true, true],
+        "settledKillsPerPilot": [0, 1],
+        "settledCreditsPerPilot": [0, 0],
+        "playersDestroyed": [true, true]
+      },
+      "subsequentSurvivingEncounter": {
+        "pilotSlot": 1,
+        "shipId": "mandjet",
+        "normalLateralAndVerticalEvasionUsed": true,
+        "battleDurationMs": 44698,
+        "battleTravelledMeters": 434.88,
+        "primaryProjectiles": 224,
+        "missiles": 2,
+        "enemyImpactEvents": 29,
+        "enemyShieldDamage": 92,
+        "enemyHullDamage": 68,
+        "confirmedEnemyDestructions": 1,
+        "resultPhase": "complete",
+        "resultStatus": "settled",
+        "kills": 1,
+        "assists": 0,
+        "creditsAwarded": 12,
+        "baselineCredits": 294,
+        "currentCredits": 306,
+        "profileBalanceDelta": 12,
+        "profileMatchesSettledResult": true,
+        "ownAliveAfterSettlement": true,
+        "ownHullAfterSettlement": 110,
+        "ownHullMax": 110,
+        "ownShieldAtBattleCompletion": 73.63,
+        "postSettlementTravelledMeters": 9.86,
+        "sameUniversePath": true,
+        "liveSnapshotsAfterSettlement": true,
+        "postSettlementFlightVerified": true
+      },
+      "secondPilotFinalFlight": {
+        "alive": true,
+        "hostilesInSnapshot": 0,
+        "combatParticipated": false,
+        "settledResultObserved": false,
+        "creditsUnchanged": true
+      },
+      "positiveRewardVerified": true,
+      "exactlyOncePositiveRewardVerified": false,
+      "twoPilotAssistAttributionVerified": false,
+      "durableLifetimeKillTallyVerified": false,
+      "fullFourShipFleetDefeatedInOneSurvivingBattleVerified": false,
+      "enemyMeshReadabilityAtCombatRange": "NOT_VERIFIED",
+      "physicalDeviceTest": false,
+      "browserOwnersStopped": true,
+      "credentialsOrBrowserStoragePersisted": false
+    }
   },
   "latestOpenFlightPrimaryFireRollout": {
     "status": "DEPLOYED_AUTHENTICATED_COMBAT_PARTIALLY_VERIFIED",

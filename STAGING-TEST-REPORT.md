@@ -1,12 +1,47 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest staging rollout:** the approved Combat Lab pursuit improvement is deployed across app, API and socket. Configured pin is `32c326c`; Railway deployment metadata reports `748e118`, whose only changes from that pin are documentation and memory. A new authenticated maneuvering battle is pending. Production is unchanged.
+- **Latest staging rollout:** the approved Combat Lab pursuit improvement is deployed across app, API and socket. Configured pin is `32c326c`; Railway deployment metadata reports `748e118`, whose only changes from that pin are documentation and memory. Authenticated enemy destruction, a 12-credit settlement, and surviving continued flight are now verified. Production is unchanged.
 - **Primary-fire verification at `d791ed7`:** both pilots authenticated, entered shared fleet combat, emitted real projectiles and inflicted enemy shield damage. Enemy fire destroyed both pilots; both defeat results settled for zero credits, balances stayed unchanged, and explicit recovery returned both pilots to the hangar. Enemy kills, positive rewards and surviving continued flight remain unverified.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
+
+## Authenticated pursuit and surviving encounter verification
+
+Both retained staging sessions established an active Clerk session and profile
+HTTP **200**. Observers attached before each hangar launch. These are real
+server-observed battles driven through normal firing, missile, aiming and
+movement inputs, not injected health, positions or results.
+
+The first sustained two-pilot pass emitted **181 primary projectiles and 7
+missiles**. Destruction events matched settled kill counts: **2** for the first
+pilot and **1** for the second. Both pilots were subsequently destroyed; their
+defeats settled at zero credits and their balances stayed unchanged. Explicit
+disabled-ship recovery returned both to the hangar. A second normal launch
+produced another kill for the second pilot, but both pilots were again
+destroyed. These runs do not prove a surviving full-fleet victory.
+
+The subsequent evasive pass used the same Mandjet stats and normal lateral
+and vertical controls. The first pilot travelled **434.88 m** during a
+**44.698-second** encounter, inflicted **92 shield / 68 hull** damage,
+and destroyed one enemy. The server settled **1 kill / 0 assists / 12 credits**.
+The authenticated profile changed from **294 to 306 credits**, matching that
+settlement. The pilot survived with **110/110 hull** and approximately **74/160
+shield**. After settlement, normal forward input moved the living pilot another
+**9.86 m**, with continuing authoritative snapshots on the same universe path.
+
+The second pilot's final launch had no hostile contact, no combat result and
+no reward; it is not counted as an assist or a second surviving battle.
+
+No ship, shield, weapon-damage, reward, schema or flag changes were used to
+obtain this result. This proves a surviving encounter, **not** destruction of
+an entire fresh four-ship fleet in one life or parity with every training rule.
+Two-pilot assists, exactly-once positive settlement, durable lifetime kill
+totals, enemy mesh readability at battle range and physical Android behavior
+remain unverified. Both browser workers were stopped after evidence capture.
+The precise measurements are under `latestPursuitRollout` in the JSON evidence.
 
 ## Open-flight primary-fire rollout — 2026-11-09
 

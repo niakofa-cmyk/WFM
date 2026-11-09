@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { battlePilotIntent } from "./lib/staging-combat-pilot.mjs";
+import { battlePilotIntent, evasivePilotKeys } from "./lib/staging-combat-pilot.mjs";
 
 const own = { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } };
 const target = (x, y, z) => ({ position: { x, y, z } });
@@ -30,4 +30,15 @@ test("staging steering is invariant under a distant universe origin", () => {
     battlePilotIntent(own, target(10, 10, -40)),
     battlePilotIntent(moved, target(1e6 + 10, -2e6 + 10, 3e6 - 40)),
   );
+});
+
+test("staging evasion alternates valid lateral and vertical controls independently", () => {
+  assert.deepEqual(evasivePilotKeys(0), ["KeyX", "KeyV"]);
+  assert.deepEqual(evasivePilotKeys(900), ["KeyZ", "KeyV"]);
+  assert.deepEqual(evasivePilotKeys(1300), ["KeyZ", "KeyC"]);
+  assert.deepEqual(evasivePilotKeys(1800), ["KeyX", "KeyC"]);
+});
+
+test("staging evasion rejects invalid timers", () => {
+  for (const value of [-1, NaN, Infinity]) assert.throws(() => evasivePilotKeys(value), RangeError);
 });

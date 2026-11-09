@@ -131,13 +131,20 @@ JWK values. Verify Development mode before any account lookup or write.
 
 Keep OTP submission in the process/client that owns the waiting browser page.
 Do not assume a second Playwright connection can resume another client's page.
+If the workspace sleeps or restarts and that owner is lost, do not submit
+previously supplied codes to a replacement challenge.
 
 **Why:** separate connections to a Playwright launch server exposed isolated
 contexts; reconnecting succeeded but returned no original contexts or pages.
+Workspace suspension also terminated both pending browser owners during a
+secure-code handoff.
 
 **How to apply:** prove a private, in-process OTP handoff with synthetic input
 before starting another live challenge. Never log codes, expose a public relay,
 or persist browser login state as a workaround.
+For a bounded pending verification, keep the workers alive only through a
+short explicit timeout, stop them after testing, and request new codes if their
+original challenge was lost.
 
 Keep helper diagnostics failure-isolated from the browser-owning process.
 
@@ -170,3 +177,14 @@ pilots' genuine destroyed state.
 **How to apply:** prepare observation before entry, inspect authoritative life
 immediately, and avoid slow baseline/profile work while a live encounter runs.
 Do not revive or fabricate a new result to make a blocked verification pass.
+
+Exercise sustained firing and genuine evasive movement before diagnosing live
+combat balance from an automated loss.
+
+**Why:** gapped or mostly stationary inputs lost fights that normal lateral
+and vertical evasion could survive without changing ship or damage stats.
+
+**How to apply:** prepare bounded 3D aiming, missile requests and movement
+before entry. Separate destruction from survival, verify the authoritative
+settlement against the frozen balance, and measure actual movement after the
+result. An idle second pilot is not evidence of assistance.

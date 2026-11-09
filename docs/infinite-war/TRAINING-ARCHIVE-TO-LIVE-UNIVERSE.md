@@ -100,7 +100,7 @@ projectiles, impacts, destruction, assists, settlement and continued flight.
 Do not declare full combat parity, completed multiplayer settlement, physical
 phone verification or Production readiness from source reuse alone.
 
-### Live combat balance and the next maneuvering test
+### Live combat balance and maneuvering verification
 
 Training currently applies a 2.2× player primary-damage multiplier and a 0.28×
 AI multiplier. Shared flight uses base ship damage on both sides. This is a
@@ -109,9 +109,17 @@ training's player advantage into multiplayer or buy/grant upgrades just to
 make a verification pass. No ship, weapon, shield or reward values were changed
 for the pursuit rollout.
 
-The next bounded staging driver sustains normal firing, follows one target in
+The bounded staging driver sustains normal firing, follows one target in
 ship-local 3D axes, uses the actual aim stick for pitch, requests missiles only
-when aligned, and advances or reverses rather than remaining parked. Authority
+when aligned, and advances, reverses and evades laterally/vertically rather than remaining parked. Authority
 still grants locks, ammo use, hits, kills and settlement. Track enemy destruction
 events separately from shield impacts and test actual movement after a settled
 surviving battle. A test driver is not a player-facing autopilot or an upgrade.
+
+The authenticated staging pass now proves enemy destruction and a surviving
+encounter: one server-settled kill awarded 12 credits, the profile balance
+increased by exactly 12, and normal input moved the living ship 9.86 m after
+settlement in the same universe. Earlier passes confirmed kills on both pilots
+but ended in zero-credit defeats. This does not certify two-pilot assists,
+duplicate settlement, all ship abilities or per-ship upgrades. See
+`STAGING-TEST-REPORT.md` for the scoped evidence and remaining gaps.

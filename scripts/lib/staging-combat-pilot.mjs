@@ -1,5 +1,14 @@
 const clamp = (x, min = -1, max = 1) => Math.max(min, Math.min(max, x));
 
+/** Normal lateral/vertical keys; no pose changes or special combat privileges. */
+export function evasivePilotKeys(elapsedMs) {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) throw new RangeError("Invalid elapsed time");
+  return [
+    Math.floor(elapsedMs / 900) % 2 ? "KeyZ" : "KeyX",
+    Math.floor(elapsedMs / 1300) % 2 ? "KeyC" : "KeyV",
+  ];
+}
+
 /**
  * Bounded staging-driver intent, not gameplay auto-aim. Consumes observed
  * geometry and returns normal device controls; never writes health or results.
