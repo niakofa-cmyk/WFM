@@ -10,6 +10,17 @@ export type FreeFlightTargetState = {
   missileCooldown: number;
   ammo: number;
 };
+/** Stable cycling order so every tap selects the same server-owned next target. */
+export function cycleFreeFlightTarget<T extends { actorId: string }>(
+  candidates: readonly T[],
+  currentTargetActorId: string | null,
+): T | null {
+  if (!candidates.length) return null;
+  const ordered = [...candidates].sort((a, b) =>
+    a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0);
+  const current = ordered.findIndex(candidate => candidate.actorId === currentTargetActorId);
+  return ordered[(current + 1) % ordered.length]!;
+}
 export function isFreeFlightTargetState(value: unknown): value is FreeFlightTargetState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const state = value as Record<string, unknown>;

@@ -195,10 +195,11 @@ export class FreeFlightClient {
       }
       if (packet.type === "freeflight_joined") {
         const targeting = packet.targeting as { protocol?: unknown; nextSeq?: unknown } | undefined;
-        this.targetingAvailable = targeting?.protocol === FREE_FLIGHT_TARGETING_V1 &&
+        this.targetingAvailable = Boolean(targeting &&
+          targeting.protocol === FREE_FLIGHT_TARGETING_V1 &&
           Number.isSafeInteger(targeting.nextSeq) && (targeting.nextSeq as number) > 0 &&
-          (targeting.nextSeq as number) <= 0x7fffffff;
-        if (this.targetingAvailable) this.targetCycleSeq = targeting!.nextSeq as number;
+          (targeting.nextSeq as number) <= 0x7fffffff);
+        if (targeting && this.targetingAvailable) this.targetCycleSeq = targeting.nextSeq as number;
         this.lastTargetState = null;
         const vector = packet.vectorBoost as { protocol?: unknown; nextSeq?: unknown } | undefined;
         this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
@@ -227,10 +228,11 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_target_state") {
-        if (this.targetingAvailable && isFreeFlightTargetState(packet.state) &&
-            packet.state.sessionInstanceId === this.sessionInstanceId &&
-            packet.state.tick >= (this.lastTargetState?.tick ?? -1)) {
-          this.lastTargetState = packet.state;
+        const state: unknown = packet.state;
+        if (this.targetingAvailable && isFreeFlightTargetState(state) &&
+            state.sessionInstanceId === this.sessionInstanceId &&
+            state.tick >= (this.lastTargetState?.tick ?? -1)) {
+          this.lastTargetState = state;
         }
         return;
       }

@@ -2167,6 +2167,7 @@ export function Arena({
           }
           freeFlightClientRef.current?.sendControls({
             ...controls,
+            lock: freeFlightEnabled && controls.lock,
             fire: primaryFireEnabled && controls.fire,
             missile: weaponsEnabled && controls.missile,
           });
@@ -3062,11 +3063,17 @@ export function Arena({
         lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
         if (freeFlightEnabled) {
           lockRef.current.disabled = !freeFlightClientRef.current?.canSelectTarget;
-          lockRef.current.dataset.target = sharedLocked?.callsign ?? "";
+          const shipName = sharedLocked && Object.hasOwn(SHIPS, sharedLocked.shipId)
+            ? SHIPS[sharedLocked.shipId as ShipId].name : sharedLocked?.shipId.toUpperCase();
+          const sharedTargetLabel = sharedLocked ? `${sharedLocked.callsign} · ${shipName}` : "";
+          lockRef.current.dataset.target = sharedTargetLabel;
           lockRef.current.dataset.locked = sharedLocked ? "true" : "false";
           lockRef.current.setAttribute("aria-label", sharedLocked
-            ? `Switch enemy target, selected ${sharedLocked.callsign}`
+            ? `Switch enemy target, selected ${sharedTargetLabel}`
             : "Select enemy target");
+        } else {
+          // This node may be reused after leaving shared flight.
+          lockRef.current.disabled = false;
         }
       }
       if (freeFlightEnabled) {
@@ -3075,10 +3082,19 @@ export function Arena({
         const percent = Math.floor((sharedTargetState?.lockProgress ?? 0) * 100);
         if (targetStatusRef.current) targetStatusRef.current.hidden = !sharedLocked;
         if (sharedLocked) {
+          if (targetStatusRef.current) {
+            targetStatusRef.current.dataset.faction = sharedLocked.faction;
+            targetStatusRef.current.dataset.critical = isTargetHullCritical(
+              Math.ceil(sharedLocked.hull / Math.max(1, sharedLocked.hullMax) * 100),
+            ) ? "true" : "false";
+            targetStatusRef.current.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
+          }
           const shield = Math.ceil(sharedLocked.shield / Math.max(1, sharedLocked.shieldMax) * 100);
           const hull = Math.ceil(sharedLocked.hull / Math.max(1, sharedLocked.hullMax) * 100);
           if (targetFactionRef.current) targetFactionRef.current.textContent = sharedLocked.faction.toUpperCase();
-          if (targetNameRef.current) targetNameRef.current.textContent = sharedLocked.callsign;
+          const shipName = Object.hasOwn(SHIPS, sharedLocked.shipId)
+            ? SHIPS[sharedLocked.shipId as ShipId].name : sharedLocked.shipId.toUpperCase();
+          if (targetNameRef.current) targetNameRef.current.textContent = `${sharedLocked.callsign} · ${shipName}`;
           if (targetDistanceRef.current) targetDistanceRef.current.textContent = `${Math.round(Math.hypot(
             sharedLocked.position.x - player.x, sharedLocked.position.y - (player.space?.y ?? 0),
             sharedLocked.position.z - player.z,

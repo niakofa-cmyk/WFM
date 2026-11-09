@@ -87,6 +87,28 @@ changing the right-thumb profile clears captured axes, pending taps/flicks and
 circle-roll input. The extra help stays in the flight menu rather than blocking
 the battlefield.
 
+## Shared-flight enemy selection and missile lock
+
+The shared-flight lock control cycles only to a living hostile patrol already
+participating in one of the pilot's active encounters and inside the streamed
+universe bubble. Order is server-selected and stable. A pilot's selected enemy
+stays selected while maneuvering or turning, rather than silently switching
+when another contact crosses the forward cone. Dead, departed, friendly or
+out-of-stream targets are rejected or cleared. Repeated selection is
+rate-limited, and stale sequences or client-supplied actor IDs are rejected.
+
+Shared lock state (current enemy, native lock progress, missile cooldown,
+ammunition and launch readiness) is sent separately from strict flight
+snapshots. The button and target HUD use that server report. Readiness uses the
+existing native alive, aiming-cone, range, target and ammunition checks;
+selection alone is not a missile lock. Selection does not add a
+client-authored target ID to the historical flight input.
+
+Regression checks cover hostile-only switching, selection held through
+continuous flight input, native missile acquisition while maneuvering,
+launch against the selected actor, and clearing the old charge when switching
+or when that enemy is destroyed.
+
 ### Honest multiplayer boundary
 
 Hybrid/vector analog axes and negotiated eight-way bursts use the existing

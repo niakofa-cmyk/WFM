@@ -52,3 +52,4 @@
 - [Anomaly gravity contract](anomaly-gravity-contract.md) — negotiate versioned server fields before applying shared movement forces; visuals remain non-authoritative.
 - [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.
 - [Shared-flight combat recovery](shared-flight-combat-recovery.md) — reconnect restores server battle state; secondary request failures must not hide active controls or bypass fleet claims.
+- [Shared target-lock handoff](shared-target-lock-handoff.md) — preserve the previous native lock identity until simulation observes a target switch, so stale missile charge is cleared.

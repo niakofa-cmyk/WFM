@@ -3,6 +3,7 @@ import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-
 import {
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
+  cycleFreeFlightTarget,
   FREE_FLIGHT_PROTOCOL_V1,
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
   FREE_FLIGHT_TARGETING_V1,
@@ -1534,23 +1535,20 @@ export function createFreeFlightRuntime(options: {
         error("invalid_freeflight_target_cycle");
         return;
       }
-      actor.targetCycleSeq = packet.seq as number;
       const now = Date.now();
       if (now - (actor.lastTargetCycleAt ?? -Infinity) < 125) {
         error("freeflight_target_cycle_rate_limited");
         return;
       }
+      actor.targetCycleSeq = packet.seq as number;
       actor.lastTargetCycleAt = now;
       const candidates = [...seat.session.actors.values()]
-        .filter(candidate => eligiblePilotTarget(seat.session, actor, candidate))
-        .sort((a, b) => a.actorId.localeCompare(b.actorId));
-      const current = candidates.findIndex(candidate => candidate.actorId === actor.selectedTargetActorId);
-      const target = candidates[(current + 1) % Math.max(1, candidates.length)];
+        .filter(candidate => eligiblePilotTarget(seat.session, actor, candidate));
+      const target = cycleFreeFlightTarget(candidates, actor.selectedTargetActorId ?? null) ?? undefined;
       const changed = actor.selectedTargetActorId !== (target?.actorId ?? null);
       actor.selectedTargetActorId = target?.actorId ?? null;
       actor.craft.lockTargetId = target?.numericId ?? null;
       if (changed) {
-        actor.craft.space!.lockTargetId = actor.craft.lockTargetId;
         actor.craft.space!.lockProgress = 0;
       }
       sendTargetState(seat.session, actor);
