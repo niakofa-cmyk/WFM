@@ -1,7 +1,45 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest staging rollout:** the approved Combat Lab pursuit improvement is deployed across app, API and socket. Configured pin is `32c326c`; Railway deployment metadata reports `748e118`, whose only changes from that pin are documentation and memory. Authenticated enemy destruction, a 12-credit settlement, and surviving continued flight are now verified. Production is unchanged.
+- **Latest staging rollout:** the approved right-thumb build `296a3f4` successfully deployed across app, API and socket. Both pilots authenticated with profile HTTP 200. Production is unchanged.
+
+## Directional controls and live combat: current evidence
+
+- Both pilots entered shared flight from the hangar. Actual pointer drags moved
+  the hull diagonally, primary fire stayed active, and release returned the axes
+  to zero. Both clients received `orbital-vector-boost-v1`; the server accepted
+  cardinal/diagonal burst requests with 240 ms remaining and a 1,200 ms cooldown.
+  Pilot 1 also received an accepted burst during active combat.
+- In the first USSF Duskbreaker battles, each pilot destroyed one enemy and was
+  subsequently destroyed. Both defeats settled for zero credits, balances
+  remained unchanged, and the normal disabled-ship recovery returned both to
+  the hangar.
+- A bounded repeat selected the **existing Sentinel** through the fleet menu,
+  without changing ship, weapon or enemy statistics. Pilot 1 destroyed the
+  remaining two hostile ships and survived with **90/90 hull** and **4.66/150
+  shield** at completion. The server settled **24 credits**, and the authenticated
+  profile balance increased from **306 to 330**, matching that settlement.
+- Pilot 1 then flew another **10.3 metres in the same live universe** after the
+  settled result. No separate combat scene or training reward was used.
+- Pilot 2 had no hostile target in the repeat and received no result or reward.
+  **Nearby shared assists remain unverified.** Changing hull and fighting the
+  remaining roster is not a controlled test of maneuver-survival improvements.
+- Both test profiles were restored through the normal hangar controls to their
+  original Accord/Mandjet selection; earned credits were retained. Both bounded
+  browser owners were stopped.
+- Remaining observations: the post-battle HUD retained a local patrol notice
+  while the authoritative hostile roster was empty. The automated flight-menu
+  exit attempt timed out; a normal root reload returned to the hangar. That
+  timeout is not yet root-caused. Physical Android touch/performance remains
+  unverified.
+- Rendered post-result evidence: `generated-artifacts/wfm-staging-combat-02.jpg`.
+  Sanitized per-pilot evidence is retained under `generated-artifacts/`.
+
+## Preserved earlier verification records
+
+- **Previous rollout:** pursuit improvement configured at `32c326c`, with
+  documentation-only deployment metadata at `748e118`, established the earlier
+  12-credit surviving flight. It is historical, not the current controls build.
 - **Primary-fire verification at `d791ed7`:** both pilots authenticated, entered shared fleet combat, emitted real projectiles and inflicted enemy shield damage. Enemy fire destroyed both pilots; both defeat results settled for zero credits, balances stayed unchanged, and explicit recovery returned both pilots to the hangar. Enemy kills, positive rewards and surviving continued flight remain unverified.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl

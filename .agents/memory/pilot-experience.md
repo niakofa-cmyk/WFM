@@ -22,6 +22,18 @@ Wing/sector contracts, historical replays and the offline-only roll boundary.
 Do not treat earlier staging survival evidence as verification of these new
 controls; require fresh paired staging and physical-device checks.
 
+**Verification rule:** hold hull and encounter conditions constant before
+claiming a maneuver improves survival. Changing loadouts or fighting a depleted
+fleet can prove functional combat and settlement, but not an evasion advantage.
+Two authenticated pilots also do not establish a shared assist.
+
+**Why:** control acceptance, a surviving flight under different combat conditions,
+and actual same-battle cooperation are separate kinds of evidence.
+
+**How to apply:** report the loadout and encounter conditions with results; keep
+server-controlled burst proof, same-flight settlement and nearby-assist proof
+separate.
+
 Treat [the pilot-experience reconstruction](../../docs/infinite-war/PILOT-EXPERIENCE-RECONSTRUCTION.md), [left-thumb control directive](../../docs/infinite-war/LEFT-THUMB-FLIGHT-CONTROL-DIRECTIVE.md), and [Orbital tactical maneuver roadmap](../../docs/infinite-war/ORBITAL-TACTICAL-MANEUVER-ROADMAP.md) as leading references for active flight screens and touch behavior.
 Use [the image-reference review](../../docs/infinite-war/PILOT-IMAGE-REFERENCE-REVIEW.md) for visual composition; treat supplied images as inspiration, not artwork or interface to copy.
 The full user-supplied tactical control documents and barrel-roll reference image are retained in `docs/infinite-war/references/`.

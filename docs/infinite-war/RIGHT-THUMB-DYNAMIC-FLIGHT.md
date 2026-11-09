@@ -101,3 +101,19 @@ timed out; the actual rendered flight screenshot was captured.
 
 This is software-rendered control verification, not missile-evasion statistics,
 new authenticated staging evidence, or physical-device certification.
+
+### Subsequent approved staging verification
+
+The owner approved staging deployment of `296a3f4` across the app, API and socket.
+Both authenticated pilots received the burst capability and server acceptance
+for real pointer-driven requests; firing and hull movement were observed.
+A real battle confirmed damage and destruction in both directions. After normal
+disabled recovery and selecting the existing Sentinel hull, one pilot survived
+two confirmed kills, received an accepted 24-credit settlement with the matching
+profile balance change, and continued flying in the same universe.
+
+See the current section in `STAGING-TEST-REPORT.md` and the structured
+`pendingRightThumbControlRollout` record in `STAGING-TEST-RESULTS.json`.
+Shared assists, a controlled survival comparison, post-battle contact-label
+cleanup and physical-device checks remain outstanding. No ship/enemy statistics
+were modified to obtain this result, and Production was not changed.

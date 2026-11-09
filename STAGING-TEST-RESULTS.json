@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "pendingRightThumbControlRollout": {
-    "status": "STAGING_DEPLOYED_AUTHENTICATION_PENDING",
+    "status": "STAGING_PARTIALLY_VERIFIED_ASSISTS_AND_DEVICE_CHECKS_PENDING",
     "stagingRevision": "296a3f402b7accab3cc1b2d9315a1ffe4ed4fbc6",
     "stagingDeployments": {
       "app": { "id": "eeb605bb-2d64-4ede-a160-19b9ded1d2d6", "status": "SUCCESS" },
@@ -9,7 +9,55 @@
       "socket": { "id": "b4642877-6653-48d8-8827-8bdd9151c6a9", "status": "SUCCESS" }
     },
     "unauthenticatedStagingEntryHttpStatus": 401,
-    "freshPilotChallenges": { "pilot1": "needs_client_trust", "pilot2": "needs_client_trust" },
+    "freshPilotChallenges": { "pilot1": "COMPLETED", "pilot2": "COMPLETED" },
+    "authenticatedProfileStatuses": [200, 200],
+    "bothPilotsAdvertisedVectorBoost": true,
+    "serverAcceptedBurstDirections": { "pilot1": ["right", "up-right"], "pilot2": ["up-left", "left"] },
+    "realPointerMovementAndFiring": {
+      "pilot1": { "dragDirection": "up-right", "positiveXYDisplacement": true, "firing": true, "releaseAxesNeutral": true },
+      "pilot2": { "dragDirection": "down-left", "negativeXYDisplacement": true, "firing": true, "releaseAxesNeutral": true },
+      "burstAcknowledgement": { "accepted": true, "cooldownMs": 1200, "remainingMs": 240 },
+      "pilot1BurstDuringActiveBattle": true
+    },
+    "duskbreakerCombat": {
+      "confirmedKillsPerPilot": [1, 1],
+      "assistsPerPilot": [0, 0],
+      "primaryProjectilesPerPilot": [154, 126],
+      "missilesPerPilot": [1, 2],
+      "enemyDamageAndPilotDamageObserved": [true, true],
+      "pilotsDestroyed": [true, true],
+      "settledCreditsPerPilot": [0, 0],
+      "profileBalanceDeltas": [0, 0],
+      "disabledRecoveryReturnedToHangar": [true, true]
+    },
+    "existingSentinelHullRepeat": {
+      "normalFleetMenuSavedHullSelection": [true, true],
+      "hullStatsOrEnemyStatsChanged": false,
+      "pilot1": {
+        "kills": 2, "assists": 0, "destroyedActorCount": 2,
+        "primaryProjectiles": 158, "missiles": 3,
+        "resultPhase": "complete", "resultStatus": "settled",
+        "creditsAwarded": 24, "baselineCredits": 306, "currentCredits": 330,
+        "profileBalanceDelta": 24, "matchesSettledResult": true,
+        "ownAlive": true, "ownHull": 90, "ownHullMax": 90,
+        "shieldAtBattleCompletion": 4.66, "shieldMax": 150,
+        "sameUniverseContinuedFlightVerified": true, "continuedFlightMeters": 10.3
+      },
+      "pilot2": { "ownAlive": true, "result": null, "reason": "NO_HOSTILE_TARGET", "credits": 174 },
+      "controlledSurvivalComparison": false,
+      "sharedAssistanceVerified": false
+    },
+    "originalProfilesRestored": {
+      "pilot1": { "faction": "accord", "shipId": "mandjet", "credits": 330 },
+      "pilot2": { "faction": "accord", "shipId": "mandjet", "credits": 174 }
+    },
+    "browserSessionsClosed": true,
+    "remainingObservations": [
+      "No shared assist was verified; two authenticated pilots alone do not prove assistance.",
+      "A local patrol contact notice persisted after the authoritative hostile roster cleared.",
+      "Automated flight-menu exit timed out; normal root reload returned to the hangar. Cause remains unconfirmed.",
+      "No physical Android gesture or performance certification."
+    ],
     "defaultProfile": "hybrid",
     "aimOnlyRollback": true,
     "sharedBurstCapability": "orbital-vector-boost-v1",
@@ -31,7 +79,7 @@
       "physicalDevice": false
     },
     "testingBrowserWebGLContext": "UNAVAILABLE",
-    "authenticatedStagingManeuverBattle": "NOT_RUN",
+    "authenticatedStagingManeuverBattle": "VERIFIED_WITH_LIMITS_RECORDED_ABOVE",
     "newControlBattleSurvivalStatistics": "NOT_MEASURED",
     "sharedCircleRollAndCountermeasuresEnabled": false,
     "productionChanged": false
