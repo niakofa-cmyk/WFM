@@ -1,11 +1,39 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest opening-patrol rollout:** app, API and socket all report SUCCESS at source `1b6a9a3bdf7c0f6fef50a7e7eac277693af7acb5`. Main/Combat Lab initial bundles measured 126,307/127,135 bytes gzip; both are under the 143,360-byte Combat Lab budget. Unauthenticated root, profile and WebSocket requests returned 401. Authenticated verification is blocked: both staging sign-in flows remained at client-trust challenges and profile sessions were not established. No player fire, hit, kill, or reward result was claimed for this deployment. Production is unchanged.
+- **Latest open-flight primary-fire rollout:** app, API and socket all report SUCCESS at exact source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Combat Lab initial static graph measured 126,487 bytes gzip against the unchanged 143,360-byte limit; Three.js is not in that initial graph. Staging health returned 200; unauthenticated profile and WebSocket upgrade requests returned 401. Authenticated combat was not tested. Production is unchanged.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
+
+## Open-flight primary-fire rollout — 2026-11-09
+
+The approved commit `d791ed7a9a93f69533bb716107d12aea0cb67891` is deployed
+successfully to the separate Railway staging app, API, and socket services.
+Their exact deployment IDs and matching source pins are recorded in
+`STAGING-TEST-RESULTS.json` under `latestOpenFlightPrimaryFireRollout`.
+
+The full local workspace check passed: typecheck, 53 script tests, 235 API
+tests, 408 game tests, and production builds. The Combat Lab initial static
+graph stayed at **126,487 bytes gzip** against the unchanged **143,360-byte**
+limit, with Three.js outside the initial graph.
+
+Staging gateway health returned **200**. Unauthenticated profile and
+free-flight WebSocket upgrade requests returned **401**. No sign-in was
+started, no challenge was triggered, and no verification code was used.
+Therefore staging deployment and gateway protection are verified, while
+authenticated in-flight firing, projectile impacts, kill attribution,
+assists, rewards, and post-battle continuation remain **NOT VERIFIED**.
+
+In the implementation, shared-flight primary guns are available while a
+living pilot is flying. The server chooses any target and owns projectile
+travel, collision, damage, and settlement. Automatic patrol admission is
+limited to the locally streamed scene bubble (about **2.5 km**); this does not
+claim unbounded projectile travel across the universe. Empty-space shots do
+not deal damage. No schema, flags, authentication settings, or Production
+services were changed. The public preview screenshot shows the hangar only,
+not the authenticated combat controls.
 
 ## Scout pursuit and flight alignment rollout — 2026-11-08
 

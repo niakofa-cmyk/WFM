@@ -1,5 +1,24 @@
 {
   "overallStatus": "PENDING",
+  "latestOpenFlightPrimaryFireRollout": {
+    "status": "DEPLOYED_GATEWAY_VERIFIED_AUTHENTICATED_COMBAT_NOT_VERIFIED",
+    "stagingRuntimeCommit": "d791ed7a9a93f69533bb716107d12aea0cb67891",
+    "stagingServices": {
+      "app": { "status": "SUCCESS", "deploymentId": "90cbdab4-6c0a-4f4c-a597-c9c89915210e" },
+      "api": { "status": "SUCCESS", "deploymentId": "0b008957-c38a-44ab-8159-3a99f6f74d64" },
+      "socket": { "status": "SUCCESS", "deploymentId": "cbcedc57-3d46-47b9-ae0f-100ead1b8a5f" }
+    },
+    "matchingStagingSourcePins": true,
+    "combatLabInitialStaticGzipBytes": 126487,
+    "combatLabInitialStaticBudgetBytes": 143360,
+    "threeJsInInitialStaticGraph": false,
+    "gatewayHealthHttpStatus": 200,
+    "unauthenticatedProfileHttpStatus": 401,
+    "unauthenticatedSocketUpgradeHttpStatus": 401,
+    "authenticatedCombatVerification": "NOT_RUN",
+    "schemaOrFlagChanges": false,
+    "productionChanged": false
+  },
   "latestOpeningPatrolRollout": {
     "status": "DEPLOYED_AUTHENTICATED_VERIFICATION_BLOCKED",
     "stagingRuntimeCommit": "1b6a9a3bdf7c0f6fef50a7e7eac277693af7acb5",

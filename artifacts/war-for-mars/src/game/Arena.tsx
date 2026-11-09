@@ -1053,7 +1053,7 @@ export function Arena({
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const unifiedOrbitalControls = orbital && !online;
-  /** Combat-only HUD is hidden outside the training activity of the local universe. */
+  /** Exploration hides encounter-only actions; shared-flight primary fire remains available. */
   const exploringHud = Boolean(localUniverse) && universe?.phase !== "training";
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
