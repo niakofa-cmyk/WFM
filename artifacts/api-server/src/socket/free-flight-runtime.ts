@@ -15,6 +15,7 @@ import {
   detSin,
   guideMissile,
   integrateSpatialFlight,
+  orbitalCombatPursuit,
   anomalyGravityWellForSector,
   newFlight,
   parseOrbitalInput,
@@ -561,11 +562,7 @@ export function createFreeFlightRuntime(options: {
     const pitchError = detAtan2(local.y, detHypot(local.x, local.z));
     return {
       ...IDLE,
-      throttle: distance > 150 ? 0.32 : 0.12,
-      yaw: clamp(yawError * 1.6),
-      pitch: clamp(pitchError * 1.4),
-      strafe: clamp(local.x * 0.001, -0.16, 0.16),
-      vertical: clamp(local.y * 0.001, -0.16, 0.16),
+      ...orbitalCombatPursuit(actor.craft, target.craft, SHIPS[actor.shipId].role).controls,
       // Training's readable aim-before-fire rule, in shared 3D space.
       // Proximity alone is not permission to shoot sideways/backwards.
       fire: distance < 170 && Math.abs(yawError) < 0.18 && Math.abs(pitchError) < 0.18,

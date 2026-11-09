@@ -11,6 +11,17 @@ first versioned orbital campaign replay; capable clients receive server-selected
 Do not silently reinterpret an issued run. Keep squad orders and capital-ship
 objectives in validated co-op operations.
 
+Use Combat Lab's actual gameplay mechanics as the reference for live encounters,
+not a separate training match launched when a pilot meets a fleet.
+
+**Why:** the user explicitly wants the training flight, framing and battle
+functions carried into the continuous playable universe, followed by continued
+exploration.
+
+**How to apply:** share simulation helpers rather than replace newer authority
+and recovery code with older uploaded snapshots. Distinguish proven shared
+building blocks from features still awaiting migration or live verification.
+
 For continuous shared free flight, keep primary guns ready for every living
 pilot, including before an encounter begins. A real collision with a
 server-owned target determines damage; clients cannot choose targets or submit

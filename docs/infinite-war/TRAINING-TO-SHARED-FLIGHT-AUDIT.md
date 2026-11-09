@@ -7,6 +7,10 @@ do not treat these original findings as proof that the fixes were deployed.
 
 # Training-to-shared-flight and recovery audit
 
+For the subsequent uploaded-archive review and shared pursuit implementation,
+see [Training Archive to Live Universe](TRAINING-ARCHIVE-TO-LIVE-UNIVERSE.md).
+That slice shares combat steering; it does not certify full training parity.
+
 ## Scope and evidence
 
 Source review following authenticated staging verification of runtime
