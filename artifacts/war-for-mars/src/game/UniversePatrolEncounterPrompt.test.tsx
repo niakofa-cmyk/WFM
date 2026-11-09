@@ -3,8 +3,18 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { UniversePatrolEncounterPrompt } from "./UniversePatrolEncounterPrompt";
+import { displayedPatrolContact } from "./shared-flight-patrol-contact";
 
 const contact = { callsign: "ACCORD-0101", faction: "accord" as const, shipCount: 3, distanceMeters: 120 };
+
+test("an empty authoritative roster removes the entire stale local battle notice", () => {
+  const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {
+    contact: displayedPatrolContact(true, null, contact),
+    enabled: true,
+    notice: "HOSTILE INTERCEPT · Live fleet battle engaged.",
+  }));
+  assert.equal(html, "");
+});
 
 test("local patrol traffic is a read-only preview and cannot launch a separate combat runtime", () => {
   const html = renderToStaticMarkup(createElement(UniversePatrolEncounterPrompt, {

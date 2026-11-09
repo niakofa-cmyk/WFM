@@ -5,6 +5,18 @@
 
 ## Directional controls and live combat: current evidence
 
+**Pending follow-up, not yet deployed:** the stale-contact fix and local
+nearby-assist regression checks pass the full workspace validation. Shared-mode
+HUD contact selection no longer falls back to a local preview; final completion
+clears the old interception notice. Nine targeted contact/rendering tests pass.
+Two nearby runtime checks cover automatic allied participation and a native
+two-pilot battle producing one kill, one assist and one settlement. That test's
+durable settlement adapter is mocked: it is not new staging balance evidence.
+The existing policy grants zero credits for an assist alone; no reward policy
+was changed. See `docs/infinite-war/SHARED-BATTLE-ASSIST-VERIFICATION.md`.
+Authenticated same-battle assistance and the corrected staged HUD still await an
+approved rollout and fresh paired verification.
+
 - Both pilots entered shared flight from the hangar. Actual pointer drags moved
   the hull diagonally, primary fire stayed active, and release returned the axes
   to zero. Both clients received `orbital-vector-boost-v1`; the server accepted

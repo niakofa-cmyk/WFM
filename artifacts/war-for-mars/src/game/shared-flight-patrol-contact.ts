@@ -5,6 +5,17 @@ import {
 import type { UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { SHIPS, type ShipId } from "./ships";
 
+/** Shared flight must never fall back to local preview traffic. */
+export function displayedPatrolContact(
+  sharedFlightEnabled: boolean,
+  sharedContact: UniversePatrolEncounterNotice | null,
+  localContact: UniversePatrolEncounterNotice | null,
+): UniversePatrolEncounterNotice | null {
+  return sharedFlightEnabled
+    ? sharedContact?.source === "server-snapshot" ? sharedContact : null
+    : localContact;
+}
+
 /** Keep the render optimization, but never retain a stale target or integrity. */
 export function sameSharedPatrolContact(
   previous: UniversePatrolEncounterNotice | null,

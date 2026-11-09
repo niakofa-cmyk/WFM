@@ -6,7 +6,19 @@ import {
   type FreeFlightActorV1,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
-import { sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import { displayedPatrolContact, sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+
+test("shared flight never restores local preview contacts after a cleared or unavailable snapshot", () => {
+  const local = { callsign: "STALE LOCAL", faction: "accord" as const, shipCount: 2, distanceMeters: 4 };
+  assert.equal(displayedPatrolContact(true, null, local), null);
+  assert.equal(displayedPatrolContact(true, local, local), null);
+  const live = sharedFlightPatrolContact(snapshot("ussf", 120))!;
+  assert.equal(displayedPatrolContact(true, live, local), live);
+  assert.equal(displayedPatrolContact(false, live, local), local);
+  const cleared = snapshot("ussf", 120);
+  cleared.actors.splice(1);
+  assert.equal(displayedPatrolContact(true, sharedFlightPatrolContact(cleared), local), null);
+});
 
 function actor(
   actorId: string,

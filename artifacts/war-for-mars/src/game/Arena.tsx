@@ -89,7 +89,7 @@ import { UniverseStationOverlay } from "./UniverseStationOverlay";
 import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
 import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
 import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
-import { sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import { displayedPatrolContact, sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -849,6 +849,7 @@ export function Arena({
               typeof packet.phase === "string") {
             freeFlightCombatActiveRef.current = packet.phase === "active" && packet.pilotAlive !== false;
             setFreeFlightCombatStatus(packet.pilotAlive === false ? "disabled" : packet.phase);
+            if (packet.phase === "complete") setFreeFlightNotice("");
             if ([packet.kills, packet.assists, packet.creditsAwarded].every(
               (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
             )) {
@@ -865,6 +866,7 @@ export function Arena({
             const remainingCombat = packet.phase === "active";
             freeFlightCombatActiveRef.current = remainingCombat;
             setFreeFlightCombatStatus(remainingCombat ? "active" : "complete");
+            if (!remainingCombat) setFreeFlightNotice("");
             setFreeFlightTally((previous) => ({
               kills: previous.kills + (packet.kills as number),
               assists: previous.assists + (packet.assists as number),
@@ -2239,7 +2241,7 @@ export function Arena({
         const sharedTrafficFresh = Boolean(
           latestSharedFrame && now - latestSharedFrame.receivedAt <= 1_500,
         );
-        if (universePhase === "exploration" && universePatrolOrigin &&
+        if (!freeFlightEnabled && universePhase === "exploration" && universePatrolOrigin &&
             now - lastPatrolProjectionAt >= 120 && !sharedTrafficFresh) {
           lastPatrolProjectionAt = now;
           const liveUniverse = localUniverseRef.current;
@@ -2312,7 +2314,7 @@ export function Arena({
               return next;
             });
           }
-        } else if (universePhase !== "exploration" || sharedTrafficFresh) {
+        } else if (freeFlightEnabled || universePhase !== "exploration" || sharedTrafficFresh) {
           for (const entry of patrolGroups.values()) {
             entry.group.visible = false;
             if (entry.designation) entry.designation.visible = false;
@@ -3253,7 +3255,7 @@ export function Arena({
       ) : null}
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
-          contact={sharedPatrolContact ?? patrolContact}
+          contact={displayedPatrolContact(freeFlightEnabled, sharedPatrolContact, patrolContact)}
           enabled={sharedFreeFlightJoined && freeFlightPilot?.alive === true}
           notice={freeFlightNotice}
           onEngage={sharedFreeFlightJoined && freeFlightPilot?.alive === true ? () => {

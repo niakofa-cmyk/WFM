@@ -6,6 +6,7 @@ import {
   anomalyGravityWellForSector,
   isFreeFlightEnvironmentV1,
   isFreeFlightSnapshotV1,
+  type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
 import { readExplorationReceipt } from "../game/exploration-encounter";
 import type { PersistentPatrolShip } from "@workspace/db";
@@ -101,6 +102,94 @@ test("server-advertised directional bursts enforce sequence, cooldown and fixed 
     const moved = snap.actors.find(actor => actor.own)!;
     assert.ok(Math.hypot(moved.position.x - original.position.x,
       moved.position.y - original.position.y, moved.position.z - original.position.z) > .1);
+  } finally { await runtime.close(); }
+});
+
+test("two nearby pilots damage one target and settle one kill plus an assist", async () => {
+  const { createFreeFlightRuntime } = await import("./free-flight-runtime");
+  let clock = Date.now(), reservations = 0, settlements = 0;
+  const contact: UniversePatrolEncounter = {
+    patrolId: "assist-settle-patrol001", locationId: "phobos-yard", faction: "ussf",
+    callsign: "Shared target", route: ["phobos-yard"], revision: 0,
+    ships: [{ id: "assist-settle-ship001", hullId: "duskbreaker", name: "Duskbreaker", callsign: "TARGET" }],
+  };
+  const packets: Packet[][] = [[], []];
+  const frames: Array<FreeFlightSnapshotV1 | undefined> = [];
+  const sockets = packets.map((received, index) => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (data: string) => {
+      const packet = JSON.parse(data) as Packet;
+      received.push(packet);
+      if (isFreeFlightSnapshotV1(packet.snapshot)) frames[index] = packet.snapshot;
+    },
+    close: () => {},
+  }));
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "accord", shipId: "mandjet",
+    }),
+    resolveUniversePatrols: async () => [contact],
+    reserveUniversePatrol: async () => { reservations++; return contact; },
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async receipt => {
+      settlements++;
+      const result = readExplorationReceipt(receipt);
+      return { status: "settled", awards: result.pilots.map(pilot => ({
+        ...pilot, balanceAfter: pilot.credits, revision: 1,
+      })) };
+    },
+  });
+  try {
+    await runtime.handle(sockets[0]!, "shared-lead", { type: "freeflight_join", openingEncounter: true });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    await runtime.handle(sockets[1]!, "shared-ally", { type: "freeflight_join", openingEncounter: true });
+    await runtime.handle(sockets[1]!, "shared-ally", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:assist-settle-ship001",
+    });
+    assert.ok(packets[1]!.some(p => p.type === "freeflight_engagement_started" && p.assistance === true));
+    assert.equal(reservations, 1, "assistance reuses the existing fleet reservation");
+    const bounded = (value: number) => Math.max(-1, Math.min(1, value));
+    for (let seq = 1; seq <= 1800 && settlements === 0; seq++) {
+      clock += 34;
+      for (let index = 0; index < 2; index++) {
+        const frame = frames[index]!;
+        const own = frame.actors.find(actor => actor.actorId === frame.ownActorId)!;
+        const target = frame.actors.find(actor => actor.kind === "patrol" && actor.alive && actor.faction !== own.faction);
+        if (!target || !own.alive) continue;
+        const dx = target.position.x - own.position.x, dy = target.position.y - own.position.y;
+        const dz = target.position.z - own.position.z;
+        const desiredYaw = Math.atan2(-dx, -dz);
+        const yawError = Math.atan2(Math.sin(desiredYaw-own.yaw), Math.cos(desiredYaw-own.yaw));
+        const desiredPitch = Math.atan2(dy, Math.hypot(dx,dz));
+        await runtime.handle(sockets[index]!, index === 0 ? "shared-lead" : "shared-ally", {
+          type: "freeflight_input",
+          input: input(seq, {
+            fire: true, yaw: bounded(yawError * 4),
+            pitch: bounded((desiredPitch - own.pitch) * 4),
+          }),
+        });
+      }
+      runtime.advance(clock);
+      await new Promise<void>(resolve => setImmediate(resolve));
+    }
+    assert.equal(settlements, 1, "one encounter produces one settlement");
+    const results = packets.map(received => received.find(p => p.type === "freeflight_combat_result"));
+    assert.ok(results.every(Boolean));
+    assert.equal(results.reduce((sum,p) => sum+Number(p!.kills),0),1);
+    assert.equal(results.reduce((sum,p) => sum+Number(p!.assists),0),1);
+    assert.ok(results.every(p => p!.status === "settled"));
+    assert.ok(Number(results.find(p => Number(p!.kills) === 1)?.creditsAwarded) > 0);
+    // Preserve the current kill-only credit policy: an assist is a real tally,
+    // not permission to mint an additional kill or unconfigured reward.
+    assert.equal(Number(results.find(p => Number(p!.assists) === 1)?.creditsAwarded), 0);
+    for (let index = 0; index < 2; index++) {
+      assert.ok(packets[index]!.some(p => p.type === "freeflight_weapon_event" &&
+        p.sourceActorId === frames[index]!.ownActorId &&
+        Number(p.shieldDamage)+Number(p.hullDamage)>0), "each pilot causes real server damage");
+      assert.ok(frames[index]!.actors.find(a => a.own)?.alive, "each pilot survives settlement");
+    }
+    runtime.advance(clock += 100);
+    assert.equal(settlements,1, "later ticks cannot duplicate settlement");
   } finally { await runtime.close(); }
 });
 

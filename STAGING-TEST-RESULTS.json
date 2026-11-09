@@ -1,5 +1,28 @@
 {
   "overallStatus": "PENDING",
+  "pendingIndicatorAndNearbyAssistCheck": {
+    "status": "LOCAL_VERIFIED_STAGING_ROLLOUT_REQUIRED",
+    "currentStagingRevision": "296a3f402b7accab3cc1b2d9315a1ffe4ed4fbc6",
+    "sharedHudUsesAuthoritativeContactsOnly": true,
+    "localTrainingPreviewPreserved": true,
+    "finalCompletionClearsOldInterceptNotice": true,
+    "fullWorkspaceChecks": "PASSED",
+    "targetedContactRenderingTests": 9,
+    "nearbyRuntimeTests": 2,
+    "nativeTwoPilotReceiptTest": {
+      "sharedReservations": 1, "settlements": 1,
+      "bothPilotsInflictServerDamage": true,
+      "bothPilotsSurvive": true,
+      "totalKills": 1, "totalAssists": 1,
+      "killerCredits": "POSITIVE_UNCHANGED_POLICY",
+      "assistOnlyCredits": 0,
+      "durableSettlementAdapter": "MOCK_NOT_A_STAGING_DATABASE_PROOF"
+    },
+    "sameEncounterObserverSyntheticChecks": "PASSED",
+    "freshPairedStagingAssistance": "NOT_RUN",
+    "rewardPolicyChanged": false,
+    "productionChanged": false
+  },
   "pendingRightThumbControlRollout": {
     "status": "STAGING_PARTIALLY_VERIFIED_ASSISTS_AND_DEVICE_CHECKS_PENDING",
     "stagingRevision": "296a3f402b7accab3cc1b2d9315a1ffe4ed4fbc6",

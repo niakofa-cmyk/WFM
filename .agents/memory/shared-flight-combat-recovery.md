@@ -63,3 +63,14 @@ victory detection leaves defeated wings permanently unable to recover.
 never manufacture a victory or completion reward, and fail recovery closed
 when the durable result cannot be recorded. Distinguish disconnect retention
 within one process from restart-durable hull persistence.
+
+A cleared authoritative contact list is a valid completion state, not a request
+to restore local preview traffic.
+
+**Why:** a successful fleet settlement left a phantom local patrol notice after
+the server roster had cleared, despite the flight remaining healthy.
+
+**How to apply:** keep local-training previews separate from shared-world
+presentation. Connecting, unavailable and empty shared snapshots cannot confer
+authority on cached preview contacts. Clear completed battle notices without
+revoking controls for a different encounter that is still active.
