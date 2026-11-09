@@ -1,7 +1,14 @@
 {
   "overallStatus": "PENDING",
   "patrolAdmissionRecoveryReview": {
-    "status": "LOCAL_FIX_FRESH_AUTHENTICATION_AND_STAGING_ROLLOUT_PENDING",
+    "status": "STAGING_PARTIAL_ADMISSION_RECOVERY_VERIFIED_COMBAT_CERTIFICATION_BLOCKED",
+    "stagingRevision": "efbc080efa3a2c1bab1f485d8a8656c0e1118418",
+    "stagingDeployments": {
+      "app": { "id": "9da1b0e0-6e77-44ad-9fe4-4aca41d8ac2e", "status": "SUCCESS" },
+      "api": { "id": "3d99c459-16e4-4e23-b910-b8c12872ee83", "status": "SUCCESS" },
+      "socket": { "id": "ef79bc32-78b5-4dee-8191-20e48d296e48", "status": "SUCCESS" }
+    },
+    "deploymentCommitMetadataMatches": true,
     "priorPairedRun": {
       "authenticatedProfileStatuses": [200, 200],
       "bothPilotsEnteredSharedFlight": true,
@@ -17,10 +24,41 @@
     "apiTypecheck": "PASSED",
     "fullWorkspaceValidation": "PASSED_TYPECHECK_TESTS_AND_BUILD_INCLUDING_BUNDLE_AUDITS",
     "freshChallenges": {
-      "pilot1": "OPEN_NOT_SUBMITTED",
-      "pilot2": "OPEN_NOT_SUBMITTED"
+      "pilot1": "COMPLETED",
+      "pilot2": "COMPLETED"
     },
-    "fixDeployed": false,
+    "authenticatedProfileStatuses": [200, 200],
+    "gatewayReentryAfterDeployment": "NORMAL_GATE_FORM_WITH_RETAINED_CLERK_SESSIONS",
+    "lateAdmissionCheck": {
+      "persistentActorsBeforeReentryPerPilot": [0, 0],
+      "normalReentriesPerPilot": [1, 1],
+      "persistentActorsAfterReentryPerPilot": [5, 5],
+      "hostileActorsAfterReentryPerPilot": [3, 3],
+      "continuousInSessionPatrolRefreshVerified": false
+    },
+    "idleMandjetDefeat": {
+      "pilotsDestroyed": 2,
+      "playerProjectiles": 0,
+      "kills": [0, 0],
+      "assists": [0, 0],
+      "settledCredits": [0, 0],
+      "authenticatedBalanceDeltas": [0, 0],
+      "balancesMatchAcceptedDefeatResults": true
+    },
+    "singleNormalSentinelRetry": {
+      "persistentActorsPerPilot": [3, 3],
+      "hostileActorsPerPilot": [0, 0],
+      "driverStopReason": "no_hostile_target",
+      "appliedCombatSteps": [0, 0],
+      "newBattleOrSettlementProduced": false,
+      "continuedFlightAfterSettledVictoryVerified": false,
+      "shipOrWeaponStatsModified": false
+    },
+    "sameTargetDamageKillAssistPositiveRewardAndContinuedVictoryFlightVerified": false,
+    "originalAccordMandjetProfilesRestored": true,
+    "flightMenuOnlyExitVerified": false,
+    "browserOwnersStopped": true,
+    "fixDeployed": true,
     "productionChanged": false,
     "databaseMigrationRun": false
   },

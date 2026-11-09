@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
-- **Status:** PENDING
-- **Latest staging rollout:** the approved right-thumb build `296a3f4` successfully deployed across app, API and socket. Both pilots authenticated with profile HTTP 200. Production is unchanged.
+- **Status:** PENDING — paired combat certification blocked by patrol availability.
+- **Latest staging rollout:** `efbc080efa3a2c1bab1f485d8a8656c0e1118418` successfully deployed across app, API and socket, with matching deployment commit metadata. Both fresh sign-ins completed and both authenticated profiles returned HTTP 200. Production and the database schema are unchanged.
 
 ## Directional controls and live combat: current evidence
 
@@ -35,12 +35,44 @@ The patrol-admission review now prevents sample patrols from substituting for an
 empty/unavailable persistent directory and reloads durable patrols on subsequent
 admissions to an existing session. Existing pilots, health and battle contracts
 are not reset. All 22 focused opening/shared-flight runtime tests and the API
-typecheck pass. Full workspace typechecks, tests and builds now pass, including
-the main-app and Combat Lab lazy-engine bundle audits. This fix has not yet been
-deployed. Both old browser owners were lost. Fresh paired challenges have now
-been opened, with no verification codes submitted and neither account yet
-authenticated. The same-battle kill/assist and durable settlement checks remain
-**pending**, not passed.
+typecheck pass. Full workspace typechecks, tests and builds pass, including the
+main-app and Combat Lab lazy-engine bundle audits. The fix is now deployed.
+
+### Current paired retest on the patrol-admission fix
+
+- Both new challenges completed. The staging gateway restart revoked its
+  process-local access sessions; normal gateway re-entry restored access while
+  preserving the Clerk sessions. Both profiles then returned HTTP 200.
+- The directory initially contained two durable fleets/five ships, but both
+  pilots launched after those fleets left their canonical sector. The shared
+  snapshots correctly remained empty instead of presenting sample enemies.
+- One bounded arrival check found the durable fleets back at Phobos Yard.
+  Exactly one normal reload/re-entry per pilot loaded five persistent actors,
+  including three hostiles. This verifies **admission recovery**, not continuous
+  in-session fleet refresh and not visual mesh certification at battle range.
+- During the normal intercept checks, both Mandjets were destroyed before
+  sustained player firing began. Both defeats settled with zero kills, assists
+  and credits; both authenticated balances matched their frozen baselines.
+  This is enemy-damage and zero-credit defeat-settlement evidence, not a test
+  proving player weapons or survival balance.
+- One normal recovery/refit retry selected the existing USSF Sentinel for both
+  pilots without changing stats. Its fresh snapshots contained three friendly
+  persistent actors but no hostiles. Both bounded combat drivers stopped with
+  `no_hostile_target` before applying combat inputs. No retry battle/result was
+  produced, and the continued-flight-after-settlement check correctly declined.
+- Both original Accord/Mandjet profiles were restored through normal hangar
+  controls after a root reload. The flight-menu cleanup path timed out, so
+  menu-only exit is not certified by this run. Both bounded browser owners were
+  stopped after evidence capture.
+- Evidence: `generated-artifacts/wfm-staging-idle-defeat-preserved.json` and
+  `generated-artifacts/wfm-staging-combat-02.jpg` (the latter is an empty-hostile
+  retry scene, not a screenshot proving enemy ship visibility).
+
+**Still unverified on this revision:** same-target human damage contribution,
+enemy destruction by a player, kill/assist credit, positive durable rewards and
+continued flight after a settled victory. A reliable opening patrol and fresh
+in-session patrol arrivals remain prerequisites; no enemy or reward was
+fabricated to make these checks pass.
 
 - Both pilots entered shared flight from the hangar. Actual pointer drags moved
   the hull diagonally, primary fire stayed active, and release returned the axes
