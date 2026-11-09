@@ -1485,7 +1485,16 @@ export function createFreeFlightRuntime(options: {
       });
       if (input.fire && !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
         const target = primaryFireTarget(seat.session, seat.actor);
-        if (target) await startEngagement(socket, seat, target.actorId, true);
+        if (target) {
+          const admission = await options.resolveAdmission(userId).catch(() => null);
+          if (!admission || admission.sessionKey !== seat.session.key ||
+              admission.faction !== seat.actor.faction || admission.shipId !== seat.actor.shipId) {
+            error("freeflight_location_changed");
+            sendCombatState(seat.session, seat.actor);
+            return;
+          }
+          await startEngagement(socket, seat, target.actorId, true);
+        }
       }
       return;
     }
