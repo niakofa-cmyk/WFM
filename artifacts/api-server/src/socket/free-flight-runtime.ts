@@ -53,10 +53,12 @@ const MAX_NEARBY_ACTORS = 32;
 const MAX_SESSIONS = 32;
 const MAX_PILOTS_PER_SESSION = 24;
 const MAX_ACTORS_PER_SESSION = 32;
+const MAX_PROJECTILES_PER_SESSION = 512;
 const MAX_ENCOUNTER_PILOTS = 8;
 const MAX_ACTIVE_ENCOUNTERS = 3;
 const PATROL_ENGAGEMENT_RANGE = 180;
 const PATROL_SENSOR_RANGE = 520;
+const PRIMARY_FIRE_ENGAGEMENT_CONE = 0.3;
 const OPEN = 1;
 
 type SharedInput = FlightControls & {
@@ -520,6 +522,32 @@ export function createFreeFlightRuntime(options: {
       ?.candidate;
   }
 
+  /** Primary fire can initiate a server-owned encounter at any distance in the
+   * currently streamed universe bubble. The client never chooses the target. */
+  function primaryFireTarget(session: Session, actor: Actor): Actor | undefined {
+    const space = actor.craft.space;
+    if (!space) return undefined;
+    const forward = rotate(space.q, 0, 0, -1);
+    return [...session.actors.values()]
+      .filter((candidate) => candidate.kind === "patrol" &&
+        candidate.persistentPatrolId && candidate.persistentShipId &&
+        candidate.faction !== actor.faction && candidate.craft.alive)
+      .map((candidate) => {
+        const dx = candidate.craft.x - actor.craft.x;
+        const dy = candidate.craft.space!.y - space.y;
+        const dz = candidate.craft.z - actor.craft.z;
+        const distance = detHypot(detHypot(dx, dy), dz);
+        const dot = (forward.x * dx + forward.y * dy + forward.z * dz) /
+          Math.max(0.001, distance);
+        return { candidate, distance, dot };
+      })
+      .filter((entry) => entry.distance <= NEARBY_RADIUS &&
+        entry.dot >= detCos(PRIMARY_FIRE_ENGAGEMENT_CONE))
+      .sort((a, b) => b.dot - a.dot || a.distance - b.distance ||
+        a.candidate.actorId.localeCompare(b.candidate.actorId))[0]
+      ?.candidate;
+  }
+
   function patrolCombatInput(actor: Actor, target: Actor): SharedInput {
     const space = actor.craft.space!;
     const dx = target.craft.x - actor.craft.x;
@@ -545,7 +573,7 @@ export function createFreeFlightRuntime(options: {
 
   function addProjectiles(session: Session, actor: Actor, bullets: SpatialBullet[]) {
     for (const bullet of bullets) {
-      if (session.projectiles.length >= 110) break;
+      if (session.projectiles.length >= MAX_PROJECTILES_PER_SESSION) break;
       session.projectiles.push({
         ...bullet,
         id: session.nextProjectileId++,
@@ -574,20 +602,32 @@ export function createFreeFlightRuntime(options: {
       : actor.persistentPatrolId
         ? session.combats.get(actor.persistentPatrolId)
         : undefined;
-    if (!combat || combat.phase !== "active") return;
-    const target = combatTarget(session, actor);
+    const combatActive = combat?.phase === "active";
+    if (actor.kind !== "pilot" && !combatActive) return;
+    const target = combatActive ? combatTarget(session, actor) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     actor.craft.lockTargetId = target?.numericId ?? null;
     acquireTarget(actor.craft, target?.craft, ORBITAL_DT, [], missile);
     const ship = SHIPS[actor.shipId];
     if (input.fire && actor.primaryCooldown <= 0) {
-      addProjectiles(session, actor, spawnPrimaryVolley(
+      const bullets = spawnPrimaryVolley(
         actor.craft, target?.craft, ship.shotSpeed, ship.shotDmg, [],
         PRIMARY_WEAPON_CATALOG[ship.primaryFit],
-      ));
+      );
+      if (actor.kind === "pilot") {
+        // No arbitrary primary-gun range gate: a round can traverse the full
+        // server-streamed encounter bubble, then still needs a swept collision.
+        for (const bullet of bullets) {
+          const speed = detHypot(detHypot(bullet.vx, bullet.vy ?? 0), bullet.vz);
+          if (speed > 0) bullet.life = Math.max(
+            bullet.life, (NEARBY_RADIUS + 8) / speed + 0.25,
+          );
+        }
+      }
+      addProjectiles(session, actor, bullets);
       actor.primaryCooldown = ship.fireInterval;
     }
-    if (input.missile) {
+    if (input.missile && combatActive) {
       addProjectiles(session, actor, spawnMissileVolley(
         actor.craft, target?.craft, session.projectiles.length,
         ship.missileDamage, [], missile,
@@ -803,7 +843,12 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
-  async function startEngagement(socket: WebSocketLike, seat: Seat, targetActorId: string) {
+  async function startEngagement(
+    socket: WebSocketLike,
+    seat: Seat,
+    targetActorId: string,
+    primaryFire = false,
+  ) {
     if (seat.session.engagementPending) {
       send(socket, { type: "error", reason: "freeflight_encounter_active" });
       sendCombatState(seat.session, seat.actor);
@@ -811,13 +856,18 @@ export function createFreeFlightRuntime(options: {
     }
     seat.session.engagementPending = true;
     try {
-      await claimEngagement(socket, seat, targetActorId);
+      await claimEngagement(socket, seat, targetActorId, primaryFire);
     } finally {
       seat.session.engagementPending = false;
     }
   }
 
-  async function claimEngagement(socket: WebSocketLike, seat: Seat, targetActorId: string) {
+  async function claimEngagement(
+    socket: WebSocketLike,
+    seat: Seat,
+    targetActorId: string,
+    primaryFire = false,
+  ) {
     const { session, actor } = seat;
     const error = (reason: string) => {
       send(socket, { type: "error", reason });
@@ -841,7 +891,8 @@ export function createFreeFlightRuntime(options: {
     }
     const existingCombat = session.combats.get(target.persistentPatrolId);
     if (existingCombat?.phase === "active") {
-      if (!actor.craft.alive || distanceBetween(actor, target) > PATROL_ENGAGEMENT_RANGE) {
+      const joinRange = primaryFire ? NEARBY_RADIUS : PATROL_ENGAGEMENT_RANGE;
+      if (!actor.craft.alive || distanceBetween(actor, target) > joinRange) {
         error("freeflight_patrol_approach_required");
         return;
       }
@@ -860,7 +911,7 @@ export function createFreeFlightRuntime(options: {
           socket.readyState !== OPEN || !actor.craft.alive || !target.craft.alive ||
           existingCombat.phase !== "active" || existingCombat.faction !== actor.faction ||
           existingCombat.participantActorIds.size >= MAX_ENCOUNTER_PILOTS ||
-          distanceBetween(actor, target) > PATROL_ENGAGEMENT_RANGE) {
+          distanceBetween(actor, target) > joinRange) {
         error("freeflight_encounter_participant_unavailable");
         return;
       }
@@ -900,7 +951,10 @@ export function createFreeFlightRuntime(options: {
       target.lastDamageTick >= 0 && target.lastDamageTick >= session.tick - 45;
     const reinforcementApproach = joinedBattle && hostileSignal &&
       distanceToTarget <= PATROL_SENSOR_RANGE;
-    if (distanceToTarget > PATROL_ENGAGEMENT_RANGE && !reinforcementApproach) {
+    const engagementRange = primaryFire
+      ? NEARBY_RADIUS
+      : reinforcementApproach ? PATROL_SENSOR_RANGE : PATROL_ENGAGEMENT_RANGE;
+    if (distanceToTarget > engagementRange) {
       error("freeflight_patrol_approach_required");
       return;
     }
@@ -912,8 +966,10 @@ export function createFreeFlightRuntime(options: {
     const participants = [...session.pilotByUser.values()]
       .filter((candidate) => candidate.faction === actor.faction &&
         candidate.craft.alive && candidate.socket?.readyState === OPEN &&
-        distanceBetween(candidate, target) <= PATROL_SENSOR_RANGE)
-      .sort((a, b) => a.actorId.localeCompare(b.actorId))
+        (distanceBetween(candidate, target) <= PATROL_SENSOR_RANGE ||
+          primaryFire && candidate.actorId === actor.actorId))
+      .sort((a, b) => (a.actorId === actor.actorId ? -1 : b.actorId === actor.actorId ? 1 : 0) ||
+        a.actorId.localeCompare(b.actorId))
       .slice(0, MAX_ENCOUNTER_PILOTS);
     if (!participants.some((candidate) => candidate.actorId === actor.actorId)) {
       error("freeflight_encounter_participant_unavailable");
@@ -942,8 +998,7 @@ export function createFreeFlightRuntime(options: {
     }
     if (closed || sessions.get(session.key) !== session || seats.get(socket) !== seat ||
         socket.readyState !== OPEN || !actor.craft.alive || !target.craft.alive ||
-        distanceBetween(actor, target) > (reinforcementApproach
-          ? PATROL_SENSOR_RANGE : PATROL_ENGAGEMENT_RANGE)) {
+        distanceBetween(actor, target) > engagementRange) {
       await options.releaseUniversePatrol?.(reserved.patrolId, encounterId).catch(() => {});
       error("freeflight_encounter_interrupted");
       return;
@@ -1400,8 +1455,7 @@ export function createFreeFlightRuntime(options: {
         sendCombatState(seat.session, seat.actor);
         return;
       }
-      if ((input.fire || input.missile) &&
-          !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
+      if (input.missile && !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
         error("freeflight_engagement_required");
         return;
       }
@@ -1429,6 +1483,10 @@ export function createFreeFlightRuntime(options: {
         type: "freeflight_input_accepted", seq: input.seq,
         fire: input.fire, missile: input.missile, pilotAlive: seat.actor.craft.alive,
       });
+      if (input.fire && !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
+        const target = primaryFireTarget(seat.session, seat.actor);
+        if (target) await startEngagement(socket, seat, target.actorId, true);
+      }
       return;
     }
     if (packet.type === "freeflight_ping" && Object.keys(packet).length === 2 &&

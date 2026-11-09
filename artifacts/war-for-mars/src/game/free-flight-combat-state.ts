@@ -26,6 +26,13 @@ export function freeFlightWeaponsEnabled(
   return active && pilot?.alive === true;
 }
 
+/** Primary guns stay armed throughout shared flight; the server decides hits. */
+export function freeFlightPrimaryFireEnabled(
+  pilot: FreeFlightPilotVitals | null,
+): boolean {
+  return pilot?.alive === true;
+}
+
 /** A failed secondary request is not authority to end an existing encounter. */
 export function combatStatusAfterRequest(active: boolean): string {
   return active ? "active" : "requesting";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals } from "./free-flight-combat-state";
 
 const pilot = {
   actorId: "pilot-test", callsign: "Pilot", kind: "pilot", faction: "ussf",
@@ -26,6 +26,9 @@ test("an active encounter cannot arm a destroyed, unknown or idle pilot", () => 
   const destroyed = freeFlightPilotVitals({
     ownActorId: pilot.actorId, actors: [{ ...pilot, alive: false, hull: 0, shield: 0 }],
   });
+  assert.equal(freeFlightPrimaryFireEnabled(living), true);
+  assert.equal(freeFlightPrimaryFireEnabled(destroyed), false);
+  assert.equal(freeFlightPrimaryFireEnabled(null), false);
   assert.equal(freeFlightWeaponsEnabled(true, living), true);
   assert.equal(freeFlightWeaponsEnabled(false, living), false);
   assert.equal(freeFlightWeaponsEnabled(true, destroyed), false);

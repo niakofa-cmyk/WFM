@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
@@ -2134,6 +2134,7 @@ export function Arena({
         }
         const weaponsEnabled = freeFlightWeaponsEnabled(
           freeFlightCombatActiveRef.current, serverVitals);
+        const primaryFireEnabled = freeFlightPrimaryFireEnabled(serverVitals);
         while (acc >= FIXED && steps < 5 && pilot.space) {
           const controls = readInput(bus);
           // V1 authority has no drift or tactical-maneuver fields. Do not let
@@ -2144,7 +2145,7 @@ export function Arena({
           }
           freeFlightClientRef.current?.sendControls({
             ...controls,
-            fire: weaponsEnabled && controls.fire,
+            fire: primaryFireEnabled && controls.fire,
             missile: weaponsEnabled && controls.missile,
           });
           const nextSector = advanceLocalUniverseFlight(
@@ -3139,6 +3140,8 @@ export function Arena({
   const sharedFreeFlightEngagementActive =
     sharedFreeFlightJoined && freeFlightWeaponsEnabled(
       freeFlightCombatStatus === "active", freeFlightPilot);
+  const sharedFreeFlightPrimaryFireReady =
+    sharedFreeFlightJoined && freeFlightPrimaryFireEnabled(freeFlightPilot);
   return (
     <div
       data-testid="arena-stage"
@@ -3593,9 +3596,9 @@ export function Arena({
                           requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
                         }}
                       />
-                      {exploringHud && !sharedFreeFlightEngagementActive ? <span className="sr-only">Primary guns unavailable outside a live encounter</span> : <PilotActionButton
+                      {exploringHud && !sharedFreeFlightPrimaryFireReady ? <span className="sr-only">Primary guns become available when shared flight is connected and the pilot is alive</span> : <PilotActionButton
                         icon="fire"
-                        label="Hold primary guns"
+                        label="Hold primary guns; fire is ready throughout shared flight"
                         testId="button-fire"
                         accent
                         fireAction
@@ -3661,9 +3664,9 @@ export function Arena({
                     />
                   </>
                 )}
-                {!exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton
+                {!exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton
                   icon="fire"
-                  label="Hold primary guns"
+                  label="Hold primary guns; fire is ready throughout shared flight"
                   testId="button-fire"
                   accent
                   fireAction
