@@ -28,6 +28,22 @@ No code was logged, displayed, or retried. Both browser owners were stopped.
 Authenticated in-flight firing, projectile impacts, kill attribution, assists,
 rewards, and post-battle continuation remain **NOT VERIFIED**.
 
+### Authorized two-pilot retest
+
+Added and synthetically checked an allowlisted challenge-error diagnostic in
+the private browser helper. Its account-isolation and IPC checks also passed.
+Both replacement browser sessions reached active client-trust challenges.
+After the secure handoff, each code was submitted once to its matching
+challenge. Both sessions remained signed out at `needs_client_trust`, with
+visible error category `none`. A retained-session recheck confirmed that
+neither had completed sign-in; no authenticated profile was available.
+
+The absence of a visible error does not establish code acceptance or identify
+the failure. The cause remains **UNKNOWN**. Both browser owners were stopped.
+No combat, reward claim, production change, or verification-code retry occurred.
+Further sign-in attempts need safe submission/network diagnostics rather than
+another blind code retry.
+
 In the implementation, shared-flight primary guns are available while a
 living pilot is flying. The server chooses any target and owns projectile
 travel, collision, damage, and settlement. Automatic patrol admission is

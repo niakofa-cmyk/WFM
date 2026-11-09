@@ -23,7 +23,20 @@
       "authenticatedProfilesEstablished": 0,
       "remainingStatus": "needs_client_trust",
       "cause": "UNKNOWN",
-      "browserOwnersStopped": true
+      "browserOwnersStopped": true,
+      "latestAuthorizedRetest": {
+        "accountSlots": 2,
+        "activeChallengesConfirmedBeforeSubmission": true,
+        "codeSubmissionsPerAccount": 1,
+        "authenticatedProfilesEstablished": 0,
+        "remainingStatus": "needs_client_trust",
+        "visibleChallengeErrorCategories": ["none", "none"],
+        "retainedSessionsRechecked": true,
+        "cause": "UNKNOWN",
+        "combatStarted": false,
+        "browserOwnersStopped": true,
+        "challengeDiagnosticAndAccountIsolationSelfTests": "PASSED"
+      }
     },
     "schemaOrFlagChanges": false,
     "productionChanged": false
