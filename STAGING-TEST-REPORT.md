@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest open-flight primary-fire rollout:** app, API and socket all report SUCCESS at exact source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Combat Lab initial static graph measured 126,487 bytes gzip against the unchanged 143,360-byte limit; Three.js is not in that initial graph. Staging health returned 200; unauthenticated profile and WebSocket upgrade requests returned 401. Authenticated combat was not tested. Production is unchanged.
+- **Latest open-flight primary-fire rollout:** app, API and socket all report SUCCESS at exact source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Combat Lab initial static graph measured 126,487 bytes gzip against the unchanged 143,360-byte limit; Three.js is not in that initial graph. Staging health returned 200; unauthenticated profile and WebSocket upgrade requests returned 401. Two sign-in attempts reached active client-trust challenges; one code was submitted once for each through the secure flow, but neither established a session. No combat was started. Production is unchanged.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
@@ -20,11 +20,13 @@ graph stayed at **126,487 bytes gzip** against the unchanged **143,360-byte**
 limit, with Three.js outside the initial graph.
 
 Staging gateway health returned **200**. Unauthenticated profile and
-free-flight WebSocket upgrade requests returned **401**. No sign-in was
-started, no challenge was triggered, and no verification code was used.
-Therefore staging deployment and gateway protection are verified, while
-authenticated in-flight firing, projectile impacts, kill attribution,
-assists, rewards, and post-battle continuation remain **NOT VERIFIED**.
+free-flight WebSocket upgrade requests returned **401**. Two isolated staging
+browser sessions then reached active `needs_client_trust` challenges. Each
+fresh code was submitted once through the secure flow; both sessions remained
+at the challenge with no authenticated profile. The cause is **UNKNOWN**.
+No code was logged, displayed, or retried. Both browser owners were stopped.
+Authenticated in-flight firing, projectile impacts, kill attribution, assists,
+rewards, and post-battle continuation remain **NOT VERIFIED**.
 
 In the implementation, shared-flight primary guns are available while a
 living pilot is flying. The server chooses any target and owns projectile

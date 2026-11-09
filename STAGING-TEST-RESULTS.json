@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "latestOpenFlightPrimaryFireRollout": {
-    "status": "DEPLOYED_GATEWAY_VERIFIED_AUTHENTICATED_COMBAT_NOT_VERIFIED",
+    "status": "DEPLOYED_GATEWAY_VERIFIED_AUTHENTICATION_BLOCKED_AT_CLIENT_TRUST",
     "stagingRuntimeCommit": "d791ed7a9a93f69533bb716107d12aea0cb67891",
     "stagingServices": {
       "app": { "status": "SUCCESS", "deploymentId": "90cbdab4-6c0a-4f4c-a597-c9c89915210e" },
@@ -15,7 +15,16 @@
     "gatewayHealthHttpStatus": 200,
     "unauthenticatedProfileHttpStatus": 401,
     "unauthenticatedSocketUpgradeHttpStatus": 401,
-    "authenticatedCombatVerification": "NOT_RUN",
+    "authenticatedCombatVerification": "NOT_STARTED_NO_AUTHENTICATED_PROFILE",
+    "signInAttempt": {
+      "accountSlots": 2,
+      "activeClientTrustChallengesConfirmed": true,
+      "codesSubmittedOnceThroughSecretsFlow": true,
+      "authenticatedProfilesEstablished": 0,
+      "remainingStatus": "needs_client_trust",
+      "cause": "UNKNOWN",
+      "browserOwnersStopped": true
+    },
     "schemaOrFlagChanges": false,
     "productionChanged": false
   },
