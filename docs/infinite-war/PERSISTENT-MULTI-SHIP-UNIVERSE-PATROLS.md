@@ -17,6 +17,10 @@ The owner requires the next stage to show server-patrolling fleets and
 authenticated pilots as live 3D ships in the same free-flight universe. See
 [Live 3D patrols and pilot presence](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md)
 for that target and the precise gap between it and the bounded operation below.
+The newer faction-mix and same-faction AI-assistance proposal is assessed in
+[Faction population and AI escort direction](FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md);
+the population balancer and dedicated live escort role are not implemented by
+the existing fixed seeded network.
 
 ## Implemented slice
 

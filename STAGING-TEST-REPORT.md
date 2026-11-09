@@ -5,17 +5,22 @@
 
 ## Directional controls and live combat: current evidence
 
-**Pending follow-up, not yet deployed:** the stale-contact fix and local
-nearby-assist regression checks pass the full workspace validation. Shared-mode
-HUD contact selection no longer falls back to a local preview; final completion
-clears the old interception notice. Nine targeted contact/rendering tests pass.
-Two nearby runtime checks cover automatic allied participation and a native
-two-pilot battle producing one kill, one assist and one settlement. That test's
-durable settlement adapter is mocked: it is not new staging balance evidence.
-The existing policy grants zero credits for an assist alone; no reward policy
-was changed. See `docs/infinite-war/SHARED-BATTLE-ASSIST-VERIFICATION.md`.
-Authenticated same-battle assistance and the corrected staged HUD still await an
-approved rollout and fresh paired verification.
+**Deployed to isolated staging, paired verification pending:** the stale-contact
+fix and local nearby-assist regression checks passed full workspace validation.
+Commit `bf71c1254241d25a08de4882682b1cfce219cfa0` is online on app, API and socket;
+the staging database service and Production were not changed. Shared-mode HUD
+selection no longer falls back to a local preview, and final completion clears
+the old interception notice. Nine targeted contact/rendering tests and two
+nearby runtime tests pass. A native two-pilot test recorded damage from both
+pilots, one kill, one assist and one settlement; its persistence adapter is
+mocked, not staging database evidence. Current reward policy gives zero credits
+for an assist alone and was not changed. See
+`docs/infinite-war/SHARED-BATTLE-ASSIST-VERIFICATION.md`.
+
+Two fresh ordinary staging sign-in challenges were opened, but the browser
+owners expired before the two codes could be submitted; the paired authenticated
+same-battle test therefore has **not** passed. Start fresh challenges; never
+reuse or report the old codes as valid.
 
 - Both pilots entered shared flight from the hangar. Actual pointer drags moved
   the hull diagonally, primary fire stayed active, and release returned the axes

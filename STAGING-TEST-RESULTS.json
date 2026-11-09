@@ -1,8 +1,15 @@
 {
   "overallStatus": "PENDING",
   "pendingIndicatorAndNearbyAssistCheck": {
-    "status": "LOCAL_VERIFIED_STAGING_ROLLOUT_REQUIRED",
-    "currentStagingRevision": "296a3f402b7accab3cc1b2d9315a1ffe4ed4fbc6",
+    "status": "STAGING_DEPLOYED_PAIRED_ASSISTANCE_PENDING",
+    "stagingRevision": "bf71c1254241d25a08de4882682b1cfce219cfa0",
+    "stagingDeployments": {
+      "app": { "id": "6c5c197d-fd9d-4a9c-a3d9-4e008bed3f0d", "status": "SUCCESS" },
+      "api": { "id": "47eb06be-b4f2-4918-8a2d-2813bb5b04d5", "status": "SUCCESS" },
+      "socket": { "id": "a09b3437-e735-4c0d-9c78-a0522dcaa28d", "status": "SUCCESS" }
+    },
+    "productionChanged": false,
+    "stagingDatabaseMigrationRun": false,
     "sharedHudUsesAuthoritativeContactsOnly": true,
     "localTrainingPreviewPreserved": true,
     "finalCompletionClearsOldInterceptNotice": true,
@@ -19,9 +26,9 @@
       "durableSettlementAdapter": "MOCK_NOT_A_STAGING_DATABASE_PROOF"
     },
     "sameEncounterObserverSyntheticChecks": "PASSED",
-    "freshPairedStagingAssistance": "NOT_RUN",
+    "freshPairedStagingAssistance": "WAITING_FOR_FRESH_CODES; PREVIOUS_BROWSER_OWNERS_EXPIRED",
     "rewardPolicyChanged": false,
-    "productionChanged": false
+    "deploymentWorkflowStatus": "SUCCESS_ALL_THREE_SERVICES_ONLINE"
   },
   "pendingRightThumbControlRollout": {
     "status": "STAGING_PARTIALLY_VERIFIED_ASSISTS_AND_DEVICE_CHECKS_PENDING",

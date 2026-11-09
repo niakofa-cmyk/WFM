@@ -109,6 +109,13 @@ PvE/exploration. Existing Wing payout amounts and gates, the current zero-credit
 co-op discovery policy, and no-reward private/AI-fill rooms do not change
 implicitly.
 
+The later owner upload proposing faction-population balancing and friendly AI
+escorts is evaluated in
+[Faction population and AI escort direction](FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md).
+That document records the requested 6-of-10 to 80/20 target and its
+unimplemented status; it does not supersede these settlement or reward
+constraints.
+
 ## Reference imagery
 
 The supplied images are retained in `attached_assets/` and are visual direction,
