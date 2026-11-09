@@ -1,7 +1,19 @@
 {
   "overallStatus": "PENDING",
   "continuousFlightLocalFollowup": {
-    "status": "LOCAL_REGRESSION_VERIFICATION_ONLY_NOT_DEPLOYED",
+    "status": "STAGING_ROLLOUT_VERIFIED_FRESH_CHALLENGES_PENDING",
+    "stagingRevision": "3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4",
+    "stagingDeployments": {
+      "app": { "id": "6389e5e6-bc6e-438d-8afe-b708eeac0e72", "status": "SUCCESS" },
+      "api": { "id": "c6758961-73ab-4a58-a7bf-063d363e618a", "status": "SUCCESS" },
+      "socket": { "id": "10f43ab1-0c69-4a71-bcde-22416145830a", "status": "SUCCESS" }
+    },
+    "deploymentCommitMetadataMatches": true,
+    "freshChallenges": {
+      "pilot1": "NEEDS_CLIENT_TRUST",
+      "pilot2": "NEEDS_CLIENT_TRUST",
+      "codesSubmitted": false
+    },
     "newContinuityRegressionTests": { "passed": 6, "failed": 0 },
     "fullWorkspaceValidation": "PASSED_TYPECHECK_TESTS_BUILD_AND_BUNDLE_AUDITS",
     "durablePatrolRefreshWithoutReentry": true,

@@ -1,9 +1,21 @@
 # WAR FOR MARS staging verification report
 
-- **Status:** PENDING — paired combat certification blocked by patrol availability.
-- **Latest staging rollout:** `efbc080efa3a2c1bab1f485d8a8656c0e1118418` successfully deployed across app, API and socket, with matching deployment commit metadata. Both fresh sign-ins completed and both authenticated profiles returned HTTP 200. Production and the database schema are unchanged.
+- **Status:** PENDING — continuity fixes deployed; fresh two-pilot sign-ins await current verification codes.
+- **Latest staging rollout:** `3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4` successfully deployed across app, API and socket, with matching deployment commit metadata. Both newly opened sign-ins are at `needs_client_trust`; no codes have been submitted to these challenges and no flight has begun. Production and the database schema are unchanged.
 
-## Continuous-flight follow-up — local evidence, not yet deployed
+## Continuous-flight follow-up — deployed, authenticated flight verification pending
+
+Verified successful Railway deployment IDs:
+
+- App: `6389e5e6-bc6e-438d-8afe-b708eeac0e72`
+- API: `c6758961-73ab-4a58-a7bf-063d363e618a`
+- Socket: `10f43ab1-0c69-4a71-bcde-22416145830a`
+
+Only the three source pins were changed in isolated staging. No variables,
+database migration, schema change, or Production deployment was performed.
+Synthetic private-IPC and account-isolation checks passed before sign-in.
+Both retained browser owners have a strict twenty-minute lifetime for the
+secure handoff; codes from previous challenges must not be reused.
 
 Native server regressions now exercise:
 
@@ -33,8 +45,8 @@ readiness. Public local entry rendered without a fatal browser error; this is
 not a signed-in combat screenshot.
 
 See [the continuity reference](docs/infinite-war/FREE-FLIGHT-COMBAT-CONTINUITY.md).
-The deployed staging results below remain unchanged until the reviewed follow-up
-is explicitly deployed and tested with fresh authenticated pilots.
+Earlier deployed staging results below remain historical evidence for their
+recorded revisions, not certification of combat on this newly deployed build.
 
 ## Directional controls and live combat: current evidence
 
