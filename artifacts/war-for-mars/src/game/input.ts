@@ -2,6 +2,7 @@ import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
 import { toOrbitalPilotStepInput, toOrbitalStepInput } from "./flight-control";
 import { COORDINATED_BANK, mapFlightStickAxes, type ManeuverPulse } from "./pilot-stick-gestures";
+import { rightThumbFlightAxes, type RightThumbProfile, newVectorBoost, startVectorBoost, stepVectorBoost, type VectorBoostState, type VectorBoostDirection } from "@workspace/orbital-sim";
 
 export type Bus = {
   keys: Set<string>;
@@ -11,6 +12,10 @@ export type Bus = {
   leftY: number;
   rightX: number;
   rightY: number;
+  rightThumbProfile?: RightThumbProfile;
+  rightBoost?: VectorBoostState;
+  rightBoostSampleAt?: number;
+  flightEnergy?: number;
   fireCanvas: boolean;
   fireButton: boolean;
   firePulse: boolean;
@@ -80,6 +85,7 @@ export function createBus(scheme: Scheme): Bus {
 }
 
 export function clearInput(bus: Bus) {
+  if (bus.rightBoost) bus.rightBoost.remaining = 0;
   if (bus.pulseTimers.vertical) clearTimeout(bus.pulseTimers.vertical);
   if (bus.pulseTimers.strafe) clearTimeout(bus.pulseTimers.strafe);
   bus.pulseTimers.vertical = null;
@@ -114,6 +120,14 @@ export function clearInput(bus: Bus) {
   bus.fWas = false;
   bus.rWas = false;
   bus.lastKeys?.clear();
+}
+
+/** Offline input projects the burst into legacy replayable axes; shared flight requests it separately. */
+export function requestRightVectorBoost(bus: Bus, direction: VectorBoostDirection) {
+  bus.rightBoost ??= newVectorBoost();
+  const accepted = startVectorBoost(bus.rightBoost, direction, bus.flightEnergy ?? 100);
+  if (accepted) bus.rightBoostSampleAt = Date.now();
+  return accepted;
 }
 
 export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs = 180) {
@@ -197,7 +211,9 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     ? mapFlightStickAxes(bus.leftX, 0)
     : null;
   const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
-  const orbitalAim = bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null;
+  const rightAxes = bus.orbital && bus.leftStickFlight && bus.rightThumbProfile
+    ? rightThumbFlightAxes(bus.rightX, bus.rightY, bus.rightThumbProfile) : null;
+  const orbitalAim = rightAxes ?? (bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null);
   const aimYaw = orbitalAim?.yaw ?? -bus.rightX;
   const flightYaw = bus.leftStickFlight
     ? clamp((bus.orbital ? keyFlightYaw : keyYaw) + (orbitalFlightStick?.yaw ?? stickYaw))
@@ -267,10 +283,10 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     bus.aimAssistPulse = false;
     const controls = {
       throttle, yaw,
-      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX)),
+      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX) + (rightAxes?.strafe ?? 0)),
       pitch: clamp(pitch + axis("KeyI", "KeyK")),
       roll: clamp((bus.orbital && bus.leftStickFlight ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
-      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
+      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY) + (rightAxes?.vertical ?? 0)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
@@ -283,6 +299,12 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
       : toOrbitalStepInput(controls);
     if (!bus.countermeasureEnabled) delete result.countermeasure;
     bus.lastKeys = new Set(keys);
+    if (bus.rightBoost) {
+      const now = Date.now();
+      const dt = Math.max(0, Math.min(.1, (now - (bus.rightBoostSampleAt ?? now)) / 1000));
+      bus.rightBoostSampleAt = now;
+      return { ...result, ...stepVectorBoost(bus.rightBoost, result, dt) };
+    }
     return result;
   }
   return { throttle, yaw, strafe, pitch, fire, ult, lock, evade, preset };

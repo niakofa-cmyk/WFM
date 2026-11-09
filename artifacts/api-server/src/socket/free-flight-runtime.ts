@@ -15,6 +15,12 @@ import {
   detSin,
   guideMissile,
   integrateSpatialFlight,
+  VECTOR_BOOST_PROTOCOL_V1,
+  isVectorBoostDirection,
+  newVectorBoost,
+  startVectorBoost,
+  stepVectorBoost,
+  type VectorBoostState,
   orbitalCombatPursuit,
   anomalyGravityWellForSector,
   newFlight,
@@ -88,6 +94,8 @@ type Actor = {
   socket: WebSocketLike | null;
   callsign: string;
   input: SharedInput;
+  vectorBoost?: VectorBoostState;
+  vectorBoostSeq?: number;
   lastInputAt: number;
   lastSeq: number;
   inputWindowAt: number;
@@ -1160,13 +1168,18 @@ export function createFreeFlightRuntime(options: {
               Boolean(candidate?.craft.alive && candidate.socket?.readyState === OPEN))
             .sort((a, b) => distanceBetween(actor, a) - distanceBetween(actor, b))[0]
         : undefined;
-      const input = actor.kind === "patrol"
+      const baseInput = actor.kind === "patrol"
         ? patrolTarget && actor.scoutMemory?.mode === "tracking" &&
             actor.scoutMemory.actorId === patrolTarget.actorId
           ? patrolCombatInput(actor, patrolTarget)
           : patrolInput(actor, actor.scoutMemory
             ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
+      if (actor.vectorBoost && (actor.socket?.readyState !== OPEN ||
+          Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS)) actor.vectorBoost.remaining = 0;
+      const input = actor.vectorBoost
+        ? { ...baseInput, ...stepVectorBoost(actor.vectorBoost, baseInput, ORBITAL_DT) }
+        : baseInput;
       integrateSpatialFlight(
         actor.craft, input, ORBITAL_DT, 1, [], SHIPS[actor.shipId],
         {
@@ -1368,6 +1381,10 @@ export function createFreeFlightRuntime(options: {
           nextInputSeq: actor.lastSeq + 1,
           snapshot: snapshotFor(session, actor),
           environment: environmentFor(session),
+          vectorBoost: {
+            protocol: VECTOR_BOOST_PROTOCOL_V1,
+            nextSeq: (actor.vectorBoostSeq ?? 0) + 1,
+          },
           ...(openingStatus ? { openingEncounter: openingStatus } : {}),
         });
         sendCombatState(session, actor);
@@ -1435,6 +1452,32 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       await startEngagement(socket, seat, packet.targetActorId);
+      return;
+    }
+    if (packet.type === "freeflight_vector_boost") {
+      if (Object.keys(packet).length !== 4 || packet.protocol !== VECTOR_BOOST_PROTOCOL_V1 ||
+          !Number.isSafeInteger(packet.seq) || (packet.seq as number) <= (seat.actor.vectorBoostSeq ?? 0) ||
+          !isVectorBoostDirection(packet.direction)) {
+        error("invalid_freeflight_vector_boost");
+        return;
+      }
+      seat.actor.vectorBoostSeq = packet.seq as number;
+      const actor = seat.actor;
+      actor.vectorBoost ??= newVectorBoost();
+      const accepted = startVectorBoost(
+        actor.vectorBoost, packet.direction, actor.craft.space?.energy ?? 0,
+        !actor.craft.alive || actor.craft.root > 0 || actor.craft.jam > 0 ||
+          (actor.craft.thrustMuted ?? 0) > 0 ||
+          Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS,
+      );
+      send(socket, {
+        type: "freeflight_vector_boost_state",
+        protocol: VECTOR_BOOST_PROTOCOL_V1,
+        accepted,
+        cooldownMs: Math.ceil(actor.vectorBoost.cooldown * 1000),
+        remainingMs: Math.ceil(actor.vectorBoost.remaining * 1000),
+        energy: actor.craft.space?.energy ?? 0,
+      });
       return;
     }
     if (packet.type === "freeflight_input") {

@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
+import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
 import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
@@ -692,6 +694,12 @@ export function Arena({
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
   const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
   const [freeFlightNotice, setFreeFlightNotice] = useState("");
+  const [vectorBoostStatus, setVectorBoostStatus] = useState("");
+  useEffect(() => {
+    if (!vectorBoostStatus) return;
+    const timer = setTimeout(() => setVectorBoostStatus(""), 1200);
+    return () => clearTimeout(timer);
+  }, [vectorBoostStatus]);
   const [freeFlightTally, setFreeFlightTally] = useState({ kills: 0, assists: 0, credits: 0 });
   const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
   const [glReady, setGlReady] = useState(false);
@@ -788,6 +796,10 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_vector_boost_state") {
+            setVectorBoostStatus(packet.accepted === true ? "VECTOR BURST · RECOVERING" : "BURST · ENERGY / RECOVERY");
+            return;
+          }
           if (packet.type === "freeflight_opening") {
             setFreeFlightNotice(openingEncounterNotice(packet.status));
           } else if (packet.type === "freeflight_recovered") {
@@ -934,6 +946,11 @@ export function Arena({
   const contactRef = useRef<HTMLCanvasElement>(null);
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
+  const [rightThumbProfile, setRightThumbProfile] = useState(loadRightThumbProfile);
+  useEffect(() => {
+    saveRightThumbProfile(rightThumbProfile);
+    if (busRef.current) clearInput(busRef.current);
+  }, [rightThumbProfile]);
   const matchRef = useRef<Match | null>(null);
   const onlineRef = useRef(online);
   onlineRef.current = online;
@@ -970,6 +987,7 @@ export function Arena({
   if (!busRef.current) busRef.current = createBus(scheme);
   busRef.current.orbital = orbital;
   busRef.current.leftStickFlight = orbital && !online;
+  busRef.current.rightThumbProfile = orbital && !online ? rightThumbProfile : undefined;
   busRef.current.countermeasureEnabled = orbital && !orbitalCampaign;
   if (!matchRef.current) {
     const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
@@ -1955,6 +1973,8 @@ export function Arena({
     observer.observe(canvas);
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement &&
+          blocksFlightHotkeys(event.target.tagName, event.target.isContentEditable)) return;
       if (event.code === "KeyP") {
         event.preventDefault();
         const next = !pausedRef.current;
@@ -3615,7 +3635,16 @@ export function Arena({
                 </div>
                 <div className="relative">
                   <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
-                    onCircularRollInput={bus?.orbital && bus.leftStickFlight ? (input) => {
+                    boostStatus={vectorBoostStatus}
+                    description={unifiedOrbitalControls && rightThumbProfile.mode === "hybrid"
+                      ? "Drag to aim and translate sideways, vertically or diagonally. Double-tap an edge or make two quick matching flicks for a directional burst."
+                      : "Drag to aim. Aim-only profile preserves the original flight mapping."}
+                    onVectorBoost={unifiedOrbitalControls && rightThumbProfile.mode === "hybrid" && bus ? (direction) => {
+                      if (freeFlightEnabled) return freeFlightClientRef.current?.requestVectorBoost(direction) ?? false;
+                      bus.flightEnergy = matchRef.current?.player.space?.energy ?? 0;
+                      return requestRightVectorBoost(bus, direction);
+                    } : undefined}
+                    onCircularRollInput={!freeFlightEnabled && bus?.orbital && bus.leftStickFlight ? (input) => {
                       setCircularRollControl(bus, input);
                       if (Math.abs(input) > 0.01) rollCameraStabilizationRef.current = 1;
                     } : undefined}
@@ -3731,6 +3760,33 @@ export function Arena({
               >
                 EXIT UNIVERSE
               </button>
+            ) : null}
+            {unifiedOrbitalControls ? (
+              <section className="mt-4 border-t border-bone/15 pt-3" aria-label="Right thumb flight profile">
+                <p className="font-hud text-[10px] tracking-[0.22em] text-solar">RIGHT THUMB FLIGHT</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(["hybrid", "aim"] as const).map((mode) => (
+                    <button key={mode} type="button" className="pilot-menu-setting"
+                      data-testid={`right-thumb-profile-${mode}`} aria-pressed={rightThumbProfile.mode === mode}
+                      onClick={() => setRightThumbProfile({ ...rightThumbProfile, mode })}>
+                      {mode === "hybrid" ? "HYBRID · AIM + MOVE" : "AIM ONLY · CLASSIC"}
+                    </button>
+                  ))}
+                </div>
+                <label className="mt-2 block font-mono text-[10px] text-muted">
+                  AIM RESPONSE {rightThumbProfile.attitudeGain.toFixed(2)}
+                  <input aria-label="Right thumb aim response" className="block w-full" type="range" min=".2" max="1.25" step=".05"
+                    value={rightThumbProfile.attitudeGain}
+                    onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, attitudeGain: Number(event.target.value) })} />
+                </label>
+                <label className="mt-2 block font-mono text-[10px] text-muted">
+                  VECTOR THRUST {rightThumbProfile.translationGain.toFixed(2)}
+                  <input aria-label="Right thumb vector thrust" className="block w-full" type="range" min="0" max="1" step=".05"
+                    value={rightThumbProfile.translationGain} disabled={rightThumbProfile.mode === "aim"}
+                    onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, translationGain: Number(event.target.value) })} />
+                </label>
+                <p className="mt-2 font-mono text-[9px] text-muted">Eight-way bursts use energy and recovery time. Shared flight requires server support. Circle rolls remain local-training only.</p>
+              </section>
             ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" data-testid="button-shake-toggle" aria-pressed={shakeUi} className="pilot-menu-setting" onClick={() => {

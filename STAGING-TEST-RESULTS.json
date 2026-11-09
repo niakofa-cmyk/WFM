@@ -1,5 +1,33 @@
 {
   "overallStatus": "PENDING",
+  "pendingRightThumbControlRollout": {
+    "status": "LOCAL_VALIDATION_ONLY_NOT_DEPLOYED",
+    "defaultProfile": "hybrid",
+    "aimOnlyRollback": true,
+    "sharedBurstCapability": "orbital-vector-boost-v1",
+    "fullWorkspaceChecks": "PASSED",
+    "targetedRightThumbTests": 8,
+    "serverBurstContractTest": "PASSED",
+    "interactiveSoftwareRendererCheck": {
+      "neutralTouchDown": true,
+      "diagonalAxes": [0.693, -0.693],
+      "observedHullDisplacementMeters": { "x": 0.39112784490875185, "y": 0.391571767363965, "z": 0.06487754755798 },
+      "primaryFireWhileMoving": true,
+      "releaseAxesNeutral": true,
+      "rightDoubleTapBurstLabel": "RIGHT BURST",
+      "aimOnlyProfilePersistedAfterReload": true,
+      "aimOnlyDisablesVectorGainSlider": true,
+      "hybridProfileRestoredThroughMenu": true,
+      "nativeSliderKeyboardGuardRegression": "FIXED_AND_UNIT_CHECKED",
+      "settingsScreenshot": "TIMED_OUT",
+      "physicalDevice": false
+    },
+    "testingBrowserWebGLContext": "UNAVAILABLE",
+    "authenticatedStagingManeuverBattle": "NOT_RUN",
+    "newControlBattleSurvivalStatistics": "NOT_MEASURED",
+    "sharedCircleRollAndCountermeasuresEnabled": false,
+    "productionChanged": false
+  },
   "latestPursuitRollout": {
     "status": "AUTHENTICATED_DESTRUCTION_REWARD_AND_CONTINUED_FLIGHT_VERIFIED",
     "configuredSourcePin": "32c326ce90134036e7dd63008601b19af919808b",

@@ -62,6 +62,48 @@ function input(seq: number, values: Record<string, unknown> = {}) {
   };
 }
 
+test("server-advertised directional bursts enforce sequence, cooldown and fixed intent while firing", async () => {
+  const packets: Packet[] = [];
+  const socket = { readyState: 1, bufferedAmount: 0,
+    send: (data: string) => packets.push(JSON.parse(data) as Packet), close: () => {} };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({ sessionKey: "mars:vector-test", faction: "ussf", shipId: "glide" }),
+    resolveUniversePatrols: async () => [],
+  });
+  try {
+    await runtime.handle(socket, "vector-pilot", { type: "freeflight_join" });
+    const joined = packets.find(packet => packet.type === "freeflight_joined")!;
+    const offer = joined.vectorBoost as { protocol: string; nextSeq: number };
+    assert.equal(offer.protocol, "orbital-vector-boost-v1");
+    assert.equal(offer.nextSeq, 1);
+    await runtime.handle(socket, "vector-pilot", { type: "freeflight_input", input: input(1, { fire: true }) });
+    const request = { type: "freeflight_vector_boost", protocol: offer.protocol, seq: 1, direction: "up-right" };
+    await runtime.handle(socket, "vector-pilot", request);
+    let states = packets.filter(packet => packet.type === "freeflight_vector_boost_state");
+    assert.equal(states.at(-1)!.accepted, true);
+    assert.equal(states.at(-1)!.remainingMs, 240);
+    await runtime.handle(socket, "vector-pilot", request);
+    assert.equal(packets.at(-1)!.reason, "invalid_freeflight_vector_boost");
+    await runtime.handle(socket, "vector-pilot", { ...request, seq: 2 });
+    states = packets.filter(packet => packet.type === "freeflight_vector_boost_state");
+    assert.equal(states.at(-1)!.accepted, false, "a new sequence does not bypass cooldown");
+    await runtime.handle(socket, "vector-pilot", { ...request, seq: 3, durationMs: 99999 });
+    assert.equal(packets.at(-1)!.reason, "invalid_freeflight_vector_boost");
+    await runtime.handle(socket, "vector-pilot", { ...request, seq: 3, direction: "teleport" });
+    assert.equal(packets.at(-1)!.reason, "invalid_freeflight_vector_boost");
+    const now = Date.now();
+    for (let i = 1; i <= 12; i++) runtime.advance(now + i * 34);
+    assert.ok(packets.some(packet => packet.type === "freeflight_weapon_fired"), "firing remains usable during the burst");
+    const snap = packets.filter(packet => packet.type === "freeflight_snapshot").at(-1)?.snapshot as {
+      actors: Array<{ own: boolean; position: { x: number; y: number; z: number } }>;
+    };
+    const original = (joined.snapshot as typeof snap).actors.find(actor => actor.own)!;
+    const moved = snap.actors.find(actor => actor.own)!;
+    assert.ok(Math.hypot(moved.position.x - original.position.x,
+      moved.position.y - original.position.y, moved.position.z - original.position.z) > .1);
+  } finally { await runtime.close(); }
+});
+
 test("a nearby late ally automatically joins the existing battle without another reservation", async () => {
   const contact: UniversePatrolEncounter = {
     patrolId: "assist-patrol-0001", locationId: "phobos-yard", faction: "accord",

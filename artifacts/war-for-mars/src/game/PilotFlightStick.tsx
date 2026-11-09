@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
+import { boostDirectionAt, registerBoostGesture, type BoostGestureState } from "./right-thumb-controls";
+import type { VectorBoostDirection } from "@workspace/orbital-sim";
 import {
   circularGestureRadiusBounds,
   createCircularGestureTracker,
@@ -30,9 +32,12 @@ type ActiveTouch = {
   circularMode: boolean;
   circularTracker: CircularGestureTracker | null;
   circularCandidateStarted: boolean;
+  boostDirection: VectorBoostDirection | null;
+  boostRadius: number;
 };
 
 type StickFeedback =
+  | { kind: "boost"; direction: VectorBoostDirection; requested: boolean }
   | { kind: "vector"; pulse: ManeuverPulse }
   | { kind: "roll-progress"; progress: number; direction: RollDirection | null; rejected: boolean }
   | { kind: "roll-live"; progress: number; direction: RollDirection }
@@ -43,6 +48,8 @@ type Props = {
   testId: string;
   onAxis: (x: number, y: number) => void;
   onPulse?: (pulse: ManeuverPulse) => void;
+  onVectorBoost?: (direction: VectorBoostDirection) => boolean;
+  boostStatus?: string;
   onCircularRollInput?: (input: number) => void;
   size?: "arena" | "rust-disc";
   disabled?: boolean;
@@ -55,12 +62,15 @@ function pointerTimestampMs(event: PointerEvent) {
   return event.timeStamp > 1e12 ? event.timeStamp : performance.timeOrigin + event.timeStamp;
 }
 
-export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRollInput, size = "rust-disc", disabled = false, className = "", description }: Props) {
+export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, className = "", description }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const feedbackAnnouncement = useRef<HTMLSpanElement>(null);
   const active = useRef<ActiveTouch | null>(null);
   const gesture = useRef<DoubleTapState>(EMPTY_DOUBLE_TAP_STATE);
+  const boostGesture = useRef<BoostGestureState>({ direction: null, at: 0, cooldownUntil: 0 });
+  const boostCallback = useRef(onVectorBoost);
+  boostCallback.current = onVectorBoost;
   const axisCallback = useRef(onAxis);
   const pulseCallback = useRef(onPulse);
   const circularCallback = useRef(onCircularRollInput);
@@ -103,6 +113,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
   };
 
   const resetVisual = () => {
+    boostGesture.current.direction = null;
     active.current = null;
     gesture.current = EMPTY_DOUBLE_TAP_STATE;
     circularCallback.current?.(0);
@@ -163,6 +174,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
     if (root.current) root.current.dataset.recenter = "true";
     if (cancelled) {
+      boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
       clearFeedbackTimer();
       setFeedback(null);
@@ -171,6 +183,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       return;
     }
     if (touch.circularMode) {
+      boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
       if (!cancelled) {
         if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "Barrel roll control released";
@@ -179,9 +192,22 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       return;
     }
     if (touch.circularCandidateStarted) {
+      boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
       clearFeedbackTimer();
       setFeedback(null);
+      return;
+    }
+    if (boostCallback.current) {
+      const quick = Date.now() - touch.startedAt <= 185;
+      const result = registerBoostGesture(boostGesture.current, quick ? touch.boostDirection : null, Date.now());
+      boostGesture.current = result.state;
+      if (result.boost) {
+        const requested = boostCallback.current(result.boost);
+        if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent =
+          requested ? `${result.boost} directional boost requested` : "Directional boost unavailable or recovering";
+        showTemporaryFeedback({ kind: "boost", direction: result.boost, requested }, 650);
+      }
       return;
     }
     if (cancelled || !isQuickStickTap(Date.now() - touch.startedAt, touch.maxMovementPx, touch.sector)) {
@@ -277,18 +303,26 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
             )
             : null,
           circularCandidateStarted: false,
+          boostRadius: Math.min(rect.width, rect.height) * .3,
+          boostDirection: boostDirectionAt(
+            (event.clientX - rect.left - rect.width / 2) / (rect.width / 2),
+            (event.clientY - rect.top - rect.height / 2) / (rect.height / 2),
+          ),
         };
         sendAxis(0, 0);
       }}
       onPointerMove={(event) => {
         const touch = active.current;
         if (!touch || touch.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        touch.maxMovementPx = Math.max(
-          touch.maxMovementPx,
-          Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY),
-        );
+        const displacement = Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY);
+        const atPeak = displacement >= touch.maxMovementPx;
+        touch.maxMovementPx = Math.max(touch.maxMovementPx, displacement);
         if (touch.maxMovementPx > STICK_TAP_MAX_MOVEMENT_PX) {
           gesture.current = { ...gesture.current, pending: null };
+          if (atPeak) touch.boostDirection = boostDirectionAt(
+            (event.clientX - touch.startX) / touch.boostRadius,
+            (event.clientY - touch.startY) / touch.boostRadius,
+          );
         }
         if (touch.circularTracker) {
           const nativeEvent = event.nativeEvent;
@@ -341,6 +375,14 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       {feedback?.kind === "roll-release" ? (
         <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
           ROLL RELEASED
+        </span>
+      ) : null}
+      {boostStatus ? (
+        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 bottom-0 z-20 -translate-x-1/2 whitespace-nowrap" role="status" data-testid="vector-boost-server-status">{boostStatus}</span>
+      ) : null}
+      {feedback?.kind === "boost" ? (
+        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status" data-testid="vector-boost-gesture-status">
+          {feedback.requested ? `${feedback.direction.toUpperCase()} BURST` : "BURST UNAVAILABLE"}
         </span>
       ) : null}
       {feedback?.kind === "vector" ? (

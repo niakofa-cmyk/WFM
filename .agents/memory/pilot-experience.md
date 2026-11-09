@@ -3,6 +3,25 @@ name: Pilot experience
 description: The WFM flight HUD and touch-control direction.
 ---
 
+## Current right-thumb direction
+
+The [dynamic right-thumb foundation](../../docs/infinite-war/RIGHT-THUMB-DYNAMIC-FLIGHT.md)
+overrides earlier aim-only guidance below: default to Hybrid attitude plus
+physical lateral/vertical translation, with normalized diagonals, deliberate
+eight-way directional bursts and an Aim-only rollback profile. Keep left-thumb
+propulsion and the sticks' existing landscape placement.
+
+**Why:** the user explicitly requested that right-thumb motion move the hull
+sideways/up/down as well as aim, with faster directional dodges from two matching
+taps or flicks to improve combat evasion.
+
+**How to apply:** use the existing shared axes and energy physics. Shared bursts
+require an advertised server capability and server-owned timing/validation;
+device-local profile preferences must not replace account progression. Preserve
+Wing/sector contracts, historical replays and the offline-only roll boundary.
+Do not treat earlier staging survival evidence as verification of these new
+controls; require fresh paired staging and physical-device checks.
+
 Treat [the pilot-experience reconstruction](../../docs/infinite-war/PILOT-EXPERIENCE-RECONSTRUCTION.md), [left-thumb control directive](../../docs/infinite-war/LEFT-THUMB-FLIGHT-CONTROL-DIRECTIVE.md), and [Orbital tactical maneuver roadmap](../../docs/infinite-war/ORBITAL-TACTICAL-MANEUVER-ROADMAP.md) as leading references for active flight screens and touch behavior.
 Use [the image-reference review](../../docs/infinite-war/PILOT-IMAGE-REFERENCE-REVIEW.md) for visual composition; treat supplied images as inspiration, not artwork or interface to copy.
 The full user-supplied tactical control documents and barrel-roll reference image are retained in `docs/infinite-war/references/`.

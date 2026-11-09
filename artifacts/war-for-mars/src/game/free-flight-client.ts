@@ -1,5 +1,8 @@
 import {
   ORBITAL_RULES_VERSION,
+  VECTOR_BOOST_PROTOCOL_V1,
+  isVectorBoostDirection,
+  type VectorBoostDirection,
   isFreeFlightEnvironmentV1,
   isFreeFlightSnapshotV1,
   normalizeFlightControls,
@@ -42,6 +45,8 @@ export class FreeFlightClient {
   private nextInputSeq = 1;
   private generation = 0;
   private joined = false;
+  private vectorBoostAvailable = false;
+  private vectorBoostSeq = 1;
   private sessionInstanceId: string | null = null;
   private readonly inputScheduler = new FreeFlightInputScheduler();
 
@@ -53,7 +58,18 @@ export class FreeFlightClient {
     this.connect();
   }
 
+  requestVectorBoost(direction: VectorBoostDirection) {
+    if (!this.joined || !this.vectorBoostAvailable || !isVectorBoostDirection(direction) ||
+        this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(JSON.stringify({
+      type: "freeflight_vector_boost", protocol: VECTOR_BOOST_PROTOCOL_V1,
+      seq: this.vectorBoostSeq++, direction,
+    }));
+    return true;
+  }
+
   stop() {
+    this.vectorBoostAvailable = false;
     this.stopped = true;
     this.generation += 1;
     this.joined = false;
@@ -161,6 +177,10 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_joined") {
+        const vector = packet.vectorBoost as { protocol?: unknown; nextSeq?: unknown } | undefined;
+        this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
+          Number.isSafeInteger(vector.nextSeq) && (vector.nextSeq as number) > 0;
+        if (this.vectorBoostAvailable) this.vectorBoostSeq = vector!.nextSeq as number;
         if (!Number.isSafeInteger(packet.nextInputSeq) ||
             (packet.nextInputSeq as number) < 1 ||
             (packet.nextInputSeq as number) > 0x7fffffff) {
@@ -191,7 +211,8 @@ export class FreeFlightClient {
         this.acceptSnapshot(packet.snapshot);
         return;
       }
-      if (packet.type === "freeflight_recovered" ||
+      if (packet.type === "freeflight_vector_boost_state" ||
+          packet.type === "freeflight_recovered" ||
           packet.type === "freeflight_engagement_started" ||
           packet.type === "freeflight_ally_joined" ||
           packet.type === "freeflight_engagement_state" ||

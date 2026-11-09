@@ -9,6 +9,7 @@ export * from "./sector-flight";
 export * from "./sector-contract";
 export * from "./lineup";
 export * from "./pilot-controls";
+export * from "./vector-boost";
 export * from "./combat-pursuit";
 export * from "./combat-outcome";
 export * from "./planetary-world";
