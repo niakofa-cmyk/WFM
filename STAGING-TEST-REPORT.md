@@ -3,6 +3,39 @@
 - **Status:** PENDING — paired combat certification blocked by patrol availability.
 - **Latest staging rollout:** `efbc080efa3a2c1bab1f485d8a8656c0e1118418` successfully deployed across app, API and socket, with matching deployment commit metadata. Both fresh sign-ins completed and both authenticated profiles returned HTTP 200. Production and the database schema are unchanged.
 
+## Continuous-flight follow-up — local evidence, not yet deployed
+
+Native server regressions now exercise:
+
+- Durable patrol arrivals and departures during one flight, without re-entry.
+- One outstanding directory lookup per session and discarding responses after
+  the observer's saved location changes.
+- Protecting active/settling contracts and preserving retained actor state.
+- A live-battle diagonal dodge that physically moves the hull while primary
+  weapons continue firing.
+- Combat Lab-equivalent shield recovery for pilots and enemies.
+- Primary-fire admission even when the pilot holds missiles between encounters.
+- Real simulated destruction of a first fleet, a calculated kill reward,
+  surviving movement afterward, and two later simultaneous fleet engagements
+  without another universe join.
+
+These are native runtime tests with deterministic directory/settlement adapters,
+not authenticated staging or durable-database reward evidence. Compact test-only
+spawn geometry does not alter deployment defaults. The later combined-fleet
+stress action can still destroy the pilot; survival or victory against both
+later fleets has **not** been certified. No enemy damage or weapon-catalog values
+were weakened to obtain the first victory.
+
+All six focused continuity regressions pass. The complete workspace typecheck,
+tests, and build also pass, including both Three.js bundle audits. The local Wing
+Socket was restarted and reports database-backed flight admission and combat
+readiness. Public local entry rendered without a fatal browser error; this is
+not a signed-in combat screenshot.
+
+See [the continuity reference](docs/infinite-war/FREE-FLIGHT-COMBAT-CONTINUITY.md).
+The deployed staging results below remain unchanged until the reviewed follow-up
+is explicitly deployed and tested with fresh authenticated pilots.
+
 ## Directional controls and live combat: current evidence
 
 **Deployed to isolated staging, paired verification pending:** the stale-contact

@@ -63,6 +63,10 @@ const MAX_ACTORS_PER_SESSION = 32;
 const MAX_PROJECTILES_PER_SESSION = 512;
 const MAX_ENCOUNTER_PILOTS = 8;
 const MAX_ACTIVE_ENCOUNTERS = 3;
+const PATROL_REFRESH_INTERVAL_MS = 15_000;
+// Match Combat Lab's 3 HP/s recovery after two seconds without damage.
+const SHIELD_RECOVERY_DELAY_TICKS = TICK_RATE * 2;
+const SHIELD_RECOVERY_PER_SECOND = 3;
 const PATROL_ENGAGEMENT_RANGE = 180;
 const PATROL_SENSOR_RANGE = 520;
 const PRIMARY_FIRE_ENGAGEMENT_CONE = 0.3;
@@ -156,6 +160,8 @@ type Session = {
   lastAdvanceAt: number;
   lastSnapshotAt: number;
   emptySince: number | null;
+  nextPatrolRefreshAt: number;
+  patrolRefreshPending: boolean;
 };
 type Seat = { session: Session; actor: Actor; userId: string };
 
@@ -223,7 +229,8 @@ function createPatrols(session: Session, radius = 360) {
 function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, radius = 360) {
   if (session.persistentPatrols.has(patrol.patrolId)) return;
   const knownShips = patrol.ships.filter((ship) => Object.hasOwn(SHIPS, ship.hullId));
-  if (session.actors.size + knownShips.length > MAX_ACTORS_PER_SESSION) return;
+  const newShips = knownShips.filter((ship) => !session.actors.has(patrolShipActorId(ship.id)));
+  if (session.actors.size + newShips.length > MAX_ACTORS_PER_SESSION) return;
   const fleetOrdinal = session.persistentPatrols.size;
   const fleetRadius = radius + fleetOrdinal * 220;
   const baseAngle = (patrol.faction === "ussf" ? 0 : -Math.PI / 2) + fleetOrdinal * 0.48;
@@ -233,6 +240,9 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
   });
   patrol.ships.forEach((ship, index) => {
     if (!Object.hasOwn(SHIPS, ship.hullId)) return;
+    const actorId = patrolShipActorId(ship.id);
+    // Directory refresh must not heal, reposition or renumber a survivor.
+    if (session.actors.has(actorId)) return;
     const shipId = ship.hullId as ShipId;
     const angle = baseAngle + index * 0.16;
     const numericId = session.nextNumericId++;
@@ -241,7 +251,6 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       detCos(angle) * (fleetRadius + index * 12), 0,
       detSin(angle) * (fleetRadius + index * 12), angle + Math.PI / 2,
     );
-    const actorId = patrolShipActorId(ship.id);
     session.actors.set(actorId, {
       actorId, numericId, kind: "patrol", faction: patrol.faction, shipId, craft,
       shield: SHIPS[shipId].shield, shieldMax: SHIPS[shipId].shield,
@@ -362,6 +371,14 @@ function weaponEventId(session: Session, projectileId: number) {
   return `${session.instanceId}:${session.tick}:${projectileId}`;
 }
 
+export function recoverFreeFlightShield(
+  shield: number, shieldMax: number, lastDamageTick: number, tick: number,
+): number {
+  return lastDamageTick < 0 || tick - lastDamageTick >= SHIELD_RECOVERY_DELAY_TICKS
+    ? Math.min(shieldMax, shield + SHIELD_RECOVERY_PER_SECOND * ORBITAL_DT)
+    : shield;
+}
+
 function send(socket: WebSocketLike | null, packet: unknown) {
   if (!socket || socket.readyState !== OPEN) return;
   if (socket.bufferedAmount > 1_048_576) {
@@ -411,6 +428,7 @@ export function createFreeFlightRuntime(options: {
       autoEngagementCooldowns: new Map(), nextProjectileId: 1,
       nextNumericId: 1, tick: 0, accumulatorMs: 0,
       lastAdvanceAt: now, lastSnapshotAt: now, emptySince: null,
+      nextPatrolRefreshAt: now + PATROL_REFRESH_INTERVAL_MS, patrolRefreshPending: false,
     };
     sessions.set(key, session);
     if (patrols.length) {
@@ -785,6 +803,7 @@ export function createFreeFlightRuntime(options: {
         }
         combat.resultsApplied = true;
         combat.phase = "complete";
+        session.nextPatrolRefreshAt = 0;
         sendEncounterState(session, combat, "complete");
       } catch {
         combat.phase = "settlement-unavailable";
@@ -1195,9 +1214,9 @@ export function createFreeFlightRuntime(options: {
         actor.input.aimAssist = false;
       }
       actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
-      if (actor.lastDamageTick < 0 || session.tick - actor.lastDamageTick > 45) {
-        actor.shield = Math.min(actor.shieldMax, actor.shield + 0.15 * ORBITAL_DT);
-      }
+      actor.shield = recoverFreeFlightShield(
+        actor.shield, actor.shieldMax, actor.lastDamageTick, session.tick,
+      );
       fireWeapons(session, actor, input);
     }
     stepProjectiles(session);
@@ -1504,8 +1523,13 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       if (input.missile && !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
-        error("freeflight_engagement_required");
-        return;
+        if (!input.fire) {
+          error("freeflight_engagement_required");
+          return;
+        }
+        // A held missile button must not suppress primary-fire admission for
+        // the next fleet. Only the missile intent waits for a real contract.
+        input.missile = false;
       }
       if (input.seq <= seat.actor.lastSeq || input.seq - seat.actor.lastSeq > 256) {
         error("freeflight_sequence");
@@ -1554,11 +1578,74 @@ export function createFreeFlightRuntime(options: {
     error("freeflight_unknown_message");
   }
 
+  /** Refresh location-owned fleets without scene changes, actor resets or
+   * replacing active/settling leases. One outstanding read per session. */
+  async function refreshPatrolDirectory(session: Session, now: number) {
+    if (!options.resolveUniversePatrols || session.patrolRefreshPending ||
+        session.engagementPending || now < session.nextPatrolRefreshAt) return;
+    const pilot = [...session.pilotByUser.values()].find((actor) =>
+      actor.craft.alive && actor.socket?.readyState === OPEN && actor.ownerUserId);
+    if (!pilot?.ownerUserId) return;
+    session.patrolRefreshPending = true;
+    session.nextPatrolRefreshAt = now + PATROL_REFRESH_INTERVAL_MS;
+    const pilotUserId = pilot.ownerUserId;
+    // A lookup begun during settlement must not reimport its pre-commit roster.
+    const protectedPatrols = new Set(liveCombats(session).map((combat) => combat.patrol.patrolId));
+    try {
+      const admission = await options.resolveAdmission(pilotUserId);
+      if (!admission || admission.sessionKey !== session.key) return;
+      const groups = await Promise.all([
+        options.resolveUniversePatrols(pilotUserId, "ussf"),
+        options.resolveUniversePatrols(pilotUserId, "accord"),
+      ]);
+      const currentAdmission = await options.resolveAdmission(pilotUserId);
+      if (closed || sessions.get(session.key) !== session ||
+          pilot.socket?.readyState !== OPEN ||
+          !currentAdmission || currentAdmission.sessionKey !== session.key ||
+          session.engagementPending) return;
+      const fresh = new Map(groups.flat().map((patrol) => [patrol.patrolId, patrol]));
+      for (const previous of [...session.persistentPatrols.values()]) {
+        const combat = session.combats.get(previous.patrolId);
+        if (protectedPatrols.has(previous.patrolId) || combat && combat.phase !== "complete") continue;
+        const actors = [...session.actors.values()].filter((actor) =>
+          actor.persistentPatrolId === previous.patrolId);
+        const next = fresh.get(previous.patrolId);
+        if (combat?.phase === "complete" && actors.every((actor) => !actor.craft.alive)) {
+          for (const actor of actors) session.actors.delete(actor.actorId);
+          session.persistentPatrols.delete(previous.patrolId);
+          continue;
+        }
+        for (const actor of actors) {
+          if (!next?.ships.some((ship) =>
+            ship.id === actor.persistentShipId && ship.hullId === actor.shipId)) {
+            session.actors.delete(actor.actorId);
+          }
+        }
+        session.persistentPatrols.delete(previous.patrolId);
+      }
+      for (const patrol of fresh.values()) {
+        if (protectedPatrols.has(patrol.patrolId) ||
+            session.combats.get(patrol.patrolId)?.phase === "complete" &&
+              ![...session.actors.values()].some((actor) =>
+                actor.persistentPatrolId === patrol.patrolId && actor.craft.alive)) continue;
+        addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+      }
+      publish(session);
+    } catch {
+      // Keep existing flight and leases intact; reservation still revalidates
+      // every target. Never invent enemies from a directory failure.
+      process.stderr.write('{"event":"freeflight_patrol_refresh_unavailable"}\n');
+    } finally {
+      session.patrolRefreshPending = false;
+    }
+  }
+
   function advance(now = Date.now()) {
     if (closed) return;
     for (const [key, session] of sessions) {
       const elapsed = Math.max(0, Math.min(250, now - session.lastAdvanceAt));
       session.lastAdvanceAt = now;
+      void refreshPatrolDirectory(session, now);
       session.accumulatorMs += elapsed;
       let steps = 0;
       while (session.accumulatorMs >= 1_000 / TICK_RATE && steps < 8) {

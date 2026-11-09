@@ -1,5 +1,18 @@
 {
   "overallStatus": "PENDING",
+  "continuousFlightLocalFollowup": {
+    "status": "LOCAL_REGRESSION_VERIFICATION_ONLY_NOT_DEPLOYED",
+    "newContinuityRegressionTests": { "passed": 6, "failed": 0 },
+    "fullWorkspaceValidation": "PASSED_TYPECHECK_TESTS_BUILD_AND_BUNDLE_AUDITS",
+    "durablePatrolRefreshWithoutReentry": true,
+    "nativeFirstFleetDestructionAndContinuedMovement": true,
+    "twoSubsequentSimultaneousFleetContracts": true,
+    "laterCombinedFleetSurvivalVerified": false,
+    "stagingVisibleEnemyDestructionVerified": false,
+    "stagingDurableRewardVerified": false,
+    "priorStagingEvidenceUnchanged": true,
+    "reference": "docs/infinite-war/FREE-FLIGHT-COMBAT-CONTINUITY.md"
+  },
   "patrolAdmissionRecoveryReview": {
     "status": "STAGING_PARTIAL_ADMISSION_RECOVERY_VERIFIED_COMBAT_CERTIFICATION_BLOCKED",
     "stagingRevision": "efbc080efa3a2c1bab1f485d8a8656c0e1118418",

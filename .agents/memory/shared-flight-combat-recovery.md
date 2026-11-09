@@ -39,6 +39,19 @@ been misreported as an encounter failure.
 diagnostics, and verify the renderer/prediction frame separately. Do not inject
 poses or weaken engagement range to make an automated approach succeed.
 
+Native flight diagnostics must advance wall-clock-dependent input admission
+alongside the simulation clock, and aim in the ship's current body frame when
+it is maneuvering.
+
+**Why:** a fast deterministic combat run advanced many seconds of physics
+inside one wall-clock input window. Rate-limited inputs and later sequence
+rejections looked like weapons or handling failures. World yaw/pitch subtraction
+also ceased to aim reliably while the ship changed its 3D orientation.
+
+**How to apply:** align clocks only in isolated deterministic tests, use observed
+quaternion-relative geometry, and assert accepted input separately from shots
+and damage. Real browser tests must keep real clocks and normal admission.
+
 Encounter participation and the pilot's ability to act are separate states:
 an ongoing fleet battle can include a destroyed participant.
 
