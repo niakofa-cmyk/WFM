@@ -1,7 +1,15 @@
 {
   "overallStatus": "PENDING",
   "pendingRightThumbControlRollout": {
-    "status": "LOCAL_VALIDATION_ONLY_NOT_DEPLOYED",
+    "status": "STAGING_DEPLOYED_AUTHENTICATION_PENDING",
+    "stagingRevision": "296a3f402b7accab3cc1b2d9315a1ffe4ed4fbc6",
+    "stagingDeployments": {
+      "app": { "id": "eeb605bb-2d64-4ede-a160-19b9ded1d2d6", "status": "SUCCESS" },
+      "api": { "id": "9132af4e-ae1b-4c4b-a83b-d2732f3e8c92", "status": "SUCCESS" },
+      "socket": { "id": "b4642877-6653-48d8-8827-8bdd9151c6a9", "status": "SUCCESS" }
+    },
+    "unauthenticatedStagingEntryHttpStatus": 401,
+    "freshPilotChallenges": { "pilot1": "needs_client_trust", "pilot2": "needs_client_trust" },
     "defaultProfile": "hybrid",
     "aimOnlyRollback": true,
     "sharedBurstCapability": "orbital-vector-boost-v1",
