@@ -74,3 +74,16 @@ the server roster had cleared, despite the flight remaining healthy.
 presentation. Connecting, unavailable and empty shared snapshots cannot confer
 authority on cached preview contacts. Clear completed battle notices without
 revoking controls for a different encounter that is still active.
+
+Apply that separation to the server roster too: a configured persistent patrol
+directory returning empty or failing must not produce compatibility/sample
+enemies. Later admissions should retry the durable lookup without resetting
+existing pilots, casualties, attribution or battle contracts.
+
+**Why:** paired staging flight showed hostile sample ships but no persistent
+hostile contact that could be reserved. A lookup restricted to session creation
+also left an initially empty session unable to discover later durable patrols.
+
+**How to apply:** fail closed for persistent combat authority while leaving
+flight available; add newly resolved durable fleets idempotently, and verify
+the snapshot roster rather than inferring authority from a hostile HUD count.

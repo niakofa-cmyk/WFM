@@ -21,8 +21,26 @@ One paired attempt used codes that were later confirmed to be from older sign-in
 emails. Both sessions stayed on the client-trust page and did not authenticate;
 no battle was tested. A new pair of challenges was then opened, but no new code
 values were submitted before both browser-owner sessions timed out. No old code
-was reused for the new pair. The paired same-battle test, kill/assist settlement,
-and continued-flight verification remain **not run**.
+was reused for the new pair.
+
+The subsequent paired run authenticated both profiles (HTTP 200) and entered
+shared flight with a nearby human peer. Neither authoritative snapshot contained
+a persistent hostile ship. Both approach attempts returned
+`no_persistent_hostile_contact`; no battle, damage, kill/assist settlement or
+post-battle flight was verified. The hostile count shown in flight included
+non-persistent sample patrols, not a claimable fleet. Strategic traffic alone is
+not proof of a live combat roster.
+
+The patrol-admission review now prevents sample patrols from substituting for an
+empty/unavailable persistent directory and reloads durable patrols on subsequent
+admissions to an existing session. Existing pilots, health and battle contracts
+are not reset. All 22 focused opening/shared-flight runtime tests and the API
+typecheck pass. Full workspace typechecks, tests and builds now pass, including
+the main-app and Combat Lab lazy-engine bundle audits. This fix has not yet been
+deployed. Both old browser owners were lost. Fresh paired challenges have now
+been opened, with no verification codes submitted and neither account yet
+authenticated. The same-battle kill/assist and durable settlement checks remain
+**pending**, not passed.
 
 - Both pilots entered shared flight from the hangar. Actual pointer drags moved
   the hull diagonally, primary fire stayed active, and release returned the axes

@@ -1,5 +1,29 @@
 {
   "overallStatus": "PENDING",
+  "patrolAdmissionRecoveryReview": {
+    "status": "LOCAL_FIX_FRESH_AUTHENTICATION_AND_STAGING_ROLLOUT_PENDING",
+    "priorPairedRun": {
+      "authenticatedProfileStatuses": [200, 200],
+      "bothPilotsEnteredSharedFlight": true,
+      "nearbyHumanPeerObserved": true,
+      "persistentHostileActorsPerPilot": [0, 0],
+      "approachError": "no_persistent_hostile_contact",
+      "sameBattleKillsAssistsAndSettlementVerified": false
+    },
+    "persistentDirectoryDoesNotFallBackToSamplePatrols": true,
+    "laterAdmissionCanLoadNewDurablePatrols": true,
+    "retainedPilotAndBattleStatePreserved": true,
+    "focusedOpeningAndRuntimeTests": { "passed": 22, "failed": 0 },
+    "apiTypecheck": "PASSED",
+    "fullWorkspaceValidation": "PASSED_TYPECHECK_TESTS_AND_BUILD_INCLUDING_BUNDLE_AUDITS",
+    "freshChallenges": {
+      "pilot1": "OPEN_NOT_SUBMITTED",
+      "pilot2": "OPEN_NOT_SUBMITTED"
+    },
+    "fixDeployed": false,
+    "productionChanged": false,
+    "databaseMigrationRun": false
+  },
   "pendingIndicatorAndNearbyAssistCheck": {
     "status": "STAGING_DEPLOYED_PAIRED_ASSISTANCE_PENDING",
     "stagingRevision": "bf71c1254241d25a08de4882682b1cfce219cfa0",

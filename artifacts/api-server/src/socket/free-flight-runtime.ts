@@ -417,7 +417,9 @@ export function createFreeFlightRuntime(options: {
       for (const patrol of patrols) addPersistentPatrol(
         session, patrol, options.patrolSpawnDistanceMeters,
       );
-    } else {
+    } else if (!options.resolveUniversePatrols && !options.resolveUniversePatrol) {
+      // Compatibility-only traffic must never stand in for an empty or
+      // unavailable persistent roster in the shared, reward-bearing universe.
       createPatrols(session, options.patrolSpawnDistanceMeters);
     }
     return session;
@@ -1258,8 +1260,11 @@ export function createFreeFlightRuntime(options: {
         }
         const now = Date.now();
         let initialPatrols: UniversePatrolEncounter[] = [];
-        if (!sessions.has(admission.sessionKey) &&
-            (options.resolveUniversePatrols || options.resolveUniversePatrol)) {
+        // Recheck on admission even when this session already exists. A first
+        // lookup can legitimately be empty or temporarily unavailable; later
+        // joins must be able to see durable patrols without resetting any
+        // existing actors, contracts, casualties or attribution.
+        if (options.resolveUniversePatrols || options.resolveUniversePatrol) {
           try {
             const [ussfPatrols, accordPatrols] = options.resolveUniversePatrols
               ? await Promise.all([

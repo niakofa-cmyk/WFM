@@ -106,3 +106,46 @@ test("reservation failure cannot create battle authority or reset the strategic 
     assert.equal(socket.readyState, 1);
   } finally { await runtime.close(); }
 });
+
+for (const firstLookup of ["empty", "unavailable"] as const) {
+  test(`a later admission loads durable patrols after an ${firstLookup} directory without sample enemies or pilot resets`, async () => {
+    const firstPackets: Packet[] = [];
+    const nextPackets: Packet[] = [];
+    const contact = patrol("ussf");
+    let available = false;
+    let claims = 0;
+    const runtime = createFreeFlightRuntime({
+      resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "accord",
+        shipId: "mandjet" }),
+      resolveUniversePatrols: async (_userId, faction) => {
+        if (!available && firstLookup === "unavailable") throw new Error("Directory unavailable");
+        return available && faction === "accord" ? [contact] : [];
+      },
+      reserveUniversePatrol: async () => { claims++; return contact; },
+      settleScoutEncounter: async () => { throw new Error("No result expected"); },
+    });
+    try {
+      await runtime.handle(socketFor(firstPackets), "first-pilot",
+        { type: "freeflight_join", openingEncounter: true });
+      const first = firstPackets.find((p) => p.type === "freeflight_joined");
+      assert.equal(first?.openingEncounter, "unavailable");
+      assert.ok(isFreeFlightSnapshotV1(first?.snapshot));
+      assert.equal(first.snapshot.actors.filter((actor) => actor.kind === "patrol").length, 0,
+        "no non-actionable sample fleet may impersonate a persistent contact");
+      const firstPilot = first.snapshot.actors.find((actor) => actor.own)!;
+      available = true;
+      await runtime.handle(socketFor(nextPackets), "next-pilot",
+        { type: "freeflight_join", openingEncounter: true });
+      const next = nextPackets.find((p) => p.type === "freeflight_joined");
+      assert.equal(next?.openingEncounter, "ready");
+      assert.ok(isFreeFlightSnapshotV1(next?.snapshot));
+      assert.ok(next.snapshot.actors.some((actor) => actor.kind === "patrol" &&
+        actor.actorId.startsWith("patrol-ship:")));
+      const retained = next.snapshot.actors.find((actor) => actor.actorId === firstPilot.actorId)!;
+      assert.deepEqual(retained.position, firstPilot.position);
+      assert.equal(retained.hull, firstPilot.hull);
+      assert.equal(claims, 1);
+      assert.ok(nextPackets.some((p) => p.type === "freeflight_engagement_started"));
+    } finally { await runtime.close(); }
+  });
+}
