@@ -2623,11 +2623,25 @@ export function Arena({
       }
       const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;
       const locked = hostiles.find((enemy) => enemy.id === player.lockTargetId && enemy.alive);
+      const sharedTargetState = freeFlightEnabled ? freeFlightClientRef.current?.targetState : null;
+      const sharedLocked = sharedTargetState?.targetActorId
+        ? freeFlightFramesRef.current.current?.snapshot.actors.find(actor =>
+          actor.actorId === sharedTargetState.targetActorId && actor.alive && !actor.own &&
+          actor.faction !== player.faction)
+        : undefined;
       bracket.visible = Boolean(locked) && !exploringUniverse;
       if (locked) {
         bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
         if (orbital) bracket.quaternion.copy(camera.quaternion);
         bracket.scale.setScalar(Math.max(1, locked.radius / 1.5));
+      }
+      if (freeFlightEnabled) {
+        bracket.visible = Boolean(sharedLocked);
+        if (sharedLocked) {
+          bracket.position.set(sharedLocked.position.x, .9 + sharedLocked.position.y, sharedLocked.position.z);
+          bracket.quaternion.copy(camera.quaternion);
+          bracket.scale.setScalar(1.5);
+        }
       }
 
       flareT = Math.max(0, flareT - delta);
@@ -3046,6 +3060,49 @@ export function Arena({
         if (locked) lockRef.current.style.setProperty("--lock-accent", targetFactionAccent(locked.faction));
         else lockRef.current.style.removeProperty("--lock-accent");
         lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
+        if (freeFlightEnabled) {
+          lockRef.current.disabled = !freeFlightClientRef.current?.canSelectTarget;
+          lockRef.current.dataset.target = sharedLocked?.callsign ?? "";
+          lockRef.current.dataset.locked = sharedLocked ? "true" : "false";
+          lockRef.current.setAttribute("aria-label", sharedLocked
+            ? `Switch enemy target, selected ${sharedLocked.callsign}`
+            : "Select enemy target");
+        }
+      }
+      if (freeFlightEnabled) {
+        // This HUD is a view of authoritative state, never a locally acquired
+        // lock on the separate training craft.
+        const percent = Math.floor((sharedTargetState?.lockProgress ?? 0) * 100);
+        if (targetStatusRef.current) targetStatusRef.current.hidden = !sharedLocked;
+        if (sharedLocked) {
+          const shield = Math.ceil(sharedLocked.shield / Math.max(1, sharedLocked.shieldMax) * 100);
+          const hull = Math.ceil(sharedLocked.hull / Math.max(1, sharedLocked.hullMax) * 100);
+          if (targetFactionRef.current) targetFactionRef.current.textContent = sharedLocked.faction.toUpperCase();
+          if (targetNameRef.current) targetNameRef.current.textContent = sharedLocked.callsign;
+          if (targetDistanceRef.current) targetDistanceRef.current.textContent = `${Math.round(Math.hypot(
+            sharedLocked.position.x - player.x, sharedLocked.position.y - (player.space?.y ?? 0),
+            sharedLocked.position.z - player.z,
+          ))} M`;
+          if (targetShieldRef.current) targetShieldRef.current.style.width = `${shield}%`;
+          if (targetShieldValueRef.current) targetShieldValueRef.current.textContent = `${shield}%`;
+          if (targetHullRef.current) targetHullRef.current.style.width = `${hull}%`;
+          if (targetHullValueRef.current) targetHullValueRef.current.textContent = `${hull}%`;
+          if (targetLockRef.current) targetLockRef.current.style.width = `${percent}%`;
+          if (targetLockValueRef.current) targetLockValueRef.current.textContent = `${percent}% LOCK`;
+        }
+        if (missileRef.current) {
+          missileRef.current.disabled = !sharedTargetState?.missileReady;
+          missileRef.current.setAttribute("aria-label", sharedTargetState?.missileReady
+            ? `Fire locked missile at ${sharedLocked?.callsign ?? "selected enemy"}`
+            : !sharedLocked ? "Missile requires an enemy target"
+              : sharedTargetState?.ammo === 0 ? "Missile ammunition empty"
+                : (sharedTargetState?.missileCooldown ?? 0) > 0 ? "Missile cooling down"
+                  : `Missile acquiring lock, ${percent} percent; keep enemy in the missile aiming cone`);
+          const badge = missileRef.current.querySelector(".pilot-action-badge");
+          if (badge) badge.textContent = sharedTargetState?.missileReady ? String(sharedTargetState.ammo)
+            : (sharedTargetState?.missileCooldown ?? 0) > 0 ? `${Math.ceil(sharedTargetState!.missileCooldown)}s`
+              : sharedTargetState?.ammo === 0 ? "0" : `L${percent}`;
+        }
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;

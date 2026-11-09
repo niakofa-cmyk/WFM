@@ -5,9 +5,11 @@ import {
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_PROTOCOL_V1,
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
+  FREE_FLIGHT_TARGETING_V1,
   MISSILE_CATALOG,
   PRIMARY_WEAPON_CATALOG,
   acquireTarget,
+  missileCanLaunch,
   applyHullDamage,
   detAtan2,
   detCos,
@@ -100,6 +102,9 @@ type Actor = {
   input: SharedInput;
   vectorBoost?: VectorBoostState;
   vectorBoostSeq?: number;
+  selectedTargetActorId?: string | null;
+  targetCycleSeq?: number;
+  lastTargetCycleAt?: number;
   lastInputAt: number;
   lastSeq: number;
   inputWindowAt: number;
@@ -483,8 +488,33 @@ export function createFreeFlightRuntime(options: {
     for (const actor of session.actors.values()) {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
+        sendTargetState(session, actor);
       }
     }
+  }
+
+  function eligiblePilotTarget(session: Session, pilot: Actor, candidate: Actor) {
+    const combat = candidate.persistentPatrolId
+      ? session.combats.get(candidate.persistentPatrolId) : undefined;
+    return pilot.craft.alive && candidate.craft.alive && candidate.faction !== pilot.faction &&
+      combat?.phase === "active" && combat.participantActorIds.has(pilot.actorId) &&
+      distanceBetween(pilot, candidate) <= NEARBY_RADIUS;
+  }
+
+  function sendTargetState(session: Session, pilot: Actor) {
+    if (pilot.kind !== "pilot" || pilot.socket?.readyState !== OPEN) return;
+    const target = pilot.selectedTargetActorId ? session.actors.get(pilot.selectedTargetActorId) : undefined;
+    const valid = target && eligiblePilotTarget(session, pilot, target) ? target : undefined;
+    const space = pilot.craft.space!;
+    const missile = MISSILE_CATALOG[SHIPS[pilot.shipId].missileFit];
+    send(pilot.socket, { type: "freeflight_target_state", state: {
+      protocol: FREE_FLIGHT_TARGETING_V1, sessionInstanceId: session.instanceId, tick: session.tick,
+      targetActorId: valid?.actorId ?? null,
+      lockProgress: valid && space.lockTargetId === valid.numericId ? space.lockProgress : 0,
+      missileReady: Boolean(valid && missileCanLaunch(
+        pilot.craft, valid.craft, session.projectiles.length, [], missile)),
+      missileCooldown: space.missileCd, ammo: space.ammo,
+    } });
   }
 
   function environmentFor(session: Session): FreeFlightEnvironmentV1 {
@@ -521,6 +551,13 @@ export function createFreeFlightRuntime(options: {
   }
 
   function combatTarget(session: Session, actor: Actor, primaryFire = false): Actor | undefined {
+    // Selection is persistent; geometry controls acquisition, not which enemy
+    // a turning/evading pilot silently gets switched to.
+    if (actor.kind === "pilot" && !primaryFire && actor.selectedTargetActorId) {
+      const selected = session.actors.get(actor.selectedTargetActorId);
+      if (selected && eligiblePilotTarget(session, actor, selected)) return selected;
+      actor.selectedTargetActorId = null;
+    }
     const ownPatrolCombat = actor.persistentPatrolId
       ? session.combats.get(actor.persistentPatrolId) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
@@ -551,6 +588,7 @@ export function createFreeFlightRuntime(options: {
         bestDistance = distance;
       }
     }
+    if (actor.kind === "pilot" && !primaryFire) actor.selectedTargetActorId = best?.actorId ?? null;
     return best;
   }
 
@@ -1417,6 +1455,7 @@ export function createFreeFlightRuntime(options: {
             protocol: VECTOR_BOOST_PROTOCOL_V1,
             nextSeq: (actor.vectorBoostSeq ?? 0) + 1,
           },
+          targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1 },
           ...(openingStatus ? { openingEncounter: openingStatus } : {}),
         });
         sendCombatState(session, actor);
@@ -1484,6 +1523,37 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       await startEngagement(socket, seat, packet.targetActorId);
+      return;
+    }
+    if (packet.type === "freeflight_target_cycle") {
+      const actor = seat.actor;
+      if (Object.keys(packet).length !== 3 || packet.protocol !== FREE_FLIGHT_TARGETING_V1 ||
+          !Number.isSafeInteger(packet.seq) || (packet.seq as number) < 1 ||
+          (packet.seq as number) > 0x7fffffff ||
+          (packet.seq as number) <= (actor.targetCycleSeq ?? 0)) {
+        error("invalid_freeflight_target_cycle");
+        return;
+      }
+      actor.targetCycleSeq = packet.seq as number;
+      const now = Date.now();
+      if (now - (actor.lastTargetCycleAt ?? -Infinity) < 125) {
+        error("freeflight_target_cycle_rate_limited");
+        return;
+      }
+      actor.lastTargetCycleAt = now;
+      const candidates = [...seat.session.actors.values()]
+        .filter(candidate => eligiblePilotTarget(seat.session, actor, candidate))
+        .sort((a, b) => a.actorId.localeCompare(b.actorId));
+      const current = candidates.findIndex(candidate => candidate.actorId === actor.selectedTargetActorId);
+      const target = candidates[(current + 1) % Math.max(1, candidates.length)];
+      const changed = actor.selectedTargetActorId !== (target?.actorId ?? null);
+      actor.selectedTargetActorId = target?.actorId ?? null;
+      actor.craft.lockTargetId = target?.numericId ?? null;
+      if (changed) {
+        actor.craft.space!.lockTargetId = actor.craft.lockTargetId;
+        actor.craft.space!.lockProgress = 0;
+      }
+      sendTargetState(seat.session, actor);
       return;
     }
     if (packet.type === "freeflight_vector_boost") {

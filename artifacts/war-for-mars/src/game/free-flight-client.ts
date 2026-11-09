@@ -1,5 +1,8 @@
 import {
   ORBITAL_RULES_VERSION,
+  FREE_FLIGHT_TARGETING_V1,
+  isFreeFlightTargetState,
+  type FreeFlightTargetState,
   VECTOR_BOOST_PROTOCOL_V1,
   isVectorBoostDirection,
   type VectorBoostDirection,
@@ -47,6 +50,14 @@ export class FreeFlightClient {
   private joined = false;
   private vectorBoostAvailable = false;
   private vectorBoostSeq = 1;
+  private targetingAvailable = false;
+  private targetCycleSeq = 1;
+  private lastTargetState: FreeFlightTargetState | null = null;
+  get targetState() {
+    return this.joined && this.lastTargetState?.sessionInstanceId === this.sessionInstanceId
+      ? this.lastTargetState : null;
+  }
+  get canSelectTarget() { return this.joined && this.targetingAvailable; }
   private sessionInstanceId: string | null = null;
   private readonly inputScheduler = new FreeFlightInputScheduler();
 
@@ -69,6 +80,8 @@ export class FreeFlightClient {
   }
 
   stop() {
+    this.targetingAvailable = false;
+    this.lastTargetState = null;
     this.vectorBoostAvailable = false;
     this.stopped = true;
     this.generation += 1;
@@ -84,9 +97,13 @@ export class FreeFlightClient {
     }
   }
 
-  sendControls(value: Partial<FlightControlFrame>) {
+  sendControls(value: Partial<FlightControlFrame> & { lock?: boolean }) {
     const socket = this.socket;
     if (!this.joined || !socket || socket.readyState !== WebSocket.OPEN) return;
+    // Consume the edge before the 20Hz continuous-input coalescer can drop it.
+    if (value.lock && this.targetingAvailable) socket.send(JSON.stringify({
+      type: "freeflight_target_cycle", protocol: FREE_FLIGHT_TARGETING_V1, seq: this.targetCycleSeq++,
+    }));
     const controls = this.inputScheduler.next(
       normalizeFlightControls(value),
       typeof performance === "undefined" ? Date.now() : performance.now(),
@@ -177,6 +194,12 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_joined") {
+        const targeting = packet.targeting as { protocol?: unknown; nextSeq?: unknown } | undefined;
+        this.targetingAvailable = targeting?.protocol === FREE_FLIGHT_TARGETING_V1 &&
+          Number.isSafeInteger(targeting.nextSeq) && (targeting.nextSeq as number) > 0 &&
+          (targeting.nextSeq as number) <= 0x7fffffff;
+        if (this.targetingAvailable) this.targetCycleSeq = targeting!.nextSeq as number;
+        this.lastTargetState = null;
         const vector = packet.vectorBoost as { protocol?: unknown; nextSeq?: unknown } | undefined;
         this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
           Number.isSafeInteger(vector.nextSeq) && (vector.nextSeq as number) > 0;
@@ -201,6 +224,14 @@ export class FreeFlightClient {
         // Capability negotiation keeps older server/client pairs on their
         // existing movement rules during a rolling deployment.
         socket.send(JSON.stringify({ type: "freeflight_environment_request" }));
+        return;
+      }
+      if (packet.type === "freeflight_target_state") {
+        if (this.targetingAvailable && isFreeFlightTargetState(packet.state) &&
+            packet.state.sessionInstanceId === this.sessionInstanceId &&
+            packet.state.tick >= (this.lastTargetState?.tick ?? -1)) {
+          this.lastTargetState = packet.state;
+        }
         return;
       }
       if (packet.type === "freeflight_environment") {

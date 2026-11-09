@@ -120,7 +120,7 @@ function missileSolutionAvailable(
     minForwardDot: detCos(missile.lockConeRadians),
   } : {}).available;
 }
-function missileCanLaunch(
+export function missileCanLaunch(
   pilot: SpatialCraft,
   target: SpatialCraft | undefined,
   count: number,
