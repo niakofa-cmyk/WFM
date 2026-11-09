@@ -1,6 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
+- **Latest opening-patrol rollout:** app, API and socket all report SUCCESS at source `1b6a9a3bdf7c0f6fef50a7e7eac277693af7acb5`. Main/Combat Lab initial bundles measured 126,307/127,135 bytes gzip; both are under the 143,360-byte Combat Lab budget. Unauthenticated root, profile and WebSocket requests returned 401. Authenticated verification is blocked: both staging sign-in flows remained at client-trust challenges and profile sessions were not established. No player fire, hit, kill, or reward result was claimed for this deployment. Production is unchanged.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.

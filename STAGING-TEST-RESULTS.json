@@ -1,5 +1,38 @@
 {
   "overallStatus": "PENDING",
+  "latestOpeningPatrolRollout": {
+    "status": "DEPLOYED_AUTHENTICATED_VERIFICATION_BLOCKED",
+    "stagingRuntimeCommit": "1b6a9a3bdf7c0f6fef50a7e7eac277693af7acb5",
+    "stagingServices": {
+      "app": { "status": "SUCCESS", "deploymentId": "f0d04d61-739e-413f-bd4c-ea6680d709ee" },
+      "api": { "status": "SUCCESS", "deploymentId": "5ccbff74-0420-4c7c-a397-e6f393125cfd" },
+      "socket": { "status": "SUCCESS", "deploymentId": "c9617dee-569c-4cbf-abc2-1aa40f16cfbf" }
+    },
+    "matchingStagingSourcePins": true,
+    "mainInitialJavascriptGzipBytes": 126307,
+    "combatLabInitialJavascriptGzipBytes": 127135,
+    "combatLabInitialJavascriptBudgetBytes": 143360,
+    "threeJsInInitialStaticGraphs": false,
+    "staticBuildChecksPassed": 4,
+    "unauthenticatedGatewayChecks": {
+      "rootHttpStatus": 401,
+      "profileHttpStatus": 401,
+      "webSocketUpgradeHttpStatus": 401
+    },
+    "authenticatedVerification": {
+      "status": "BLOCKED_AT_CLIENT_TRUST",
+      "bothSignInPagesReached": true,
+      "authenticatedProfiles": false,
+      "hangarEntryVerified": false,
+      "openingCombatVerified": false,
+      "weaponHitsOrKillsVerified": false,
+      "rewardSettlementVerified": false,
+      "codeMaterialRecorded": false,
+      "reason": "Two isolated sign-in owners reached Clerk client-trust challenges, but the supplied codes did not complete sign-in; no authenticated profile session was established. Cause is unknown. Both browser owners were stopped."
+    },
+    "schemaOrFlagChanges": false,
+    "productionChanged": false
+  },
   "latestHangarRecoveryRollout": {
     "status": "STAGING_DEPLOYED_AUTHENTICATED_VERIFICATION_PENDING",
     "stagingRuntimeCommit": "128882c3548f0cb38b8dc92259e4e8da471813e7",

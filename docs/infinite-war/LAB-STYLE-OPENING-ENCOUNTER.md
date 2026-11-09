@@ -93,3 +93,10 @@ implementation.
 - Frontend, API and socket workflows restarted cleanly. The public entry
   screenshot rendered; it was an unauthenticated offline entry, not evidence
   of signed-in live combat or physical-device graphics.
+- The exact source was subsequently deployed successfully to all three
+  separate staging services. Protected unauthenticated gateway probes returned
+  401 and the Combat Lab bundle audit remained below budget. Automated
+  authenticated staging was attempted, but both sign-in flows remained at
+  client-trust challenges; no authenticated profile was established. Thus the
+  staging opening encounter, hits, kills, rewards and post-battle flight remain
+  unverified.
