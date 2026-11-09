@@ -99,3 +99,19 @@ attach observers before launch, and then establish actual player/enemy
 projectiles, impacts, destruction, assists, settlement and continued flight.
 Do not declare full combat parity, completed multiplayer settlement, physical
 phone verification or Production readiness from source reuse alone.
+
+### Live combat balance and the next maneuvering test
+
+Training currently applies a 2.2× player primary-damage multiplier and a 0.28×
+AI multiplier. Shared flight uses base ship damage on both sides. This is a
+material difference, not evidence that guns cannot hit. Do not silently copy
+training's player advantage into multiplayer or buy/grant upgrades just to
+make a verification pass. No ship, weapon, shield or reward values were changed
+for the pursuit rollout.
+
+The next bounded staging driver sustains normal firing, follows one target in
+ship-local 3D axes, uses the actual aim stick for pitch, requests missiles only
+when aligned, and advances or reverses rather than remaining parked. Authority
+still grants locks, ammo use, hits, kills and settlement. Track enemy destruction
+events separately from shield impacts and test actual movement after a settled
+surviving battle. A test driver is not a player-facing autopilot or an upgrade.

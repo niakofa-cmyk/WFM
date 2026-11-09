@@ -1,13 +1,18 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest open-flight primary-fire rollout:** staging remains at source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Both pilots now authenticated, entered shared fleet combat, emitted real projectiles and inflicted enemy shield damage. Enemy fire destroyed both pilots; both defeat results settled for zero credits, balances stayed unchanged, and explicit recovery returned both pilots to the hangar. Enemy kills, positive rewards and surviving continued flight remain unverified. Production is unchanged.
+- **Latest staging rollout:** the approved Combat Lab pursuit improvement is deployed across app, API and socket. Configured pin is `32c326c`; Railway deployment metadata reports `748e118`, whose only changes from that pin are documentation and memory. A new authenticated maneuvering battle is pending. Production is unchanged.
+- **Primary-fire verification at `d791ed7`:** both pilots authenticated, entered shared fleet combat, emitted real projectiles and inflicted enemy shield damage. Enemy fire destroyed both pilots; both defeat results settled for zero credits, balances stayed unchanged, and explicit recovery returned both pilots to the hangar. Enemy kills, positive rewards and surviving continued flight remain unverified.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
 - **Production readiness:** NOT CLAIMED
 
 ## Open-flight primary-fire rollout — 2026-11-09
+
+The following primary-fire evidence predates the subsequently approved pursuit
+deployment. For that deployment's exact IDs and source distinction, see
+`latestPursuitRollout` in the JSON evidence.
 
 The approved commit `d791ed7a9a93f69533bb716107d12aea0cb67891` is deployed
 successfully to the separate Railway staging app, API, and socket services.

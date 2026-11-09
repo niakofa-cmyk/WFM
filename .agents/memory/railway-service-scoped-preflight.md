@@ -3,6 +3,16 @@ name: Railway service-scoped preflight
 description: Run value-safe service checks and distinguish Railway connector access from local CLI visibility.
 ---
 
+Distinguish a configured source pin from a deployment's reported commit metadata.
+
+**Why:** an approved staging rollout retained its intended source pin, while
+deployment metadata reported the branch's later documentation-only commit.
+Neither field alone proved the other was wrong.
+
+**How to apply:** record both separately, compare the exact revisions before
+claiming runtime equivalence, and never claim an exact tested runtime match if
+their gameplay source differs.
+
 For a read-only preflight that needs a Railway service's variable presence or public configuration, the Railway CLI can inject selected service variables into a local command. Explicitly select the project, environment, and service, and check the installed CLI's help for supported flags rather than assuming options from another version. Railway MCP authorization and the local CLI's login/token are separate authentication contexts; a secret's presence does not prove that the CLI accepts it. Verify the CLI from the same workspace shell before running service-scoped commands.
 
 Railway SSH is service-scoped: an API service shell is not a PostgreSQL session. Verify the exact service name from read-only environment metadata before opening a shell. SQL statements pasted directly at a Linux shell prompt are treated as shell commands; use an authorized SQL client connected to the intended staging database, and keep reward-ledger checks read-only.

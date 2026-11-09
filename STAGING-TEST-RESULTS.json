@@ -1,5 +1,21 @@
 {
   "overallStatus": "PENDING",
+  "latestPursuitRollout": {
+    "status": "DEPLOYED_AWAITING_AUTHENTICATED_BATTLE",
+    "configuredSourcePin": "32c326ce90134036e7dd63008601b19af919808b",
+    "deploymentMetadataCommit": "748e1183c63a3d505a8f6c68b993ee9f07c645d5",
+    "differenceBetweenCommits": "Documentation and memory only; no gameplay source difference",
+    "stagingServices": {
+      "app": { "status": "SUCCESS", "deploymentId": "a0824c94-26ee-45a7-b963-684c144415df" },
+      "api": { "status": "SUCCESS", "deploymentId": "21b88b23-b678-43d9-ae46-b4be7f713099" },
+      "socket": { "status": "SUCCESS", "deploymentId": "7c56e323-ca1b-4f4d-a05e-b35df5275f46" }
+    },
+    "gatewayHealthHttpStatus": 200,
+    "unauthenticatedProfileHttpStatus": 401,
+    "shipStatsOrDamageMultipliersChanged": false,
+    "schemaOrFlagChanges": false,
+    "productionChanged": false
+  },
   "latestOpenFlightPrimaryFireRollout": {
     "status": "DEPLOYED_AUTHENTICATED_COMBAT_PARTIALLY_VERIFIED",
     "stagingRuntimeCommit": "d791ed7a9a93f69533bb716107d12aea0cb67891",
