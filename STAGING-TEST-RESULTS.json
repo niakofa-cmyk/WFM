@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "continuousFlightLocalFollowup": {
-    "status": "STAGING_ROLLOUT_VERIFIED_FRESH_CHALLENGES_PENDING",
+    "status": "FIRST_FLEET_VICTORY_REWARDS_AND_CONTINUED_FLIGHT_VERIFIED_SECOND_HOSTILE_PENDING",
     "stagingRevision": "3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4",
     "stagingDeployments": {
       "app": { "id": "6389e5e6-bc6e-438d-8afe-b708eeac0e72", "status": "SUCCESS" },
@@ -10,9 +10,50 @@
     },
     "deploymentCommitMetadataMatches": true,
     "freshChallenges": {
-      "pilot1": "NEEDS_CLIENT_TRUST",
-      "pilot2": "NEEDS_CLIENT_TRUST",
-      "codesSubmitted": false
+      "pilot1": "COMPLETED",
+      "pilot2": "COMPLETED",
+      "codesSubmitted": true
+    },
+    "authenticatedProfileStatuses": [200, 200],
+    "pairedFirstEncounter": {
+      "location": "phobos-yard",
+      "faction": "accord",
+      "ship": "mandjet",
+      "sameTargetDamagedByBoth": true,
+      "destroyedHostileActors": 3,
+      "pilots": [
+        {
+          "slot": 1, "kills": 2, "assists": 1, "creditsAwarded": 24,
+          "baselineCredits": 330, "currentCredits": 354,
+          "primaryProjectiles": 86, "missiles": 3, "impacts": 49,
+          "alive": true, "hull": 110, "continuedFlightMeters": 10.16
+        },
+        {
+          "slot": 2, "kills": 1, "assists": 2, "creditsAwarded": 12,
+          "baselineCredits": 174, "currentCredits": 186,
+          "primaryProjectiles": 85, "missiles": 3, "impacts": 51,
+          "alive": true, "hull": 110, "continuedFlightMeters": 10.6
+        }
+      ],
+      "durableBalanceDeltasMatchSettledAwards": true,
+      "assistCreditsAdded": false,
+      "duplicateSettlementProbePerformed": false
+    },
+    "secondWaveObservation": {
+      "seconds": 119,
+      "reloadUsed": false,
+      "newFriendlyFleetAppearedInSession": true,
+      "newFriendlyActors": 2,
+      "newHostileFleetAvailable": false,
+      "secondInterceptionVerified": false,
+      "simultaneousHostileFleetEngagementsVerified": false,
+      "sourceReview": "Destroyed ships are removed permanently; fixed seed IDs conflict without creating replacement generations."
+    },
+    "cleanup": {
+      "originalShipSelectionsUnchanged": true,
+      "normalRootReloadsAfterSettledCombat": true,
+      "authenticatedProfilesAfterCleanup": [200, 200],
+      "bothBrowserOwnersStopped": true
     },
     "newContinuityRegressionTests": { "passed": 6, "failed": 0 },
     "fullWorkspaceValidation": "PASSED_TYPECHECK_TESTS_BUILD_AND_BUNDLE_AUDITS",
@@ -20,8 +61,24 @@
     "nativeFirstFleetDestructionAndContinuedMovement": true,
     "twoSubsequentSimultaneousFleetContracts": true,
     "laterCombinedFleetSurvivalVerified": false,
+    "followOnNpcFoundationReview": {
+      "status": "LOCAL_CONTRACT_AND_TARGETING_CHECKS_PASSED_NOT_DEPLOYED",
+      "verbatimReference": "docs/infinite-war/references/UNIFIED-MULTI-FLEET-AERIAL-ACTION.source.txt",
+      "audit": "docs/infinite-war/MULTI-FLEET-ASSISTANCE-AUDIT.md",
+      "newContractAndSettlementTests": 4,
+      "workspaceTestsPassed": 728,
+      "workspaceTypecheck": "passed",
+      "recursiveWorkspaceBuild": "passed_separately_after_combined_command_timeout",
+      "mainAndCombatLabLazyEngineAudits": "passed",
+      "friendlyAiDispatchConnected": false,
+      "friendlyAiCombatStagingVerified": false,
+      "combinedLateHumanAndAiTwoFleetVictoryVerified": false,
+      "globalPopulationRatioImplemented": false,
+      "productionChanged": false
+    },
     "stagingVisibleEnemyDestructionVerified": false,
-    "stagingDurableRewardVerified": false,
+    "stagingServerEnemyDestructionVerified": true,
+    "stagingDurableRewardVerified": true,
     "priorStagingEvidenceUnchanged": true,
     "reference": "docs/infinite-war/FREE-FLIGHT-COMBAT-CONTINUITY.md"
   },

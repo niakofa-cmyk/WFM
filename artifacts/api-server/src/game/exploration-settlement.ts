@@ -72,7 +72,8 @@ export async function settleExplorationWithStore(
     }
     if (result.patrol) {
       if (!tx.applyPatrolOutcome) throw new Error("Persistent patrol settlement is unavailable.");
-      const destroyedActorIds = [...new Set(result.pilots.flatMap((pilot) => pilot.destroyedActorIds))].sort();
+      const destroyedActorIds = result.patrolDestroyedActorIds ??
+        [...new Set(result.pilots.flatMap((pilot) => pilot.destroyedActorIds))].sort();
       await tx.applyPatrolOutcome(result.patrol.patrolId, result.encounterId, destroyedActorIds);
     }
     const awards: ExplorationAward[] = [];

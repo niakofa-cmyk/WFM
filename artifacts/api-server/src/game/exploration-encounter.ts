@@ -170,6 +170,8 @@ export type ExplorationResult = {
   finalTick: number;
   objectiveCompleted: boolean;
   pilots: readonly Readonly<ExplorationPilotResult>[];
+  /** Every destroyed member of the reserved enemy patrol, including NPC final blows. */
+  patrolDestroyedActorIds?: readonly string[];
 };
 declare const receiptBrand: unique symbol;
 export type ExplorationReceipt = Readonly<{
@@ -295,6 +297,33 @@ export class ExplorationEncounter {
     return true;
   }
 
+  /** Trusted runtime admission only; NPCs never become account participants. */
+  addAlliedNpc(actor: ExplorationActor, tick: number): boolean {
+    if (this.receipt || this.spec.missionId !== "universe-patrol" || !this.spec.patrol) {
+      throw new Error("Only an open universe patrol accepts allied NPCs.");
+    }
+    id(actor.id);
+    integer(tick);
+    if (tick < this.tick || actor.playerId !== undefined || actor.rewardEligible === true ||
+        !["ussf", "accord"].includes(actor.faction) || actor.faction === this.spec.patrol.faction ||
+        !Number.isFinite(actor.hull) || actor.hull <= 0 || actor.hull > 1_000_000) {
+      throw new Error("Invalid allied NPC.");
+    }
+    const existing = this.actors.get(actor.id);
+    if (existing) {
+      if (existing.playerId !== undefined || existing.faction !== actor.faction ||
+          existing.rewardEligible === true) throw new Error("Conflicting allied NPC identity.");
+      return false;
+    }
+    if (this.actors.size >= 128) throw new Error("Invalid allied NPC roster.");
+    this.actors.set(actor.id, { ...actor, rewardEligible: false });
+    this.spec.actors = [...this.spec.actors, { ...actor, rewardEligible: false }]
+      .sort((a, b) => a.id.localeCompare(b.id));
+    this.tick = tick;
+    this.chain = hash([this.chain, { type: "allied_npc_joined", tick, actor }]);
+    return true;
+  }
+
   recordDamage(event: ServerDamageEvent): boolean {
     if (this.receipt) throw new Error("Exploration encounter already finalized.");
     id(event.eventId); integer(event.tick);
@@ -359,6 +388,12 @@ export class ExplorationEncounter {
       sectorId: this.spec.sectorId, runtime: this.spec.runtime, policyId: policy.id,
       rewardPolicy: Object.freeze({ ...policy }),
       ...(this.spec.patrol ? { patrol: Object.freeze({ ...this.spec.patrol }) } : {}),
+      ...(this.spec.patrol ? {
+        patrolDestroyedActorIds: Object.freeze([...this.actors.values()]
+          .filter((actor) => actor.faction === this.spec.patrol!.faction &&
+            actor.playerId === undefined && actor.hull === 0)
+          .map((actor) => actor.id).sort()),
+      } : {}),
       outcome, finalTick, objectiveCompleted, pilots: Object.freeze(pilots),
     };
     const result = Object.freeze({ ...content, fingerprint: hash([this.chain, content]) });

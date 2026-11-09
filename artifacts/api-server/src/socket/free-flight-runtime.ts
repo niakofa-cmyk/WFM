@@ -521,35 +521,37 @@ export function createFreeFlightRuntime(options: {
   }
 
   function combatTarget(session: Session, actor: Actor, primaryFire = false): Actor | undefined {
-    const combats = activeCombats(session);
-    const candidates = actor.kind === "pilot"
-      ? combats
-          .filter((combat) => combat.participantActorIds.has(actor.actorId))
-          .flatMap((combat) => [...session.actors.values()].filter((candidate) =>
-            candidate.persistentPatrolId === combat.patrol.patrolId &&
-            candidate.faction !== actor.faction && candidate.craft.alive))
-      : actor.persistentPatrolId && session.combats.get(actor.persistentPatrolId)?.phase === "active"
-        ? [...session.combats.get(actor.persistentPatrolId)!.participantActorIds]
-            .map((actorId) => session.actors.get(actorId))
-            .filter((candidate): candidate is Actor =>
-              Boolean(candidate?.craft.alive && candidate.socket?.readyState === OPEN))
-        : [];
+    const ownPatrolCombat = actor.persistentPatrolId
+      ? session.combats.get(actor.persistentPatrolId) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     const forward = rotate(actor.craft.space!.q, 0, 0, -1);
-    return candidates
-      .map((candidate) => {
-        const dx = candidate.craft.x - actor.craft.x;
-        const dy = candidate.craft.space!.y - actor.craft.space!.y;
-        const dz = candidate.craft.z - actor.craft.z;
-        const distance = detHypot(detHypot(dx, dy), dz);
-        const dot = (forward.x * dx + forward.y * dy + forward.z * dz) / Math.max(0.001, distance);
-        return { candidate, distance, dot };
-      })
-      .filter((entry) => entry.distance <=
-          (primaryFire ? NEARBY_RADIUS : missile.maxLockRange) &&
-        entry.dot >= detCos(primaryFire ? PRIMARY_FIRE_ENGAGEMENT_CONE : missile.lockConeRadians))
-      .sort((a, b) => a.distance - b.distance || a.candidate.actorId.localeCompare(b.candidate.actorId))[0]
-      ?.candidate;
+    const range = primaryFire ? NEARBY_RADIUS : missile.maxLockRange;
+    const cone = detCos(primaryFire ? PRIMARY_FIRE_ENGAGEMENT_CONE : missile.lockConeRadians);
+    let best: Actor | undefined;
+    let bestDistance = Infinity;
+    for (const candidate of session.actors.values()) {
+      if (!candidate.craft.alive) continue;
+      if (actor.kind === "pilot") {
+        const combat = candidate.persistentPatrolId
+          ? session.combats.get(candidate.persistentPatrolId) : undefined;
+        if (candidate.faction === actor.faction || combat?.phase !== "active" ||
+            !combat.participantActorIds.has(actor.actorId)) continue;
+      } else if (ownPatrolCombat?.phase !== "active" ||
+          !ownPatrolCombat.participantActorIds.has(candidate.actorId) ||
+          candidate.socket?.readyState !== OPEN) continue;
+      const dx = candidate.craft.x - actor.craft.x;
+      const dy = candidate.craft.space!.y - actor.craft.space!.y;
+      const dz = candidate.craft.z - actor.craft.z;
+      const distance = detHypot(detHypot(dx, dy), dz);
+      const dot = (forward.x * dx + forward.y * dy + forward.z * dz) / Math.max(0.001, distance);
+      if (distance > range || dot < cone) continue;
+      if (distance < bestDistance || distance === bestDistance &&
+          (!best || candidate.actorId.localeCompare(best.actorId) < 0)) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    }
+    return best;
   }
 
   /** Primary fire can initiate a server-owned encounter at any distance in the
@@ -1182,13 +1184,19 @@ export function createFreeFlightRuntime(options: {
       const combat = actor.kind === "patrol" && actor.persistentPatrolId
         ? session.combats.get(actor.persistentPatrolId)
         : undefined;
-      const patrolTarget = actor.kind === "patrol" && combat?.phase === "active"
-        ? [...combat.participantActorIds]
-            .map((actorId) => session.actors.get(actorId))
-            .filter((candidate): candidate is Actor =>
-              Boolean(candidate?.craft.alive && candidate.socket?.readyState === OPEN))
-            .sort((a, b) => distanceBetween(actor, a) - distanceBetween(actor, b))[0]
-        : undefined;
+      let patrolTarget: Actor | undefined;
+      let nearestParticipantDistance = Infinity;
+      if (actor.kind === "patrol" && combat?.phase === "active") {
+        for (const actorId of combat.participantActorIds) {
+          const candidate = session.actors.get(actorId);
+          if (!candidate?.craft.alive || candidate.socket?.readyState !== OPEN) continue;
+          const distance = distanceBetween(actor, candidate);
+          if (distance < nearestParticipantDistance) {
+            patrolTarget = candidate;
+            nearestParticipantDistance = distance;
+          }
+        }
+      }
       const baseInput = actor.kind === "patrol"
         ? patrolTarget && actor.scoutMemory?.mode === "tracking" &&
             actor.scoutMemory.actorId === patrolTarget.actorId

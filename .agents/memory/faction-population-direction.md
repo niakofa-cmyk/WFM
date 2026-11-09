@@ -9,6 +9,10 @@ to a target near 80% hostile USSF fleet hulls and 20% friendly Accord AI hulls,
 with the rule mirrored for USSF pilots. Friendly AI should assist within the
 continuous Orbital universe rather than through a disconnected mode.
 
+The owner also explicitly wants a later allied human and the friendly AI
+reserve to approach and help a pilot already fighting multiple hostile fleets.
+Friendly traffic merely appearing nearby is not the intended assistance.
+
 This is a direction to evaluate, not approval for production population changes
 or new rewards. No final balancing function, account-presence definition, fleet
 respawn policy, or AI-escort payout was specified.

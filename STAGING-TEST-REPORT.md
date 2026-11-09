@@ -1,9 +1,27 @@
 # WAR FOR MARS staging verification report
 
-- **Status:** PENDING — continuity fixes deployed; fresh two-pilot sign-ins await current verification codes.
-- **Latest staging rollout:** `3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4` successfully deployed across app, API and socket, with matching deployment commit metadata. Both newly opened sign-ins are at `needs_client_trust`; no codes have been submitted to these challenges and no flight has begun. Production and the database schema are unchanged.
+- **Status:** PARTIAL / PROMOTION PENDING — first paired fleet victory, rewards, and continued flight verified; a second hostile interception and simultaneous hostile fleets remain unverified.
+- **Latest staging rollout:** `3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4` successfully deployed across app, API and socket, with matching deployment commit metadata. Each current challenge received one matching secure-code submission; both retained sessions are active, both challenges are cleared, and both authenticated profiles returned HTTP 200 before flight. Production and the database schema are unchanged.
 
-## Continuous-flight follow-up — deployed, authenticated flight verification pending
+## Follow-on assistance foundation — local verification only
+
+The new aerial-action upload is retained verbatim and evaluated in
+`docs/infinite-war/MULTI-FLEET-ASSISTANCE-AUDIT.md`. This follow-on source change
+adds trusted NPC admission to the private encounter contract, preserves enemy
+casualties from NPC final blows independently of human rewards, and reduces
+allocation/sorting in live target selection. It does **not** dispatch friendly
+AI, enable an 80/20 population controller, or certify combined AI/human victory
+against two hostile fleets.
+
+All workspace type checks and 728 tests passed, including four new NPC contract
+and settlement regressions. The combined shell command reached its time limit
+at the build step; the remaining recursive workspace build was then run
+separately and passed, including both lazy Three.js bundle audits. These source
+changes have not been deployed to staging. The authenticated staging battle
+evidence below remains pinned to its recorded deployment, not this follow-on
+change.
+
+## Continuous-flight follow-up — first paired victory verified; repeat-hostile check pending
 
 Verified successful Railway deployment IDs:
 
@@ -47,6 +65,48 @@ not a signed-in combat screenshot.
 See [the continuity reference](docs/infinite-war/FREE-FLIGHT-COMBAT-CONTINUITY.md).
 Earlier deployed staging results below remain historical evidence for their
 recorded revisions, not certification of combat on this newly deployed build.
+
+### Authenticated paired result on the reviewed continuity build
+
+Both pilots entered from their original Accord/Mandjet profiles at Phobos Yard,
+with observers attached and authenticated credit baselines frozen before entry.
+They ran concurrent bounded firing/evasion segments rather than waiting idle.
+Both damaged the same hostile target; server events confirmed three enemy ships
+destroyed across the pair.
+
+| Pilot | Primary rounds | Missiles | Impacts | Kills | Assists | Settled credits | Balance | Surviving hull | Post-result movement |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| 1 | 86 | 3 | 49 | 2 | 1 | 24 | 330 → 354 | 110 | 10.16 m |
+| 2 | 85 | 3 | 51 | 1 | 2 | 12 | 174 → 186 | 110 | 10.60 m |
+
+Both authenticated balance changes matched their settled server awards.
+The observed policy paid twelve credits per kill; assists were recorded without
+minting an additional assist award. No direct reward claim, gameplay reset,
+stat override, observer-history reset, or pose injection was used. A duplicate
+settlement request was not exercised in this browser pass.
+
+Both remained in the same universe session afterward. During a single
+119-second observation window, a friendly two-ship Accord fleet became visible
+in both live snapshots without a reload. No hostile fleet returned in that
+window, so no second interception or concurrent hostile-fleet fight was
+attempted or certified.
+
+Source inspection identified a lifecycle gap: settlement permanently removes
+casualties from a patrol roster, while deterministic initial fleet insertion
+uses fixed identities with conflict-do-nothing behavior. It does not create a
+new replacement generation when a fleet is wiped out. This is separate from
+the now-observed in-session directory refresh.
+
+Sanitized evidence is retained outside Git in
+`generated-artifacts/wfm-staging-paired-combat-result.json` and
+`generated-artifacts/wfm-staging-in-session-refresh.json`. The post-result
+screenshot was reviewed: it shows the surviving flight/HUD, not enemy meshes
+at battle range. **Visual enemy-mesh certification remains unverified.**
+
+After collecting evidence, both pilots returned through a normal root reload,
+both retained authenticated profiles returned HTTP 200, and both bounded browser
+owners were stopped. Original ship/faction selections were unchanged. Production
+and the schema remain untouched.
 
 ## Directional controls and live combat: current evidence
 

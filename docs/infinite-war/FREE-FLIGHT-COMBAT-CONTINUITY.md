@@ -70,3 +70,25 @@ authenticated pilots, visible enemy meshes, accepted maneuver and fire intent,
 actual hits and destruction, durable exactly-once rewards, continued movement,
 another fleet interception, and overlapping engagements. Preserve the existing
 staging/Production gates and original test-account ship selections.
+
+## Subsequent paired staging evidence and remaining lifecycle gap
+
+The reviewed continuity build's authenticated paired run destroyed a three-ship
+enemy fleet. Both pilots fired and caused damage, received kills/assists and
+matching durable credit awards, survived, and continued moving in the same
+flight. A later friendly fleet appeared without re-entry. A second hostile
+fleet did not return during the bounded waypoint observation, and no battle-range
+enemy-mesh screenshot was obtained. These limits remain explicit in the staging
+report; do not turn the first victory into certification of all later battles.
+
+Destroyed ship rosters remain depleted in the current durable patrol service.
+Initial seed insertion has fixed identities, so it does not replenish a wiped
+fleet. Continuous repeat encounters therefore need a separate, bounded
+replacement lifecycle—not a reset of the destroyed fleet or sample enemies.
+Any future replacement design must preserve casualty history and prior rewards,
+issue new patrol/ship identities, respect active leases and population limits,
+and define a server-owned supply/cooldown policy before rollout.
+
+The [multi-fleet assistance audit](MULTI-FLEET-ASSISTANCE-AUDIT.md) records the
+new aerial-action upload, distinguishes friendly traffic from actual AI combat
+support, and documents NPC attribution/casualty groundwork and remaining gates.
