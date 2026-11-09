@@ -14,3 +14,17 @@ mtime_ms = 1793013845379
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/60aa3b08-6ac4-48e3-af8e-107705a97a66/ea0ac126-8dbc-4f00-aea4-88b40fa56fc5"
 storage_version_token = "1793014496315983"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "BifoQzvcxCarszw6lKTwO"
+uri = "file://generated-artifacts/wfm-staging-combat-02.jpg"
+type = "image"
+title = "Staging: settled victory and continued flight"
+description = "Rendered shared-universe flight after pilot 1 earned two confirmed kills and a settled 24-credit reward. A stale local patrol notice remains visible and is recorded for cleanup; shared assists and physical-device behavior are not certified."
+logical_id = "50b92ad0-aa06-476e-b694-5961f32225aa"
+content_hash = "sha256:dd1061d58f756a10e280022fd89acbbdff8d7806c574f1e2b81ea2b5e8d87982"
+size = 31710
+mtime_ms = 1794201447336
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/50b92ad0-aa06-476e-b694-5961f32225aa/d4dc4d14-cebf-45d4-8e88-77a832ed2423"
+storage_version_token = "1794201612329785"
+content_type = "image/jpeg"
