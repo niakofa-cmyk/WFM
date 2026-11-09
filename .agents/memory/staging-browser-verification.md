@@ -92,6 +92,19 @@ completed sign-in and returned HTTP 200 profiles.
 staging account's current challenge, and log only sanitized status and error
 categories—not the code or full authentication response.
 
+When one secure-form-supplied code per active challenge still leaves multiple
+accounts at `needs_client_trust`, stop the browser owners and record the cause as
+unknown. Do not infer that a code was invalid, retry it, or begin gameplay.
+
+**Why:** On 2026-11-09, two isolated staging sessions remained at
+`needs_client_trust` after one code submission each; neither authenticated
+profile was established and no safe error category was available.
+
+**How to apply:** Before another attempt, improve the allowlisted challenge
+diagnostic to distinguish a rejected/expired code from a submission-flow issue.
+Only start gameplay after each account has an active session and profile HTTP
+200; never log code values or raw authentication responses.
+
 When Clerk instance metadata does not expose a comparable instance identifier,
 compare the frontend and Backend API JWKS sets in memory and report only whether
 they match.

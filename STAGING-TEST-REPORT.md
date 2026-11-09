@@ -22,7 +22,7 @@ limit, with Three.js outside the initial graph.
 Staging gateway health returned **200**. Unauthenticated profile and
 free-flight WebSocket upgrade requests returned **401**. Two isolated staging
 browser sessions then reached active `needs_client_trust` challenges. Each
-fresh code was submitted once through the secure flow; both sessions remained
+supplied one-time code was submitted once through the secure flow; both sessions remained
 at the challenge with no authenticated profile. The cause is **UNKNOWN**.
 No code was logged, displayed, or retried. Both browser owners were stopped.
 Authenticated in-flight firing, projectile impacts, kill attribution, assists,
