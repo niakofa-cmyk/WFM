@@ -1,7 +1,7 @@
 {
   "overallStatus": "PENDING",
   "latestOpenFlightPrimaryFireRollout": {
-    "status": "DEPLOYED_GATEWAY_VERIFIED_AUTHENTICATION_BLOCKED_AT_CLIENT_TRUST",
+    "status": "DEPLOYED_AUTHENTICATED_COMBAT_PARTIALLY_VERIFIED",
     "stagingRuntimeCommit": "d791ed7a9a93f69533bb716107d12aea0cb67891",
     "stagingServices": {
       "app": { "status": "SUCCESS", "deploymentId": "90cbdab4-6c0a-4f4c-a597-c9c89915210e" },
@@ -15,8 +15,37 @@
     "gatewayHealthHttpStatus": 200,
     "unauthenticatedProfileHttpStatus": 401,
     "unauthenticatedSocketUpgradeHttpStatus": 401,
-    "authenticatedCombatVerification": "NOT_STARTED_NO_AUTHENTICATED_PROFILE",
-    "signInAttempt": {
+    "authenticatedCombatVerification": "TWO_WAY_DAMAGE_AND_ZERO_REWARD_DEFEAT_VERIFIED",
+    "latestAuthenticatedRetest": {
+      "authenticatedProfileHttpStatuses": [200, 200],
+      "observersAttachedBeforeLaunch": true,
+      "hangarFirstEntryVerified": true,
+      "alliedSupportPilotCountDisplayed": 2,
+      "persistentShipsObservedPerPilot": 7,
+      "hostileShipsObservedPerPilot": 4,
+      "serverProjectilesPerPilot": [5, 24],
+      "serverImpactEventsPerPilot": [5, 23],
+      "enemyShieldDamagePerPilot": [18, 82.8],
+      "enemyHullDamagePerPilot": [0, 0],
+      "playerShieldDamagePerPilot": [160, 160],
+      "playerHullDamagePerPilot": [110, 110],
+      "playersDestroyed": [true, true],
+      "resultStatuses": ["settled", "settled"],
+      "killsPerPilot": [0, 0],
+      "assistsPerPilot": [0, 0],
+      "creditsAwardedPerPilot": [0, 0],
+      "profileBalanceDeltas": [0, 0],
+      "disabledRecoveryReturnedToHangar": [true, true],
+      "enemyDestructionVerified": false,
+      "positiveRewardVerified": false,
+      "exactlyOncePositiveRewardVerified": false,
+      "survivingPostBattleFlightVerified": false,
+      "enemyMeshReadabilityAtCombatRange": "NOT_VERIFIED",
+      "browserOwnersStopped": true,
+      "physicalDeviceTest": false,
+      "newPursuitCommitDeployed": false
+    },
+    "priorBlockedSignInAttempt": {
       "accountSlots": 2,
       "activeClientTrustChallengesConfirmed": true,
       "codesSubmittedOnceThroughSecretsFlow": true,

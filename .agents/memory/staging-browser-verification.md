@@ -105,14 +105,17 @@ diagnostic to distinguish a rejected/expired code from a submission-flow issue.
 Only start gameplay after each account has an active session and profile HTTP
 200; never log code values or raw authentication responses.
 
-A visible-error category of `none` is not proof of OTP acceptance.
+A visible-error category of `none` is not proof of OTP acceptance or an
+authentication-system defect.
 
-**Why:** a subsequent authorized attempt again left both retained sessions at
-client trust without any visible alert after submission.
+**Why:** retained sessions stayed at client trust without a visible alert, but
+the user identified incorrect codes and a corrected secure handoff completed
+both sessions without authentication wiring changes.
 
-**How to apply:** distinguish submission/network completion with allowlisted
-diagnostics before another attempt; do not repeatedly request codes when the
-browser reports neither authentication nor an actionable error.
+**How to apply:** require an active session and profile HTTP 200. If the user
+corrects a code, submit it once to its matching active challenge. Otherwise,
+use allowlisted diagnostics rather than blind retries or auth configuration
+changes.
 
 When Clerk instance metadata does not expose a comparable instance identifier,
 compare the frontend and Backend API JWKS sets in memory and report only whether

@@ -1,7 +1,7 @@
 # WAR FOR MARS staging verification report
 
 - **Status:** PENDING
-- **Latest open-flight primary-fire rollout:** app, API and socket all report SUCCESS at exact source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Combat Lab initial static graph measured 126,487 bytes gzip against the unchanged 143,360-byte limit; Three.js is not in that initial graph. Staging health returned 200; unauthenticated profile and WebSocket upgrade requests returned 401. Two sign-in attempts reached active client-trust challenges; one code was submitted once for each through the secure flow, but neither established a session. No combat was started. Production is unchanged.
+- **Latest open-flight primary-fire rollout:** staging remains at source `d791ed7a9a93f69533bb716107d12aea0cb67891`. Both pilots now authenticated, entered shared fleet combat, emitted real projectiles and inflicted enemy shield damage. Enemy fire destroyed both pilots; both defeat results settled for zero credits, balances stayed unchanged, and explicit recovery returned both pilots to the hangar. Enemy kills, positive rewards and surviving continued flight remain unverified. Production is unchanged.
 - **Latest physical profile-sync source commit:** `1cf6e5ff1c58833992b9b782ef90d437b4e4cc43` (owner-reported paired-device check; overall staging verification remains pending)
 - **Staging Repl:** owner-confirmed separate Repl
 - **Deployment visibility:** protected Railway staging gateway; private API/socket have no public domains. Replit invite-only deployment is not a WFM launch requirement per the owner's 2026-10-28 decision; staging access controls remain in place.
@@ -25,8 +25,9 @@ browser sessions then reached active `needs_client_trust` challenges. Each
 supplied one-time code was submitted once through the secure flow; both sessions remained
 at the challenge with no authenticated profile. The cause is **UNKNOWN**.
 No code was logged, displayed, or retried. Both browser owners were stopped.
-Authenticated in-flight firing, projectile impacts, kill attribution, assists,
-rewards, and post-battle continuation remain **NOT VERIFIED**.
+At that initial attempt, authenticated firing, impacts, kills/assists, rewards
+and continuation were **NOT VERIFIED**. The later successful sign-in and partial
+combat evidence are recorded below.
 
 ### Authorized two-pilot retest
 
@@ -41,8 +42,56 @@ neither had completed sign-in; no authenticated profile was available.
 The absence of a visible error does not establish code acceptance or identify
 the failure. The cause remains **UNKNOWN**. Both browser owners were stopped.
 No combat, reward claim, production change, or verification-code retry occurred.
-Further sign-in attempts need safe submission/network diagnostics rather than
-another blind code retry.
+This was inconclusive rather than evidence of an authentication-system defect.
+The user subsequently identified incorrect code input; the next corrected
+secure handoff completed both sign-ins without authentication wiring changes.
+
+### Corrected-code authenticated battle verification
+
+Both existing challenges completed with corrected codes submitted once per
+account, and both authenticated profiles returned **HTTP 200**. Non-numeric
+entries were rejected by the helper before any browser submission. No secret
+material was displayed, recorded or passed through tool arguments.
+
+Observers attached before either pilot pressed Enter Universe. Both began in
+the hangar with no observed live socket, then explicitly launched. Both live
+scenes reported four hostile ships, seven persistent ship models and allied
+support from **two linked pilots**. Server snapshots showed moving patrols.
+The observed battle used the existing deployed runtime, not the newly pushed
+training-pursuit refactor.
+
+| Evidence | Pilot 1 | Pilot 2 |
+| --- | ---: | ---: |
+| Server-created primary projectiles | 5 | 24 |
+| Server-confirmed impact events | 5 | 23 |
+| Enemy shield damage | 18 | 82.8 |
+| Enemy hull damage | 0 | 0 |
+| Own shield damage received | 160 | 160 |
+| Own hull damage received | 110 | 110 |
+| Final life | Destroyed | Destroyed |
+| Result | Settled defeat | Settled defeat |
+| Kills / assists | 0 / 0 | 0 / 0 |
+| Credits awarded / balance delta | 0 / 0 | 0 / 0 |
+
+Both pilots had real fire-ready controls while alive. After destruction, fire
+controls were removed/rejected; neither was revived locally. Both saw the
+disabled-ship recovery panel. Using the explicit recovery action after
+settlement returned both to the hangar without relaunching another battle.
+Both browser owners were stopped after evidence collection.
+
+This proves authenticated hangar entry, linked fleet participation, primary
+projectile emission, enemy shield hits, enemy damage against pilots, genuine
+defeat, zero-reward settlement and return-to-hangar recovery. It does **not**
+prove enemy destruction, kill/assist attribution, positive exactly-once reward
+settlement, missile use, successful surviving continuation, physical-device
+performance or complete Combat Lab parity.
+
+The inspected screenshot shows the rendered disabled-state recovery panel,
+target telemetry and flight controls, not clear enemy hull silhouettes at
+battle range. Fleet-model snapshot evidence alone is not certification of enemy
+mesh visibility. Sanitized detailed observations and the screenshot are retained
+under ignored `generated-artifacts/`; summary evidence is tracked here and in
+`STAGING-TEST-RESULTS.json`. Overall promotion remains **PENDING**.
 
 In the implementation, shared-flight primary guns are available while a
 living pilot is flying. The server chooses any target and owns projectile
