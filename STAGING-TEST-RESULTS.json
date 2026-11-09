@@ -26,7 +26,7 @@
       "durableSettlementAdapter": "MOCK_NOT_A_STAGING_DATABASE_PROOF"
     },
     "sameEncounterObserverSyntheticChecks": "PASSED",
-    "freshPairedStagingAssistance": "TWO_FRESH_CODES_SUBMITTED; NOT_AUTHENTICATED",
+    "freshPairedStagingAssistance": "LATEST_CHALLENGES_OPENED; CODES_NOT_SUBMITTED_BEFORE_TIMEOUT",
     "rewardPolicyChanged": false,
     "deploymentWorkflowStatus": "SUCCESS_ALL_THREE_SERVICES_ONLINE"
   },

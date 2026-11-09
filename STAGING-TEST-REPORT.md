@@ -17,13 +17,12 @@ mocked, not staging database evidence. Current reward policy gives zero credits
 for an assist alone and was not changed. See
 `docs/infinite-war/SHARED-BATTLE-ASSIST-VERIFICATION.md`.
 
-Two new ordinary staging sign-in challenges were opened and the codes were
-submitted privately to their matching browser owners. Both sessions remained on
-the client-trust verification page, with no classified UI error. Authentication
-did not complete, so the paired same-battle test, kill/assist settlement, and
-continued-flight verification have **not** run. The submitted values are not
-reused. Confirm the codes came from the latest sign-in emails for the matching
-accounts before another challenge is issued.
+One paired attempt used codes that were later confirmed to be from older sign-in
+emails. Both sessions stayed on the client-trust page and did not authenticate;
+no battle was tested. A new pair of challenges was then opened, but no new code
+values were submitted before both browser-owner sessions timed out. No old code
+was reused for the new pair. The paired same-battle test, kill/assist settlement,
+and continued-flight verification remain **not run**.
 
 - Both pilots entered shared flight from the hangar. Actual pointer drags moved
   the hull diagonally, primary fire stayed active, and release returned the axes
