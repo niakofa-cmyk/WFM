@@ -7,6 +7,7 @@ import {
   FREE_FLIGHT_PROTOCOL_V1,
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
   FREE_FLIGHT_TARGETING_V1,
+  FREE_FLIGHT_ASSIST_V1,
   MISSILE_CATALOG,
   PRIMARY_WEAPON_CATALOG,
   acquireTarget,
@@ -72,6 +73,8 @@ const SHIELD_RECOVERY_DELAY_TICKS = TICK_RATE * 2;
 const SHIELD_RECOVERY_PER_SECOND = 3;
 const PATROL_ENGAGEMENT_RANGE = 180;
 const PATROL_SENSOR_RANGE = 520;
+const ASSIST_CALL_COOLDOWN_MS = 15_000;
+const ASSIST_CALL_TTL_MS = 20_000;
 const PRIMARY_FIRE_ENGAGEMENT_CONE = 0.3;
 const OPEN = 1;
 
@@ -106,6 +109,7 @@ type Actor = {
   selectedTargetActorId?: string | null;
   targetCycleSeq?: number;
   lastTargetCycleAt?: number;
+  lastAssistCallAt?: number;
   lastInputAt: number;
   lastSeq: number;
   inputWindowAt: number;
@@ -140,6 +144,15 @@ type LiveEncounter = {
   settlementTask: Promise<void> | null;
   resultsApplied: boolean;
 };
+type AssistCall = {
+  id: string;
+  encounterId: string;
+  patrolId: string;
+  callerActorId: string;
+  targetActorId: string;
+  expiresAt: number;
+  invitedActorIds: Set<string>;
+};
 type WebSocketLike = {
   readyState: number;
   bufferedAmount: number;
@@ -156,6 +169,7 @@ type Session = {
   persistentPatrols: Map<string, UniversePatrolEncounter>;
   projectiles: FreeFlightProjectile[];
   combats: Map<string, LiveEncounter>;
+  assistCalls: Map<string, AssistCall>;
   engagementPending: boolean;
   nextAutoEngagementAt: number;
   autoEngagementCooldowns: Map<string, number>;
@@ -429,7 +443,7 @@ export function createFreeFlightRuntime(options: {
       key, instanceId: randomUUID(), actors: new Map(), pilotByUser: new Map(),
       anomalyGravityWells: anomalyGravityWell ? [anomalyGravityWell] : [],
       gravityEnvironmentEnabled: false,
-      persistentPatrols: new Map(), projectiles: [], combats: new Map(),
+      persistentPatrols: new Map(), projectiles: [], combats: new Map(), assistCalls: new Map(),
       engagementPending: false, nextAutoEngagementAt: 0,
       autoEngagementCooldowns: new Map(), nextProjectileId: 1,
       nextNumericId: 1, tick: 0, accumulatorMs: 0,
@@ -913,11 +927,138 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
+  function inviteIsValid(session: Session, actor: Actor, combat: LiveEncounter, callId: string) {
+    const invite = session.assistCalls.get(callId);
+    const caller = invite ? session.actors.get(invite.callerActorId) : undefined;
+    const target = invite ? session.actors.get(invite.targetActorId) : undefined;
+    return Boolean(invite && invite.expiresAt > Date.now() &&
+      invite.encounterId === combat.id && invite.patrolId === combat.patrol.patrolId &&
+      invite.invitedActorIds.has(actor.actorId) && actor.faction === combat.faction &&
+      combat.phase === "active" && combat.participantActorIds.has(invite.callerActorId) &&
+      caller?.kind === "pilot" && target?.kind === "patrol" && target.craft.alive &&
+      target.persistentPatrolId === combat.patrol.patrolId &&
+      distanceBetween(actor, target) <= PATROL_SENSOR_RANGE);
+  }
+
+  function requestWingAssist(socket: WebSocketLike, seat: Seat) {
+    const { session, actor } = seat;
+    const now = Date.now();
+    const pilotCombats = activeCombats(session).filter((candidate) =>
+      candidate.participantActorIds.has(actor.actorId));
+    const selectedPatrolId = actor.selectedTargetActorId
+      ? session.actors.get(actor.selectedTargetActorId)?.persistentPatrolId
+      : undefined;
+    const combat = pilotCombats.find((candidate) => candidate.patrol.patrolId === selectedPatrolId) ??
+      pilotCombats.sort((a, b) => {
+        const nearestDistance = (entry: LiveEncounter) => Math.min(
+          ...[...session.actors.values()]
+            .filter((candidate) => candidate.kind === "patrol" &&
+              candidate.persistentPatrolId === entry.patrol.patrolId && candidate.craft.alive)
+            .map((candidate) => distanceBetween(actor, candidate)),
+          Infinity,
+        );
+        return nearestDistance(a) - nearestDistance(b) || a.id.localeCompare(b.id);
+      })[0];
+    if (!combat || !actor.craft.alive) {
+      send(socket, {
+        type: "freeflight_assist_call_result", delivered: 0, cooldownMs: 0,
+        reason: "no_active_battle",
+      });
+      return;
+    }
+    const elapsed = now - (actor.lastAssistCallAt ?? -Infinity);
+    if (elapsed < ASSIST_CALL_COOLDOWN_MS) {
+      send(socket, {
+        type: "freeflight_assist_call_result", delivered: 0,
+        cooldownMs: ASSIST_CALL_COOLDOWN_MS - elapsed, reason: "cooldown",
+      });
+      return;
+    }
+    const target = [...session.actors.values()].find((candidate) =>
+      candidate.kind === "patrol" && candidate.persistentPatrolId === combat.patrol.patrolId &&
+      candidate.craft.alive);
+    if (!target) {
+      send(socket, {
+        type: "freeflight_assist_call_result", delivered: 0, cooldownMs: 0,
+        reason: "no_live_hostile",
+      });
+      return;
+    }
+    for (const [id, invite] of session.assistCalls) {
+      if (invite.expiresAt <= now ||
+          session.combats.get(invite.patrolId)?.id !== invite.encounterId) {
+        session.assistCalls.delete(id);
+      }
+    }
+    const invited = [...session.pilotByUser.values()].filter((candidate) =>
+      candidate !== actor && candidate.faction === actor.faction && candidate.craft.alive &&
+      candidate.socket?.readyState === OPEN &&
+      !activeCombats(session).some((active) => active.participantActorIds.has(candidate.actorId)) &&
+      distanceBetween(candidate, target) <= NEARBY_RADIUS,
+    ).slice(0, MAX_ENCOUNTER_PILOTS);
+    actor.lastAssistCallAt = now;
+    if (!invited.length) {
+      send(socket, {
+        type: "freeflight_assist_call_result", delivered: 0,
+        cooldownMs: ASSIST_CALL_COOLDOWN_MS, reason: "no_friendly_pilots_in_range",
+      });
+      return;
+    }
+    const call: AssistCall = {
+      id: randomUUID(),
+      encounterId: combat.id,
+      patrolId: combat.patrol.patrolId,
+      callerActorId: actor.actorId,
+      targetActorId: target.actorId,
+      expiresAt: now + ASSIST_CALL_TTL_MS,
+      invitedActorIds: new Set(invited.map((pilot) => pilot.actorId)),
+    };
+    session.assistCalls.set(call.id, call);
+    for (const pilot of invited) {
+      send(pilot.socket, {
+        type: "freeflight_assist_request",
+        callId: call.id,
+        callerCallsign: actor.callsign,
+        patrolCallsign: combat.patrol.callsign,
+        opposingFaction: combat.patrol.faction,
+        expiresAt: call.expiresAt,
+      });
+    }
+    send(socket, {
+      type: "freeflight_assist_call_result", delivered: invited.length,
+      cooldownMs: ASSIST_CALL_COOLDOWN_MS,
+    });
+  }
+
+  async function respondToWingAssist(socket: WebSocketLike, seat: Seat, callId: string, accept: boolean) {
+    const { session, actor } = seat;
+    const call = session.assistCalls.get(callId);
+    if (!call || !call.invitedActorIds.has(actor.actorId) || call.expiresAt <= Date.now()) {
+      send(socket, { type: "error", reason: "freeflight_assist_call_expired" });
+      return;
+    }
+    if (!accept) {
+      call.invitedActorIds.delete(actor.actorId);
+      send(session.actors.get(call.callerActorId)?.socket ?? null, {
+        type: "freeflight_assist_call_update", callId, status: "declined",
+      });
+      if (!call.invitedActorIds.size) session.assistCalls.delete(callId);
+      return;
+    }
+    const combat = session.combats.get(call.patrolId);
+    if (!combat || !inviteIsValid(session, actor, combat, callId)) {
+      send(socket, { type: "error", reason: "freeflight_assist_approach_required" });
+      return;
+    }
+    await startEngagement(socket, seat, call.targetActorId, false, callId);
+  }
+
   async function startEngagement(
     socket: WebSocketLike,
     seat: Seat,
     targetActorId: string,
     primaryFire = false,
+    assistanceCallId?: string,
   ) {
     if (seat.session.engagementPending) {
       send(socket, { type: "error", reason: "freeflight_encounter_active" });
@@ -926,7 +1067,7 @@ export function createFreeFlightRuntime(options: {
     }
     seat.session.engagementPending = true;
     try {
-      await claimEngagement(socket, seat, targetActorId, primaryFire);
+      await claimEngagement(socket, seat, targetActorId, primaryFire, assistanceCallId);
     } finally {
       seat.session.engagementPending = false;
     }
@@ -937,6 +1078,7 @@ export function createFreeFlightRuntime(options: {
     seat: Seat,
     targetActorId: string,
     primaryFire = false,
+    assistanceCallId?: string,
   ) {
     const { session, actor } = seat;
     const error = (reason: string) => {
@@ -961,7 +1103,12 @@ export function createFreeFlightRuntime(options: {
     }
     const existingCombat = session.combats.get(target.persistentPatrolId);
     if (existingCombat?.phase === "active") {
-      const joinRange = primaryFire ? NEARBY_RADIUS : PATROL_ENGAGEMENT_RANGE;
+      if (assistanceCallId && !inviteIsValid(session, actor, existingCombat, assistanceCallId)) {
+        error("freeflight_assist_call_expired");
+        return;
+      }
+      const joinRange = assistanceCallId ? PATROL_SENSOR_RANGE
+        : primaryFire ? NEARBY_RADIUS : PATROL_ENGAGEMENT_RANGE;
       if (!actor.craft.alive || distanceBetween(actor, target) > joinRange) {
         error("freeflight_patrol_approach_required");
         return;
@@ -981,7 +1128,8 @@ export function createFreeFlightRuntime(options: {
           socket.readyState !== OPEN || !actor.craft.alive || !target.craft.alive ||
           existingCombat.phase !== "active" || existingCombat.faction !== actor.faction ||
           existingCombat.participantActorIds.size >= MAX_ENCOUNTER_PILOTS ||
-          distanceBetween(actor, target) > joinRange) {
+          distanceBetween(actor, target) > joinRange ||
+          assistanceCallId && !inviteIsValid(session, actor, existingCombat, assistanceCallId)) {
         error("freeflight_encounter_participant_unavailable");
         return;
       }
@@ -990,6 +1138,17 @@ export function createFreeFlightRuntime(options: {
         hull: actor.craft.hullMax, playerId: seat.userId,
       }, session.tick);
       existingCombat.participantActorIds.add(actor.actorId);
+      if (assistanceCallId) {
+        const call = session.assistCalls.get(assistanceCallId);
+        call?.invitedActorIds.delete(actor.actorId);
+        if (call && !call.invitedActorIds.size) session.assistCalls.delete(assistanceCallId);
+        send(session.actors.get(call?.callerActorId ?? "")?.socket ?? null, {
+          type: "freeflight_assist_call_update",
+          callId: assistanceCallId,
+          status: "accepted",
+          pilotCallsign: actor.callsign,
+        });
+      }
       send(socket, {
         type: "freeflight_engagement_started", encounterId: existingCombat.id,
         patrolId: existingCombat.patrol.patrolId, callsign: existingCombat.patrol.callsign,
@@ -1003,6 +1162,10 @@ export function createFreeFlightRuntime(options: {
       }
       sendCombatState(session, actor);
       publish(session);
+      return;
+    }
+    if (assistanceCallId) {
+      error("freeflight_assist_call_expired");
       return;
     }
     if (existingCombat && existingCombat.phase !== "complete") {
@@ -1457,6 +1620,7 @@ export function createFreeFlightRuntime(options: {
             nextSeq: (actor.vectorBoostSeq ?? 0) + 1,
           },
           targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1 },
+          assistance: { protocol: FREE_FLIGHT_ASSIST_V1 },
           ...(openingStatus ? { openingEncounter: openingStatus } : {}),
         });
         sendCombatState(session, actor);
@@ -1524,6 +1688,25 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       await startEngagement(socket, seat, packet.targetActorId);
+      return;
+    }
+    if (packet.type === "freeflight_assist_call") {
+      if (Object.keys(packet).length !== 2 || packet.protocol !== FREE_FLIGHT_ASSIST_V1) {
+        error("invalid_freeflight_assist_call");
+        return;
+      }
+      requestWingAssist(socket, seat);
+      return;
+    }
+    if (packet.type === "freeflight_assist_response") {
+      if (Object.keys(packet).length !== 4 || packet.protocol !== FREE_FLIGHT_ASSIST_V1 ||
+          typeof packet.callId !== "string" ||
+          !/^[0-9a-f-]{36}$/i.test(packet.callId) ||
+          typeof packet.accept !== "boolean") {
+        error("invalid_freeflight_assist_response");
+        return;
+      }
+      await respondToWingAssist(socket, seat, packet.callId, packet.accept);
       return;
     }
     if (packet.type === "freeflight_target_cycle") {

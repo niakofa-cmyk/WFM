@@ -19,4 +19,5 @@ export * from "./anomaly-gravity";
 export * from "./universe-sync-contract";
 export * from "./free-flight-contract";
 export * from "./free-flight-targeting";
+export * from "./free-flight-assistance";
 export * from "./free-flight-rollout";

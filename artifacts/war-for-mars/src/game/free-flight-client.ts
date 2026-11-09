@@ -1,6 +1,7 @@
 import {
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_TARGETING_V1,
+  FREE_FLIGHT_ASSIST_V1,
   isFreeFlightTargetState,
   type FreeFlightTargetState,
   VECTOR_BOOST_PROTOCOL_V1,
@@ -51,6 +52,7 @@ export class FreeFlightClient {
   private vectorBoostAvailable = false;
   private vectorBoostSeq = 1;
   private targetingAvailable = false;
+  private assistanceAvailable = false;
   private targetCycleSeq = 1;
   private lastTargetState: FreeFlightTargetState | null = null;
   get targetState() {
@@ -79,8 +81,29 @@ export class FreeFlightClient {
     return true;
   }
 
+  requestWingSupport() {
+    const socket = this.socket;
+    if (!this.joined || !this.assistanceAvailable || socket?.readyState !== WebSocket.OPEN) return false;
+    socket.send(JSON.stringify({ type: "freeflight_assist_call", protocol: FREE_FLIGHT_ASSIST_V1 }));
+    return true;
+  }
+
+  respondToWingSupport(callId: string, accept: boolean) {
+    const socket = this.socket;
+    if (!this.joined || !this.assistanceAvailable || socket?.readyState !== WebSocket.OPEN ||
+        !/^[0-9a-f-]{36}$/i.test(callId) || typeof accept !== "boolean") return false;
+    socket.send(JSON.stringify({
+      type: "freeflight_assist_response",
+      protocol: FREE_FLIGHT_ASSIST_V1,
+      callId,
+      accept,
+    }));
+    return true;
+  }
+
   stop() {
     this.targetingAvailable = false;
+    this.assistanceAvailable = false;
     this.lastTargetState = null;
     this.vectorBoostAvailable = false;
     this.stopped = true;
@@ -201,6 +224,8 @@ export class FreeFlightClient {
           (targeting.nextSeq as number) <= 0x7fffffff);
         if (targeting && this.targetingAvailable) this.targetCycleSeq = targeting.nextSeq as number;
         this.lastTargetState = null;
+          const assistance = packet.assistance as { protocol?: unknown } | undefined;
+          this.assistanceAvailable = assistance?.protocol === FREE_FLIGHT_ASSIST_V1;
         const vector = packet.vectorBoost as { protocol?: unknown; nextSeq?: unknown } | undefined;
         this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
           Number.isSafeInteger(vector.nextSeq) && (vector.nextSeq as number) > 0;
@@ -246,6 +271,9 @@ export class FreeFlightClient {
       }
       if (packet.type === "freeflight_vector_boost_state" ||
           packet.type === "freeflight_recovered" ||
+          packet.type === "freeflight_assist_request" ||
+          packet.type === "freeflight_assist_call_result" ||
+          packet.type === "freeflight_assist_call_update" ||
           packet.type === "freeflight_engagement_started" ||
           packet.type === "freeflight_ally_joined" ||
           packet.type === "freeflight_engagement_state" ||

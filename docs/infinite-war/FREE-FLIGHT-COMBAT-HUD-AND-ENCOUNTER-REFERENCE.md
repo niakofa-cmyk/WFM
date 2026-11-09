@@ -59,6 +59,15 @@ intercept request remains subject to the server's approach and combat gates.
   integrity bars, and a gated engage action. Empty station/event cards and
   extended docking telemetry are hidden from the sightline; full station,
   training, and debrief controls remain available when appropriate.
+- A selected shared-flight hostile has a screen-projected reticle at its
+  snapshot position, with an edge bearing when it is outside the viewport.
+  The target card shows callsign, range, shield, hull, and server lock progress;
+  missile-ready styling appears only when the server reports its weapon solver
+  allows launch.
+- Pilots in an active shared fleet fight can signal nearby same-faction pilots.
+  The server delivers a short-lived optional response prompt and, on acceptance,
+  revalidates proximity and joins the same patrol encounter. The signal does not
+  summon NPCs or create another battle reservation.
 
 ### Review hardening
 

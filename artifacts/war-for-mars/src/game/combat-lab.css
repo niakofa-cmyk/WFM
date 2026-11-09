@@ -67,3 +67,16 @@
 .pilot-throttle-meter[data-direction=coast]{color:#b3bdc9}
 .pilot-throttle-meter[data-direction=coast] .pilot-throttle-fill{background:#b3bdc9}
 .pilot-action-button[data-energy-level=low] .pilot-action-badge{color:#ff655e;border-color:#ff655e}
+.free-flight-target-marker{position:absolute;z-index:24;display:flex;flex-direction:column;align-items:center;gap:4px;transform:translate(-50%,-50%);pointer-events:none;white-space:nowrap;color:#ffd27c;text-shadow:0 1px 5px #000,0 0 9px #e0a15a}
+.free-flight-target-marker[hidden]{display:none!important}
+.free-flight-target-reticle{position:relative;display:block;width:54px;height:54px;border:1px solid color-mix(in srgb,var(--target-accent,#e0a15a) 72%,transparent);border-radius:50%;box-shadow:0 0 12px color-mix(in srgb,var(--target-accent,#e0a15a) 28%,transparent),inset 0 0 12px rgba(4,7,12,.55)}
+.free-flight-target-reticle:before,.free-flight-target-reticle:after{position:absolute;content:"";background:var(--target-accent,#e0a15a);box-shadow:0 0 6px currentColor}
+.free-flight-target-reticle:before{left:50%;top:-5px;width:1px;height:64px;transform:translateX(-50%);opacity:.72}
+.free-flight-target-reticle:after{top:50%;left:-5px;width:64px;height:1px;transform:translateY(-50%);opacity:.72}
+.free-flight-target-reticle-core{position:absolute;inset:18px;border:1px solid currentColor;border-radius:50%;background:rgba(8,12,18,.48)}
+.free-flight-target-label{max-width:min(58vw,19rem);overflow:hidden;border:1px solid rgba(224,161,90,.58);background:rgba(5,8,13,.88);padding:3px 6px;font:700 8px/1.2 Arial,sans-serif;letter-spacing:.13em;text-align:center}
+.free-flight-target-marker[data-missile-ready=true] .free-flight-target-reticle{border-color:#8ff0c0;box-shadow:0 0 16px rgba(143,240,192,.72),inset 0 0 12px rgba(4,7,12,.55);color:#8ff0c0}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle{width:20px;height:20px;border:0;border-radius:0;box-shadow:none;transform:rotate(var(--target-marker-angle,0deg))}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle:before{left:4px;top:1px;width:2px;height:11px;transform:rotate(-42deg);transform-origin:bottom}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle:after{top:1px;left:13px;width:2px;height:11px;transform:rotate(42deg);transform-origin:bottom}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle-core{display:none}

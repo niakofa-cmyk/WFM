@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import {
+  FREE_FLIGHT_ASSIST_V1,
   FREE_FLIGHT_TARGETING_V1,
   isFreeFlightSnapshotV1,
   isFreeFlightTargetState,
@@ -112,6 +113,80 @@ test("shared targeting cycles hostile ships, holds selection through flight and 
     });
     assert.ok(packets.some(packet => packet.type === "error" &&
       packet.reason === "invalid_freeflight_target_cycle"), "clients cannot forge an arbitrary target ID");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("a server-issued nearby wing call joins the same encounter without a new patrol reservation", async () => {
+  const contact: UniversePatrolEncounter = {
+    patrolId: "assist-call-patrol001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Phobos Intercept", route: ["phobos-yard"], revision: 0,
+    ships: [{ id: "assist-call-ship001", hullId: "duskbreaker", name: "Duskbreaker", callsign: "HOSTILE ONE" }],
+  };
+  const leadPackets: Packet[] = [];
+  const wingPackets: Packet[] = [];
+  const socketFor = (packets: Packet[]) => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (value: string) => { packets.push(JSON.parse(value) as Packet); },
+    close: () => {},
+  });
+  const lead = socketFor(leadPackets);
+  const wing = socketFor(wingPackets);
+  let reservations = 0;
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:assist-call-test", faction: "ussf", shipId: "glide",
+    }),
+    resolveUniversePatrols: async (_userId, faction) => faction === "accord" ? [contact] : [],
+    reserveUniversePatrol: async () => { reservations += 1; return contact; },
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async () => ({ status: "settled", awards: [] }),
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    await runtime.handle(lead, "assist-call-lead", { type: "freeflight_join" });
+    await runtime.handle(lead, "assist-call-lead", {
+      type: "freeflight_engage", targetActorId: `patrol-ship:${contact.ships[0]!.id}`,
+    });
+    assert.ok(leadPackets.some(packet => packet.type === "freeflight_engagement_started"));
+    assert.equal(reservations, 1);
+
+    await runtime.handle(wing, "assist-call-wing", { type: "freeflight_join" });
+    const negotiation = leadPackets.find(packet => packet.type === "freeflight_joined")!;
+    assert.deepEqual(negotiation.assistance, { protocol: FREE_FLIGHT_ASSIST_V1 });
+    await runtime.handle(lead, "assist-call-lead", {
+      type: "freeflight_assist_call", protocol: FREE_FLIGHT_ASSIST_V1,
+    });
+    const delivered = leadPackets.filter(packet => packet.type === "freeflight_assist_call_result").at(-1)!;
+    const actorSummary = (packets: Packet[]) => {
+      const snapshot = packets.find(packet => packet.type === "freeflight_joined")?.snapshot as
+        { actors?: Array<{ actorId: string; kind: string; faction: string; position: unknown }> } | undefined;
+      return snapshot?.actors?.map(({ actorId, kind, faction, position }) =>
+        ({ actorId, kind, faction, position }));
+    };
+    assert.equal(delivered.delivered, 1, JSON.stringify({
+      delivered, leadActors: actorSummary(leadPackets), wingActors: actorSummary(wingPackets),
+    }));
+    const request = wingPackets.find(packet => packet.type === "freeflight_assist_request")!;
+    assert.equal(request.patrolCallsign, contact.callsign);
+    assert.equal(typeof request.callId, "string");
+    assert.equal(wingPackets.some(packet => packet.type === "freeflight_engagement_started"), false,
+      "a call alerts the nearby pilot but does not force them into the fight");
+
+    await runtime.handle(wing, "assist-call-wing", {
+      type: "freeflight_assist_response", protocol: FREE_FLIGHT_ASSIST_V1,
+      callId: request.callId, accept: true,
+    });
+    const joined = wingPackets.find(packet => packet.type === "freeflight_engagement_started")!;
+    assert.equal(joined.assistance, true);
+    assert.equal(joined.encounterId,
+      leadPackets.find(packet => packet.type === "freeflight_engagement_started")!.encounterId);
+    assert.equal(reservations, 1, "the helper joins the existing server-owned reservation");
+    assert.ok(leadPackets.some(packet => packet.type === "freeflight_assist_call_update" &&
+      packet.status === "accepted"));
+    assert.ok(leadPackets.some(packet => packet.type === "freeflight_ally_joined" &&
+      packet.participantCount === 2));
   } finally {
     await runtime.close();
   }

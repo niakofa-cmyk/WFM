@@ -59,5 +59,8 @@ export function freeFlightCombatNotice(reason: string): string {
   if (reason === "freeflight_patrol_refresh_unavailable") return "Could not refresh this fleet. Keep flying and retry.";
   if (reason === "freeflight_location_changed") return "Server location changed. Leave flight and re-enter from the hangar.";
   if (reason === "freeflight_patrol_approach_required") return "Close to the fleet to engage.";
+  if (reason === "freeflight_assist_approach_required") return "Move within 520 m of the battle to answer the wing call.";
+  if (reason === "freeflight_assist_call_expired") return "Wing call expired. Ask for support again if the battle is still active.";
+  if (reason === "freeflight_assist_call_cooldown") return "Wing support signal is cooling down.";
   return "Combat request unavailable. Keep flying and retry.";
 }

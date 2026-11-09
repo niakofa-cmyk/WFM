@@ -28,6 +28,7 @@ import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
 import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraPose } from "./orbital-camera";
+import { targetMarkerPlacement } from "./free-flight-target-marker";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
 import {
@@ -694,6 +695,29 @@ export function Arena({
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
   const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
   const [freeFlightNotice, setFreeFlightNotice] = useState("");
+  const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
+  const [assistCallPending, setAssistCallPending] = useState(false);
+  const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
+  const [assistCallCooldownUntil, setAssistCallCooldownUntil] = useState(0);
+  const [incomingAssistCall, setIncomingAssistCall] = useState<{
+    callId: string;
+    callerCallsign: string;
+    patrolCallsign: string;
+    opposingFaction: "ussf" | "accord";
+    expiresAt: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!assistCallCooldownUntil) return;
+    const timer = window.setTimeout(() => setAssistCallCooldownUntil(0),
+      Math.max(0, assistCallCooldownUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [assistCallCooldownUntil]);
+  useEffect(() => {
+    if (!incomingAssistCall) return;
+    const timer = window.setTimeout(() => setIncomingAssistCall(null),
+      Math.max(0, incomingAssistCall.expiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [incomingAssistCall?.callId, incomingAssistCall?.expiresAt]);
   const [vectorBoostStatus, setVectorBoostStatus] = useState("");
   useEffect(() => {
     if (!vectorBoostStatus) return;
@@ -766,6 +790,11 @@ export function Arena({
           const vitals = freeFlightPilotVitals(frame.snapshot);
           setFreeFlightPilot((current) =>
             sameFreeFlightPilotVitals(current, vitals) ? current : vitals);
+          const ownActor = frame.snapshot.actors.find((actor) => actor.own);
+          const friendlyCount = ownActor ? frame.snapshot.actors.filter((actor) =>
+            actor.kind === "pilot" && !actor.own && actor.alive &&
+            actor.faction === ownActor.faction).length : 0;
+          setNearbyFriendlyPilots((current) => current === friendlyCount ? current : friendlyCount);
           setSharedPatrolContact((previousContact) => {
             const nextContact = sharedFlightPatrolContact(frame.snapshot, previousContact?.actorId);
             return sameSharedPatrolContact(previousContact, nextContact)
@@ -785,6 +814,11 @@ export function Arena({
             freeFlightCombatActiveRef.current = false;
             setFreeFlightPilot(null);
             setFreeFlightCombatStatus("idle");
+            setNearbyFriendlyPilots(0);
+            setAssistCallPending(false);
+            setRespondingToAssistCallId(null);
+            setAssistCallCooldownUntil(0);
+            setIncomingAssistCall(null);
             setFreeFlightNotice(reason?.startsWith("freeflight_recovery")
               ? freeFlightCombatNotice(reason)
               : "");
@@ -796,7 +830,39 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
-          if (packet.type === "freeflight_vector_boost_state") {
+          if (packet.type === "freeflight_assist_request" &&
+              typeof packet.callId === "string" && /^[0-9a-f-]{36}$/i.test(packet.callId) &&
+              typeof packet.callerCallsign === "string" && packet.callerCallsign.length <= 80 &&
+              typeof packet.patrolCallsign === "string" && packet.patrolCallsign.length <= 80 &&
+              (packet.opposingFaction === "ussf" || packet.opposingFaction === "accord") &&
+              typeof packet.expiresAt === "number" && Number.isFinite(packet.expiresAt) &&
+              packet.expiresAt > Date.now() && packet.expiresAt <= Date.now() + 30_000) {
+            setIncomingAssistCall({
+              callId: packet.callId,
+              callerCallsign: packet.callerCallsign,
+              patrolCallsign: packet.patrolCallsign,
+              opposingFaction: packet.opposingFaction,
+              expiresAt: packet.expiresAt,
+            });
+          } else if (packet.type === "freeflight_assist_call_result" &&
+              Number.isSafeInteger(packet.delivered) && (packet.delivered as number) >= 0 &&
+              (packet.delivered as number) <= 24 &&
+              Number.isSafeInteger(packet.cooldownMs) && (packet.cooldownMs as number) >= 0 &&
+              (packet.cooldownMs as number) <= 30_000) {
+            setAssistCallPending(false);
+            setAssistCallCooldownUntil(packet.cooldownMs
+              ? Date.now() + (packet.cooldownMs as number) : 0);
+            setFreeFlightNotice((packet.delivered as number) > 0
+              ? `WING SIGNAL SENT · ${packet.delivered} nearby pilot${packet.delivered === 1 ? "" : "s"} alerted.`
+              : packet.reason === "no_friendly_pilots_in_range"
+                ? "NO FRIENDLY PILOTS IN SIGNAL RANGE."
+                : packet.reason === "cooldown"
+                  ? "WING SIGNAL RECHARGING."
+                  : "NO ACTIVE FLEET BATTLE TO SIGNAL.");
+          } else if (packet.type === "freeflight_assist_call_update" &&
+              packet.status === "accepted" && typeof packet.pilotCallsign === "string") {
+            setFreeFlightNotice(`WING SUPPORT RESPONDING · ${packet.pilotCallsign.slice(0, 32)} joining.`);
+          } else if (packet.type === "freeflight_vector_boost_state") {
             setVectorBoostStatus(packet.accepted === true ? "VECTOR BURST · RECOVERING" : "BURST · ENERGY / RECOVERY");
             return;
           }
@@ -835,6 +901,8 @@ export function Arena({
             );
             if (effect) effect.impact = { to: packet.to, receivedAt: performance.now() };
           } else if (packet.type === "freeflight_engagement_started") {
+            setIncomingAssistCall(null);
+            setRespondingToAssistCallId(null);
             freeFlightCombatActiveRef.current = true;
             setFreeFlightCombatStatus("active");
             setFreeFlightNotice(packet.assistance === true
@@ -873,6 +941,11 @@ export function Arena({
               credits: previous.credits + (packet.creditsAwarded as number),
             }));
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
+            setRespondingToAssistCallId(null);
+            if (packet.reason.startsWith("freeflight_assist_")) {
+              setAssistCallPending(false);
+              if (packet.reason === "freeflight_assist_call_expired") setIncomingAssistCall(null);
+            }
             if (packet.reason === "freeflight_engagement_required" ||
                 packet.reason === "freeflight_pilot_destroyed") {
               freeFlightCombatActiveRef.current = false;
@@ -919,6 +992,8 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const targetMarkerRef = useRef<HTMLDivElement>(null);
+  const targetMarkerLabelRef = useRef<HTMLSpanElement>(null);
   const speedRef = useRef<HTMLSpanElement>(null);
   const throttleMeterRef = useRef<HTMLDivElement>(null);
   const throttleFillRef = useRef<HTMLDivElement>(null);
@@ -1424,6 +1499,7 @@ export function Arena({
     const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 520);
     const lensWorldPosition = new THREE.Vector3();
     const lensEdgePosition = new THREE.Vector3();
+    const targetScreenPosition = new THREE.Vector3();
     scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
     scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
     const sun = new THREE.DirectionalLight(look.sun, 1.7);
@@ -2644,6 +2720,46 @@ export function Arena({
           bracket.scale.setScalar(1.5);
         }
       }
+      const targetMarker = targetMarkerRef.current;
+      if (targetMarker) {
+        if (freeFlightEnabled && sharedLocked && sharedTargetState) {
+          targetScreenPosition.set(
+            sharedLocked.position.x,
+            .9 + sharedLocked.position.y,
+            sharedLocked.position.z,
+          ).project(camera);
+          const bounds = renderer.domElement.getBoundingClientRect();
+          const placement = targetMarkerPlacement(
+            targetScreenPosition, bounds.width, bounds.height,
+          );
+          targetMarker.hidden = !placement.visible;
+          if (placement.visible) {
+            targetMarker.style.left = `${bounds.left + placement.left}px`;
+            targetMarker.style.top = `${bounds.top + placement.top}px`;
+            targetMarker.dataset.edge = String(placement.edge);
+            targetMarker.dataset.missileReady = String(sharedTargetState.missileReady);
+            targetMarker.style.setProperty("--target-marker-angle", `${placement.angleDegrees}deg`);
+            targetMarker.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
+            const range = Math.round(Math.hypot(
+              sharedLocked.position.x - player.x,
+              sharedLocked.position.y - (player.space?.y ?? 0),
+              sharedLocked.position.z - player.z,
+            ));
+            const lockPercent = Math.floor(sharedTargetState.lockProgress * 100);
+            const markerLabel = `${sharedLocked.callsign} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
+            if (targetMarkerLabelRef.current &&
+                targetMarkerLabelRef.current.textContent !== markerLabel) {
+              targetMarkerLabelRef.current.textContent = markerLabel;
+            }
+            targetMarker.setAttribute(
+              "aria-label",
+              `Selected enemy ${sharedLocked.callsign}, ${range} meters, missile lock ${lockPercent} percent${sharedTargetState.missileReady ? ", missile ready" : ""}`,
+            );
+          }
+        } else {
+          targetMarker.hidden = true;
+        }
+      }
 
       flareT = Math.max(0, flareT - delta);
       flare.visible = flareT > 0;
@@ -3314,6 +3430,19 @@ export function Arena({
         />
       ))}
       <div
+        ref={targetMarkerRef}
+        data-testid="shared-target-marker"
+        hidden
+        role="img"
+        aria-label="Selected enemy target"
+        className="free-flight-target-marker"
+      >
+        <span className="free-flight-target-reticle" aria-hidden="true">
+          <span className="free-flight-target-reticle-core" />
+        </span>
+        <span ref={targetMarkerLabelRef} className="free-flight-target-label" />
+      </div>
+      <div
         ref={hurtRef}
         className="pointer-events-none absolute inset-0 opacity-0"
         style={{ boxShadow: "inset 0 0 90px 12px rgba(196,92,72,0.95)" }}
@@ -3339,6 +3468,46 @@ export function Arena({
             }
           } : undefined}
         />
+      ) : null}
+      {localUniverse && incomingAssistCall && sharedFreeFlightJoined ? (
+        <section
+          data-testid="incoming-wing-assist-call"
+          role="region"
+          aria-label="Incoming wing assistance request"
+          aria-live="polite"
+          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] z-40 w-[min(23rem,92vw)] -translate-x-1/2 border border-solar/60 bg-void/95 px-3 py-2 shadow-[0_0_24px_rgba(224,161,90,.18)]"
+        >
+          <p className="font-hud text-[10px] tracking-[0.16em] text-solar">
+            WING CALL · {incomingAssistCall.callerCallsign}
+          </p>
+          <p className="mt-1 text-xs text-bone">
+            {incomingAssistCall.patrolCallsign} · {incomingAssistCall.opposingFaction.toUpperCase()} contact
+          </p>
+          <p className="mt-1 text-[10px] text-muted">Answer within sensor range to join the same live battle.</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              data-testid="button-accept-wing-assist"
+              className="pilot-menu-primary flex-1"
+              disabled={respondingToAssistCallId === incomingAssistCall.callId}
+              onClick={() => {
+                if (freeFlightClientRef.current?.respondToWingSupport(incomingAssistCall.callId, true)) {
+                  setRespondingToAssistCallId(incomingAssistCall.callId);
+                  setFreeFlightNotice("WING RESPONSE SENT · Closing to the live battle.");
+                }
+              }}
+            >RESPOND</button>
+            <button
+              type="button"
+              data-testid="button-dismiss-wing-assist"
+              className="pilot-menu-setting flex-1"
+              onClick={() => {
+                freeFlightClientRef.current?.respondToWingSupport(incomingAssistCall.callId, false);
+                setIncomingAssistCall(null);
+              }}
+            >DISMISS</button>
+          </div>
+        </section>
       ) : null}
       {localUniverse && universe ? (
         <UniverseStationOverlay
@@ -3638,6 +3807,18 @@ export function Arena({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
+                    {freeFlightEnabled && localUniverse && sharedFreeFlightEngagementActive ? (
+                      <PilotActionButton
+                        icon="assist"
+                        label="Call nearby friendly pilots to join this live fleet battle"
+                        testId="button-request-wing-support"
+                        badge={assistCallPending ? "SENT" : nearbyFriendlyPilots > 0 ? String(nearbyFriendlyPilots) : "CALL"}
+                        disabled={assistCallPending || assistCallCooldownUntil > Date.now()}
+                        onActivate={() => {
+                          if (freeFlightClientRef.current?.requestWingSupport()) setAssistCallPending(true);
+                        }}
+                      />
+                    ) : null}
                     {orbitalCampaign || exploringHud ? null : (
                       <PilotActionButton
                         ref={countermeasureRef}
