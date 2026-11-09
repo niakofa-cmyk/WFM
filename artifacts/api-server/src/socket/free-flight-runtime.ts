@@ -491,7 +491,7 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
-  function combatTarget(session: Session, actor: Actor): Actor | undefined {
+  function combatTarget(session: Session, actor: Actor, primaryFire = false): Actor | undefined {
     const combats = activeCombats(session);
     const candidates = actor.kind === "pilot"
       ? combats
@@ -516,8 +516,9 @@ export function createFreeFlightRuntime(options: {
         const dot = (forward.x * dx + forward.y * dy + forward.z * dz) / Math.max(0.001, distance);
         return { candidate, distance, dot };
       })
-      .filter((entry) => entry.distance <= missile.maxLockRange &&
-        entry.dot >= detCos(missile.lockConeRadians))
+      .filter((entry) => entry.distance <=
+          (primaryFire ? NEARBY_RADIUS : missile.maxLockRange) &&
+        entry.dot >= detCos(primaryFire ? PRIMARY_FIRE_ENGAGEMENT_CONE : missile.lockConeRadians))
       .sort((a, b) => a.distance - b.distance || a.candidate.actorId.localeCompare(b.candidate.actorId))[0]
       ?.candidate;
   }
@@ -605,22 +606,24 @@ export function createFreeFlightRuntime(options: {
     const combatActive = combat?.phase === "active";
     if (actor.kind !== "pilot" && !combatActive) return;
     const target = combatActive ? combatTarget(session, actor) : undefined;
+    const primaryTarget = combatActive ? combatTarget(session, actor, true) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     actor.craft.lockTargetId = target?.numericId ?? null;
     acquireTarget(actor.craft, target?.craft, ORBITAL_DT, [], missile);
     const ship = SHIPS[actor.shipId];
     if (input.fire && actor.primaryCooldown <= 0) {
       const bullets = spawnPrimaryVolley(
-        actor.craft, target?.craft, ship.shotSpeed, ship.shotDmg, [],
+        actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, [],
         PRIMARY_WEAPON_CATALOG[ship.primaryFit],
       );
-      if (actor.kind === "pilot") {
-        // No arbitrary primary-gun range gate: a round can traverse the full
-        // server-streamed encounter bubble, then still needs a swept collision.
+      if (actor.kind === "pilot" && combatActive && primaryTarget) {
+        // No arbitrary primary-gun range gate: retain each round long enough
+        // to reach the server-selected hostile at its current range.
+        const targetRange = distanceBetween(actor, primaryTarget) + 8;
         for (const bullet of bullets) {
           const speed = detHypot(detHypot(bullet.vx, bullet.vy ?? 0), bullet.vz);
           if (speed > 0) bullet.life = Math.max(
-            bullet.life, (NEARBY_RADIUS + 8) / speed + 0.25,
+            bullet.life, targetRange / speed + 0.25,
           );
         }
       }

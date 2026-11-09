@@ -124,8 +124,70 @@ test("a nearby late ally automatically joins the existing battle without another
     await runtime.handle(traveller, "assist-traveller", {
       type: "freeflight_input", input: input(1, { fire: true }),
     });
-    assert.ok(travellerPackets.some((p) => p.reason === "freeflight_engagement_required"));
+    assert.ok(travellerPackets.some((p) => p.reason === "freeflight_location_changed"));
+    assert.equal(reservations, 1, "a stale location cannot reserve or join the previous fleet");
+    assert.equal(travellerPackets.some((p) => p.type === "freeflight_engagement_started"), false);
     assert.equal(leadPackets.filter((p) => p.type === "freeflight_ally_joined").length, 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("primary fire can initiate a server-owned patrol encounter across the streamed flight range", async () => {
+  const packets: Packet[] = [];
+  const socketFor = (target: Packet[] = packets) => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (data: string) => { target.push(JSON.parse(data) as Packet); },
+    close: () => {},
+  });
+  const contact: UniversePatrolEncounter = {
+    patrolId: "long-range-patrol-0001", locationId: "phobos-yard", faction: "accord",
+    callsign: "Long-range patrol", route: ["phobos-yard"], revision: 0,
+    ships: [{ id: "long-range-ship-0001", hullId: "mandjet", name: "Mandjet", callsign: "SCOUT ONE" }],
+  };
+  let reserved = 0;
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "duskbreaker",
+    }),
+    resolveUniversePatrols: async () => [contact],
+    reserveUniversePatrol: async () => { reserved++; return contact; },
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async () => { throw new Error("test does not complete the fleet"); },
+    patrolSpawnDistanceMeters: 2_000,
+  });
+  const observers = [socketFor([]), socketFor([])];
+  const pilot = socketFor();
+  try {
+    await runtime.handle(observers[0]!, "range-observer-1", { type: "freeflight_join" });
+    await runtime.handle(observers[1]!, "range-observer-2", { type: "freeflight_join" });
+    await runtime.handle(pilot, "range-pilot", { type: "freeflight_join" });
+    const snapshot = packets.find((packet) => packet.type === "freeflight_joined")?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    const own = snapshot.actors.find((actor) => actor.own)!;
+    const target = snapshot.actors.find((actor) => actor.kind === "patrol")!;
+    const distance = Math.hypot(
+      target.position.x - own.position.x,
+      target.position.y - own.position.y,
+      target.position.z - own.position.z,
+    );
+    assert.ok(distance > 1_900, `expected a distant patrol, got ${distance.toFixed(1)}m`);
+
+    await runtime.handle(pilot, "range-pilot", {
+      type: "freeflight_input", input: input(1, { fire: true }),
+    });
+    assert.ok(packets.some((packet) => packet.type === "freeflight_engagement_started" &&
+      packet.patrolId === contact.patrolId), "aimed primary fire must request the server encounter");
+    assert.equal(reserved, 1, "only the server reservation grants combat authority");
+
+    runtime.advance(Date.now() + 100);
+    const shot = packets.find((packet) => packet.type === "freeflight_weapon_fired" &&
+      packet.sourceActorId === own.actorId);
+    assert.ok(shot, "the server must emit a real projectile");
+    const velocity = shot.velocity as { x: number; y: number; z: number };
+    const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+    assert.ok(Number(shot.lifetimeSeconds) * speed >= distance,
+      "the projectile must remain alive long enough to traverse the streamed range");
   } finally {
     await runtime.close();
   }
@@ -269,13 +331,14 @@ test("the server advances 3D pilot and patrol movement and rejects client combat
       Math.abs(currentPatrol.position.z - patrol.position.z) > 0.01,
     );
 
-    const combatError = nextPacket(socket, (packet) => packet.type === "error");
+    const firingAccepted = nextPacket(socket, (packet) =>
+      packet.type === "freeflight_input_accepted" && packet.seq === 2);
     socket.send(JSON.stringify({ type: "freeflight_input", input: input(2, { fire: true }) }));
-    assert.equal((await combatError).reason, "freeflight_engagement_required");
+    assert.equal((await firingAccepted).fire, true, "primary fire is allowed in open free flight");
     const spatialError = nextPacket(socket, (packet) => packet.type === "error");
     socket.send(JSON.stringify({
       type: "freeflight_input",
-      input: { ...input(2), position: { x: 1e9, y: 0, z: 0 } },
+      input: { ...input(3), position: { x: 1e9, y: 0, z: 0 } },
     }));
     assert.equal((await spatialError).reason, "freeflight_invalid_packet");
   } finally {
