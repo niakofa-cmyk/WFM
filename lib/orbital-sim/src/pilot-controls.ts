@@ -59,10 +59,10 @@ export function pilotAxesToSpatialAxes(value: { yaw?: number; roll?: number; str
   return { yaw: -axis(value.yaw), roll: -axis(value.roll), strafe: -axis(value.strafe) };
 }
 
-export type RightThumbProfile = { mode: "hybrid" | "aim"; attitudeGain: number; translationGain: number };
+export type RightThumbProfile = { mode: "hybrid" | "aim" | "vector"; attitudeGain: number; translationGain: number };
 export function normalizeRightThumbProfile(value?: Partial<RightThumbProfile>): RightThumbProfile {
   return {
-    mode: value?.mode === "aim" ? "aim" : "hybrid",
+    mode: value?.mode === "aim" ? "aim" : value?.mode === "vector" ? "vector" : "hybrid",
     attitudeGain: Number.isFinite(value?.attitudeGain) ? Math.max(.2, Math.min(1.25, value!.attitudeGain!)) : 1,
     translationGain: Number.isFinite(value?.translationGain) ? Math.max(0, Math.min(1, value!.translationGain!)) : 1,
   };
@@ -73,10 +73,10 @@ export function rightThumbFlightAxes(x: number, y: number, profile: RightThumbPr
   const right = axis(x), up = -axis(y);
   const length = Math.max(1, Math.hypot(right, up));
   return {
-    yaw: axis(right * clean.attitudeGain),
-    pitch: axis(up * clean.attitudeGain),
-    strafe: clean.mode === "hybrid" ? right / length * clean.translationGain : 0,
-    vertical: clean.mode === "hybrid" ? up / length * clean.translationGain : 0,
+    yaw: clean.mode === "vector" ? 0 : axis(right * clean.attitudeGain),
+    pitch: clean.mode === "vector" ? 0 : axis(up * clean.attitudeGain),
+    strafe: clean.mode !== "aim" ? right / length * clean.translationGain : 0,
+    vertical: clean.mode !== "aim" ? up / length * clean.translationGain : 0,
   };
 }
 

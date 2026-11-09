@@ -30,6 +30,7 @@
 - [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
 - [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.
 - [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
+- [Pilot maneuver and performance goals](pilot-maneuver-goals.md) — Phases 1–3 together; physical evasion, heading-stable control, measured performance and guarded multiplayer rollout.
 - [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
 - [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
 - [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.

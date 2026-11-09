@@ -53,6 +53,8 @@ type Props = {
   onCircularRollInput?: (input: number) => void;
   size?: "arena" | "rust-disc";
   disabled?: boolean;
+  /** Changing a profile invalidates any pending gesture and captured axes. */
+  interactionKey?: string;
   className?: string;
   description?: string;
 };
@@ -62,7 +64,7 @@ function pointerTimestampMs(event: PointerEvent) {
   return event.timeStamp > 1e12 ? event.timeStamp : performance.timeOrigin + event.timeStamp;
 }
 
-export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, className = "", description }: Props) {
+export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, interactionKey, className = "", description }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const feedbackAnnouncement = useRef<HTMLSpanElement>(null);
@@ -145,12 +147,10 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
     };
   }, []);
   useEffect(() => {
-    if (disabled) {
-      resetVisual();
-      clearFeedbackTimer();
-      setFeedback(null);
-    }
-  }, [disabled]);
+    resetVisual();
+    clearFeedbackTimer();
+    setFeedback(null);
+  }, [disabled, interactionKey]);
 
   const updateAxis = (clientX: number, clientY: number) => {
     const el = root.current;

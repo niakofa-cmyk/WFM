@@ -3426,9 +3426,9 @@ export function Arena({
         >
           {orbital && !unifiedOrbitalControls && maneuversOpen ? (
             <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-start gap-1.5" data-testid="pilot-maneuver-actions">
-              <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+              <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
-              <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+              {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
               <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
               {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={!countermeasureVisible} hidden={!countermeasureVisible} onPress={() => {
@@ -3451,6 +3451,7 @@ export function Arena({
               <PilotFlightStick
                 label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
                 testId={`stick-${orbital ? "flight" : "move"}`}
+                disabled={paused}
                 size={unifiedOrbitalControls ? "rust-disc" : "arena"}
                 className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
                 description={unifiedOrbitalControls ? "Drag up for forward thrust, down for reverse, and left or right to turn and bank. Double-tap an outer edge for a short vector-thrust pulse." : undefined}
@@ -3532,8 +3533,8 @@ export function Arena({
             <>
               {orbital && maneuversOpen ? (
                 <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
-                  <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
-                  <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+                  <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+                  {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
                   <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
                   <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
                 </div>
@@ -3636,15 +3637,21 @@ export function Arena({
                   </div>
                 </div>
                 <div className="relative">
-                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                  <PilotFlightStick label={rightThumbProfile.mode === "vector" ? "Right thumb vector" : "Right thumb aim"} testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                    interactionKey={rightThumbProfile.mode}
+                    disabled={paused}
                     boostStatus={vectorBoostStatus}
                     description={unifiedOrbitalControls && rightThumbProfile.mode === "hybrid"
                       ? "Drag to aim and translate sideways, vertically or diagonally. Double-tap an edge or make two quick matching flicks for a directional burst."
-                      : "Drag to aim. Aim-only profile preserves the original flight mapping."}
-                    onVectorBoost={unifiedOrbitalControls && rightThumbProfile.mode === "hybrid" && bus ? (direction) => {
+                      : rightThumbProfile.mode === "vector"
+                        ? "Drag to translate the hull sideways, vertically or diagonally without turning. Steer with the left thumb. Double-tap an edge or make two quick matching flicks for a directional burst."
+                        : "Drag to aim. Aim-only profile preserves the original flight mapping."}
+                    onVectorBoost={unifiedOrbitalControls && rightThumbProfile.mode !== "aim" && bus ? (direction) => {
                       if (freeFlightEnabled) return freeFlightClientRef.current?.requestVectorBoost(direction) ?? false;
-                      bus.flightEnergy = matchRef.current?.player.space?.energy ?? 0;
-                      return requestRightVectorBoost(bus, direction);
+                      const pilot = matchRef.current?.player;
+                      bus.flightEnergy = pilot?.space?.energy ?? 0;
+                      return requestRightVectorBoost(bus, direction, Date.now(),
+                        !pilot || !pilot.alive || pilot.root > 0 || pilot.jam > 0);
                     } : undefined}
                     onCircularRollInput={!freeFlightEnabled && bus?.orbital && bus.leftStickFlight ? (input) => {
                       setCircularRollControl(bus, input);
@@ -3766,19 +3773,26 @@ export function Arena({
             {unifiedOrbitalControls ? (
               <section className="mt-4 border-t border-bone/15 pt-3" aria-label="Right thumb flight profile">
                 <p className="font-hud text-[10px] tracking-[0.22em] text-solar">RIGHT THUMB FLIGHT</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {(["hybrid", "aim"] as const).map((mode) => (
-                    <button key={mode} type="button" className="pilot-menu-setting"
+                <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Right thumb profile">
+                  {(["hybrid", "aim", "vector"] as const).map((mode) => (
+                    <button key={mode} type="button" className="pilot-menu-setting min-h-11"
                       data-testid={`right-thumb-profile-${mode}`} aria-pressed={rightThumbProfile.mode === mode}
                       onClick={() => setRightThumbProfile({ ...rightThumbProfile, mode })}>
-                      {mode === "hybrid" ? "HYBRID · AIM + MOVE" : "AIM ONLY · CLASSIC"}
+                      {mode === "hybrid" ? "HYBRID · AIM + MOVE" : mode === "aim" ? "AIM ONLY · CLASSIC" : "VECTOR · MOVE ONLY"}
                     </button>
                   ))}
                 </div>
+                <p className="mt-2 font-mono text-[9px] leading-relaxed text-muted" data-testid="text-right-thumb-profile-help">
+                  {rightThumbProfile.mode === "hybrid"
+                    ? "Right thumb aims and strafes together. Eight-way bursts enabled."
+                    : rightThumbProfile.mode === "aim"
+                      ? "Right thumb only turns the nose. No strafing, no bursts."
+                      : "Right thumb strafes the hull without turning it. Left thumb and gyro still steer. Eight-way bursts enabled."}
+                </p>
                 <label className="mt-2 block font-mono text-[10px] text-muted">
                   AIM RESPONSE {rightThumbProfile.attitudeGain.toFixed(2)}
                   <input aria-label="Right thumb aim response" className="block w-full" type="range" min=".2" max="1.25" step=".05"
-                    value={rightThumbProfile.attitudeGain}
+                    value={rightThumbProfile.attitudeGain} disabled={rightThumbProfile.mode === "vector"}
                     onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, attitudeGain: Number(event.target.value) })} />
                 </label>
                 <label className="mt-2 block font-mono text-[10px] text-muted">
@@ -3787,7 +3801,10 @@ export function Arena({
                     value={rightThumbProfile.translationGain} disabled={rightThumbProfile.mode === "aim"}
                     onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, translationGain: Number(event.target.value) })} />
                 </label>
-                <p className="mt-2 font-mono text-[9px] text-muted">Eight-way bursts use energy and recovery time. Shared flight requires server support. Circle rolls remain local-training only.</p>
+                <p className="mt-2 font-mono text-[9px] leading-relaxed text-muted">Eight-way bursts use energy and recovery time. Shared flight requires server support. Circle rolls remain local-training only.</p>
+                <p className="mt-1 font-mono text-[9px] leading-relaxed text-muted" data-testid="text-maneuver-availability">
+                  Brake is a recovery action: hold to bleed speed and regain control. {freeFlightEnabled || online ? "Vector drift is local-training only and is unavailable in shared flight." : "Vector drift is available here in local training."}
+                </p>
               </section>
             ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">

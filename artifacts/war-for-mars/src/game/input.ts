@@ -86,6 +86,7 @@ export function createBus(scheme: Scheme): Bus {
 
 export function clearInput(bus: Bus) {
   if (bus.rightBoost) bus.rightBoost.remaining = 0;
+  bus.rightBoostSampleAt = undefined;
   if (bus.pulseTimers.vertical) clearTimeout(bus.pulseTimers.vertical);
   if (bus.pulseTimers.strafe) clearTimeout(bus.pulseTimers.strafe);
   bus.pulseTimers.vertical = null;
@@ -123,10 +124,12 @@ export function clearInput(bus: Bus) {
 }
 
 /** Offline input projects the burst into legacy replayable axes; shared flight requests it separately. */
-export function requestRightVectorBoost(bus: Bus, direction: VectorBoostDirection) {
+export function requestRightVectorBoost(bus: Bus, direction: VectorBoostDirection, at = Date.now(), disabled = false) {
+  if (disabled || !bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim" ||
+      !Number.isFinite(at) || at < 0) return false;
   bus.rightBoost ??= newVectorBoost();
   const accepted = startVectorBoost(bus.rightBoost, direction, bus.flightEnergy ?? 100);
-  if (accepted) bus.rightBoostSampleAt = Date.now();
+  if (accepted) bus.rightBoostSampleAt = at;
   return accepted;
 }
 
@@ -202,6 +205,9 @@ export function readThrottle(bus: Bus): number {
 }
 
 export function readInput(bus: Bus, at = Date.now()): StepInput {
+  if (bus.rightBoost && (!bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim")) {
+    bus.rightBoost.remaining = 0;
+  }
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
@@ -300,9 +306,12 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     if (!bus.countermeasureEnabled) delete result.countermeasure;
     bus.lastKeys = new Set(keys);
     if (bus.rightBoost) {
-      const now = Date.now();
-      const dt = Math.max(0, Math.min(.1, (now - (bus.rightBoostSampleAt ?? now)) / 1000));
-      bus.rightBoostSampleAt = now;
+      if (!Number.isFinite(at) || at < 0) throw new RangeError("Invalid vector boost sample time");
+      const elapsed = at - (bus.rightBoostSampleAt ?? at);
+      // A wall-clock correction cannot extend an active maneuver.
+      if (elapsed < 0) bus.rightBoost.remaining = 0;
+      const dt = Math.max(0, Math.min(.1, elapsed / 1000));
+      bus.rightBoostSampleAt = at;
       return { ...result, ...stepVectorBoost(bus.rightBoost, result, dt) };
     }
     return result;
