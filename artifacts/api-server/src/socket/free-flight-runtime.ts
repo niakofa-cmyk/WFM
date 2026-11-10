@@ -45,6 +45,7 @@ import { FLEET_AI_ROSTER, SHIPS, type Faction, type ShipId } from "../game/ships
 import {
   ExplorationEncounter,
   readExplorationReceipt,
+  type ExplorationEncounterSnapshotV1,
   type ExplorationReceipt,
 } from "../game/exploration-encounter";
 import type { ExplorationSettlement } from "../game/exploration-settlement";
@@ -182,8 +183,43 @@ type Session = {
   emptySince: number | null;
   nextPatrolRefreshAt: number;
   patrolRefreshPending: boolean;
+  checkpointSequence: number;
 };
 type Seat = { session: Session; actor: Actor; userId: string };
+
+export type FreeFlightSessionCheckpointV1 = {
+  version: 1;
+  key: string;
+  instanceId: string;
+  actors: Array<Omit<Actor, "socket">>;
+  anomalyGravityWells: AnomalyGravityWellV1[];
+  gravityEnvironmentEnabled: boolean;
+  persistentPatrols: UniversePatrolEncounter[];
+  projectiles: FreeFlightProjectile[];
+  combats: Array<{
+    id: string;
+    faction: Faction;
+    patrol: UniversePatrolEncounter;
+    contract: ExplorationEncounterSnapshotV1;
+    participantActorIds: string[];
+    phase: LiveEncounter["phase"];
+    nextSettlementAttemptAt: number;
+    resultsApplied: boolean;
+  }>;
+  assistCalls: Array<Omit<AssistCall, "invitedActorIds"> & { invitedActorIds: string[] }>;
+  autoEngagementCooldowns: Array<[string, number]>;
+  nextProjectileId: number;
+  nextNumericId: number;
+  tick: number;
+  checkpointSequence: number;
+};
+
+export type StoredFreeFlightCheckpoint = {
+  stateVersion: number;
+  fencingToken: number;
+  checkpointSequence: number;
+  snapshot: Record<string, unknown>;
+};
 
 const IDLE: SharedInput = {
   throttle: 0, yaw: 0, pitch: 0, strafe: 0, vertical: 0, roll: 0,
@@ -410,6 +446,14 @@ function send(socket: WebSocketLike | null, packet: unknown) {
 
 export function createFreeFlightRuntime(options: {
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
+  loadCheckpoint?: (sessionKey: string) => Promise<StoredFreeFlightCheckpoint | null>;
+  saveCheckpoint?: (
+    sessionKey: string,
+    snapshot: FreeFlightSessionCheckpointV1,
+    fencingToken: number,
+    checkpointSequence: number,
+  ) => Promise<boolean>;
+  retainEncounterReservationsOnClose?: boolean;
   resolveUniversePatrol?: (userId: string, faction: Faction) => Promise<UniversePatrolEncounter | null>;
   resolveUniversePatrols?: (userId: string, faction: Faction) => Promise<UniversePatrolEncounter[]>;
   reserveUniversePatrol?: (
@@ -424,12 +468,197 @@ export function createFreeFlightRuntime(options: {
   patrolSpawnDistanceMeters?: number;
 }) {
   const sessions = new Map<string, Session>();
+  const sessionInitializations = new Map<string, Promise<Session | null>>();
   const seats = new Map<WebSocketLike, Seat>();
   const userSeats = new Map<string, Seat>();
   const joiningUsers = new Set<string>();
+  const fencingTokens = new Map<string, number>();
+  const checkpointPending = new Map<string, Promise<boolean>>();
+  const lastCheckpointAt = new Map<string, number>();
   let closed = false;
 
-  function sessionFor(key: string, now: number, patrols: readonly UniversePatrolEncounter[] = []): Session | null {
+  function restoreSession(
+    key: string,
+    now: number,
+    stored: StoredFreeFlightCheckpoint,
+  ): Session {
+    if (stored.stateVersion !== 1 || !Number.isSafeInteger(stored.fencingToken) ||
+        stored.fencingToken <= 0 || !Number.isSafeInteger(stored.checkpointSequence) ||
+        stored.checkpointSequence < 0) throw new Error("Unsupported free-flight checkpoint row.");
+    const snapshot = stored.snapshot as unknown as FreeFlightSessionCheckpointV1;
+    if (!snapshot || snapshot.version !== 1 || snapshot.key !== key ||
+        typeof snapshot.instanceId !== "string" ||
+        !Array.isArray(snapshot.actors) || snapshot.actors.length > MAX_ACTORS_PER_SESSION ||
+        !Array.isArray(snapshot.projectiles) || snapshot.projectiles.length > MAX_PROJECTILES_PER_SESSION ||
+        !Array.isArray(snapshot.persistentPatrols) ||
+        !Array.isArray(snapshot.combats) || snapshot.combats.length > MAX_ACTIVE_ENCOUNTERS + 8 ||
+        !Array.isArray(snapshot.assistCalls) || !Array.isArray(snapshot.autoEngagementCooldowns) ||
+        !Number.isSafeInteger(snapshot.tick) || snapshot.tick < 0 ||
+        !Number.isSafeInteger(snapshot.nextNumericId) || snapshot.nextNumericId < 1 ||
+        !Number.isSafeInteger(snapshot.nextProjectileId) || snapshot.nextProjectileId < 1) {
+      throw new Error("Invalid free-flight checkpoint.");
+    }
+    const actors = new Map<string, Actor>();
+    const pilotByUser = new Map<string, Actor>();
+    for (const raw of snapshot.actors) {
+      const actor = structuredClone(raw) as Actor;
+      if (!actor || typeof actor.actorId !== "string" ||
+          !Number.isSafeInteger(actor.numericId) || actor.numericId < 1 ||
+          (actor.kind !== "pilot" && actor.kind !== "patrol") ||
+          (actor.faction !== "ussf" && actor.faction !== "accord") ||
+          !Object.hasOwn(SHIPS, actor.shipId) ||
+          !actor.craft || !Number.isFinite(actor.craft.x) ||
+          !Number.isFinite(actor.craft.z) || !Number.isFinite(actor.craft.hull) ||
+          !actor.craft.space || !Number.isFinite(actor.craft.space.y) ||
+          !Array.isArray(actor.waypoints) || !Number.isSafeInteger(actor.lastSeq) ||
+          actor.lastSeq < 0 || !Number.isFinite(actor.shield) ||
+          !Number.isFinite(actor.shieldMax)) {
+        throw new Error("Invalid free-flight actor checkpoint.");
+      }
+      if (actors.has(actor.actorId)) throw new Error("Duplicate free-flight actor checkpoint.");
+      actor.socket = null;
+      actor.input = { ...IDLE };
+      actor.lastInputAt = now;
+      actor.inputWindowAt = now;
+      actor.inputCount = 0;
+      actor.disconnectedAt = now;
+      actor.gravityEnvironmentV1 = false;
+      actors.set(actor.actorId, actor);
+      if (actor.kind === "pilot" && actor.ownerUserId) {
+        if (pilotByUser.has(actor.ownerUserId)) throw new Error("Duplicate pilot checkpoint.");
+        pilotByUser.set(actor.ownerUserId, actor);
+      }
+    }
+    const persistentPatrols = new Map<string, UniversePatrolEncounter>();
+    for (const patrol of snapshot.persistentPatrols) {
+      if (!patrol || typeof patrol.patrolId !== "string" ||
+          persistentPatrols.has(patrol.patrolId)) {
+        throw new Error("Invalid patrol checkpoint.");
+      }
+      persistentPatrols.set(patrol.patrolId, structuredClone(patrol));
+    }
+    const combats = new Map<string, LiveEncounter>();
+    for (const raw of snapshot.combats) {
+      if (!raw || typeof raw.id !== "string" || !raw.patrol ||
+          typeof raw.patrol.patrolId !== "string" ||
+          !Array.isArray(raw.participantActorIds) ||
+          raw.participantActorIds.some((id) => !actors.has(id)) ||
+          !["active", "settling", "settlement-unavailable", "complete"].includes(raw.phase) ||
+          combats.has(raw.patrol.patrolId)) {
+        throw new Error("Invalid encounter checkpoint.");
+      }
+      const contract = ExplorationEncounter.restore(raw.contract);
+      const finalization = raw.contract.finalization;
+      const receipt = finalization
+        ? contract.finalize(finalization.finalTick, finalization.outcome, finalization.objectiveCompleted)
+        : undefined;
+      const phase = raw.phase === "settling" ? "settlement-unavailable" : raw.phase;
+      if (phase !== "active" && !receipt) throw new Error("Finalized encounter checkpoint has no receipt.");
+      combats.set(raw.patrol.patrolId, {
+        id: raw.id,
+        faction: raw.faction,
+        patrol: structuredClone(raw.patrol),
+        contract,
+        participantActorIds: new Set(raw.participantActorIds),
+        phase,
+        receipt,
+        nextSettlementAttemptAt: 0,
+        settlementTask: null,
+        resultsApplied: raw.resultsApplied,
+      });
+    }
+    const assistCalls = new Map<string, AssistCall>();
+    for (const raw of snapshot.assistCalls) {
+      if (!raw || typeof raw.id !== "string" || !Array.isArray(raw.invitedActorIds) ||
+          raw.invitedActorIds.some((id) => !actors.has(id)) || assistCalls.has(raw.id)) {
+        throw new Error("Invalid assistance checkpoint.");
+      }
+      assistCalls.set(raw.id, {
+        ...structuredClone(raw),
+        invitedActorIds: new Set(raw.invitedActorIds),
+      });
+    }
+    const autoEngagementCooldowns = new Map<string, number>();
+    for (const [id, until] of snapshot.autoEngagementCooldowns) {
+      if (typeof id !== "string" || !Number.isFinite(until) || autoEngagementCooldowns.has(id)) {
+        throw new Error("Invalid engagement cooldown checkpoint.");
+      }
+      autoEngagementCooldowns.set(id, until);
+    }
+    return {
+      key,
+      instanceId: snapshot.instanceId,
+      actors,
+      pilotByUser,
+      anomalyGravityWells: structuredClone(snapshot.anomalyGravityWells ?? []),
+      gravityEnvironmentEnabled: false,
+      persistentPatrols,
+      projectiles: structuredClone(snapshot.projectiles),
+      combats,
+      assistCalls,
+      engagementPending: false,
+      nextAutoEngagementAt: now,
+      autoEngagementCooldowns,
+      nextProjectileId: snapshot.nextProjectileId,
+      nextNumericId: snapshot.nextNumericId,
+      tick: snapshot.tick,
+      accumulatorMs: 0,
+      lastAdvanceAt: now,
+      lastSnapshotAt: now,
+      emptySince: null,
+      nextPatrolRefreshAt: now,
+      patrolRefreshPending: false,
+      checkpointSequence: stored.checkpointSequence,
+    };
+  }
+
+  function checkpointFor(session: Session): FreeFlightSessionCheckpointV1 {
+    return {
+      version: 1,
+      key: session.key,
+      instanceId: session.instanceId,
+      actors: [...session.actors.values()].map(({ socket: _socket, ...actor }) =>
+        structuredClone(actor)),
+      anomalyGravityWells: structuredClone(session.anomalyGravityWells),
+      gravityEnvironmentEnabled: session.gravityEnvironmentEnabled,
+      persistentPatrols: [...session.persistentPatrols.values()].map((patrol) =>
+        structuredClone(patrol)),
+      projectiles: structuredClone(session.projectiles),
+      combats: [...session.combats.values()].map((combat) => ({
+        id: combat.id,
+        faction: combat.faction,
+        patrol: structuredClone(combat.patrol),
+        contract: combat.contract.snapshot(),
+        participantActorIds: [...combat.participantActorIds],
+        phase: combat.phase,
+        nextSettlementAttemptAt: combat.nextSettlementAttemptAt,
+        resultsApplied: combat.resultsApplied,
+      })),
+      assistCalls: [...session.assistCalls.values()].map((call) => ({
+        ...structuredClone({
+          id: call.id,
+          encounterId: call.encounterId,
+          patrolId: call.patrolId,
+          callerActorId: call.callerActorId,
+          targetActorId: call.targetActorId,
+          expiresAt: call.expiresAt,
+        }),
+        invitedActorIds: [...call.invitedActorIds],
+      })),
+      autoEngagementCooldowns: [...session.autoEngagementCooldowns],
+      nextProjectileId: session.nextProjectileId,
+      nextNumericId: session.nextNumericId,
+      tick: session.tick,
+      checkpointSequence: session.checkpointSequence,
+    };
+  }
+
+  function sessionFor(
+    key: string,
+    now: number,
+    patrols: readonly UniversePatrolEncounter[] = [],
+    checkpoint?: StoredFreeFlightCheckpoint | null,
+  ): Session | null {
     let session = sessions.get(key);
     if (session) {
       for (const patrol of patrols) addPersistentPatrol(
@@ -438,6 +667,14 @@ export function createFreeFlightRuntime(options: {
       return session;
     }
     if (sessions.size >= MAX_SESSIONS) return null;
+    if (checkpoint) {
+      session = restoreSession(key, now, checkpoint);
+      sessions.set(key, session);
+      for (const patrol of patrols) addPersistentPatrol(
+        session, patrol, options.patrolSpawnDistanceMeters,
+      );
+      return session;
+    }
     const anomalyGravityWell = anomalyGravityWellForSector(key);
     session = {
       key, instanceId: randomUUID(), actors: new Map(), pilotByUser: new Map(),
@@ -449,6 +686,7 @@ export function createFreeFlightRuntime(options: {
       nextNumericId: 1, tick: 0, accumulatorMs: 0,
       lastAdvanceAt: now, lastSnapshotAt: now, emptySince: null,
       nextPatrolRefreshAt: now + PATROL_REFRESH_INTERVAL_MS, patrolRefreshPending: false,
+      checkpointSequence: 0,
     };
     sessions.set(key, session);
     if (patrols.length) {
@@ -461,6 +699,54 @@ export function createFreeFlightRuntime(options: {
       createPatrols(session, options.patrolSpawnDistanceMeters);
     }
     return session;
+  }
+
+  async function getOrInitializeSession(
+    key: string,
+    now: number,
+    patrols: readonly UniversePatrolEncounter[],
+  ): Promise<Session | null> {
+    const existing = sessions.get(key);
+    if (existing) return sessionFor(key, now, patrols);
+    const pending = sessionInitializations.get(key);
+    if (pending) return pending;
+    const initialization = (async () => {
+      const checkpoint = await options.loadCheckpoint?.(key) ?? null;
+      return sessionFor(key, now, patrols, checkpoint);
+    })().finally(() => sessionInitializations.delete(key));
+    sessionInitializations.set(key, initialization);
+    return initialization;
+  }
+
+  async function persistSession(session: Session): Promise<boolean> {
+    if (!options.saveCheckpoint) return true;
+    const previous = checkpointPending.get(session.key);
+    if (previous) return previous;
+    const fencingToken = fencingTokens.get(session.key) ?? 1;
+    const sequence = session.checkpointSequence + 1;
+    const snapshot = checkpointFor(session);
+    snapshot.checkpointSequence = sequence;
+    const pending = options.saveCheckpoint(
+      session.key, snapshot, fencingToken, sequence,
+    ).then((saved) => {
+      if (!saved) {
+        process.stderr.write('{"event":"freeflight_checkpoint_fenced"}\n');
+        return false;
+      }
+      session.checkpointSequence = sequence;
+      lastCheckpointAt.set(session.key, Date.now());
+      return true;
+    }).catch(() => {
+      process.stderr.write('{"event":"freeflight_checkpoint_write_failed"}\n');
+      return false;
+    }).finally(() => checkpointPending.delete(session.key));
+    checkpointPending.set(session.key, pending);
+    return pending;
+  }
+
+  async function persistSessionFresh(session: Session): Promise<boolean> {
+    await checkpointPending.get(session.key);
+    return persistSession(session);
   }
 
   function snapshotFor(session: Session, viewer: Actor): FreeFlightSnapshotV1 {
@@ -1464,6 +1750,7 @@ export function createFreeFlightRuntime(options: {
     seat.session.emptySince = [...seat.session.actors.values()].every((actor) =>
       actor.kind !== "pilot" || actor.socket?.readyState !== OPEN,
     ) ? Date.now() : null;
+    void persistSessionFresh(seat.session);
   }
 
   async function handle(socket: WebSocketLike, userId: string, packet: Record<string, unknown>) {
@@ -1531,7 +1818,10 @@ export function createFreeFlightRuntime(options: {
           previous.actors.delete(prior.actorId);
           previous.pilotByUser.delete(userId);
         }
-        const session = sessionFor(admission.sessionKey, now, initialPatrols);
+        const session = await getOrInitializeSession(
+          admission.sessionKey, now, initialPatrols,
+        );
+        if (closed) { error("freeflight_service_unavailable"); return; }
         if (!session) { error("freeflight_capacity"); return; }
         let actor = session.pilotByUser.get(userId);
         let openingTarget: Actor | undefined;
@@ -1937,6 +2227,50 @@ export function createFreeFlightRuntime(options: {
         session.lastSnapshotAt = now;
         publish(session);
       }
+      const checkpointActive = session.pilotByUser.size > 0 ||
+        [...session.combats.values()].some((combat) => combat.phase !== "complete");
+      if (options.saveCheckpoint && checkpointActive &&
+          now - (lastCheckpointAt.get(key) ?? 0) >= 1_000) {
+        void persistSession(session);
+      }
+    }
+  }
+
+  function setFencingToken(sessionKey: string, fencingToken: number) {
+    if (!validSessionKey(sessionKey) || !Number.isSafeInteger(fencingToken) || fencingToken <= 0) {
+      throw new Error("Invalid free-flight fencing token.");
+    }
+    fencingTokens.set(sessionKey, fencingToken);
+  }
+
+  function relinquishSession(sessionKey: string) {
+    const session = sessions.get(sessionKey);
+    if (!session) return;
+    for (const actor of session.pilotByUser.values()) {
+      const socket = actor.socket;
+      if (!socket) continue;
+      send(socket, { type: "freeflight_interrupted", reason: "session_owner_changed" });
+      const seat = seats.get(socket);
+      if (seat) {
+        seats.delete(socket);
+        if (userSeats.get(seat.userId) === seat) userSeats.delete(seat.userId);
+      }
+      actor.socket = null;
+      socket.close(1012, "Free-flight session owner changed");
+    }
+    sessions.delete(sessionKey);
+    lastCheckpointAt.delete(sessionKey);
+    fencingTokens.delete(sessionKey);
+  }
+
+  async function flushCheckpoints() {
+    await Promise.allSettled([...sessionInitializations.values()]);
+    await Promise.all([...sessions.values()].map(async (session) => {
+      await checkpointPending.get(session.key);
+    }));
+    const results = await Promise.all([...sessions.values()].map(persistSession));
+    if (results.some((saved) => !saved)) {
+      throw new Error("One or more free-flight checkpoints could not be persisted.");
     }
   }
 
@@ -1946,13 +2280,16 @@ export function createFreeFlightRuntime(options: {
       send(socket, { type: "freeflight_interrupted", reason: "server_restart" });
       socket.close(1001, "Server shutting down");
     }
-    await Promise.all([...sessions.values()].flatMap((session) =>
-      [...session.combats.values()]
-        .filter((combat) => combat.phase !== "complete" && options.releaseUniversePatrol)
-        .map((combat) =>
-          options.releaseUniversePatrol!(combat.patrol.patrolId, combat.id).catch(() => {}),
-        ),
-    ));
+    await flushCheckpoints();
+    if (!options.retainEncounterReservationsOnClose) {
+      await Promise.all([...sessions.values()].flatMap((session) =>
+        [...session.combats.values()]
+          .filter((combat) => combat.phase !== "complete" && options.releaseUniversePatrol)
+          .map((combat) =>
+            options.releaseUniversePatrol!(combat.patrol.patrolId, combat.id).catch(() => {}),
+          ),
+      ));
+    }
     seats.clear();
     userSeats.clear();
     sessions.clear();
@@ -1963,6 +2300,9 @@ export function createFreeFlightRuntime(options: {
     detach,
     advance,
     close,
+    setFencingToken,
+    relinquishSession,
+    hasUser(userId: string) { return userSeats.has(userId); },
     get sessionCount() { return sessions.size; },
     get pilotCount() { return userSeats.size; },
   };

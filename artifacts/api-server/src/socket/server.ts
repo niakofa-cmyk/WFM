@@ -5,6 +5,14 @@ import { socketOriginAllowed } from "./origin-policy";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
 import { createFreeFlightRuntime, type FreeFlightAdmission } from "./free-flight-runtime";
+import {
+  createFreeFlightSharedRuntime,
+  type FreeFlightRedisBus,
+} from "./free-flight-shared-runtime";
+import type {
+  FreeFlightSessionCheckpointV1,
+  StoredFreeFlightCheckpoint,
+} from "./free-flight-runtime";
 import { sectorMission, type SectorProgress, type SectorProtocolVersion } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
@@ -122,6 +130,16 @@ export async function startWingSocketServer(
     enableSectorFlight?: boolean;
     enableFreeFlight?: boolean;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
+    freeFlightRedisBus?: FreeFlightRedisBus;
+    freeFlightCheckpoints?: {
+      load(sessionKey: string): Promise<StoredFreeFlightCheckpoint | null>;
+      save(
+        sessionKey: string,
+        snapshot: FreeFlightSessionCheckpointV1,
+        fencingToken: number,
+        sequence: number,
+      ): Promise<boolean>;
+    };
     freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
       "resolveUniversePatrols" | "reserveUniversePatrol" |
       "settleScoutEncounter" | "releaseUniversePatrol">>;
@@ -191,9 +209,12 @@ export async function startWingSocketServer(
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,
   });
-  const freeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
+  const localFreeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
     ? createFreeFlightRuntime({
         resolveAdmission: options.resolveFreeFlightAdmission,
+        loadCheckpoint: options.freeFlightCheckpoints?.load,
+        saveCheckpoint: options.freeFlightCheckpoints?.save,
+        retainEncounterReservationsOnClose: Boolean(options.freeFlightRedisBus),
         ...(options.freeFlightCombat ?? {
           resolveUniversePatrol: options.resolveUniversePatrol,
           resolveUniversePatrols: options.resolveUniversePatrols,
@@ -204,6 +225,14 @@ export async function startWingSocketServer(
         patrolSpawnDistanceMeters: options.freeFlightPatrolSpawnDistanceMeters,
       })
     : null;
+  const freeFlightRuntime = localFreeFlightRuntime && options.freeFlightRedisBus &&
+      options.resolveFreeFlightAdmission
+    ? await createFreeFlightSharedRuntime({
+        runtime: localFreeFlightRuntime,
+        bus: options.freeFlightRedisBus,
+        resolveAdmission: options.resolveFreeFlightAdmission,
+      })
+    : localFreeFlightRuntime;
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const competitiveQueue: Client[] = [];

@@ -56,5 +56,5 @@ world truth.
 presence; PostgreSQL stores versioned checkpoints/events and idempotent
 settlement. Use fenced single-writer leases per spatial shard, preserve bounded
 interest visibility, and verify failover/restart recovery before any
-Production rollout. The currently implemented process-local runtime is not
-proof of this target.
+Production rollout. Local fake-transport tests are useful coverage, but they
+are not proof against the Railway staging services.

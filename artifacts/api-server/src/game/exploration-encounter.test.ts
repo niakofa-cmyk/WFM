@@ -160,6 +160,34 @@ test("replayed server events regenerate the same settlement fingerprint", () => 
   assert.equal(run().fingerprint, run(true).fingerprint);
 });
 
+test("encounter checkpoints restore damage attribution, replay protection, and receipts", () => {
+  const original = new ExplorationEncounter(encounterSpec("checkpoint-encounter"));
+  original.recordDamage({
+    eventId: "checkpoint-hit-a", tick: 1,
+    attackerActorId: "pilot-a", targetActorId: "scout", hullDamage: 5,
+  });
+  original.recordDamage({
+    eventId: "checkpoint-hit-b", tick: 2,
+    attackerActorId: "pilot-b", targetActorId: "scout", hullDamage: 15,
+  });
+
+  const restored = ExplorationEncounter.restore(original.snapshot());
+  assert.equal(restored.recordDamage({
+    eventId: "checkpoint-hit-a", tick: 1,
+    attackerActorId: "pilot-a", targetActorId: "scout", hullDamage: 5,
+  }), false);
+  const result = readExplorationReceipt(restored.finalize(3, "completed", true));
+  assert.deepEqual(result.pilots.map((pilot) => [pilot.kills, pilot.assists, pilot.credits]), [
+    [0, 1, 3], [1, 0, 9],
+  ]);
+
+  const finalized = ExplorationEncounter.restore(restored.snapshot());
+  assert.equal(
+    readExplorationReceipt(finalized.finalize(3, "completed", true)).fingerprint,
+    result.fingerprint,
+  );
+});
+
 test("opposing player destruction is tallied but cannot use NPC kill payouts", () => {
   const spec = encounterSpec();
   spec.actors = [...spec.actors, { id: "opposing-player", faction: "accord", hull: 10, playerId: "user_c" }];

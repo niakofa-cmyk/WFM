@@ -37,6 +37,61 @@ test("shared shield recovery matches Combat Lab delay and rate for every faction
   assert.equal(recoverFreeFlightShield(99.99, 100, -1, 1), 100);
 });
 
+test("free-flight checkpoint restores the same pilot pose and session identity after restart", async () => {
+  const key = "mars:phobos-yard";
+  const first = harness();
+  let saved: {
+    stateVersion: number;
+    fencingToken: number;
+    checkpointSequence: number;
+    snapshot: Record<string, unknown>;
+  } | null = null;
+  const firstRuntime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({ sessionKey: key, faction: "ussf", shipId: "sentinel" }),
+    saveCheckpoint: async (_sessionKey, snapshot, fencingToken, checkpointSequence) => {
+      saved = { stateVersion: 1, fencingToken, checkpointSequence, snapshot };
+      return true;
+    },
+  });
+  firstRuntime.setFencingToken(key, 1);
+  await firstRuntime.handle(first.socket, "checkpoint-pilot", { type: "freeflight_join" });
+  let now = Date.now();
+  firstRuntime.advance(now += 350);
+  await flush();
+  const originalSnapshot = first.packets
+    .filter((packet) => packet.type === "freeflight_snapshot")
+    .at(-1)!.snapshot as FreeFlightSnapshotV1;
+  const originalActor = originalSnapshot.actors.find((actor) =>
+    actor.actorId === originalSnapshot.ownActorId)!;
+  await firstRuntime.close();
+  assert.ok(saved, "graceful shutdown must flush a durable checkpoint");
+
+  const recovered = harness();
+  const checkpoint = saved!;
+  const secondRuntime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({ sessionKey: key, faction: "ussf", shipId: "sentinel" }),
+    loadCheckpoint: async () => checkpoint,
+    saveCheckpoint: async () => true,
+  });
+  secondRuntime.setFencingToken(key, 2);
+  try {
+    await secondRuntime.handle(recovered.socket, "checkpoint-pilot", { type: "freeflight_join" });
+    const recoveredJoin = recovered.packets.find((packet) => packet.type === "freeflight_joined")!;
+    const recoveredSnapshot = recoveredJoin.snapshot as FreeFlightSnapshotV1;
+    const recoveredActor = recoveredSnapshot.actors.find((actor) =>
+      actor.actorId === recoveredSnapshot.ownActorId)!;
+    assert.equal(recoveredSnapshot.sessionInstanceId, originalSnapshot.sessionInstanceId);
+    assert.equal(recoveredSnapshot.tick, originalSnapshot.tick);
+    assert.equal(recoveredSnapshot.ownActorId, originalSnapshot.ownActorId);
+    assert.deepEqual(
+      [recoveredActor.position.x, recoveredActor.position.y, recoveredActor.position.z],
+      [originalActor.position.x, originalActor.position.y, originalActor.position.z],
+    );
+  } finally {
+    await secondRuntime.close();
+  }
+});
+
 test("holding a missile does not block primary-fire admission for a new fleet", async () => {
   const h = harness(), contact = fleet("mixed-fire");
   let claims = 0;

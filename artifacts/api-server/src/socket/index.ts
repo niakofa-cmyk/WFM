@@ -1,4 +1,5 @@
 import { startWingSocketServer } from "./server";
+import { connectFreeFlightRedis } from "./free-flight-redis";
 import { eq } from "drizzle-orm";
 import { isOrbitalFreeFlightEnabled } from "@workspace/orbital-sim";
 import { SHIPS, type Faction, type ShipId } from "../game/ships";
@@ -62,6 +63,28 @@ const enableFreeFlight = isOrbitalFreeFlightEnabled({
   featureFlag: process.env.ORBITAL_FREE_FLIGHT_ENABLED,
   prerequisitesReady: Boolean(process.env.DATABASE_URL),
 });
+const sharedFreeFlightRequested = process.env.ORBITAL_FREE_FLIGHT_SHARED === "1";
+if (sharedFreeFlightRequested && !enableFreeFlight) {
+  throw new Error("Shared free flight requires the database-backed free-flight runtime.");
+}
+if (sharedFreeFlightRequested && process.env.NODE_ENV === "production" &&
+    process.env.WFM_FREE_FLIGHT_SHARED_ENV !== "staging") {
+  throw new Error("Shared free flight is staging-only until separately approved.");
+}
+const freeFlightRedisBus = sharedFreeFlightRequested
+  ? await connectFreeFlightRedis(process.env.REDIS_URL ?? "")
+  : undefined;
+const freeFlightCheckpoints = sharedFreeFlightRequested
+  ? await import("../game/free-flight-checkpoints")
+  : undefined;
+if (sharedFreeFlightRequested) {
+  await freeFlightCheckpoints!.ensureFreeFlightCheckpointSchema();
+}
+process.stdout.write(`${JSON.stringify({
+  event: "orbital_freeflight_transport_readiness",
+  mode: sharedFreeFlightRequested ? "redis-fenced-shards" : "process-local",
+  checkpointStore: Boolean(freeFlightCheckpoints),
+})}\n`);
 const freeFlightLocations: Readonly<Record<string, string>> = {
   "phobos-yard": "mars-orbit",
   "cinder-asteroid": "cinder-ring",
@@ -151,6 +174,11 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   enableSectorFlight,
   enableFreeFlight,
   resolveFreeFlightAdmission,
+  freeFlightRedisBus,
+  freeFlightCheckpoints: freeFlightCheckpoints ? {
+    load: freeFlightCheckpoints.loadFreeFlightCheckpoint,
+    save: freeFlightCheckpoints.saveFreeFlightCheckpoint,
+  } : undefined,
   // Continuous flight has its own versioned contract. Do not couple its
   // persistent combat adapters to the co-op sector protocol rollout.
   freeFlightCombat: enableFreeFlight && explorationRewards ? {

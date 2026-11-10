@@ -2,56 +2,65 @@
 
 ## Current result
 
-**Not verified; the current free-flight runtime does not provide one live,
-persistent universe across locations, server instances, and process restarts.**
-Do not describe the previous paired-pilot staging test as proof of those
-properties. It proved shared flight and same-target locking only while both
-pilots were attached to the same location session in one running socket process.
+**The distributed implementation is locally verified; staging proof is pending.**
+The server now has Redis-fenced spatial-session ownership and routing, plus
+versioned PostgreSQL flight checkpoints. Local tests exercise independent runtime
+instances and owner recovery with a shared test transport/store. They do not
+prove behavior against Railway Redis, the staging PostgreSQL database, or two
+authenticated staging pilots. Production remains untouched.
 
-## What the current implementation establishes
+## What the implementation establishes
 
 - Authenticated admission reads the pilot's saved world location and derives a
   location-specific session key (`mars:<location>`). The client cannot choose
   that key.
-- A single `createFreeFlightRuntime` instance owns its sessions in a local
-  `Map`. Two socket processes therefore have independent session maps and
-  independently generated session instance IDs.
+- Redis assigns one fenced owner to each location session. Other socket
+  instances relay authenticated commands and snapshots to that owner rather
+  than simulating a duplicate copy.
+- A Redis-backed per-pilot seat prevents one account from occupying two
+  location sessions at once. A replacement owner can take over the same shard
+  only with a newer fencing token.
 - Nearby actor snapshots are scoped to one session and its bounded spatial
   interest radius. Pilots admitted to different location keys do not share
-  those snapshots or a live encounter through this runtime.
-- Runtime shutdown interrupts connected clients and clears session state.
-  Active actor poses, projectiles, target selection, and in-memory encounter
-  simulation are not restored from a durable flight checkpoint.
-- Some strategic world state is durable: player location/progression and
-  persistent patrol routes, revisions, reservations, and settled outcomes use
-  PostgreSQL-backed records. This does not make active free-flight sessions
-  durable or shared between processes.
+  exact actor snapshots or live encounters; each remains a spatial shard of the
+  same WFM world, not a separate universe.
+- PostgreSQL stores versioned session checkpoints, including pilot pose,
+  projectiles, target state, patrol actors, and encounter attribution. Writes
+  are guarded by the Redis fencing token and a monotonic checkpoint sequence.
+  Active-session checkpoints run once per second; disconnect and shutdown flush
+  the latest state. Stored snapshots are limited to 4 MiB.
+- The checkpoint table is created and checked only when the shared runtime is
+  explicitly enabled with the staging environment marker. Production does not
+  enable this path.
+- Player location/progression, persistent patrol routes, encounter reservations,
+  and settled outcomes continue to use the existing PostgreSQL-backed records.
 
 ## Verification matrix
 
 | Requirement | Current status | Evidence needed for a pass |
 | --- | --- | --- |
-| Shared location session | **Pass, same process only** | Two authenticated clients receive the same server session and each other's nearby server-owned actors. |
-| Travel across locations in one universe | **Fail / not established** | A pilot transitions between canonical spatial regions without losing global coordinates or durable world identity; other regions retain their independently moving world state. |
-| Multiple socket processes | **Fail** | Two separately started runtime processes must expose one authoritative region state, not separate actors, targets, or encounters. |
-| Process restart | **Fail** | Restart during flight must restore a versioned checkpoint or resolve the interrupted encounter under an explicit, idempotent recovery rule. No ambiguous result may pay twice. |
-| Durable world consequences | **Partial** | Verify persisted patrol movement, encounter casualties, player location, and settlement from a fresh process against the same database. |
+| Shared location session | **Local adapter test passes** | Two independent runtime wrappers receive the same server session and nearby actors through a shared fake Redis transport; repeat with authenticated staging clients. |
+| Travel across locations in one universe | **Partial** | Different canonical locations remain isolated shards and the same account cannot hold two seats; seamless coordinate/world-state travel still needs staging verification. |
+| Multiple socket processes | **Local adapter test passes** | Independent runtimes relay through the test transport; verify on two Railway socket replicas with real Redis. |
+| Process restart | **Local recovery test passes** | A replacement owner restores the same session identity and pilot actor from the test checkpoint store; repeat against Railway Redis and staging PostgreSQL. |
+| Durable world consequences | **Partial** | Verify persisted patrol movement, casualties, player location, and settlement from a fresh staging process and database query. |
 
 ## Checks run
 
-The focused API free-flight suite passed **16/16 tests** with:
+The focused free-flight and encounter suite passed **22/22 tests** with:
 
 ```sh
-pnpm --filter @workspace/api-server exec tsx --test src/socket/free-flight-runtime.test.ts
+pnpm --filter @workspace/api-server exec tsx --test \
+  src/socket/free-flight-shared-runtime.test.ts \
+  src/socket/free-flight-continuity.test.ts \
+  src/game/exploration-encounter.test.ts
 ```
 
-Its location-scope test confirms the current boundary: two pilots admitted to
-the same location share a `sessionInstanceId` and nearby-pilot snapshot, while
-a pilot admitted to another location receives a different session ID and does
-not see those pilots. The suite exercises reconnect within one runtime, but it
-does not start a second runtime process or restore a flight checkpoint after a
-process restart. Passing this suite is not a pass for the three requested
-persistence dimensions.
+These tests use independent runtime instances and a shared in-memory test
+transport/checkpoint store. They verify shared shard snapshots, isolated
+locations, single-flight initialization, one active account seat, and state
+restoration after the owner is replaced. They do not connect to actual Railway
+services or authenticate browser pilots.
 
 The read-only staging infrastructure check found one socket replica and no
 named Redis, Valkey, NATS, RabbitMQ, Kafka, or Pub/Sub service. Therefore a live
@@ -60,25 +69,25 @@ did not change Railway resources or deployments.
 
 ### Staging transport provisioning
 
-A dedicated Railway Redis service has now been provisioned in the WFM staging
+A dedicated Railway Redis service is provisioned in the WFM staging
 environment, in the socket service's `us-east4-eqdc4a` region. Railway reports
-the Redis deployment as successful with one replica, no public domain, no TCP
-proxy, and no pending changes. The Redis service is not yet connected to the
-WFM socket runtime; no application code, socket replica count, or Production
-resource was changed by this provisioning step. The persistence matrix above
-therefore remains **not verified**.
+it online with one replica, no public domain, no TCP proxy, and no pending
+changes. The socket service still has one replica and the shared transport has
+not yet been enabled in Railway staging. Until the staged deployment and
+two-pilot/restart checks pass, the persistence matrix remains **not verified in
+staging**.
 
 ## Required architecture before claiming success
 
-1. Give the world a stable universe identity and canonical spatial address;
-   location IDs remain destinations or regions, not separate universes.
+1. Keep one WFM world identity and canonical spatial addresses; location IDs
+   are regions/shards, not separate universes. A shard's `sessionInstanceId`
+   must not be mistaken for a global universe identifier.
 2. Assign one authoritative writer per spatial shard with a renewable,
    fenced lease. A stale process must not continue simulating or settling after
    losing ownership.
-3. Add a shared real-time transport for inputs, snapshots, and ownership changes
-   between socket processes. The repository currently has no configured
-   Redis/NATS-style runtime transport; do not substitute unbenchmarked
-   per-tick PostgreSQL polling.
+3. Keep Redis as the real-time transport for inputs, snapshots, and ownership
+   changes between socket processes; do not substitute unbenchmarked per-tick
+   PostgreSQL polling.
 4. Persist durable world events and periodic versioned checkpoints in the
    existing database workflow. Keep high-frequency simulation in memory on the
    current shard owner; checkpoint cadence and replay bounds must be measured.

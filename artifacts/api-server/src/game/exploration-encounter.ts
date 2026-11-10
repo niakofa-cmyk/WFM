@@ -179,6 +179,23 @@ export type ExplorationReceipt = Readonly<{
   [receiptBrand]: true;
 }>;
 
+export type ExplorationEncounterSnapshotV1 = {
+  version: 1;
+  spec: ExplorationEncounterSpec;
+  damage: Array<[string, string[]]>;
+  kills: Array<[string, string[]]>;
+  assists: Array<[string, number]>;
+  events: Array<[string, string]>;
+  chain: string;
+  tick: number;
+  finalization?: {
+    finalTick: number;
+    outcome: "completed" | "aborted";
+    objectiveCompleted: boolean;
+  };
+  resultFingerprint?: string;
+};
+
 // A serialized browser result, spread copy, or object with a matching shape
 // cannot become an authority receipt. No route accepts these objects.
 const receipts = new WeakMap<object, Readonly<ExplorationResult>>();
@@ -221,6 +238,7 @@ export class ExplorationEncounter {
   private chain: string;
   private tick = 0;
   private receipt?: ExplorationReceipt;
+  private finalization?: ExplorationEncounterSnapshotV1["finalization"];
 
   constructor(spec: ExplorationEncounterSpec) {
     id(spec.encounterId); id(spec.sectorId); id(spec.rewardPolicy.id);
@@ -262,6 +280,94 @@ export class ExplorationEncounter {
     this.spec = structuredClone(spec);
     this.spec.actors = [...this.spec.actors].sort((a, b) => a.id.localeCompare(b.id));
     this.chain = hash(this.spec);
+  }
+
+  static restore(snapshot: ExplorationEncounterSnapshotV1): ExplorationEncounter {
+    if (!snapshot || snapshot.version !== 1 ||
+        !Array.isArray(snapshot.damage) || !Array.isArray(snapshot.kills) ||
+        !Array.isArray(snapshot.assists) || !Array.isArray(snapshot.events) ||
+        !/^[a-f0-9]{64}$/.test(snapshot.chain) ||
+        !Number.isSafeInteger(snapshot.tick) || snapshot.tick < 0) {
+      throw new Error("Invalid exploration checkpoint.");
+    }
+    const contract = new ExplorationEncounter(snapshot.spec);
+    const pilotIds = new Set(contract.kills.keys());
+    const actorIds = new Set([...contract.actors.keys()]);
+    const uniquePairs = <T>(entries: Array<[string, T]>) => {
+      const result = new Map<string, T>();
+      for (const [key, value] of entries) {
+        if (typeof key !== "string" || result.has(key)) throw new Error("Invalid exploration checkpoint.");
+        result.set(key, value);
+      }
+      return result;
+    };
+    contract.damage.clear();
+    for (const [targetId, contributors] of uniquePairs(snapshot.damage)) {
+      if (!actorIds.has(targetId) || !Array.isArray(contributors) ||
+          contributors.some((playerId) => !pilotIds.has(playerId))) {
+        throw new Error("Invalid exploration checkpoint.");
+      }
+      contract.damage.set(targetId, new Set(contributors));
+    }
+    for (const [playerId, destroyed] of uniquePairs(snapshot.kills)) {
+      if (!pilotIds.has(playerId) || !Array.isArray(destroyed) ||
+          destroyed.some((actorId) => !actorIds.has(actorId))) {
+        throw new Error("Invalid exploration checkpoint.");
+      }
+      contract.kills.set(playerId, [...destroyed]);
+    }
+    for (const [playerId, assists] of uniquePairs(snapshot.assists)) {
+      if (!pilotIds.has(playerId) || !Number.isSafeInteger(assists) || assists < 0) {
+        throw new Error("Invalid exploration checkpoint.");
+      }
+      contract.assists.set(playerId, assists);
+    }
+    for (const [eventId, fingerprint] of uniquePairs(snapshot.events)) {
+      if (!/^[A-Za-z0-9_:-]{1,128}$/.test(eventId) ||
+          !/^[a-f0-9]{64}$/.test(fingerprint)) {
+        throw new Error("Invalid exploration checkpoint.");
+      }
+      contract.events.set(eventId, fingerprint);
+    }
+    if (contract.events.size > 100_000 ||
+        (snapshot.finalization && (!Number.isSafeInteger(snapshot.finalization.finalTick) ||
+          snapshot.finalization.finalTick < snapshot.tick ||
+          !["completed", "aborted"].includes(snapshot.finalization.outcome) ||
+          typeof snapshot.finalization.objectiveCompleted !== "boolean"))) {
+      throw new Error("Invalid exploration checkpoint.");
+    }
+    contract.chain = snapshot.chain;
+    contract.tick = snapshot.tick;
+    if (snapshot.finalization) {
+      contract.finalize(
+        snapshot.finalization.finalTick,
+        snapshot.finalization.outcome,
+        snapshot.finalization.objectiveCompleted,
+      );
+      const result = contract.receipt && receipts.get(contract.receipt);
+      if (!result || result.fingerprint !== snapshot.resultFingerprint) {
+        throw new Error("Exploration checkpoint result fingerprint mismatch.");
+      }
+    } else if (snapshot.resultFingerprint !== undefined) {
+      throw new Error("Invalid exploration checkpoint.");
+    }
+    return contract;
+  }
+
+  snapshot(): ExplorationEncounterSnapshotV1 {
+    const result = this.receipt ? receipts.get(this.receipt) : undefined;
+    return {
+      version: 1,
+      spec: structuredClone(this.spec),
+      damage: [...this.damage].map(([targetId, players]) => [targetId, [...players].sort()]),
+      kills: [...this.kills].map(([playerId, destroyed]) => [playerId, [...destroyed]]),
+      assists: [...this.assists],
+      events: [...this.events],
+      chain: this.chain,
+      tick: this.tick,
+      ...(this.finalization ? { finalization: { ...this.finalization } } : {}),
+      ...(result ? { resultFingerprint: result.fingerprint } : {}),
+    };
   }
 
   /** Only the authenticated live runtime may extend an open patrol roster. */
@@ -397,6 +503,7 @@ export class ExplorationEncounter {
       outcome, finalTick, objectiveCompleted, pilots: Object.freeze(pilots),
     };
     const result = Object.freeze({ ...content, fingerprint: hash([this.chain, content]) });
+    this.finalization = { finalTick, outcome, objectiveCompleted };
     this.receipt = Object.freeze({ encounterId: this.spec.encounterId }) as ExplorationReceipt;
     receipts.set(this.receipt, result);
     return this.receipt;
