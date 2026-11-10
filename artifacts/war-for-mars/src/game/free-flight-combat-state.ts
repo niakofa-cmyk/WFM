@@ -47,7 +47,39 @@ export function freeFlightConnectionStatusAfter(
   // Closing the refused socket starts reconnect callbacks. They are not
   // authority to dismiss the server's outstanding recovery requirement.
   if (current === "freeflight_recovery_required") return current;
+  // A transport reason describes why retries began, not a failed admission.
+  if (state === "reconnecting") return state;
   return reason ?? state;
+}
+
+/** Presentation is never authority to admit a pilot to shared flight. */
+export function freeFlightLinkPresentation(status: string, enabled: boolean, recovery: boolean) {
+  if (recovery) return {
+    state: "recovery", label: "RECOVERY REQUIRED",
+    detail: "Return to the hangar to restore your saved ship.",
+  };
+  if (!enabled) return {
+    state: "preview", label: "LOCAL PREVIEW",
+    detail: "Not connected to shared multiplayer flight.",
+  };
+  if (status === "joined") return {
+    state: "shared", label: "SHARED FLIGHT",
+    detail: "Server-admitted to your current spatial session. Only nearby ships are streamed.",
+  };
+  if (status === "connecting" || status === "authenticating") return {
+    state: status, label: status === "connecting" ? "CONNECTING" : "AUTHENTICATING",
+    detail: "Waiting for server admission. Shared flight is not confirmed yet.",
+  };
+  if (status === "reconnecting") return {
+    state: "reconnecting", label: "RECONNECTING",
+    detail: "Flight link interrupted. Waiting for the server to restore shared flight.",
+  };
+  return {
+    state: "unavailable", label: "LINK UNAVAILABLE",
+    detail: status === "client_module_failed" || status === "client_module_unavailable"
+      ? "Flight client could not load. Leave flight and retry."
+      : "Shared flight admission is unavailable. Leave flight and retry; this is not a confirmed shared session.",
+  };
 }
 
 /** A failed secondary request is not authority to end an existing encounter. */

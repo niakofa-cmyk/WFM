@@ -1,5 +1,14 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
+## Living shared-universe foundation
+
+The [living Orbital universe foundation](LIVING-OPEN-ORBITAL-UNIVERSE-FOUNDATION.md)
+records the governing shared-world direction, preserved source reference,
+connection-state meanings, current implementation boundaries and remaining
+multi-fleet verification gates. One logical universe uses spatial partitions;
+do not equate a connecting HUD or strategic patrol records with globally live
+combat certification.
+
 ## Latest rebuild direction — Phase 0 before more prototypes
 
 The user's latest controlling rebuild reference is preserved verbatim at

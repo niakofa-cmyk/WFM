@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { freeFlightConnectionStatusAfter, freeFlightRecoveryRequired } from "./free-flight-combat-state";
+import { freeFlightConnectionStatusAfter, freeFlightRecoveryRequired, freeFlightLinkPresentation } from "./free-flight-combat-state";
+
+test("shared-flight labels distinguish admission, reconnect, preview and recovery", () => {
+  for (const status of ["connecting", "authenticating", "reconnecting"]) {
+    assert.equal(freeFlightLinkPresentation(status, true, false).state, status);
+  }
+  assert.equal(freeFlightConnectionStatusAfter("joined", "reconnecting", "socket_closed"), "reconnecting");
+  assert.equal(freeFlightLinkPresentation("joined", true, false).state, "shared");
+  assert.equal(freeFlightLinkPresentation("joined", false, false).state, "preview");
+  assert.equal(freeFlightLinkPresentation("joined", true, true).state, "recovery");
+  for (const status of ["disabled", "unavailable", "invalid_snapshot", "private_server_reason"]) {
+    const result = freeFlightLinkPresentation(status, true, false);
+    assert.equal(result.state, "unavailable");
+    if (status !== "unavailable") assert.ok(!result.detail.includes(status));
+  }
+  assert.match(freeFlightLinkPresentation("client_module_failed", true, false).detail, /could not load/);
+});
 
 test("reconnect callbacks cannot dismiss a refused join's recovery requirement", () => {
   const rejected = freeFlightConnectionStatusAfter("connecting", "unavailable", "freeflight_recovery_required");

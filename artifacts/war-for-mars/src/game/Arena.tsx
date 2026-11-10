@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightLinkPresentation, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
@@ -3352,15 +3352,7 @@ export function Arena({
   const bus = busRef.current;
   const sharedFreeFlightJoined = freeFlightStatus === "joined";
   const recoveryRequired = freeFlightRecoveryRequired(freeFlightStatus, freeFlightPilot);
-  const freeFlightLinkLabel = sharedFreeFlightJoined
-    ? "SHARED FLIGHT"
-    : recoveryRequired
-      ? "RECOVERY REQUIRED"
-    : freeFlightEnabled && ["connecting", "authenticating", "reconnecting"].includes(freeFlightStatus)
-      ? "CONNECTING"
-      : freeFlightEnabled
-        ? "LINK UNAVAILABLE"
-        : "LOCAL PREVIEW";
+  const freeFlightLink = freeFlightLinkPresentation(freeFlightStatus, freeFlightEnabled, recoveryRequired);
   const freeFlightCombatLabel = freeFlightPilot?.alive === false
     ? "SHIP DISABLED · RETURN TO HANGAR"
     : freeFlightCombatStatus === "active"
@@ -3437,10 +3429,16 @@ export function Arena({
       {localUniverse ? (
         <p
           data-testid="free-flight-network-status"
-          data-state={sharedFreeFlightJoined ? "shared" : "preview"}
+          data-state={freeFlightLink.state}
+          role="status"
+          title={freeFlightLink.detail}
+          aria-label={`${freeFlightLink.label}. ${freeFlightLink.detail}`}
           className="absolute right-3 top-3 z-30 max-w-[48vw] text-right font-hud text-[10px] tracking-widest text-solar text-shadow"
         >
-          {freeFlightLinkLabel}
+          {freeFlightLink.label}
+          {freeFlightLink.state !== "shared" ? (
+            <span className="block max-w-xs text-[9px] tracking-normal">{freeFlightLink.detail}</span>
+          ) : null}
           {sharedFreeFlightJoined && visibleEnemyPatrols > 0 ? ` · ${visibleEnemyPatrols} HOSTILE SHIPS` : ""}
           {sharedFreeFlightJoined && freeFlightCombatLabel ? ` · ${freeFlightCombatLabel}` : ""}
           {sharedFreeFlightJoined && (freeFlightTally.kills > 0 || freeFlightTally.assists > 0 || freeFlightTally.credits > 0)

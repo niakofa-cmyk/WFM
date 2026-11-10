@@ -95,6 +95,7 @@ export function UniverseActivityFeed({
   if (unavailable) return (
     <section data-testid="status-universe-directory-unavailable" role="status" className="mt-5 border border-alert/40 bg-panel/75 p-4 text-sm text-alert">
       Operation directory unavailable. Live destinations, pilot counts and public sessions cannot be confirmed. Retry the navigation link above; no empty or live state is inferred.
+      <span className="block">This directory is separate from your shared-flight connection; check the flight HUD for admission status.</span>
     </section>
   );
   const activity = buildUniverseActivityView(directory, locations, currentLocationId);
