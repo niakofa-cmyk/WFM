@@ -65,6 +65,10 @@ availability messages outside the game also do not certify gameplay connectivity
 
 ## Remaining acceptance gates
 
+The [distributed adoption guide](DISTRIBUTED-SHARED-UNIVERSE-ADOPTION.md)
+preserves the later synchronization, scale-audit and thruster proposals and
+defines fail-closed persistent-runtime startup and safe staging activation.
+
 Do not claim a fully continuous, globally active universe until these are proven:
 
 1. Two authenticated pilots on separate socket instances receive the same

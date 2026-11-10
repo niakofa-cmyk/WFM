@@ -1,5 +1,6 @@
 import { startWingSocketServer } from "./server";
 import { connectFreeFlightRedis } from "./free-flight-redis";
+import { freeFlightPersistenceConfig } from "./free-flight-persistence-config";
 import { eq } from "drizzle-orm";
 import { isOrbitalFreeFlightEnabled } from "@workspace/orbital-sim";
 import { SHIPS, type Faction, type ShipId } from "../game/ships";
@@ -63,14 +64,8 @@ const enableFreeFlight = isOrbitalFreeFlightEnabled({
   featureFlag: process.env.ORBITAL_FREE_FLIGHT_ENABLED,
   prerequisitesReady: Boolean(process.env.DATABASE_URL),
 });
-const sharedFreeFlightRequested = process.env.ORBITAL_FREE_FLIGHT_SHARED === "1";
-if (sharedFreeFlightRequested && !enableFreeFlight) {
-  throw new Error("Shared free flight requires the database-backed free-flight runtime.");
-}
-if (sharedFreeFlightRequested && process.env.NODE_ENV === "production" &&
-    process.env.WFM_FREE_FLIGHT_SHARED_ENV !== "staging") {
-  throw new Error("Shared free flight is staging-only until separately approved.");
-}
+const freeFlightPersistence = freeFlightPersistenceConfig(process.env, enableFreeFlight);
+const sharedFreeFlightRequested = freeFlightPersistence.shared;
 const freeFlightRedisBus = sharedFreeFlightRequested
   ? await connectFreeFlightRedis(process.env.REDIS_URL ?? "")
   : undefined;
@@ -82,7 +77,8 @@ if (sharedFreeFlightRequested) {
 }
 process.stdout.write(`${JSON.stringify({
   event: "orbital_freeflight_transport_readiness",
-  mode: sharedFreeFlightRequested ? "redis-fenced-shards" : "process-local",
+  mode: freeFlightPersistence.mode,
+  persistenceRequired: freeFlightPersistence.persistenceRequired,
   checkpointStore: Boolean(freeFlightCheckpoints),
 })}\n`);
 const freeFlightLocations: Readonly<Record<string, string>> = {
