@@ -41,6 +41,9 @@ client incompatibility, privacy exposure, and forged recovery claims.
 `docs/infinite-war/ORBITAL-SCALE-PROTOCOL-RECOVERY-REDESIGN.md`; require
 simulation replay, protocol compatibility, failure recovery, and staged
 multi-pilot evidence before enabling any network or authority change.
+Treat
+`docs/infinite-war/DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md` and its preserved
+source proposal as architectural references, not copy-paste implementations.
 
 **Owner decision:** use a dedicated Railway Redis service in WFM staging for
 live cross-instance coordination, and the existing WFM PostgreSQL database for

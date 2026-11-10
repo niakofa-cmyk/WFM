@@ -2,12 +2,12 @@
 
 ## Current result
 
-**The distributed implementation is locally verified; staging proof is pending.**
-The server now has Redis-fenced spatial-session ownership and routing, plus
-versioned PostgreSQL flight checkpoints. Local tests exercise independent runtime
-instances and owner recovery with a shared test transport/store. They do not
-prove behavior against Railway Redis, the staging PostgreSQL database, or two
-authenticated staging pilots. Production remains untouched.
+**The distributed implementation is locally verified; Railway staging proof is
+pending.** The server has Redis-fenced spatial-session ownership and routing,
+plus versioned PostgreSQL flight checkpoints. Local tests exercise independent
+runtime instances and owner recovery with a shared test transport/store. They
+do not prove behavior against Railway Redis, the staging PostgreSQL database,
+or two authenticated staging pilots. Production remains untouched.
 
 ## What the implementation establishes
 
@@ -67,15 +67,17 @@ named Redis, Valkey, NATS, RabbitMQ, Kafka, or Pub/Sub service. Therefore a live
 multi-instance staging proof cannot be run on the current topology. This check
 did not change Railway resources or deployments.
 
-### Staging transport provisioning
+### Staging rollout
 
-A dedicated Railway Redis service is provisioned in the WFM staging
-environment, in the socket service's `us-east4-eqdc4a` region. Railway reports
-it online with one replica, no public domain, no TCP proxy, and no pending
-changes. The socket service still has one replica and the shared transport has
-not yet been enabled in Railway staging. Until the staged deployment and
-two-pilot/restart checks pass, the persistence matrix remains **not verified in
-staging**.
+A dedicated private Railway Redis service is provisioned in WFM staging in the
+socket service's `us-east4-eqdc4a` region. The socket service source points to
+the updated branch, and the Redis-backed shared-runtime variables are scoped to
+the staging environment only. Railway reported the resulting socket deployment
+as `BUILDING` at the last check; the socket still had one replica then. Do not
+count configuration or a successful build as proof that the runtime connected
+to Redis or restored a live session. Until the deployment is healthy and the
+two-pilot, multi-replica, and restart checks pass, the persistence matrix remains
+**not verified in staging**.
 
 ## Required architecture before claiming success
 
@@ -121,6 +123,7 @@ staging**.
    universe without being incorrectly placed in one local combat session.
 
 Until this sequence passes, the verified statement is limited to
-**same-location, same-process shared flight**. This document records the current
-boundary; it does not claim that the distributed persistence layer has been
-implemented.
+**local independent-runtime test coverage**. The distributed persistence code
+is implemented, but its Railway staging operation and cross-replica behavior
+are not yet certified. The source proposal and its safe adaptation are recorded
+in [`DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md`](DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md).
