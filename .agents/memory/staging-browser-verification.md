@@ -16,6 +16,18 @@ variables, and a six-minute Strike exceeds the foreground shell time limit.
 emit sanitized status fields, and use the existing testing agent to evaluate
 that driver's evidence rather than starting another tester.
 
+A staging app restart may invalidate the private gateway authorization while
+the underlying Clerk session remains valid in the same browser.
+
+**Why:** after a staging rollout, both previously authenticated pilots saw the
+private gateway page. Re-entering only its normal access form restored both
+existing Clerk sessions without another email verification challenge.
+
+**How to apply:** distinguish a gateway page from a Clerk sign-out. Restore the
+normal gateway form inside the retained browser using the approved secret flow;
+then recheck session and profile before requesting new codes. Finish long code
+and rollout work before opening time-bounded browser owners whenever possible.
+
 Synthetic HTTP tests that explicitly supply Origin do not prove browser form
 submissions will supply the same Origin under the page's privacy headers.
 
