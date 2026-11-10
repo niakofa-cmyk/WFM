@@ -1,3 +1,4 @@
+import { readFreeFlightRecoveryHint } from "./free-flight-recovery-hint";
 import {
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_TARGETING_V1,
@@ -308,6 +309,10 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "error" && typeof packet.reason === "string") {
+        if (packet.reason === "freeflight_recovery_required") {
+          const recovery = readFreeFlightRecoveryHint(packet.recovery);
+          if (recovery) this.options.onCombatPacket?.({ type: "freeflight_recovery_hint", recovery });
+        }
         if (this.joined) {
           if (packet.reason !== "freeflight_unknown_message") {
             this.options.onCombatPacket?.({ type: "freeflight_error", reason: packet.reason });

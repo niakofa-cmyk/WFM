@@ -1157,8 +1157,8 @@ export function createFreeFlightRuntime(options: {
           if (!combat.resultsApplied) {
             actor.kills += pilotResult.kills;
             actor.assists += pilotResult.assists;
+            actor.creditsAwarded += award?.credits ?? 0;
           }
-          actor.creditsAwarded += award?.credits ?? 0;
           send(actor.socket, {
             type: "freeflight_combat_result",
             encounterId: combat.id,
@@ -1169,6 +1169,7 @@ export function createFreeFlightRuntime(options: {
             assists: pilotResult.assists,
             creditsAwarded: award?.credits ?? 0,
             destroyedActorIds: pilotResult.destroyedActorIds,
+            totals: { kills: actor.kills, assists: actor.assists, creditsAwarded: actor.creditsAwarded },
           });
         }
         combat.resultsApplied = true;
@@ -1786,7 +1787,10 @@ export function createFreeFlightRuntime(options: {
   }
 
   async function handle(socket: WebSocketLike, userId: string, packet: Record<string, unknown>) {
-    const error = (reason: string) => send(socket, { type: "error", reason });
+    const error = (reason: string, recovery?: {
+      protocol: 1; mode: "location" | "loadout"; shipId: ShipId; faction: Faction;
+      alive: boolean; locationKey: string;
+    }) => send(socket, { type: "error", reason, ...(recovery ? { recovery } : {}) });
     if (closed) { error("server_restart"); return; }
     if (packet.type === "freeflight_join") {
       if (Object.keys(packet).some((key) => key !== "type" && key !== "openingEncounter") ||
@@ -1840,7 +1844,9 @@ export function createFreeFlightRuntime(options: {
           const prior = previous.pilotByUser.get(userId);
           if (!prior) continue;
           if (pilotNeedsRecovery(prior) || pilotHasUnresolvedCombat(previous, prior.actorId)) {
-            error("freeflight_recovery_required");
+            error("freeflight_recovery_required", { protocol: 1, mode: "location",
+              shipId: prior.shipId, faction: prior.faction, alive: prior.craft.alive,
+              locationKey: previous.key });
             return;
           }
           if (prior.socket?.readyState === OPEN && prior.socket !== socket) {
@@ -1911,7 +1917,9 @@ export function createFreeFlightRuntime(options: {
         } else if (actor.craft.alive &&
             (actor.faction !== admission.faction || actor.shipId !== admission.shipId)) {
           if (pilotNeedsRecovery(actor) || pilotHasUnresolvedCombat(session, actor.actorId)) {
-            error("freeflight_recovery_required");
+            error("freeflight_recovery_required", { protocol: 1, mode: "loadout",
+              shipId: actor.shipId, faction: actor.faction, alive: actor.craft.alive,
+              locationKey: session.key });
             return;
           }
           // Only an undamaged, unengaged craft can be refitted on rejoin.

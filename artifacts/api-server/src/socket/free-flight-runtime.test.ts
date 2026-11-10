@@ -82,6 +82,53 @@ test("shared countermeasures deflect only incoming seekers, enforce intent bound
 
 const auth = createSocketTestAuth();
 
+test("damaged refits expose the retained hull and location without repairing or replacing the pilot", async () => {
+  let checkpoint: import("./free-flight-runtime").FreeFlightSessionCheckpointV1 | null = null;
+  let admission = { sessionKey: "mars:phobos-yard", faction: "ussf" as const,
+    shipId: "duskbreaker" as "duskbreaker" | "bastion" };
+  const packets: Packet[] = [];
+  const socket = { readyState: 1, bufferedAmount: 0,
+    send: (data: string) => packets.push(JSON.parse(data)), close: () => {} };
+  const makeRuntime = () => createFreeFlightRuntime({
+    resolveAdmission: async () => admission,
+    saveCheckpoint: async (_key, state) => { checkpoint = structuredClone(state); return true; },
+    loadCheckpoint: async () => checkpoint ? { stateVersion: 1, fencingToken: 1,
+      checkpointSequence: checkpoint.checkpointSequence,
+      snapshot: structuredClone(checkpoint) as unknown as Record<string, unknown> } : null,
+  });
+  const initial = makeRuntime();
+  await initial.handle(socket, "refit-pilot", { type: "freeflight_join" });
+  await initial.close();
+  // Unit fixture: an already damaged durable deployment, not a live health edit.
+  const saved = checkpoint! as import("./free-flight-runtime").FreeFlightSessionCheckpointV1;
+  const pilot = saved.actors.find(a => a.ownerUserId === "refit-pilot")!;
+  pilot.craft.hull -= 5;
+  const retainedHull = pilot.craft.hull, retainedId = pilot.actorId;
+  admission = { ...admission, shipId: "bastion" };
+  packets.length = 0;
+  const runtime = makeRuntime();
+  try {
+    await runtime.handle(socket, "refit-pilot", { type: "freeflight_join" });
+    assert.equal(packets.at(-1)?.reason, "freeflight_recovery_required");
+    assert.deepEqual(packets.at(-1)?.recovery, { protocol: 1, mode: "loadout",
+      shipId: "duskbreaker", faction: "ussf", alive: true, locationKey: "mars:phobos-yard" });
+    assert.equal(packets.some(p => p.type === "freeflight_joined"), false);
+    admission = { ...admission, shipId: "duskbreaker" };
+    await runtime.handle(socket, "refit-pilot", { type: "freeflight_join" });
+    const joined = packets.find(p => p.type === "freeflight_joined")!;
+    const frame = joined.snapshot as FreeFlightSnapshotV1;
+    const own = frame.actors.find(a => a.own)!;
+    assert.equal(own.actorId, retainedId);
+    assert.equal(own.hull, retainedHull);
+    assert.equal(own.alive, true);
+    runtime.detach(socket);
+    admission = { ...admission, sessionKey: "mars:rust-disc" };
+    await runtime.handle({ ...socket }, "refit-pilot", { type: "freeflight_join" });
+    assert.deepEqual(packets.at(-1)?.recovery, { protocol: 1, mode: "location",
+      shipId: "duskbreaker", faction: "ussf", alive: true, locationKey: "mars:phobos-yard" });
+  } finally { await runtime.close(); }
+});
+
 function nextPacket(socket: WebSocket, accepts: (packet: Packet) => boolean, timeoutMs = 4_000) {
   return new Promise<Packet>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -243,6 +290,9 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
     assert.equal(results.reduce((sum,p) => sum+Number(p!.assists),0),1);
     assert.ok(results.every(p => p!.status === "settled"));
     assert.ok(Number(results.find(p => Number(p!.kills) === 1)?.creditsAwarded) > 0);
+    for (const result of results) assert.deepEqual(result!.totals, {
+      kills: result!.kills, assists: result!.assists, creditsAwarded: result!.creditsAwarded,
+    }, "each pilot receives its authoritative cumulative tally, not another pilot's reward");
     // Preserve the current kill-only credit policy: an assist is a real tally,
     // not permission to mint an additional kill or unconfigured reward.
     assert.equal(Number(results.find(p => Number(p!.assists) === 1)?.creditsAwarded), 0);
@@ -252,7 +302,34 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
         Number(p.shieldDamage)+Number(p.hullDamage)>0), "each pilot causes real server damage");
       assert.ok(frames[index]!.actors.find(a => a.own)?.alive, "each pilot survives settlement");
     }
-    runtime.advance(clock += 100);
+    const beforeFlight = frames.map(frame => frame!.actors.find(a => a.own)!);
+    // The accelerated combat fixture may exhaust a real wall-clock input window.
+    // Use an ordinary accepted held input, not a bypass of the rate limiter.
+    await new Promise<void>(resolve => setTimeout(resolve, 1100));
+    const sequences = packets.map(received => Number(
+      received.filter(p => p.type === "freeflight_input_accepted").at(-1)!.seq,
+    ) + 1);
+    for (let index = 0; index < 2; index++) {
+      await runtime.handle(sockets[index]!,
+        index === 0 ? "shared-lead" : "shared-ally", {
+          type: "freeflight_input", input: input(sequences[index]!, { throttle: 1 }),
+        });
+      assert.ok(packets[index]!.some(p => p.type === "freeflight_input_accepted" &&
+        p.seq === sequences[index]));
+    }
+    for (let step = 0; step < 45; step++) {
+      runtime.advance(clock += 34);
+      await new Promise<void>(resolve => setImmediate(resolve));
+    }
+    for (let index = 0; index < 2; index++) {
+      const after = frames[index]!.actors.find(a => a.own)!;
+      const before = beforeFlight[index]!;
+      assert.equal(after.actorId, before.actorId, "victory keeps the same universe pilot");
+      assert.equal(after.alive, true);
+      assert.ok(Math.hypot(after.position.x - before.position.x,
+        after.position.y - before.position.y, after.position.z - before.position.z) > .5,
+      "both pilots actually fly after settlement, rather than only receiving an input acknowledgment");
+    }
     assert.equal(settlements,1, "later ticks cannot duplicate settlement");
   } finally { await runtime.close(); }
 });

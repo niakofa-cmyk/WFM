@@ -70,3 +70,37 @@ navigation markers and optical effects are not automatically solid.
 Authenticated staging must still demonstrate physical approaches, visible impact
 alignment and a successful sustained fleet battle. Passing unit fixtures is not
 proof of a multiplayer victory, positive rewards or physical-phone performance.
+
+## Retained deployment and post-victory settlement hardening
+
+A damaged living ship or unresolved battle can legitimately prevent changing
+hulls on reconnect. That refusal produces no new admitted pilot snapshot; it is
+not by itself evidence of broken rendering or a dead pilot. The server now sends
+an authenticated, versioned hint identifying this pilot's retained hull, faction
+and canonical location. The normal recovery screen distinguishes a living
+retained deployment from a disabled ship and explains how to return to command,
+restore the deployed hull through Fleet, and resume at the correct location.
+The guard still rejects free repair, substitute destinations and battle resets.
+
+Settlement results now include server-owned cumulative kill, assist and reward
+totals. The HUD deduplicates encounter receipts before changing either tally or
+battle phase; a replayed completed receipt must not end a later active battle.
+The tally update remains pure under React StrictMode. Cumulative totals preserve
+monotonic counters across reconnects; bounded receipt tracking handles older
+server packets. Server credit counters use the same apply-once guard as kills
+and assists.
+
+The existing two-pilot regression now verifies real damage by both pilots,
+enemy destruction, one attributed kill plus an assist, a positive kill award,
+then actual movement by both surviving pilots with the same actor identities.
+It checks settlement remains single after continued flight, rather than treating
+an accepted input alone as proof of exploration. The native WebSocket regression
+also exercises a second fleet becoming active while the first result settles.
+
+These are local runtime fixtures with test settlement adapters, not authenticated
+database certification. Existing economy policy is unchanged: assists are real
+tallies, but do not mint an extra kill or an unconfigured assist payment.
+Authenticated staging still needs a fresh two-pilot destruction/settlement/
+continued-flight pass. Browser diagnostics now distinguish missing sockets,
+rejected snapshots, server refusals and graphics/asset boot failures; test
+graphics support is checked before opening new sign-in challenges.

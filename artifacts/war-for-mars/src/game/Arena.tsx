@@ -12,6 +12,8 @@ import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { openingEncounterNotice } from "./free-flight-opening";
+import { readFreeFlightRecoveryHint, freeFlightRecoveryHintText, type FreeFlightRecoveryHint } from "./free-flight-recovery-hint";
+import { readFlightSettlement, acceptFlightSettlement, settlementTallyAfter } from "./free-flight-settlement-tally";
 import {
   CLIENT_RECONNECT_WINDOW_MS,
   SOCKET_HANDSHAKE_TIMEOUT_MS,
@@ -695,6 +697,8 @@ export function Arena({
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
   const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
   const [freeFlightNotice, setFreeFlightNotice] = useState("");
+  const [retainedFlightHint, setRetainedFlightHint] = useState<FreeFlightRecoveryHint | null>(null);
+  const settledFlightEncounters = useRef(new Set<string>());
   const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
   const [assistCallPending, setAssistCallPending] = useState(false);
   const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
@@ -809,6 +813,7 @@ export function Arena({
           );
         },
         onState: (state, reason) => {
+          if (state === "joined") setRetainedFlightHint(null);
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
             freeFlightCombatActiveRef.current = false;
@@ -830,7 +835,9 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
-          if (packet.type === "freeflight_assist_request" &&
+          if (packet.type === "freeflight_recovery_hint") {
+            setRetainedFlightHint(readFreeFlightRecoveryHint(packet.recovery));
+          } else if (packet.type === "freeflight_assist_request" &&
               typeof packet.callId === "string" && /^[0-9a-f-]{36}$/i.test(packet.callId) &&
               typeof packet.callerCallsign === "string" && packet.callerCallsign.length <= 80 &&
               typeof packet.patrolCallsign === "string" && packet.patrolCallsign.length <= 80 &&
@@ -937,15 +944,13 @@ export function Arena({
               Number.isSafeInteger(packet.kills) &&
               Number.isSafeInteger(packet.assists) &&
               Number.isSafeInteger(packet.creditsAwarded)) {
+            const receipt = readFlightSettlement(packet);
+            if (!receipt || !acceptFlightSettlement(settledFlightEncounters.current, receipt)) return;
             const remainingCombat = packet.phase === "active";
             freeFlightCombatActiveRef.current = remainingCombat;
             setFreeFlightCombatStatus(remainingCombat ? "active" : "complete");
             if (!remainingCombat) setFreeFlightNotice("");
-            setFreeFlightTally((previous) => ({
-              kills: previous.kills + (packet.kills as number),
-              assists: previous.assists + (packet.assists as number),
-              credits: previous.credits + (packet.creditsAwarded as number),
-            }));
+            setFreeFlightTally(previous => settlementTallyAfter(previous, receipt));
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
             setRespondingToAssistCallId(null);
             if (packet.reason.startsWith("freeflight_assist_")) {
@@ -3378,9 +3383,13 @@ export function Arena({
       {localUniverse && recoveryRequired ? (
         <section data-testid="disabled-pilot-recovery" aria-label="Disabled ship recovery"
           className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md border border-solar/50 bg-void/95 p-3 text-center">
-          <h2 className="font-hud text-sm tracking-widest text-solar">SHIP DISABLED</h2>
+          <h2 className="font-hud text-sm tracking-widest text-solar">
+            {retainedFlightHint?.alive ? "DEPLOYED SHIP RETAINED" : "SHIP DISABLED"}
+          </h2>
           <p className="mt-1 text-xs text-muted">
-            {sharedFreeFlightJoined
+            {retainedFlightHint && !sharedFreeFlightJoined
+              ? freeFlightRecoveryHintText(retainedFlightHint)
+              : sharedFreeFlightJoined
               ? "Recovery returns you to command after all battle results settle. Reconnecting does not repair your hull."
               : "Your disabled ship must recover at its previous flight location. Return to command, use account operations to travel back, then re-enter flight and request recovery. Travel and reconnecting do not repair your hull."}
           </p>
