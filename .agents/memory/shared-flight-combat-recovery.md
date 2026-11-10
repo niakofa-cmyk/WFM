@@ -100,3 +100,17 @@ also left an initially empty session unable to discover later durable patrols.
 **How to apply:** fail closed for persistent combat authority while leaving
 flight available; add newly resolved durable fleets idempotently, and verify
 the snapshot roster rather than inferring authority from a hostile HUD count.
+
+Admission failures must remain fail-closed while recording a privacy-safe
+server-side failure phase and allowlisted error category. Never log raw
+dependency errors, SQL, player identities, credentials or checkpoint contents.
+
+**Why:** two authenticated staging pilots were refused flight without any
+snapshot while all services reported healthy. A generic exception response and
+silent catch made the underlying dependency failure indistinguishable from
+checkpoint initialization failure; another sign-in could not resolve that.
+
+**How to apply:** confirm authenticated profile access separately from flight
+admission, retain safe internal diagnostics without expanding client error
+details, and fix the identified failure rather than bypassing recovery or
+resetting retained ships.

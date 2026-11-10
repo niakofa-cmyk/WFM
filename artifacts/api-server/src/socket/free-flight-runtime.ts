@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { admissionFailureDiagnostic, type AdmissionPhase } from "./free-flight-admission-diagnostic";
 import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
 import {
   ORBITAL_DT,
@@ -461,6 +462,7 @@ function send(socket: WebSocketLike | null, packet: unknown) {
 
 export function createFreeFlightRuntime(options: {
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
+  onAdmissionFailure?: (diagnostic: ReturnType<typeof admissionFailureDiagnostic>) => void;
   loadCheckpoint?: (sessionKey: string) => Promise<StoredFreeFlightCheckpoint | null>;
   saveCheckpoint?: (
     sessionKey: string,
@@ -1800,6 +1802,7 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       joiningUsers.add(userId);
+      let admissionPhase: AdmissionPhase = "resolve-admission";
       try {
         const admission = await options.resolveAdmission(userId);
         if (socket.readyState !== OPEN) return;
@@ -1811,6 +1814,7 @@ export function createFreeFlightRuntime(options: {
           return;
         }
         const now = Date.now();
+        admissionPhase = "patrol-directory";
         let initialPatrols: UniversePatrolEncounter[] = [];
         // Recheck on admission even when this session already exists. A first
         // lookup can legitimately be empty or temporarily unavailable; later
@@ -1835,6 +1839,7 @@ export function createFreeFlightRuntime(options: {
             // only persistent reward-bearing engagements fail closed.
           }
         }
+        admissionPhase = "prior-session";
         const existing = userSeats.get(userId);
         if (existing && existing.actor.socket?.readyState === OPEN && existing.actor.socket !== socket) {
           existing.actor.socket.close(4001, "Pilot reconnected");
@@ -1857,11 +1862,13 @@ export function createFreeFlightRuntime(options: {
           previous.pilotByUser.delete(userId);
         }
         if (closed || socket.readyState !== OPEN) return;
+        admissionPhase = "initialize-session";
         const session = await getOrInitializeSession(
           admission.sessionKey, now, initialPatrols,
         );
         if (closed) { error("freeflight_service_unavailable"); return; }
         if (!session) { error("freeflight_capacity"); return; }
+        admissionPhase = "initialize-pilot";
         let actor = session.pilotByUser.get(userId);
         let openingTarget: Actor | undefined;
         let openingStatus: "ready" | "resumed" | "unavailable" | undefined =
@@ -1929,6 +1936,7 @@ export function createFreeFlightRuntime(options: {
           actor.shield = SHIPS[admission.shipId].shield;
           actor.shieldMax = SHIPS[admission.shipId].shield;
         }
+        admissionPhase = "publish-join";
         const previousSeat = userSeats.get(userId);
         if (previousSeat) seats.delete(previousSeat.actor.socket!);
         actor.socket = socket;
@@ -1961,8 +1969,16 @@ export function createFreeFlightRuntime(options: {
         publish(session);
         // Same lease, participants, weapons and settlement as later encounters.
         // Failures remain visible through the ordinary encounter-error channel.
+        admissionPhase = "opening-engagement";
         if (openingTarget) await startEngagement(socket, seat, openingTarget.actorId);
-      } catch {
+      } catch (failure) {
+        try {
+          const diagnostic = admissionFailureDiagnostic(admissionPhase, failure);
+          if (options.onAdmissionFailure) options.onAdmissionFailure(diagnostic);
+          else process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
+        } catch {
+          // Observability must not change the fail-closed admission response.
+        }
         error("freeflight_admission_unavailable");
       } finally {
         joiningUsers.delete(userId);
