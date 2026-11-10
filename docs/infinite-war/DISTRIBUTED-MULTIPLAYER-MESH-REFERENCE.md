@@ -96,6 +96,22 @@ Redis command queuing is disabled and the command queue is bounded. All 260 API
 tests, the API typecheck, and the backend build passed after these changes.
 These safety changes require their own staging rollout confirmation.
 
+### Subsequent live verification
+
+The safety and routing-evidence builds deployed successfully, all 260 API tests
+passed, and Railway reported 2/2 socket replicas online. Two authenticated
+staging pilots shared a session and reciprocal ship data, then automatically
+recovered their session/actor identities, health, tallies, and balances after a
+controlled socket restart. Position drift was measured and is not claimed to
+be zero. See
+[`PERSISTENT-UNIVERSE-VERIFICATION.md`](PERSISTENT-UNIVERSE-VERIFICATION.md)
+for the evidence and its limits.
+
+Both live clients nevertheless landed on the same ingress instance, so the
+cross-replica path is still not certified. No hostile combat or reward outcome
+was manufactured to bypass the unavailable enemy roster or the unresolved
+normal hangar-return action.
+
 Before calling this a persistent distributed universe, verify in staging:
 
 1. The socket deployment becomes healthy and reports the Redis-fenced transport

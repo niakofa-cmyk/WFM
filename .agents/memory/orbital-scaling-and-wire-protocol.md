@@ -72,3 +72,15 @@ renewal-error handler alone does not guarantee that stale simulation stops.
 **How to apply:** keep conservative confirmed lease deadlines, bound transport
 queues, invalidate asynchronous session initialization on ownership loss, and
 test stalled renewals as well as explicit failures.
+
+Two authenticated sockets on the same public hostname do not prove that two
+different socket replicas participated.
+
+**Why:** a load balancer may place both pilots on the same ingress even when
+multiple replicas are healthy; reciprocal actor visibility alone cannot
+distinguish local routing from Redis routing.
+
+**How to apply:** compare server-issued ephemeral ingress and owner identities
+and the ownership fence after authenticated joins. Keep raw identifiers in
+test-process memory and publish only hashes or equality checks; do not expose
+credentials, host addresses, account identities, or exact pilot poses.

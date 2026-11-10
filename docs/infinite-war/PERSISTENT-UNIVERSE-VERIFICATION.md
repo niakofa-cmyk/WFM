@@ -2,18 +2,20 @@
 
 ## Current result
 
-**The distributed implementation is locally verified; Railway staging proof is
-pending.** The server has Redis-fenced spatial-session ownership and routing,
-plus versioned PostgreSQL flight checkpoints. Local tests exercise independent
-runtime instances and owner recovery with a shared test transport/store. They
-do not prove behavior against Railway Redis, the staging PostgreSQL database,
-or two authenticated staging pilots. Production remains untouched.
+**Two-pilot shared flight and controlled idle-flight restart recovery have
+passed on Railway staging.** Two existing staging accounts authenticated with
+active sessions and profile HTTP 200, joined the same canonical session as
+distinct actors, and received reciprocal nearby pilot ship data.
 
-The initial Redis-backed staging deployment is now healthy with two configured
-socket replicas. Its structured startup log confirms `redis-fenced-shards` and
-`checkpointStore: true`. This proves startup, not shared gameplay or recovery.
-The subsequent lease-expiry safety review passed all 260 API tests; its new
-deployment still requires separate confirmation.
+The socket service has two configured replicas, Redis-fenced routing, and a
+PostgreSQL checkpoint store. A controlled restart of the staging socket
+deployment caused both retained clients to rejoin automatically with their
+session/actor identities, health, tallies, and balances preserved. This is not
+yet certification of active-combat recovery, cross-location travel, or reward
+settlement across owners. Production remains untouched.
+
+The reviewed safety build and the subsequent routing-evidence build deployed
+successfully. All 260 API tests, the API typecheck, and backend build passed.
 
 ## What the implementation establishes
 
@@ -30,6 +32,10 @@ deployment still requires separate confirmation.
   still pending. Reading a lease does not renew it; a late renewal response or
   checkpoint load cannot revive the expired owner's runtime. Redis's offline
   command queue is disabled and its pending command queue is bounded.
+- Authenticated joins emit versioned, server-owned routing evidence with
+  ephemeral ingress/owner process identities and the fencing token. Two
+  connections to one public hostname are not enough to prove separate ingress
+  replicas. Test reports retain only hashes or equality checks.
 - Nearby actor snapshots are scoped to one session and its bounded spatial
   interest radius. Pilots admitted to different location keys do not share
   exact actor snapshots or live encounters; each remains a spatial shard of the
@@ -49,11 +55,11 @@ deployment still requires separate confirmation.
 
 | Requirement | Current status | Evidence needed for a pass |
 | --- | --- | --- |
-| Redis/checkpoint startup | **Initial staging deployment passes** | Railway reports the deployment healthy; structured startup attributes confirm Redis-fenced mode and a checkpoint store. Repeat after the safety update. |
-| Shared location session | **Local adapter test passes** | Two independent runtime wrappers receive the same server session and nearby actors through a shared fake Redis transport; repeat with authenticated staging clients. |
+| Redis/checkpoint startup | **Staging passes** | Healthy deployment; structured startup attributes confirm Redis-fenced mode and a checkpoint store. |
+| Shared location session | **Two-pilot staging passes** | Both authenticated pilots share a session, have distinct own actors, and receive reciprocal nearby ship data. |
 | Travel across locations in one universe | **Partial** | Different canonical locations remain isolated shards and the same account cannot hold two seats; seamless coordinate/world-state travel still needs staging verification. |
-| Multiple socket processes | **Local adapter test passes** | Independent runtimes relay through the test transport; verify on two Railway socket replicas with real Redis. |
-| Process restart | **Local recovery test passes** | A replacement owner restores the same session identity and pilot actor from the test checkpoint store; repeat against Railway Redis and staging PostgreSQL. |
+| Multiple socket processes | **Local adapter test passes; live cross-replica routing unproved** | Railway reports 2/2 online. Both live pilots received valid routing evidence, but their ingress hashes were equal after bounded reconnect attempts. A common owner/fence was confirmed; distinct ingress participation was not. |
+| Process restart | **Idle-flight staging recovery passes** | Both retained clients automatically rejoined after the real socket deployment restart, preserving session/actor identity, health, tallies, and balance. Active-combat recovery is still pending. |
 | Durable world consequences | **Partial** | Verify persisted patrol movement, casualties, player location, and settlement from a fresh staging process and database query. |
 
 ## Checks run
@@ -72,7 +78,9 @@ pnpm --filter @workspace/api-server exec tsx --test \
 These tests use independent runtime instances and a shared in-memory test
 transport/checkpoint store. They verify shared shard snapshots, isolated
 locations, single-flight initialization, one active account seat, and state
-restoration after the owner is replaced. Lease-expiry tests cover recent lease
+restoration after the owner is replaced. Routing tests assert distinct ingress
+identities, a common owner/fence, and a newer owner/fence after takeover.
+Lease-expiry tests cover recent lease
 reads, pending renewals, late successful responses, and checkpoint loads that
 finish after ownership is lost. They do not connect to actual Railway services
 or authenticate browser pilots.
@@ -82,12 +90,60 @@ or authenticate browser pilots.
 A dedicated private Railway Redis service is provisioned in WFM staging in the
 socket service's `us-east4-eqdc4a` region. The socket service source points to
 the updated branch, and the Redis-backed shared-runtime variables are scoped to
-the staging environment only. Railway reports the initial shared-runtime
-deployment healthy, with two socket replicas configured. Its structured log
-attributes confirm Redis-fenced routing and a checkpoint store. The safety
-update has passed local checks but still needs its own rollout confirmation.
-Until the authenticated two-pilot, cross-replica, and restart checks pass,
-distributed gameplay and recovery remain **not verified in staging**.
+the staging environment only. Railway reports the reviewed runtime and
+routing-evidence deployments successful, with two socket replicas configured.
+Its structured log attributes confirm Redis-fenced routing and a checkpoint
+store. Remaining proof must distinguish configured topology from actual
+cross-replica gameplay.
+
+### Live staging evidence, 2026-11-10
+
+- Both existing browser owners completed their matching fresh verification
+  challenges once and confirmed authenticated profiles with HTTP 200.
+- Observers were attached before universe entry. Session fingerprints matched,
+  own-actor fingerprints differed, and each feed contained the other pilot.
+- Both pilots were neutralized through normal controls and recovery baselines
+  were frozen in browser-owner memory before a staging-only socket restart.
+- Both rejoined automatically within the bounded 90-second check, without a
+  page reload or new sign-in. Socket observations increased from one to three
+  for each client, and comparisons used fresh post-restart snapshots.
+- Identity, health, tallies, and balances matched; ticks were monotonic. Both
+  ships remained alive and reciprocal presence resumed.
+- Baseline-to-current displacement measured 113.168 m and 14.881 m, including
+  accumulated movement/drift. These figures are **not** a claim of zero drift
+  or an isolated measurement of restart error.
+- The first combat attempt was not started: the pilots were Accord and the
+  current directory contained no USSF patrol. No targets, damage, victory, or
+  reward claims were fabricated to bypass that condition.
+- The routing-evidence deployment was then confirmed healthy and Railway
+  reported **2/2 Online**. Valid protocol-1 routing summaries from both clients
+  had a common owner and equal fence. Their ingress hashes remained equal after
+  three additional normal reloads of one pilot; the test did not establish
+  actual cross-replica participation.
+- Normal reloads retained authenticated sessions. No replacement sign-ins,
+  login-state exports, account creation, or authentication bypass were used.
+- A bounded attempt to return to the hangar and choose USSF did not complete,
+  even after correcting a test-driver menu selector. Both pilots remained
+  alive in shared flight and their saved faction/hull did not change. Read-only
+  diagnostics showed an enabled visible pause button, no pause backdrop, and
+  no visible exit/resume buttons. The cause of the action timeout remains
+  unresolved; the test does not establish an application bug versus a driver
+  interaction issue.
+- No genuine combat result was produced. Shared enemy targeting, assists,
+  credited destruction, reward idempotency, active-combat failover, and
+  post-battle flight therefore remain unverified on this staging pass.
+
+### Remaining blockers
+
+1. Establish deterministic, authenticated participation through two different
+   socket ingress instances. Healthy replicas or a shared owner alone are not
+   enough; do not add a public debug bypass to force a passing result.
+2. Diagnose the normal flight-menu/hangar return action with step-specific
+   interaction evidence, then reach an actual hostile patrol through ordinary
+   faction selection or validated travel. Do not reset persistent casualties
+   or insert enemies solely to manufacture a test victory.
+3. Repeat only the blocked combat/reward/recovery checks once those prerequisites
+   are available. Preserve the passed shared-state and idle-restart evidence.
 
 ## Required architecture before claiming success
 
@@ -132,8 +188,8 @@ distributed gameplay and recovery remain **not verified in staging**.
    disclosed and that distant locations remain part of the same durable
    universe without being incorrectly placed in one local combat session.
 
-Until this sequence passes, the verified statement is limited to
-**local independent-runtime test coverage**. The distributed persistence code
-is implemented, but its Railway staging operation and cross-replica behavior
-are not yet certified. The source proposal and its safe adaptation are recorded
+The live evidence above establishes same-location shared flight and idle-flight
+restart recovery, not the entire proof sequence. Active combat, cross-location
+continuity, distinct ingress participation, and duplicate settlement still
+require explicit staging evidence. The source proposal and its safe adaptation are recorded
 in [`DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md`](DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md).
