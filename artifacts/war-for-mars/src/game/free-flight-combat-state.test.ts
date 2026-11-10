@@ -1,5 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { freeFlightConnectionStatusAfter, freeFlightRecoveryRequired } from "./free-flight-combat-state";
+
+test("reconnect callbacks cannot dismiss a refused join's recovery requirement", () => {
+  const rejected = freeFlightConnectionStatusAfter("connecting", "unavailable", "freeflight_recovery_required");
+  assert.equal(rejected, "freeflight_recovery_required");
+  assert.equal(freeFlightConnectionStatusAfter(rejected, "reconnecting", "socket_closed"), rejected);
+  assert.equal(freeFlightConnectionStatusAfter(rejected, "connecting"), rejected);
+  assert.equal(freeFlightConnectionStatusAfter(rejected, "joined"), "joined");
+});
+
+test("a refused recovery join retains a visible recovery path without inventing vitals", () => {
+  assert.equal(freeFlightRecoveryRequired("freeflight_recovery_required", null), true);
+  assert.equal(freeFlightRecoveryRequired("connecting", null), false);
+  assert.equal(freeFlightRecoveryRequired("joined", {
+    alive: false, hull: 0, hullMax: 78, shield: 0, shieldMax: 100,
+  }), true);
+  assert.equal(freeFlightRecoveryRequired("joined", {
+    alive: true, hull: 78, hullMax: 78, shield: 100, shieldMax: 100,
+  }), false);
+});
 import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals } from "./free-flight-combat-state";
 
 const pilot = {

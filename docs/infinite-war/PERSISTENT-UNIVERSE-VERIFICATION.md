@@ -165,6 +165,69 @@ cross-replica gameplay.
   checks. Fresh retained staging sign-ins are required because the earlier
   browser owners were deliberately stopped after their bounded test.
 
+## Authenticated staging follow-up — November 10, 2026
+
+The frontend/protected gateway, API and two-replica socket service were aligned
+to the reviewed `a386e8d` source before this run. Production was not changed.
+
+- **Proved across replicas:** two authenticated USSF pilots reached distinct
+  socket ingress instances, shared one canonical session and authoritative owner,
+  received the same fencing token, had distinct own actors, and received each
+  other's nearby actor data. Raw instance, actor and account identifiers were not
+  exported. This is shared-state evidence, not a separate pixel-level ship-model
+  certification.
+- **Proved normal controls:** the flight-menu hit test reached the intended
+  pause button, the account avatar was hidden in flight, and normal exit to the
+  hangar worked.
+- **Proved validated travel debits:** each account used the enabled 8-credit
+  Operations route from Phobos to Rust Disc. The server returned the destination
+  and deducted exactly the displayed fare. Account travel alone does not prove
+  cross-location physical-flight continuity.
+- **Proved enemy offense and zero-contribution settlement:** a real patrol
+  arrived and inflicted shield/hull damage, disabling the pilots. The observed
+  result settled with zero kills, assists and credits. Accepted primary and
+  missile input counts were zero in that attempt; it cannot certify player
+  weapon effectiveness, victory, assists or positive rewards.
+- **Found a recovery presentation defect:** after a disabled pilot traveled
+  through Operations, joining a different flight region was correctly refused
+  with `freeflight_recovery_required`. Because no new own-ship snapshot arrived,
+  the recovery panel disappeared. Reconnect callbacks also replaced the business
+  rejection with a generic unavailable state.
+
+The follow-up UI fix retains the server's recovery-required state through
+reconnect callbacks and renders an explicit return-to-command path even without
+ship vitals. It explains that recovery must be requested at the disabled ship's
+previous flight location. Actual recovery remains disabled without an admitted,
+server-confirmed disabled pilot; no hull, settlement or location safeguard was
+relaxed. Focused regression tests, frontend typecheck, both production bundle
+builds and both bundle audits pass. Deployment and authenticated verification of
+this additional UI fix must be recorded separately from the `a386e8d` run.
+
+Active encounter failover, player-caused enemy destruction, shared kills/assists,
+positive reward settlement and continued post-victory flight remain uncertified
+until genuine active combat produces those outcomes.
+
+### Recovery and active-fire continuation
+
+Both pilots used normal Operations travel back to Phobos, rejoined their retained
+disabled ships and successfully requested server-authorized recovery. Recovery
+returned them to the hangar and charged zero credits. They then paid the normal
+8-credit route back to Rust Disc. Across the three validated travel legs each
+account paid 24 credits; no positive combat reward was observed.
+
+A bounded 15-second real-control segment for one pilot produced **57 accepted
+primary projectiles and 11 impacts**, applying **48.4 shield damage**. No hull
+damage or enemy destruction was confirmed. The other pilot was already disabled
+before its firing segment could start. Both subsequent results settled with zero
+kills, assists and credits. Both then completed a second normal recovery.
+This verifies player firing and shield contact, not a victorious fleet battle,
+shared credit attribution or positive reward settlement.
+
+The retained browser owners reached their configured 30-minute limit during
+the next normal re-entry attempt and were stopped. No authenticated context was
+exported, no replacement sign-in was opened and no old code was reused. Final
+post-recovery re-entry and active-battle restart behavior remain unknown.
+
 ## Required architecture before claiming success
 
 1. Keep one WFM world identity and canonical spatial addresses; location IDs
@@ -208,8 +271,8 @@ cross-replica gameplay.
    disclosed and that distant locations remain part of the same durable
    universe without being incorrectly placed in one local combat session.
 
-The live evidence above establishes same-location shared flight and idle-flight
-restart recovery, not the entire proof sequence. Active combat, cross-location
-continuity, distinct ingress participation, and duplicate settlement still
+The live evidence above establishes same-location cross-instance shared flight
+and idle-flight restart recovery, not the entire proof sequence. Active combat,
+cross-location physical-flight continuity and duplicate settlement still
 require explicit staging evidence. The source proposal and its safe adaptation are recorded
 in [`DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md`](DISTRIBUTED-MULTIPLAYER-MESH-REFERENCE.md).

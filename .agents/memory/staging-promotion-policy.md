@@ -21,8 +21,10 @@ Separately deployed game clients and sockets can also become protocol-incompatib
 an older client sent `join` before `authenticate`, while the updated socket
 required authentication first and the client surfaced only a generic room error.
 
-**How to apply:** compare frontend/API/socket deployed revisions and their shared
-protocol or simulation contracts before claiming parity or starting a flight.
+**How to apply:** compare frontend/gateway/API/socket deployed revisions and their
+shared protocol or simulation contracts before claiming parity or starting a flight.
+The protected gateway can remain pinned even while its socket upstream follows
+the branch; a healthy socket rollout does not deploy gateway routing or UI fixes.
 Change a staging pin only with explicit deployment approval; never update
 production implicitly.
 

@@ -33,6 +33,23 @@ export function freeFlightPrimaryFireEnabled(
   return pilot?.alive === true;
 }
 
+/** A refused join carries no vitals, but must not hide the recovery exit. */
+export function freeFlightRecoveryRequired(
+  status: string, pilot: FreeFlightPilotVitals | null,
+): boolean {
+  return status === "freeflight_recovery_required" || pilot?.alive === false;
+}
+
+export function freeFlightConnectionStatusAfter(
+  current: string, state: string, reason?: string,
+): string {
+  if (state === "joined") return state;
+  // Closing the refused socket starts reconnect callbacks. They are not
+  // authority to dismiss the server's outstanding recovery requirement.
+  if (current === "freeflight_recovery_required") return current;
+  return reason ?? state;
+}
+
 /** A failed secondary request is not authority to end an existing encounter. */
 export function combatStatusAfterRequest(active: boolean): string {
   return active ? "active" : "requesting";

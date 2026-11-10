@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
-import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
@@ -809,7 +809,7 @@ export function Arena({
           );
         },
         onState: (state, reason) => {
-          setFreeFlightStatus(reason ?? state);
+          setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
             freeFlightCombatActiveRef.current = false;
             setFreeFlightPilot(null);
@@ -3332,8 +3332,11 @@ export function Arena({
 
   const bus = busRef.current;
   const sharedFreeFlightJoined = freeFlightStatus === "joined";
+  const recoveryRequired = freeFlightRecoveryRequired(freeFlightStatus, freeFlightPilot);
   const freeFlightLinkLabel = sharedFreeFlightJoined
     ? "SHARED FLIGHT"
+    : recoveryRequired
+      ? "RECOVERY REQUIRED"
     : freeFlightEnabled && ["connecting", "authenticating", "reconnecting"].includes(freeFlightStatus)
       ? "CONNECTING"
       : freeFlightEnabled
@@ -3362,24 +3365,26 @@ export function Arena({
       data-shared-pilot-alive={sharedFreeFlightJoined ? freeFlightPilot?.alive : undefined}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
-      {localUniverse && freeFlightPilot?.alive === false ? (
+      {localUniverse && recoveryRequired ? (
         <section data-testid="disabled-pilot-recovery" aria-label="Disabled ship recovery"
           className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md border border-solar/50 bg-void/95 p-3 text-center">
           <h2 className="font-hud text-sm tracking-widest text-solar">SHIP DISABLED</h2>
           <p className="mt-1 text-xs text-muted">
-            Recovery returns you to command after all battle results settle. Reconnecting does not repair your hull.
+            {sharedFreeFlightJoined
+              ? "Recovery returns you to command after all battle results settle. Reconnecting does not repair your hull."
+              : "Your disabled ship must recover at its previous flight location. Return to command, use account operations to travel back, then re-enter flight and request recovery. Travel and reconnecting do not repair your hull."}
           </p>
           <button type="button" data-testid="button-recover-to-hangar"
             className="pilot-menu-primary mt-2 w-full"
-            disabled={!sharedFreeFlightJoined}
+            disabled={!sharedFreeFlightJoined || freeFlightPilot?.alive !== false}
             onClick={() => {
               if (freeFlightClientRef.current?.recoverDisabledPilot()) {
                 setFreeFlightNotice("RECOVERY REQUESTED · Waiting for server authorization.");
               }
             }}>RECOVER TO HANGAR</button>
           <p role="status" className="mt-2 text-xs text-solar">{freeFlightNotice}</p>
-          <button type="button" className="pilot-menu-setting mt-2 w-full"
-            onClick={() => localUniverseRef.current?.onExit()}>RETURN WITHOUT RECOVERY</button>
+          <button type="button" data-testid="button-recovery-return-to-command" className="pilot-menu-setting mt-2 w-full"
+            onClick={() => localUniverseRef.current?.onExit()}>{sharedFreeFlightJoined ? "RETURN WITHOUT RECOVERY" : "RETURN TO COMMAND · PLAN RECOVERY"}</button>
         </section>
       ) : null}
       {localUniverse ? (
