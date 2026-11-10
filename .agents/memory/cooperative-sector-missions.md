@@ -18,3 +18,15 @@ Keep Rust Disc → Mars Approach → Pale Beacons's legacy sector runtime and sa
 discoveries as compatibility/rollback until continuous-world objectives are
 verified. Do not replace Wing or alter original campaign clears. Production
 remains gated; local tests and staging evidence are not production approval.
+
+The owner reported a failed two-device visibility test and absent friendly AI
+assistance despite successful socket readiness checks.
+
+**Why:** deployment/startup readiness did not establish the actual player-facing
+shared universe. Signed-out local flight, differing saved locations and a pinned
+older frontend are separate failure modes that can look like isolated worlds.
+
+**How to apply:** distinguish HUMAN from AI visibly and confirm reciprocal
+nearby presence after authenticated admission on the same location. Do not
+contradict a user-observed failure with startup logs or synthetic transport tests;
+require actual client evidence before certifying the shared experience.

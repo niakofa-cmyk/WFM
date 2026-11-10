@@ -173,9 +173,15 @@ function OrbitalBootCore({
           <div className="lab-factions">{(["ussf", "accord"] as const).map((value) => <button key={value} type="button" data-testid={`button-faction-${value}`} aria-pressed={faction === value} onClick={() => { setFaction(value); setShip(ROSTER[value][0]); setTrainingReturnSnapshot(null); }}>{value.toUpperCase()}</button>)}</div>
           <label className="lab-ship-label">AIRFRAME<select data-testid="select-ship" value={ship} onChange={(event) => { setShip(event.target.value as ShipId); setTrainingReturnSnapshot(null); }}>{ROSTER[faction].map((id) => <option key={id} value={id}>{SHIPS[id].name} · {SHIPS[id].role}</option>)}</select></label>
         </fieldset>
+        {!standalone && !userId ? (
+          <a className="uv-hub" data-testid="link-shared-universe-sign-in" href={`${BASE}/sign-in?redirect_url=${encodeURIComponent(`${BASE}/command`)}`}>
+            <b>SIGN IN FOR THE SHARED UNIVERSE</b>
+            <span>Solo flight below cannot show other human pilots. Both devices must sign in and enter shared flight at the same verified location.</span>
+          </a>
+        ) : null}
         <button data-testid="button-launch-local-universe" className="uv-launch" disabled={dest.status === "planned"}
           onClick={() => { unlockAudio(); setSummary(""); setTrainingReturnSnapshot(null); setRun((value) => value + 1); setMode("universe"); }}>
-          {dest.id === "cinder-ring" ? "APPROACH CINDER · ORBITAL UNIVERSE" : "ENTER MARS ORBIT · ORBITAL UNIVERSE"}
+          {!freeFlightEnabled ? "LAUNCH OFFLINE SOLO FLIGHT" : dest.id === "cinder-ring" ? "APPROACH CINDER · SHARED UNIVERSE" : "ENTER MARS ORBIT · SHARED UNIVERSE"}
         </button>
         <p className="uv-map__hint" data-testid="text-local-universe-scope">
           {freeFlightEnabled

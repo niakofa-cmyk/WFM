@@ -147,6 +147,7 @@ type LiveEncounter = {
   patrol: UniversePatrolEncounter;
   contract: ExplorationEncounter;
   participantActorIds: Set<string>;
+  alliedNpcActorIds?: Set<string>;
   phase: "active" | "settling" | "settlement-unavailable" | "complete";
   receipt?: ExplorationReceipt;
   nextSettlementAttemptAt: number;
@@ -210,6 +211,7 @@ export type FreeFlightSessionCheckpointV1 = {
     patrol: UniversePatrolEncounter;
     contract: ExplorationEncounterSnapshotV1;
     participantActorIds: string[];
+    alliedNpcActorIds?: string[];
     phase: LiveEncounter["phase"];
     nextSettlementAttemptAt: number;
     resultsApplied: boolean;
@@ -425,9 +427,13 @@ function pilotNeedsRecovery(actor: Actor): boolean {
 export function canDamageFreeFlightActor(
   source: Pick<Actor, "kind" | "actorId" | "faction">,
   target: Pick<Actor, "kind" | "actorId" | "faction">,
-  combat: Pick<LiveEncounter, "phase" | "participantActorIds"> | undefined,
+  combat: Pick<LiveEncounter, "phase" | "participantActorIds" | "alliedNpcActorIds"> | undefined,
 ): boolean {
   if (combat?.phase !== "active" || source.faction === target.faction) return false;
+  if (source.kind === "patrol" && target.kind === "patrol") {
+    return Boolean(combat.alliedNpcActorIds?.has(source.actorId) ||
+      combat.alliedNpcActorIds?.has(target.actorId));
+  }
   return source.kind === "pilot" && target.kind === "patrol"
     ? combat.participantActorIds.has(source.actorId)
     : source.kind === "patrol" && target.kind === "pilot" &&
@@ -461,6 +467,7 @@ function send(socket: WebSocketLike | null, packet: unknown) {
 }
 
 export function createFreeFlightRuntime(options: {
+  enableFriendlyAiSupport?: boolean;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
   onAdmissionFailure?: (diagnostic: ReturnType<typeof admissionFailureDiagnostic>) => void;
   loadCheckpoint?: (sessionKey: string) => Promise<StoredFreeFlightCheckpoint | null>;
@@ -563,6 +570,11 @@ export function createFreeFlightRuntime(options: {
           raw.participantActorIds.some((id) => typeof id !== "string" ||
             !/^[A-Za-z0-9_:-]{1,128}$/.test(id)) ||
           new Set(raw.participantActorIds).size !== raw.participantActorIds.length ||
+          (raw.alliedNpcActorIds !== undefined && (!Array.isArray(raw.alliedNpcActorIds) ||
+            raw.alliedNpcActorIds.length > 2 || raw.alliedNpcActorIds.some((id) =>
+              typeof id !== "string" || !id.startsWith("patrol:escort:") ||
+              !actors.has(id) || actors.get(id)?.kind !== "patrol" ||
+              actors.get(id)?.faction !== raw.faction))) ||
           !["active", "settling", "settlement-unavailable", "complete"].includes(raw.phase) ||
           typeof raw.resultsApplied !== "boolean" ||
           combats.has(raw.patrol.patrolId)) {
@@ -593,6 +605,7 @@ export function createFreeFlightRuntime(options: {
         patrol: structuredClone(raw.patrol),
         contract,
         participantActorIds: new Set(raw.participantActorIds),
+        alliedNpcActorIds: new Set(raw.alliedNpcActorIds ?? []),
         phase,
         receipt,
         nextSettlementAttemptAt: 0,
@@ -663,6 +676,7 @@ export function createFreeFlightRuntime(options: {
         patrol: structuredClone(combat.patrol),
         contract: combat.contract.snapshot(),
         participantActorIds: [...combat.participantActorIds],
+        alliedNpcActorIds: [...(combat.alliedNpcActorIds ?? [])],
         phase: combat.phase,
         nextSettlementAttemptAt: combat.nextSettlementAttemptAt,
         resultsApplied: combat.resultsApplied,
@@ -896,6 +910,7 @@ export function createFreeFlightRuntime(options: {
     }
     const ownPatrolCombat = actor.persistentPatrolId
       ? session.combats.get(actor.persistentPatrolId) : undefined;
+    const escort = actor.actorId.startsWith("patrol:escort:");
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     const forward = rotate(actor.craft.space!.q, 0, 0, -1);
     const range = primaryFire ? NEARBY_RADIUS : missile.maxLockRange;
@@ -909,9 +924,15 @@ export function createFreeFlightRuntime(options: {
           ? session.combats.get(candidate.persistentPatrolId) : undefined;
         if (candidate.faction === actor.faction || combat?.phase !== "active" ||
             !combat.participantActorIds.has(actor.actorId)) continue;
+      } else if (escort) {
+        const hostileCombat = candidate.persistentPatrolId
+          ? session.combats.get(candidate.persistentPatrolId) : undefined;
+        if (candidate.faction === actor.faction || hostileCombat?.phase !== "active" ||
+            !hostileCombat.alliedNpcActorIds?.has(actor.actorId)) continue;
       } else if (ownPatrolCombat?.phase !== "active" ||
-          !ownPatrolCombat.participantActorIds.has(candidate.actorId) ||
-          candidate.socket?.readyState !== OPEN) continue;
+          !(ownPatrolCombat.participantActorIds.has(candidate.actorId) &&
+            candidate.socket?.readyState === OPEN ||
+            ownPatrolCombat.alliedNpcActorIds?.has(candidate.actorId))) continue;
       const dx = candidate.craft.x - actor.craft.x;
       const dy = candidate.craft.space!.y - actor.craft.space!.y;
       const dz = candidate.craft.z - actor.craft.z;
@@ -999,11 +1020,12 @@ export function createFreeFlightRuntime(options: {
   }
 
   function fireWeapons(session: Session, actor: Actor, input: SharedInput) {
+    if (actor.actorId.startsWith("patrol:escort:") && !options.enableFriendlyAiSupport) return;
     const combat = actor.kind === "pilot"
       ? activeCombats(session).find((candidate) => candidate.participantActorIds.has(actor.actorId))
       : actor.persistentPatrolId
         ? session.combats.get(actor.persistentPatrolId)
-        : undefined;
+        : activeCombats(session).find((candidate) => candidate.alliedNpcActorIds?.has(actor.actorId));
     const combatActive = combat?.phase === "active";
     if (actor.kind !== "pilot" && !combatActive) return;
     const target = combatActive ? combatTarget(session, actor) : undefined;
@@ -1041,9 +1063,7 @@ export function createFreeFlightRuntime(options: {
   }
 
   function impactCombat(session: Session, source: Actor, target: Actor) {
-    const patrolId = target.kind === "patrol"
-      ? target.persistentPatrolId
-      : source.persistentPatrolId;
+    const patrolId = target.persistentPatrolId ?? source.persistentPatrolId;
     const combat = patrolId ? session.combats.get(patrolId) : undefined;
     return canDamageFreeFlightActor(source, target, combat) ? combat : undefined;
   }
@@ -1699,8 +1719,46 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
+  /** One bounded defender per faction, shared by all that faction's live battles.
+   * It is a real NPC, never an account participant or a fabricated human kill. */
+  function reinforceActiveCombats(session: Session) {
+    for (const combat of activeCombats(session)) {
+      const pilot = [...combat.participantActorIds].map(id => session.actors.get(id))
+        .find(actor => actor?.craft.alive && actor.socket?.readyState === OPEN);
+      if (!pilot) continue;
+      const actorId = `patrol:escort:${combat.faction}:1`;
+      let escort = session.actors.get(actorId);
+      if (!escort) {
+        if (session.actors.size >= MAX_ACTORS_PER_SESSION) continue;
+        const shipId = FLEET_AI_ROSTER[combat.faction][0]!;
+        const numericId = session.nextNumericId++;
+        const p = pilot.craft.space!;
+        escort = {
+          actorId, numericId, kind: "patrol", faction: combat.faction, shipId,
+          craft: craftFor(numericId, shipId, pilot.craft.x + 45, p.y + 20, pilot.craft.z + 40, pilot.craft.yaw),
+          shield: SHIPS[shipId].shield, shieldMax: SHIPS[shipId].shield,
+          ownerUserId: null, socket: null, callsign: "AI WING DEFENDER",
+          input: { ...IDLE }, lastInputAt: 0, lastSeq: 0, inputWindowAt: 0,
+          inputCount: 0, disconnectedAt: null, waypointIndex: 0,
+          waypoints: [{ x: pilot.craft.x, y: p.y, z: pilot.craft.z }],
+          primaryCooldown: 0, lastDamageTick: -1, kills: 0, assists: 0,
+          creditsAwarded: 0, gravityEnvironmentV1: false,
+        };
+        session.actors.set(actorId, escort);
+      }
+      // A destroyed defender is not silently healed or respawned.
+      if (!escort.craft.alive || combat.alliedNpcActorIds?.has(actorId)) continue;
+      combat.contract.addAlliedNpc({
+        id: encounterActorId(escort), faction: escort.faction,
+        hull: escort.craft.hullMax, rewardEligible: false,
+      }, session.tick);
+      (combat.alliedNpcActorIds ??= new Set()).add(actorId);
+    }
+  }
+
   function tickSession(session: Session) {
     session.tick += 1;
+    if (options.enableFriendlyAiSupport) reinforceActiveCombats(session);
     for (const actor of session.actors.values()) {
       if (!actor.craft.alive) continue;
       if (actor.kind === "patrol") {
@@ -1723,9 +1781,9 @@ export function createFreeFlightRuntime(options: {
       let patrolTarget: Actor | undefined;
       let nearestParticipantDistance = Infinity;
       if (actor.kind === "patrol" && combat?.phase === "active") {
-        for (const actorId of combat.participantActorIds) {
+        for (const actorId of [...combat.participantActorIds, ...(combat.alliedNpcActorIds ?? [])]) {
           const candidate = session.actors.get(actorId);
-          if (!candidate?.craft.alive || candidate.socket?.readyState !== OPEN) continue;
+          if (!candidate?.craft.alive || candidate.kind === "pilot" && candidate.socket?.readyState !== OPEN) continue;
           const distance = distanceBetween(actor, candidate);
           if (distance < nearestParticipantDistance) {
             patrolTarget = candidate;
@@ -1733,9 +1791,23 @@ export function createFreeFlightRuntime(options: {
           }
         }
       }
+      const escort = actor.actorId.startsWith("patrol:escort:");
+      if (escort) {
+        for (const candidate of session.actors.values()) {
+          const hostileCombat = candidate.persistentPatrolId ? session.combats.get(candidate.persistentPatrolId) : undefined;
+          if (!candidate.craft.alive || candidate.faction === actor.faction ||
+              hostileCombat?.phase !== "active" || !hostileCombat.alliedNpcActorIds?.has(actor.actorId)) continue;
+          const distance = distanceBetween(actor, candidate);
+          if (distance <= PATROL_SENSOR_RANGE && distance < nearestParticipantDistance) {
+            patrolTarget = candidate;
+            nearestParticipantDistance = distance;
+          }
+        }
+      }
       const baseInput = actor.kind === "patrol"
-        ? patrolTarget && actor.scoutMemory?.mode === "tracking" &&
-            actor.scoutMemory.actorId === patrolTarget.actorId
+        ? patrolTarget && (escort || actor.scoutMemory?.mode === "tracking" &&
+            actor.scoutMemory.actorId === patrolTarget.actorId ||
+            combat?.alliedNpcActorIds?.has(patrolTarget.actorId))
           ? patrolCombatInput(actor, patrolTarget)
           : patrolInput(actor, actor.scoutMemory
             ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)

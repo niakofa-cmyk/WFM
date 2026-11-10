@@ -32,7 +32,7 @@ no silent fallback to isolated worlds.
 Use the existing dedicated WFM staging Redis and PostgreSQL, never another
 project's broker. On the staging **socket service**, configure:
 
-- `ORBITAL_FREE_FLIGHT_ENABLED=1`
+- `ORBITAL_FREE_FLIGHT_ENABLED=true`
 - `ORBITAL_FREE_FLIGHT_SHARED=1`
 - `ORBITAL_FREE_FLIGHT_REQUIRE_PERSISTENCE=1`
 - `WFM_FREE_FLIGHT_SHARED_ENV=staging`

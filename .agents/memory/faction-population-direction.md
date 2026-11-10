@@ -1,6 +1,6 @@
 ---
 name: Faction population and AI escorts
-description: Owner-proposed dynamic hostile-fleet ratios and same-faction AI wing support; not yet implemented.
+description: Owner-proposed faction ratios, same-faction assistance expectations, and balancing boundaries.
 ---
 
 The owner proposes adjusting roaming AI force shares to the active human faction

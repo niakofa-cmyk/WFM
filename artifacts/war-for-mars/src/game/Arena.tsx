@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
+import { FlightPresencePanel, type FlightPresenceEntry } from "./FlightPresencePanel";
+import { flightPresence } from "./free-flight-presence";
 import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightLinkPresentation, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
 import * as THREE from "./three-flight-runtime";
 import type { WorldPatrolDirectory } from "@workspace/api-client-react";
@@ -228,7 +230,7 @@ function pilotCraft(match: Match, slotId: number): Craft {
   return match.enemies[slotId - 5] ?? match.player;
 }
 
-function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" | "accord") {
+function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" | "accord", kind: "pilot" | "patrol" = "patrol") {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = 256;
@@ -236,7 +238,7 @@ function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" |
   const context = canvas.getContext("2d");
   if (!context) return null;
   const accent = patrolFaction === "ussf" ? "#77ddff" : "#f0a95d";
-  const designation = `${patrolFaction.toUpperCase()} PATROL`;
+  const designation = `${patrolFaction.toUpperCase()} · ${kind === "pilot" ? "HUMAN PILOT" : "AI PATROL"}`;
   const label = callsign.trim().toUpperCase().slice(0, 26) || "ROAMING FLEET";
   context.font = '700 19px "Barlow Condensed", sans-serif';
   context.lineWidth = 4;
@@ -700,6 +702,8 @@ export function Arena({
   const [retainedFlightHint, setRetainedFlightHint] = useState<FreeFlightRecoveryHint | null>(null);
   const settledFlightEncounters = useRef(new Set<string>());
   const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
+  const [nearbyContacts, setNearbyContacts] = useState<FlightPresenceEntry[]>([]);
+  const [presenceFresh, setPresenceFresh] = useState(false);
   const [assistCallPending, setAssistCallPending] = useState(false);
   const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
   const [assistCallCooldownUntil, setAssistCallCooldownUntil] = useState(0);
@@ -750,6 +754,17 @@ export function Arena({
   const freeFlightEnabled = localUniverseActive &&
     localUniverse?.freeFlightEnabled === true &&
     Boolean(localUniverse.getSessionToken);
+  useEffect(() => {
+    if (!freeFlightEnabled) {
+      setPresenceFresh(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      const frame = freeFlightFramesRef.current.current;
+      setPresenceFresh(Boolean(frame && performance.now() - frame.receivedAt <= 1_500));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [freeFlightEnabled]);
   const localFreeFlightGravity = (pilot: Craft): readonly AnomalyGravityWellV1[] | undefined => {
     if (!freeFlightEnabled) return undefined;
     const environment = freeFlightEnvironmentRef.current;
@@ -789,6 +804,9 @@ export function Arena({
           freeFlightEnvironmentRef.current = environment;
         },
         onSnapshot: (frame) => {
+          setPresenceFresh(true);
+          const contacts = flightPresence(frame.snapshot);
+          setNearbyContacts(current => JSON.stringify(current) === JSON.stringify(contacts) ? current : contacts);
           const previous = freeFlightFramesRef.current.current;
           freeFlightFramesRef.current = { previous, current: frame };
           const vitals = freeFlightPilotVitals(frame.snapshot);
@@ -816,6 +834,8 @@ export function Arena({
           if (state === "joined") setRetainedFlightHint(null);
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
+            setPresenceFresh(false);
+            setNearbyContacts([]);
             freeFlightCombatActiveRef.current = false;
             setFreeFlightPilot(null);
             setFreeFlightCombatStatus("idle");
@@ -1826,9 +1846,7 @@ export function Arena({
           const group = buildOrbitalShip(actor.shipId as ShipId);
           group.scale.setScalar(actor.kind === "patrol" ? 2.4 : 2.1);
           scene.add(group);
-          const designation = actor.kind === "patrol" && actor.faction !== faction
-            ? createPatrolDesignationSprite(actor.callsign, actor.faction) ?? undefined
-            : undefined;
+          const designation = createPatrolDesignationSprite(actor.callsign, actor.faction, actor.kind) ?? undefined;
           if (designation) scene.add(designation);
           entry = { group, shipId: actor.shipId as ShipId, designation };
           sharedFlightGroups.set(actor.actorId, entry);
@@ -3425,6 +3443,18 @@ export function Arena({
         <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
           {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
         </p>
+      ) : null}
+      {localUniverse ? (
+        <div className="absolute right-3 top-14 z-30">
+          <FlightPresencePanel
+            entries={nearbyContacts}
+            connected={sharedFreeFlightJoined && !recoveryRequired && presenceFresh}
+            region={localUniverse.startLocation ?? "Location not confirmed"}
+            status={sharedFreeFlightJoined && !presenceFresh
+              ? "Waiting for a fresh server snapshot. Nearby presence is not confirmed."
+              : freeFlightLink.detail}
+          />
+        </div>
       ) : null}
       {localUniverse ? (
         <p

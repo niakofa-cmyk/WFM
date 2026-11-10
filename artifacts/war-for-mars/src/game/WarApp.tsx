@@ -894,6 +894,14 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
 
   const enterOrbitalUniverse = async () => {
     setUniverseEntryError("");
+    if (userId && !isOrbitalFreeFlightEnabled({
+      environment: import.meta.env.MODE,
+      featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+      prerequisitesReady: true,
+    })) {
+      setUniverseEntryError("Shared universe flight is disabled in this client build. No offline substitute was launched. Use a staging client with shared flight enabled.");
+      return false;
+    }
     if (!userId) {
       setOrbitalStartLocation("mars-orbit");
       setGalaxyOpen(false);
