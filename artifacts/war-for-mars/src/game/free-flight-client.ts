@@ -53,6 +53,7 @@ export class FreeFlightClient {
   private vectorBoostAvailable = false;
   private vectorBoostSeq = 1;
   private targetingAvailable = false;
+  private nearestTargetingAvailable = false;
   private assistanceAvailable = false;
   private countermeasuresAvailable = false;
   private countermeasureSeq = 1;
@@ -66,6 +67,15 @@ export class FreeFlightClient {
       ? this.lastTargetState : null;
   }
   get canSelectTarget() { return this.joined && this.targetingAvailable; }
+  get canSelectNearestTarget() { return this.canSelectTarget && this.nearestTargetingAvailable; }
+
+  selectNearestTarget() {
+    if (!this.canSelectNearestTarget || this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(JSON.stringify({
+      type: "freeflight_target_nearest", protocol: FREE_FLIGHT_TARGETING_V1, seq: this.targetCycleSeq++,
+    }));
+    return true;
+  }
   private sessionInstanceId: string | null = null;
   private readonly inputScheduler = new FreeFlightInputScheduler();
 
@@ -109,6 +119,7 @@ export class FreeFlightClient {
 
   stop() {
     this.targetingAvailable = false;
+    this.nearestTargetingAvailable = false;
     this.assistanceAvailable = false;
     this.lastTargetState = null;
     this.vectorBoostAvailable = false;
@@ -226,12 +237,13 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_joined") {
-        const targeting = packet.targeting as { protocol?: unknown; nextSeq?: unknown } | undefined;
+        const targeting = packet.targeting as { protocol?: unknown; nextSeq?: unknown; nearest?: unknown } | undefined;
         this.targetingAvailable = Boolean(targeting &&
           targeting.protocol === FREE_FLIGHT_TARGETING_V1 &&
           Number.isSafeInteger(targeting.nextSeq) && (targeting.nextSeq as number) > 0 &&
           (targeting.nextSeq as number) <= 0x7fffffff);
         if (targeting && this.targetingAvailable) this.targetCycleSeq = targeting.nextSeq as number;
+        this.nearestTargetingAvailable = this.targetingAvailable && targeting?.nearest === true;
         this.lastTargetState = null;
           const assistance = packet.assistance as { protocol?: unknown } | undefined;
           this.assistanceAvailable = assistance?.protocol === FREE_FLIGHT_ASSIST_V1;

@@ -14,3 +14,9 @@ Wing support calls are invitations to nearby authenticated same-faction pilots i
 **Why:** The owner wants a pilot to call for nearby human help during a live open-universe battle while keeping all participants and consequences in one continuous universe runtime.
 
 **How to apply:** Keep call creation, recipient selection, expiry, rate limits, battle membership, and settlement server-owned. A call or acceptance by itself never grants damage, kills, assists, or rewards.
+
+Prioritize nearby hostile threats when extending target selection, but preserve the pilot's chosen target while flying rather than continually replacing it with whichever enemy becomes closer.
+
+**Why:** The owner wants closest-enemy selection and useful cycling during multi-fleet combat, without losing deliberate aim or missile charge unexpectedly.
+
+**How to apply:** Keep explicit nearest selection distinct from maintaining an existing lock; proximity does not override server combat eligibility.

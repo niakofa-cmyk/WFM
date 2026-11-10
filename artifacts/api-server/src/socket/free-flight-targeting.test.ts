@@ -66,7 +66,17 @@ test("shared targeting cycles hostile ships, holds selection through flight and 
     let selection = packets.filter(packet => packet.type === "freeflight_target_state").at(-1)!
       .state as FreeFlightTargetState;
     assert.equal(isFreeFlightTargetState(selection), true);
-    assert.equal(selection.targetActorId, alpha, "the first server-owned cycle selects a deterministic hostile");
+    const frame = snapshot as { actors: Array<{
+      actorId: string; own: boolean; position: { x: number; y: number; z: number };
+    }> };
+    const own = frame.actors.find(actor => actor.own)!;
+    const nearest = frame.actors.filter(actor => actor.actorId === alpha || actor.actorId === bravo)
+      .sort((a, b) => Math.hypot(a.position.x - own.position.x, a.position.y - own.position.y,
+        a.position.z - own.position.z) - Math.hypot(b.position.x - own.position.x,
+        b.position.y - own.position.y, b.position.z - own.position.z) ||
+        a.actorId.localeCompare(b.actorId))[0]!.actorId;
+    assert.equal(selection.targetActorId, nearest, "selection starts with the closest eligible hostile in 3D");
+    assert.equal((joined.targeting as { nearest: boolean }).nearest, true);
     const selectedFirst = selection.targetActorId!;
 
     await runtime.handle(socket, userId, {
@@ -81,7 +91,16 @@ test("shared targeting cycles hostile ships, holds selection through flight and 
     selection = packets.filter(packet => packet.type === "freeflight_target_state").at(-1)!
       .state as FreeFlightTargetState;
     assert.notEqual(selection.targetActorId, selectedFirst, "the second switch selects the other hostile");
-    assert.equal(selection.targetActorId, bravo);
+    assert.equal(selection.targetActorId, selectedFirst === alpha ? bravo : alpha);
+
+    await new Promise(resolve => setTimeout(resolve, 130));
+    await runtime.handle(socket, userId, {
+      type: "freeflight_target_nearest", protocol: FREE_FLIGHT_TARGETING_V1, seq: seq + 2,
+    });
+    selection = packets.filter(packet => packet.type === "freeflight_target_state").at(-1)!
+      .state as FreeFlightTargetState;
+    assert.equal(selection.targetActorId, nearest, "NEAR returns directly to the nearest hostile");
+    assert.equal(selection.lockProgress, 0, "switching clears the previous target's missile charge");
 
     const selected = selection.targetActorId;
     let inputSeq = 1;

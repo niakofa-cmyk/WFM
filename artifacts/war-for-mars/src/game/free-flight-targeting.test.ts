@@ -43,6 +43,27 @@ function fighter(id: number, z: number): SpatialCraft {
   };
 }
 
+test("nearest-first cycling uses live 3D distance, wraps and breaks equal-distance ties by ID", () => {
+  const near = { actorId: "z-near", x: 0, y: 3, z: 4 };
+  const far = { actorId: "a-far", x: 0, y: 0, z: 90 };
+  const middle = { actorId: "m-middle", x: 0, y: 12, z: 0 };
+  const candidates = [far, middle, near];
+  const distance = (candidate: typeof near) => Math.hypot(candidate.x, candidate.y, candidate.z);
+  assert.equal(cycleFreeFlightTarget(candidates, null, distance), near);
+  assert.equal(cycleFreeFlightTarget(candidates, near.actorId, distance), middle);
+  assert.equal(cycleFreeFlightTarget(candidates, middle.actorId, distance), far);
+  assert.equal(cycleFreeFlightTarget(candidates, far.actorId, distance), near);
+  assert.equal(cycleFreeFlightTarget(candidates, "destroyed", distance), near);
+  assert.deepEqual(candidates, [far, middle, near], "selection never mutates the shared roster");
+  const tie = { ...near, actorId: "b-near" };
+  assert.equal(cycleFreeFlightTarget([near, tie], null, distance), tie);
+  assert.equal(cycleFreeFlightTarget([near], null, () => NaN), near);
+  assert.equal(cycleFreeFlightTarget(candidates, null, c => c === far ? NaN : distance(c)), near);
+  const pilotAt90 = (candidate: typeof near) => Math.hypot(candidate.x, candidate.y, candidate.z - 90);
+  assert.equal(cycleFreeFlightTarget(candidates, null, pilotAt90), far,
+    "an explicit nearest request uses the pilot's new position");
+});
+
 test("server flight tracking holds a guided-missile lock while moving, fires at that target and reacquires switches", () => {
   const pilot = fighter(1, 0), target = fighter(2, -35);
   const seeker = MISSILE_CATALOG["heavy-seeker"];

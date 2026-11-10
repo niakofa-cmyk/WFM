@@ -1950,7 +1950,7 @@ export function createFreeFlightRuntime(options: {
             protocol: VECTOR_BOOST_PROTOCOL_V1,
             nextSeq: (actor.vectorBoostSeq ?? 0) + 1,
           },
-          targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1 },
+          targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1, nearest: true },
           assistance: { protocol: FREE_FLIGHT_ASSIST_V1 },
           countermeasures: { protocol: 1, nextSeq: (actor.countermeasureSeq ?? 0) + 1,
             cooldownMs: Math.ceil((actor.craft.space!.countermeasureCd ?? 0) * 1000) },
@@ -2060,7 +2060,7 @@ export function createFreeFlightRuntime(options: {
       await respondToWingAssist(socket, seat, packet.callId, packet.accept);
       return;
     }
-    if (packet.type === "freeflight_target_cycle") {
+    if (packet.type === "freeflight_target_cycle" || packet.type === "freeflight_target_nearest") {
       const actor = seat.actor;
       if (Object.keys(packet).length !== 3 || packet.protocol !== FREE_FLIGHT_TARGETING_V1 ||
           !Number.isSafeInteger(packet.seq) || (packet.seq as number) < 1 ||
@@ -2078,7 +2078,9 @@ export function createFreeFlightRuntime(options: {
       actor.lastTargetCycleAt = now;
       const candidates = [...seat.session.actors.values()]
         .filter(candidate => eligiblePilotTarget(seat.session, actor, candidate));
-      const target = cycleFreeFlightTarget(candidates, actor.selectedTargetActorId ?? null) ?? undefined;
+      const target = cycleFreeFlightTarget(candidates,
+        packet.type === "freeflight_target_nearest" ? null : actor.selectedTargetActorId ?? null,
+        candidate => distanceBetween(actor, candidate)) ?? undefined;
       const changed = actor.selectedTargetActorId !== (target?.actorId ?? null);
       actor.selectedTargetActorId = target?.actorId ?? null;
       actor.craft.lockTargetId = target?.numericId ?? null;

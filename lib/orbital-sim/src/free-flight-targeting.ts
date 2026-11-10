@@ -10,16 +10,23 @@ export type FreeFlightTargetState = {
   missileCooldown: number;
   ammo: number;
 };
-/** Stable cycling order so every tap selects the same server-owned next target. */
+/** Nearest-first when distances are supplied; IDs break ties deterministically. */
 export function cycleFreeFlightTarget<T extends { actorId: string }>(
   candidates: readonly T[],
   currentTargetActorId: string | null,
+  distanceFromPilot: (candidate: T) => number = () => 0,
 ): T | null {
   if (!candidates.length) return null;
-  const ordered = [...candidates].sort((a, b) =>
-    a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0);
-  const current = ordered.findIndex(candidate => candidate.actorId === currentTargetActorId);
-  return ordered[(current + 1) % ordered.length]!;
+  const ordered = candidates.map(candidate => {
+    const distance = distanceFromPilot(candidate);
+    return { candidate, distance: Number.isFinite(distance) && distance >= 0 ? distance : Infinity };
+  }).sort((a, b) => {
+    if (a.distance !== b.distance) return a.distance < b.distance ? -1 : 1;
+    return a.candidate.actorId < b.candidate.actorId ? -1 :
+      a.candidate.actorId > b.candidate.actorId ? 1 : 0;
+  });
+  const current = ordered.findIndex(({ candidate }) => candidate.actorId === currentTargetActorId);
+  return ordered[(current + 1) % ordered.length]!.candidate;
 }
 export function isFreeFlightTargetState(value: unknown): value is FreeFlightTargetState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

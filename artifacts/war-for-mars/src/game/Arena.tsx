@@ -1003,6 +1003,7 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const nearestTargetRef = useRef<HTMLButtonElement>(null);
   const targetMarkerRef = useRef<HTMLDivElement>(null);
   const targetMarkerLabelRef = useRef<HTMLSpanElement>(null);
   const speedRef = useRef<HTMLSpanElement>(null);
@@ -3200,12 +3201,15 @@ export function Arena({
           lockRef.current.dataset.target = sharedTargetLabel;
           lockRef.current.dataset.locked = sharedLocked ? "true" : "false";
           lockRef.current.setAttribute("aria-label", sharedLocked
-            ? `Switch enemy target, selected ${sharedTargetLabel}`
-            : "Select enemy target");
+            ? `Next enemy by distance, selected ${sharedTargetLabel}`
+            : "Select closest enemy target");
         } else {
           // This node may be reused after leaving shared flight.
           lockRef.current.disabled = false;
         }
+      }
+      if (nearestTargetRef.current) {
+        nearestTargetRef.current.disabled = !freeFlightClientRef.current?.canSelectNearestTarget;
       }
       if (freeFlightEnabled) {
         // This HUD is a view of authoritative state, never a locally acquired
@@ -3758,6 +3762,7 @@ export function Arena({
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
                     {exploringHud && !sharedFreeFlightEngagementActive ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
+                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightEngagementActive) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -3947,6 +3952,7 @@ export function Arena({
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
                 {!exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
+                {freeFlightEnabled && (!exploringHud || sharedFreeFlightEngagementActive) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
                 {orbital ? (
                   !exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton
                     ref={missileRef}
