@@ -20,9 +20,53 @@ It verifies unchanged contract history and receipt fingerprint, no resurrected
 actor and no repeated settlement. Pending, active, unapplied, missing-receipt,
 duplicate-participant and invalid-fingerprint fixture variants fail closed.
 
-This is local compatibility evidence, not certification of live enemy
-destruction, shared rewards, continued exploration or the entire staging
-restart sequence. Authenticated staging entry must still be retested.
+This lifecycle test is local compatibility evidence. The authenticated staging
+pass below additionally verifies shared combat and post-battle flight, but does
+not independently establish the retired-actor checkpoint edge case or the
+entire staging restart sequence.
+
+### Authenticated combat follow-up — November 10, 2026
+
+Both existing staging pilots completed fresh sign-in with active sessions and
+authenticated profile HTTP 200. Using their retained browser owners, observers
+were attached before concurrent entry from the normal hangar. Both received
+fresh authoritative snapshots, were alive, shared the same session fingerprint,
+and received reciprocal nearby pilot actor data. Their ingress instance
+fingerprints differed while their authoritative owner and fencing token matched.
+The previous encounter-unavailable admission failure did not recur in this pass.
+
+Both pilots used bounded, concurrent firing and evasive movement. Authoritative
+evidence recorded primary and missile projectiles, shield/hull impacts and enemy
+destruction. Incremental settled receipts and the final complete settled result
+matched the authenticated balance changes:
+
+| Pilot slot | Confirmed kills | Assists | Settled credits | Balance before → after | Post-battle movement |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 2 | 2 | 12 + 12 = 24 CR | 330 → 354 CR | 5.49 m, alive |
+| 2 | 5 | 2 | 36 + 24 = 60 CR | 162 → 222 CR | 7.8 m, alive |
+
+Assists do not have a configured cash bonus; unequal awards are expected. Final
+observed hull was 33.6/125 and 125/125 respectively. Both retained one live
+socket with zero observed socket errors/closes and no captured boot errors.
+The test browsers were stopped after evidence collection. No live checkpoint,
+balance, ship-health, position or reward state was manually rewritten.
+
+**Limits:** This verifies shared-session combat, attribution, settled reward
+balance changes and immediate continued free flight, not a second-fleet victory,
+restart during active combat or cross-location travel. The starting state did
+not expose a disabled-pilot recovery panel or independently establish the exact
+completed-encounter/retired-actor history, so that compatibility edge remains
+locally verified rather than live-certified. Nearest-target buttons were
+exercised, but authoritative lock identity/progress was not established in this
+pass; maintained missile lock and two pilots locking the same target remain
+unproved. Reciprocal snapshots prove shared pilot presence, not visible teammate
+ship pixels. Gameplay captures show each own 3D ship, but do not establish a
+visually identifiable teammate or enemy ship at battle range.
+
+The private observer's `rejectedSnapshots` counter also increments when an
+accepted snapshot intentionally returns no separate event summary. It matched
+the valid snapshot count here and is not evidence of server admission rejection.
+Do not use that counter alone to diagnose unavailable saved encounters.
 
 ## Current result
 
