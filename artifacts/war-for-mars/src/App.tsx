@@ -205,7 +205,7 @@ function SignedInGame({ universe = false, orbital = false }: { universe?: boolea
         <WarApp initialUniverseOpen={universe} initialOrbitalOpen={orbital} />
       </Suspense>
       <ActionRecovery />
-      <div className="fixed right-3 top-3 z-[100]">
+      <div data-testid="account-control" className="wfm-account-control fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
     </>

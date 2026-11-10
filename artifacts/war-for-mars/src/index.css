@@ -2,3 +2,9 @@
 @import "tailwindcss";
 @import "@clerk/themes/shadcn.css";
 @import "./styles.css";
+
+/* Account administration belongs outside flight. The fixed avatar otherwise
+   intercepts pointer input intended for the top-right flight-menu button. */
+body:has([data-testid="arena-stage"]) .wfm-account-control {
+  display: none;
+}

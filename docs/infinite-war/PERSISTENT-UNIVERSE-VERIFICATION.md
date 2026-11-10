@@ -145,6 +145,26 @@ cross-replica gameplay.
 3. Repeat only the blocked combat/reward/recovery checks once those prerequisites
    are available. Preserve the passed shared-state and idle-restart evidence.
 
+### Remediation prepared after the first live pass
+
+- The fixed account avatar used the same top-right hit area as the flight-menu
+  button, at a higher stacking level. Account controls are now hidden while an
+  arena is mounted and remain available outside flight. This removes the
+  overlap rather than forcing a test click through another element.
+- The gateway now rotates the configured private socket service's DNS addresses
+  when opening upstream connections. The ordinary staging access/origin checks
+  and Clerk socket authentication remain in place. No caller-supplied instance,
+  hostname, credential bypass, or public test endpoint was introduced.
+- A real local integration test connects through the gated gateway to two
+  distinct WebSocket servers and verifies alternating delivery. DNS rotation,
+  fresh resolution, and resolution failures have focused regression coverage.
+- The complete workspace typecheck, test, and build workflow passed, including
+  both main-game and standalone Combat Lab bundle audits.
+- These are **implemented and locally checked remediations**, not replacement
+  evidence for the outstanding authenticated Railway combat/cross-instance
+  checks. Fresh retained staging sign-ins are required because the earlier
+  browser owners were deliberately stopped after their bounded test.
+
 ## Required architecture before claiming success
 
 1. Keep one WFM world identity and canonical spatial addresses; location IDs
