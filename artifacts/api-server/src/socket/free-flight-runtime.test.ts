@@ -911,7 +911,7 @@ test("disabled recovery preserves attribution, survives reconnect/expiry, and re
       loadCheckpoint: async () => ({
         stateVersion: 1, fencingToken: 1,
         checkpointSequence: recoveryCheckpoint!.checkpointSequence,
-        snapshot: structuredClone(recoveryCheckpoint!) as unknown as Record<string, unknown>,
+        snapshot: JSON.parse(JSON.stringify(recoveryCheckpoint!)) as Record<string, unknown>,
       }),
       saveCheckpoint: async (_key, state) => { roundTrip = structuredClone(state); return true; },
       settleScoutEncounter: async () => {
@@ -935,6 +935,34 @@ test("disabled recovery preserves attribution, survives reconnect/expiry, and re
     assert.deepEqual(roundTripHistory.participantActorIds, historical.participantActorIds);
     assert.equal(roundTripHistory.resultsApplied, true);
     assert.equal(roundTrip?.actors.some((actor) => actor.actorId === ownId), false);
+    assert.ok(roundTrip);
+    const restoredOwn = latestOwn();
+    const repeatedStart = packets.length;
+    const restoredAgain = createFreeFlightRuntime({
+      resolveAdmission: async () => admission,
+      resolveUniversePatrols: async () => [],
+      loadCheckpoint: async () => ({
+        stateVersion: 1, fencingToken: 2,
+        checkpointSequence: roundTrip!.checkpointSequence,
+        snapshot: JSON.parse(JSON.stringify(roundTrip!)) as Record<string, unknown>,
+      }),
+      settleScoutEncounter: async () => {
+        assert.fail("a second serialized restore must not replay a completed settlement");
+      },
+    });
+    try {
+      await restoredAgain.handle({ ...socket }, "disabled-pilot", { type: "freeflight_join" });
+      assert.ok(packets.slice(repeatedStart).some(packet => packet.type === "freeflight_joined"));
+      const repeatedOwn = latestOwn();
+      assert.equal(repeatedOwn.actorId, restoredOwn.actorId,
+        "repeated restore preserves the recovered actor rather than respawning it");
+      assert.equal(repeatedOwn.hull, restoredOwn.hull);
+      assert.equal(repeatedOwn.shield, restoredOwn.shield);
+      assert.equal(repeatedOwn.alive, true);
+      assert.equal(settlements, 1);
+    } finally {
+      await restoredAgain.close();
+    }
 
     // Deliberately malformed fixture variants may not turn history into active
     // authority, bypass pending settlement or award an already completed result.

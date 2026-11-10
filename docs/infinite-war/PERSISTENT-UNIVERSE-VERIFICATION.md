@@ -19,11 +19,42 @@ combat, settled defeat and normal server recovery, then restarts the runtime.
 It verifies unchanged contract history and receipt fingerprint, no resurrected
 actor and no repeated settlement. Pending, active, unapplied, missing-receipt,
 duplicate-participant and invalid-fingerprint fixture variants fail closed.
+The regression now passes the checkpoint through JSON serialization, matching
+the durable JSON storage boundary, and repeats restore from the newly emitted
+checkpoint. The recovered actor identity, hull, shields and life remain intact
+without a second settlement.
 
 This lifecycle test is local compatibility evidence. The authenticated staging
 pass below additionally verifies shared combat and post-battle flight, but does
 not independently establish the retired-actor checkpoint edge case or the
 entire staging restart sequence.
+
+### Maintained targeting investigation — local verification
+
+A stronger server-runtime regression uses two pilots in the same reserved
+encounter. Each selects the same hostile through normal server-owned target
+selection, then aims and translates with ordinary validated flight inputs.
+Both acquire lock progress 1 and missile readiness. Changing the first pilot's
+selection clears its charge and prevents launch with the old lock; it does not
+clear the second pilot's selection or charge, and that pilot can launch.
+No simulation stats, target positions or damage rules were altered to pass.
+
+The private staging driver's target-selection wait previously accepted any
+newer periodic target-state tick, even if its target was still null before the
+selection response arrived. It now waits for an actual authoritative selection
+or reports `selected: false`. A bounded, no-fire tracking operation can observe
+selection continuity, peak lock progress and ready samples while using normal
+evasive movement. These are diagnostic improvements, not proof that a previous
+null result was caused by the wait race, nor new live target-lock certification.
+Accepted snapshot packets no longer count as rejected merely because they
+produce no separate event summary.
+
+The expanded targeted server suite passes 25 tests and the API typecheck.
+The narrow staging CLI credential did not authenticate for a read-only
+checkpoint inspection; no broader credential was substituted. Exact live
+retired-actor recovery still requires the ordinary defeat/settlement/recovery
+sequence followed by a controlled staging socket restart and unchanged
+attribution/balance checks. Production is outside this test scope.
 
 ### Authenticated combat follow-up — November 10, 2026
 
@@ -63,7 +94,8 @@ unproved. Reciprocal snapshots prove shared pilot presence, not visible teammate
 ship pixels. Gameplay captures show each own 3D ship, but do not establish a
 visually identifiable teammate or enemy ship at battle range.
 
-The private observer's `rejectedSnapshots` counter also increments when an
+At the time of that pass, the private observer's `rejectedSnapshots` counter
+also incremented when an
 accepted snapshot intentionally returns no separate event summary. It matched
 the valid snapshot count here and is not evidence of server admission rejection.
 Do not use that counter alone to diagnose unavailable saved encounters.

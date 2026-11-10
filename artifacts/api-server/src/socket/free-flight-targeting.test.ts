@@ -6,6 +6,8 @@ import {
   FREE_FLIGHT_TARGETING_V1,
   isFreeFlightSnapshotV1,
   isFreeFlightTargetState,
+  rotate,
+  type FreeFlightSnapshotV1,
   type FreeFlightTargetState,
 } from "@workspace/orbital-sim";
 import { readExplorationReceipt } from "../game/exploration-encounter";
@@ -13,6 +15,149 @@ import type { UniversePatrolEncounter } from "../game/universe-patrols";
 import { createFreeFlightRuntime } from "./free-flight-runtime";
 
 type Packet = { type?: string; [key: string]: unknown };
+
+test("two pilots acquire a full missile lock on one enemy while moving and switch charge independently", async () => {
+  let now = Date.now();
+  const realNow = Date.now;
+  Date.now = () => now;
+  const contact: UniversePatrolEncounter = {
+    patrolId: "paired-lock-patrol001", locationId: "phobos-yard", faction: "ussf",
+    callsign: "Paired lock patrol", route: ["phobos-yard"], revision: 0,
+    ships: [1, 2].map(index => ({
+      id: `paired-lock-ship00${index}`, hullId: "duskbreaker",
+      name: "Duskbreaker", callsign: `TARGET ${index}`,
+    })),
+  };
+  const packets: Packet[][] = [[], []];
+  const sockets = packets.map(received => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (value: string) => { received.push(JSON.parse(value)); },
+    close: () => {},
+  }));
+  const users = ["paired-lock-lead", "paired-lock-wing"];
+  const frame = (index: number) => {
+    const snapshot = packets[index]!.filter(packet =>
+      isFreeFlightSnapshotV1(packet.snapshot)).at(-1)?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    return snapshot as FreeFlightSnapshotV1;
+  };
+  const selection = (index: number) => {
+    const state = packets[index]!.filter(packet =>
+      packet.type === "freeflight_target_state").at(-1)?.state;
+    assert.ok(isFreeFlightTargetState(state));
+    return state;
+  };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({
+      sessionKey: "mars:paired-lock", faction: "accord", shipId: "mandjet",
+    }),
+    resolveUniversePatrols: async () => [contact],
+    reserveUniversePatrol: async () => contact,
+    releaseUniversePatrol: async () => {},
+    settleScoutEncounter: async () => {
+      assert.fail("nonlethal lock acquisition must not settle an encounter");
+    },
+    patrolSpawnDistanceMeters: 30,
+  });
+  try {
+    for (let index = 0; index < 2; index++) {
+      await runtime.handle(sockets[index]!, users[index]!, {
+        type: "freeflight_join", openingEncounter: true,
+      });
+    }
+    await runtime.handle(sockets[1]!, users[1]!, {
+      type: "freeflight_engage", targetActorId: `patrol-ship:${contact.ships[0]!.id}`,
+    });
+    for (let index = 0; index < 2; index++) {
+      await runtime.handle(sockets[index]!, users[index]!, {
+        type: "freeflight_target_nearest", protocol: FREE_FLIGHT_TARGETING_V1, seq: 1,
+      });
+    }
+    const commonTarget = selection(0).targetActorId;
+    assert.ok(commonTarget);
+    if (selection(1).targetActorId !== commonTarget) {
+      now += 150;
+      await runtime.handle(sockets[1]!, users[1]!, {
+        type: "freeflight_target_cycle", protocol: FREE_FLIGHT_TARGETING_V1, seq: 2,
+      });
+    }
+    assert.equal(selection(1).targetActorId, commonTarget);
+    const starts = [0, 1].map(index => {
+      const snapshot = frame(index);
+      return snapshot.actors.find(actor => actor.actorId === snapshot.ownActorId)!.position;
+    });
+    const bounded = (value: number) => Math.max(-1, Math.min(1, value));
+    let seq = 0;
+    for (; seq < 600 && ![0, 1].every(index => selection(index).missileReady);) {
+      seq++;
+      now += 34;
+      for (let index = 0; index < 2; index++) {
+        const snapshot = frame(index);
+        const own = snapshot.actors.find(actor => actor.actorId === snapshot.ownActorId)!;
+        const target = snapshot.actors.find(actor => actor.actorId === commonTarget)!;
+        assert.ok(own.alive && target.alive);
+        const q = own.orientation;
+        const local = rotate([-q.x, -q.y, -q.z, q.w],
+          target.position.x - own.position.x, target.position.y - own.position.y,
+          target.position.z - own.position.z);
+        await runtime.handle(sockets[index]!, users[index]!, {
+          type: "freeflight_input", input: {
+            version: 5, seq, targetId: null, throttle: 0,
+            yaw: bounded(Math.atan2(-local.x, -local.z) * 2.1),
+            pitch: bounded(Math.atan2(local.y, Math.hypot(local.x, local.z)) * 2.1),
+            strafe: .12, vertical: .06, roll: 0, fire: false, missile: false,
+            boost: false, brake: false, inertial: false, aimAssist: false, countermeasure: false,
+          },
+        });
+      }
+      runtime.advance(now);
+      for (let index = 0; index < 2; index++) {
+        assert.equal(selection(index).targetActorId, commonTarget,
+          "normal maneuvering cannot silently replace either pilot's selection");
+      }
+    }
+    for (let index = 0; index < 2; index++) {
+      assert.equal(selection(index).lockProgress, 1, `pilot ${index} acquires full lock`);
+      assert.equal(selection(index).missileReady, true);
+      const snapshot = frame(index);
+      const end = snapshot.actors.find(actor => actor.actorId === snapshot.ownActorId)!.position;
+      assert.ok(Math.hypot(end.x - starts[index]!.x, end.y - starts[index]!.y,
+        end.z - starts[index]!.z) > .1, "lock acquisition includes actual ship translation");
+    }
+    now += 150;
+    await runtime.handle(sockets[0]!, users[0]!, {
+      type: "freeflight_target_cycle", protocol: FREE_FLIGHT_TARGETING_V1, seq: 2,
+    });
+    assert.notEqual(selection(0).targetActorId, commonTarget);
+    assert.equal(selection(0).lockProgress, 0);
+    assert.equal(selection(0).missileReady, false);
+    assert.equal(selection(1).targetActorId, commonTarget);
+    assert.equal(selection(1).lockProgress, 1, "another pilot's switch cannot clear this pilot's charge");
+    const firedBefore = packets.map(received =>
+      received.filter(packet => packet.type === "freeflight_weapon_fired").length);
+    now += 34;
+    for (let index = 0; index < 2; index++) {
+      await runtime.handle(sockets[index]!, users[index]!, {
+        type: "freeflight_input", input: {
+          version: 5, seq: seq + 1, targetId: null, throttle: 0, yaw: 0, pitch: 0,
+          strafe: 0, vertical: 0, roll: 0, fire: false, missile: true, boost: false,
+          brake: false, inertial: false, aimAssist: false, countermeasure: false,
+        },
+      });
+    }
+    runtime.advance(now);
+    const ownIds = [0, 1].map(index => frame(index).ownActorId);
+    const newShots = packets[0]!.filter(packet =>
+      packet.type === "freeflight_weapon_fired").slice(firedBefore[0]);
+    assert.equal(newShots.some(packet => packet.sourceActorId === ownIds[0]), false,
+      "the switched pilot cannot launch using the old target's charge");
+    assert.equal(newShots.some(packet => packet.sourceActorId === ownIds[1]), true,
+      "the other pilot can launch with its independently maintained lock");
+  } finally {
+    await runtime.close();
+    Date.now = realNow;
+  }
+});
 
 test("shared targeting cycles hostile ships, holds selection through flight and reports server missile readiness", async () => {
   let now = Date.now();
