@@ -330,6 +330,20 @@ export async function createFreeFlightSharedRuntime(options: {
     });
   }
 
+  function sendRouting(socket: FreeFlightSocket, owner: Owner) {
+    if (socket.readyState !== OPEN) return;
+    // Ephemeral process identities, not accounts, hosts, credentials, or poses.
+    // This lets staging distinguish real cross-replica routing from two clients
+    // that happened to land on the same ingress.
+    socket.send(JSON.stringify({
+      type: "freeflight_routing",
+      protocol: 1,
+      ingressInstanceId: instanceId,
+      ownerInstanceId: owner.instanceId,
+      fencingToken: owner.fencingToken,
+    }));
+  }
+
   function closeRemote(remote: RemoteSocket, code = 1001, reason = "Remote pilot disconnected") {
     if (remote.readyState !== OPEN) return;
     remote.readyState = CLOSE;
@@ -472,10 +486,12 @@ export async function createFreeFlightSharedRuntime(options: {
     }
     try {
       const route = proxyRoutes.get(socket);
+      let joined = false;
       if (route) {
         let packet: unknown;
         try { packet = JSON.parse(response.data!); } catch { packet = null; }
         if (object(packet) && packet.type === "freeflight_joined" && route.joining) {
+          joined = true;
           route.joining = false;
           for (const pending of route.pendingPackets.splice(0)) {
             await sendCommand(route.owner, {
@@ -487,6 +503,7 @@ export async function createFreeFlightSharedRuntime(options: {
         }
       }
       socket.send(response.data!);
+      if (joined && route) sendRouting(socket, route.owner);
     } catch {
       routeSockets.delete(response.connectionId);
       proxyRoutes.delete(socket);
@@ -622,6 +639,8 @@ export async function createFreeFlightSharedRuntime(options: {
       if (!runtime.hasUser(userId)) {
         localSockets.delete(socket);
         releaseUserSeat(admission.sessionKey, owner, userId, connectionId);
+      } else if (isCurrentOwner(admission.sessionKey, owner.fencingToken)) {
+        sendRouting(socket, owner);
       }
       return;
     }

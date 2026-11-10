@@ -161,6 +161,13 @@ test("two socket instances share one authoritative shard and restore it after ow
     const snapshotB = joinB.snapshot as FreeFlightSnapshotV1;
     assert.equal(snapshotB.sessionInstanceId, snapshotA.sessionInstanceId);
     assert.ok(snapshotB.actors.some((actor) => actor.callsign === "WING PILOT"));
+    await waitFor(() => pilotB.packets.some((packet) => packet.type === "freeflight_routing"));
+    const routeA = pilotA.packets.find((packet) => packet.type === "freeflight_routing")!;
+    const routeB = pilotB.packets.find((packet) => packet.type === "freeflight_routing")!;
+    assert.equal(routeA.protocol, 1);
+    assert.notEqual(routeA.ingressInstanceId, routeB.ingressInstanceId);
+    assert.equal(routeA.ownerInstanceId, routeB.ownerInstanceId);
+    assert.equal(routeA.fencingToken, routeB.fencingToken);
 
     await owner.close();
     await waitFor(() => pilotB.socket.readyState !== 1);
@@ -172,6 +179,9 @@ test("two socket instances share one authoritative shard and restore it after ow
     assert.equal(recoveredSnapshot.sessionInstanceId, snapshotA.sessionInstanceId);
     assert.equal(recoveredSnapshot.ownActorId, snapshotA.ownActorId);
     assert.equal(isFreeFlightSnapshotV1(recoveredSnapshot), true);
+    const recoveredRoute = recovered.packets.find((packet) => packet.type === "freeflight_routing")!;
+    assert.notEqual(recoveredRoute.ownerInstanceId, routeA.ownerInstanceId);
+    assert.ok(recoveredRoute.fencingToken > routeA.fencingToken);
   } finally {
     await Promise.all([owner.close(), proxy.close()]);
   }
