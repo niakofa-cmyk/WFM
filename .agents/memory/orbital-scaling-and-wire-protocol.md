@@ -41,3 +41,20 @@ client incompatibility, privacy exposure, and forged recovery claims.
 `docs/infinite-war/ORBITAL-SCALE-PROTOCOL-RECOVERY-REDESIGN.md`; require
 simulation replay, protocol compatibility, failure recovery, and staged
 multi-pilot evidence before enabling any network or authority change.
+
+**Owner decision:** use a dedicated Railway Redis service in WFM staging for
+live cross-instance coordination, and the existing WFM PostgreSQL database for
+durable universe checkpoints and recovery. Keep Production untouched until the
+staging proof passes; do not use another project's Redis or expose a public
+Redis endpoint.
+
+**Why:** the owner approved a persistent universe spanning locations, socket
+instances, and restarts, while keeping live transport separate from durable
+world truth.
+
+**How to apply:** Redis coordinates live session ownership, messages, and
+presence; PostgreSQL stores versioned checkpoints/events and idempotent
+settlement. Use fenced single-writer leases per spatial shard, preserve bounded
+interest visibility, and verify failover/restart recovery before any
+Production rollout. The currently implemented process-local runtime is not
+proof of this target.

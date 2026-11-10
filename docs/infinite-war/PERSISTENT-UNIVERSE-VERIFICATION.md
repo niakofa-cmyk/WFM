@@ -58,6 +58,16 @@ named Redis, Valkey, NATS, RabbitMQ, Kafka, or Pub/Sub service. Therefore a live
 multi-instance staging proof cannot be run on the current topology. This check
 did not change Railway resources or deployments.
 
+### Staging transport provisioning
+
+A dedicated Railway Redis service has now been provisioned in the WFM staging
+environment, in the socket service's `us-east4-eqdc4a` region. Railway reports
+the Redis deployment as successful with one replica, no public domain, no TCP
+proxy, and no pending changes. The Redis service is not yet connected to the
+WFM socket runtime; no application code, socket replica count, or Production
+resource was changed by this provisioning step. The persistence matrix above
+therefore remains **not verified**.
+
 ## Required architecture before claiming success
 
 1. Give the world a stable universe identity and canonical spatial address;
