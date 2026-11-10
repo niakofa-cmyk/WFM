@@ -289,3 +289,102 @@ test("one pilot account cannot hold active seats in two spatial shards", async (
     await Promise.all([first.close(), second.close()]);
   }
 });
+
+test("reading a lease does not extend the local simulation deadline", async () => {
+  const hub = new FakeRedisHub();
+  let now = 0;
+  const admission = async () => ({
+    sessionKey: "mars:rust-disc", faction: "ussf" as const, shipId: "sentinel" as const,
+  });
+  const local = createFreeFlightRuntime({ resolveAdmission: admission });
+  const shared = await createFreeFlightSharedRuntime({
+    runtime: local, bus: hub.client(), resolveAdmission: admission, now: () => now,
+  });
+  const pilot = socketHarness();
+  try {
+    await shared.handle(pilot.socket, "lease-pilot", { type: "freeflight_join" });
+    assert.equal(shared.sessionCount, 1);
+    now = 14_900;
+    await shared.handle(pilot.socket, "lease-pilot", { type: "freeflight_join" });
+    now = 15_001;
+    shared.advance();
+    assert.equal(shared.sessionCount, 0);
+    assert.equal(pilot.socket.readyState, 3);
+  } finally {
+    await shared.close();
+  }
+});
+
+test("a pending renewal and late success cannot keep an expired owner simulating", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const hub = new FakeRedisHub();
+  const bus = hub.client();
+  const originalEval = bus.eval;
+  let finishRenewal: ((value: number) => void) | undefined;
+  bus.eval = (script, options) => script.includes("PEXPIRE")
+    ? new Promise<number>((resolve) => { finishRenewal = resolve; })
+    : originalEval(script, options);
+  let now = 0;
+  const admission = async () => ({
+    sessionKey: "mars:rust-disc", faction: "ussf" as const, shipId: "sentinel" as const,
+  });
+  const local = createFreeFlightRuntime({ resolveAdmission: admission });
+  const shared = await createFreeFlightSharedRuntime({
+    runtime: local, bus, resolveAdmission: admission, now: () => now,
+  });
+  const pilot = socketHarness();
+  try {
+    await shared.handle(pilot.socket, "pending-lease-pilot", { type: "freeflight_join" });
+    now = 4_000;
+    t.mock.timers.tick(4_000);
+    assert.ok(finishRenewal, "renewal must be in flight");
+    now = 15_001;
+    shared.advance();
+    assert.equal(shared.sessionCount, 0);
+    assert.equal(pilot.socket.readyState, 3);
+    finishRenewal(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    shared.advance();
+    assert.equal(shared.sessionCount, 0, "late renewal cannot revive the old owner");
+    assert.equal(shared.pilotCount, 0);
+  } finally {
+    finishRenewal?.(0);
+    await shared.close();
+  }
+});
+
+test("a checkpoint load completing after lease loss cannot create an orphan session", async () => {
+  const hub = new FakeRedisHub();
+  let now = 0;
+  let finishLoad: (() => void) | undefined;
+  const admission = async () => ({
+    sessionKey: "mars:rust-disc", faction: "ussf" as const, shipId: "sentinel" as const,
+  });
+  const local = createFreeFlightRuntime({
+    resolveAdmission: admission,
+    loadCheckpoint: () => new Promise<null>((resolve) => {
+      finishLoad = () => resolve(null);
+    }),
+  });
+  const shared = await createFreeFlightSharedRuntime({
+    runtime: local, bus: hub.client(), resolveAdmission: admission, now: () => now,
+  });
+  const pilot = socketHarness();
+  try {
+    const joining = shared.handle(pilot.socket, "slow-checkpoint-pilot", { type: "freeflight_join" });
+    await waitFor(() => Boolean(finishLoad));
+    now = 15_001;
+    shared.advance();
+    finishLoad!();
+    await joining;
+    shared.advance();
+    assert.equal(shared.sessionCount, 0);
+    assert.equal(shared.pilotCount, 0);
+    assert.equal(pilot.socket.readyState, 3);
+    assert.equal(pilot.packets.some(packet => packet.type === "freeflight_joined"), false);
+  } finally {
+    finishLoad?.();
+    await shared.close();
+  }
+});

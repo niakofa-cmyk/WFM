@@ -81,12 +81,20 @@ free-flight recovery suite passed. Railway staging has a dedicated private
 Redis service. The socket source was connected to the updated branch and the
 shared-mode variables were applied only to the WFM staging environment.
 
-The latest Railway check still reported the socket deployment as `BUILDING`.
-The socket service was still at one replica at that check. Therefore the
-following are **not yet certified**: Redis-backed live startup, two
-authenticated pilots on separate replicas, cross-replica encounter assistance,
-or recovery after a real Railway process restart. No Production service or
-database was changed.
+The initial shared-runtime Railway deployment is healthy and two socket
+replicas are configured. Structured startup attributes confirm
+`redis-fenced-shards` and `checkpointStore: true`; the JSON log fields appear in
+Railway attributes rather than the message text. This is startup evidence only.
+Two authenticated pilots on separate replicas, cross-replica encounter
+assistance, and recovery after a real Railway process restart are **not yet
+certified**. No Production service or database was changed.
+
+The review also added a fail-closed local lease deadline. Pending Redis commands
+cannot keep an expired owner simulating, late renewal responses cannot revive
+it, and delayed checkpoint loads cannot recreate an abandoned session. Offline
+Redis command queuing is disabled and the command queue is bounded. All 260 API
+tests, the API typecheck, and the backend build passed after these changes.
+These safety changes require their own staging rollout confirmation.
 
 Before calling this a persistent distributed universe, verify in staging:
 

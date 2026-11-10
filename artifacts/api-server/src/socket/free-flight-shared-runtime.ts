@@ -193,13 +193,17 @@ export async function createFreeFlightSharedRuntime(options: {
   bus: FreeFlightRedisBus;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
   instanceId?: string;
+  now?: () => number;
 }) {
   const { runtime, bus, resolveAdmission } = options;
+  const leaseNow = options.now ?? Date.now;
   const instanceId = options.instanceId ?? randomUUID();
   if (!UUID_PATTERN.test(instanceId)) throw new Error("Invalid free-flight server identity.");
 
   const owners = new Map<string, Owner>();
   const ownerCheckedAt = new Map<string, number>();
+  const leaseDeadlines = new Map<string, number>();
+  const renewingOwners = new Set<string>();
   const localSockets = new Map<FreeFlightSocket, LocalRoute>();
   const proxyRoutes = new Map<FreeFlightSocket, ProxyRoute>();
   const routeSockets = new Map<string, FreeFlightSocket>();
@@ -223,22 +227,26 @@ export async function createFreeFlightSharedRuntime(options: {
   }
 
   async function claim(sessionKey: string): Promise<Owner | null> {
+    const requestedAt = leaseNow();
     const result = await bus.eval(CLAIM_SCRIPT, {
       keys: [leaseKey(sessionKey), fenceKey(sessionKey)],
       arguments: [instanceId, String(LEASE_TTL_MS)],
     });
     const fencingToken = Number(result);
     if (!Number.isSafeInteger(fencingToken) || fencingToken <= 0) return null;
+    if (leaseNow() >= requestedAt + LEASE_TTL_MS) return null;
     const owner = { instanceId, fencingToken };
     owners.set(sessionKey, owner);
-    ownerCheckedAt.set(sessionKey, Date.now());
+    ownerCheckedAt.set(sessionKey, requestedAt);
+    leaseDeadlines.set(sessionKey, requestedAt + LEASE_TTL_MS);
     runtime.setFencingToken(sessionKey, fencingToken);
     return owner;
   }
 
   async function resolveOwner(sessionKey: string): Promise<Owner | null> {
+    expireOwners();
     const known = owners.get(sessionKey);
-    const now = Date.now();
+    const now = leaseNow();
     if (known && now - (ownerCheckedAt.get(sessionKey) ?? 0) < OWNER_CACHE_MS) return known;
     const actual = parseOwner(await bus.get(leaseKey(sessionKey)));
     if (actual?.instanceId === instanceId && known?.fencingToken === actual.fencingToken) {
@@ -257,7 +265,19 @@ export async function createFreeFlightSharedRuntime(options: {
   }
 
   function isCurrentOwner(sessionKey: string, fencingToken: number) {
+    expireOwners();
     return owners.get(sessionKey)?.fencingToken === fencingToken;
+  }
+
+  function expireOwners() {
+    const now = leaseNow();
+    for (const sessionKey of owners.keys()) {
+      if (now < (leaseDeadlines.get(sessionKey) ?? 0)) continue;
+      owners.delete(sessionKey);
+      ownerCheckedAt.delete(sessionKey);
+      dropOwnedSession(sessionKey);
+      process.stderr.write('{"event":"freeflight_owner_lease_expired"}\n');
+    }
   }
 
   async function claimUserSeat(
@@ -290,6 +310,7 @@ export async function createFreeFlightSharedRuntime(options: {
   }
 
   function dropOwnedSession(sessionKey: string) {
+    leaseDeadlines.delete(sessionKey);
     for (const remote of [...remoteSockets.values()]) {
       if (remote.sessionKey !== sessionKey) continue;
       closeRemote(remote, 1012, "Free-flight session owner changed");
@@ -555,7 +576,8 @@ export async function createFreeFlightSharedRuntime(options: {
     if (localRoute) {
       const owner = await resolveOwner(localRoute.sessionKey);
       if (owner?.instanceId === instanceId &&
-          owner.fencingToken === localRoute.owner.fencingToken) {
+          owner.fencingToken === localRoute.owner.fencingToken &&
+          isCurrentOwner(localRoute.sessionKey, owner.fencingToken)) {
         await runtime.handle(socket, userId, packet);
       } else {
         localSockets.delete(socket);
@@ -583,6 +605,10 @@ export async function createFreeFlightSharedRuntime(options: {
       return;
     }
     if (owner.instanceId === instanceId) {
+      if (!isCurrentOwner(admission.sessionKey, owner.fencingToken)) {
+        safeClose(socket, 1013, "Shared flight owner lease expired");
+        return;
+      }
       const connectionId = randomUUID();
       if (!await claimUserSeat(admission.sessionKey, owner, userId, connectionId)) {
         socket.send(JSON.stringify({ type: "error", reason: "freeflight_session_already_active" }));
@@ -623,13 +649,21 @@ export async function createFreeFlightSharedRuntime(options: {
   }
 
   const renewTimer = setInterval(() => {
+    expireOwners();
     for (const [sessionKey, owner] of owners) {
+      if (renewingOwners.has(sessionKey)) continue;
+      renewingOwners.add(sessionKey);
+      const requestedAt = leaseNow();
       void bus.eval(RENEW_SCRIPT, {
         keys: [leaseKey(sessionKey)],
         arguments: [ownerValue(owner), String(LEASE_TTL_MS)],
       }).then((result) => {
+        // A delayed Redis response cannot revive an expired local owner.
+        expireOwners();
+        if (closing || closed || owners.get(sessionKey) !== owner) return;
         if (Number(result) === 1) {
-          ownerCheckedAt.set(sessionKey, Date.now());
+          ownerCheckedAt.set(sessionKey, requestedAt);
+          leaseDeadlines.set(sessionKey, requestedAt + LEASE_TTL_MS);
           for (const [socket, route] of localSockets) {
             if (route.sessionKey !== sessionKey) continue;
             void renewUserSeat(
@@ -656,10 +690,11 @@ export async function createFreeFlightSharedRuntime(options: {
         ownerCheckedAt.delete(sessionKey);
         dropOwnedSession(sessionKey);
       }).catch(() => {
+        if (owners.get(sessionKey) !== owner) return;
         owners.delete(sessionKey);
         ownerCheckedAt.delete(sessionKey);
         dropOwnedSession(sessionKey);
-      });
+      }).finally(() => renewingOwners.delete(sessionKey));
     }
     const now = Date.now();
     for (const remote of remoteSockets.values()) {
@@ -694,7 +729,13 @@ export async function createFreeFlightSharedRuntime(options: {
   return {
     handle,
     detach,
-    advance(now?: number) { runtime.advance(now); },
+    advance(now?: number) {
+      if (closing || closed) return;
+      // Redis commands can remain pending during an outage. Stop simulation at
+      // the last confirmed lease deadline, independently of promise completion.
+      expireOwners();
+      runtime.advance(now);
+    },
     get sessionCount() { return runtime.sessionCount; },
     get pilotCount() { return runtime.pilotCount; },
     async close() {
@@ -728,6 +769,7 @@ export async function createFreeFlightSharedRuntime(options: {
         }
         closed = true;
         owners.clear();
+        leaseDeadlines.clear();
         proxyRoutes.clear();
         routeSockets.clear();
         localSockets.clear();

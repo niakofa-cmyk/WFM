@@ -9,6 +9,12 @@ runtime instances and owner recovery with a shared test transport/store. They
 do not prove behavior against Railway Redis, the staging PostgreSQL database,
 or two authenticated staging pilots. Production remains untouched.
 
+The initial Redis-backed staging deployment is now healthy with two configured
+socket replicas. Its structured startup log confirms `redis-fenced-shards` and
+`checkpointStore: true`. This proves startup, not shared gameplay or recovery.
+The subsequent lease-expiry safety review passed all 260 API tests; its new
+deployment still requires separate confirmation.
+
 ## What the implementation establishes
 
 - Authenticated admission reads the pilot's saved world location and derives a
@@ -20,6 +26,10 @@ or two authenticated staging pilots. Production remains untouched.
 - A Redis-backed per-pilot seat prevents one account from occupying two
   location sessions at once. A replacement owner can take over the same shard
   only with a newer fencing token.
+- A local lease deadline stops simulation even if a Redis renewal promise is
+  still pending. Reading a lease does not renew it; a late renewal response or
+  checkpoint load cannot revive the expired owner's runtime. Redis's offline
+  command queue is disabled and its pending command queue is bounded.
 - Nearby actor snapshots are scoped to one session and its bounded spatial
   interest radius. Pilots admitted to different location keys do not share
   exact actor snapshots or live encounters; each remains a spatial shard of the
@@ -39,6 +49,7 @@ or two authenticated staging pilots. Production remains untouched.
 
 | Requirement | Current status | Evidence needed for a pass |
 | --- | --- | --- |
+| Redis/checkpoint startup | **Initial staging deployment passes** | Railway reports the deployment healthy; structured startup attributes confirm Redis-fenced mode and a checkpoint store. Repeat after the safety update. |
 | Shared location session | **Local adapter test passes** | Two independent runtime wrappers receive the same server session and nearby actors through a shared fake Redis transport; repeat with authenticated staging clients. |
 | Travel across locations in one universe | **Partial** | Different canonical locations remain isolated shards and the same account cannot hold two seats; seamless coordinate/world-state travel still needs staging verification. |
 | Multiple socket processes | **Local adapter test passes** | Independent runtimes relay through the test transport; verify on two Railway socket replicas with real Redis. |
@@ -47,7 +58,9 @@ or two authenticated staging pilots. Production remains untouched.
 
 ## Checks run
 
-The focused free-flight and encounter suite passed **22/22 tests** with:
+The focused free-flight and encounter suite now contains **25 tests**. The full
+API suite, including these tests, passed **260/260**, alongside the API typecheck
+and backend build. The focused suite can be run with:
 
 ```sh
 pnpm --filter @workspace/api-server exec tsx --test \
@@ -59,25 +72,22 @@ pnpm --filter @workspace/api-server exec tsx --test \
 These tests use independent runtime instances and a shared in-memory test
 transport/checkpoint store. They verify shared shard snapshots, isolated
 locations, single-flight initialization, one active account seat, and state
-restoration after the owner is replaced. They do not connect to actual Railway
-services or authenticate browser pilots.
-
-The read-only staging infrastructure check found one socket replica and no
-named Redis, Valkey, NATS, RabbitMQ, Kafka, or Pub/Sub service. Therefore a live
-multi-instance staging proof cannot be run on the current topology. This check
-did not change Railway resources or deployments.
+restoration after the owner is replaced. Lease-expiry tests cover recent lease
+reads, pending renewals, late successful responses, and checkpoint loads that
+finish after ownership is lost. They do not connect to actual Railway services
+or authenticate browser pilots.
 
 ### Staging rollout
 
 A dedicated private Railway Redis service is provisioned in WFM staging in the
 socket service's `us-east4-eqdc4a` region. The socket service source points to
 the updated branch, and the Redis-backed shared-runtime variables are scoped to
-the staging environment only. Railway reported the resulting socket deployment
-as `BUILDING` at the last check; the socket still had one replica then. Do not
-count configuration or a successful build as proof that the runtime connected
-to Redis or restored a live session. Until the deployment is healthy and the
-two-pilot, multi-replica, and restart checks pass, the persistence matrix remains
-**not verified in staging**.
+the staging environment only. Railway reports the initial shared-runtime
+deployment healthy, with two socket replicas configured. Its structured log
+attributes confirm Redis-fenced routing and a checkpoint store. The safety
+update has passed local checks but still needs its own rollout confirmation.
+Until the authenticated two-pilot, cross-replica, and restart checks pass,
+distributed gameplay and recovery remain **not verified in staging**.
 
 ## Required architecture before claiming success
 

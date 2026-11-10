@@ -61,3 +61,14 @@ settlement. Use fenced single-writer leases per spatial shard, preserve bounded
 interest visibility, and verify failover/restart recovery before any
 Production rollout. Local fake-transport tests are useful coverage, but they
 are not proof against the Railway staging services.
+
+Lease expiry must be enforced locally before simulation advances, independently
+of Redis promise completion. A lease read is not a renewal; a late response or
+pending checkpoint load must not revive an owner after authority is lost.
+
+**Why:** Redis clients can queue or delay commands during disconnection, so a
+renewal-error handler alone does not guarantee that stale simulation stops.
+
+**How to apply:** keep conservative confirmed lease deadlines, bound transport
+queues, invalidate asynchronous session initialization on ownership loss, and
+test stalled renewals as well as explicit failures.

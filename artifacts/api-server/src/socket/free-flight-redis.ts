@@ -5,7 +5,12 @@ export async function connectFreeFlightRedis(url: string): Promise<FreeFlightRed
   if (!url.startsWith("redis://") && !url.startsWith("rediss://")) {
     throw new Error("Free-flight Redis URL must use Redis or TLS Redis.");
   }
-  const publisher = createClient({ url });
+  const publisher = createClient({
+    url,
+    disableOfflineQueue: true,
+    commandsQueueMaxLength: 2_048,
+    socket: { connectTimeout: 5_000 },
+  });
   const subscriber = publisher.duplicate();
   const reportError = () => {
     process.stderr.write('{"event":"freeflight_redis_transport_error"}\n');

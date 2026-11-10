@@ -710,8 +710,10 @@ export function createFreeFlightRuntime(options: {
     if (existing) return sessionFor(key, now, patrols);
     const pending = sessionInitializations.get(key);
     if (pending) return pending;
+    const expectedFence = fencingTokens.get(key);
     const initialization = (async () => {
       const checkpoint = await options.loadCheckpoint?.(key) ?? null;
+      if (closed || fencingTokens.get(key) !== expectedFence) return null;
       return sessionFor(key, now, patrols, checkpoint);
     })().finally(() => sessionInitializations.delete(key));
     sessionInitializations.set(key, initialization);
@@ -1818,6 +1820,7 @@ export function createFreeFlightRuntime(options: {
           previous.actors.delete(prior.actorId);
           previous.pilotByUser.delete(userId);
         }
+        if (closed || socket.readyState !== OPEN) return;
         const session = await getOrInitializeSession(
           admission.sessionKey, now, initialPatrols,
         );
@@ -2244,6 +2247,9 @@ export function createFreeFlightRuntime(options: {
   }
 
   function relinquishSession(sessionKey: string) {
+    // Invalidate pending checkpoint loads too, even before a session exists.
+    fencingTokens.delete(sessionKey);
+    lastCheckpointAt.delete(sessionKey);
     const session = sessions.get(sessionKey);
     if (!session) return;
     for (const actor of session.pilotByUser.values()) {
@@ -2259,8 +2265,6 @@ export function createFreeFlightRuntime(options: {
       socket.close(1012, "Free-flight session owner changed");
     }
     sessions.delete(sessionKey);
-    lastCheckpointAt.delete(sessionKey);
-    fencingTokens.delete(sessionKey);
   }
 
   async function flushCheckpoints() {
