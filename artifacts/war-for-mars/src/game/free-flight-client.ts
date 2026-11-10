@@ -53,6 +53,11 @@ export class FreeFlightClient {
   private vectorBoostSeq = 1;
   private targetingAvailable = false;
   private assistanceAvailable = false;
+  private countermeasuresAvailable = false;
+  private countermeasureSeq = 1;
+  private countermeasureReadyAt = 0;
+  get canDeployCountermeasure() { return this.joined && this.countermeasuresAvailable; }
+  get countermeasureCooldownMs() { return Math.max(0, this.countermeasureReadyAt - performance.now()); }
   private targetCycleSeq = 1;
   private lastTargetState: FreeFlightTargetState | null = null;
   get targetState() {
@@ -123,6 +128,9 @@ export class FreeFlightClient {
   sendControls(value: Partial<FlightControlFrame> & { lock?: boolean }) {
     const socket = this.socket;
     if (!this.joined || !socket || socket.readyState !== WebSocket.OPEN) return;
+    if (value.countermeasure && this.countermeasuresAvailable) socket.send(JSON.stringify({
+      type: "freeflight_countermeasure", protocol: 1, seq: this.countermeasureSeq++,
+    }));
     // Consume the edge before the 20Hz continuous-input coalescer can drop it.
     if (value.lock && this.targetingAvailable) socket.send(JSON.stringify({
       type: "freeflight_target_cycle", protocol: FREE_FLIGHT_TARGETING_V1, seq: this.targetCycleSeq++,
@@ -148,7 +156,7 @@ export class FreeFlightClient {
       brake: controls.brake,
       inertial: controls.inertial,
       aimAssist: controls.aimAssist,
-      countermeasure: controls.countermeasure,
+      countermeasure: false,
     };
     socket.send(JSON.stringify({ type: "freeflight_input", input }));
   }
@@ -226,6 +234,13 @@ export class FreeFlightClient {
         this.lastTargetState = null;
           const assistance = packet.assistance as { protocol?: unknown } | undefined;
           this.assistanceAvailable = assistance?.protocol === FREE_FLIGHT_ASSIST_V1;
+        const defenses = packet.countermeasures as { protocol?: unknown; nextSeq?: unknown; cooldownMs?: unknown } | undefined;
+        this.countermeasuresAvailable = defenses?.protocol === 1 &&
+          Number.isSafeInteger(defenses.nextSeq) && (defenses.nextSeq as number) > 0;
+        if (this.countermeasuresAvailable) this.countermeasureSeq = defenses!.nextSeq as number;
+        this.countermeasureReadyAt = performance.now() +
+          (typeof defenses?.cooldownMs === "number" && Number.isFinite(defenses.cooldownMs)
+            ? Math.max(0, Math.min(3500, defenses.cooldownMs)) : 0);
         const vector = packet.vectorBoost as { protocol?: unknown; nextSeq?: unknown } | undefined;
         this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
           Number.isSafeInteger(vector.nextSeq) && (vector.nextSeq as number) > 0;
@@ -269,7 +284,16 @@ export class FreeFlightClient {
         this.acceptSnapshot(packet.snapshot);
         return;
       }
-      if (packet.type === "freeflight_vector_boost_state" ||
+      if (packet.type === "freeflight_countermeasure_state") {
+        if (packet.protocol === 1 && typeof packet.cooldownMs === "number" &&
+            Number.isFinite(packet.cooldownMs) && packet.cooldownMs >= 0 && packet.cooldownMs <= 3500) {
+          this.countermeasureReadyAt = performance.now() + packet.cooldownMs;
+          this.options.onCombatPacket?.(packet);
+        }
+        return;
+      }
+      if (packet.type === "freeflight_world_impact" ||
+          packet.type === "freeflight_vector_boost_state" ||
           packet.type === "freeflight_recovered" ||
           packet.type === "freeflight_assist_request" ||
           packet.type === "freeflight_assist_call_result" ||

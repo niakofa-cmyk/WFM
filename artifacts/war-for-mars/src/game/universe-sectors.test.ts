@@ -74,7 +74,8 @@ test("origin shifts keep the camera frame with the pilot and return vectors acro
 
 test("Cinder stays a fixed destination while streamed sector rocks share collision coordinates", () => {
   const colliders = universeSectorColliders(ORIGIN_SECTOR);
-  assert.ok(colliders.some((rock) => rock.r === 67 && rock.x === -100 && rock.z === -200));
+  assert.ok(colliders.some((rock) => rock.r === 65 && rock.x === -100 && rock.z === -200),
+    "the solid body matches the rendered 65m Mars sphere, not its atmospheric glow");
   assert.ok(universeSectorColliders({ x: "1", y: "0", z: "0" }).some((rock) => rock.r < 20));
   const cinderFromNextSector = positionInCurrentSector(
     { x: "0", y: "0", z: "-1" }, ORIGIN_SECTOR, { x: 0, y: 0, z: -118 },

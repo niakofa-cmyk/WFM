@@ -5,6 +5,16 @@ description: Owner-supplied vision, original reference and safe staged flight ex
 
 The owner wants a phone-first space-pilot experience with real vertical flight,
 momentum, tactical combat and exploration connected to the existing campaign.
+
+Solid world objects must obstruct flight, and visible projectile impacts must
+match server-owned contact geometry rather than merely look close to a ship.
+
+**Why:** the owner explicitly rejected flying through asteroids, Mars and other
+physical objects and asked to recover the training build's collision behavior.
+
+**How to apply:** distinguish rendered scenery from certified physical geometry;
+preserve world-cover blocking and shared prediction/authority while separately
+calibrating mesh silhouettes, station apertures and collision damage policy.
 The full source is retained at
 `docs/references/wfm-open-universe-flight-vision.md`.
 The latest owner-supplied infinite-universe and master game-development

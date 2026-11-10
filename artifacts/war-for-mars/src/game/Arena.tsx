@@ -894,7 +894,13 @@ export function Arena({
                 freeFlightWeaponEffectsRef.current.length - 160,
               );
             }
-          } else if (packet.type === "freeflight_weapon_event" &&
+          } else if (packet.type === "freeflight_countermeasure_state" &&
+              typeof packet.activated === "boolean" && Number.isSafeInteger(packet.decoyed) &&
+              Number.isSafeInteger(packet.disrupted)) {
+            setFreeFlightNotice(packet.activated
+              ? `COUNTERMEASURE · ${packet.decoyed} decoyed · ${packet.disrupted} disrupted`
+              : "COUNTERMEASURE · No incoming seeker or defense recharging");
+          } else if ((packet.type === "freeflight_weapon_event" || packet.type === "freeflight_world_impact") &&
               typeof packet.eventId === "string" && isFlightVector(packet.to)) {
             const effect = freeFlightWeaponEffectsRef.current.find(
               (candidate) => candidate.eventId === packet.eventId,
@@ -3109,8 +3115,12 @@ export function Arena({
             bullet.missile && bullet.faction !== player.faction && bullet.homeId === player.id,
           ).length;
           if (incomingCount > 0) countermeasureUntilRef.current = Math.max(countermeasureUntilRef.current, match.time + 2);
-          const incomingMissile = incomingCount > 0 || match.time < countermeasureUntilRef.current;
-          const countermeasureCd = s.countermeasureCd ?? 0;
+          const incomingMissile = freeFlightEnabled
+            ? freeFlightClientRef.current?.canDeployCountermeasure === true
+            : incomingCount > 0 || match.time < countermeasureUntilRef.current;
+          const countermeasureCd = freeFlightEnabled
+            ? (freeFlightClientRef.current?.countermeasureCooldownMs ?? 0) / 1000
+            : s.countermeasureCd ?? 0;
           countermeasureRef.current.disabled = !player.alive || !incomingMissile || countermeasureCd > 0;
           countermeasureRef.current.hidden = !incomingMissile;
           if (countermeasureVisibleRef.current !== incomingMissile) {

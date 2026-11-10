@@ -16,6 +16,70 @@ import type { UniversePatrolEncounter } from "../game/universe-patrols";
 import { authenticateTestSocket, createSocketTestAuth } from "./test-session-auth";
 
 type Packet = { type?: string; reason?: string; [key: string]: unknown };
+
+test("shared countermeasures deflect only incoming seekers, enforce intent bounds and preserve cooldown on restart", async () => {
+  let stored: import("./free-flight-runtime").FreeFlightSessionCheckpointV1 | undefined;
+  const resolveAdmission = async (userId: string) => ({
+    sessionKey: "mars:defense-test", faction: userId === "foe" ? "accord" as const : "ussf" as const,
+    shipId: userId === "foe" ? "mandjet" as const : "glide" as const,
+  });
+  const saveCheckpoint = async (_key: string, state: import("./free-flight-runtime").FreeFlightSessionCheckpointV1) => {
+    stored = structuredClone(state); return true;
+  };
+  const packets: Packet[] = [];
+  const socket = { readyState: 1, bufferedAmount: 0,
+    send: (data: string) => packets.push(JSON.parse(data)), close: () => {} };
+  const other = { ...socket, send: () => {} };
+  const original = createFreeFlightRuntime({ resolveAdmission, saveCheckpoint });
+  await original.handle(socket, "pilot", { type: "freeflight_join" });
+  await original.handle(other, "foe", { type: "freeflight_join" });
+  await original.close();
+  const pilot = stored!.actors.find(a => a.ownerUserId === "pilot")!;
+  const foe = stored!.actors.find(a => a.ownerUserId === "foe")!;
+  const base = { x: 100, y: 0, z: 0, vx: -20, vy: 0, vz: 0,
+    life: 10, dmg: 8, r: .3, homeId: pilot.numericId, missile: true,
+    sourceActorId: foe.actorId, faction: "accord" as const };
+  stored!.projectiles = [
+    { ...base, id: 1, countermeasureClass: "standard" },
+    { ...base, id: 2, countermeasureClass: "hardened" },
+    { ...base, id: 3, faction: "ussf", countermeasureClass: "standard" },
+    { ...base, id: 4, homeId: foe.numericId, countermeasureClass: "standard" },
+  ];
+  stored!.nextProjectileId = 5;
+  const makeRuntime = () => createFreeFlightRuntime({ resolveAdmission, saveCheckpoint,
+    loadCheckpoint: async () => ({ stateVersion: 1, fencingToken: 1,
+      checkpointSequence: stored!.checkpointSequence,
+      snapshot: structuredClone(stored!) as unknown as Record<string, unknown> }) });
+  let runtime = makeRuntime();
+  try {
+    await runtime.handle(socket, "pilot", { type: "freeflight_join" });
+    const admission = [...packets].reverse().find(p => p.type === "freeflight_joined")!;
+    assert.equal((admission.countermeasures as { protocol: number }).protocol, 1);
+    await runtime.handle(socket, "pilot", { type: "freeflight_countermeasure", protocol: 1, seq: 1, hull: 999 });
+    assert.equal(packets.at(-1)?.reason, "invalid_freeflight_countermeasure");
+    await runtime.handle(socket, "pilot", { type: "freeflight_countermeasure", protocol: 1, seq: 1 });
+    const defense = packets.at(-1)!;
+    assert.equal(defense.activated, true);
+    assert.equal(defense.decoyed, 1);
+    assert.equal(defense.disrupted, 1);
+    assert.equal(defense.cooldownMs, 3500);
+    await runtime.handle(socket, "pilot", { type: "freeflight_countermeasure", protocol: 1, seq: 1 });
+    assert.equal(packets.at(-1)?.reason, "invalid_freeflight_countermeasure");
+    await runtime.close();
+    assert.equal(stored!.projectiles[0]!.homeId, null);
+    assert.equal(stored!.projectiles[1]!.homeId, pilot.numericId);
+    assert.ok(stored!.projectiles[1]!.guidanceSuppressed! > 0);
+    assert.equal(stored!.projectiles[2]!.homeId, pilot.numericId);
+    assert.equal(stored!.projectiles[3]!.homeId, foe.numericId);
+    runtime = makeRuntime();
+    await runtime.handle(socket, "pilot", { type: "freeflight_join" });
+    const joined = [...packets].reverse().find(p => p.type === "freeflight_joined")!;
+    assert.equal((joined.countermeasures as { cooldownMs: number }).cooldownMs, 3500);
+    await runtime.handle(socket, "pilot", { type: "freeflight_countermeasure", protocol: 1, seq: 2 });
+    assert.equal(packets.at(-1)?.reason, "freeflight_rate_limited");
+  } finally { await runtime.close(); }
+});
+
 const auth = createSocketTestAuth();
 
 function nextPacket(socket: WebSocket, accepts: (packet: Packet) => boolean, timeoutMs = 4_000) {

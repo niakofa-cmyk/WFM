@@ -1,5 +1,5 @@
 import type { AnomalyGravityWellV1, Rock } from "@workspace/orbital-sim";
-import { anomalyGravityWellForSector, seedUniverseSector, type SeededUniverseSector } from "@workspace/orbital-sim";
+import { anomalyGravityWellForSector, seedUniverseSector, universeCollisionSpheres, type SeededUniverseSector } from "@workspace/orbital-sim";
 
 /**
  * Sector-local coordinates stay small for deterministic flight. The address is
@@ -29,7 +29,6 @@ export type UniverseAnomalySignal = {
 
 const COORDINATE = /^-?(0|[1-9]\d*)$/;
 const contentsCache = new Map<string, UniverseSectorContents>();
-const colliderCache = new Map<string, Rock[]>();
 const gravityWellCache = new Map<string, readonly AnomalyGravityWellV1[]>();
 
 function coordinate(value: string): bigint {
@@ -227,24 +226,8 @@ export function universeSectorGravityWells(address: UniverseSectorAddress): read
 
 /** Collision candidates use the same deterministic rocks as sector visuals. */
 export function universeSectorColliders(address: UniverseSectorAddress): Rock[] {
-  const key = sectorAddressKey(address);
-  const cached = colliderCache.get(key);
-  if (cached) return cached;
-  const rocks: Rock[] = [];
-  for (const sector of nearbyUniverseSectors(address)) {
-    for (const asteroid of sector.contents.asteroids) {
-      const x = sector.offset.x + asteroid.x;
-      const y = sector.offset.y + asteroid.y;
-      const z = sector.offset.z + asteroid.z;
-      if (Math.hypot(x, y, z) <= 320 + asteroid.r) rocks.push({ x, y, z, r: asteroid.r });
-    }
-  }
-
-  const mars = nearbySectorOffset(address, ORIGIN_SECTOR);
-  if (mars) rocks.push({ x: mars.x - 100, y: mars.y + 21 - 0.9, z: mars.z - 200, r: 67 });
-  if (colliderCache.size >= 64) colliderCache.delete(colliderCache.keys().next().value!);
-  colliderCache.set(key, rocks);
-  return rocks;
+  sectorAddressKey(address); // Retain strict canonical address validation.
+  return universeCollisionSpheres(address);
 }
 
 /** Distance from the local craft frame to a stable destination in a known sector. */

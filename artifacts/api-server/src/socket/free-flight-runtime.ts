@@ -32,7 +32,11 @@ import {
   rotate,
   spawnMissileVolley,
   spawnPrimaryVolley,
-  sphereSweepTime,
+  firstWorldImpact,
+  movingSphereImpact,
+  universeCollidersAt,
+  resolveUniverseMotion,
+  deployCountermeasure,
   type FlightControls,
   type FreeFlightActorV1,
   type AnomalyGravityWellV1,
@@ -107,6 +111,9 @@ type Actor = {
   input: SharedInput;
   vectorBoost?: VectorBoostState;
   vectorBoostSeq?: number;
+  countermeasureSeq?: number;
+  lastCountermeasureTick?: number;
+  previousPosition?: { x: number; y: number; z: number };
   selectedTargetActorId?: string | null;
   targetCycleSeq?: number;
   lastTargetCycleAt?: number;
@@ -243,6 +250,7 @@ function craftFor(
   const space = newFlight(yaw);
   space.y = y;
   space.ammo = def.missileAmmo;
+  space.countermeasureCd = 0;
   return {
     id, x, z, yaw, pitch: 0, speed: 0, steer: 0,
     hull: def.hull, hullMax: def.hull, alive: true,
@@ -327,9 +335,16 @@ function patrolInput(actor: Actor, searchTarget?: { x: number; y: number; z: num
   const { craft } = actor;
   const space = craft.space!;
   const dx = target.x - craft.x;
-  const dy = target.y - space.y;
+  let dy = target.y - space.y;
   const dz = target.z - craft.z;
   const distance = detHypot(detHypot(dx, dy), dz);
+  const lookahead = Math.min(1, 70 / Math.max(1, distance));
+  const obstacle = firstWorldImpact(
+    { x: craft.x, y: space.y, z: craft.z },
+    { x: craft.x + dx * lookahead, y: space.y + dy * lookahead, z: craft.z + dz * lookahead },
+    universeCollidersAt({ x: craft.x, y: space.y, z: craft.z }), craft.radius + 6,
+  );
+  if (obstacle) dy = Math.max(dy, (obstacle.rock.y ?? 0) + obstacle.rock.r + craft.radius + 18 - space.y);
   if (!searchTarget && distance < 90) actor.waypointIndex = (actor.waypointIndex + 1) % actor.waypoints.length;
   const q = space.q;
   const local = rotate([-q[0], -q[1], -q[2], q[3]], dx, dy, dz);
@@ -976,12 +991,13 @@ export function createFreeFlightRuntime(options: {
     const target = combatActive ? combatTarget(session, actor) : undefined;
     const primaryTarget = combatActive ? combatTarget(session, actor, true) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
+    const cover = universeCollidersAt({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z });
     actor.craft.lockTargetId = target?.numericId ?? null;
-    acquireTarget(actor.craft, target?.craft, ORBITAL_DT, [], missile);
+    acquireTarget(actor.craft, target?.craft, ORBITAL_DT, cover, missile);
     const ship = SHIPS[actor.shipId];
     if (input.fire && actor.primaryCooldown <= 0) {
       const bullets = spawnPrimaryVolley(
-        actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, [],
+        actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, cover,
         PRIMARY_WEAPON_CATALOG[ship.primaryFit],
       );
       if (actor.kind === "pilot" && combatActive && primaryTarget) {
@@ -1001,7 +1017,7 @@ export function createFreeFlightRuntime(options: {
     if (input.missile && combatActive) {
       addProjectiles(session, actor, spawnMissileVolley(
         actor.craft, target?.craft, session.projectiles.length,
-        ship.missileDamage, [], missile,
+        ship.missileDamage, cover, missile,
       ));
     }
   }
@@ -1086,20 +1102,31 @@ export function createFreeFlightRuntime(options: {
       projectile.z += projectile.vz * ORBITAL_DT;
       projectile.life -= ORBITAL_DT;
       const to = { x: projectile.x, y: projectile.y, z: projectile.z };
+      const obstacle = firstWorldImpact(from, to, universeCollidersAt(from), projectile.r);
       const targets = [...session.actors.values()].filter((candidate) =>
         candidate.craft.alive && impactCombat(session, source, candidate));
       let impact: { target: Actor; time: number } | undefined;
       for (const target of targets) {
         if (target.actorId === projectile.sourceActorId) continue;
-        const time = sphereSweepTime(from, to, {
+        const current = {
           x: target.craft.x,
           y: target.craft.space!.y,
           z: target.craft.z,
-        }, target.craft.radius + projectile.r);
+        };
+        const time = movingSphereImpact(from, to, target.previousPosition ?? current,
+          current, target.craft.radius + projectile.r);
         if (time !== null && (!impact || time < impact.time)) impact = { target, time };
       }
-      if (impact) {
-        applyProjectileHit(session, projectile, impact.target, from, to);
+      if (obstacle && (!impact || obstacle.time <= impact.time)) {
+        const point = { x: from.x + (to.x - from.x) * obstacle.time,
+          y: from.y + (to.y - from.y) * obstacle.time, z: from.z + (to.z - from.z) * obstacle.time };
+        broadcast(session, { type: "freeflight_world_impact",
+          eventId: weaponEventId(session, projectile.id), to: point });
+        session.projectiles.splice(index, 1);
+      } else if (impact) {
+        const point = { x: from.x + (to.x - from.x) * impact.time,
+          y: from.y + (to.y - from.y) * impact.time, z: from.z + (to.z - from.z) * impact.time };
+        applyProjectileHit(session, projectile, impact.target, from, point);
         session.projectiles.splice(index, 1);
       } else if (projectile.life <= 0) {
         session.projectiles.splice(index, 1);
@@ -1699,6 +1726,8 @@ export function createFreeFlightRuntime(options: {
       const input = actor.vectorBoost
         ? { ...baseInput, ...stepVectorBoost(actor.vectorBoost, baseInput, ORBITAL_DT) }
         : baseInput;
+      const beforeMotion = { x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z };
+      actor.previousPosition = beforeMotion;
       integrateSpatialFlight(
         actor.craft, input, ORBITAL_DT, 1, [], SHIPS[actor.shipId],
         {
@@ -1706,6 +1735,7 @@ export function createFreeFlightRuntime(options: {
           gravityWells: session.gravityEnvironmentEnabled ? session.anomalyGravityWells : [],
         },
       );
+      resolveUniverseMotion(actor.craft, beforeMotion, universeCollidersAt(beforeMotion));
       // Toggle commands apply once per accepted input, not on every 30Hz tick.
       if (actor.kind === "pilot") {
         actor.input.inertial = false;
@@ -1914,6 +1944,8 @@ export function createFreeFlightRuntime(options: {
           },
           targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1 },
           assistance: { protocol: FREE_FLIGHT_ASSIST_V1 },
+          countermeasures: { protocol: 1, nextSeq: (actor.countermeasureSeq ?? 0) + 1,
+            cooldownMs: Math.ceil((actor.craft.space!.countermeasureCd ?? 0) * 1000) },
           ...(openingStatus ? { openingEncounter: openingStatus } : {}),
         });
         sendCombatState(session, actor);
@@ -1963,6 +1995,24 @@ export function createFreeFlightRuntime(options: {
       // No living craft is spawned while the player is in the hangar.
       send(socket, { type: "freeflight_recovered" });
       publish(seat.session);
+      return;
+    }
+    if (packet.type === "freeflight_countermeasure") {
+      if (Object.keys(packet).length !== 3 || packet.protocol !== 1 ||
+          !Number.isSafeInteger(packet.seq) || (packet.seq as number) <= (seat.actor.countermeasureSeq ?? 0) ||
+          (packet.seq as number) > (seat.actor.countermeasureSeq ?? 0) + 256) {
+        error("invalid_freeflight_countermeasure"); return;
+      }
+      seat.actor.countermeasureSeq = packet.seq as number;
+      if (!seat.actor.craft.alive) { error("freeflight_pilot_destroyed"); return; }
+      if (seat.session.tick - (seat.actor.lastCountermeasureTick ?? -100) < 5) {
+        error("freeflight_rate_limited"); return;
+      }
+      seat.actor.lastCountermeasureTick = seat.session.tick;
+      seat.actor.craft.space!.countermeasureCd ??= 0;
+      const result = deployCountermeasure(seat.session.projectiles, { ...seat.actor.craft, faction: seat.actor.faction });
+      send(socket, { type: "freeflight_countermeasure_state", protocol: 1, ...result,
+        cooldownMs: Math.ceil((seat.actor.craft.space!.countermeasureCd ?? 0) * 1000) });
       return;
     }
     if (packet.type === "freeflight_environment_request") {

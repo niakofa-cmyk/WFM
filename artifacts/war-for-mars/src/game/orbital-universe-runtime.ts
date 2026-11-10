@@ -1,5 +1,6 @@
 import {
   integrateSpatialFlight,
+  resolveUniverseMotion,
   normalizeFlightControls,
   type AnomalyGravityWellV1,
 } from "@workspace/orbital-sim";
@@ -156,6 +157,7 @@ export function advanceLocalUniverseFlight(
 ): UniverseSectorAddress | null {
   if (session.phase !== "exploration") return null;
   const pilot = match.player;
+  const beforeMotion = { x: pilot.x, y: pilot.space!.y, z: pilot.z };
   const controls = normalizeFlightControls(input);
   const gravityWells = sharedGravityWells === undefined
     ? universeSectorGravityWells(session.sectorAddress)
@@ -170,6 +172,7 @@ export function advanceLocalUniverseFlight(
     boundaryRadius: null,
     gravityWells,
   });
+  resolveUniverseMotion(pilot, beforeMotion, universeSectorColliders(session.sectorAddress));
   const rebased = rebaseUniversePosition(session.sectorAddress, { x: pilot.x, y: pilot.space!.y, z: pilot.z });
   if (!rebased.crossed) return null;
   pilot.x = rebased.local.x;
