@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
+import { freeFlightPersistenceReadiness } from "./free-flight-persistence-config";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
 import { createFreeFlightRuntime, type FreeFlightAdmission } from "./free-flight-runtime";
@@ -129,6 +130,7 @@ export async function startWingSocketServer(
     enableWingRewards?: boolean;
     enableSectorFlight?: boolean;
     enableFreeFlight?: boolean;
+    requireFreeFlightPersistence?: boolean;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
     freeFlightRedisBus?: FreeFlightRedisBus;
     freeFlightCheckpoints?: {
@@ -197,6 +199,13 @@ export async function startWingSocketServer(
     shutdownAckTimeoutMs?: number;
   },
 ) {
+  // Enforce at the runtime boundary as well as the environment entrypoint.
+  const freeFlightReadiness = freeFlightPersistenceReadiness({
+    enabled: Boolean(options.enableFreeFlight && options.resolveFreeFlightAdmission),
+    distributed: Boolean(options.freeFlightRedisBus),
+    checkpoints: Boolean(options.freeFlightCheckpoints),
+    required: options.requireFreeFlightPersistence === true,
+  });
   const sectorRuntime = createSectorRuntime({
     loadProgress: options.loadSectorProgress,
     settle: options.settleSectorDiscovery,
@@ -260,6 +269,7 @@ export async function startWingSocketServer(
         rooms: rooms.size,
         freeFlightSessions: freeFlightRuntime?.sessionCount ?? 0,
         freeFlightPilots: freeFlightRuntime?.pilotCount ?? 0,
+        freeFlight: freeFlightReadiness,
       }));
       return;
     }

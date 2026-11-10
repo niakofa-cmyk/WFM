@@ -1,6 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { freeFlightPersistenceConfig } from "./free-flight-persistence-config";
+import { freeFlightPersistenceConfig, freeFlightPersistenceReadiness } from "./free-flight-persistence-config";
+import { startWingSocketServer } from "./server";
+
+test("persistent runtime cannot be constructed with missing authority dependencies", async () => {
+  for (const missing of ["enabled", "distributed", "checkpoints"] as const) {
+    assert.throws(() => freeFlightPersistenceReadiness({
+      enabled: true, distributed: true, checkpoints: true, required: true, [missing]: false,
+    }), /requires admission/);
+  }
+  assert.equal(freeFlightPersistenceReadiness({
+    enabled: true, distributed: true, checkpoints: true, required: true,
+  }).persistentRuntimeConfigured, true);
+  await assert.rejects(startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: async () => "test-pilot",
+    requireFreeFlightPersistence: true,
+  }), /requires admission/);
+});
+
+test("socket health reports actual local configuration without implying persistence", async () => {
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: async () => "test-pilot",
+    enableFreeFlight: true,
+    resolveFreeFlightAdmission: async () => null,
+  });
+  try {
+    const response = await fetch(`http://127.0.0.1:${runtime.port}/healthz`);
+    assert.equal(response.status, 200);
+    const health = await response.json();
+    assert.ok(typeof health === "object" && health !== null && "freeFlight" in health);
+    assert.deepEqual(health.freeFlight, {
+      enabled: true, transport: "process-local", checkpointStoreConfigured: false,
+      persistenceRequired: false, persistentRuntimeConfigured: false,
+    });
+  } finally {
+    await runtime.close();
+  }
+});
 
 test("isolated development remains available unless persistence is required", () => {
   assert.deepEqual(freeFlightPersistenceConfig({}, true), {

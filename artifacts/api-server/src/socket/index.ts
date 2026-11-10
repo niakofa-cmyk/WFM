@@ -169,6 +169,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   settleWingMatch,
   enableSectorFlight,
   enableFreeFlight,
+  requireFreeFlightPersistence: freeFlightPersistence.persistenceRequired,
   resolveFreeFlightAdmission,
   freeFlightRedisBus,
   freeFlightCheckpoints: freeFlightCheckpoints ? {

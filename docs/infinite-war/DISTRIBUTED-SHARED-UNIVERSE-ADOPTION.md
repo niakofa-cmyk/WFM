@@ -51,6 +51,44 @@ was found without a configured `REDIS_URL` secret and remains explicitly local.
 Production remains untouched. Real cluster activation still requires secure
 configuration and staging deployment.
 
+## Staging preparation inspection — 2026-11-10
+
+The connected Railway inventory confirmed a dedicated Redis service and
+PostgreSQL in WFM staging, with the socket service configured for two replicas.
+All three report successful deployments in the same region. Redis has a mounted
+data volume, no public domain and no public TCP proxy. The socket retains the
+existing socket build/start commands and `/healthz` probe.
+
+The socket service lists the Redis, database, shared-mode and staging-marker
+configuration keys. Values were not retrieved. An exact-deployment startup-log
+query returned no matching transport-readiness record, so this inspection does
+not newly confirm runtime connectivity or checkpoint writes.
+
+Only `ORBITAL_FREE_FLIGHT_REQUIRE_PERSISTENCE=1` was prepared as a **staged**
+socket-service change. Nothing was applied or redeployed; existing credentials
+were not replaced. Deploy the reviewed code and explicitly commit this staged
+change before treating the new safeguard as active.
+
+## Runtime configuration evidence
+
+The socket's `/healthz` response now includes a safe `freeFlight` object:
+
+- `enabled`
+- `transport`: `disabled`, `process-local`, or `redis-fenced-shards`
+- `checkpointStoreConfigured`
+- `persistenceRequired`
+- `persistentRuntimeConfigured`
+
+These fields are derived from the runtime's actual constructor dependencies,
+not blindly copied from environment flags. The runtime constructor rejects
+required persistence without admission, the shared transport and checkpoints,
+even if invoked without the usual environment entrypoint.
+
+Health configuration is not a live dependency probe or battle certification.
+Do not infer that Redis is reachable at this instant, that a checkpoint was
+just committed, or that cross-instance combat passed merely from these fields.
+The endpoint exposes no credentials, pilot identities, poses or session keys.
+
 ## Rejected unsafe substitutions
 
 - The proposed typed-array physics kernel is two-dimensional and omits

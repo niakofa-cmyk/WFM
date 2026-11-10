@@ -1,5 +1,25 @@
 type PersistenceEnvironment = Readonly<Record<string, string | undefined>>;
 
+/** Safe configuration evidence, not a claim of real-time broker health. */
+export function freeFlightPersistenceReadiness(input: {
+  enabled: boolean;
+  distributed: boolean;
+  checkpoints: boolean;
+  required: boolean;
+}) {
+  const configured = input.enabled && input.distributed && input.checkpoints;
+  if (input.required && !configured) {
+    throw new Error("Persistent shared flight requires admission, distributed transport and checkpoints.");
+  }
+  return {
+    enabled: input.enabled,
+    transport: !input.enabled ? "disabled" : input.distributed ? "redis-fenced-shards" : "process-local",
+    checkpointStoreConfigured: input.enabled && input.checkpoints,
+    persistenceRequired: input.required,
+    persistentRuntimeConfigured: configured,
+  } as const;
+}
+
 /** Validate rollout intent before opening Redis or creating checkpoint tables. */
 export function freeFlightPersistenceConfig(env: PersistenceEnvironment, flightEnabled: boolean) {
   const shared = env.ORBITAL_FREE_FLIGHT_SHARED === "1";
