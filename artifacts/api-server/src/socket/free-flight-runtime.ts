@@ -559,8 +559,12 @@ export function createFreeFlightRuntime(options: {
       if (!raw || typeof raw.id !== "string" || !raw.patrol ||
           typeof raw.patrol.patrolId !== "string" ||
           !Array.isArray(raw.participantActorIds) ||
-          raw.participantActorIds.some((id) => !actors.has(id)) ||
+          raw.participantActorIds.length > MAX_ENCOUNTER_PILOTS ||
+          raw.participantActorIds.some((id) => typeof id !== "string" ||
+            !/^[A-Za-z0-9_:-]{1,128}$/.test(id)) ||
+          new Set(raw.participantActorIds).size !== raw.participantActorIds.length ||
           !["active", "settling", "settlement-unavailable", "complete"].includes(raw.phase) ||
+          typeof raw.resultsApplied !== "boolean" ||
           combats.has(raw.patrol.patrolId)) {
         throw new Error("Invalid encounter checkpoint.");
       }
@@ -571,6 +575,18 @@ export function createFreeFlightRuntime(options: {
         : undefined;
       const phase = raw.phase === "settling" ? "settlement-unavailable" : raw.phase;
       if (phase !== "active" && !receipt) throw new Error("Finalized encounter checkpoint has no receipt.");
+      // Normal settled recovery, location changes and grace expiry may retire a
+      // live actor while its completed encounter remains historical. Preserve
+      // that history and the validated receipt; never resurrect the old ship.
+      // Unresolved encounters must still retain every participant for recovery
+      // and attribution. A completed record can never reapply its results.
+      const settledHistory = phase === "complete" && raw.resultsApplied && receipt;
+      if ((phase === "complete" && !settledHistory) ||
+          (phase !== "complete" && raw.resultsApplied) ||
+          (phase === "active" && receipt) ||
+          (!settledHistory && raw.participantActorIds.some((id) => !actors.has(id)))) {
+        throw new Error("Invalid encounter checkpoint.");
+      }
       combats.set(raw.patrol.patrolId, {
         id: raw.id,
         faction: raw.faction,

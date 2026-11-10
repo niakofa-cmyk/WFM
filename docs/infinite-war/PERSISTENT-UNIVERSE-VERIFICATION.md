@@ -1,5 +1,29 @@
 # Persistent Universe Verification
 
+## Settled-recovery checkpoint compatibility
+
+Staging admission diagnostics identified `checkpoint-encounter` while restoring
+a session. A local lifecycle reproduction demonstrated the same failure:
+ordinary disabled-pilot recovery retires the old actor, but retains its
+completed encounter and settlement receipt. The previous restore guard rejected
+that legitimate historical reference.
+
+The compatibility change permits absent historical participants only for a
+completed encounter with a validated finalized receipt and already-applied
+results. Unresolved encounters still require all live participant records.
+Recovery does not recreate the retired ship, reset another pilot, delete the
+checkpoint, alter attribution, or repeat settlement.
+
+Regression verification uses an actual checkpoint emitted after simulated
+combat, settled defeat and normal server recovery, then restarts the runtime.
+It verifies unchanged contract history and receipt fingerprint, no resurrected
+actor and no repeated settlement. Pending, active, unapplied, missing-receipt,
+duplicate-participant and invalid-fingerprint fixture variants fail closed.
+
+This is local compatibility evidence, not certification of live enemy
+destruction, shared rewards, continued exploration or the entire staging
+restart sequence. Authenticated staging entry must still be retested.
+
 ## Current result
 
 **Two-pilot shared flight and controlled idle-flight restart recovery have

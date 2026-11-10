@@ -114,3 +114,16 @@ checkpoint initialization failure; another sign-in could not resolve that.
 admission, retain safe internal diagnostics without expanding client error
 details, and fix the identified failure rather than bypassing recovery or
 resetting retained ships.
+
+Completed encounter history may outlive its live participant ships. Require
+all actors for unresolved battles, but accept retired participants only after
+receipt validation and completed, already-applied settlement.
+
+**Why:** ordinary server recovery removes a destroyed actor while preserving
+its completed encounter. Requiring that historical actor on checkpoint restore
+rejects a save produced by the runtime itself.
+
+**How to apply:** preserve the historical contract, attribution and fingerprint;
+never respawn the retired actor or replay its payout to satisfy validation.
+Exercise recovery followed by a real serialized restart, including rejection
+of pending, unapplied and invalid-receipt variants.

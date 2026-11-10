@@ -805,8 +805,13 @@ test("disabled recovery preserves attribution, survives reconnect/expiry, and re
   };
   let finishSettlement: (() => void) | undefined;
   let settlements = 0;
+  let recoveryCheckpoint: import("./free-flight-runtime").FreeFlightSessionCheckpointV1 | undefined;
   const runtime = createFreeFlightRuntime({
     resolveAdmission: async () => admission,
+    saveCheckpoint: async (_key, state) => {
+      recoveryCheckpoint = structuredClone(state);
+      return true;
+    },
     resolveUniversePatrols: async () => [contact],
     reserveUniversePatrol: async () => contact,
     releaseUniversePatrol: async () => {},
@@ -890,6 +895,87 @@ test("disabled recovery preserves attribution, survives reconnect/expiry, and re
     assert.ok(Math.abs(latestOwn().position.x) <= 28, "normal server anchor, not the old battle pose");
     await runtime.handle(redeployed, "disabled-pilot", { type: "freeflight_recover" });
     assert.equal(packets.at(-1)?.reason, "freeflight_recovery_not_disabled");
+    await runtime.close();
+    assert.ok(recoveryCheckpoint, "ordinary recovery writes a restart checkpoint");
+    const historical = recoveryCheckpoint.combats.find((combat) =>
+      combat.phase === "complete" && combat.participantActorIds.includes(ownId));
+    assert.ok(historical, "keep the completed encounter and its original participant identity");
+    assert.equal(historical.resultsApplied, true);
+    assert.equal(recoveryCheckpoint.actors.some((actor) => actor.actorId === ownId), false,
+      "normal recovery retires the old destroyed actor");
+    const beforeRestart = packets.length;
+    let roundTrip: import("./free-flight-runtime").FreeFlightSessionCheckpointV1 | undefined;
+    const restored = createFreeFlightRuntime({
+      resolveAdmission: async () => admission,
+      resolveUniversePatrols: async () => [],
+      loadCheckpoint: async () => ({
+        stateVersion: 1, fencingToken: 1,
+        checkpointSequence: recoveryCheckpoint!.checkpointSequence,
+        snapshot: structuredClone(recoveryCheckpoint!) as unknown as Record<string, unknown>,
+      }),
+      saveCheckpoint: async (_key, state) => { roundTrip = structuredClone(state); return true; },
+      settleScoutEncounter: async () => {
+        assert.fail("completed encounter must never settle again during restore");
+      },
+    });
+    try {
+      await restored.handle({ ...socket }, "disabled-pilot", { type: "freeflight_join" });
+      assert.ok(packets.slice(beforeRestart).some((packet) => packet.type === "freeflight_joined"),
+        "restart must accept a checkpoint produced by normal settled recovery");
+      assert.equal(latestOwn().alive, true);
+      assert.notEqual(latestOwn().actorId, ownId);
+      assert.equal(settlements, 1);
+    } finally {
+      await restored.close();
+    }
+    const roundTripHistory = roundTrip?.combats.find((combat) => combat.id === historical.id);
+    assert.ok(roundTripHistory);
+    assert.deepEqual(roundTripHistory.contract, historical.contract,
+      "receipt fingerprint, damage, kills and assists survive restart unchanged");
+    assert.deepEqual(roundTripHistory.participantActorIds, historical.participantActorIds);
+    assert.equal(roundTripHistory.resultsApplied, true);
+    assert.equal(roundTrip?.actors.some((actor) => actor.actorId === ownId), false);
+
+    // Deliberately malformed fixture variants may not turn history into active
+    // authority, bypass pending settlement or award an already completed result.
+    for (const mutation of ["active", "settlement-unavailable", "unapplied",
+      "missing-receipt", "duplicate-participant", "bad-fingerprint"] as const) {
+      const invalid = structuredClone(recoveryCheckpoint);
+      const combat = invalid.combats.find((value) => value.id === historical.id)!;
+      if (mutation === "active" || mutation === "settlement-unavailable") {
+        combat.phase = mutation;
+        combat.resultsApplied = false;
+      } else if (mutation === "unapplied") combat.resultsApplied = false;
+      else if (mutation === "missing-receipt") {
+        delete combat.contract.finalization;
+        delete combat.contract.resultFingerprint;
+      } else if (mutation === "duplicate-participant") {
+        combat.participantActorIds.push(combat.participantActorIds[0]);
+      } else combat.contract.resultFingerprint = "0".repeat(64);
+      const rejectedPackets: Packet[] = [];
+      const rejectRuntime = createFreeFlightRuntime({
+        resolveAdmission: async () => admission,
+        resolveUniversePatrols: async () => [],
+        loadCheckpoint: async () => ({
+          stateVersion: 1, fencingToken: 1,
+          checkpointSequence: invalid.checkpointSequence,
+          snapshot: invalid as unknown as Record<string, unknown>,
+        }),
+        onAdmissionFailure: () => {},
+        settleScoutEncounter: async () => {
+          assert.fail("invalid historical state must never reach settlement");
+        },
+      });
+      try {
+        await rejectRuntime.handle({ ...socket,
+          send: (data) => rejectedPackets.push(JSON.parse(data)),
+        }, "disabled-pilot", { type: "freeflight_join" });
+        assert.deepEqual(rejectedPackets,
+          [{ type: "error", reason: "freeflight_admission_unavailable" }], mutation);
+      } finally {
+        await rejectRuntime.close();
+      }
+    }
   } finally {
     await runtime.close();
   }
