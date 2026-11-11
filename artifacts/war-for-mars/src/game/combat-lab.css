@@ -80,3 +80,10 @@
 .free-flight-target-marker[data-edge=true] .free-flight-target-reticle:before{left:4px;top:1px;width:2px;height:11px;transform:rotate(-42deg);transform-origin:bottom}
 .free-flight-target-marker[data-edge=true] .free-flight-target-reticle:after{top:1px;left:13px;width:2px;height:11px;transform:rotate(42deg);transform-origin:bottom}
 .free-flight-target-marker[data-edge=true] .free-flight-target-reticle-core{display:none}
+
+/* Unified Orbital: direct brake + right-thumb profile switch inside maneuver drawer. */
+.lab-flight .pilot-action-brake{border-color:rgba(196,92,72,.7);color:#f0a08f}
+.lab-flight .pilot-thumb-profile{display:flex;gap:2px;padding:2px;border:1px solid rgba(230,225,214,.3);border-radius:999px;background:rgba(10,13,19,.6);backdrop-filter:blur(5px);pointer-events:auto}
+.lab-flight .pilot-thumb-profile-option{min-width:44px;min-height:40px;padding:0 .5rem;border-radius:999px;color:#b6b1a9;font:700 9px/1 monospace;letter-spacing:.12em;touch-action:manipulation;pointer-events:auto}
+.lab-flight .pilot-thumb-profile-option[aria-pressed=true]{background:rgba(224,161,90,.85);color:#080b11}
+.lab-flight .pilot-thumb-profile-option:focus-visible{outline:2px solid #e6e1d6;outline-offset:2px}

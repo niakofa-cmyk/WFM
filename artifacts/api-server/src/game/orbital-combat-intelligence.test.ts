@@ -72,3 +72,60 @@ test("missile intent requires alignment and existing lock, ammunition and cooldo
   enemy.space!.missileCd = 0; enemy.space!.ammo = 0;
   assert.equal(run().missile, false);
 });
+
+test("crossing threats dodge away from projected contact, not their starting side", () => {
+  const enemy = craft(3), target = craft(1, 0, -40);
+  const shot = { x: -10, y: 0, z: -25, vx: 26, vy: 0, vz: 50, life: 2,
+    dmg: 10, r: .2, homeId: null, missile: true, faction: "accord" };
+  const state = memory();
+  const result = tacticalFlight(enemy, target, "interceptor", 1, [shot], "ussf", state);
+  assert.equal(result.mode, "evade");
+  assert.ok(result.controls.strafe < 0, "projected contact is right of hull despite shot starting left");
+  assert.ok(Math.abs(Math.hypot(state.strafe, state.vertical) - 1) < 1e-9);
+  assert.equal(result.controls.missile, false);
+});
+
+test("formation dodges separate central threats and pick the earliest real contact consistently", () => {
+  const target = craft(1, 0, -40);
+  const shot = { x: 0, y: 0, z: -25, vx: 0, vy: 0, vz: 50, life: 2,
+    dmg: 10, r: .2, homeId: null, missile: true, faction: "accord" };
+  const a = tacticalFlight(craft(2), target, "interceptor", 1, [shot], "ussf", memory());
+  const b = tacticalFlight(craft(3), target, "interceptor", 1, [shot], "ussf", memory());
+  assert.ok(a.controls.strafe * b.controls.strafe < 0, "stable slots split rather than stack the squad");
+  const early = { ...shot, x: 1, z: -10 };
+  const late = { ...shot, x: -1, z: -40 };
+  const run = (shots: typeof shot[]) => tacticalFlight(craft(3), target, "interceptor", 1, shots, "ussf", memory());
+  assert.deepEqual(run([late, early]), run([early, late]));
+  assert.ok(run([early, late]).controls.strafe < 0);
+  assert.notEqual(run([{ ...shot, life: .1 }]).mode, "evade", "expired-before-contact rounds do not cause a dodge");
+});
+
+test("critically damaged pilots cease firing and physically withdraw without repair or teleport", () => {
+  const enemy = craft(1), target = craft(2, 0, -40), state = memory();
+  enemy.hull = 15;
+  enemy.space!.lockProgress = 1;
+  let furthest = 0;
+  for (let tick = 343; tick < 703; tick++) {
+    const result = tacticalFlight(enemy, target, "interceptor", tick, [], "ussf", state);
+    assert.equal(result.mode, "withdraw");
+    assert.equal(result.controls.fire, false);
+    assert.equal(result.controls.missile, false);
+    const before = { x: enemy.x, y: enemy.space!.y, z: enemy.z };
+    integrateSpatialFlight(enemy, result.controls, 1 / 30, 1, [], SHIPS.duskbreaker, { boundaryRadius: null });
+    assert.ok(Math.hypot(enemy.x - before.x, enemy.space!.y - before.y, enemy.z - before.z) < 5);
+    furthest = Math.max(furthest, Math.hypot(enemy.x, enemy.space!.y, enemy.z + 40));
+  }
+  assert.ok(furthest > 80, "retreat increases separation through integrated controls");
+  assert.equal(enemy.hull, 15);
+  assert.equal(enemy.untargetable, 0);
+});
+
+test("heavy hulls retain restrained handling while disabled bursts cannot grant evasion immunity", () => {
+  const enemy = craft(1), target = craft(2, 0, -40);
+  const shot = { x: 0, y: 0, z: -25, vx: 0, vy: 0, vz: 50, life: 2,
+    dmg: 10, r: .2, homeId: null, missile: true, faction: "accord" };
+  assert.notEqual(tacticalFlight(enemy, target, "heavy", 1, [shot], "ussf", memory()).mode, "evade");
+  enemy.space!.energy = 0;
+  assert.notEqual(tacticalFlight(enemy, target, "interceptor", 1, [shot], "ussf", memory()).mode, "evade");
+  assert.equal(enemy.untargetable, 0);
+});

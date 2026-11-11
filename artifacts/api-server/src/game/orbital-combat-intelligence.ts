@@ -61,9 +61,15 @@ export function tacticalFlight(
       if (time < .12 || time > Math.min(1.25, shot.life) || time >= bestTime) continue;
       const miss = length(px + vx * time, py + vy * time, pz + vz * time);
       if (miss > craft.radius + shot.r + (shot.missile ? 9 : 4)) continue;
-      const approach = rotate(inverse, px, py, pz);
-      memory.strafe = approach.x >= 0 ? -1 : 1;
-      memory.vertical = approach.y >= 0 ? -.7 : .7;
+      // Evade away from the projected closest approach, not the launch point.
+      // A round crossing from the left may impact on our right. Central threats
+      // use stable squad slots so an entire formation does not dodge identically.
+      const impact = rotate(inverse, px + vx * time, py + vy * time, pz + vz * time);
+      const lateral = Math.abs(impact.x) > .1 ? (impact.x > 0 ? -1 : 1) : craft.id % 2 === 0 ? 1 : -1;
+      const vertical = Math.abs(impact.y) > .1 ? (impact.y > 0 ? -.7 : .7) : slot === 2 ? -.7 : .7;
+      const magnitude = detHypot(lateral, vertical);
+      memory.strafe = lateral / magnitude;
+      memory.vertical = vertical / magnitude;
       bestTime = time;
     }
     if (bestTime !== Infinity) {
@@ -71,10 +77,18 @@ export function tacticalFlight(
       memory.readyAt = tick + 90;
     }
   }
-  if (craft.hull < craft.hullMax * .2 && !controls.fire) {
+  if (craft.hull < craft.hullMax * .2) {
     mode = "withdraw";
+    // Actually turn away from the threat through ordinary flight integration.
+    // Merely increasing throttle while still aiming at it is not a retreat.
+    const away = rotate(inverse, -dx, -dy, -dz);
+    controls.yaw = clamp(detAtan2(-away.x, -away.z) * 1.7);
+    controls.pitch = clamp(detAtan2(away.y, detHypot(away.x, away.z)) * 1.7);
     controls.throttle = .65;
-    controls.vertical = .5;
+    controls.strafe = (craft.id % 2 === 0 ? 1 : -1) * .45;
+    controls.vertical = slot === 2 ? -.35 : .35;
+    controls.fire = false;
+    controls.missile = false;
   }
   if (tick < memory.evadeUntil) {
     mode = "evade";
@@ -82,6 +96,7 @@ export function tacticalFlight(
     controls.vertical = memory.vertical;
     controls.roll = memory.strafe * .45;
     controls.boost = s.energy >= 18;
+    controls.missile = false;
   }
   return { mode, controls, intercept: point };
 }

@@ -3905,8 +3905,19 @@ export function Arena({
           {unifiedOrbitalControls ? (
             <>
               {orbital && maneuversOpen ? (
-                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
-                  <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
+                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap items-center justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+                  <div className="pilot-thumb-profile" role="group" aria-label={`Right thumb profile, current ${rightThumbProfile.mode}`} data-testid="group-maneuver-right-thumb-profile">
+                    {(["hybrid", "vector", "aim"] as const).map((mode) => (
+                      <button key={mode} type="button" className="pilot-thumb-profile-option"
+                        data-testid={`maneuver-right-thumb-profile-${mode}`}
+                        aria-pressed={rightThumbProfile.mode === mode}
+                        aria-label={mode === "hybrid" ? "Right thumb Hybrid: aim and move" : mode === "vector" ? "Right thumb Vector: move only" : "Right thumb Aim only"}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => setRightThumbProfile({ ...rightThumbProfile, mode })}>
+                        {mode === "hybrid" ? "HYB" : mode === "vector" ? "VEC" : "AIM"}
+                      </button>
+                    ))}
+                  </div>
                   {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
                   <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
                   <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
@@ -3935,6 +3946,7 @@ export function Arena({
                     active={maneuversOpen}
                     onActivate={() => setManeuversOpen((value) => !value)}
                   />
+                  {orbital ? <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" className="pilot-action-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} /> : null}
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">

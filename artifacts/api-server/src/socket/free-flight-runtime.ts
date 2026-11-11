@@ -1022,23 +1022,13 @@ export function createFreeFlightRuntime(options: {
   }
 
   function patrolCombatInput(actor: Actor, target: Actor, session: Session): SharedInput {
-    const space = actor.craft.space!;
-    const dx = target.craft.x - actor.craft.x;
-    const dy = target.craft.space!.y - space.y;
-    const dz = target.craft.z - actor.craft.z;
-    const distance = detHypot(detHypot(dx, dy), dz);
-    const q = space.q;
-    const local = rotate([-q[0], -q[1], -q[2], q[3]], dx, dy, dz);
-    const yawError = detAtan2(-local.x, -local.z);
-    const pitchError = detAtan2(local.y, detHypot(local.x, local.z));
     return {
       ...IDLE,
       ...tacticalFlight(actor.craft, target.craft, SHIPS[actor.shipId].role, session.tick,
         session.projectiles, actor.faction,
         actor.tactics ??= { evadeUntil: 0, readyAt: 0, strafe: 0, vertical: 0 }).controls,
-      // Training's readable aim-before-fire rule, in shared 3D space.
-      // Proximity alone is not permission to shoot sideways/backwards.
-      fire: distance < 170 && Math.abs(yawError) < 0.18 && Math.abs(pitchError) < 0.18,
+      // Tactical flight already enforces training's aim-before-fire cone.
+      // Do not overwrite a withdraw/evade weapons decision at this adapter.
     };
   }
 
