@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
+import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
 import { isCombatRecoveryState } from "./combat-recovery-state";
@@ -1174,6 +1174,7 @@ export function Arena({
   const [shakeUi, setShakeUi] = useState(true);
   const [mapOpen, setMapOpen] = useState(false);
   const [maneuversOpen, setManeuversOpen] = useState(false);
+  const fallbackEvasiveSideRef = useRef(false);
   const [countermeasureVisible, setCountermeasureVisible] = useState(false);
   const countermeasureVisibleRef = useRef(false);
   const countermeasureUntilRef = useRef(0);
@@ -3798,7 +3799,6 @@ export function Arena({
         >
           {orbital && !unifiedOrbitalControls && maneuversOpen ? (
             <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-start gap-1.5" data-testid="pilot-maneuver-actions">
-              <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
               {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
@@ -3946,7 +3946,33 @@ export function Arena({
                     active={maneuversOpen}
                     onActivate={() => setManeuversOpen((value) => !value)}
                   />
-                  {orbital ? <PilotActionButton icon="brake" label="Hold brake to recover: bleeds speed toward a controlled stop" testId="button-brake" className="pilot-action-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} /> : null}
+                  {orbital && rightThumbProfile.mode !== "aim" ? <PilotActionButton
+                    icon="maneuver"
+                    label="Request an energy-limited evasive vector burst"
+                    testId="button-vector-evade"
+                    badge="EVADE"
+                    disabled={paused}
+                    onActivate={() => {
+                      const flightBus = busRef.current;
+                      if (!flightBus) return;
+                      let direction = boostDirectionAt(flightBus.rightX, flightBus.rightY);
+                      if (!direction) {
+                        fallbackEvasiveSideRef.current = !fallbackEvasiveSideRef.current;
+                        direction = fallbackEvasiveSideRef.current ? "left" : "right";
+                      }
+                      const accepted = freeFlightEnabled
+                        ? freeFlightClientRef.current?.requestVectorBoost(direction) ?? false
+                        : (() => {
+                          const pilot = matchRef.current?.player;
+                          flightBus.flightEnergy = pilot?.space?.energy ?? 0;
+                          return requestRightVectorBoost(flightBus, direction, Date.now(),
+                            !pilot || !pilot.alive || pilot.root > 0 || pilot.jam > 0);
+                        })();
+                      setVectorBoostStatus(accepted
+                        ? `${direction.toUpperCase()} VECTOR · REQUESTED`
+                        : "VECTOR EVADE UNAVAILABLE · ENERGY / RECOVERY");
+                    }}
+                  /> : null}
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">

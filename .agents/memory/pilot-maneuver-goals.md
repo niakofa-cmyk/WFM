@@ -6,6 +6,9 @@ description: Owner's combined Phases 1–3 priority, physical evasion expectatio
 Build Phases 1–3 together: analog right-thumb hull movement, eight-direction
 bursts, and advanced evasion/recovery in the existing Orbital simulation.
 Preserve the classic aim option and the established two-thumb layout.
+In the Orbital control panel, prefer the negotiated Vector Evade shortcut over
+an on-screen brake button. Do not claim releasing throttle stops the hull:
+inertial movement can retain momentum.
 
 Treat return-to-center aiming strokes as ordinary aiming, not burst gestures.
 Use one pointer-event clock for gesture duration and release direction for

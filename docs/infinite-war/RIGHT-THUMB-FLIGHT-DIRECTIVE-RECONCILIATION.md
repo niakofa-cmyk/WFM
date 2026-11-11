@@ -34,6 +34,14 @@ another movement engine:
 4. Blur, hidden-page, rotation, disable/profile changes and unmount neutralize
    input and release captured pointers. Simulation energy/cooldown enforcement
    remains unchanged.
+5. The redundant on-screen brake action is replaced by a one-tap Vector Evade
+   in Orbital flight. It requests the existing server-negotiated vector burst
+   during shared flight, or the existing energy-limited simulation burst in
+   local Orbital. It follows the current right-thumb direction when present and
+   otherwise alternates lateral direction; it does not add immunity or a new
+   client-owned online ability. Aim-only mode omits it.
+6. The Hybrid/Vector/Aim selector remains in the maneuver drawer; Brake is no
+   longer shown in either Orbital control layout.
 
 ## Verification and remaining boundaries
 
@@ -48,3 +56,10 @@ Do not adopt the upload's old rules-version suggestion mechanically: historical
 replays and live network compatibility must be preserved. Do not provision Redis,
 alter production, change reward amounts or create a separate training universe
 as a side effect of a flight-control review.
+
+The Vector Evade button is an access shortcut to the same existing burst
+authority and eligibility checks, not a per-ship ultimate. Ship-specific ultimates
+remain separate; the persistent free-flight server does not yet advertise their
+ability contract, so local Orbital `ultPulse` is intentionally not presented as
+an online special ability. Releasing throttle also does not guarantee a stop:
+inertial flight can retain momentum even though the on-screen brake is removed.
