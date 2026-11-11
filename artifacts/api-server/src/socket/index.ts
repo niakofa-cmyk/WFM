@@ -175,6 +175,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   } : {}),
   requireFreeFlightPersistence: freeFlightPersistence.persistenceRequired,
   enableFreeFlightFriendlyAi: process.env.ORBITAL_FREE_FLIGHT_FRIENDLY_AI === "true",
+  enableFreeFlightPopulationTelemetry: enableFreeFlight,
   resolveFreeFlightAdmission,
   freeFlightRedisBus,
   freeFlightCheckpoints: freeFlightCheckpoints ? {

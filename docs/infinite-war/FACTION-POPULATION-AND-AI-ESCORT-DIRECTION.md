@@ -10,8 +10,10 @@ AI force slots to be opposing USSF and 20% to be same-faction Accord support.
 Mirror those factions when USSF pilots are the majority. AI escorts should help
 in ordinary open-universe encounters, not put the player into a separate mode.
 
-This is a **design direction**, not an implemented balancer or a green light to
-copy the sample code. Its target needs measurement and staged tuning.
+This is a **design direction**, not an implemented live balancer or a green
+light to copy the sample code. A deterministic pure policy now calculates the
+requested target and tests its edge cases, but it is deliberately not wired to
+fleet spawning until population data is global and durable.
 
 ## Repository facts checked
 
@@ -33,6 +35,11 @@ copy the sample code. Its target needs measurement and staged tuning.
   pilots per session, actors per session, nearby actors and concurrent
   encounters; the server, rather than a population-balancer sample, must enforce
   these safety and performance limits.
+- The socket runtime now exposes and periodically logs anonymized
+  **single-owner-process** counts for connected pilots by faction, live AI
+  hulls, support actors, encounters and actors. It omits account IDs, region
+  keys and coordinates. It is telemetry for measurement, not a whole-universe
+  population count.
 - Neither the database patrol directory nor the encounter contract provides a
   durable, cross-worker count of distinct, actively flying humans by faction.
   The general operation/presence summaries must not be mistaken for such a
@@ -47,7 +54,10 @@ copy the sample code. Its target needs measurement and staged tuning.
 
 Use **active rostered ship hulls**, not fleet records or arbitrary actors, when
 measuring the faction share. Fleets contain different numbers of ships, and a
-live encounter lease must not count the same persistent hull twice.
+live encounter lease must not count the same persistent hull twice. The current
+`universe-population-policy.ts` implements the pure target calculation and
+fresh-account filtering; it does not yet calculate the durable hull share or
+change any population.
 
 The requested example provides a concrete starting target. Let `a` be the share
 of distinct authenticated, actively flying pilots whose saved faction is Accord:
@@ -122,16 +132,17 @@ rules. Do not invent an assist-credit amount, bounty or reputation award.
 
 ## Safe implementation sequence
 
-1. **Instrument, do not spawn:** report anonymized active-seat counts and
-   per-region rostered hull counts, leases, casualties, empty fleets and
-   encounter results. Prove distinct-account and stale-session handling across
-   workers. Keep these counters private and never expose player identities or
+1. **Partially implemented—instrument, do not spawn:** the socket owner emits
+   anonymized process-local counts. Still needed: durable per-region roster
+   counts, leases, casualties, empty fleets and encounter outcomes; a
+   cross-owner active-seat census; and proof of reconnect/owner-handoff
+   deduplication. Keep counters private and never expose player identities or
    hidden fleet coordinates publicly.
-2. **Test the pure rule:** cover no pilots; 5/5; 6/4; 4/6; capped extremes;
-   duplicate/stale sessions; one account reconnecting; both factions in the same
-   region; an active lease; and a target fleet already at its actor cap. Verify
-   monotonicity, mirror behavior, hysteresis and exact 6/10 calibration without
-   writing the database.
+2. **Implemented as pure policy tests:** covers no pilots; 5/5; 6/4; 4/6;
+   capped extremes; duplicate, stale, offline, spectator and conflicting
+   seats; regional threat envelopes; and cooldown/hysteresis without writing
+   the database. Still needed: cross-region and actor-cap fixtures connected
+   to a global census.
 3. **Balance persistent patrols idempotently:** use stable IDs and persisted
    bounded population epochs or another explicit durable generation key; protect
    shared counts and updates with database transactions/revision checks.
@@ -143,7 +154,7 @@ rules. Do not invent an assist-credit amount, bounty or reputation award.
    account. Revalidate faction, active encounter, location, capacity and
    candidate patrol availability before committing a dispatch. Deduplicate the
    dispatch durably. Protect both human and AI casualty/settlement attribution.
-5. **Stage behind independent gates:** test both player-faction majorities,
+5. **Not yet staged:** test both player-faction majorities,
    connected locations, empty/no-pilot regions, simultaneous API workers,
    restart/reconnect, encounter reservation conflicts, rewards, rollback and
    Android/network budgets. Compare the requested 80/20 target with measured
@@ -152,3 +163,6 @@ rules. Do not invent an assist-credit amount, bounty or reputation award.
 Do not launch broad fleet spawning or schema changes from this reference alone.
 Preserve the current deterministic patrol network, shared-flight authority,
 human reward rules and compatibility rollback until these gates pass.
+
+See [Orbital fleet population and encounter director](ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md)
+for the current implementation boundary and next safe increments.

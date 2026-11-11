@@ -690,6 +690,40 @@ test("damage requires opposing actors in the same active reserved encounter", ()
   assert.equal(canDamageFreeFlightActor(pilot, { ...pilot, faction: "accord" }, combat), false);
 });
 
+test("population telemetry counts only connected pilots and emits no account or location identifiers", async () => {
+  const packets: Packet[][] = [[], []];
+  const sockets = packets.map(received => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (data: string) => received.push(JSON.parse(data)),
+    close: () => {},
+  }));
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async userId => ({
+      sessionKey: "mars:telemetry-private-location",
+      faction: userId === "telemetry-accord-user" ? "accord" : "ussf",
+      shipId: userId === "telemetry-accord-user" ? "mandjet" : "glide",
+    }),
+    resolveUniversePatrols: async () => [],
+  });
+  try {
+    await runtime.handle(sockets[0]!, "telemetry-ussf-user", { type: "freeflight_join" });
+    await runtime.handle(sockets[1]!, "telemetry-accord-user", { type: "freeflight_join" });
+    const metrics = runtime.populationTelemetry;
+    assert.equal(metrics.scope, "single-owner-process");
+    assert.equal(metrics.sessionCount, 1);
+    assert.equal(metrics.activePilotCount, 2);
+    assert.deepEqual(metrics.activePilotsByFaction, { ussf: 1, accord: 1 });
+    const serialized = JSON.stringify(metrics);
+    assert.equal(serialized.includes("telemetry-ussf-user"), false);
+    assert.equal(serialized.includes("telemetry-accord-user"), false);
+    assert.equal(serialized.includes("telemetry-private-location"), false);
+    runtime.detach(sockets[1]!);
+    assert.equal(runtime.populationTelemetry.activePilotCount, 1);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("a disconnected pilot cannot start combat after a delayed patrol reservation", async () => {
   const contact: UniversePatrolEncounter = {
     patrolId: "delayed-patrol-0001", locationId: "phobos-yard", faction: "accord",

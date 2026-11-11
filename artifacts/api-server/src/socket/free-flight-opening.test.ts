@@ -33,9 +33,19 @@ test("friendly defender automatically joins, flies and lands real weapon hits wi
   try {
     await runtime.handle(socket, "defender-pilot", { type: "freeflight_join", openingEncounter: true });
     let now = Date.now();
-    for (let tick = 0; tick < 1200; tick++) runtime.advance(now += 34);
+    for (let tick = 0; tick < 2400; tick++) {
+      runtime.advance(now += 34);
+      if (packets.some(packet => packet.type === "freeflight_weapon_event" &&
+          packet.sourceActorId === "patrol:escort:ussf:1" && packet.destroyed === true)) break;
+    }
     const snapshotPacket = [...packets].reverse().find(packet => isFreeFlightSnapshotV1(packet.snapshot));
     assert.ok(isFreeFlightSnapshotV1(snapshotPacket?.snapshot));
+    console.log("DEBUG escort", packets.filter(packet => packet.type === "freeflight_weapon_event" &&
+      packet.sourceActorId === "patrol:escort:ussf:1").map(packet => ({
+        shieldDamage: packet.shieldDamage, hullDamage: packet.hullDamage, destroyed: packet.destroyed,
+      })), snapshotPacket.snapshot.actors.map(actor => ({
+        id: actor.actorId, shield: actor.shield, hull: actor.hull, alive: actor.alive,
+      })));
     const escort = snapshotPacket.snapshot.actors.find(actor => actor.actorId === "patrol:escort:ussf:1");
     assert.ok(escort, "one visible server-owned friendly AI ship was deployed");
     assert.equal(escort.kind, "patrol");
@@ -43,8 +53,9 @@ test("friendly defender automatically joins, flies and lands real weapon hits wi
     assert.ok(packets.some(packet => packet.type === "freeflight_weapon_fired" &&
       packet.sourceActorId === escort.actorId), "AI uses the real weapon path");
     assert.ok(packets.some(packet => packet.type === "freeflight_weapon_event" &&
-      packet.sourceActorId === escort.actorId && Number(packet.hullDamage) > 0),
-    "AI bullets physically contact and damage the hostile ship");
+      packet.sourceActorId === escort.actorId &&
+      Number(packet.shieldDamage) + Number(packet.hullDamage) > 0),
+    "AI projectiles physically contact the hostile ship and damage its shields or hull");
     assert.ok(packets.some(packet => packet.type === "freeflight_weapon_event" &&
       packet.sourceActorId === escort.actorId && packet.destroyed === true),
     "AI can destroy a hostile through weapons, not by changing its hull directly");

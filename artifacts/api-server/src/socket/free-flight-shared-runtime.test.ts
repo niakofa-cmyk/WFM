@@ -160,7 +160,7 @@ test("two socket instances share one authoritative shard and restore it after ow
     const joinB = pilotB.packets.find((packet) => packet.type === "freeflight_joined")!;
     const snapshotB = joinB.snapshot as FreeFlightSnapshotV1;
     assert.equal(snapshotB.sessionInstanceId, snapshotA.sessionInstanceId);
-    assert.ok(snapshotB.actors.some((actor) => actor.callsign === "WING PILOT"));
+    assert.ok(snapshotB.actors.some((actor) => actor.callsign === "USSF HUMAN PILOT"));
     await waitFor(() => pilotB.packets.some((packet) => packet.type === "freeflight_routing"));
     const routeA = pilotA.packets.find((packet) => packet.type === "freeflight_routing")!;
     const routeB = pilotB.packets.find((packet) => packet.type === "freeflight_routing")!;
@@ -260,8 +260,8 @@ test("different canonical locations keep independent live spatial shards", async
     const farSnapshot = far.packets.find((packet) => packet.type === "freeflight_joined")!
       .snapshot as FreeFlightSnapshotV1;
     assert.notEqual(nearSnapshot.sessionInstanceId, farSnapshot.sessionInstanceId);
-    assert.equal(nearSnapshot.actors.some((actor) => actor.callsign === "WING PILOT"), false);
-    assert.equal(farSnapshot.actors.some((actor) => actor.callsign === "WING PILOT"), false);
+    assert.equal(nearSnapshot.actors.filter((actor) => actor.kind === "pilot" && !actor.own).length, 0);
+    assert.equal(farSnapshot.actors.filter((actor) => actor.kind === "pilot" && !actor.own).length, 0);
   } finally {
     await Promise.all([first.close(), second.close()]);
   }

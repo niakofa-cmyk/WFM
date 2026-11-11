@@ -89,8 +89,23 @@ const PATROL_ENGAGEMENT_RANGE = 180;
 const PATROL_SENSOR_RANGE = 520;
 const ASSIST_CALL_COOLDOWN_MS = 15_000;
 const ASSIST_CALL_TTL_MS = 20_000;
+const POPULATION_TELEMETRY_INTERVAL_MS = 60_000;
 const PRIMARY_FIRE_ENGAGEMENT_CONE = 0.3;
 const OPEN = 1;
+
+export type FreeFlightPopulationTelemetry = Readonly<{
+  scope: "single-owner-process";
+  capturedAt: number;
+  sessionCount: number;
+  activePilotCount: number;
+  activePilotsByFaction: Readonly<{ ussf: number; accord: number }>;
+  liveAiHullCount: number;
+  liveAiHullsByFaction: Readonly<{ ussf: number; accord: number }>;
+  liveFriendlyAiSupportCount: number;
+  activePatrolEncounterCount: number;
+  activeHumanEngagementCount: number;
+  actorCount: number;
+}>;
 
 type SharedInput = FlightControls & {
   fire: boolean;
@@ -428,6 +443,53 @@ function liveCombats(session: Session): LiveEncounter[] {
   return [...session.combats.values()].filter((combat) => combat.phase !== "complete");
 }
 
+function populationTelemetry(
+  sessions: ReadonlyMap<string, Session>,
+  capturedAt: number,
+): FreeFlightPopulationTelemetry {
+  const activePilotsByFaction = { ussf: 0, accord: 0 };
+  const liveAiHullsByFaction = { ussf: 0, accord: 0 };
+  let activePilotCount = 0;
+  let liveAiHullCount = 0;
+  let liveFriendlyAiSupportCount = 0;
+  let activePatrolEncounterCount = 0;
+  let activeHumanEngagementCount = 0;
+  let actorCount = 0;
+  for (const session of sessions.values()) {
+    actorCount += session.actors.size;
+    activePatrolEncounterCount += activeCombats(session).length;
+    activeHumanEngagementCount += session.pvpEngagements.size;
+    for (const pilot of session.pilotByUser.values()) {
+      if (pilot.ownerUserId && pilot.socket?.readyState === OPEN && pilot.craft.alive) {
+        activePilotCount += 1;
+        activePilotsByFaction[pilot.faction] += 1;
+      }
+    }
+    for (const actor of session.actors.values()) {
+      if (actor.kind !== "patrol" || !actor.craft.alive) continue;
+      liveAiHullCount += 1;
+      if (actor.actorId.startsWith("patrol:escort:")) {
+        liveFriendlyAiSupportCount += 1;
+      } else {
+        liveAiHullsByFaction[actor.faction] += 1;
+      }
+    }
+  }
+  return {
+    scope: "single-owner-process",
+    capturedAt,
+    sessionCount: sessions.size,
+    activePilotCount,
+    activePilotsByFaction,
+    liveAiHullCount,
+    liveAiHullsByFaction,
+    liveFriendlyAiSupportCount,
+    activePatrolEncounterCount,
+    activeHumanEngagementCount,
+    actorCount,
+  };
+}
+
 function pvpEngagementKey(a: string, b: string) {
   return [a, b].sort((left, right) => left.localeCompare(right)).join("|");
 }
@@ -512,6 +574,8 @@ export function createFreeFlightRuntime(options: {
   campaignState?: () => Promise<{ concluded: boolean }>;
   onCampaignJoin?: (userId: string) => Promise<void>;
   enableFriendlyAiSupport?: boolean;
+  /** Emits anonymous per-owner aggregates; never includes user, region or pose data. */
+  enablePopulationTelemetry?: boolean;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
   onAdmissionFailure?: (diagnostic: ReturnType<typeof admissionFailureDiagnostic>) => void;
   loadCheckpoint?: (sessionKey: string) => Promise<StoredFreeFlightCheckpoint | null>;
@@ -543,6 +607,7 @@ export function createFreeFlightRuntime(options: {
   const fencingTokens = new Map<string, number>();
   const checkpointPending = new Map<string, Promise<boolean>>();
   const lastCheckpointAt = new Map<string, number>();
+  let lastPopulationTelemetryAt = Date.now();
   let closed = false;
   let campaignConcluded = false;
   let campaignVerifiedUntil = 0;
@@ -1186,9 +1251,11 @@ export function createFreeFlightRuntime(options: {
         actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, cover,
         PRIMARY_WEAPON_CATALOG[ship.primaryFit],
       );
-      if (actor.kind === "pilot" && combatActive && primaryTarget) {
-        // No arbitrary primary-gun range gate: retain each round long enough
-        // to reach the server-selected hostile at its current range.
+      if (combatActive && primaryTarget) {
+        // Retain each pilot or AI round long enough to reach its
+        // server-selected hostile at its current range. Otherwise the shot can
+        // appear to fire correctly but expire before reaching an in-range
+        // target, especially for escort fire at the edge of its attack cone.
         const targetRange = distanceBetween(actor, primaryTarget) + 8;
         for (const bullet of bullets) {
           const speed = detHypot(detHypot(bullet.vx, bullet.vy ?? 0), bullet.vz);
@@ -2595,6 +2662,14 @@ export function createFreeFlightRuntime(options: {
 
   function advance(now = Date.now()) {
     if (closed) return;
+    if (options.enablePopulationTelemetry &&
+        now - lastPopulationTelemetryAt >= POPULATION_TELEMETRY_INTERVAL_MS) {
+      lastPopulationTelemetryAt = now;
+      process.stdout.write(`${JSON.stringify({
+        event: "orbital_freeflight_population_telemetry",
+        ...populationTelemetry(sessions, now),
+      })}\n`);
+    }
     for (const [key, session] of sessions) {
       const elapsed = Math.max(0, Math.min(250, now - session.lastAdvanceAt));
       session.lastAdvanceAt = now;
@@ -2710,5 +2785,6 @@ export function createFreeFlightRuntime(options: {
     hasUser(userId: string) { return userSeats.has(userId); },
     get sessionCount() { return sessions.size; },
     get pilotCount() { return userSeats.size; },
+    get populationTelemetry() { return populationTelemetry(sessions, Date.now()); },
   };
 }
