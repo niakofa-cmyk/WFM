@@ -219,12 +219,27 @@ Current code has an offline streamed-sector flight sandbox, authenticated world
 travel/discovery, a public operation directory, server-owned Wing/co-op
 operations, a read-only Wing spectator path, the bounded Pale Beacons patrol
 and evidence slice, and a persistent strategic multi-ship patrol directory.
-It does not yet implement continuous shared free-flight NPC combat. The bounded
-patrol operation is a separate server sector session, not a seamless battle at
-the visible contact's current free-flight position. A complete spatially
-authoritative encounter director and world-wide faction consequence simulation
-remain future work. Do not use local procedural scenery or client-side scan
-records as a substitute for those capabilities.
+Authenticated Orbital free flight also streams live nearby pilots and persistent
+patrol actors in the same server-owned spatial session. Opposing human pilots
+are labeled by faction and as human pilots, are selectable with the existing
+nearest-hostile targeting control, can maintain the normal server-reported
+target lock, and can damage one another through the ordinary authoritative
+projectile collision and shield/hull path. Firing or launching at a selected
+opponent opens a server-validated pairwise PvP engagement; same-faction damage
+remains rejected. Server-confirmed pilot kills and damage assists update the
+in-session tally. This PvP path does not award credits or campaign/world/faction
+progression. Pairwise PvP engagements are transient runtime state, not durable
+encounter receipts; after a socket-runtime restart, retained ship condition can
+remain but the live duel is not restored. The feature is implemented and
+automated-test verified in one authoritative runtime, not yet certified across
+multiple socket instances or on staging devices.
+
+The bounded `universe-patrol` operation and its strategic directory remain
+distinct from seamless live flight; use the authenticated shared-flight
+runtime's own server-owned patrol and encounter path for visible patrol
+combat. A complete spatially authoritative encounter director and world-wide
+faction consequence simulation remain future work. Do not use local procedural
+scenery or client-side scan records as a substitute for those capabilities.
 
 ## Implementation order
 
@@ -238,10 +253,13 @@ records as a substitute for those capabilities.
 3. **Implemented as a bounded operation:** selected patrols can be reserved,
    fought, tallied, settled, and have confirmed casualties removed from their
    persistent roster.
-4. Connect that operation to server-authoritative continuous free flight so
-   approaching a visible contact starts the battle at the actual shared position.
-5. Expand authenticated multiplayer exploration beyond the separate sector
-   operation; do not treat local free flight as shared authority.
+4. **Implemented for current same-session scope:** authenticated Orbital free
+   flight presents persistent patrols and opposing pilots in one spatial scene;
+   the server validates patrol encounters and hostile-human damage.
+5. **Partially implemented:** human-vs-human kill and assist tallies are
+   server-derived, but PvP has no currency/long-term settlement and its active
+   duel is not restored after a socket-runtime restart. Multi-instance and
+   physical-device verification remain separate gates.
 6. Add validated faction consequences only after ownership and isolation rules
    are defined; preserve existing reward gates.
 7. Surface active events at physical destinations, add safe spectator/admission

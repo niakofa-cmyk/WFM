@@ -164,6 +164,11 @@ type LiveEncounter = {
   settlementTask: Promise<void> | null;
   resultsApplied: boolean;
 };
+type PvpEngagement = {
+  id: string;
+  actorIds: Set<string>;
+  damageByTarget: Map<string, Map<string, number>>;
+};
 type AssistCall = {
   id: string;
   encounterId: string;
@@ -189,6 +194,8 @@ type Session = {
   persistentPatrols: Map<string, UniversePatrolEncounter>;
   projectiles: FreeFlightProjectile[];
   combats: Map<string, LiveEncounter>;
+  /** Ephemeral hostile-human engagements; never grant patrol/campaign rewards. */
+  pvpEngagements: Map<string, PvpEngagement>;
   assistCalls: Map<string, AssistCall>;
   engagementPending: boolean;
   nextAutoEngagementAt: number;
@@ -388,7 +395,7 @@ function actorView(actor: Actor, viewer: Actor): FreeFlightActorV1 {
       ? `${actor.callsign.slice(0, 50)}${actor.scoutMemory ? actor.scoutMemory.mode === "tracking" ? " - PURSUIT" : " - SEARCH" : " - PATROL"}`
       : actor === viewer
         ? "YOU"
-        : actor.faction === viewer.faction ? "WING PILOT" : "UNIDENTIFIED CONTACT",
+        : `${factionLabel(actor.faction)} HUMAN PILOT`,
     position: { x: craft.x, y: space.y, z: craft.z },
     velocity: { x: space.vx, y: space.vy, z: space.vz },
     orientation: { x: space.q[0], y: space.q[1], z: space.q[2], w: space.q[3] },
@@ -421,17 +428,31 @@ function liveCombats(session: Session): LiveEncounter[] {
   return [...session.combats.values()].filter((combat) => combat.phase !== "complete");
 }
 
+function pvpEngagementKey(a: string, b: string) {
+  return [a, b].sort((left, right) => left.localeCompare(right)).join("|");
+}
+
+function pvpEngagementBetween(session: Session, a: string, b: string) {
+  if (a === b) return undefined;
+  const engagement = session.pvpEngagements.get(pvpEngagementKey(a, b));
+  return engagement?.actorIds.has(a) && engagement.actorIds.has(b) ? engagement : undefined;
+}
+
+function pvpEngagementsForActor(session: Session, actorId: string) {
+  return [...session.pvpEngagements.values()].filter((engagement) => engagement.actorIds.has(actorId));
+}
+
 function pilotHasActiveCombat(session: Session, actorId: string): boolean {
   return [...session.combats.values()].some((combat) =>
     combat.phase === "active" && combat.participantActorIds.has(actorId),
-  );
+  ) || [...session.pvpEngagements.values()].some((engagement) => engagement.actorIds.has(actorId));
 }
 
 /** Do not discard health or attribution while a result is still unresolved. */
 function pilotHasUnresolvedCombat(session: Session, actorId: string): boolean {
   return session.engagementPending || [...session.combats.values()].some((combat) =>
     combat.phase !== "complete" && combat.participantActorIds.has(actorId),
-  );
+  ) || [...session.pvpEngagements.values()].some((engagement) => engagement.actorIds.has(actorId));
 }
 
 function pilotNeedsRecovery(actor: Actor): boolean {
@@ -443,8 +464,14 @@ export function canDamageFreeFlightActor(
   source: Pick<Actor, "kind" | "actorId" | "faction">,
   target: Pick<Actor, "kind" | "actorId" | "faction">,
   combat: Pick<LiveEncounter, "phase" | "participantActorIds" | "alliedNpcActorIds"> | undefined,
+  pvpEngagement?: Pick<PvpEngagement, "actorIds">,
 ): boolean {
-  if (combat?.phase !== "active" || source.faction === target.faction) return false;
+  if (source.faction === target.faction) return false;
+  if (source.kind === "pilot" && target.kind === "pilot") {
+    return Boolean(pvpEngagement?.actorIds.has(source.actorId) &&
+      pvpEngagement.actorIds.has(target.actorId));
+  }
+  if (combat?.phase !== "active") return false;
   if (source.kind === "patrol" && target.kind === "patrol") {
     return Boolean(combat.alliedNpcActorIds?.has(source.actorId) ||
       combat.alliedNpcActorIds?.has(target.actorId));
@@ -676,6 +703,7 @@ export function createFreeFlightRuntime(options: {
       persistentPatrols,
       projectiles: structuredClone(snapshot.projectiles),
       combats,
+      pvpEngagements: new Map(),
       assistCalls,
       engagementPending: false,
       nextAutoEngagementAt: now,
@@ -762,7 +790,8 @@ export function createFreeFlightRuntime(options: {
       key, instanceId: randomUUID(), actors: new Map(), pilotByUser: new Map(),
       anomalyGravityWells: anomalyGravityWell ? [anomalyGravityWell] : [],
       gravityEnvironmentEnabled: false,
-      persistentPatrols: new Map(), projectiles: [], combats: new Map(), assistCalls: new Map(),
+      persistentPatrols: new Map(), projectiles: [], combats: new Map(),
+      pvpEngagements: new Map(), assistCalls: new Map(),
       engagementPending: false, nextAutoEngagementAt: 0,
       autoEngagementCooldowns: new Map(), nextProjectileId: 1,
       nextNumericId: 1, tick: 0, accumulatorMs: 0,
@@ -890,6 +919,12 @@ export function createFreeFlightRuntime(options: {
   }
 
   function eligiblePilotTarget(session: Session, pilot: Actor, candidate: Actor) {
+    if (candidate.kind === "pilot") {
+      return pilot.kind === "pilot" && pilot.actorId !== candidate.actorId &&
+        pilot.craft.alive && candidate.craft.alive &&
+        candidate.socket?.readyState === OPEN && candidate.faction !== pilot.faction &&
+        distanceBetween(pilot, candidate) <= NEARBY_RADIUS;
+    }
     const combat = candidate.persistentPatrolId
       ? session.combats.get(candidate.persistentPatrolId) : undefined;
     return pilot.craft.alive && candidate.craft.alive && candidate.faction !== pilot.faction &&
@@ -911,6 +946,69 @@ export function createFreeFlightRuntime(options: {
         pilot.craft, valid.craft, session.projectiles.length, [], missile)),
       missileCooldown: space.missileCd, ammo: space.ammo,
     } });
+  }
+
+  async function beginPvpEngagement(session: Session, attacker: Actor, target: Actor) {
+    if (attacker.kind !== "pilot" || target.kind !== "pilot" ||
+        attacker.faction === target.faction || !attacker.craft.alive || !target.craft.alive ||
+        attacker.socket?.readyState !== OPEN || target.socket?.readyState !== OPEN ||
+        distanceBetween(attacker, target) > NEARBY_RADIUS) return false;
+    const key = pvpEngagementKey(attacker.actorId, target.actorId);
+    if (session.pvpEngagements.has(key)) return true;
+    const seat = attacker.socket ? seats.get(attacker.socket) : undefined;
+    const targetSeat = target.ownerUserId ? userSeats.get(target.ownerUserId) : undefined;
+    if (!seat || seat.actor !== attacker || seat.session !== session ||
+        !targetSeat || targetSeat.actor !== target || targetSeat.session !== session) return false;
+    const [admission, targetAdmission] = await Promise.all([
+      options.resolveAdmission(seat.userId).catch(() => null),
+      options.resolveAdmission(targetSeat.userId).catch(() => null),
+    ]);
+    if (closed || sessions.get(session.key) !== session || seats.get(attacker.socket!) !== seat ||
+        attacker.socket?.readyState !== OPEN || !attacker.craft.alive || !target.craft.alive ||
+        target.socket?.readyState !== OPEN || userSeats.get(targetSeat.userId) !== targetSeat ||
+        attacker.faction === target.faction || distanceBetween(attacker, target) > NEARBY_RADIUS ||
+        !admission || admission.sessionKey !== session.key ||
+        admission.faction !== attacker.faction || admission.shipId !== attacker.shipId ||
+        !targetAdmission || targetAdmission.sessionKey !== session.key ||
+        targetAdmission.faction !== target.faction || targetAdmission.shipId !== target.shipId) {
+      send(attacker.socket, { type: "error", reason: "freeflight_location_changed" });
+      return false;
+    }
+    // Both pilots may fire in the same event-loop turn. Reuse the first
+    // server-owned pair rather than creating competing engagement identities.
+    if (session.pvpEngagements.has(key)) return true;
+    const engagement: PvpEngagement = {
+      id: randomUUID(),
+      actorIds: new Set([attacker.actorId, target.actorId]),
+      damageByTarget: new Map(),
+    };
+    session.pvpEngagements.set(key, engagement);
+    for (const participant of [attacker, target]) {
+      send(participant.socket, {
+        type: "freeflight_pvp_engagement_started",
+        engagementId: engagement.id,
+        opposingActorId: participant === attacker ? target.actorId : attacker.actorId,
+        opposingFaction: participant === attacker ? target.faction : attacker.faction,
+      });
+      sendCombatState(session, participant);
+    }
+    publish(session);
+    return true;
+  }
+
+  function endPvpEngagementsForActor(session: Session, actorId: string) {
+    const opponents = new Set<string>();
+    for (const [key, engagement] of session.pvpEngagements) {
+      if (!engagement.actorIds.has(actorId)) continue;
+      for (const participantId of engagement.actorIds) {
+        if (participantId !== actorId) opponents.add(participantId);
+      }
+      session.pvpEngagements.delete(key);
+    }
+    for (const opponentId of opponents) {
+      const opponent = session.actors.get(opponentId);
+      if (opponent) sendCombatState(session, opponent);
+    }
   }
 
   function environmentFor(session: Session): FreeFlightEnvironmentV1 {
@@ -949,10 +1047,10 @@ export function createFreeFlightRuntime(options: {
   function combatTarget(session: Session, actor: Actor, primaryFire = false): Actor | undefined {
     // Selection is persistent; geometry controls acquisition, not which enemy
     // a turning/evading pilot silently gets switched to.
-    if (actor.kind === "pilot" && !primaryFire && actor.selectedTargetActorId) {
+    if (actor.kind === "pilot" && actor.selectedTargetActorId) {
       const selected = session.actors.get(actor.selectedTargetActorId);
       if (selected && eligiblePilotTarget(session, actor, selected)) return selected;
-      actor.selectedTargetActorId = null;
+      if (!selected || !eligiblePilotTarget(session, actor, selected)) actor.selectedTargetActorId = null;
     }
     const ownPatrolCombat = actor.persistentPatrolId
       ? session.combats.get(actor.persistentPatrolId) : undefined;
@@ -966,10 +1064,16 @@ export function createFreeFlightRuntime(options: {
     for (const candidate of session.actors.values()) {
       if (!candidate.craft.alive) continue;
       if (actor.kind === "pilot") {
-        const combat = candidate.persistentPatrolId
-          ? session.combats.get(candidate.persistentPatrolId) : undefined;
-        if (candidate.faction === actor.faction || combat?.phase !== "active" ||
-            !combat.participantActorIds.has(actor.actorId)) continue;
+        if (candidate.kind === "pilot") {
+          if (candidate.faction === actor.faction ||
+              !pvpEngagementBetween(session, actor.actorId, candidate.actorId)) continue;
+          // The pairwise server engagement is the hostile-human authorization.
+        } else {
+          const combat = candidate.persistentPatrolId
+            ? session.combats.get(candidate.persistentPatrolId) : undefined;
+          if (candidate.faction === actor.faction || combat?.phase !== "active" ||
+              !combat.participantActorIds.has(actor.actorId)) continue;
+        }
       } else if (escort) {
         const hostileCombat = candidate.persistentPatrolId
           ? session.combats.get(candidate.persistentPatrolId) : undefined;
@@ -1064,9 +1168,13 @@ export function createFreeFlightRuntime(options: {
       : actor.persistentPatrolId
         ? session.combats.get(actor.persistentPatrolId)
         : activeCombats(session).find((candidate) => candidate.alliedNpcActorIds?.has(actor.actorId));
-    const combatActive = combat?.phase === "active";
+    const combatActive = combat?.phase === "active" ||
+      actor.kind === "pilot" && pvpEngagementsForActor(session, actor.actorId).length > 0;
     if (actor.kind !== "pilot" && !combatActive) return;
-    const target = combatActive ? combatTarget(session, actor) : undefined;
+    // Allow lock acquisition on a visible hostile pilot before either side
+    // commits to PvP; projectiles still require an active server engagement.
+    const target = actor.kind === "pilot" || combatActive
+      ? combatTarget(session, actor) : undefined;
     const primaryTarget = combatActive ? combatTarget(session, actor, true) : undefined;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     const cover = universeCollidersAt({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z });
@@ -1101,9 +1209,16 @@ export function createFreeFlightRuntime(options: {
   }
 
   function impactCombat(session: Session, source: Actor, target: Actor) {
+    if (source.kind === "pilot" && target.kind === "pilot") {
+      const engagement = pvpEngagementBetween(session, source.actorId, target.actorId);
+      if (!engagement || !canDamageFreeFlightActor(source, target, undefined, engagement)) return undefined;
+      return { kind: "pvp" as const, engagement };
+    }
     const patrolId = target.persistentPatrolId ?? source.persistentPatrolId;
     const combat = patrolId ? session.combats.get(patrolId) : undefined;
-    return canDamageFreeFlightActor(source, target, combat) ? combat : undefined;
+    return canDamageFreeFlightActor(source, target, combat)
+      ? { kind: "patrol" as const, combat: combat! }
+      : undefined;
   }
 
   function sendEncounterState(session: Session, combat: LiveEncounter, phase: string) {
@@ -1125,26 +1240,32 @@ export function createFreeFlightRuntime(options: {
     to: { x: number; y: number; z: number },
   ) {
     const attacker = session.actors.get(projectile.sourceActorId);
-    const combat = attacker ? impactCombat(session, attacker, target) : undefined;
-    if (!attacker || !combat || !target.craft.alive) return;
+    const damageContext = attacker ? impactCombat(session, attacker, target) : undefined;
+    if (!attacker || !damageContext || !target.craft.alive) return;
+    const encounterId = damageContext.kind === "patrol"
+      ? damageContext.combat.id : damageContext.engagement.id;
     const shieldDamage = Math.min(target.shield, projectile.dmg);
     target.shield = Math.max(0, target.shield - shieldDamage);
     const hullDamage = applyHullDamage(target.craft, projectile.dmg - shieldDamage);
     if (target.craft.hull <= 0) target.craft.alive = false;
     if (shieldDamage + hullDamage > 0) target.lastDamageTick = session.tick;
-    if (hullDamage > 0) {
-      combat.contract.recordDamage({
+    if (hullDamage > 0 && damageContext.kind === "patrol") {
+      damageContext.combat.contract.recordDamage({
         eventId: weaponEventId(session, projectile.id),
         tick: session.tick,
         attackerActorId: encounterActorId(attacker),
         targetActorId: encounterActorId(target),
         hullDamage,
       });
+    } else if (hullDamage > 0 && damageContext.kind === "pvp") {
+      const contributions = damageContext.engagement.damageByTarget.get(target.actorId) ?? new Map();
+      contributions.set(attacker.actorId, (contributions.get(attacker.actorId) ?? 0) + hullDamage);
+      damageContext.engagement.damageByTarget.set(target.actorId, contributions);
     }
     broadcast(session, {
       type: "freeflight_weapon_event",
       eventId: weaponEventId(session, projectile.id),
-      encounterId: combat.id,
+      encounterId,
       sourceActorId: projectile.sourceActorId,
       sourceFaction: projectile.faction,
       targetActorId: target.actorId,
@@ -1167,6 +1288,43 @@ export function createFreeFlightRuntime(options: {
       attacker.craft.space!.energy = reward.energy;
       if (reward.milestone) attacker.shield = Math.min(attacker.shieldMax, attacker.shield + attacker.shieldMax * .1);
       sendCombatProgress(session, attacker, reward);
+    }
+    if (!target.craft.alive && damageContext.kind === "pvp" &&
+        attacker.kind === "pilot" && target.kind === "pilot") {
+      const contributors = new Set<string>();
+      for (const engagement of session.pvpEngagements.values()) {
+        for (const actorId of engagement.damageByTarget.get(target.actorId)?.keys() ?? []) {
+          contributors.add(actorId);
+        }
+      }
+      attacker.kills += 1;
+      for (const actorId of contributors) {
+        if (actorId === attacker.actorId) continue;
+        const assister = session.actors.get(actorId);
+        if (assister?.kind === "pilot") assister.assists += 1;
+      }
+      const recipients = new Set([attacker.actorId, target.actorId, ...contributors]);
+      for (const actorId of recipients) {
+        const recipient = session.actors.get(actorId);
+        if (recipient?.kind !== "pilot") continue;
+        send(recipient.socket, {
+          type: "freeflight_pvp_result",
+          engagementId: damageContext.engagement.id,
+          sourceActorId: attacker.actorId,
+          targetActorId: target.actorId,
+          outcome: actorId === attacker.actorId ? "kill"
+            : actorId === target.actorId ? "destroyed"
+              : contributors.has(actorId) ? "assist" : "battle_resolved",
+          kills: recipient.kills,
+          assists: recipient.assists,
+          creditsAwarded: recipient.creditsAwarded,
+        });
+      }
+      endPvpEngagementsForActor(session, target.actorId);
+      for (const actorId of recipients) {
+        const recipient = session.actors.get(actorId);
+        if (recipient?.kind === "pilot") sendCombatState(session, recipient);
+      }
     }
     if (!target.craft.alive && target.kind === "pilot") {
       if (target.combatProgress) target.combatProgress.streak = 0;
@@ -1282,11 +1440,12 @@ export function createFreeFlightRuntime(options: {
     const encounters = liveCombats(session).filter((combat) =>
       combat.participantActorIds.has(actor.actorId));
     const active = encounters.filter((combat) => combat.phase === "active");
+    const pvpActive = pvpEngagementsForActor(session, actor.actorId).length;
     send(actor.socket, {
       type: "freeflight_engagement_state",
-      phase: active.length ? "active" : encounters.length ? "settling" : "idle",
+      phase: active.length || pvpActive ? "active" : encounters.length ? "settling" : "idle",
       pilotAlive: actor.craft.alive,
-      activeEncounterCount: active.length,
+      activeEncounterCount: active.length + pvpActive,
       kills: actor.kills, assists: actor.assists, creditsAwarded: actor.creditsAwarded,
     });
   }
@@ -1924,6 +2083,7 @@ export function createFreeFlightRuntime(options: {
     seats.delete(socket);
     if (seat.actor.socket !== socket) return;
     if (userSeats.get(seat.userId)?.actor === seat.actor) userSeats.delete(seat.userId);
+    endPvpEngagementsForActor(seat.session, seat.actor.actorId);
     seat.actor.socket = null;
     seat.actor.input = { ...IDLE };
     seat.actor.disconnectedAt = Date.now();
@@ -2305,7 +2465,12 @@ export function createFreeFlightRuntime(options: {
         sendCombatState(seat.session, seat.actor);
         return;
       }
-      if (input.missile && !pilotHasActiveCombat(seat.session, seat.actor.actorId)) {
+      const selectedTarget = seat.actor.selectedTargetActorId
+        ? seat.session.actors.get(seat.actor.selectedTargetActorId) : undefined;
+      const selectedHostilePilot = selectedTarget?.kind === "pilot" &&
+        eligiblePilotTarget(seat.session, seat.actor, selectedTarget);
+      if (input.missile && !pilotHasActiveCombat(seat.session, seat.actor.actorId) &&
+          !selectedHostilePilot) {
         if (!input.fire) {
           error("freeflight_engagement_required");
           return;
@@ -2325,6 +2490,11 @@ export function createFreeFlightRuntime(options: {
       }
       seat.actor.inputCount += 1;
       if (seat.actor.inputCount > INPUT_RATE_LIMIT) { error("freeflight_rate_limited"); return; }
+      if ((input.fire || input.missile) && selectedHostilePilot && selectedTarget &&
+          !pvpEngagementBetween(seat.session, seat.actor.actorId, selectedTarget.actorId) &&
+          !await beginPvpEngagement(seat.session, seat.actor, selectedTarget)) {
+        return;
+      }
       seat.actor.lastSeq = input.seq;
       seat.actor.lastInputAt = now;
       seat.actor.input = {

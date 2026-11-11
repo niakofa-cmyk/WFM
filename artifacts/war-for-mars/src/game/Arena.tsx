@@ -960,6 +960,29 @@ export function Arena({
             setFreeFlightNotice(packet.assistance === true
               ? "WING SUPPORT · Joined the live fleet battle."
               : "HOSTILE INTERCEPT · Live fleet battle engaged.");
+          } else if (packet.type === "freeflight_pvp_engagement_started" &&
+              typeof packet.engagementId === "string" &&
+              (packet.opposingFaction === "ussf" || packet.opposingFaction === "accord")) {
+            freeFlightCombatActiveRef.current = true;
+            setFreeFlightCombatStatus("active");
+            setFreeFlightNotice(`HOSTILE PILOT · ${packet.opposingFaction.toUpperCase()} PLAYER ENGAGED`);
+          } else if (packet.type === "freeflight_pvp_result" &&
+              ["kill", "destroyed", "assist", "battle_resolved"].includes(String(packet.outcome)) &&
+              [packet.kills, packet.assists, packet.creditsAwarded].every(
+                (value) => Number.isSafeInteger(value) && (value as number) >= 0,
+              )) {
+            setFreeFlightTally({
+              kills: packet.kills as number,
+              assists: packet.assists as number,
+              credits: packet.creditsAwarded as number,
+            });
+            setFreeFlightNotice(packet.outcome === "kill"
+              ? "HOSTILE PILOT DESTROYED · KILL CONFIRMED"
+              : packet.outcome === "destroyed"
+                ? "SHIP DESTROYED BY HOSTILE PILOT"
+                : packet.outcome === "assist"
+                  ? "HOSTILE PILOT DESTROYED · ASSIST CONFIRMED"
+                  : "HOSTILE PILOT BATTLE ENDED");
           } else if (packet.type === "freeflight_ally_joined" &&
               Number.isSafeInteger(packet.participantCount) &&
               (packet.participantCount as number) >= 2 &&
@@ -3863,8 +3886,8 @@ export function Arena({
                       </div>
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
-                    {exploringHud && !sharedFreeFlightEngagementActive ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
-                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightEngagementActive) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
+                    {exploringHud && !sharedFreeFlightPrimaryFireReady ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
+                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -4013,7 +4036,7 @@ export function Arena({
                         }}
                       />
                     )}
-                    {exploringHud && !sharedFreeFlightEngagementActive ? null : <PilotActionButton
+                    {exploringHud && !sharedFreeFlightPrimaryFireReady ? null : <PilotActionButton
                       ref={missileRef}
                       icon="missile"
                       label="Launch guided missile"
@@ -4091,10 +4114,10 @@ export function Arena({
           ) : (
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
-                {!exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
-                {freeFlightEnabled && (!exploringHud || sharedFreeFlightEngagementActive) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
+                {!exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
+                {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
                 {orbital ? (
-                  !exploringHud || sharedFreeFlightEngagementActive ? <PilotActionButton
+                  !exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton
                     ref={missileRef}
                     icon="missile"
                     label="Launch guided missile"

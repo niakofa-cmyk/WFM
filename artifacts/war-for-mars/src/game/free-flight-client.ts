@@ -324,6 +324,8 @@ export class FreeFlightClient {
           packet.type === "freeflight_assist_call_result" ||
           packet.type === "freeflight_assist_call_update" ||
           packet.type === "freeflight_engagement_started" ||
+          packet.type === "freeflight_pvp_engagement_started" ||
+          packet.type === "freeflight_pvp_result" ||
           packet.type === "freeflight_ally_joined" ||
           packet.type === "freeflight_engagement_state" ||
           packet.type === "freeflight_weapon_fired" ||

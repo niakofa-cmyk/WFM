@@ -621,7 +621,7 @@ test("authenticated pilots see nearby pilots and both server patrol factions onl
     assert.ok(shared.actors.some((actor) => actor.kind === "patrol" && actor.faction === "accord"));
     const remote = shared.actors.find((actor) => actor.kind === "pilot" && actor.actorId !== shared.ownActorId);
     assert.ok(remote);
-    assert.equal(remote.callsign, "UNIDENTIFIED CONTACT");
+    assert.equal(remote.callsign, "ACCORD HUMAN PILOT");
     for (const actor of shared.actors) {
       assert.equal(Object.hasOwn(actor, "userId"), false);
       assert.equal(Object.hasOwn(actor, "playerId"), false);
@@ -674,6 +674,7 @@ test("the server advances 3D pilot and patrol movement and rejects client combat
 test("damage requires opposing actors in the same active reserved encounter", () => {
   const pilot = { kind: "pilot" as const, actorId: "pilot-a", faction: "ussf" as const };
   const patrol = { kind: "patrol" as const, actorId: "patrol-a", faction: "accord" as const };
+  const opposingPilot = { kind: "pilot" as const, actorId: "pilot-b", faction: "accord" as const };
   const combat = { phase: "active" as const, participantActorIds: new Set(["pilot-a"]) };
   assert.equal(canDamageFreeFlightActor(pilot, patrol, combat), true);
   assert.equal(canDamageFreeFlightActor(patrol, pilot, combat), true);
@@ -682,6 +683,10 @@ test("damage requires opposing actors in the same active reserved encounter", ()
   assert.equal(canDamageFreeFlightActor(pilot, { ...patrol, faction: "ussf" }, combat), false);
   assert.equal(canDamageFreeFlightActor(pilot, patrol, { ...combat, phase: "complete" }), false);
   assert.equal(canDamageFreeFlightActor(pilot, patrol, undefined), false);
+  assert.equal(canDamageFreeFlightActor(pilot, opposingPilot, undefined,
+    { actorIds: new Set(["pilot-a", "pilot-b"]) }), true);
+  assert.equal(canDamageFreeFlightActor(pilot, opposingPilot, undefined,
+    { actorIds: new Set(["pilot-a", "other-pilot"]) }), false);
   assert.equal(canDamageFreeFlightActor(pilot, { ...pilot, faction: "accord" }, combat), false);
 });
 

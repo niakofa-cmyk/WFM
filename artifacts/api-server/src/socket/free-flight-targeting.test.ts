@@ -282,6 +282,129 @@ test("shared targeting cycles hostile ships, holds selection through flight and 
   }
 });
 
+test("opposing human pilots are identified, targetable and can damage one another in shared flight", async () => {
+  let now = Date.now();
+  const realNow = Date.now;
+  Date.now = () => now;
+  const packets: Packet[][] = [[], []];
+  const sockets = packets.map(received => ({
+    readyState: 1, bufferedAmount: 0,
+    send: (value: string) => { received.push(JSON.parse(value)); },
+    close: () => {},
+  }));
+  const users = ["ussf-pvp-pilot", "accord-pvp-pilot"];
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async userId => ({
+      sessionKey: "mars:pvp-test",
+      faction: userId === users[1] ? "accord" as const : "ussf" as const,
+      shipId: userId === users[1] ? "mandjet" as const : "glide" as const,
+    }),
+    resolveUniversePatrols: async () => [],
+  });
+  const frame = (index: number) => {
+    const snapshot = packets[index]!.filter(packet =>
+      isFreeFlightSnapshotV1(packet.snapshot)).at(-1)?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    return snapshot as FreeFlightSnapshotV1;
+  };
+  const selection = (index: number) => {
+    const state = packets[index]!.filter(packet =>
+      packet.type === "freeflight_target_state").at(-1)?.state;
+    assert.ok(isFreeFlightTargetState(state));
+    return state;
+  };
+  try {
+    for (let index = 0; index < sockets.length; index++) {
+      await runtime.handle(sockets[index]!, users[index]!, { type: "freeflight_join" });
+    }
+    const ussf = frame(0);
+    const accord = frame(1);
+    const ussfActor = ussf.actors.find(actor => actor.own)!;
+    const ussfRemote = ussf.actors.find(actor => actor.kind === "pilot" && !actor.own)!;
+    const accordActor = accord.actors.find(actor => actor.own)!;
+    const accordRemote = accord.actors.find(actor => actor.kind === "pilot" && !actor.own)!;
+    assert.equal(ussfRemote.callsign, "ACCORD HUMAN PILOT");
+    assert.equal(accordRemote.callsign, "USSF HUMAN PILOT");
+    assert.equal(ussfRemote.actorId, accordActor.actorId);
+    assert.equal(accordRemote.actorId, ussfActor.actorId);
+
+    for (let index = 0; index < sockets.length; index++) {
+      await runtime.handle(sockets[index]!, users[index]!, {
+        type: "freeflight_target_nearest", protocol: FREE_FLIGHT_TARGETING_V1, seq: 1,
+      });
+      assert.equal(selection(index).targetActorId,
+        frame(index).actors.find(actor => actor.kind === "pilot" && !actor.own)?.actorId,
+        "the closest-enemy action may select a hostile human outside a patrol encounter");
+    }
+
+    const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+    let inputSeq = 1;
+    let hit = false;
+    let destroyed = false;
+    for (let tick = 0; tick < 900 && !destroyed; tick++) {
+      now += 34;
+      for (let index = 0; index < sockets.length; index++) {
+        const snapshot = frame(index);
+        const own = snapshot.actors.find(actor => actor.own)!;
+        const target = snapshot.actors.find(actor => actor.actorId === selection(index).targetActorId)!;
+        const local = rotate(
+          [-own.orientation.x, -own.orientation.y, -own.orientation.z, own.orientation.w],
+          target.position.x - own.position.x,
+          target.position.y - own.position.y,
+          target.position.z - own.position.z,
+        );
+        await runtime.handle(sockets[index]!, users[index]!, {
+          type: "freeflight_input",
+          input: {
+            version: 5, seq: inputSeq++, targetId: null, throttle: 0,
+            yaw: clamp(Math.atan2(-local.x, -local.z) * 2.1),
+            pitch: clamp(Math.atan2(local.y, Math.hypot(local.x, local.z)) * 2.1),
+            strafe: 0, vertical: 0, roll: 0, fire: true, missile: false,
+            boost: false, brake: false, inertial: false, aimAssist: false,
+            countermeasure: false,
+          },
+        });
+      }
+      runtime.advance(now);
+      hit ||= packets.some(received => received.some(packet =>
+        packet.type === "freeflight_weapon_event" &&
+        typeof packet.targetActorId === "string" &&
+        typeof packet.shieldDamage === "number" && packet.shieldDamage > 0));
+      destroyed = packets.some(received => received.some(packet =>
+        packet.type === "freeflight_pvp_result" && packet.outcome === "kill"));
+    }
+    assert.equal(destroyed, true, "a continuing shared battle can destroy the opposing human ship");
+    const killResult = packets.flat().find(packet =>
+      packet.type === "freeflight_pvp_result" && packet.outcome === "kill");
+    assert.ok(killResult && Number(killResult.kills) >= 1,
+      "the server credits the player who destroyed the opposing pilot");
+    assert.ok(packets.every(received => received.some(packet =>
+      packet.type === "freeflight_pvp_engagement_started")),
+    "both factions receive the server-confirmed hostile-pilot engagement");
+    assert.equal(hit, true, "opposing-pilot weapons must produce an authoritative hit");
+    const hitEvent = packets.flat().find(packet =>
+      packet.type === "freeflight_weapon_event" &&
+      typeof packet.targetActorId === "string" &&
+      typeof packet.shieldDamage === "number" && packet.shieldDamage > 0)!;
+    for (let tick = 0; tick < 4; tick++) runtime.advance(now += 34);
+    let sharedDamagedHull: number | undefined;
+    for (const index of [0, 1]) {
+      const damagedActor = frame(index).actors.find(actor => actor.actorId === hitEvent.targetActorId);
+      assert.ok(damagedActor);
+      assert.ok(damagedActor.shield < damagedActor.shieldMax ||
+        damagedActor.hull < damagedActor.hullMax);
+      if (sharedDamagedHull === undefined) sharedDamagedHull = damagedActor.hull;
+      else assert.equal(damagedActor.hull, sharedDamagedHull,
+        "both clients see the same authoritative hull after PvP impact");
+    }
+    assert.equal(packets[0]!.some(packet => packet.type === "freeflight_combat_result"), false,
+      "PvP must not mint patrol bounty credits through the NPC settlement path");
+  } finally {
+    await runtime.close();
+    Date.now = realNow;
+  }
+});
+
 test("a server-issued nearby wing call joins the same encounter without a new patrol reservation", async () => {
   const contact: UniversePatrolEncounter = {
     patrolId: "assist-call-patrol001", locationId: "phobos-yard", faction: "accord",

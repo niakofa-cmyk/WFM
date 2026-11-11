@@ -31,3 +31,22 @@ Prioritize nearby hostile threats when extending target selection, but preserve 
 **Why:** The owner wants closest-enemy selection and useful cycling during multi-fleet combat, without losing deliberate aim or missile charge unexpectedly.
 
 **How to apply:** Keep explicit nearest selection distinct from maintaining an existing lock; proximity does not override server combat eligibility.
+
+Opposing authenticated human pilots in the same Orbital spatial session are
+hostile by faction, visibly labeled with their faction and `HUMAN PILOT`, and
+eligible for the existing nearest-target, lock, primary-fire and missile
+controls. Selecting a pilot does not itself enable damage; hostile fire opens
+a server-revalidated pairwise engagement, and only server-simulated projectile
+hits can damage the opposing ship. Same-faction pilots cannot damage one
+another.
+
+**Why:** The owner requires USSF and Accord users to recognize, target, and
+fight each other in the same live universe rather than seeing opponents as
+unknown contacts or being restricted to patrol targets.
+
+**How to apply:** Derive faction, identity and position from the authenticated
+server seat and same-session snapshots. Attribute kills/assists from validated
+damage; do not grant campaign or currency rewards without a distinct
+idempotent PvP settlement contract. Treat the current pairwise duel as
+runtime-only until checkpoint/restart recovery is explicitly implemented and
+verified.
