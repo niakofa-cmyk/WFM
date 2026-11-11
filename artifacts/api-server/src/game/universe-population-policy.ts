@@ -53,10 +53,11 @@ export function countFreshActivePilots(
 }
 
 /**
- * Initial requested global AI hull mix. Accord-majority pilots create a larger
- * opposing USSF share; USSF-majority pilots mirror the result. This is a pure
- * policy only: callers must supply globally authoritative population data
- * before using it to change persistent fleets.
+ * Initial, adjustable global AI hull mix. Accord-majority pilots create a
+ * larger opposing USSF share and a smaller friendly Accord share; USSF-majority
+ * pilots mirror it. Mixed-faction encounters still need local composition.
+ * This is a pure policy only: callers must supply globally authoritative
+ * population data before using it to change persistent fleets.
  */
 export function desiredAiFactionMixFromActivePilots(counts: PilotFactionCounts) {
   const total = counts.ussf + counts.accord;

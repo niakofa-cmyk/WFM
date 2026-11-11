@@ -4,10 +4,14 @@ description: Owner-proposed faction ratios, same-faction assistance expectations
 ---
 
 The owner proposes adjusting roaming AI force shares to the active human faction
-mix. The concrete example is 6 of 10 active human pilots choosing Accord leading
-to a target near 80% hostile USSF fleet hulls and 20% friendly Accord AI hulls,
-with the rule mirrored for USSF pilots. Friendly AI should assist within the
-continuous Orbital universe rather than through a disconnected mode.
+mix. The 80% enemy / 20% friendly balance is an adjustable starting example, not
+a mandatory final percentage. For example, 6 of 10 active human pilots choosing
+Accord could mean 80% hostile USSF fleet hulls and 20% friendly Accord AI hulls;
+mirror the factions for a USSF-heavy group. “Enemy” and “friendly” are relative
+to the participating pilot/group, so a mixed-faction universe needs local
+encounter composition rather than one fixed global ratio. Friendly AI should
+assist within the continuous Orbital universe rather than through a disconnected
+mode.
 
 The owner also explicitly wants a later allied human and the friendly AI
 reserve to approach and help a pilot already fighting multiple hostile fleets.
@@ -19,7 +23,8 @@ telemetry now exist, but the policy is not connected to fleet spawning.
 Cross-owner presence, durable roster accounting, replenishment epochs, and an
 AI-escort payout policy remain unspecified.
 
-**Why:** the owner asks to save this faction mix and in-world support concept.
+**Why:** the owner clarified that 80% means hostile AI and 20% friendly AI from
+the active pilots' faction perspective, while keeping the percentage adjustable.
 
 **How to apply:** read
 `docs/infinite-war/FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md` before adding a

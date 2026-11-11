@@ -19,7 +19,7 @@ client-authoritative population count.
 
 ## Population balance rule
 
-The requested initial AI hull mix is derived from the live human faction split.
+The initial **tunable example** is derived from the live human faction split.
 If `a` is the share of fresh active pilots who are Accord:
 
 ```text
@@ -28,9 +28,18 @@ desired Accord AI share = 1 - desired USSF AI share
 ```
 
 An empty population uses a neutral 50/50 target. Thus 6 Accord pilots of 10
-produce an 80% USSF / 20% Accord AI target; the reverse split mirrors it. This
-is a tuning target for active AI hulls, not a command to respawn destroyed
-ships. Apply updates only with hysteresis and a bounded cadence.
+produce an 80% USSF / 20% Accord AI target: **the USSF ships are enemy ships,
+and the Accord ships are friendly support**. Reverse the factions for a USSF
+majority. The percentage is adjustable; 80/20 is a starting balance example,
+not a fixed requirement or a command to respawn destroyed ships. Apply updates
+only with hysteresis and a bounded cadence.
+
+“Enemy” and “friendly” are relative to the pilot or group in an encounter.
+With a mixed-faction universe, a single global 80/20 percentage cannot make the
+80% hostile to every user simultaneously. The global policy may follow the
+verified active pilot mix, while local encounter composition should account
+for the factions actually participating there. Never create duplicate AI ships
+per client to make each user's view appear faction-relative.
 
 Regional encounter intensity is a separate threat-budget policy. Initial
 proposal: safe/core 0.5–0.8× human threat; established routes 0.8–1.0×;
