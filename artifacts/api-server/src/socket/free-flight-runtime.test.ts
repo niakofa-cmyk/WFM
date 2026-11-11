@@ -6,6 +6,7 @@ import {
   anomalyGravityWellForSector,
   isFreeFlightEnvironmentV1,
   isFreeFlightSnapshotV1,
+  rotate,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
 import { readExplorationReceipt } from "../game/exploration-encounter";
@@ -216,9 +217,13 @@ test("server-advertised directional bursts enforce sequence, cooldown and fixed 
   } finally { await runtime.close(); }
 });
 
-test("two nearby pilots damage one target and settle one kill plus an assist", async () => {
+test("two nearby pilots damage one target and settle one kill plus an assist", async (t) => {
   const { createFreeFlightRuntime } = await import("./free-flight-runtime");
   let clock = Date.now(), reservations = 0, settlements = 0;
+  let stored: import("./free-flight-runtime").StoredFreeFlightCheckpoint | null = null;
+  // Input windows and AI reaction timers must observe the same clock as flight.
+  // Otherwise this accelerated duel rate-limits both pilots after 35 packets.
+  t.mock.method(Date, "now", () => clock);
   const contact: UniversePatrolEncounter = {
     patrolId: "assist-settle-patrol001", locationId: "phobos-yard", faction: "ussf",
     callsign: "Shared target", route: ["phobos-yard"], revision: 0,
@@ -236,6 +241,10 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
     close: () => {},
   }));
   const runtime = createFreeFlightRuntime({
+    saveCheckpoint: async (_key, snapshot, fencingToken, checkpointSequence) => {
+      stored = { stateVersion: 1, snapshot, fencingToken, checkpointSequence };
+      return true;
+    },
     resolveAdmission: async () => ({
       sessionKey: "mars:phobos-yard", faction: "accord", shipId: "mandjet",
     }),
@@ -250,6 +259,7 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
       })) };
     },
   });
+  runtime.setFencingToken("mars:phobos-yard", 1);
   try {
     await runtime.handle(sockets[0]!, "shared-lead", { type: "freeflight_join", openingEncounter: true });
     await new Promise<void>(resolve => setImmediate(resolve));
@@ -269,14 +279,13 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
         if (!target || !own.alive) continue;
         const dx = target.position.x - own.position.x, dy = target.position.y - own.position.y;
         const dz = target.position.z - own.position.z;
-        const desiredYaw = Math.atan2(-dx, -dz);
-        const yawError = Math.atan2(Math.sin(desiredYaw-own.yaw), Math.cos(desiredYaw-own.yaw));
-        const desiredPitch = Math.atan2(dy, Math.hypot(dx,dz));
+        const q = own.orientation;
+        const local = rotate([-q.x, -q.y, -q.z, q.w], dx, dy, dz);
         await runtime.handle(sockets[index]!, index === 0 ? "shared-lead" : "shared-ally", {
           type: "freeflight_input",
           input: input(seq, {
-            fire: true, yaw: bounded(yawError * 4),
-            pitch: bounded((desiredPitch - own.pitch) * 4),
+            fire: true, missile: true, yaw: bounded(Math.atan2(-local.x, -local.z) * 4),
+            pitch: bounded(Math.atan2(local.y, Math.hypot(local.x, local.z)) * 4),
           }),
         });
       }
@@ -284,6 +293,12 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
       await new Promise<void>(resolve => setImmediate(resolve));
     }
     assert.equal(settlements, 1, "one encounter produces one settlement");
+    const recoveryEvents = packets.flatMap(received => received.filter(p =>
+      p.type === "freeflight_combat_progress" && p.reason === "kill"));
+    assert.equal(recoveryEvents.length, 1, "one actual destruction grants one energy recovery, not an assist or per-observer bonus");
+    assert.equal(recoveryEvents[0]!.kills, 1);
+    assert.equal(recoveryEvents[0]!.streak, 1);
+    assert.ok(Number(recoveryEvents[0]!.energy) <= 100);
     const results = packets.map(received => received.find(p => p.type === "freeflight_combat_result"));
     assert.ok(results.every(Boolean));
     assert.equal(results.reduce((sum,p) => sum+Number(p!.kills),0),1);
@@ -303,9 +318,8 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
       assert.ok(frames[index]!.actors.find(a => a.own)?.alive, "each pilot survives settlement");
     }
     const beforeFlight = frames.map(frame => frame!.actors.find(a => a.own)!);
-    // The accelerated combat fixture may exhaust a real wall-clock input window.
-    // Use an ordinary accepted held input, not a bypass of the rate limiter.
-    await new Promise<void>(resolve => setTimeout(resolve, 1100));
+    // Open the next real input window on the same mocked authority clock.
+    clock += 1100;
     const sequences = packets.map(received => Number(
       received.filter(p => p.type === "freeflight_input_accepted").at(-1)!.seq,
     ) + 1);
@@ -331,6 +345,35 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
       "both pilots actually fly after settlement, rather than only receiving an input acknowledgment");
     }
     assert.equal(settlements,1, "later ticks cannot duplicate settlement");
+    const recoveryCount = packets.flatMap(received => received.filter(p =>
+      p.type === "freeflight_combat_progress" && p.reason === "kill")).length;
+    assert.equal(recoveryCount, 1, "continued flight cannot repeat a destruction reward");
+    await runtime.close();
+    assert.ok(stored, "combat progress is part of the durable session checkpoint");
+    const killerIndex = packets.findIndex(received => received.some(p =>
+      p.type === "freeflight_combat_progress" && p.reason === "kill"));
+    const resumedPackets: Packet[] = [];
+    const diagnostics: unknown[] = [];
+    const resumed = createFreeFlightRuntime({
+      onAdmissionFailure: diagnostic => diagnostics.push(diagnostic),
+      resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "accord", shipId: "mandjet" }),
+      loadCheckpoint: async () => stored,
+      saveCheckpoint: async () => true,
+    });
+    resumed.setFencingToken("mars:phobos-yard", 2);
+    try {
+      await resumed.handle({
+        readyState: 1, bufferedAmount: 0, close: () => {},
+        send: value => resumedPackets.push(JSON.parse(value)),
+      }, killerIndex === 0 ? "shared-lead" : "shared-ally", { type: "freeflight_join" });
+      const state = resumedPackets.filter(p => p.type === "freeflight_combat_progress").at(-1)!;
+      assert.ok(state, `checkpoint rejoin must publish progress: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.kills, 1);
+      assert.equal(state.streak, 1);
+      assert.equal(state.reason, "sync");
+      assert.equal(state.restored, 0, "restore returns the saved resource, not another kill reward");
+      assert.equal(resumedPackets.some(p => p.reason === "kill"), false);
+    } finally { await resumed.close(); }
   } finally { await runtime.close(); }
 });
 
@@ -1122,18 +1165,19 @@ test("shared-flight patrol combat settles independently of the co-op V1 rollback
       )!;
       const enemy = latestSnapshot.actors.find((entry) => entry.actorId === target.actorId)!;
       const dx = enemy.position.x - player.position.x;
+      const dy = enemy.position.y - player.position.y;
       const dz = enemy.position.z - player.position.z;
-      const desiredYaw = Math.atan2(-dx, -dz);
-      const yawError = Math.atan2(
-        Math.sin(desiredYaw - player.yaw),
-        Math.cos(desiredYaw - player.yaw),
-      );
+      const q = player.orientation as FreeFlightSnapshotV1["actors"][number]["orientation"];
+      const local = rotate([-q.x, -q.y, -q.z, q.w], dx, dy, dz);
+      const yawError = Math.atan2(-local.x, -local.z);
+      const pitchError = Math.atan2(local.y, Math.hypot(local.x, local.z));
       const accepted = nextPacket(socket, (packet) =>
         packet.type === "freeflight_input_accepted" && packet.seq === seq, 2_000);
       socket.send(JSON.stringify({
         type: "freeflight_input",
         input: input(seq, {
-          yaw: Math.abs(yawError) > 0.04 ? Math.sign(yawError) : 0,
+          yaw: Math.max(-1, Math.min(1, yawError * 4)),
+          pitch: Math.max(-1, Math.min(1, pitchError * 4)),
           fire: true,
           missile: true,
         }),

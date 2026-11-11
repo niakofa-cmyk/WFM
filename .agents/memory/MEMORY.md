@@ -56,3 +56,4 @@
 - [Shared target-lock handoff](shared-target-lock-handoff.md) — preserve the previous native lock identity until simulation observes a target switch, so stale missile charge is cleared.
 - [Shared-flight targeting and wing calls](shared-flight-targeting-assist.md) — show the selected ship at its projected position; calls invite nearby same-faction pilots into the same authoritative battle.
 - [Shared celestial reference](shared-celestial-reference.md) — Moon-relative agreement requires one authoritative spatial frame, not just shared session membership.
+- [Combat intelligence and recovery](combat-intelligence-and-recovery.md) — physical rear-positioning and evasion; confirmed kills restore bounded maneuver energy without permanent damage inflation.

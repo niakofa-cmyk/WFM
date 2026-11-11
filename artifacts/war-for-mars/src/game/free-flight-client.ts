@@ -1,4 +1,5 @@
 import { readFreeFlightRecoveryHint } from "./free-flight-recovery-hint";
+import { isCombatRecoveryState } from "./combat-recovery-state";
 import {
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_TARGETING_V1,
@@ -77,6 +78,8 @@ export class FreeFlightClient {
     return true;
   }
   private sessionInstanceId: string | null = null;
+  private ownActorId: string | null = null;
+  private combatProgressTick = -1;
   private readonly inputScheduler = new FreeFlightInputScheduler();
 
   constructor(private readonly options: FreeFlightClientOptions) {}
@@ -280,6 +283,15 @@ export class FreeFlightClient {
         socket.send(JSON.stringify({ type: "freeflight_environment_request" }));
         return;
       }
+      if (packet.type === "freeflight_combat_progress") {
+        if (this.joined && isCombatRecoveryState(packet) &&
+            packet.sessionInstanceId === this.sessionInstanceId && packet.actorId === this.ownActorId &&
+            packet.tick >= this.combatProgressTick) {
+          this.combatProgressTick = packet.tick;
+          this.options.onCombatPacket?.(packet);
+        }
+        return;
+      }
       if (packet.type === "freeflight_target_state") {
         const state: unknown = packet.state;
         if (this.targetingAvailable && isFreeFlightTargetState(state) &&
@@ -359,7 +371,10 @@ export class FreeFlightClient {
       this.options.onState?.("unavailable", "invalid_snapshot");
       return;
     }
+    if (this.sessionInstanceId !== value.sessionInstanceId || this.ownActorId !== value.ownActorId)
+      this.combatProgressTick = -1;
     this.sessionInstanceId = value.sessionInstanceId;
+    this.ownActorId = value.ownActorId;
     this.options.onSnapshot({
       snapshot: value,
       receivedAt: typeof performance === "undefined" ? Date.now() : performance.now(),

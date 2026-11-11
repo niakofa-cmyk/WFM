@@ -187,6 +187,8 @@ export type ExplorationEncounterSnapshotV1 = {
   kills: Array<[string, string[]]>;
   assists: Array<[string, number]>;
   events: Array<[string, string]>;
+  /** Actual damage state, distinct from the initial immutable roster. */
+  actorHulls?: Array<[string, number]>;
   chain: string;
   tick: number;
   finalization?: {
@@ -323,6 +325,21 @@ export class ExplorationEncounter {
       }
       contract.assists.set(playerId, assists);
     }
+    if (snapshot.actorHulls !== undefined) {
+      if (!Array.isArray(snapshot.actorHulls) || snapshot.actorHulls.length !== actorIds.size)
+        throw new Error("Invalid exploration checkpoint.");
+      for (const [actorId, hull] of uniquePairs(snapshot.actorHulls)) {
+        const actor = contract.actors.get(actorId);
+        if (!actor || !Number.isFinite(hull) || hull < 0 || hull > actor.hull)
+          throw new Error("Invalid exploration checkpoint.");
+        actor.hull = hull;
+      }
+    } else {
+      // Old checkpoints can establish human-attributed deaths, but not omitted
+      // partial damage or AI-only deaths. Final receipt validation stays strict.
+      for (const destroyed of contract.kills.values())
+        for (const actorId of destroyed) contract.actors.get(actorId)!.hull = 0;
+    }
     for (const [eventId, fingerprint] of uniquePairs(snapshot.events)) {
       if (!/^[A-Za-z0-9_:-]{1,128}$/.test(eventId) ||
           !/^[a-f0-9]{64}$/.test(fingerprint)) {
@@ -364,6 +381,8 @@ export class ExplorationEncounter {
       kills: [...this.kills].map(([playerId, destroyed]) => [playerId, [...destroyed]]),
       assists: [...this.assists],
       events: [...this.events],
+      actorHulls: [...this.actors].sort(([a], [b]) => a.localeCompare(b))
+        .map(([actorId, actor]) => [actorId, actor.hull]),
       chain: this.chain,
       tick: this.tick,
       ...(this.finalization ? { finalization: { ...this.finalization } } : {}),

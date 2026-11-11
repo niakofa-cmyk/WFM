@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
+import { isCombatRecoveryState } from "./combat-recovery-state";
 import {
   ownSharedFlightReference, reconcileSharedFlightPosition, sharedFlightDistance, sharedPointInLocalFrame,
   type SharedFlightReference,
@@ -858,6 +859,14 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (isCombatRecoveryState(packet)) {
+            const pilot = matchRef.current?.player;
+            if (pilot?.space) pilot.space.energy = packet.energy;
+            if (packet.reason === "kill") setFreeFlightNotice(packet.milestone
+              ? `STREAK ${packet.milestone} · +${Math.round(packet.restored)} ENERGY · SHIELD RESUPPLY`
+              : `KILL CONFIRMED · +${Math.round(packet.restored)} ENERGY · STREAK ${packet.streak}`);
+            return;
+          }
           if (packet.type === "freeflight_recovery_hint") {
             setRetainedFlightHint(readFreeFlightRecoveryHint(packet.recovery));
           } else if (packet.type === "freeflight_assist_request" &&
@@ -953,7 +962,8 @@ export function Arena({
               typeof packet.phase === "string") {
             freeFlightCombatActiveRef.current = packet.phase === "active" && packet.pilotAlive !== false;
             setFreeFlightCombatStatus(packet.pilotAlive === false ? "disabled" : packet.phase);
-            if (packet.phase === "complete") setFreeFlightNotice("");
+            if (packet.phase === "complete") setFreeFlightNotice(current =>
+              /^(KILL CONFIRMED|STREAK )/.test(current) ? current : "");
             if ([packet.kills, packet.assists, packet.creditsAwarded].every(
               (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
             )) {
@@ -972,7 +982,8 @@ export function Arena({
             const remainingCombat = packet.phase === "active";
             freeFlightCombatActiveRef.current = remainingCombat;
             setFreeFlightCombatStatus(remainingCombat ? "active" : "complete");
-            if (!remainingCombat) setFreeFlightNotice("");
+            if (!remainingCombat) setFreeFlightNotice(current =>
+              /^(KILL CONFIRMED|STREAK )/.test(current) ? current : "");
             setFreeFlightTally(previous => settlementTallyAfter(previous, receipt));
           } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
             setRespondingToAssistCallId(null);

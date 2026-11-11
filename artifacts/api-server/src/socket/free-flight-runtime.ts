@@ -30,7 +30,6 @@ import {
   startVectorBoost,
   stepVectorBoost,
   type VectorBoostState,
-  orbitalCombatPursuit,
   anomalyGravityWellForSector,
   newFlight,
   parseOrbitalInput,
@@ -58,6 +57,8 @@ import {
   type ExplorationReceipt,
 } from "../game/exploration-encounter";
 import type { ExplorationSettlement } from "../game/exploration-settlement";
+import { tacticalFlight, type TacticalMemory } from "../game/orbital-combat-intelligence";
+import { combatKillRecovery, validCombatKillProgress, type CombatKillProgress } from "../game/combat-kill-recovery";
 import {
   patrolShipActorId,
   type UniversePatrolEncounter,
@@ -142,6 +143,8 @@ type Actor = {
   creditsAwarded: number;
   gravityEnvironmentV1: boolean;
   scoutMemory?: ScoutMemory;
+  tactics?: TacticalMemory;
+  combatProgress?: CombatKillProgress;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -560,6 +563,7 @@ export function createFreeFlightRuntime(options: {
           !actor.craft || !Number.isFinite(actor.craft.x) ||
           !Number.isFinite(actor.craft.z) || !Number.isFinite(actor.craft.hull) ||
           !actor.craft.space || !Number.isFinite(actor.craft.space.y) ||
+          !Number.isFinite(actor.craft.space.energy) || actor.craft.space.energy < 0 || actor.craft.space.energy > 100 ||
           !Array.isArray(actor.waypoints) || !Number.isSafeInteger(actor.lastSeq) ||
           actor.lastSeq < 0 || !Number.isFinite(actor.shield) ||
           !Number.isFinite(actor.shieldMax)) {
@@ -573,6 +577,11 @@ export function createFreeFlightRuntime(options: {
       actor.inputCount = 0;
       actor.disconnectedAt = now;
       actor.gravityEnvironmentV1 = false;
+      if (actor.combatProgress && !validCombatKillProgress(actor.combatProgress))
+        throw new Error("Invalid combat progress checkpoint.");
+      if (actor.tactics && (![actor.tactics.evadeUntil, actor.tactics.readyAt].every(n => Number.isSafeInteger(n) && n >= 0) ||
+          ![actor.tactics.strafe, actor.tactics.vertical].every(n => Number.isFinite(n) && Math.abs(n) <= 1)))
+        throw new Error("Invalid tactical memory checkpoint.");
       actors.set(actor.actorId, actor);
       if (actor.kind === "pilot" && actor.ownerUserId) {
         if (pilotByUser.has(actor.ownerUserId)) throw new Error("Duplicate pilot checkpoint.");
@@ -865,8 +874,19 @@ export function createFreeFlightRuntime(options: {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
         sendTargetState(session, actor);
+        sendCombatProgress(session, actor);
       }
     }
+  }
+
+  function sendCombatProgress(session: Session, actor: Actor, recovery?: { restored: number; milestone: number | null }) {
+    if (actor.kind !== "pilot") return;
+    const progress = actor.combatProgress ?? { kills: 0, streak: 0, bestStreak: 0 };
+    send(actor.socket, { type: "freeflight_combat_progress", protocol: 1,
+      sessionInstanceId: session.instanceId, actorId: actor.actorId, tick: session.tick,
+      energy: actor.craft.space!.energy, ...progress,
+      restored: recovery?.restored ?? 0, milestone: recovery?.milestone ?? null,
+      reason: recovery ? "kill" : "sync" });
   }
 
   function eligiblePilotTarget(session: Session, pilot: Actor, candidate: Actor) {
@@ -1001,7 +1021,7 @@ export function createFreeFlightRuntime(options: {
       ?.candidate;
   }
 
-  function patrolCombatInput(actor: Actor, target: Actor): SharedInput {
+  function patrolCombatInput(actor: Actor, target: Actor, session: Session): SharedInput {
     const space = actor.craft.space!;
     const dx = target.craft.x - actor.craft.x;
     const dy = target.craft.space!.y - space.y;
@@ -1013,7 +1033,9 @@ export function createFreeFlightRuntime(options: {
     const pitchError = detAtan2(local.y, detHypot(local.x, local.z));
     return {
       ...IDLE,
-      ...orbitalCombatPursuit(actor.craft, target.craft, SHIPS[actor.shipId].role).controls,
+      ...tacticalFlight(actor.craft, target.craft, SHIPS[actor.shipId].role, session.tick,
+        session.projectiles, actor.faction,
+        actor.tactics ??= { evadeUntil: 0, readyAt: 0, strafe: 0, vertical: 0 }).controls,
       // Training's readable aim-before-fire rule, in shared 3D space.
       // Proximity alone is not permission to shoot sideways/backwards.
       fire: distance < 170 && Math.abs(yawError) < 0.18 && Math.abs(pitchError) < 0.18,
@@ -1114,7 +1136,7 @@ export function createFreeFlightRuntime(options: {
   ) {
     const attacker = session.actors.get(projectile.sourceActorId);
     const combat = attacker ? impactCombat(session, attacker, target) : undefined;
-    if (!attacker || !combat) return;
+    if (!attacker || !combat || !target.craft.alive) return;
     const shieldDamage = Math.min(target.shield, projectile.dmg);
     target.shield = Math.max(0, target.shield - shieldDamage);
     const hullDamage = applyHullDamage(target.craft, projectile.dmg - shieldDamage);
@@ -1144,7 +1166,23 @@ export function createFreeFlightRuntime(options: {
       hullDamage,
       destroyed: !target.craft.alive,
     });
-    if (!target.craft.alive && target.kind === "pilot") sendCombatState(session, target);
+    if (!target.craft.alive && attacker.kind === "pilot" && attacker.ownerUserId &&
+        attacker.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
+        target.faction !== attacker.faction) {
+      const reward = combatKillRecovery(
+        attacker.combatProgress ?? { kills: 0, streak: 0, bestStreak: 0 },
+        attacker.craft.space!.energy, /heavy|siege/i.test(SHIPS[target.shipId].role),
+      );
+      attacker.combatProgress = reward.progress;
+      attacker.craft.space!.energy = reward.energy;
+      if (reward.milestone) attacker.shield = Math.min(attacker.shieldMax, attacker.shield + attacker.shieldMax * .1);
+      sendCombatProgress(session, attacker, reward);
+    }
+    if (!target.craft.alive && target.kind === "pilot") {
+      if (target.combatProgress) target.combatProgress.streak = 0;
+      sendCombatProgress(session, target);
+      sendCombatState(session, target);
+    }
   }
 
   function stepProjectiles(session: Session) {
@@ -1838,7 +1876,7 @@ export function createFreeFlightRuntime(options: {
         ? patrolTarget && (escort || actor.scoutMemory?.mode === "tracking" &&
             actor.scoutMemory.actorId === patrolTarget.actorId ||
             combat?.alliedNpcActorIds?.has(patrolTarget.actorId))
-          ? patrolCombatInput(actor, patrolTarget)
+          ? patrolCombatInput(actor, patrolTarget, session)
           : patrolInput(actor, actor.scoutMemory
             ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
