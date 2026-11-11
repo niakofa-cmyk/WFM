@@ -11,8 +11,30 @@ export type ActiveFlightPilotSample = Readonly<{
 }>;
 
 const FRESH_PILOT_WINDOW_MS = 15_000;
-const MIN_AI_FACTION_SHARE = 0.2;
-const MAX_AI_FACTION_SHARE = 0.8;
+const DEFAULT_MAX_HOSTILE_AI_SHARE = 0.8;
+
+export type EncounterAiFactionMix = Readonly<{
+  enemyFaction: UniverseFaction;
+  friendlyFaction: UniverseFaction;
+  enemyShare: number;
+  friendlyShare: number;
+}>;
+
+/** Encounter hostility is always relative to the authenticated pilot group's faction. */
+export function encounterAiFactionMixForCombat(
+  friendlyFaction: UniverseFaction,
+  enemyShare = DEFAULT_MAX_HOSTILE_AI_SHARE,
+): EncounterAiFactionMix {
+  if (!Number.isFinite(enemyShare) || enemyShare < 0.5 || enemyShare > 1) {
+    throw new Error("Invalid encounter enemy share.");
+  }
+  return {
+    enemyFaction: friendlyFaction === "ussf" ? "accord" : "ussf",
+    friendlyFaction,
+    enemyShare,
+    friendlyShare: Math.round((1 - enemyShare) * 1_000_000) / 1_000_000,
+  };
+}
 
 /**
  * Count distinct, authenticated, connected pilot seats with a fresh server
@@ -55,20 +77,29 @@ export function countFreshActivePilots(
 /**
  * Initial, adjustable global AI hull mix. Accord-majority pilots create a
  * larger opposing USSF share and a smaller friendly Accord share; USSF-majority
- * pilots mirror it. Mixed-faction encounters still need local composition.
+ * pilots mirror it. This fleet-wide target does not define every pilot's local
+ * view; encounterAiFactionMixForCombat supplies faction-relative composition.
  * This is a pure policy only: callers must supply globally authoritative
  * population data before using it to change persistent fleets.
  */
-export function desiredAiFactionMixFromActivePilots(counts: PilotFactionCounts) {
+export function desiredAiFactionMixFromActivePilots(
+  counts: PilotFactionCounts,
+  maximumHostileShare = DEFAULT_MAX_HOSTILE_AI_SHARE,
+) {
   const total = counts.ussf + counts.accord;
-  if (![counts.ussf, counts.accord, counts.total].every(Number.isSafeInteger) ||
+  if (![counts.ussf, counts.accord, counts.total, maximumHostileShare].every(Number.isFinite) ||
+      ![counts.ussf, counts.accord, counts.total].every(Number.isSafeInteger) ||
       counts.ussf < 0 || counts.accord < 0 || counts.total !== total) {
     throw new Error("Invalid active-pilot faction counts.");
   }
+  if (maximumHostileShare < 0.5 || maximumHostileShare > 1) {
+    throw new Error("Invalid maximum hostile AI share.");
+  }
   const accordShare = total === 0 ? 0.5 : counts.accord / total;
+  const minimumFactionShare = 1 - maximumHostileShare;
   const rawUssf = Math.max(
-    MIN_AI_FACTION_SHARE,
-    Math.min(MAX_AI_FACTION_SHARE, 0.5 + 3 * (accordShare - 0.5)),
+    minimumFactionShare,
+    Math.min(maximumHostileShare, 0.5 + 3 * (accordShare - 0.5)),
   );
   const ussf = Math.round(rawUssf * 1_000_000) / 1_000_000;
   return { ussf, accord: Math.round((1 - ussf) * 1_000_000) / 1_000_000 };

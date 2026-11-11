@@ -63,6 +63,7 @@ import {
   patrolShipActorId,
   type UniversePatrolEncounter,
 } from "../game/universe-patrols";
+import { encounterAiFactionMixForCombat } from "../game/universe-population-policy";
 
 const TICK_RATE = 30;
 const SNAPSHOT_INTERVAL_MS = 100;
@@ -2003,18 +2004,20 @@ export function createFreeFlightRuntime(options: {
    * It is a real NPC, never an account participant or a fabricated human kill. */
   function reinforceActiveCombats(session: Session) {
     for (const combat of activeCombats(session)) {
+      const factionMix = encounterAiFactionMixForCombat(combat.faction);
+      if (combat.patrol.faction !== factionMix.enemyFaction) continue;
       const pilot = [...combat.participantActorIds].map(id => session.actors.get(id))
         .find(actor => actor?.craft.alive && actor.socket?.readyState === OPEN);
       if (!pilot) continue;
-      const actorId = `patrol:escort:${combat.faction}:1`;
+      const actorId = `patrol:escort:${factionMix.friendlyFaction}:1`;
       let escort = session.actors.get(actorId);
       if (!escort) {
         if (session.actors.size >= MAX_ACTORS_PER_SESSION) continue;
-        const shipId = FLEET_AI_ROSTER[combat.faction][0]!;
+        const shipId = FLEET_AI_ROSTER[factionMix.friendlyFaction][0]!;
         const numericId = session.nextNumericId++;
         const p = pilot.craft.space!;
         escort = {
-          actorId, numericId, kind: "patrol", faction: combat.faction, shipId,
+          actorId, numericId, kind: "patrol", faction: factionMix.friendlyFaction, shipId,
           craft: craftFor(numericId, shipId, pilot.craft.x + 45, p.y + 20, pilot.craft.z + 40, pilot.craft.yaw),
           shield: SHIPS[shipId].shield, shieldMax: SHIPS[shipId].shield,
           ownerUserId: null, socket: null, callsign: "AI WING DEFENDER",

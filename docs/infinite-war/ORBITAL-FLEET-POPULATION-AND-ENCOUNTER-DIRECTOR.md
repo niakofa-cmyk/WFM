@@ -73,22 +73,30 @@ population source.
 ## Implemented foundation
 
 - `universe-population-policy.ts` contains deterministic, pure helpers to count
-  distinct fresh active pilot seats, calculate the proposed 20–80% faction
-  mix, calculate regional threat envelopes, and apply cooldown/hysteresis
-  checks. The code does not mutate any fleet.
+  distinct fresh active pilot seats, calculate a configurable faction mix,
+  classify encounter-relative enemy and friendly factions, calculate regional
+  threat envelopes, and apply cooldown/hysteresis checks.
+- At combat runtime, the pilot group's server-authorized faction determines the
+  friendly AI side; the persistent enemy patrol must be the opposite faction.
+  This prevents a globally mixed population from reversing the local
+  enemy/friendly meaning. The 80/20 shares are not yet used to change hull
+  counts.
 - The free-flight runtime exposes and emits anonymized per-owner telemetry at
   a bounded interval when the socket service is enabled. It includes active
   pilot faction counts, active AI hull counts, friendly support actors,
   active encounters, and total actors. It intentionally omits user IDs, region
   names, coordinates, and fleet identities.
 - Tests cover duplicate/reconnected accounts, stale/disconnected/spectator
-  seats, conflicting faction samples, the requested 6/10 example and its
-  mirror, bounds, regional threat envelopes, and hysteresis.
+  seats, conflicting faction samples, both encounter faction orientations,
+  adjustable shares, the 6/10 example and its mirror, regional threat
+  envelopes, and hysteresis.
 
 ## Explicitly not enabled yet
 
 Telemetry is scoped to one process; it cannot establish the whole-universe
-faction ratio across socket owners. The pure policy is not wired to spawning.
+faction ratio across socket owners. The target percentage is not wired to
+persistent hull counts or fleet spawning; only encounter-side classification
+is enforced.
 The database does not yet have a durable population epoch or transactional
 replenishment contract. Deep-space region identity exists in Orbital sector
 addressing, but the persistent patrol directory is still tied to named world

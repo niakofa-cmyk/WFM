@@ -126,6 +126,7 @@ for (const faction of ["ussf", "accord"] as const) {
     const socket = socketFor(packets);
     let claims = 0;
     const runtime = createFreeFlightRuntime({
+      enableFriendlyAiSupport: true,
       resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction,
         shipId: faction === "ussf" ? "glide" : "mandjet" }),
       resolveUniversePatrols: async () => [contact],
@@ -156,6 +157,14 @@ for (const faction of ["ussf", "accord"] as const) {
       runtime.advance(Date.now() + 100);
       assert.ok(packets.some((p) => p.type === "freeflight_weapon_fired" &&
         p.sourceActorId === snapshot.ownActorId), "opening pilot can emit real server-owned shots");
+      const supportSnapshot = [...packets].reverse().find((packet) =>
+        isFreeFlightSnapshotV1(packet.snapshot) &&
+        packet.snapshot.actors.some((actor) => actor.actorId === `patrol:escort:${faction}:1`));
+      assert.ok(isFreeFlightSnapshotV1(supportSnapshot?.snapshot));
+      const support = supportSnapshot.snapshot.actors.find((actor) =>
+        actor.actorId === `patrol:escort:${faction}:1`)!;
+      assert.equal(support.faction, faction,
+        "the local encounter's allied AI is always on the participating pilots' faction");
       const reconnectPackets: Packet[] = [];
       await runtime.handle(socketFor(reconnectPackets), "opening-pilot",
         { type: "freeflight_join", openingEncounter: true });

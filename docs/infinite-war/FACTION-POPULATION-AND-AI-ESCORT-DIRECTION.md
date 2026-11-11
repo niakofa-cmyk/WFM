@@ -59,21 +59,24 @@ live encounter lease must not count the same persistent hull twice. The current
 fresh-account filtering; it does not yet calculate the durable hull share or
 change any population.
 
-The requested example provides a concrete starting target. Let `a` be the share
-of distinct authenticated, actively flying pilots whose saved faction is Accord:
+The requested example provides a concrete, adjustable starting target. Let `a`
+be the share of distinct authenticated, actively flying pilots whose saved
+faction is Accord. The default hostile-share ceiling is 80%, but policy callers
+can tune it between 50% and 100%:
 
 ```text
 if no authenticated human pilots are active:
     desiredEnemyUssfShare = 0.50
 otherwise:
-    desiredEnemyUssfShare = clamp(0.50 + 3 * (a - 0.50), 0.20, 0.80)
+    desiredEnemyUssfShare = clamp(0.50 + 3 * (a - 0.50),
+                                  1 - maximumHostileShare, maximumHostileShare)
 desiredFriendlyAccordShare = 1 - desiredEnemyUssfShare
 ```
 
 This deliberately maps 6 of 10 active pilots to Accord → an 80% USSF / 20%
 Accord-AI target, as requested. At a 50/50 pilot split it returns 50/50; the
 mirrored 4-of-10 Accord split returns a 20% USSF / 80% Accord-AI target. The
-20–80% clamps prevent either faction from disappearing. This is an initial
+The default 20–80% bounds prevent either faction from disappearing. This is an initial
 calibration, **not a finding that an 80/20 target is fun, safe or correct in all
 regions**; evaluate encounter completion, player damage, waiting distance,
 disconnects and match/server load before widening it. Avoid changing force
@@ -140,9 +143,10 @@ rules. Do not invent an assist-credit amount, bounty or reputation award.
    hidden fleet coordinates publicly.
 2. **Implemented as pure policy tests:** covers no pilots; 5/5; 6/4; 4/6;
    capped extremes; duplicate, stale, offline, spectator and conflicting
-   seats; regional threat envelopes; and cooldown/hysteresis without writing
-   the database. Still needed: cross-region and actor-cap fixtures connected
-   to a global census.
+    seats; faction-relative encounter sides; adjustable hostile share; regional
+    threat envelopes; and cooldown/hysteresis without writing the database.
+    Still needed: cross-region and actor-cap fixtures connected to a global
+    census.
 3. **Balance persistent patrols idempotently:** use stable IDs and persisted
    bounded population epochs or another explicit durable generation key; protect
    shared counts and updates with database transactions/revision checks.

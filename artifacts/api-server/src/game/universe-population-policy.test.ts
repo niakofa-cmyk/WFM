@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   countFreshActivePilots,
   desiredAiFactionMixFromActivePilots,
+  encounterAiFactionMixForCombat,
   encounterThreatEnvelope,
   shouldApplyAiMix,
 } from "./universe-population-policy";
@@ -60,6 +61,26 @@ test("requested AI mix is neutral when empty, 80/20 for six Accord pilots, and m
     { ussf: 0.2, accord: 0.8 });
   assert.throws(() => desiredAiFactionMixFromActivePilots({ ussf: 1, accord: 1, total: 3 }),
     /Invalid active-pilot faction counts/);
+});
+
+test("enemy and friendly sides are relative to the combat faction and the ratio is adjustable", () => {
+  assert.deepEqual(encounterAiFactionMixForCombat("accord"), {
+    enemyFaction: "ussf", friendlyFaction: "accord",
+    enemyShare: 0.8, friendlyShare: 0.2,
+  });
+  assert.deepEqual(encounterAiFactionMixForCombat("ussf"), {
+    enemyFaction: "accord", friendlyFaction: "ussf",
+    enemyShare: 0.8, friendlyShare: 0.2,
+  });
+  assert.deepEqual(encounterAiFactionMixForCombat("accord", 0.7), {
+    enemyFaction: "ussf", friendlyFaction: "accord",
+    enemyShare: 0.7, friendlyShare: 0.3,
+  });
+  assert.deepEqual(desiredAiFactionMixFromActivePilots(
+    { ussf: 4, accord: 6, total: 10 }, 0.7,
+  ), { ussf: 0.7, accord: 0.3 });
+  assert.throws(() => encounterAiFactionMixForCombat("accord", 0.4),
+    /Invalid encounter enemy share/);
 });
 
 test("regional threat envelopes distinguish quiet routes, contested space and rare deep-space pressure", () => {

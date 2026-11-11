@@ -18,8 +18,10 @@ reserve to approach and help a pilot already fighting multiple hostile fleets.
 Friendly traffic merely appearing nearby is not the intended assistance.
 
 This is a direction to evaluate, not approval for production population changes
-or new rewards. A deterministic pure mix policy and anonymized process-local
-telemetry now exist, but the policy is not connected to fleet spawning.
+or new rewards. Encounter-side classification is enforced from the authenticated
+combat faction; the adjustable percentage remains a pure target and is not
+connected to persistent fleet spawning. Anonymized process-local telemetry
+exists, but it is not a global population source.
 Cross-owner presence, durable roster accounting, replenishment epochs, and an
 AI-escort payout policy remain unspecified.
 
