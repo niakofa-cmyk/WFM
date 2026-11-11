@@ -18,6 +18,17 @@ damage advantages. Preserve existing currency settlement and separate
 competitive Wing balance. Distinguish checkpoint-retained flight progress from
 an account-lifetime achievement ledger or real deployed persistence.
 
+AI threat dodges should use projected impact, choose bounded normalized
+three-dimensional displacement, and avoid squad members stacking on one vector.
+Critically damaged enemies should retreat through ordinary flight controls and
+stop attacking; runtime adapters must not overwrite those tactical intents.
+
+**Why:** Source review found retreat intent could be overwritten by duplicate
+adapter firing logic, while evasion chose direction from projectile origin.
+
+**How to apply:** Keep these decisions server-side and deterministic; test
+integrated movement and weapon intent without adding invulnerability or healing.
+
 Reward recovery must preserve both attribution and the damage/death state used
 to reproduce a receipt; an intact starting roster alone is insufficient.
 

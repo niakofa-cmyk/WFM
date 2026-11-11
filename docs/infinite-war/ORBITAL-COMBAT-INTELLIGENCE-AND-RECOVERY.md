@@ -108,3 +108,23 @@ transactional achievement/XP ledgers, assist energy, NPC experience tiers,
 capital-subsystem rewards, adaptive learning, deeper squad target assignment
 and human multiplayer difficulty/balance certification. None is advertised as
 complete merely because the reference document describes it.
+
+## 2026-11-11 tactical refinements
+
+Patrol evasion now chooses its escape vector from the projected closest-approach
+point rather than the incoming projectile's starting side. A centered threat
+uses stable actor slots to reduce squad members stacking into the same dodge;
+the combined lateral/vertical response is normalized. Evasion suppresses an
+AI missile launch for its short active window without granting invulnerability.
+
+Below 20% hull, an AI pilot now turns away and uses bounded lateral/vertical
+thrust through the ordinary shared flight integrator. It stops firing and
+launching missiles during that retreat. It does not heal, teleport or receive
+extra damage resistance. The runtime adapter preserves the tactical decision
+instead of overwriting its fire state with a duplicate aim-cone rule.
+
+The unified Orbital controls expose brake recovery without opening the
+maneuver drawer, and the drawer provides a compact Hybrid/Vector/Aim selector.
+The screen keeps its existing stick positions and combat actions; local-training
+only drift remains gated. Phone ergonomics and authenticated live combat remain
+unverified by these deterministic checks.
