@@ -12,23 +12,24 @@ test("hangar exposes one prominent connected-universe gateway", () => {
   assert.doesNotMatch(home, /data-testid="button-open-galaxy"|PERSISTENT GALAXY/);
 });
 
-test("hangar actions use shared flight and local tools require explicit developer diagnostics", () => {
+test("only Enter the Universe launches gameplay; legacy entry URLs return to the hangar", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
+  const router = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   assert.match(app, /onEnterUniverse=\{\(\) => \{ unlockAudio\(\); void enterOrbitalUniverse\(\); \}\}/);
   assert.match(app, /const enterOrbitalUniverse = async \(\) =>/);
   assert.match(app, /setOrbitalUniverseOpen\(true\)/);
-  assert.match(app, /onLocalUniverse=\{\(\) => \{\s*void enterOrbitalUniverse\(\);/);
-  assert.match(app, /!developerDiagnostics && \(action === "DEPLOY" \|\| action === "LAUNCH" \|\| action === "ARCADE"\)/);
-  assert.match(home, /import\.meta\.env\.DEV && new URLSearchParams\(window\.location\.search\)\.has\("diagnostics"\) \? <details/);
+  assert.match(app, /Use ENTER THE UNIVERSE in the hangar/);
   assert.match(app, /if \(orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession\)/);
   assert.match(app, /modeId=\{UNIVERSE_MODE_ID\}[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.doesNotMatch(app, /onEnterUniverse=\{\(\) => setGalaxyOpen\(true\)\}/);
-  const training = home.indexOf('data-testid="details-flight-systems"');
-  const localFlight = home.indexOf('data-testid="button-home-local-universe"');
-  const gateway = home.indexOf('data-testid="button-enter-universe"');
-  assert.ok(training >= 0 && localFlight > training && gateway < localFlight);
-  assert.match(home, /LOCAL FLIGHT TEST · ORBITAL/);
-  assert.match(home, /Offline practice only · no account rewards/);
+  assert.doesNotMatch(home, /details-flight-systems|button-home-local-universe|link-home-combat-lab|button-arcade-skirmish|button-campaign-deploy|href="\/expedition/);
+  assert.match(home, /ENTRY PATROL · LIVE COMBAT · THEN EXPLORE/);
+  assert.match(router, /<Route path="\/command"><Redirect to="\/" \/><\/Route>/);
+  assert.match(router, /<Route path="\/universe"><Redirect to="\/" \/><\/Route>/);
+  for (const pathname of ["expedition", "flight", "play"]) {
+    assert.match(router, new RegExp(`<Route path="/${pathname}">\\s*<Redirect to="/" \\/>\\s*<\\/Route>`));
+  }
+  assert.doesNotMatch(router, /<Route path="\/combat-lab\.html"|<Route path="\/play"[^>]*>[\s\S]*?<SoloFlight/);
 });
 
 test("hangar command layout requires landscape and presents faction choice", () => {

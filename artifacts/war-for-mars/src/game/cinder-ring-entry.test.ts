@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import test from "node:test";
 import { cinderRingEntrySurface } from "./cinder-ring-entry";
+import { readFileSync } from "node:fs";
 
-describe("Cinder Ring station arrival flow", () => {
-  it("keeps the travel hub available before the server location is Cinder Ring", () => {
-    assert.equal(cinderRingEntrySurface(false, "entry"), "travel-hub");
-    assert.equal(cinderRingEntrySurface(false, "docked"), "travel-hub");
-  });
-
-  it("requires a local approach and docking before exposing the station hub", () => {
-    assert.equal(cinderRingEntrySurface(true, "entry"), "approach-entry");
-    assert.equal(cinderRingEntrySurface(true, "approach"), "approach-flight");
-    assert.equal(cinderRingEntrySurface(true, "docked"), "docked-hub");
-  });
+test("Cinder Ring no longer mounts a separate approach or private-match game", () => {
+  const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(galaxy, /CinderRingDockingApproach|BEGIN FLIGHT APPROACH|AsteroidArenaHub|onCreatePrivateRoom|onJoinCompetitiveQueue/);
+  assert.match(galaxy, /SHARED UNIVERSE · STATION SERVICES/);
+  assert.match(galaxy, /Close services to resume your existing flight/);
 });
