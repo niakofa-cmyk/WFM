@@ -4,6 +4,10 @@ import { isAnomalyGravityWellV1, type AnomalyGravityWellV1 } from "./anomaly-gra
 export const FREE_FLIGHT_PROTOCOL_V1 = "orbital-freeflight-v1" as const;
 export const FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1 = "orbital-freeflight-environment-v1" as const;
 export const FREE_FLIGHT_MAX_ACTORS = 32;
+/** One bounded shared-flight seat and encounter budget, independent of arena 5v5. */
+export const FREE_FLIGHT_MAX_PILOTS = 24;
+export const FREE_FLIGHT_MAX_ENCOUNTER_PILOTS = FREE_FLIGHT_MAX_PILOTS;
+export const FREE_FLIGHT_GUARANTEED_PILOT_SEATS = 10;
 
 export type FreeFlightVector3 = { x: number; y: number; z: number };
 export type FreeFlightActorV1 = {

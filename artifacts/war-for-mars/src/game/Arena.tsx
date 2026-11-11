@@ -703,6 +703,7 @@ export function Arena({
   const settledFlightEncounters = useRef(new Set<string>());
   const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
   const [nearbyContacts, setNearbyContacts] = useState<FlightPresenceEntry[]>([]);
+  const [sharedFlightSessionId, setSharedFlightSessionId] = useState<string | null>(null);
   const [presenceFresh, setPresenceFresh] = useState(false);
   const [assistCallPending, setAssistCallPending] = useState(false);
   const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
@@ -805,6 +806,7 @@ export function Arena({
         },
         onSnapshot: (frame) => {
           setPresenceFresh(true);
+          setSharedFlightSessionId(frame.snapshot.sessionInstanceId);
           const contacts = flightPresence(frame.snapshot);
           setNearbyContacts(current => JSON.stringify(current) === JSON.stringify(contacts) ? current : contacts);
           const previous = freeFlightFramesRef.current.current;
@@ -3453,6 +3455,7 @@ export function Arena({
             status={sharedFreeFlightJoined && !presenceFresh
               ? "Waiting for a fresh server snapshot. Nearby presence is not confirmed."
               : freeFlightLink.detail}
+            sessionInstanceId={sharedFlightSessionId}
           />
         </div>
       ) : null}

@@ -8,6 +8,17 @@ allied pilots should fly into the same live fleet encounter and help without
 launching a separate co-op world. Grouping and shared objectives may remain;
 they must not create a disconnected default player journey.
 
+The owner requires at least ten distinct-account devices to be able to enter
+the same nearby universe and participate in the same fleet battle. Preserve
+the single hangar gateway and the explicitly allowed asteroid competition.
+
+**Why:** the owner plans a two-phone acceptance check and explicitly requested
+ten-player shared ships, battles, human help calls and active friendly AI.
+
+**How to apply:** test encounter admission as well as socket/session capacity.
+Compare authoritative session identity and reciprocal visible movement; do not
+claim physical-device acceptance from simulated clients or startup readiness.
+
 **Why:** the owner explicitly clarified that multiple users share the universe,
 encounter fleets and assist each other in live battles.
 

@@ -1,3 +1,4 @@
+import { FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
 import { createHash } from "node:crypto";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
@@ -391,7 +392,7 @@ export class ExplorationEncounter {
       }
       return false;
     }
-    if (this.kills.has(actor.playerId) || this.kills.size >= 8 || this.actors.size >= 128) {
+    if (this.kills.has(actor.playerId) || this.kills.size >= FREE_FLIGHT_MAX_ENCOUNTER_PILOTS || this.actors.size >= 128) {
       throw new Error("Invalid assisting pilot roster.");
     }
     this.actors.set(actor.id, { ...actor });

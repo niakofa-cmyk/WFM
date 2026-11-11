@@ -1,4 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
 import {
   db,
   playerWorldStateTable,
@@ -102,7 +103,7 @@ export async function reserveUniversePatrolEncounter(
   encounterId: string,
   now = new Date(),
 ): Promise<UniversePatrolEncounter | null> {
-  if (!userIds.length || userIds.length > 8 || new Set(userIds).size !== userIds.length ||
+  if (!userIds.length || userIds.length > FREE_FLIGHT_MAX_ENCOUNTER_PILOTS || new Set(userIds).size !== userIds.length ||
       !/^[0-9a-f-]{36}$/i.test(encounterId)) throw new Error("Invalid patrol encounter identity.");
   return db.transaction(async (tx) => {
     const worlds = await tx.select({

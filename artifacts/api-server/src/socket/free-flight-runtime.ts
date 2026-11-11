@@ -6,6 +6,10 @@ import {
   ORBITAL_RULES_VERSION,
   cycleFreeFlightTarget,
   FREE_FLIGHT_PROTOCOL_V1,
+  FREE_FLIGHT_MAX_ACTORS,
+  FREE_FLIGHT_MAX_PILOTS,
+  FREE_FLIGHT_MAX_ENCOUNTER_PILOTS,
+  FREE_FLIGHT_GUARANTEED_PILOT_SEATS,
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
@@ -66,12 +70,15 @@ const INPUT_TIMEOUT_MS = 350;
 const DISCONNECT_GRACE_MS = 15_000;
 const EMPTY_SESSION_TTL_MS = 60_000;
 const NEARBY_RADIUS = 2_500;
-const MAX_NEARBY_ACTORS = 32;
+const MAX_NEARBY_ACTORS = FREE_FLIGHT_MAX_ACTORS;
 const MAX_SESSIONS = 32;
-const MAX_PILOTS_PER_SESSION = 24;
-const MAX_ACTORS_PER_SESSION = 32;
+const MAX_PILOTS_PER_SESSION = FREE_FLIGHT_MAX_PILOTS;
+const MAX_ACTORS_PER_SESSION = FREE_FLIGHT_MAX_ACTORS;
+const FRIENDLY_ESCORT_SEATS = 2; // One defender per faction, not per player.
+const MAX_REGULAR_PATROL_ACTORS =
+  MAX_ACTORS_PER_SESSION - FREE_FLIGHT_GUARANTEED_PILOT_SEATS - FRIENDLY_ESCORT_SEATS;
 const MAX_PROJECTILES_PER_SESSION = 512;
-const MAX_ENCOUNTER_PILOTS = 8;
+const MAX_ENCOUNTER_PILOTS = FREE_FLIGHT_MAX_ENCOUNTER_PILOTS;
 const MAX_ACTIVE_ENCOUNTERS = 3;
 const PATROL_REFRESH_INTERVAL_MS = 15_000;
 // Match Combat Lab's 3 HP/s recovery after two seconds without damage.
@@ -297,7 +304,12 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
   if (session.persistentPatrols.has(patrol.patrolId)) return;
   const knownShips = patrol.ships.filter((ship) => Object.hasOwn(SHIPS, ship.hullId));
   const newShips = knownShips.filter((ship) => !session.actors.has(patrolShipActorId(ship.id)));
-  if (session.actors.size + newShips.length > MAX_ACTORS_PER_SESSION) return;
+  const regularPatrols = [...session.actors.values()].filter(actor =>
+    actor.kind === "patrol" && !actor.actorId.startsWith("patrol:escort:")).length;
+  // A busy AI directory must not consume the ten seats promised to human
+  // devices, nor prevent the bounded allied defenders from entering a battle.
+  if (regularPatrols + newShips.length > MAX_REGULAR_PATROL_ACTORS ||
+      session.actors.size + newShips.length > MAX_ACTORS_PER_SESSION - FRIENDLY_ESCORT_SEATS) return;
   const fleetOrdinal = session.persistentPatrols.size;
   const fleetRadius = radius + fleetOrdinal * 220;
   const baseAngle = (patrol.faction === "ussf" ? 0 : -Math.PI / 2) + fleetOrdinal * 0.48;

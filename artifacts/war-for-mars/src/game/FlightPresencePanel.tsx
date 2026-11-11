@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { FREE_FLIGHT_MAX_PILOTS, FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
 
 export type FlightPresenceEntry = {
   actorId: string;
@@ -15,6 +16,7 @@ type Props = {
   connected: boolean;
   region: string;
   status: string;
+  sessionInstanceId?: string | null;
 };
 
 function formatRange(meters: number) {
@@ -22,7 +24,7 @@ function formatRange(meters: number) {
   return meters >= 1000 ? `${(meters / 1000).toFixed(1)} KM` : `${Math.round(meters)} M`;
 }
 
-export function FlightPresencePanel({ entries, connected, region, status }: Props) {
+export function FlightPresencePanel({ entries, connected, region, status, sessionInstanceId }: Props) {
   const [open, setOpen] = useState(false);
   const sorted = connected ? [...entries].sort((a, b) => a.distanceMeters - b.distanceMeters) : [];
   const humans = sorted.filter((e) => e.kind === "pilot").length;
@@ -33,12 +35,13 @@ export function FlightPresencePanel({ entries, connected, region, status }: Prop
       <button
         type="button"
         data-testid="button-flight-presence"
+        data-session-instance={connected ? sessionInstanceId ?? undefined : undefined}
         aria-expanded={open}
         aria-controls="flight-presence-panel"
         onClick={() => setOpen((v) => !v)}
         className="border border-solar/50 bg-void/85 px-2 py-1 text-[10px] tracking-widest text-solar hover:bg-solar/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-solar"
       >
-        NEARBY PILOTS {connected ? `· ${humans}H ${ai}AI` : "· —"} {open ? "▴" : "▾"}
+        PILOTS {connected ? `· ${humans + 1} HUMAN · ${ai} AI` : "· —"} {open ? "▴" : "▾"}
       </button>
       {open ? (
         <section
@@ -52,6 +55,11 @@ export function FlightPresencePanel({ entries, connected, region, status }: Prop
             <p data-testid="status-flight-presence" role="status" aria-live="polite" className="mt-0.5 text-[9px] tracking-wide text-muted">
               {status}
             </p>
+            {connected && sessionInstanceId ? (
+              <p data-testid="text-flight-session" className="mt-1 break-all font-mono text-[9px] text-bone/70">
+                SHARED SESSION · {sessionInstanceId}
+              </p>
+            ) : null}
           </header>
           {!connected ? (
             <p data-testid="text-flight-presence-unconfirmed" className="px-2 py-2 text-[10px] leading-snug text-alert">
@@ -87,7 +95,11 @@ export function FlightPresencePanel({ entries, connected, region, status }: Prop
               ))}
             </ul>
           )}
-           <p className="px-2 py-1 text-[8px] tracking-wide text-muted">Other contacts near you · excludes your ship · not a global roster</p>
+            <p className="px-2 py-1 text-[8px] tracking-wide text-muted">
+              Human count includes you; rows show other nearby contacts, not a global roster.
+              Compare location and shared session on both phones.
+              {" "}{FREE_FLIGHT_MAX_PILOTS} pilot seats · up to {FREE_FLIGHT_MAX_ENCOUNTER_PILOTS} pilots per fleet encounter, subject to total actor capacity.
+            </p>
         </section>
       ) : null}
     </div>
