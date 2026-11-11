@@ -1,13 +1,12 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { GlobalCampaignStatus } from "./game/GlobalCampaignStatus";
-const developerDiagnostics = import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics");
 import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { ActionRecovery } from "./game/useDurableAction";
-import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./game/CommandArt";
 import { SORTIES } from "./game/campaign";
@@ -20,10 +19,6 @@ const expeditionEnabled = expeditionFeatureEnabled({
 });
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
-const OrbitalBoot = lazy(() => import("./game/OrbitalBoot").then((module) => ({ default: module.OrbitalBoot })));
-const SoloFlight = lazy(() => import("./game/SoloFlight").then((module) => ({ default: module.SoloFlight })));
-const SectorExpedition = lazy(() => import("./game/SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
-const RustDiscFlight = lazy(() => import("./game/RustDiscFlight").then((module) => ({ default: module.RustDiscFlight })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -133,28 +128,6 @@ function PublicLanding() {
               </>
             )}
           </div>
-          {developerDiagnostics ? <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
-              <span className="min-w-0">
-                <span className="block">TRAINING & COMPATIBILITY</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Cooperate in the shared universe · legacy operations retained for rollback</span>
-              </span>
-              <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
-              <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
-            </summary>
-            <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              <a href="/combat-lab.html" data-testid="link-landing-combat-lab" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left`}>
-                <span>ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="font-sans text-xs tracking-normal text-muted">Orbital training runtime · no rewards</span>
-              </a>
-              {expeditionEnabled ? (
-                <Link href={isSignedIn ? "/" : "/sign-in"} data-testid="link-landing-expedition" className={`${cta} wfm-cmd-secondary min-h-14 flex-col items-start justify-center px-4 text-left sm:col-span-2`}>
-                  <span>SHARED UNIVERSE · ALLIED SUPPORT</span>
-                  <span className="font-sans text-xs tracking-normal text-muted">Enter through the hangar · assist nearby allied pilots in live flight</span>
-                </Link>
-              ) : null}
-            </div>
-          </details> : null}
         </div>
       </section>
 
@@ -271,14 +244,12 @@ function Routes() {
       <ApiAuthBridge />
       <Switch>
         <Route path="/"><AccountGameEntry primary /></Route>
-        <Route path="/command"><AccountGameEntry /></Route>
-        <Route path="/universe"><AccountGameEntry universe /></Route>
+        <Route path="/command"><Redirect to="/" /></Route>
+        <Route path="/universe"><Redirect to="/" /></Route>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/expedition">
-          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading sector expedition…</main>}>
-            {developerDiagnostics ? <SectorExpedition /> : <AccountGameEntry primary />}
-          </Suspense>
+          <Redirect to="/" />
         </Route>
         <Route component={PublicLanding} />
       </Switch>
@@ -291,16 +262,10 @@ function App() {
     <WouterRouter base={basePath}>
       <Switch>
         <Route path="/flight">
-          {developerDiagnostics ?
-          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
-            <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
-          </Suspense> : <Routes />}
+          <Redirect to="/" />
         </Route>
         <Route path="/play">
-          {developerDiagnostics ?
-          <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
-            <SoloFlight />
-          </Suspense> : <Routes />}
+          <Redirect to="/" />
         </Route>
         <Route><Routes /></Route>
       </Switch>

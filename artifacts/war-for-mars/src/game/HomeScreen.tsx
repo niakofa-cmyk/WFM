@@ -299,51 +299,15 @@ function MainMenu(props: HomeProps & {
                 {Array.from({ length: brief.total }, (_, i) => <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />)}
               </div>
             </div>
-            <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" aria-label="Join the shared campaign in the live universe" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
-              JOIN LIVE WARFRONT
-            </button>
+            <p className="font-hud text-xs tracking-widest text-muted">USE ENTER THE UNIVERSE ABOVE TO JOIN THE LIVE WARFRONT</p>
           </div>
-          {EXPEDITION_ENABLED && import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics") ? (
-            <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
-              <span className="font-hud tracking-widest text-spectral">LEGACY SECTOR COMPATIBILITY</span>
-              <span className="text-xs text-muted">Separate validation runtime · shared-universe cooperation uses Enter Universe</span>
-            </Link>
-          ) : null}
-          {import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics") ? <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
-              <span className="min-w-0">
-                <span className="block">COMBAT TRAINING</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Lab · local arcade compatibility</span>
-              </span>
-              <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
-              <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
-            </summary>
-            <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              {props.onLocalUniverse ? (
-                <button type="button" onClick={props.onLocalUniverse} data-testid="button-home-local-universe" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4 text-left">
-                  <span className="font-hud tracking-widest text-solar">LOCAL FLIGHT TEST · ORBITAL</span>
-                  <span className="text-xs text-muted">Offline practice only · no account rewards</span>
-                </button>
-              ) : (
-                <a href="/combat-lab.html?universe=1" data-testid="link-home-local-universe" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
-                  <span className="font-hud tracking-widest text-solar">LOCAL FLIGHT TEST · ORBITAL</span>
-                  <span className="text-xs text-muted">Offline practice only · no account rewards</span>
-                </a>
-              )}
-              <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
-                <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="text-xs text-muted">Canonical local combat training · no rewards</span>
-              </a>
-              <button type="button" data-testid="button-arcade-skirmish" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4 sm:col-span-2">
-                <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
-                <span className="text-xs text-muted">Open-disc practice or strike sortie</span>
-              </button>
-            </div>
-          </details> : null}
         </section>
 
         <div className="flex flex-col gap-4">
-          <OnlineWing {...props} />
+          <aside className="border border-bone/15 bg-panel/60 p-4">
+            <p className="font-hud text-xs tracking-widest text-spectral">ONE SHARED MULTIPLAYER UNIVERSE</p>
+            <p className="mt-2 text-sm text-muted">Pilots, patrols and allied assistance belong in live flight. Use the single Enter the Universe gateway; no separate multiplayer match or docking game is launched here.</p>
+          </aside>
             <nav aria-label="Hangar services" className="grid grid-cols-2 gap-2">
             <button type="button" data-testid="button-services-armory" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
               <span className="font-hud text-sm tracking-widest">ARMORY & UPGRADES</span><span className="truncate text-[11px] text-muted">{def.name} · saved loadout</span>

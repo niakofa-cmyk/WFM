@@ -784,9 +784,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     if (shell === MenuState.LOADING) return;
     unlockAudio();
     sfxUi();
-    const developerDiagnostics = import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics");
-    if (!developerDiagnostics && (action === "DEPLOY" || action === "LAUNCH" || action === "ARCADE")) {
-      void enterOrbitalUniverse();
+    if (action === "DEPLOY" || action === "LAUNCH" || action === "ARCADE") {
+      setUniverseEntryError("Use ENTER THE UNIVERSE in the hangar to join the shared live flight.");
+      setShell(MenuState.MAIN_MENU);
       return;
     }
     setOfflineAvailable(false);
@@ -1346,18 +1346,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         {universeServicesOpen ? (
           <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
             <Suspense fallback={<ModuleLoading label="CONNECTING TO ACCOUNT OPERATIONS…" />}>
-              {universeExpeditionMission ? (
-                <SectorExpedition
-                  key={`universe-expedition-${universeExpeditionMission}`}
-                  embedded
-                  initialMissionId={universeExpeditionMission}
-                  initialShipId={save.ship}
-                  onReturnToUniverse={() => {
-                    setUniverseExpeditionMission(null);
-                    setUniverseServicesOpen(false);
-                  }}
-                />
-              ) : (
               <GalaxyScreen
                 onBack={() => {
                   setUniverseServicesOpen(false);
@@ -1393,19 +1381,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 competitiveQueueAvailable={competitiveQueueAvailable}
                 competitiveQueueing={competitiveQueueing}
                 presenceHeartbeat={false}
-                onLaunchCampaign={() => {
-                  returnToOrbitalAfterOperationRef.current = true;
-                  void start().then((launched) => {
-                    if (!launched) {
-                      returnToOrbitalAfterOperationRef.current = false;
-                    }
-                  });
-                }}
-                campaignLaunching={startingRun}
-                campaignStatus={campaignError}
-                onLaunchExpedition={(missionId) => setUniverseExpeditionMission(missionId)}
               />
-              )}
             </Suspense>
           </div>
         ) : null}
@@ -1659,9 +1635,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         onAction={act}
         onEnterUniverse={() => { unlockAudio(); void enterOrbitalUniverse(); }}
         universeEntryError={universeEntryError}
-        onLocalUniverse={() => {
-          void enterOrbitalUniverse();
-        }}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}

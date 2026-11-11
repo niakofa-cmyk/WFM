@@ -12,19 +12,13 @@ import { sectorMission, type SectorMissionId } from "./sector-missions";
 import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
 import { expeditionFeatureEnabled, sectorClientProtocolVersion } from "./sector-client";
 import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "./sector-missions";
-import { AsteroidArenaHub } from "./AsteroidArenaHub";
 import { useWorldOperationEvents } from "./world-operation-events";
-import { CinderRingArtwork } from "./CinderRingArtwork";
-import { cinderRingEntrySurface, type CinderRingDockingPhase } from "./cinder-ring-entry";
 import { UniverseActivityFeed } from "./UniverseActivityFeed";
 import { ConnectedUniverseNavigation } from "./ConnectedUniverseNavigation";
 import { connectedDestinations, operationControlTarget } from "./orbital-navigation";
 import { UniversePatrolPanel } from "./UniversePatrolPanel";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
-const CinderRingDockingApproach = lazy(() =>
-  import("./CinderRingDockingApproach").then((module) => ({ default: module.CinderRingDockingApproach })),
-);
 const CINDER_RING_LOCATION_ID = "cinder-asteroid";
 
 type Props = {
@@ -55,10 +49,7 @@ const statusLabel: Record<string, string> = {
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const errorText = (error: unknown) =>
   `${error instanceof Error ? error.message : "No response."} Outcome unknown: the server may or may not have applied this action. Retry the retained request to find out.`;
-const showSectorExpedition = expeditionFeatureEnabled({
-  DEV: import.meta.env.DEV,
-  VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
-});
+const showSectorExpedition = false; // Sector compatibility is not a player launch path.
 
 export function GalaxyScreen({
   onBack,
@@ -105,7 +96,6 @@ export function GalaxyScreen({
   const [actionError, setActionError] = useState("");
   const [publishOperationStatus, setPublishOperationStatus] = useState(false);
   const [operationError, setOperationError] = useState("");
-  const [cinderDockingPhase, setCinderDockingPhase] = useState<CinderRingDockingPhase>("entry");
   const world = snapshot.data;
   const patrolsQuery = useGetWorldPatrols({
     query: {
@@ -145,11 +135,6 @@ export function GalaxyScreen({
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [getToken, presenceActive, presenceHeartbeat, userId]);
-  useEffect(() => {
-    if (world?.currentLocation !== CINDER_RING_LOCATION_ID) {
-      setCinderDockingPhase("entry");
-    }
-  }, [world?.currentLocation]);
   const nextStoryMission = world ? nextStorySectorMission(world.discoveries) : null;
   const cached = snapshot.cached;
   const busy = durable.blocked;
@@ -241,7 +226,6 @@ export function GalaxyScreen({
   const directoryUnavailable = operationsQuery.isError || operationsQuery.fetchStatus === "paused";
   const operationDirectory = directoryUnavailable ? undefined : operationsQuery.data as OperationDirectoryResponse | undefined;
   const atCinderRing = world.currentLocation === CINDER_RING_LOCATION_ID;
-  const cinderSurface = cinderRingEntrySurface(atCinderRing, cinderDockingPhase);
   const navigationBlocked = cached || worldQuery.isError || worldQuery.fetchStatus === "paused" || busy;
   const navigationDestinations = connectedDestinations(world, operationDirectory, credits, navigationBlocked);
   const scrollToControls = (target: string) => {
@@ -254,29 +238,15 @@ export function GalaxyScreen({
   };
   const openDestination = () => {
     if (navigationBlocked) return;
-    scrollToControls(atCinderRing && cinderSurface === "approach-entry"
-      ? "panel-cinder-ring-approach-entry" : atCinderRing
+    scrollToControls(atCinderRing
         ? "screen-asteroid-arena-hub" : "panel-operation-network");
   };
   const openOperation = (operationId: string) => {
     const current = navigationDestinations.find((entry) => entry.id === world.currentLocation);
     const operation = current?.operations.find((entry) => entry.id === operationId);
     if (!current?.canOpen || !operation || directoryUnavailable) return;
-    scrollToControls(operationControlTarget(operation.experience, operation.id, cinderSurface));
+    scrollToControls("panel-operation-network");
   };
-
-  if (cinderSurface === "approach-flight") {
-    return (
-      <Suspense fallback={<main className="flex min-h-dvh items-center justify-center bg-void px-4 text-bone" role="status">Initializing Cinder Ring approach systems…</main>}>
-        <CinderRingDockingApproach
-          shipId={shipId}
-          faction={faction}
-          onDock={() => setCinderDockingPhase("docked")}
-          onAbort={() => setCinderDockingPhase("entry")}
-        />
-      </Suspense>
-    );
-  }
 
   return (
     <main className="relative min-h-dvh overflow-x-hidden bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
@@ -424,68 +394,11 @@ export function GalaxyScreen({
               )}
             </section>
 
-            {cinderSurface === "approach-entry" ? (
-              <section data-testid="panel-cinder-ring-approach-entry" className="grid gap-4 border border-solar/35 bg-panel/75 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,.9fr)] sm:items-center sm:p-6">
-                <div>
-                  <p className="font-hud text-xs tracking-[0.2em] text-solar">PHYSICAL DESTINATION / LOCAL TRANSIT</p>
-                  <h2 className="mt-2 font-hud text-2xl sm:text-3xl">CINDER RING APPROACH</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-                    Fly the capture corridor to the asteroid station. The approach is local and no-reward; docking opens the existing competitive and private-room operations hub.
-                  </p>
-                  <button
-                    type="button"
-                    data-testid="button-start-cinder-ring-approach"
-                    onClick={() => setCinderDockingPhase("approach")}
-                    className="mt-4 min-h-12 border border-solar/60 bg-solar/10 px-5 font-hud text-xs tracking-widest text-solar"
-                  >
-                    BEGIN FLIGHT APPROACH
-                  </button>
-                </div>
-                <div className="overflow-hidden border border-bone/10 bg-void/60">
-                  <CinderRingArtwork />
-                </div>
-              </section>
-            ) : (
-              <>
-                {cinderSurface === "docked-hub" ? (
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border border-spectral/30 bg-panel/70 px-4 py-3">
-                    <p className="font-hud text-xs tracking-[0.18em] text-spectral">DOCKED AT CINDER RING · OPERATIONS HUB</p>
-                    <button
-                      type="button"
-                      data-testid="button-undock-cinder-ring"
-                      onClick={() => setCinderDockingPhase("entry")}
-                      className="min-h-10 border border-bone/25 px-4 font-hud text-[10px] tracking-widest text-bone"
-                    >
-                      RETURN TO ORBIT
-                    </button>
-                  </div>
-                ) : null}
-                <AsteroidArenaHub
-                  operations={operationDirectory}
-                  directoryLoading={operationsQuery.isLoading}
-                  directoryError={operationsQuery.isError}
-                  atAsteroid={atCinderRing}
-                  queueAvailable={competitiveQueueAvailable}
-                  queueing={competitiveQueueing}
-                  roomCode={roomCode}
-                  onRoomCode={onRoomCode}
-                  onCreatePrivateRoom={() => {
-                    setPresenceActive(false);
-                    onCreatePrivateRoom();
-                  }}
-                  onJoinPrivateRoom={(code) => {
-                    setPresenceActive(false);
-                    onJoinPrivateRoom(code);
-                  }}
-                  onlineStatus={onlineStatus}
-                  onJoinQueue={() => {
-                    setPresenceActive(false);
-                    onJoinCompetitiveQueue();
-                  }}
-                  onTravel={() => travelTo(CINDER_RING_LOCATION_ID)}
-                />
-              </>
-            )}
+            <section data-testid="panel-shared-universe-services" className="border border-spectral/30 bg-panel/70 p-4">
+              <h2 className="font-hud tracking-widest text-spectral">SHARED UNIVERSE · STATION SERVICES</h2>
+              <p className="mt-2 text-sm text-muted">Cinder Ring is a location in the same live universe, not a separate game. Close services to resume your existing flight. Combat, patrols and allied assistance stay in that flight session.</p>
+              <button type="button" onClick={onBack} className="mt-3 min-h-11 border border-bone/25 px-4 font-hud text-xs tracking-widest">CLOSE SERVICES</button>
+            </section>
 
             <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
               <div className="border-b border-bone/10 px-4 py-4">

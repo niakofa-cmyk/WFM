@@ -148,7 +148,7 @@ function bundleAuditPlugin(buildMode: string): Plugin {
           `Three.js chunks total ${engineGzipBytes} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
         );
       }
-      if (engineChunks.length === 0) {
+      if (engineChunks.length === 0 && buildMode !== 'combat-lab') {
         this.error('Three.js chunks are missing from the expected Orbital flight routes.');
       }
       if (report.engineLoadedInInitialStaticGraph) {
