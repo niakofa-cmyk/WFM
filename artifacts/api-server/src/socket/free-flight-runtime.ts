@@ -1251,11 +1251,9 @@ export function createFreeFlightRuntime(options: {
         actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, cover,
         PRIMARY_WEAPON_CATALOG[ship.primaryFit],
       );
-      if (combatActive && primaryTarget) {
-        // Retain each pilot or AI round long enough to reach its
-        // server-selected hostile at its current range. Otherwise the shot can
-        // appear to fire correctly but expire before reaching an in-range
-        // target, especially for escort fire at the edge of its attack cone.
+      if (actor.kind === "pilot" && combatActive && primaryTarget) {
+        // No arbitrary primary-gun range gate: retain each round long enough
+        // to reach the server-selected hostile at its current range.
         const targetRange = distanceBetween(actor, primaryTarget) + 8;
         for (const bullet of bullets) {
           const speed = detHypot(detHypot(bullet.vx, bullet.vy ?? 0), bullet.vz);

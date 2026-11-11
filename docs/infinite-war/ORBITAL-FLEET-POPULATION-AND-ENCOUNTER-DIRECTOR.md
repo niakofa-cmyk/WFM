@@ -84,8 +84,10 @@ The database does not yet have a durable population epoch or transactional
 replenishment contract. Deep-space region identity exists in Orbital sector
 addressing, but the persistent patrol directory is still tied to named world
 locations. Existing friendly defenders are bounded AI actors, but their
-dispatch is not yet a route-backed persistent reserve. Do not describe those
-capabilities as completed or increase live fleet density until these gaps are
+dispatch is not yet a route-backed persistent reserve. The opening-combat
+verification currently fails to prove that a friendly defender pushes through
+shield recovery to hull damage and enemy destruction. Do not describe that
+behavior as certified or increase live fleet density until these gaps are
 closed.
 
 ## Next safe increments
