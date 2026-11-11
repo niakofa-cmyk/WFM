@@ -57,3 +57,4 @@
 - [Shared-flight targeting and wing calls](shared-flight-targeting-assist.md) — show the selected ship at its projected position; calls invite nearby same-faction pilots into the same authoritative battle.
 - [Shared celestial reference](shared-celestial-reference.md) — Moon-relative agreement requires one authoritative spatial frame, not just shared session membership.
 - [Combat intelligence and recovery](combat-intelligence-and-recovery.md) — physical rear-positioning and evasion; confirmed kills restore bounded maneuver energy without permanent damage inflation.
+- [Shared combat visual authority](shared-combat-visual-authority.md) — server contacts drive bounded damage/explosion feedback independent of ship removal and floating-origin changes.

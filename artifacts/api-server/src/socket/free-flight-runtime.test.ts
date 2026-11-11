@@ -317,6 +317,15 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
         Number(p.shieldDamage)+Number(p.hullDamage)>0), "each pilot causes real server damage");
       assert.ok(frames[index]!.actors.find(a => a.own)?.alive, "each pilot survives settlement");
     }
+    const lethal = packets[0]!.filter(p => p.type === "freeflight_weapon_event" && p.destroyed === true);
+    assert.equal(lethal.length, 1, "one destroyed ship emits exactly one explosion-driving contact");
+    assert.deepEqual(packets[1]!.filter(p => p.type === "freeflight_weapon_event" && p.destroyed === true),
+      lethal, "both pilots receive the identical destruction identity and contact coordinates");
+    for (const packet of packets[0]!.filter(p => p.type === "freeflight_weapon_event")) {
+      const point = packet.to as { x: number; y: number; z: number };
+      assert.ok([point.x, point.y, point.z].every(Number.isFinite));
+      assert.ok(Number(packet.shieldDamage) + Number(packet.hullDamage) > 0);
+    }
     const beforeFlight = frames.map(frame => frame!.actors.find(a => a.own)!);
     // Open the next real input window on the same mocked authority clock.
     clock += 1100;
