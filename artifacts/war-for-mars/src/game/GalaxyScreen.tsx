@@ -1,22 +1,19 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "@clerk/react";
-import { getGetWorldOperationsQueryKey, getGetWorldPatrolsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useGetWorldPatrols, useRegisterWorldOperationInstance } from "@workspace/api-client-react";
+import { getGetWorldOperationsQueryKey, getGetWorldPatrolsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useGetWorldPatrols } from "@workspace/api-client-react";
 import { heartbeatWorldPresence } from "@workspace/api-client-react";
 import type { OperationDirectoryResponse, WorldLocation, WorldQuest } from "@workspace/api-client-react";
 import type { Faction, ShipId } from "./ships";
 import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
 import { UniverseActivities, repLabel } from "./UniverseActivities";
 import { CommandBackdrop, FactionMark } from "./CommandArt";
-import { Link, useLocation } from "wouter";
-import { sectorMission, type SectorMissionId } from "./sector-missions";
-import { CINDER_ASTEROID_OPERATION_ID, nextStorySectorMission } from "./sector-navigation";
-import { expeditionFeatureEnabled, sectorClientProtocolVersion } from "./sector-client";
-import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "./sector-missions";
+import { sectorMission } from "./sector-missions";
 import { useWorldOperationEvents } from "./world-operation-events";
 import { UniverseActivityFeed } from "./UniverseActivityFeed";
 import { ConnectedUniverseNavigation } from "./ConnectedUniverseNavigation";
-import { connectedDestinations, operationControlTarget } from "./orbital-navigation";
+import { connectedDestinations } from "./orbital-navigation";
 import { UniversePatrolPanel } from "./UniversePatrolPanel";
+import { AsteroidArenaHub } from "./AsteroidArenaHub";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const CINDER_RING_LOCATION_ID = "cinder-asteroid";
@@ -27,19 +24,12 @@ type Props = {
   onCredits: (credits: number) => void;
   shipId: ShipId;
   faction: Faction;
-  roomCode: string;
-  onRoomCode: (roomCode: string) => void;
-  onCreatePrivateRoom: () => void;
-  onJoinPrivateRoom: (roomCode: string) => void;
-  onlineStatus?: string;
-  onJoinCompetitiveQueue: () => void;
-  competitiveQueueAvailable: boolean;
-  competitiveQueueing: boolean;
   presenceHeartbeat?: boolean;
-  onLaunchCampaign?: () => void;
-  campaignLaunching?: boolean;
-  campaignStatus?: string;
-  onLaunchExpedition?: (missionId: SectorMissionId) => void;
+  onJoinCompetitiveQueue?: () => void;
+  onCancelCompetitiveQueue?: () => void;
+  competitiveQueueAvailable?: boolean;
+  competitiveQueueing?: boolean;
+  onlineStatus?: string;
 };
 
 const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
@@ -49,7 +39,6 @@ const statusLabel: Record<string, string> = {
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const errorText = (error: unknown) =>
   `${error instanceof Error ? error.message : "No response."} Outcome unknown: the server may or may not have applied this action. Retry the retained request to find out.`;
-const showSectorExpedition = false; // Sector compatibility is not a player launch path.
 
 export function GalaxyScreen({
   onBack,
@@ -57,31 +46,14 @@ export function GalaxyScreen({
   onCredits,
   shipId,
   faction,
-  roomCode,
-  onRoomCode,
-  onCreatePrivateRoom,
-  onJoinPrivateRoom,
-  onlineStatus,
-  onJoinCompetitiveQueue,
-  competitiveQueueAvailable,
-  competitiveQueueing,
   presenceHeartbeat = true,
-  onLaunchCampaign,
-  campaignLaunching = false,
-  campaignStatus = "",
-  onLaunchExpedition,
+  onJoinCompetitiveQueue,
+  onCancelCompetitiveQueue,
+  competitiveQueueAvailable = false,
+  competitiveQueueing = false,
+  onlineStatus,
 }: Props) {
   const { getToken, userId } = useAuth();
-  const [, setLocation] = useLocation();
-  const [presenceActive, setPresenceActive] = useState(true);
-  const canLaunchUniversePatrol =
-    expeditionFeatureEnabled({
-      DEV: import.meta.env.DEV,
-      VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
-    }) &&
-    sectorClientProtocolVersion({
-      VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
-    }) === SECTOR_ORBITAL_PROTOCOL_VERSION;
   const operationStreamState = useWorldOperationEvents();
   const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
   const operationsQuery = useGetWorldOperations({
@@ -90,12 +62,9 @@ export function GalaxyScreen({
       queryKey: getGetWorldOperationsQueryKey(),
     },
   });
-  const registerOperation = useRegisterWorldOperationInstance();
   const snapshot = useOfflineSnapshot("world", worldQuery.data, worldQuery.isError || worldQuery.fetchStatus === "paused");
   const durable = useDurableAction();
   const [actionError, setActionError] = useState("");
-  const [publishOperationStatus, setPublishOperationStatus] = useState(false);
-  const [operationError, setOperationError] = useState("");
   const world = snapshot.data;
   const patrolsQuery = useGetWorldPatrols({
     query: {
@@ -106,7 +75,7 @@ export function GalaxyScreen({
     },
   });
   useEffect(() => {
-    if (!userId || !presenceActive || !presenceHeartbeat) return;
+    if (!userId || !presenceHeartbeat) return;
     let active = true;
     let inFlight = false;
     const sendHeartbeat = async () => {
@@ -134,33 +103,12 @@ export function GalaxyScreen({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [getToken, presenceActive, presenceHeartbeat, userId]);
-  const nextStoryMission = world ? nextStorySectorMission(world.discoveries) : null;
+  }, [getToken, presenceHeartbeat, userId]);
   const cached = snapshot.cached;
   const busy = durable.blocked;
   const go = async (request: Parameters<typeof durable.run>[0], label: string) => {
     setActionError("");
     try { await durable.run(request, label); } catch (error) { setActionError(errorText(error)); }
-  };
-  const enterOperation = async (operationId: string) => {
-    setOperationError("");
-    try {
-      const response = await registerOperation.mutateAsync({
-        operationId,
-        data: {
-          idempotencyKey: crypto.randomUUID(),
-          visibility: publishOperationStatus ? "public" : "unlisted",
-        },
-      });
-      const assignment = response.authorization.assignment;
-      if (!response.authorization.allowed || !assignment) {
-        throw new Error("The server did not authorize this operation seat.");
-      }
-      setPresenceActive(false);
-      setLocation(`/flight?operation=${encodeURIComponent(operationId)}&instanceId=${encodeURIComponent(assignment.operationInstanceId)}`);
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : "Operation registration failed. No flight was started.");
-    }
   };
   const travelTo = (destinationId: string) => go({ kind: "travel", data: { destinationId, maxCost: world?.routes.find((route) => route.destinationId === destinationId)?.costCredits } }, `Travel to ${destinationId}.`);
   const exploreLocation = (location: WorldLocation) => go({ kind: "explore", data: { locationId: location.id } }, `Explore ${location.name}.`);
@@ -239,7 +187,7 @@ export function GalaxyScreen({
   const openDestination = () => {
     if (navigationBlocked) return;
     scrollToControls(atCinderRing
-        ? "screen-asteroid-arena-hub" : "panel-operation-network");
+        ? "panel-shared-universe-services" : "panel-operation-network");
   };
   const openOperation = (operationId: string) => {
     const current = navigationDestinations.find((entry) => entry.id === world.currentLocation);
@@ -335,7 +283,7 @@ export function GalaxyScreen({
           )?.activePilots ?? 0}
           pilotFaction={faction}
           shipId={shipId}
-          canLaunchEncounter={canLaunchUniversePatrol}
+          canLaunchEncounter={false}
           locations={locations}
           loading={patrolsQuery.isLoading}
           unavailable={patrolsQuery.isError || patrolsQuery.fetchStatus === "paused"}
@@ -400,6 +348,21 @@ export function GalaxyScreen({
               <button type="button" onClick={onBack} className="mt-3 min-h-11 border border-bone/25 px-4 font-hud text-xs tracking-widest">CLOSE SERVICES</button>
             </section>
 
+            {atCinderRing && onJoinCompetitiveQueue && onCancelCompetitiveQueue ? (
+              <AsteroidArenaHub
+                operations={operationDirectory}
+                directoryLoading={operationsQuery.isLoading}
+                directoryError={directoryUnavailable}
+                atAsteroid={atCinderRing}
+                queueAvailable={competitiveQueueAvailable && !navigationBlocked}
+                queueing={competitiveQueueing}
+                onlineStatus={onlineStatus}
+                onJoinQueue={onJoinCompetitiveQueue}
+                onCancelQueue={onCancelCompetitiveQueue}
+                onTravel={() => scrollToControls("panel-operation-network")}
+              />
+            ) : null}
+
             <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
               <div className="border-b border-bone/10 px-4 py-4">
                 <p className="flex flex-wrap items-center justify-between gap-2 font-hud text-xs tracking-[0.2em] text-spectral">
@@ -419,7 +382,7 @@ export function GalaxyScreen({
                   </span>
                 </p>
                 <h2 className="mt-1 font-hud text-2xl">Asteroid operations</h2>
-                <p className="mt-1 text-xs leading-relaxed text-muted">One universe can host distinct operations and runtimes. The directory reports real server instances only; it never creates placeholder pilots or battles.</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">Read-only operation status. All playable patrols and battles belong in your existing shared flight; this directory does not launch another game.</p>
               </div>
               {operationsQuery.isLoading && !operationDirectory ? (
                 <p role="status" className="p-4 text-sm text-muted">Querying the public operation directory…</p>
@@ -436,7 +399,6 @@ export function GalaxyScreen({
                     const site = operationDirectory.locations.find((location) => location.id === operation.locationId);
                     const siteState = site ? locations.find((location) => location.id === site.worldLocationId) : undefined;
                     const route = siteState ? routes.find((item) => item.destinationId === siteState.id) : undefined;
-                    const atSite = siteState?.id === world.currentLocation;
                     const instances = operationDirectory.instances.filter((item) => item.operationId === operation.id);
                     return (
                       <article key={operation.id} data-testid={`card-operation-${operation.id}`} className="p-4">
@@ -465,36 +427,7 @@ export function GalaxyScreen({
                             <p className="text-muted">These are not multiplayer matches; occupied seats cannot be joined.</p>
                           </div>
                         )}
-                        {operation.experience === "cooperative" && showSectorExpedition && atSite ? (
-                          onLaunchExpedition ? (
-                            <button type="button" data-testid={`button-coop-${operation.id}`} onClick={() => { setPresenceActive(false); onLaunchExpedition("rust-disc"); }}
-                              className="mt-3 flex min-h-11 w-full items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
-                              OPEN RUST DISC CO-OP AT CINDER RING
-                            </button>
-                          ) : (
-                            <Link href="/expedition?mission=rust-disc" data-testid={`link-coop-${operation.id}`}
-                              onClick={() => setPresenceActive(false)}
-                              className="mt-3 flex min-h-11 items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void">
-                              OPEN RUST DISC CO-OP AT CINDER RING
-                            </Link>
-                          )
-                        ) : operation.experience === "cooperative" && route ? (
-                          <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
-                            {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
-                          </button>
-                        ) : null}
-                        {operation.access === "local-training" && atSite ? (
-                          <div className="mt-3">
-                            <label className="flex min-h-11 items-center gap-3 text-xs text-muted">
-                              <input type="checkbox" checked={publishOperationStatus} onChange={(event) => setPublishOperationStatus(event.currentTarget.checked)} className="h-5 w-5 accent-[#79bfff]" />
-                              Publish this anonymous solo-session status in the public operation directory
-                            </label>
-                            {operationError ? <p role="alert" className="mt-2 text-sm text-alert">{operationError}</p> : null}
-                            <button type="button" data-testid={`button-enter-${operation.id}`} disabled={registerOperation.isPending} onClick={() => void enterOperation(operation.id)} className="mt-2 flex min-h-11 w-full items-center justify-center bg-solar px-4 font-hud text-xs tracking-widest text-void disabled:opacity-50">
-                              {registerOperation.isPending ? "REGISTERING OPERATION…" : "ENTER ASTEROID FLIGHT CIRCUIT · NO REWARDS"}
-                            </button>
-                          </div>
-                        ) : operation.access === "local-training" && route ? (
+                        {operation.experience === "cooperative" && route ? (
                           <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
                             {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
                           </button>
@@ -601,16 +534,6 @@ export function GalaxyScreen({
                   Accept at Phobos Yard. Claim only at the recorded objective location.
                 </p>
               </div>
-              {onLaunchCampaign ? (
-                <div className="border-b border-bone/10 p-4">
-                  <p className="font-hud text-[10px] tracking-[0.18em] text-solar">CAMPAIGN · SERVER-AUTHORIZED SORTIE</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">Launch the next sortie without leaving the Orbital universe. The server still selects and verifies campaign progress.</p>
-                  {campaignStatus ? <p role="alert" className="mt-2 text-xs text-alert">{campaignStatus}</p> : null}
-                  <button type="button" data-testid="button-launch-campaign-in-universe" disabled={campaignLaunching} onClick={onLaunchCampaign} className="mt-3 min-h-11 w-full bg-solar px-4 font-hud text-xs tracking-widest text-void disabled:opacity-50">
-                    {campaignLaunching ? "AUTHORIZING SORTIE…" : "LAUNCH NEXT AUTHORIZED SORTIE"}
-                  </button>
-                </div>
-              ) : null}
               {quests.length === 0 ? (
                 <p className="p-4 text-sm text-muted">No contracts are currently available.</p>
               ) : (
@@ -694,22 +617,6 @@ export function GalaxyScreen({
                   })}
                 </ul>
               )}
-              {showSectorExpedition && nextStoryMission ? (
-                onLaunchExpedition ? (
-                  <button type="button" data-testid="button-discovery-expedition" onClick={() => onLaunchExpedition(nextStoryMission.id)}
-                    className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 w-full justify-center px-3 font-hud text-[11px] tracking-widest">
-                    {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
-                  </button>
-                ) : (
-                  <Link
-                    href={`/expedition?mission=${encodeURIComponent(nextStoryMission.id)}`}
-                    data-testid="link-discovery-expedition"
-                    className="wfm-cmd wfm-cmd-secondary mt-3 min-h-11 justify-center px-3 font-hud text-[11px] tracking-widest"
-                  >
-                    {nextStoryMission.id === "rust-disc" ? "BEGIN" : "CONTINUE"} {nextStoryMission.title.toUpperCase()}
-                  </Link>
-                )
-              ) : null}
             </section>
           </aside>
         </div>

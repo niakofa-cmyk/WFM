@@ -16,10 +16,18 @@ Infinite Universe. The owner's latest clarification supersedes earlier
 portrait-first source wording: the operational hangar is landscape/full-screen.
 
 **How to apply:** make explicit launch into the main Orbital flight scene the primary gateway;
-persist faction selection through the existing loadout service; retain offline
-flight only as explicitly no-reward practice. Three.js remains the primary
+persist faction selection through the existing loadout service. Do not expose
+separate solo, offline, training, or expedition launch paths. The one approved
+alternate gameplay is Arcade Skirmish 5v5 competition entered at the multiplayer
+asteroid from within the live universe, never directly from the hangar.
+Legacy gameplay URLs return to the hangar; only its explicit gateway launches flight.
+Three.js remains the primary
 universe renderer, with native WebGL2 a companion; neither owns separate
 gameplay authority. Historical renderer-removal directions are superseded.
+
+**Why:** the owner repeatedly clarified that all playable activity must use the
+one live Orbital universe entered through the hangar, with only the asteroid
+competition exception explicitly clarified in their latest request.
 
 The explicit hangar launch should open with a Combat Lab-style live patrol
 battle, then let the pilot continue exploring the same universe. This is a

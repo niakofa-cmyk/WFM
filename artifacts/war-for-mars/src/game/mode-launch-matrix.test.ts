@@ -14,7 +14,7 @@ import { resolveArenaModeId, resolveArenaRuntime } from "./arena-config";
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
 
-test("current UI entry points retain their actual runtime and lifecycle owners", () => {
+test("only hangar flight and asteroid competition are accessible gameplay entries", () => {
   const app = source("../App.tsx");
   const combatLab = source("../combat-lab.tsx");
   const orbitalBoot = source("./OrbitalBoot.tsx");
@@ -23,10 +23,11 @@ test("current UI entry points retain their actual runtime and lifecycle owners",
   const rustDisc = source("./RustDiscFlight.tsx");
   const expedition = source("./SectorExpedition.tsx");
 
-  assert.match(app, /<Route path="\/flight">[\s\S]*?<RustDiscFlight/);
-  assert.match(app, /<Route path="\/expedition">[\s\S]*?<SectorExpedition/);
-  assert.match(combatLab, /createRoot\(document\.getElementById\("root"\)!\)/);
-  assert.match(combatLab, /<OrbitalBoot standalone/);
+  for (const route of ["flight", "expedition"]) {
+    assert.match(app, new RegExp(`<Route path="/${route}">\\s*<Redirect to="/"`));
+  }
+  assert.match(combatLab, /window\.location\.replace/);
+  assert.doesNotMatch(combatLab, /createRoot|<OrbitalBoot/);
   assert.match(orbitalBoot, /modeId="orbital-combat-lab" runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.match(orbitalBoot, /modeId="orbital-universe-local"[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.ok(warApp.includes("modeId={UNIVERSE_MODE_ID}"));

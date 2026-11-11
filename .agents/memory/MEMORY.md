@@ -48,7 +48,7 @@
 - [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
 - [Canonical engine strategy](orbital-canonical-gameplay.md) — shared Orbital gameplay/world state may use both Three.js and native WebGL2 renderers.
 - [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — public presence stays aggregate; nearby authorized pilots render as server-owned 3D ships in shared flight.
-- [Cinder Ring competitive hub](asteroid-competitive-hub.md) — the asteroid hosts discoverable live Wing Relay competition while navigation, combat runtimes, and private rooms stay distinct.
+- [Cinder Ring competition](asteroid-competitive-hub.md) — asteroid 5v5 is the sole alternate gameplay; no separate docking simulator, private dock, or training launches.
 - [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
 - [Anomaly gravity contract](anomaly-gravity-contract.md) — negotiate versioned server fields before applying shared movement forces; visuals remain non-authoritative.
 - [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.

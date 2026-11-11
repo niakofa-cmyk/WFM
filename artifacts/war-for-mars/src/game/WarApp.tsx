@@ -64,15 +64,12 @@ import { accountBootMenu, enterOrbitalOnAccountBoot } from "./wfm-boot";
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
-const SectorExpedition = lazy(() => import("./SectorExpedition").then((module) => ({ default: module.SectorExpedition })));
 
 const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
 const competitiveQueueAvailable =
   import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
 const casualAiQueueAvailable =
   import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
-const expeditionEnabled = import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED !== "false"
-  && (import.meta.env.DEV || import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true");
 
 type StagingRewardDiagnostic = {
   runId: string;
@@ -791,7 +788,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     }
     setOfflineAvailable(false);
     setOnlineStatus("");
-    if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
     setShell((prev) => nextMenu(prev, action));
   };
 
@@ -1355,31 +1351,16 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
                 onCredits={syncCredits}
                 shipId={save.ship}
                 faction={save.faction}
-                roomCode={roomCode}
-                onRoomCode={setRoomCode}
-                onCreatePrivateRoom={() => {
-                  setUniverseServicesOpen(false);
-                  setOrbitalUniverseOpen(false);
-                  returnToOrbitalAfterOperationRef.current = true;
-                  const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-                  setRoomCode(generated);
-                  joinOnline(generated);
-                }}
-                onJoinPrivateRoom={(code) => {
-                  setUniverseServicesOpen(false);
-                  setOrbitalUniverseOpen(false);
-                  returnToOrbitalAfterOperationRef.current = true;
-                  joinOnline(code);
-                }}
-                onlineStatus={onlineStatus}
                 onJoinCompetitiveQueue={() => {
-                  setUniverseServicesOpen(false);
-                  setOrbitalUniverseOpen(false);
+                  // The only alternate gameplay entry: the asteroid competition.
+                  // Keep shared flight mounted while matchmaking is pending.
                   returnToOrbitalAfterOperationRef.current = true;
                   joinOnline("", "competitive");
                 }}
+                onCancelCompetitiveQueue={() => failOnline("Competition queue cancelled. Continuing in the shared universe.")}
                 competitiveQueueAvailable={competitiveQueueAvailable}
                 competitiveQueueing={competitiveQueueing}
+                onlineStatus={onlineStatus}
                 presenceHeartbeat={false}
               />
             </Suspense>
@@ -1587,18 +1568,6 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
           onCredits={syncCredits}
           shipId={save.ship}
           faction={save.faction}
-          roomCode={roomCode}
-          onRoomCode={setRoomCode}
-          onCreatePrivateRoom={() => {
-            const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-            setRoomCode(generated);
-            joinOnline(generated);
-          }}
-          onJoinPrivateRoom={(code) => joinOnline(code)}
-          onlineStatus={onlineStatus}
-          onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
-          competitiveQueueAvailable={competitiveQueueAvailable}
-          competitiveQueueing={competitiveQueueing}
         />
       </Suspense>
     );

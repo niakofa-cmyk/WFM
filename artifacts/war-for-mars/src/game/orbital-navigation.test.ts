@@ -105,14 +105,15 @@ test("operation handoffs retain the competitive docking gate and existing specia
   assert.equal(operationControlTarget("flight-simulation", "solo", "entry"), "card-operation-solo");
 });
 
-test("connected entry stays within authenticated account shell while offline flight stays independent", () => {
+test("connected entry uses the hangar account shell without alternate URL launches", () => {
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const lab = readFileSync(new URL("./OrbitalBoot.tsx", import.meta.url), "utf8");
   const warApp = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
-  assert.match(app, /path="\/universe"><AccountGameEntry universe/);
+  assert.match(app, /path="\/universe"><Redirect to="\/"/);
   assert.match(app, /isLoaded && isSignedIn/);
-  assert.match(app, /key=\{`\$\{userId\}:\$\{universe\}:\$\{orbital\}`\}/);
+  assert.match(app, /<SignedInGame key=\{userId\}/);
+  assert.match(app, /<WarApp initialOrbitalOpen \/>/);
   assert.match(lab, /const HUB = `\$\{BASE\}\/universe`/);
   assert.doesNotMatch(lab, /ClerkProvider|fetch\(/);
   assert.match(lab, /useGetWorldPatrols/);
@@ -131,11 +132,11 @@ test("regional patrol traffic refreshes by location and pauses safely in backgro
   assert.match(galaxy, /queryKey: \[\.\.\.getGetWorldPatrolsQueryKey\(\), world\?\.currentLocation\]/);
 });
 
-test("patrol intercept overlay pauses and resumes the same mounted universe flight", () => {
+test("services overlay preserves the same mounted universe without a separate patrol simulator", () => {
   const warApp = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   const arena = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
   assert.match(warApp, /className=\{`fixed inset-0 \$\{universeServicesOpen \? "invisible pointer-events-none" : ""\}`\}/);
-  assert.match(warApp, /universeExpeditionMission \? \([\s\S]*?<SectorExpedition/);
-  assert.match(warApp, /onReturnToUniverse=\{\(\) => \{[\s\S]*?setUniverseExpeditionMission\(null\);[\s\S]*?setUniverseServicesOpen\(false\)/);
+  assert.doesNotMatch(warApp, /<SectorExpedition/);
+  assert.match(warApp, /presenceHeartbeat=\{false\}/);
   assert.match(arena, /localUniverse\.servicesOpen[\s\S]*?clearInput\(busRef\.current\);[\s\S]*?setPaused\(true\)/);
 });

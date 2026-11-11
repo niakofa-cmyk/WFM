@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import type { OnlineSnapshot } from "./Arena";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { CinderRingArtwork } from "./CinderRingArtwork";
-import { privateRoomDockAccess } from "./private-room-dock";
 import { createOrbitalNativeSpectatorRenderer, type NativeSpectatorState } from "./orbital-native-spectator-renderer";
 import type { ShipId } from "./ships";
 
@@ -15,12 +14,9 @@ type Props = {
   atAsteroid: boolean;
   queueAvailable: boolean;
   queueing: boolean;
-  roomCode: string;
-  onRoomCode: (roomCode: string) => void;
-  onCreatePrivateRoom: () => void;
-  onJoinPrivateRoom: (roomCode: string) => void;
   onlineStatus?: string;
   onJoinQueue: () => void;
+  onCancelQueue: () => void;
   onTravel: () => void;
 };
 
@@ -79,12 +75,9 @@ export function AsteroidArenaHub({
   atAsteroid,
   queueAvailable,
   queueing,
-  roomCode,
-  onRoomCode,
-  onCreatePrivateRoom,
-  onJoinPrivateRoom,
   onlineStatus,
   onJoinQueue,
+  onCancelQueue,
   onTravel,
 }: Props) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -207,7 +200,6 @@ export function AsteroidArenaHub({
   };
 
   const canQueue = atAsteroid && queueAvailable && isLoaded && Boolean(isSignedIn) && !queueing;
-  const privateRoomAccess = privateRoomDockAccess(atAsteroid, roomCode);
 
   return (
     <section data-testid="screen-asteroid-arena-hub" className="relative overflow-hidden border border-solar/30 bg-void px-4 py-6 text-bone sm:px-8 sm:py-10">
@@ -220,9 +212,9 @@ export function AsteroidArenaHub({
           <p className="font-hud text-[10px] tracking-[0.24em] text-solar">CINDER RING / PERSISTENT UNIVERSE / WING RELAY</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-hud text-4xl leading-none tracking-wide sm:text-6xl">ASTEROID ARENA</h1>
+              <h1 className="font-hud text-4xl leading-none tracking-wide sm:text-6xl">ARCADE SKIRMISH · 5V5</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-                Live competitive flights are server-run. Watch an active wing or enter the human-only queue from the ring.
+                The asteroid is the only competition entry in the Orbital universe. The current server-authoritative arena uses Wing Relay rules.
               </p>
             </div>
             <div className="border-l-2 border-solar pl-3">
@@ -321,7 +313,7 @@ export function AsteroidArenaHub({
           <aside className="space-y-4">
             <section className="border border-solar/40 bg-panel/80 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-solar">COMPETITIVE ENTRY</p>
-              <h2 className="mt-1 font-hud text-2xl">Wing Relay queue</h2>
+              <h2 className="mt-1 font-hud text-2xl">5v5 competition queue</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 Ten signed-in human pilots are required to launch. No AI-fill, open seats, or substitute pilots.
               </p>
@@ -363,64 +355,16 @@ export function AsteroidArenaHub({
                   <p className="mt-3 text-[10px] leading-relaxed text-muted">
                     {queueing ? "Searching for ten authenticated human pilots. This queue never fills seats with AI." : "Queue entry uses the existing server-authoritative Wing matchmaking and combat simulation."}
                   </p>
+                  {queueing ? (
+                    <button type="button" data-testid="button-cancel-asteroid-queue" onClick={onCancelQueue}
+                      className="mt-3 min-h-11 w-full border border-bone/30 px-4 font-hud text-xs tracking-widest">
+                      CANCEL QUEUE · STAY IN UNIVERSE
+                    </button>
+                  ) : null}
                 </>
               )}
             </section>
 
-            <section data-testid="panel-cinder-ring-private-dock" className="border border-spectral/35 bg-panel/75 p-4">
-              <p className="font-hud text-xs tracking-[0.2em] text-spectral">CINDER RING PRIVATE DOCK</p>
-              <h2 className="mt-1 font-hud text-2xl">Invite-only flight</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                Private 5v5 rooms use an invite code, may fill open seats with AI, and award no Wing credits. They never appear in the public match feed.
-              </p>
-              {!atAsteroid ? (
-                <div className="mt-4 border-l-2 border-spectral pl-3">
-                  <p className="font-hud text-xs tracking-widest text-spectral">DOCK ACCESS REQUIRES CINDER RING</p>
-                  <button
-                    type="button"
-                    data-testid="button-travel-to-private-dock"
-                    onClick={onTravel}
-                    className="mt-3 min-h-12 w-full border border-spectral/60 px-3 font-hud text-xs tracking-widest text-spectral"
-                  >
-                    TRAVEL TO CINDER RING
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    data-testid="button-create-private-room"
-                    onClick={onCreatePrivateRoom}
-                    className="mt-4 min-h-12 w-full border border-spectral/60 bg-spectral/10 px-4 font-hud text-xs tracking-widest text-bone"
-                  >
-                    CREATE PRIVATE 5V5 ROOM
-                  </button>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <label className="sr-only" htmlFor="cinder-ring-private-room-code">Private room code</label>
-                    <input
-                      id="cinder-ring-private-room-code"
-                      data-testid="input-private-room-code"
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      maxLength={24}
-                      onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-                      placeholder="6–24 CHAR ROOM CODE"
-                      value={roomCode}
-                      className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-                    />
-                    <button
-                      type="button"
-                      data-testid="button-join-private-room"
-                      disabled={!privateRoomAccess.canJoin}
-                      onClick={() => onJoinPrivateRoom(roomCode)}
-                      className="min-h-11 border border-spectral/45 px-4 font-hud tracking-widest text-spectral disabled:opacity-40"
-                    >
-                      JOIN ROOM
-                    </button>
-                  </div>
-                </>
-              )}
-            </section>
 
             <section className="border border-bone/15 bg-panel/55 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-muted">SPECTATOR SAFETY</p>

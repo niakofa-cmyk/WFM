@@ -48,18 +48,15 @@ test("authenticated universe entry restores only an account-verified physical an
   assert.match(app, /startLocation: orbitalStartLocation \?\? "mars-orbit"/);
 });
 
-test("co-op runs in an overlay while the Orbital universe remains mounted", () => {
+test("cooperation remains in shared flight rather than an independent expedition", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   const galaxy = readFileSync(new URL("./GalaxyScreen.tsx", import.meta.url), "utf8");
-  const expedition = readFileSync(new URL("./SectorExpedition.tsx", import.meta.url), "utf8");
-  assert.match(app, /<SectorExpedition[\s\S]*?embedded[\s\S]*?initialMissionId=\{universeExpeditionMission\}/);
-  assert.match(app, /onReturnToUniverse=\{\(\) => \{[\s\S]*?setUniverseServicesOpen\(false\)/);
-  assert.match(galaxy, /onLaunchExpedition\("rust-disc"\)/);
-  assert.match(galaxy, /button-launch-campaign-in-universe/);
-  assert.match(expedition, /RETURN TO ORBIT/);
+  assert.doesNotMatch(app, /<SectorExpedition/);
+  assert.doesNotMatch(galaxy, /onLaunchExpedition|button-launch-campaign-in-universe/);
+  assert.match(galaxy, /Combat, patrols and allied assistance stay in that flight session/);
 });
 
-test("server-authorized campaign and Wing operations can return to Orbital", () => {
+test("asteroid competition can return to Orbital without enabling separate sorties", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   assert.match(app, /returnToOrbitalAfterOperationRef\.current = true/);
   assert.match(app, /if \(returnToOrbitalAfterOperationRef\.current\) \{\s*setUniverseServicesOpen\(false\);\s*setOrbitalUniverseOpen\(false\);/);

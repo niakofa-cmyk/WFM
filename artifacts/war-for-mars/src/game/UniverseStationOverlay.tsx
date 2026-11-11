@@ -186,12 +186,6 @@ export function UniverseStationOverlay(p: Props) {
                 : `Flight is held at the Cinder Ring clamp. Your position and velocity are kept for undock${session.trainingRuns ? ` · training runs this session: ${session.trainingRuns}` : ""}.`}
             </p>
             <div className="mt-4 grid gap-2">
-              {!dockedAtNightSide ? (
-                <button type="button" data-testid="button-universe-launch-training" onClick={p.onLaunchTraining}
-                  className={`${btn} flex min-h-14 flex-col items-start justify-center bg-solar text-left text-void`}>
-                  <span>LAUNCH COMBAT TRAINING</span><span className="font-sans text-xs tracking-normal text-void/75">Three defenders · local rules · returns here</span>
-                </button>
-              ) : null}
               <button type="button" data-testid="button-universe-undock" onClick={p.onUndock}
                 className={`${btn} border border-solar/60 text-solar`}>UNDOCK</button>
               {!dockedAtNightSide ? (

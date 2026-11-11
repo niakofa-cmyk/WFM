@@ -1,5 +1,10 @@
 # Cinder Ring Asteroid Arena — Architecture and Roadmap
 
+> Historical roadmap. The current entry policy is
+> [Asteroid Competition Entry](ASTEROID-COMPETITION-ENTRY.md): the only alternate
+> gameplay is asteroid 5v5 competition. Private docks, standalone approaches and
+> solo training launches described below are not current player entry points.
+
 ## Product direction
 
 **The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.**
