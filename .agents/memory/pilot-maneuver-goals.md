@@ -7,6 +7,17 @@ Build Phases 1–3 together: analog right-thumb hull movement, eight-direction
 bursts, and advanced evasion/recovery in the existing Orbital simulation.
 Preserve the classic aim option and the established two-thumb layout.
 
+Treat return-to-center aiming strokes as ordinary aiming, not burst gestures.
+Use one pointer-event clock for gesture duration and release direction for
+outward flicks; keep edge taps available.
+
+**Why:** The re-supplied advanced directive requires no accidental boost during
+ordinary aiming. A peak-only direction can misclassify an out-and-back stroke.
+
+**How to apply:** Preserve the deliberate two-gesture requirement when tuning
+recognition; see the retained upload and reconciliation in
+`docs/infinite-war/RIGHT-THUMB-FLIGHT-DIRECTIVE-RECONCILIATION.md`.
+
 **Why:** The owner explicitly selected the combined first package rather than
 isolated visual gestures. Evasion should move the ship physically while pilots
 can still aim/fire, without granting invulnerability.

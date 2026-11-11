@@ -6,7 +6,7 @@ import {
   VECTOR_BOOST_DIRECTIONS, newFlight, integrateSpatialFlight, type SpatialCraft,
 } from "@workspace/orbital-sim";
 import { createBus, clearInput, readInput, requestRightVectorBoost, setCircularRollControl } from "./input";
-import { blocksFlightHotkeys, boostDirectionAt, registerBoostGesture,
+import { blocksFlightHotkeys, boostDirectionAt, completedBoostDirection, registerBoostGesture,
   loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 
 test("flight hotkeys leave native settings sliders and editable controls usable", () => {
@@ -70,6 +70,33 @@ test("two matching deliberate gestures trigger one eight-way burst; mismatches a
   assert.equal(registerBoostGesture(first.state, "down", 1100).boost, null);
   assert.equal(registerBoostGesture(first.state, "up", 1400).boost, null);
   assert.equal(registerBoostGesture(first.state, "up", 1010).boost, null);
+});
+
+test("eight-way outward flicks and edge taps qualify, but aiming returns and long holds do not", () => {
+  for (const direction of VECTOR_BOOST_DIRECTIONS) {
+    const axes = vectorBoostAxes(direction);
+    const sample = { durationMs: 120, movementPx: 30,
+      endX: axes.x * 30, endY: -axes.y * 30, radiusPx: 30, edgeDirection: null };
+    assert.equal(completedBoostDirection(sample), direction);
+    assert.equal(completedBoostDirection({ ...sample, endX: 0, endY: 0 }), null);
+    assert.equal(completedBoostDirection({ ...sample, durationMs: 186 }), null);
+    assert.equal(completedBoostDirection({ ...sample, durationMs: -1 }), null);
+    assert.equal(completedBoostDirection({ ...sample, endX: NaN }), null);
+    assert.equal(completedBoostDirection({ ...sample, radiusPx: 0 }), null);
+    assert.equal(completedBoostDirection({ ...sample, movementPx: 2,
+      endX: 1, endY: 1, edgeDirection: direction }), direction);
+  }
+  assert.equal(completedBoostDirection({ durationMs: 100, movementPx: 2,
+    endX: 1, endY: 1, radiusPx: 30, edgeDirection: null }), null);
+});
+
+test("return-to-center aiming clears a pending burst instead of pairing with the next flick", () => {
+  const first = registerBoostGesture({ direction: null, at: 0, cooldownUntil: 0 }, "right", 1000);
+  const aiming = completedBoostDirection({ durationMs: 120, movementPx: 40,
+    endX: 3, endY: 2, radiusPx: 30, edgeDirection: "right" });
+  const cleared = registerBoostGesture(first.state, aiming, 1100);
+  assert.equal(cleared.boost, null);
+  assert.equal(registerBoostGesture(cleared.state, "right", 1200).boost, null);
 });
 
 const idle = { throttle: 0, yaw: 0, strafe: 0, pitch: 0 };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
-import { boostDirectionAt, registerBoostGesture, type BoostGestureState } from "./right-thumb-controls";
+import { boostDirectionAt, completedBoostDirection, registerBoostGesture, type BoostGestureState } from "./right-thumb-controls";
 import type { VectorBoostDirection } from "@workspace/orbital-sim";
 import {
   circularGestureRadiusBounds,
@@ -115,8 +115,12 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
   };
 
   const resetVisual = () => {
+    const pointerId = active.current?.pointerId;
     boostGesture.current.direction = null;
     active.current = null;
+    if (pointerId !== undefined && root.current?.hasPointerCapture(pointerId)) {
+      root.current.releasePointerCapture(pointerId);
+    }
     gesture.current = EMPTY_DOUBLE_TAP_STATE;
     circularCallback.current?.(0);
     sendAxis(0, 0);
@@ -165,7 +169,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
     sendAxis(axes.x, axes.y);
   };
 
-  const finish = (pointerId: number, cancelled: boolean) => {
+  const finish = (pointerId: number, cancelled: boolean, at: number, clientX: number, clientY: number) => {
     const touch = active.current;
     if (!touch || touch.pointerId !== pointerId) return;
     active.current = null;
@@ -199,8 +203,14 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
       return;
     }
     if (boostCallback.current) {
-      const quick = Date.now() - touch.startedAt <= 185;
-      const result = registerBoostGesture(boostGesture.current, quick ? touch.boostDirection : null, Date.now());
+      const endX = clientX - touch.startX;
+      const endY = clientY - touch.startY;
+      const direction = completedBoostDirection({
+        durationMs: at - touch.startedAt,
+        movementPx: Math.max(touch.maxMovementPx, Math.hypot(endX, endY)),
+        endX, endY, radiusPx: touch.boostRadius, edgeDirection: touch.boostDirection,
+      });
+      const result = registerBoostGesture(boostGesture.current, direction, at);
       boostGesture.current = result.state;
       if (result.boost) {
         const requested = boostCallback.current(result.boost);
@@ -210,11 +220,11 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
       }
       return;
     }
-    if (cancelled || !isQuickStickTap(Date.now() - touch.startedAt, touch.maxMovementPx, touch.sector)) {
+    if (cancelled || !isQuickStickTap(at - touch.startedAt, touch.maxMovementPx, touch.sector)) {
       gesture.current = { ...gesture.current, pending: null };
       return;
     }
-    const result = registerStickTap(gesture.current, touch.sector, Date.now());
+    const result = registerStickTap(gesture.current, touch.sector, at);
     gesture.current = result.state;
     if (!result.pulse) return;
     pulseCallback.current?.(result.pulse);
@@ -315,14 +325,9 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
         const touch = active.current;
         if (!touch || touch.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
         const displacement = Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY);
-        const atPeak = displacement >= touch.maxMovementPx;
         touch.maxMovementPx = Math.max(touch.maxMovementPx, displacement);
         if (touch.maxMovementPx > STICK_TAP_MAX_MOVEMENT_PX) {
           gesture.current = { ...gesture.current, pending: null };
-          if (atPeak) touch.boostDirection = boostDirectionAt(
-            (event.clientX - touch.startX) / touch.boostRadius,
-            (event.clientY - touch.startY) / touch.boostRadius,
-          );
         }
         if (touch.circularTracker) {
           const nativeEvent = event.nativeEvent;
@@ -337,9 +342,9 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
         }
         updateAxis(event.clientX, event.clientY);
       }}
-      onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false); }}
-      onPointerCancel={(event) => finish(event.pointerId, true)}
-      onLostPointerCapture={(event) => finish(event.pointerId, true)}
+      onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY); }}
+      onPointerCancel={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
+      onLostPointerCapture={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
     >
       <span ref={feedbackAnnouncement} className="sr-only" role="status" aria-live="polite" aria-atomic="true" />
       <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
