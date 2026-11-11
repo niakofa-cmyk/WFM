@@ -3,7 +3,7 @@ import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } fro
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
 import {
-  ownSharedFlightReference, reconcileSharedFlightPosition, sharedPointInLocalFrame,
+  ownSharedFlightReference, reconcileSharedFlightPosition, sharedFlightDistance, sharedPointInLocalFrame,
   type SharedFlightReference,
 } from "./free-flight-reference-frame";
 import { FlightPresencePanel, type FlightPresenceEntry } from "./FlightPresencePanel";
@@ -2757,9 +2757,12 @@ export function Arena({
           actor.actorId === sharedTargetState.targetActorId && actor.alive && !actor.own &&
           actor.faction !== player.faction)
         : undefined;
-      const sharedLockedPosition = sharedLocked
-        ? sharedFlightGroups.get(sharedLocked.actorId)?.group.position
-        : undefined;
+      const sharedLockedGroup = sharedLocked ? sharedFlightGroups.get(sharedLocked.actorId)?.group : undefined;
+      const sharedLockedPosition = sharedLockedGroup?.visible ? sharedLockedGroup.position : undefined;
+      const sharedLockedRange = sharedLockedPosition ? sharedFlightDistance(
+        { x: player.x, y: player.space?.y ?? 0, z: player.z },
+        { x: sharedLockedPosition.x, y: sharedLockedPosition.y - UNIVERSE_RENDER_Y_OFFSET, z: sharedLockedPosition.z },
+      ) : null;
       bracket.visible = Boolean(locked) && !exploringUniverse;
       if (locked) {
         bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
@@ -2776,7 +2779,7 @@ export function Arena({
       }
       const targetMarker = targetMarkerRef.current;
       if (targetMarker) {
-        if (freeFlightEnabled && sharedLocked && sharedLockedPosition && sharedTargetState) {
+        if (freeFlightEnabled && sharedLocked && sharedLockedPosition && sharedTargetState && sharedLockedRange !== null) {
           targetScreenPosition.set(
             sharedLockedPosition.x,
             sharedLockedPosition.y,
@@ -2794,11 +2797,7 @@ export function Arena({
             targetMarker.dataset.missileReady = String(sharedTargetState.missileReady);
             targetMarker.style.setProperty("--target-marker-angle", `${placement.angleDegrees}deg`);
             targetMarker.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
-            const range = Math.round(Math.hypot(
-              sharedLockedPosition.x - player.x,
-              sharedLockedPosition.y - UNIVERSE_RENDER_Y_OFFSET - (player.space?.y ?? 0),
-              sharedLockedPosition.z - player.z,
-            ));
+            const range = Math.round(sharedLockedRange);
             const lockPercent = Math.floor(sharedTargetState.lockProgress * 100);
             const markerLabel = `${sharedLocked.callsign} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
             if (targetMarkerLabelRef.current &&
@@ -3272,10 +3271,8 @@ export function Arena({
           const shipName = Object.hasOwn(SHIPS, sharedLocked.shipId)
             ? SHIPS[sharedLocked.shipId as ShipId].name : sharedLocked.shipId.toUpperCase();
           if (targetNameRef.current) targetNameRef.current.textContent = `${sharedLocked.callsign} · ${shipName}`;
-          if (targetDistanceRef.current) targetDistanceRef.current.textContent = `${Math.round(Math.hypot(
-            sharedLocked.position.x - player.x, sharedLocked.position.y - (player.space?.y ?? 0),
-            sharedLocked.position.z - player.z,
-          ))} M`;
+          if (targetDistanceRef.current) targetDistanceRef.current.textContent =
+            sharedLockedRange === null ? "—" : `${Math.round(sharedLockedRange)} M`;
           if (targetShieldRef.current) targetShieldRef.current.style.width = `${shield}%`;
           if (targetShieldValueRef.current) targetShieldValueRef.current.textContent = `${shield}%`;
           if (targetHullRef.current) targetHullRef.current.style.width = `${hull}%`;

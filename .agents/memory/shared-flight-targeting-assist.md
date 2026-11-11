@@ -15,6 +15,17 @@ Wing support calls are invitations to nearby authenticated same-faction pilots i
 
 **How to apply:** Keep call creation, recipient selection, expiry, rate limits, battle membership, and settlement server-owned. A call or acceptance by itself never grants damage, kills, assists, or rewards.
 
+An ally fighting one fleet may receive a valid call to help against another
+nearby fleet. Exclude existing members of the requested encounter, not every
+pilot with any active combat.
+
+**Why:** the owner's continuous universe permits simultaneous fleet encounters;
+an exclusive single-battle invitation rule prevents the requested cooperation.
+
+**How to apply:** preserve location, faction, invitation, range and capacity
+revalidation at acceptance. Join the existing reservation; never launch a
+separate battle or award attendance alone.
+
 Prioritize nearby hostile threats when extending target selection, but preserve the pilot's chosen target while flying rather than continually replacing it with whichever enemy becomes closer.
 
 **Why:** The owner wants closest-enemy selection and useful cycling during multi-fleet combat, without losing deliberate aim or missile charge unexpectedly.

@@ -5,7 +5,7 @@ import {
   newFlight, universeCollisionSpheres, UNIVERSE_MOON_REFERENCE, UNIVERSE_MARS_REFERENCE,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
-import { ownSharedFlightReference, reconcileSharedFlightPosition, sharedPointInLocalFrame } from "./free-flight-reference-frame";
+import { ownSharedFlightReference, reconcileSharedFlightPosition, sharedFlightDistance, sharedPointInLocalFrame } from "./free-flight-reference-frame";
 import { ORIGIN_SECTOR, rebaseUniversePosition, universeDisplacement } from "./universe-sectors";
 import { ORBITAL_MARS_CENTER, ORBITAL_MOON_CENTER, UNIVERSE_RENDER_Y_OFFSET } from "./orbital-universe-session";
 
@@ -119,9 +119,41 @@ test("the live renderer uses the shared frame for position, beams, gravity and t
   assert.match(arena, /sharedPointInLocalFrame\(tail, address\)/);
   assert.match(arena, /sharedPointInLocalFrame\(tip, address\)/);
   assert.match(arena, /sharedPointInLocalFrame\(well.center, address\)/);
-  assert.match(arena, /sharedFlightGroups.get\(sharedLocked.actorId\)\?\.group.position/);
+  assert.match(arena, /sharedLockedGroup\?\.visible \? sharedLockedGroup.position/);
   assert.match(arena, /bracket.position.copy\(sharedLockedPosition\)/);
-  assert.match(arena, /sharedLockedPosition.x - player.x/);
+  assert.match(arena, /const sharedLockedRange = sharedLockedPosition \? sharedFlightDistance/);
+  assert.match(arena, /sharedLockedRange === null \? "—"/);
+  assert.doesNotMatch(arena, /sharedLocked.position.x - player.x/);
   assert.match(arena, /sectorNeighborhood.position.y = UNIVERSE_RENDER_Y_OFFSET/);
   assert.doesNotMatch(arena, /anchor.x \+ position.x - ownPosition.x/);
+});
+
+test("combat targeting distances and projectile contact geometry are invariant for viewers in all eight neighboring octants", () => {
+  const attacker = { x: 255, y: -257, z: 260 };
+  const hostile = { x: 275, y: -247, z: 230 };
+  const impact = { x: 274.5, y: -247, z: 230 };
+  const expectedRange = sharedFlightDistance(attacker, hostile)!;
+  const expectedContact = sharedFlightDistance(impact, hostile)!;
+  for (const x of [-270, 270]) for (const y of [-270, 270]) for (const z of [-270, 270]) {
+    const viewer = rebaseUniversePosition(ORIGIN_SECTOR, { x, y, z });
+    const a = sharedPointInLocalFrame(attacker, viewer.address)!;
+    const h = sharedPointInLocalFrame(hostile, viewer.address)!;
+    const hit = sharedPointInLocalFrame(impact, viewer.address)!;
+    near(sharedFlightDistance(a, h)!, expectedRange);
+    near(sharedFlightDistance(hit, h)!, expectedContact);
+  }
+});
+
+test("invalid or unrepresentable shared effects cannot throw during rendering or replace the pilot frame", () => {
+  for (const value of [NaN, Infinity, -Infinity, Number.MAX_VALUE, -Number.MAX_VALUE]) {
+    for (const axis of ["x", "y", "z"] as const) {
+      const point = { x: 0, y: 0, z: 0, [axis]: value };
+      assert.equal(sharedPointInLocalFrame(point, ORIGIN_SECTOR), null);
+      assert.equal(ownSharedFlightReference(snapshot(point.x, point.y, point.z)), null);
+    }
+  }
+  assert.equal(sharedFlightDistance({ x: NaN, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }), null);
+  assert.equal(sharedFlightDistance(
+    { x: -Number.MAX_VALUE, y: 0, z: 0 }, { x: Number.MAX_VALUE, y: 0, z: 0 },
+  ), null, "overflow is not presented as a usable targeting range");
 });

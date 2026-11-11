@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { FREE_FLIGHT_MAX_ENCOUNTER_PILOTS, isFreeFlightSnapshotV1, type FreeFlightSnapshotV1 } from "@workspace/orbital-sim";
+import { FREE_FLIGHT_ASSIST_V1, FREE_FLIGHT_TARGETING_V1, FREE_FLIGHT_MAX_ENCOUNTER_PILOTS, isFreeFlightSnapshotV1, type FreeFlightSnapshotV1 } from "@workspace/orbital-sim";
 import { ExplorationEncounter, readExplorationReceipt } from "../game/exploration-encounter";
 import type { UniversePatrolEncounter } from "../game/universe-patrols";
 import { createFreeFlightRuntime } from "./free-flight-runtime";
@@ -88,6 +88,32 @@ test("ten authenticated WebSocket clients share the same ships, patrols and proj
     const shotIds = clients.map(c => c.packets.find(p =>
       p.type === "freeflight_weapon_fired" && p.sourceActorId === sourceActorId)!.eventId);
     assert.equal(new Set(shotIds).size, 1, "not ten independent projectile simulations");
+    const movingIds = frames.slice(0, 2).map(f => f.ownActorId);
+    const before = movingIds.map(id => frames[0]!.actors.find(a => a.actorId === id)!);
+    for (let seq = 2; seq <= 18; seq++) {
+      for (const index of [0, 1]) clients[index]!.socket.send(JSON.stringify({
+        type: "freeflight_input",
+        input: { ...controls(seq), yaw: index === 0 ? .35 : -.35, strafe: .6, vertical: index === 0 ? .5 : -.5 },
+      }));
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    await until(() => clients.every(c => movingIds.every((id, index) => {
+      const actor = latest(c.packets).actors.find(a => a.actorId === id)!;
+      return Math.abs(actor.position.y - before[index]!.position.y) > .1 &&
+        Math.hypot(actor.position.x - before[index]!.position.x, actor.position.z - before[index]!.position.z) > .1;
+    })), "all ten observers see both pilots' vertical/lateral translation");
+    const movementSnapshots = clients.map(c => c.packets.flatMap(p =>
+      isFreeFlightSnapshotV1(p.snapshot) && p.snapshot.tick > commonFrames[0]!.tick ? [p.snapshot] : []));
+    const movementTick = movementSnapshots[0]!.slice().reverse().find(f =>
+      movementSnapshots.every(list => list.some(other => other.tick === f.tick)))?.tick;
+    assert.notEqual(movementTick, undefined);
+    const sharedMovement = movementSnapshots.map(list => list.find(f => f.tick === movementTick)!);
+    for (const frame of sharedMovement) assert.deepEqual(physicalState(frame), physicalState(sharedMovement[0]!),
+      "maneuvering changes one authoritative pose, not a separate observer-relative flight");
+    for (let index = 0; index < 2; index++) {
+      const moved = sharedMovement[0]!.actors.find(a => a.actorId === movingIds[index])!;
+      assert.notDeepEqual(moved.orientation, before[index]!.orientation, "yaw input changes actual attitude");
+    }
   } finally {
     await Promise.all(clients.map(({ socket }) => new Promise<void>(resolve => {
       if (socket.readyState === WebSocket.CLOSED) return resolve();
@@ -162,22 +188,30 @@ test("encounter attribution accepts the expanded late-join roster without invent
   assert.ok(receipt.pilots.filter(p => p.playerId !== "user-9").every(p => p.credits === 0));
 });
 
-test("friendly AI joins two live fleet battles and causes authoritative damage, not just visible traffic", async (t) => {
+test("two human pilots see identical friendly-AI hits while sharing two live fleet battles", async (t) => {
   let now = Date.now();
   t.mock.method(Date, "now", () => now);
   const contacts = [fleet(1), fleet(2)];
+  let reservations = 0;
   const packets: Packet[] = [];
   let saved: import("./free-flight-runtime").FreeFlightSessionCheckpointV1 | undefined;
   const socket = {
     readyState: 1, bufferedAmount: 0,
     send: (value: string) => packets.push(JSON.parse(value)), close: () => {},
   };
+  const wingPackets: Packet[] = [];
+  const wingSocket = {
+    readyState: 1, bufferedAmount: 0,
+    send: (value: string) => wingPackets.push(JSON.parse(value)), close: () => {},
+  };
   const runtime = createFreeFlightRuntime({
     enableFriendlyAiSupport: true,
     resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "accord", shipId: "mandjet" }),
     resolveUniversePatrols: async () => contacts,
-    reserveUniversePatrol: async (_users, _faction, contact) =>
-      contacts.find(p => p.patrolId === contact.patrolId) ?? null,
+    reserveUniversePatrol: async (_users, _faction, contact) => {
+      reservations++;
+      return contacts.find(p => p.patrolId === contact.patrolId) ?? null;
+    },
     settleScoutEncounter: async () => ({ status: "disabled", awards: [] }),
     patrolSpawnDistanceMeters: 100,
     saveCheckpoint: async (_key, checkpoint) => { saved = checkpoint; return true; },
@@ -188,6 +222,32 @@ test("friendly AI joins two live fleet battles and causes authoritative damage, 
     await runtime.handle(socket, "ai-assistance-pilot", { type: "freeflight_input", input: controls(1, true) });
     await runtime.handle(socket, "ai-assistance-pilot", { type: "freeflight_engage", targetActorId: "patrol-ship:capacity-ship-2" });
     assert.equal(new Set(packets.filter(p => p.type === "freeflight_engagement_started").map(p => p.encounterId)).size, 2);
+    await runtime.handle(wingSocket, "ai-assistance-wing", { type: "freeflight_join" });
+    await runtime.handle(wingSocket, "ai-assistance-wing", {
+      type: "freeflight_engage", targetActorId: "patrol-ship:capacity-ship-1",
+    });
+    await runtime.handle(socket, "ai-assistance-pilot", {
+      type: "freeflight_target_nearest", protocol: FREE_FLIGHT_TARGETING_V1, seq: 1,
+    });
+    now += 150;
+    await runtime.handle(socket, "ai-assistance-pilot", {
+      type: "freeflight_target_cycle", protocol: FREE_FLIGHT_TARGETING_V1, seq: 2,
+    });
+    const selected = packets.filter(p => p.type === "freeflight_target_state").at(-1)?.state as { targetActorId: string };
+    assert.equal(selected.targetActorId, "patrol-ship:capacity-ship-2");
+    await runtime.handle(socket, "ai-assistance-pilot", {
+      type: "freeflight_assist_call", protocol: FREE_FLIGHT_ASSIST_V1,
+    });
+    const invite = wingPackets.find(p => p.type === "freeflight_assist_request");
+    assert.ok(invite, "a pilot already helping one battle can receive a call for a second nearby battle");
+    await runtime.handle(wingSocket, "ai-assistance-wing", {
+      type: "freeflight_assist_response", protocol: FREE_FLIGHT_ASSIST_V1,
+      callId: invite.callId, accept: true,
+    });
+    const battles = (received: Packet[]) => received.filter(p => p.type === "freeflight_engagement_started")
+      .map(p => p.encounterId).sort();
+    assert.deepEqual(battles(wingPackets), battles(packets), "late human ally joins both existing encounters");
+    assert.equal(reservations, 2, "human assistance never reserves private copies of either fleet");
     for (let tick = 0; tick < 2400; tick++) {
       runtime.advance(now += 34);
       await new Promise<void>(resolve => setImmediate(resolve));
@@ -200,11 +260,29 @@ test("friendly AI joins two live fleet battles and causes authoritative damage, 
     assert.ok(packets.some(p => p.type === "freeflight_weapon_event" &&
       p.sourceActorId === "patrol:escort:accord:1" &&
       Number(p.shieldDamage) + Number(p.hullDamage) > 0), "defender actually hits hostile ships");
+    const leadHits = packets.filter(p => p.type === "freeflight_weapon_event" &&
+      p.sourceActorId === "patrol:escort:accord:1");
+    const wingHits = wingPackets.filter(p => p.type === "freeflight_weapon_event" &&
+      p.sourceActorId === "patrol:escort:accord:1");
+    assert.deepEqual(wingHits, leadHits, "both humans receive the same impact identity, coordinates and damage");
+    assert.ok(leadHits.every(hit => String(hit.targetActorId).startsWith("patrol-ship:")),
+      "friendly defender attacks enemy patrol ships, never its human allies");
+    const leadFrame = latest(packets);
+    const wingFrame = latest(wingPackets);
+    assert.equal(leadFrame.sessionInstanceId, wingFrame.sessionInstanceId);
+    assert.equal(leadFrame.tick, wingFrame.tick);
+    for (const actor of leadFrame.actors) {
+      const viewedByWing = wingFrame.actors.find(a => a.actorId === actor.actorId)!;
+      assert.ok(viewedByWing);
+      assert.deepEqual(viewedByWing.position, actor.position);
+      assert.equal(viewedByWing.hull, actor.hull);
+      assert.equal(viewedByWing.shield, actor.shield);
+    }
     await runtime.close();
     assert.equal(saved?.combats.length, 2);
     assert.ok(saved?.combats.every(c => c.alliedNpcActorIds?.includes("patrol:escort:accord:1")),
       "the same bounded defender supports both encounter contracts");
-    assert.ok(saved?.combats.every(c => c.participantActorIds.length === 1),
+    assert.ok(saved?.combats.every(c => c.participantActorIds.length === 2),
       "AI is never represented as another human or rewarded account");
   } finally { await runtime.close(); }
 });

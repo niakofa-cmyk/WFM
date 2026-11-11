@@ -2,13 +2,13 @@ import {
   UNIVERSE_MOON_REFERENCE, UNIVERSE_REFERENCE_FRAME_ID, type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
 import {
-  ORIGIN_SECTOR, nearbySectorOffset, rebaseUniversePosition,
+  ORIGIN_SECTOR, UNIVERSE_SECTOR_EDGE, UNIVERSE_SECTOR_HALF_EDGE, nearbySectorOffset, rebaseUniversePosition,
   universeLocalFrameTranslation, type UniversePosition, type UniverseSectorAddress,
 } from "./universe-sectors";
 
 export function ownSharedFlightReference(snapshot: FreeFlightSnapshotV1) {
   const own = snapshot.actors.find(a => a.actorId === snapshot.ownActorId && a.own && a.kind === "pilot");
-  if (!own || !Object.values(own.position).every(Number.isFinite)) return null;
+  if (!own || !representablePosition(own.position)) return null;
   const rebased = rebaseUniversePosition(ORIGIN_SECTOR, own.position);
   const moonOffset = {
     x: UNIVERSE_MOON_REFERENCE.position.x - own.position.x,
@@ -23,8 +23,21 @@ export function ownSharedFlightReference(snapshot: FreeFlightSnapshotV1) {
 }
 export type SharedFlightReference = NonNullable<ReturnType<typeof ownSharedFlightReference>>;
 
+function representablePosition(point: UniversePosition) {
+  return [point.x, point.y, point.z].every(value =>
+    Number.isFinite(value) && Number.isSafeInteger(Math.floor((value + UNIVERSE_SECTOR_HALF_EDGE) / UNIVERSE_SECTOR_EDGE)));
+}
+
+/** Both positions must be in the same physics frame (no render-only Y lift). */
+export function sharedFlightDistance(from: UniversePosition, to: UniversePosition) {
+  if (![from.x, from.y, from.z, to.x, to.y, to.z].every(Number.isFinite)) return null;
+  const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+  return Number.isFinite(distance) ? distance : null;
+}
+
 /** The one server-to-render transform, independent of the viewer's predicted position. */
 export function sharedPointInLocalFrame(point: UniversePosition, address: UniverseSectorAddress) {
+  if (!representablePosition(point)) return null;
   const normalized = rebaseUniversePosition(ORIGIN_SECTOR, point);
   const offset = nearbySectorOffset(address, normalized.address, 8);
   return offset ? {

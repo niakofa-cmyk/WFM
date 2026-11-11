@@ -1373,7 +1373,9 @@ export function createFreeFlightRuntime(options: {
     const invited = [...session.pilotByUser.values()].filter((candidate) =>
       candidate !== actor && candidate.faction === actor.faction && candidate.craft.alive &&
       candidate.socket?.readyState === OPEN &&
-      !activeCombats(session).some((active) => active.participantActorIds.has(candidate.actorId)) &&
+      // A pilot helping against one fleet may assist against another nearby
+      // fleet too. Membership in this encounter, not any encounter, excludes it.
+      !combat.participantActorIds.has(candidate.actorId) &&
       distanceBetween(candidate, target) <= NEARBY_RADIUS,
     ).slice(0, MAX_ENCOUNTER_PILOTS);
     actor.lastAssistCallAt = now;
