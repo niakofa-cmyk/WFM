@@ -22,3 +22,4 @@ export * from "./free-flight-targeting";
 export * from "./free-flight-assistance";
 export * from "./free-flight-rollout";
 export * from "./universe-collision";
+export * from "./universe-reference-frame";

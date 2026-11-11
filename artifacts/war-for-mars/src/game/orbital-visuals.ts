@@ -3,6 +3,7 @@ import { SHIPS, type ShipId } from "./ships";
 import {
   MARS_NIGHT_SIDE_STATION,
   ORBITAL_MARS_CENTER,
+  ORBITAL_MOON_CENTER,
   RUST_DISC_RELAY,
   UNIVERSE_RENDER_Y_OFFSET,
 } from "./orbital-universe-session";
@@ -656,7 +657,8 @@ export function addOrbitalEnvironment(scene: THREE.Scene) {
   }));
   atmosphere.position.copy(mars.position); systemFrame.add(atmosphere);
   const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 24), new THREE.MeshStandardMaterial({ color: 0x77716d, roughness: 1 }));
-  moon.position.set(100, 50, -210); systemFrame.add(moon);
+  moon.name = "shared-orbital-moon";
+  moon.position.set(ORBITAL_MOON_CENTER.x, ORBITAL_MOON_CENTER.y, ORBITAL_MOON_CENTER.z); systemFrame.add(moon);
   const dust = new THREE.BufferGeometry();
   const positions = new Float32Array(1800 * 3);
   for (let i = 0; i < 1800; i++) {

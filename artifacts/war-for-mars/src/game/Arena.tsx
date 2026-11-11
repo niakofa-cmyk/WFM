@@ -2,6 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { blocksFlightHotkeys, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
+import {
+  ownSharedFlightReference, reconcileSharedFlightPosition, sharedPointInLocalFrame,
+  type SharedFlightReference,
+} from "./free-flight-reference-frame";
 import { FlightPresencePanel, type FlightPresenceEntry } from "./FlightPresencePanel";
 import { flightPresence } from "./free-flight-presence";
 import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightLinkPresentation, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
@@ -704,6 +708,8 @@ export function Arena({
   const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
   const [nearbyContacts, setNearbyContacts] = useState<FlightPresenceEntry[]>([]);
   const [sharedFlightSessionId, setSharedFlightSessionId] = useState<string | null>(null);
+  const [sharedFlightReference, setSharedFlightReference] = useState<SharedFlightReference | null>(null);
+  const lastSharedReferenceAt = useRef(-Infinity);
   const [presenceFresh, setPresenceFresh] = useState(false);
   const [assistCallPending, setAssistCallPending] = useState(false);
   const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
@@ -770,22 +776,11 @@ export function Arena({
     if (!freeFlightEnabled) return undefined;
     const environment = freeFlightEnvironmentRef.current;
     if (!environment?.enabled || !pilot.space) return [];
-    const frame = freeFlightFramesRef.current.current;
-    const ownActor = frame?.snapshot.actors.find(
-      (actor) => actor.actorId === frame.snapshot.ownActorId,
-    );
-    if (!ownActor) return [];
-    const offset = {
-      x: pilot.x - ownActor.position.x,
-      y: pilot.space.y - ownActor.position.y,
-      z: pilot.z - ownActor.position.z,
-    };
+    const address = universeRef.current?.sectorAddress;
+    if (!address) return [];
     return environment.gravityWells.flatMap((well) => {
-      const center = {
-        x: well.center.x + offset.x,
-        y: well.center.y + offset.y,
-        z: well.center.z + offset.z,
-      };
+      const center = sharedPointInLocalFrame(well.center, address);
+      if (!center) return [];
       // A distant server field is irrelevant to this bounded local physics frame.
       if ([center.x, center.y, center.z].some((value) => Math.abs(value) > 4_096)) return [];
       return [{ ...well, center }];
@@ -807,6 +802,10 @@ export function Arena({
         onSnapshot: (frame) => {
           setPresenceFresh(true);
           setSharedFlightSessionId(frame.snapshot.sessionInstanceId);
+          if (frame.receivedAt - lastSharedReferenceAt.current >= 500) {
+            setSharedFlightReference(ownSharedFlightReference(frame.snapshot));
+            lastSharedReferenceAt.current = frame.receivedAt;
+          }
           const contacts = flightPresence(frame.snapshot);
           setNearbyContacts(current => JSON.stringify(current) === JSON.stringify(contacts) ? current : contacts);
           const previous = freeFlightFramesRef.current.current;
@@ -837,6 +836,8 @@ export function Arena({
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
             setPresenceFresh(false);
+            setSharedFlightReference(null);
+            lastSharedReferenceAt.current = -Infinity;
             setNearbyContacts([]);
             freeFlightCombatActiveRef.current = false;
             setFreeFlightPilot(null);
@@ -1519,6 +1520,7 @@ export function Arena({
       sectorNeighborhood = buildUniverseSectorNeighborhood(address, {
         includeAnomalies: !freeFlightEnabled,
       });
+      sectorNeighborhood.position.y = UNIVERSE_RENDER_Y_OFFSET;
       scene.add(sectorNeighborhood);
       if (orbitalAssets) setOriginSystemFrame(orbitalAssets.systemFrame, address, UNIVERSE_SECTOR_EDGE);
       updateStarfieldSeed(universeSectorContents(address).seed);
@@ -1711,8 +1713,7 @@ export function Arena({
     };
     const renderSharedFlightEffects = (
       now: number,
-      ownPosition: { x: number; y: number; z: number },
-      anchor: { x: number; y: number; z: number },
+      address: UniverseSession["sectorAddress"],
     ) => {
       const liveIds = new Set<string>();
       const effects = freeFlightWeaponEffectsRef.current;
@@ -1779,16 +1780,13 @@ export function Arena({
                 z: tip.z - velocity.z / speed * 5,
               }
             : effect.from;
-        const toScene = (point: { x: number; y: number; z: number }) => ({
-          x: anchor.x + point.x - ownPosition.x,
-          y: UNIVERSE_RENDER_Y_OFFSET + anchor.y + point.y - ownPosition.y,
-          z: anchor.z + point.z - ownPosition.z,
-        });
-        const start = toScene(tail);
-        const end = toScene(tip);
+        const start = sharedPointInLocalFrame(tail, address);
+        const end = sharedPointInLocalFrame(tip, address);
+        entry.line.visible = Boolean(start && end);
+        if (!start || !end) continue;
         const position = entry.line.geometry.getAttribute("position") as THREE.BufferAttribute;
-        position.setXYZ(0, start.x, start.y, start.z);
-        position.setXYZ(1, end.x, end.y, end.z);
+        position.setXYZ(0, start.x, UNIVERSE_RENDER_Y_OFFSET + start.y, start.z);
+        position.setXYZ(1, end.x, UNIVERSE_RENDER_Y_OFFSET + end.y, end.z);
         position.needsUpdate = true;
         entry.line.geometry.computeBoundingSphere();
         entry.material.opacity = effect.impact
@@ -1803,7 +1801,7 @@ export function Arena({
         sharedFlightEffects.delete(eventId);
       }
     };
-    const renderSharedFlight = (now: number, pilot: Craft) => {
+    const renderSharedFlight = (now: number) => {
       const frames = freeFlightFramesRef.current;
       const current = frames.current;
       if (!current || now - current.receivedAt > 1_500) {
@@ -1831,12 +1829,12 @@ export function Arena({
         ? Math.max(0, Math.min(1, (renderTime - previous!.receivedAt) / duration))
         : 1;
       const lerp = (from: number, to: number) => from + (to - from) * alpha;
-      const ownPosition = {
-        x: previousOwn ? lerp(previousOwn.position.x, own.position.x) : own.position.x,
-        y: previousOwn ? lerp(previousOwn.position.y, own.position.y) : own.position.y,
-        z: previousOwn ? lerp(previousOwn.position.z, own.position.z) : own.position.z,
-      };
-      const anchor = { x: pilot.x, y: pilot.space?.y ?? 0, z: pilot.z };
+      const address = universeRef.current?.sectorAddress;
+      if (!address) {
+        removeSharedFlightGroups();
+        removeSharedFlightEffects();
+        return false;
+      }
       const visibleIds = new Set<string>();
       for (const actor of snapshot.actors) {
         if (actor.own || actor.actorId === snapshot.ownActorId ||
@@ -1861,11 +1859,13 @@ export function Arena({
           y: previousActor ? lerp(previousActor.position.y, actor.position.y) : actor.position.y,
           z: previousActor ? lerp(previousActor.position.z, actor.position.z) : actor.position.z,
         };
-        const scenePosition = {
-          x: anchor.x + position.x - ownPosition.x,
-          y: UNIVERSE_RENDER_Y_OFFSET + anchor.y + position.y - ownPosition.y,
-          z: anchor.z + position.z - ownPosition.z,
-        };
+        const localPosition = sharedPointInLocalFrame(position, address);
+        if (!localPosition) {
+          entry.group.visible = false;
+          if (entry.designation) entry.designation.visible = false;
+          continue;
+        }
+        const scenePosition = { ...localPosition, y: UNIVERSE_RENDER_Y_OFFSET + localPosition.y };
         entry.group.visible = actor.alive;
         entry.group.position.set(scenePosition.x, scenePosition.y, scenePosition.z);
         if (entry.designation) {
@@ -1884,7 +1884,7 @@ export function Arena({
         disposePatrolShipGroup(entry.group, entry.designation);
         sharedFlightGroups.delete(actorId);
       }
-      renderSharedFlightEffects(now, ownPosition, anchor);
+      renderSharedFlightEffects(now, address);
       return true;
     };
     const universePatrolOrigin = localUniverse ? {
@@ -2247,6 +2247,25 @@ export function Arena({
         if (freeFlightEnabled && sharedFrame && now - sharedFrame.receivedAt <= 1_500 &&
             (sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession ||
               sharedFrame.snapshot.tick !== reconciledFlightTick)) {
+          const position = reconcileSharedFlightPosition(pilot, sharedFrame.snapshot,
+            universeRef.current!.sectorAddress, sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession);
+          if (position) {
+            if (!reconciledFlightSession) {
+              deploymentAnchorRef.current = { sectorAddress: position.address,
+                position: { x: pilot.x, y: pilot.space!.y, z: pilot.z } };
+            }
+            if (position.translation) {
+              camera.position.x += position.translation.x;
+              camera.position.y += position.translation.y;
+              camera.position.z += position.translation.z;
+            }
+            if (sectorAddressKey(position.address) !== sectorAddressKey(universeRef.current!.sectorAddress)) {
+              const nextSession = { ...universeRef.current!, sectorAddress: position.address };
+              universeRef.current = nextSession;
+              setUniverse(nextSession);
+              updateUniverseSector(position.address);
+            }
+          }
           if (reconcileFreeFlightKinematics(pilot, sharedFrame.snapshot,
             sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession)) {
             reconciledFlightSession = sharedFrame.snapshot.sessionInstanceId;
@@ -2437,7 +2456,7 @@ export function Arena({
           if (patrolContact) setPatrolContact(null);
         }
         if (universePhase === "exploration") {
-          renderSharedFlight(now, pilot);
+          renderSharedFlight(now);
           const dock = evaluateUniverseDock(pilot, universeRef.current!.sectorAddress);
           const key = `${dock.targetId}:${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
           if (key !== lastDockKey) {
@@ -2738,6 +2757,9 @@ export function Arena({
           actor.actorId === sharedTargetState.targetActorId && actor.alive && !actor.own &&
           actor.faction !== player.faction)
         : undefined;
+      const sharedLockedPosition = sharedLocked
+        ? sharedFlightGroups.get(sharedLocked.actorId)?.group.position
+        : undefined;
       bracket.visible = Boolean(locked) && !exploringUniverse;
       if (locked) {
         bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
@@ -2745,20 +2767,20 @@ export function Arena({
         bracket.scale.setScalar(Math.max(1, locked.radius / 1.5));
       }
       if (freeFlightEnabled) {
-        bracket.visible = Boolean(sharedLocked);
-        if (sharedLocked) {
-          bracket.position.set(sharedLocked.position.x, .9 + sharedLocked.position.y, sharedLocked.position.z);
+        bracket.visible = Boolean(sharedLockedPosition);
+        if (sharedLockedPosition) {
+          bracket.position.copy(sharedLockedPosition);
           bracket.quaternion.copy(camera.quaternion);
           bracket.scale.setScalar(1.5);
         }
       }
       const targetMarker = targetMarkerRef.current;
       if (targetMarker) {
-        if (freeFlightEnabled && sharedLocked && sharedTargetState) {
+        if (freeFlightEnabled && sharedLocked && sharedLockedPosition && sharedTargetState) {
           targetScreenPosition.set(
-            sharedLocked.position.x,
-            .9 + sharedLocked.position.y,
-            sharedLocked.position.z,
+            sharedLockedPosition.x,
+            sharedLockedPosition.y,
+            sharedLockedPosition.z,
           ).project(camera);
           const bounds = renderer.domElement.getBoundingClientRect();
           const placement = targetMarkerPlacement(
@@ -2773,9 +2795,9 @@ export function Arena({
             targetMarker.style.setProperty("--target-marker-angle", `${placement.angleDegrees}deg`);
             targetMarker.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
             const range = Math.round(Math.hypot(
-              sharedLocked.position.x - player.x,
-              sharedLocked.position.y - (player.space?.y ?? 0),
-              sharedLocked.position.z - player.z,
+              sharedLockedPosition.x - player.x,
+              sharedLockedPosition.y - UNIVERSE_RENDER_Y_OFFSET - (player.space?.y ?? 0),
+              sharedLockedPosition.z - player.z,
             ));
             const lockPercent = Math.floor(sharedTargetState.lockProgress * 100);
             const markerLabel = `${sharedLocked.callsign} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
@@ -3456,6 +3478,7 @@ export function Arena({
               ? "Waiting for a fresh server snapshot. Nearby presence is not confirmed."
               : freeFlightLink.detail}
             sessionInstanceId={sharedFlightSessionId}
+            reference={sharedFlightReference}
           />
         </div>
       ) : null}

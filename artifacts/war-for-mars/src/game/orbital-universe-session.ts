@@ -1,11 +1,13 @@
-import { rotate, type OrbitalFlight } from "@workspace/orbital-sim";
+import { rotate, UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE, type OrbitalFlight } from "@workspace/orbital-sim";
 import { ORIGIN_SECTOR, type UniverseSectorAddress, positionInCurrentSector } from "./universe-sectors";
 
 /**
- * Local Orbital universe session (offline, no rewards, deterministic streamed sectors).
+ * Orbital presentation session (phase, rebased coordinates, streamed sectors).
  * Pure state machine + pose helpers. Arena owns the single renderer/rAF loop
  * and applies the side effects these transitions describe.
- * This is NOT multiplayer, account-persistent location, or world authority.
+ * This object does not own multiplayer, account location or rewards. In shared
+ * flight its coordinates reconcile to authenticated server poses; offline
+ * compatibility uses the same sector helpers without shared authority.
  */
 
 export const UNIVERSE_MODE_ID = "orbital-universe-local" as const;
@@ -16,7 +18,15 @@ export type UniversePhase = "exploration" | "docked" | "training" | "debrief";
 export const UNIVERSE_RENDER_Y_OFFSET = 0.9;
 export const UNIVERSE_SPAWN = { x: 0, y: 0, z: 0, yaw: 0 } as const;
 /** Static local-system reference frame shared by Orbital landmarks and approach spawns. */
-export const ORBITAL_MARS_CENTER = { x: -100, y: 21, z: -200 } as const;
+export const ORBITAL_MARS_CENTER = {
+  ...UNIVERSE_MARS_REFERENCE.position,
+  y: UNIVERSE_MARS_REFERENCE.position.y + UNIVERSE_RENDER_Y_OFFSET,
+} as const;
+/** Same physical Moon used by authority; only the renderer's Y lift differs. */
+export const ORBITAL_MOON_CENTER = {
+  ...UNIVERSE_MOON_REFERENCE.position,
+  y: UNIVERSE_MOON_REFERENCE.position.y + UNIVERSE_RENDER_Y_OFFSET,
+} as const;
 export const ORBITAL_SUN_POSITION = { x: -50, y: 40, z: -20 } as const;
 
 /** Rust Disc's relay sits beyond Cinder in the same streamed Mars-origin sector. */

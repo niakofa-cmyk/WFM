@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FREE_FLIGHT_MAX_PILOTS, FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
+import type { SharedFlightReference } from "./free-flight-reference-frame";
 
 export type FlightPresenceEntry = {
   actorId: string;
@@ -17,6 +18,7 @@ type Props = {
   region: string;
   status: string;
   sessionInstanceId?: string | null;
+  reference?: SharedFlightReference | null;
 };
 
 function formatRange(meters: number) {
@@ -24,7 +26,19 @@ function formatRange(meters: number) {
   return meters >= 1000 ? `${(meters / 1000).toFixed(1)} KM` : `${Math.round(meters)} M`;
 }
 
-export function FlightPresencePanel({ entries, connected, region, status, sessionInstanceId }: Props) {
+export function SharedFlightReferenceReadout({ reference }: { reference: SharedFlightReference }) {
+  return (
+    <div data-testid="text-flight-reference" className="mt-1 font-mono text-[9px] text-bone/70">
+      <p>FRAME · {reference.frameId} · METRES</p>
+      <p>SECTOR · {reference.sector.x} / {reference.sector.y} / {reference.sector.z}</p>
+      <p>LOCAL XYZ · {reference.local.x.toFixed(1)} / {reference.local.y.toFixed(1)} / {reference.local.z.toFixed(1)}</p>
+      <p>MOON RANGE · {reference.moonRange.toFixed(1)} m</p>
+      <p>MOON ΔXYZ · {reference.moonOffset.x.toFixed(1)} / {reference.moonOffset.y.toFixed(1)} / {reference.moonOffset.z.toFixed(1)}</p>
+    </div>
+  );
+}
+
+export function FlightPresencePanel({ entries, connected, region, status, sessionInstanceId, reference }: Props) {
   const [open, setOpen] = useState(false);
   const sorted = connected ? [...entries].sort((a, b) => a.distanceMeters - b.distanceMeters) : [];
   const humans = sorted.filter((e) => e.kind === "pilot").length;
@@ -59,6 +73,9 @@ export function FlightPresencePanel({ entries, connected, region, status, sessio
               <p data-testid="text-flight-session" className="mt-1 break-all font-mono text-[9px] text-bone/70">
                 SHARED SESSION · {sessionInstanceId}
               </p>
+            ) : null}
+            {connected && reference ? (
+              <SharedFlightReferenceReadout reference={reference} />
             ) : null}
           </header>
           {!connected ? (

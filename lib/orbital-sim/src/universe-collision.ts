@@ -5,6 +5,7 @@ import { detHypot } from "./detmath";
 type Point = { x: number; y: number; z: number };
 type Address = { x: string; y: string; z: string };
 import { seedUniverseSector } from "./universe-sector-seeding";
+import { UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE } from "./universe-reference-frame";
 
 const cache = new Map<string, Rock[]>();
 const absoluteCache = new Map<string, Rock[]>();
@@ -25,10 +26,11 @@ export function universeCollisionSpheres(address: Address): Rock[] {
   }
   if (base.every(n => n >= -1n && n <= 1n)) {
     // Physics Y excludes the renderer's +0.9m presentation offset.
-    rocks.push({ x: -100 - Number(base[0]) * 512, y: 20.1 - Number(base[1]) * 512,
-      z: -200 - Number(base[2]) * 512, r: 65 });
-    rocks.push({ x: 100 - Number(base[0]) * 512, y: 49.1 - Number(base[1]) * 512,
-      z: -210 - Number(base[2]) * 512, r: 7 });
+    for (const body of [UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE]) {
+      rocks.push({ x: body.position.x - Number(base[0]) * 512,
+        y: body.position.y - Number(base[1]) * 512,
+        z: body.position.z - Number(base[2]) * 512, r: body.radius });
+    }
   }
   if (cache.size >= 64) cache.delete(cache.keys().next().value!);
   cache.set(key, rocks);

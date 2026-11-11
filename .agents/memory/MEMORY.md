@@ -55,3 +55,4 @@
 - [Shared-flight combat recovery](shared-flight-combat-recovery.md) — reconnect restores server battle state; secondary request failures must not hide active controls or bypass fleet claims.
 - [Shared target-lock handoff](shared-target-lock-handoff.md) — preserve the previous native lock identity until simulation observes a target switch, so stale missile charge is cleared.
 - [Shared-flight targeting and wing calls](shared-flight-targeting-assist.md) — show the selected ship at its projected position; calls invite nearby same-faction pilots into the same authoritative battle.
+- [Shared celestial reference](shared-celestial-reference.md) — Moon-relative agreement requires one authoritative spatial frame, not just shared session membership.

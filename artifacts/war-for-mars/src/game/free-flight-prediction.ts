@@ -2,7 +2,7 @@ import { rotate, type FreeFlightSnapshotV1, type SpatialCraft } from "@workspace
 
 /**
  * Correct kinematics from the authenticated own seat. Position remains in the
- * rebased local frame; remote traffic is already anchored relative to this seat.
+ * rebased local frame, synchronized separately by reconcileSharedFlightPosition.
  * This never creates authority, health, weapons, or a client-supplied server pose.
  */
 export function reconcileFreeFlightKinematics(

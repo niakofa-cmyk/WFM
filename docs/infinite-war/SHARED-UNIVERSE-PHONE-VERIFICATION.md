@@ -18,6 +18,11 @@ for the same account is a reconnect, not a second ship.
    for this nearby-visibility check.
 4. While both pilots are near one another, each phone should count **2 HUMAN**
    including its own pilot, and list the other pilot as **HUMAN**, not **AI**.
+   Compare **FRAME** as well. **SECTOR / LOCAL XYZ** and **MOON RANGE / ΔXYZ**
+   now expose the server-confirmed spatial reference. Distinct ships need not
+   have identical coordinates or Moon ranges; they must agree on where the
+   Moon and each other's ships physically are. See
+   `SHARED-CELESTIAL-REFERENCE-FRAME.md`.
 5. Fly or fire on one phone and verify the other sees that ship move or fire.
 6. Approach the same hostile fleet. Both phones must see the same hostile
    ships, destruction, and battle outcome—not a new fleet copy for each pilot.

@@ -18,7 +18,7 @@ const snapshot = (yaw: number): FreeFlightSnapshotV1 => ({
     yaw, pitch: 0, speed: 10, hull: 100, hullMax: 100, shield: 20, shieldMax: 20, alive: true,
   }],
 });
-test("join restores authoritative facing and velocity without teleporting or healing", () => {
+test("kinematic correction restores facing and velocity without touching position or health", () => {
   const craft = pilot();
   assert.equal(reconcileFreeFlightKinematics(craft, snapshot(Math.PI / 2), true), true);
   assert.ok(Math.abs(craft.yaw - Math.PI / 2) < 1e-6);
