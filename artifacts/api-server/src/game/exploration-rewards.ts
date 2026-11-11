@@ -3,6 +3,7 @@ import { db, playerProgressTable, progressionEventsTable } from "@workspace/db";
 import { EXPLORATION_CONTRACT, type ExplorationReceipt } from "./exploration-encounter";
 import { settleExplorationWithStore, type ExplorationLedgerRecord, type ExplorationRewardStore } from "./exploration-settlement";
 import { applyUniversePatrolOutcomeInTransaction } from "./universe-patrols";
+import { recordGlobalCampaignClear } from "./global-campaign";
 
 // Reuse the existing world-exploration ledger kind. Namespaced keys and result
 // mode isolate this contract from travel/discovery and from Wing rewards.
@@ -10,6 +11,7 @@ const databaseStore: ExplorationRewardStore = {
   transaction: (callback) => db.transaction(async (tx) => {
     const locked = new Map<string, { credits: number; revision: number }>();
     return callback({
+      recordCampaignClear: result => recordGlobalCampaignClear(tx, result),
       lockProfiles: async (playerIds) => {
         if (!playerIds.length) return locked;
         const rows = await tx.select({

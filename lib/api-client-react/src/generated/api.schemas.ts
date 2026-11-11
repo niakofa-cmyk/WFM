@@ -5,6 +5,44 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type GlobalCampaignPhase = typeof GlobalCampaignPhase[keyof typeof GlobalCampaignPhase];
+
+
+export const GlobalCampaignPhase = {
+  INITIAL_CONTACT: 'INITIAL_CONTACT',
+  BEACON_RECON: 'BEACON_RECON',
+  WARDEN_INTERCEPT: 'WARDEN_INTERCEPT',
+  CAGE_CLIMAX: 'CAGE_CLIMAX',
+  SYSTEM_VICTORY: 'SYSTEM_VICTORY',
+} as const;
+
+export interface GlobalCampaign {
+  enabled: boolean;
+  campaignId: string;
+  /** @minimum 0 */
+  completedOperations: number;
+  /** @minimum 1 */
+  targetOperations: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progressPercent: number;
+  phase: GlobalCampaignPhase;
+  concluded: boolean;
+  finaleEligible: boolean;
+  finaleClaimed: boolean;
+}
+
+export interface GlobalCampaignFinale {
+  campaignId: string;
+  credits: number;
+  campaignXp: number;
+  badge: string;
+  shieldMk2: boolean;
+  replayed: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }

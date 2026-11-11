@@ -3,6 +3,7 @@
 - [Unified hangar entry](unified-hangar-entry.md) — landscape-first hangar, saved USSF/Accord choice, one universe gateway, and Orbital-native ship inspection.
 - [Infinite War blueprint](infinite-war-blueprint.md) — Story connects exploration, routes, combat, and validated consequences; the universe remains the battlefield.
 - [WFM storyline foundation](storyline-foundation.md) — Dusk’s Mars seizure, Accord capture, Earth’s response, and the slowly revealed First Witness ground the connected narrative.
+- [One shared campaign timeline](global-campaign-direction.md) — newcomers join current world progress; absence does not pause it; 100% ends one shared campaign.
 - [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull, hangar, briefing, Rust Disc objective, and debrief into one playable loop.
 - [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; user reports a two-device private-room flight smoke test passed.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.

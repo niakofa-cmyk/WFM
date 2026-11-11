@@ -467,6 +467,8 @@ function send(socket: WebSocketLike | null, packet: unknown) {
 }
 
 export function createFreeFlightRuntime(options: {
+  campaignState?: () => Promise<{ concluded: boolean }>;
+  onCampaignJoin?: (userId: string) => Promise<void>;
   enableFriendlyAiSupport?: boolean;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
   onAdmissionFailure?: (diagnostic: ReturnType<typeof admissionFailureDiagnostic>) => void;
@@ -500,6 +502,18 @@ export function createFreeFlightRuntime(options: {
   const checkpointPending = new Map<string, Promise<boolean>>();
   const lastCheckpointAt = new Map<string, number>();
   let closed = false;
+  let campaignConcluded = false;
+  let campaignVerifiedUntil = 0;
+  let campaignCheckPending = false;
+  function refreshCampaignGate() {
+    if (!options.campaignState || campaignCheckPending || Date.now() < campaignVerifiedUntil - 2_000) return;
+    campaignCheckPending = true;
+    void options.campaignState().then(state => {
+      campaignConcluded ||= state.concluded;
+      campaignVerifiedUntil = Date.now() + 3_000;
+    }).catch(() => { campaignVerifiedUntil = 0; })
+      .finally(() => { campaignCheckPending = false; });
+  }
 
   function restoreSession(
     key: string,
@@ -1757,6 +1771,8 @@ export function createFreeFlightRuntime(options: {
   }
 
   function tickSession(session: Session) {
+    refreshCampaignGate();
+    if (options.campaignState && (campaignConcluded || Date.now() >= campaignVerifiedUntil)) return;
     session.tick += 1;
     if (options.enableFriendlyAiSupport) reinforceActiveCombats(session);
     for (const actor of session.actors.values()) {
@@ -1882,6 +1898,14 @@ export function createFreeFlightRuntime(options: {
       alive: boolean; locationKey: string;
     }) => send(socket, { type: "error", reason, ...(recovery ? { recovery } : {}) });
     if (closed) { error("server_restart"); return; }
+    if (options.campaignState && typeof packet.type === "string" && packet.type.startsWith("freeflight_")) {
+      try {
+        const state = await options.campaignState();
+        campaignConcluded ||= state.concluded;
+        campaignVerifiedUntil = Date.now() + 3_000;
+      } catch { error("global_campaign_unavailable"); return; }
+      if (campaignConcluded) { error("global_campaign_complete"); return; }
+    }
     if (packet.type === "freeflight_join") {
       if (Object.keys(packet).some((key) => key !== "type" && key !== "openingEncounter") ||
           (packet.openingEncounter !== undefined && packet.openingEncounter !== true) ||
@@ -1901,6 +1925,7 @@ export function createFreeFlightRuntime(options: {
           error("freeflight_not_authorized");
           return;
         }
+        await options.onCampaignJoin?.(userId);
         const now = Date.now();
         admissionPhase = "patrol-directory";
         let initialPatrols: UniversePatrolEncounter[] = [];

@@ -169,6 +169,10 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   settleWingMatch,
   enableSectorFlight,
   enableFreeFlight,
+  ...(process.env.WFM_GLOBAL_CAMPAIGN_ENABLED === "true" ? {
+    freeFlightCampaignState: (await import("../game/global-campaign")).globalCampaignFlightState,
+    onFreeFlightCampaignJoin: (await import("../game/global-campaign")).joinGlobalCampaign,
+  } : {}),
   requireFreeFlightPersistence: freeFlightPersistence.persistenceRequired,
   enableFreeFlightFriendlyAi: process.env.ORBITAL_FREE_FLIGHT_FRIENDLY_AI === "true",
   resolveFreeFlightAdmission,

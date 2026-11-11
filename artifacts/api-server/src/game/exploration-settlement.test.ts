@@ -19,7 +19,7 @@ function receipt(id = "settlement-test", outcome: "completed" | "aborted" = "com
 }
 
 /** Serial transactional fixture: commits only after the entire callback passes. */
-function storeFixture() {
+function storeFixture(campaignClear?: () => Promise<void>) {
   let profiles = new Map([["user_a", { credits: 90, revision: 0 }], ["user_b", { credits: 90, revision: 0 }]]);
   let ledger = new Map<string, ExplorationLedgerRecord>();
   let queue: Promise<unknown> = Promise.resolve();
@@ -31,6 +31,7 @@ function storeFixture() {
         const draftLedger = structuredClone(ledger);
         let locks: string[] = [];
         const output = await callback({
+          recordCampaignClear: campaignClear,
           lockProfiles: async (players) => {
             assert.deepEqual(players, [...players].sort());
             locks = players;
@@ -73,6 +74,24 @@ test("concurrent retries accept one settlement, persist kills and return identic
   assert.deepEqual(responses[0].awards, responses[7].awards);
   assert.equal(responses[0].awards[0].kills, 1);
   assert.equal((await settleExplorationWithStore(receipt(), fixture.store, true)).status, "duplicate");
+});
+
+test("a campaign write failure rolls back battle rewards, while retries never advance twice", async () => {
+  let fail = true;
+  let writes = 0;
+  const fixture = storeFixture(async () => {
+    if (fail) throw new Error("campaign unavailable");
+    writes += 1;
+  });
+  const completed = receipt("campaign-atomic-reward");
+  await assert.rejects(settleExplorationWithStore(completed,fixture.store,true),/campaign unavailable/);
+  assert.equal(fixture.entries(),0);
+  assert.equal(fixture.balance()?.credits,90);
+  fail = false;
+  await settleExplorationWithStore(completed,fixture.store,true);
+  await settleExplorationWithStore(completed,fixture.store,true);
+  assert.equal(writes,1);
+  assert.equal(fixture.balance()?.credits,97);
 });
 
 test("rollback leaves no balance/tally writes and retry succeeds after a later pilot write fails", async () => {

@@ -23,6 +23,8 @@ import type {
   ControlSchemeInput,
   ExploreLocationResult,
   GameProfile,
+  GlobalCampaign,
+  GlobalCampaignFinale,
   HealthStatus,
   LeaderboardProfileUpdateInput,
   LoadoutInput,
@@ -78,6 +80,145 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetGlobalCampaignUrl = () => {
+
+
+
+
+  return `/api/world/campaign`
+}
+
+export const getGlobalCampaign = async ( options?: Parameters<typeof customFetch>[1]): Promise<GlobalCampaign> => {
+
+  return customFetch<GlobalCampaign>(getGetGlobalCampaignUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGlobalCampaignQueryKey = () => {
+    return [
+    `/api/world/campaign`
+    ] as const;
+    }
+
+
+export const getGetGlobalCampaignQueryOptions = <TData = Awaited<ReturnType<typeof getGlobalCampaign>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGlobalCampaignQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGlobalCampaign>>> = ({ signal }) => getGlobalCampaign({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGlobalCampaignQueryResult = NonNullable<Awaited<ReturnType<typeof getGlobalCampaign>>>
+export type GetGlobalCampaignQueryError = ErrorType<unknown>
+
+
+
+export function useGetGlobalCampaign<TData = Awaited<ReturnType<typeof getGlobalCampaign>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGlobalCampaignQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimGlobalCampaignFinaleUrl = () => {
+
+
+
+
+  return `/api/world/campaign/finale`
+}
+
+export const claimGlobalCampaignFinale = async ( options?: Parameters<typeof customFetch>[1]): Promise<GlobalCampaignFinale> => {
+
+  return customFetch<GlobalCampaignFinale>(getClaimGlobalCampaignFinaleUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimGlobalCampaignFinaleMutationKey = () => ['claimGlobalCampaignFinale'] as const;
+
+export const getClaimGlobalCampaignFinaleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext> => {
+
+const mutationKey = getClaimGlobalCampaignFinaleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, void> = () => {
+
+
+          return  claimGlobalCampaignFinale(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimGlobalCampaignFinaleMutationResult = NonNullable<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>>
+
+    export type ClaimGlobalCampaignFinaleMutationError = ErrorType<void>
+
+
+    export const useClaimGlobalCampaignFinale = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimGlobalCampaignFinale>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getClaimGlobalCampaignFinaleMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

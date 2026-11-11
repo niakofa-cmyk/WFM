@@ -7,6 +7,11 @@ WAR FOR MARS is founded on Eon Dusk, a scandal-enriched billionaire who manipula
 
 Story must connect narrative truth, playable operations/evidence/dialogue, and persistent server state. Current evidence is account-scoped; never imply faction-wide knowledge or global world consequences without a shared authoritative contract.
 
+The owner's later single-timeline direction supersedes independent live campaign
+playthroughs: see [One shared campaign timeline](global-campaign-direction.md).
+Keep per-player historical decisions and evidence as account archives, not
+separate live story timelines or proof that the shared war has advanced.
+
 **Why:** the user repeatedly directed that the storyline live inside the open universe and that verified events persist; the current implementation deliberately keeps player discoveries separate from global faction state.
 
 **How to apply:** preserve the distinction between owner-directed premise, existing campaign implementation, reconstructed dialogue, proposed connective lore, and unresolved details. Keep the inner-circle versus wider-government knowledge distinction clear. Tie evidence to server-verified operations; label the later Cage transfer as disputed and the First Witness as an unresolved clue. The owner's later renderer clarification retains Three.js as the primary rendering foundation under the single Orbital universe, with native WebGL2 as a companion.

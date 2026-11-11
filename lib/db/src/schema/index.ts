@@ -24,3 +24,6 @@ export * from "./operations";
 export * from "./universe-presence";
 export * from "./universe-patrols";
 export * from "./free-flight-checkpoints";
+export * from "./global-campaign";
+export * from "./global-campaign-events";
+export * from "./global-campaign-participants";

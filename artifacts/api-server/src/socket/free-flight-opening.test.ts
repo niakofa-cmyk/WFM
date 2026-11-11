@@ -93,6 +93,32 @@ test("AI defender membership survives checkpoint restart without duplicate or re
   } finally { await second.close(); }
 });
 
+test("the one global campaign ending stops live flight and refuses new joins instead of spawning a private game", async () => {
+  const packets: Packet[] = [];
+  const socket = socketFor(packets);
+  let concluded = false;
+  const runtime = createFreeFlightRuntime({
+    campaignState: async () => ({concluded}),
+    resolveAdmission: async () => ({sessionKey:"mars:phobos-yard",faction:"ussf",shipId:"sentinel"}),
+  });
+  try {
+    await runtime.handle(socket,"campaign-live-pilot",{type:"freeflight_join"});
+    assert.ok(packets.some(packet => packet.type === "freeflight_joined"));
+    concluded = true;
+    await runtime.handle(socket,"campaign-live-pilot",{type:"freeflight_input", input:{
+      version:5,seq:1,targetId:null,throttle:1,yaw:0,pitch:0,strafe:0,vertical:0,roll:0,
+      fire:true,missile:false,boost:false,brake:false,inertial:false,aimAssist:false,countermeasure:false,
+    }});
+    assert.ok(packets.some(packet => packet.type === "error" && packet.reason === "global_campaign_complete"));
+    runtime.advance(Date.now()+100);
+    assert.equal(packets.filter(packet => packet.type === "freeflight_weapon_fired").length,0);
+    const newcomer: Packet[] = [];
+    await runtime.handle(socketFor(newcomer),"campaign-new-pilot",{type:"freeflight_join"});
+    assert.ok(newcomer.some(packet => packet.type === "error" && packet.reason === "global_campaign_complete"));
+    assert.equal(newcomer.some(packet => packet.type === "freeflight_joined"),false);
+  } finally { await runtime.close(); }
+});
+
 for (const faction of ["ussf", "accord"] as const) {
   test(`${faction} opening inserts a visible hostile ahead and reserves one real battle; reconnect preserves it`, async () => {
     const contact = patrol(faction === "ussf" ? "accord" : "ussf");

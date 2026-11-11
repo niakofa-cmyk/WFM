@@ -131,6 +131,8 @@ export async function startWingSocketServer(
     enableSectorFlight?: boolean;
     enableFreeFlight?: boolean;
     requireFreeFlightPersistence?: boolean;
+    freeFlightCampaignState?: () => Promise<{ concluded: boolean }>;
+    onFreeFlightCampaignJoin?: (userId: string) => Promise<void>;
     enableFreeFlightFriendlyAi?: boolean;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
     freeFlightRedisBus?: FreeFlightRedisBus;
@@ -221,6 +223,8 @@ export async function startWingSocketServer(
   });
   const localFreeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
     ? createFreeFlightRuntime({
+        campaignState: options.freeFlightCampaignState,
+        onCampaignJoin: options.onFreeFlightCampaignJoin,
         enableFriendlyAiSupport: options.enableFreeFlightFriendlyAi,
         resolveAdmission: options.resolveFreeFlightAdmission,
         loadCheckpoint: options.freeFlightCheckpoints?.load,

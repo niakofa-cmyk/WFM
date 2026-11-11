@@ -8,6 +8,37 @@
 import * as zod from 'zod';
 
 
+export const getGlobalCampaignResponseCompletedOperationsMin = 0;
+
+
+export const getGlobalCampaignResponseProgressPercentMin = 0;
+export const getGlobalCampaignResponseProgressPercentMax = 100;
+
+
+
+export const GetGlobalCampaignResponse = zod.object({
+  "enabled": zod.boolean(),
+  "campaignId": zod.string(),
+  "completedOperations": zod.number().int().min(getGlobalCampaignResponseCompletedOperationsMin),
+  "targetOperations": zod.number().int().min(1),
+  "progressPercent": zod.number().min(getGlobalCampaignResponseProgressPercentMin).max(getGlobalCampaignResponseProgressPercentMax),
+  "phase": zod.enum(['INITIAL_CONTACT', 'BEACON_RECON', 'WARDEN_INTERCEPT', 'CAGE_CLIMAX', 'SYSTEM_VICTORY']),
+  "concluded": zod.boolean(),
+  "finaleEligible": zod.boolean(),
+  "finaleClaimed": zod.boolean()
+})
+
+
+export const ClaimGlobalCampaignFinaleResponse = zod.object({
+  "campaignId": zod.string(),
+  "credits": zod.number().int(),
+  "campaignXp": zod.number().int(),
+  "badge": zod.string(),
+  "shieldMk2": zod.boolean(),
+  "replayed": zod.boolean()
+})
+
+
 /**
  * Returns server health status
  * @summary Health check

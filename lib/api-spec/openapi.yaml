@@ -13,6 +13,28 @@ tags:
   - name: progression
     description: Authenticated player profile and campaign progression
 paths:
+  /world/campaign:
+    get:
+      operationId: getGlobalCampaign
+      tags: [world]
+      responses:
+        "200":
+          description: One server-owned timeline shared by all authenticated pilots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GlobalCampaign" }
+  /world/campaign/finale:
+    post:
+      operationId: claimGlobalCampaignFinale
+      tags: [world]
+      responses:
+        "200":
+          description: Permanently idempotent finale award for a verified participant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GlobalCampaignFinale" }
+        "409":
+          description: Campaign not complete or pilot not eligible
   /healthz:
     get:
       operationId: healthCheck
@@ -538,6 +560,29 @@ components:
       in: cookie
       name: __session
   schemas:
+    GlobalCampaign:
+      type: object
+      required: [enabled, campaignId, completedOperations, targetOperations, progressPercent, phase, concluded, finaleEligible, finaleClaimed]
+      properties:
+        enabled: { type: boolean }
+        campaignId: { type: string }
+        completedOperations: { type: integer, minimum: 0 }
+        targetOperations: { type: integer, minimum: 1 }
+        progressPercent: { type: number, minimum: 0, maximum: 100 }
+        phase: { type: string, enum: [INITIAL_CONTACT, BEACON_RECON, WARDEN_INTERCEPT, CAGE_CLIMAX, SYSTEM_VICTORY] }
+        concluded: { type: boolean }
+        finaleEligible: { type: boolean }
+        finaleClaimed: { type: boolean }
+    GlobalCampaignFinale:
+      type: object
+      required: [campaignId, credits, campaignXp, badge, shieldMk2, replayed]
+      properties:
+        campaignId: { type: string }
+        credits: { type: integer }
+        campaignXp: { type: integer }
+        badge: { type: string }
+        shieldMk2: { type: boolean }
+        replayed: { type: boolean }
     HealthStatus:
       type: object
       properties:

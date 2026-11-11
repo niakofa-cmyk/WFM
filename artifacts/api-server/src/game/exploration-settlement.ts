@@ -19,6 +19,7 @@ export interface ExplorationRewardTransaction {
     destroyedActorIds: readonly string[],
   ): Promise<void>;
   writeResult(playerId: string, key: string, result: Readonly<ExplorationResult>, award: ExplorationAward): Promise<void>;
+  recordCampaignClear?(result: Readonly<ExplorationResult>): Promise<void>;
 }
 export interface ExplorationRewardStore {
   transaction<T>(callback: (tx: ExplorationRewardTransaction) => Promise<T>): Promise<T>;
@@ -87,6 +88,7 @@ export async function settleExplorationWithStore(
       await tx.writeResult(pilot.playerId, key, result, award);
       awards.push(award);
     }
+    await tx.recordCampaignClear?.(result);
     return { status: "settled", awards };
   });
 }

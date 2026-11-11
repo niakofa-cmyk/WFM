@@ -299,17 +299,17 @@ function MainMenu(props: HomeProps & {
                 {Array.from({ length: brief.total }, (_, i) => <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />)}
               </div>
             </div>
-            <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" aria-label="Deploy the next campaign sortie" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
-              DEPLOY NEXT SORTIE
+            <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" aria-label="Join the shared campaign in the live universe" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
+              JOIN LIVE WARFRONT
             </button>
           </div>
-          {EXPEDITION_ENABLED ? (
+          {EXPEDITION_ENABLED && import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics") ? (
             <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
               <span className="font-hud tracking-widest text-spectral">LEGACY SECTOR COMPATIBILITY</span>
               <span className="text-xs text-muted">Separate validation runtime · shared-universe cooperation uses Enter Universe</span>
             </Link>
           ) : null}
-          <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
+          {import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics") ? <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
                 <span className="block">COMBAT TRAINING</span>
@@ -339,7 +339,7 @@ function MainMenu(props: HomeProps & {
                 <span className="text-xs text-muted">Open-disc practice or strike sortie</span>
               </button>
             </div>
-          </details>
+          </details> : null}
         </section>
 
         <div className="flex flex-col gap-4">

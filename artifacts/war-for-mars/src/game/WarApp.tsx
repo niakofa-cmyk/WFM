@@ -5,6 +5,8 @@ import {
   getGetWorldQueryKey,
   useGetWorld,
   useGetWorldPatrols,
+  useGetGlobalCampaign,
+  getGetGlobalCampaignQueryKey,
 } from "@workspace/api-client-react";
 import type {
   StrikeResult,
@@ -123,6 +125,10 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   const narrativeWorld = useGetWorld({
     query: { enabled: Boolean(userId), queryKey: getGetWorldQueryKey() },
   });
+  const globalCampaign = useGetGlobalCampaign({ query: {
+    queryKey: getGetGlobalCampaignQueryKey(),
+    enabled: Boolean(userId), refetchInterval: 5_000, refetchOnWindowFocus: true,
+  } });
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
   const loadoutSaveInFlightRef = useRef(false);
@@ -778,6 +784,11 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     if (shell === MenuState.LOADING) return;
     unlockAudio();
     sfxUi();
+    const developerDiagnostics = import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics");
+    if (!developerDiagnostics && (action === "DEPLOY" || action === "LAUNCH" || action === "ARCADE")) {
+      void enterOrbitalUniverse();
+      return;
+    }
     setOfflineAvailable(false);
     setOnlineStatus("");
     if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
@@ -903,14 +914,19 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       return false;
     }
     if (!userId) {
-      setOrbitalStartLocation("mars-orbit");
-      setGalaxyOpen(false);
-      setUniverseServicesOpen(false);
-      setUniverseExpeditionMission(null);
-      setOrbitalUniverseOpen(true);
-      return true;
+      setUniverseEntryError("Sign in to enter the one shared live universe. No local substitute was launched.");
+      return false;
     }
     try {
+      const campaign = await globalCampaign.refetch();
+      if (campaign.error) {
+        setUniverseEntryError("The shared campaign timeline could not be confirmed. No private timeline was created.");
+        return false;
+      }
+      if (campaign.data?.enabled && campaign.data.concluded) {
+        setUniverseEntryError("The shared campaign has ended. Your finale entitlement remains available in Command.");
+        return false;
+      }
       const world = (await narrativeWorld.refetch()).data;
       const startLocation = orbitalStartForVerifiedWorldLocation(world?.currentLocation);
       if (!startLocation) {
@@ -1634,18 +1650,17 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         publicLeaderboardSaving={leaderboardSaving}
         publicLeaderboardError={leaderboardError}
         onSavePublicLeaderboard={persistLeaderboardProfile}
-        cleared={save.cleared}
+        cleared={globalCampaign.data?.enabled ? ({
+          INITIAL_CONTACT: 0, BEACON_RECON: 1, WARDEN_INTERCEPT: 2,
+          CAGE_CLIMAX: 3, SYSTEM_VICTORY: 4,
+        }[globalCampaign.data.phase]) : save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
         onEnterUniverse={() => { unlockAudio(); void enterOrbitalUniverse(); }}
         universeEntryError={universeEntryError}
         onLocalUniverse={() => {
-          setOrbitalStartLocation("mars-orbit");
-          setUniverseEntryError("");
-          setUniverseServicesOpen(false);
-          setUniverseExpeditionMission(null);
-          setOrbitalUniverseOpen(true);
+          void enterOrbitalUniverse();
         }}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}

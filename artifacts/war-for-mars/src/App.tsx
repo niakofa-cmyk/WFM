@@ -1,4 +1,6 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
+import { GlobalCampaignStatus } from "./game/GlobalCampaignStatus";
+const developerDiagnostics = import.meta.env.DEV && new URLSearchParams(window.location.search).has("diagnostics");
 import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
@@ -118,8 +120,8 @@ function PublicLanding() {
           </h1>
           <span aria-hidden="true" className="wfm-sweep mt-5 block h-px w-full max-w-4xl bg-gradient-to-r from-solar via-solar/40 to-transparent" />
           <p className="wfm-rise-2 mt-6 max-w-xl text-base leading-relaxed text-bone/85 sm:text-lg">
-            Fly the campaign, refit your ship, or bring a wing into a private ten-pilot match.
-            Your account keeps campaign progress and credits safe on the server.
+            Enter one living multiplayer universe. Join the campaign at its current shared progress;
+            the war continues while you are away. Your pilot keeps earned equipment and rewards.
           </p>
           <div className="wfm-rise-3 mt-8 flex max-w-2xl flex-wrap gap-3">
             {isSignedIn ? (
@@ -130,10 +132,8 @@ function PublicLanding() {
                 <Link href="/sign-in" className={`${cta} wfm-cmd-secondary`}>SIGN IN</Link>
               </>
             )}
-            <a href="/combat-lab.html?universe=1" data-testid="link-landing-local-universe" className={`${cta} wfm-cmd-secondary`}>ENTER ORBITAL UNIVERSE · LOCAL FLIGHT</a>
-            <Link href="/play" className={`${cta} wfm-cmd-quiet`}>TRY SOLO FLIGHT · LOCAL</Link>
           </div>
-          <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
+          {developerDiagnostics ? <details data-testid="details-public-operations" className="group wfm-rise-3 mt-3 max-w-2xl border border-bone/15 bg-panel/70">
             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
               <span className="min-w-0">
                 <span className="block">TRAINING & COMPATIBILITY</span>
@@ -154,7 +154,7 @@ function PublicLanding() {
                 </Link>
               ) : null}
             </div>
-          </details>
+          </details> : null}
         </div>
       </section>
 
@@ -205,6 +205,7 @@ function SignedInGame({ universe = false, orbital = false }: { universe?: boolea
         <WarApp initialUniverseOpen={universe} initialOrbitalOpen={orbital} />
       </Suspense>
       <ActionRecovery />
+      <GlobalCampaignStatus />
       <div data-testid="account-control" className="wfm-account-control fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
@@ -225,11 +226,10 @@ function AccountGameEntry({ universe = false, primary = false }: { universe?: bo
       <p className="max-w-lg text-sm text-muted">Your saved position, route costs and operation access come from your signed-in account. Offline training remains available without an account.</p>
       {isLoaded ? <Link data-testid="link-sign-in-universe" href={`/sign-in?redirect_url=${encodeURIComponent(`${basePath}/universe`)}`} className="flex min-h-12 items-center bg-solar px-6 font-hud text-void">SIGN IN TO CONNECT</Link>
         : <p role="status" data-testid="status-universe-session">Checking pilot session…</p>}
-      <a data-testid="link-offline-orbital" className="min-h-11 border border-bone/30 px-5 py-3 text-sm" href={`${basePath}/combat-lab.html`}>OFFLINE ORBITAL TRAINING</a>
       <Link data-testid="link-universe-home" href="/" className="min-h-11 py-3 text-sm text-muted">BACK TO COMMAND</Link>
     </main>
   );
-  if (orbital) return <Suspense fallback={<main role="status" className="lab-loading">Initializing Orbital…</main>}><OrbitalBoot /></Suspense>;
+  if (orbital) return <PublicLanding />;
   return <PublicLanding />;
 }
 
@@ -277,7 +277,7 @@ function Routes() {
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/expedition">
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading sector expedition…</main>}>
-            <SectorExpedition />
+            {developerDiagnostics ? <SectorExpedition /> : <AccountGameEntry primary />}
           </Suspense>
         </Route>
         <Route component={PublicLanding} />
@@ -291,14 +291,16 @@ function App() {
     <WouterRouter base={basePath}>
       <Switch>
         <Route path="/flight">
+          {developerDiagnostics ?
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading Rust Disc flight sector…</main>}>
             <RustDiscFlight expeditionHref={expeditionEnabled ? "/expedition" : undefined} />
-          </Suspense>
+          </Suspense> : <Routes />}
         </Route>
         <Route path="/play">
+          {developerDiagnostics ?
           <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading solo flight…</main>}>
             <SoloFlight />
-          </Suspense>
+          </Suspense> : <Routes />}
         </Route>
         <Route><Routes /></Route>
       </Switch>

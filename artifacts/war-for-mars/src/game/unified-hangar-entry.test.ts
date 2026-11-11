@@ -12,12 +12,14 @@ test("hangar exposes one prominent connected-universe gateway", () => {
   assert.doesNotMatch(home, /data-testid="button-open-galaxy"|PERSISTENT GALAXY/);
 });
 
-test("hangar gateway mounts Orbital flight directly; local practice remains a separate secondary option", () => {
+test("hangar actions use shared flight and local tools require explicit developer diagnostics", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   assert.match(app, /onEnterUniverse=\{\(\) => \{ unlockAudio\(\); void enterOrbitalUniverse\(\); \}\}/);
   assert.match(app, /const enterOrbitalUniverse = async \(\) =>/);
   assert.match(app, /setOrbitalUniverseOpen\(true\)/);
-  assert.match(app, /onLocalUniverse=\{\(\) => \{[\s\S]*?setOrbitalStartLocation\("mars-orbit"\)/);
+  assert.match(app, /onLocalUniverse=\{\(\) => \{\s*void enterOrbitalUniverse\(\);/);
+  assert.match(app, /!developerDiagnostics && \(action === "DEPLOY" \|\| action === "LAUNCH" \|\| action === "ARCADE"\)/);
+  assert.match(home, /import\.meta\.env\.DEV && new URLSearchParams\(window\.location\.search\)\.has\("diagnostics"\) \? <details/);
   assert.match(app, /if \(orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession\)/);
   assert.match(app, /modeId=\{UNIVERSE_MODE_ID\}[\s\S]*?runtime=\{ORBITAL_RUNTIME_ID\}/);
   assert.doesNotMatch(app, /onEnterUniverse=\{\(\) => setGalaxyOpen\(true\)\}/);
