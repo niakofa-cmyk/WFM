@@ -20,6 +20,13 @@ class FakeRedisHub {
     const client: FreeFlightRedisBus = {
       get: async (key) => this.values.get(key) ?? null,
       eval: async (script, { keys, arguments: args }) => {
+        if (script.includes("local entries = cjson.decode(ARGV[2])")) return 0;
+        if (script.includes("local ussf = 0")) {
+          return JSON.stringify({
+            ok: true, capturedAt: Date.now(),
+            activePilotsByFaction: { ussf: 0, accord: 0 }, total: 0,
+          });
+        }
         if (script.includes('redis.call("EXISTS"')) {
           if (this.values.has(keys[0]!)) return null;
           const token = (this.counters.get(keys[1]!) ?? 0) + 1;

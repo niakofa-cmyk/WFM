@@ -49,13 +49,14 @@ measured by ship strength, not raw hull count.
 
 ## Repository evidence and safeguards
 
-The persistent named-location network currently seeds one USSF and one Accord
-patrol per eligible location. Each starts with two to four ships and advances
-on a connected route from saved timestamps. Destroyed ships are removed; the
-roster is not replenished to force a ratio. The free-flight runtime separately
-caps pilot seats, actors, nearby snapshots, projectiles, and simultaneous
-encounters. A fleet record is not a ship count, and a leased hull must never be
-counted twice.
+The persistent named-location network seeds one USSF and one Accord patrol per
+eligible location. Each starts with two to four ships and advances on a
+connected route from saved timestamps. In explicitly enabled shared staging,
+the population controller may also materialize the complete named route graph
+and add epoch-scoped reserve formations. Destroyed ships are never restored to
+force a ratio. The free-flight runtime separately caps pilot seats, actors,
+nearby snapshots, projectiles, and simultaneous encounters. A fleet record is
+not a ship count, and a leased hull must never be counted twice.
 
 Population input must come only from fresh authenticated server flight seats.
 Deduplicate accounts, exclude disconnected pilots and spectators, and derive
@@ -64,11 +65,10 @@ reservations. Use durable, revision-checked population epochs before changing
 persistent rosters. Never spawn hostiles beside a pilot or teleport a friendly
 escort into a battle; route an available reserve toward the real encounter.
 
-The current shared-flight runtime uses a fenced owner per spatial session when
-the Redis transport is configured. It does not yet provide a globally
-aggregated, cross-owner active-faction census or a durable global fleet
-population ledger. Per-process counts are useful telemetry, not a global
-population source.
+The shared-flight runtime uses a fenced owner per spatial session when Redis is
+configured. Its Redis census now deduplicates active authenticated pilot seats
+across owners by validating hashed identities against current seat leases. The
+durable population controller serializes additions with a PostgreSQL epoch lock.
 
 ## Implemented foundation
 
@@ -81,41 +81,45 @@ population source.
   This prevents a globally mixed population from reversing the local
   enemy/friendly meaning. The 80/20 shares are not yet used to change hull
   counts.
-- The free-flight runtime exposes and emits anonymized per-owner telemetry at
-  a bounded interval when the socket service is enabled. It includes active
-  pilot faction counts, active AI hull counts, friendly support actors,
-  active encounters, and total actors. It intentionally omits user IDs, region
-  names, coordinates, and fleet identities.
+- The shared Redis census emits only aggregate faction counts. It omits account
+  IDs, region names, coordinates and fleet identities. Per-owner telemetry
+  remains separate from the global count.
 - Tests cover duplicate/reconnected accounts, stale/disconnected/spectator
   seats, conflicting faction samples, both encounter faction orientations,
   adjustable shares, the 6/10 example and its mirror, regional threat
-  envelopes, and hysteresis.
+  envelopes, bounded reinforcement planning, connected deterministic reserves,
+  census lease handoff/staleness, staging-only configuration and a local
+  PostgreSQL concurrency/casualty integration case.
 
-## Explicitly not enabled yet
+## Implemented but not live-certified
 
-Telemetry is scoped to one process; it cannot establish the whole-universe
-faction ratio across socket owners. The target percentage is not wired to
-persistent hull counts or fleet spawning; only encounter-side classification
-is enforced.
-The database does not yet have a durable population epoch or transactional
-replenishment contract. Deep-space region identity exists in Orbital sector
-addressing, but the persistent patrol directory is still tied to named world
-locations. Existing friendly defenders are bounded AI actors, but their
-dispatch is not yet a route-backed persistent reserve. The opening-combat
-verification currently fails to prove that a friendly defender pushes through
-shield recovery to hull damage and enemy destruction. Do not describe that
-behavior as certified or increase live fleet density until these gaps are
-closed.
+The population writer remains **off by default** and can only be enabled in the
+explicit shared WFM staging runtime after schema readiness. The new tables are
+represented in Drizzle schema and additive migration 0008; no staging migration
+or environment toggle was changed here. Local tests prove the policy and a
+temporary PostgreSQL transaction path, but the census Lua has not been executed
+against live Redis and no live two-replica convergence test has been run.
+
+The writer only adds up to eight hulls per five-minute epoch, with an
+eight-percentage-point deadband and a 128-hull cap above the deterministic
+baseline. It never deletes/repairs a roster to chase the ratio. Thus 80/20 is a
+bounded target, not an exact guarantee. Deep-space region identity exists in
+Orbital sector addressing, but the persistent patrol directory is still tied
+to named world locations. Existing friendly defenders are bounded AI actors;
+their dispatch is not yet a route-backed persistent reserve. The opening-combat
+verification still does not certify that a friendly defender pushes through
+shield recovery to hull damage and enemy destruction.
 
 ## Next safe increments
 
-1. Aggregate active seat counts across fenced owners without exposing player
-   identities or exact positions; verify reconnect and owner handoff do not
-   double count.
-2. Measure actual live hulls, active leases, casualties, empty rosters, and
-   encounter outcomes from durable sources.
-3. Add transactional, idempotent population epochs and gradual replenishment
-   that never repairs casualties or races an encounter lease.
+1. Apply migration 0008 through the staging-only schema workflow; validate
+   production remains untouched and the explicit writer flag remains off until
+   approval.
+2. Execute the census Lua against staging Redis; verify two replicas, account
+   handoff, stale leases and disconnect behavior.
+3. Run concurrent staging epochs, verify one monotonic receipt, unique reserve
+   IDs, casualty preservation, restart recovery and measured faction hull
+   counts. Do not claim a live 80/20 state until observed.
 4. Extend the strategic graph with versioned deterministic deep-space regions
    and valid approach routes, without storing a database row for every
    possible coordinate.
@@ -125,6 +129,9 @@ closed.
 6. Stage small controlled traffic changes; compare target mix to measured hull
    mix and track contact intervals, combat conversion, survival, bandwidth,
    server time, and Android frame performance before increasing population.
+
+See [Global AI Population Census and Durable Epochs](GLOBAL-AI-POPULATION-EPOCHS.md)
+for the exact table, lease, cadence and activation contract.
 
 The full owner upload is retained with the project attachments as
 `Pasted-Worked-for-35s-Yes-I-agree-WFM-needs-a-deliberate-enemy_1794429844862.txt`.

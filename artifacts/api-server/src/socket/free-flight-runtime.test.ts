@@ -713,12 +713,21 @@ test("population telemetry counts only connected pilots and emits no account or 
     assert.equal(metrics.sessionCount, 1);
     assert.equal(metrics.activePilotCount, 2);
     assert.deepEqual(metrics.activePilotsByFaction, { ussf: 1, accord: 1 });
+    assert.deepEqual(runtime.activePopulationSeats
+      .map(({ userId, faction }) => ({ userId, faction }))
+      .sort((left, right) => left.userId.localeCompare(right.userId)), [
+      { userId: "telemetry-accord-user", faction: "accord" },
+      { userId: "telemetry-ussf-user", faction: "ussf" },
+    ]);
     const serialized = JSON.stringify(metrics);
     assert.equal(serialized.includes("telemetry-ussf-user"), false);
     assert.equal(serialized.includes("telemetry-accord-user"), false);
     assert.equal(serialized.includes("telemetry-private-location"), false);
     runtime.detach(sockets[1]!);
     assert.equal(runtime.populationTelemetry.activePilotCount, 1);
+    assert.deepEqual(runtime.activePopulationSeats.map((seat) => seat.userId), [
+      "telemetry-ussf-user",
+    ]);
   } finally {
     await runtime.close();
   }

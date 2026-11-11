@@ -41,7 +41,7 @@
 - [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
 - [Open-universe direction](open-universe-direction.md) — server-owned enemy fleets and nearby authenticated pilots must appear as live 3D ships in shared free flight.
 - [Shared-universe cooperation](cooperative-sector-missions.md) — allies assist inside the same live fleet battle; retain legacy sector compatibility until continuous-world objectives are verified.
-- [Faction ratios and AI escorts](faction-population-direction.md) — owner proposes a testable 6/10→80/20 faction mix and bounded same-faction AI escorts in the shared universe.
+- [Faction ratios and AI escorts](faction-population-direction.md) — adjustable faction mix now has staging-gated census and additive epochs; live rollout and escorts remain unverified.
 - [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
 - [Three.js mobile loading](threejs-mobile-loading.md) — keep the Three.js renderer lazy and tree-shaken on mobile; never pass its full namespace through UI state.
 - [Engine selection](wfm-engine-selection.md) — one Orbital universe; Three.js is the main renderer and native WebGL2 is a supported companion path.

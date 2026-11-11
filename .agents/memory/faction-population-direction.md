@@ -17,34 +17,31 @@ The owner also explicitly wants a later allied human and the friendly AI
 reserve to approach and help a pilot already fighting multiple hostile fleets.
 Friendly traffic merely appearing nearby is not the intended assistance.
 
-This is a direction to evaluate, not approval for production population changes
-or new rewards. Encounter-side classification is enforced from the authenticated
-combat faction; the adjustable percentage remains a pure target and is not
-connected to persistent fleet spawning. Anonymized process-local telemetry
-exists, but it is not a global population source.
-Cross-owner presence, durable roster accounting, replenishment epochs, and an
-AI-escort payout policy remain unspecified.
+Source now includes a cross-owner lease-validated pilot census and a durable,
+transactional population epoch balancer. The writer is disabled by default and
+staging-only; live Redis Lua behavior and staging convergence are not certified.
+It counts active ship hulls, adds bounded route-connected reserve fleets, and
+never restores destroyed rosters to force a ratio. AI escort dispatch and any
+NPC reward policy remain separate work.
 
 **Why:** the owner clarified that 80% means hostile AI and 20% friendly AI from
 the active pilots' faction perspective, while keeping the percentage adjustable.
 
 **How to apply:** read
-`docs/infinite-war/FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md` before adding a
-balancer or escort role. Keep population metrics authenticated and server-owned,
-use the existing persistent fleet/network contracts, preserve pilot reward
-attribution, and gate any implementation through deterministic tests and
-isolated paired staging. Do not activate the 80/20 target from a single
-process's counts. Keep fleet density, encounter frequency, and encounter
-intensity as separate controls; never replenish away real casualties, duplicate
-leased hulls, or teleport an AI escort beside a battle. See
-`docs/infinite-war/ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md` for the
-current telemetry/policy boundary and safe rollout order.
+`docs/infinite-war/FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md` and
+`docs/infinite-war/GLOBAL-AI-POPULATION-EPOCHS.md` before changing the balancer.
+Keep its writer off until staging schema, Redis, replica handoff, restart and
+casualty checks pass. Keep fleet density, encounter frequency, and encounter
+intensity separate; never restore casualties, duplicate leases, or teleport an
+AI escort beside a battle. Preserve human reward attribution. The
+`docs/infinite-war/ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md` file
+describes the separate AI-escort and encounter work.
 
-**Why:** the owner supplied a specific population-and-threat design. Repository
-inspection showed that the current runtime lacks a durable global faction
-census and population epoch, so applying the target directly would risk
-repeated spawns, duplicate hull counts, and lost casualties.
+**Why:** the requested ratio is a target, not permission for destructive roster
+changes. Cross-instance presence and a serialized database epoch are required
+to avoid double-counts, duplicate fleets and casualty restoration.
 
-**How to apply:** first verify cross-owner seat freshness, per-region persistent
-hull counts, and active leases. Only then enable bounded, transactional
-rebalancing and route-based friendly AI support.
+**How to apply:** use authenticated Redis seat leases for a fresh faction census
+and the PostgreSQL global epoch for additive, bounded persistent formations.
+Verify actual staging Redis, database migration and both socket replicas before
+enabling the staging flag. Do not enable in Production.

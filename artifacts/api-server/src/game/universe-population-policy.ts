@@ -105,6 +105,73 @@ export function desiredAiFactionMixFromActivePilots(
   return { ussf, accord: Math.round((1 - ussf) * 1_000_000) / 1_000_000 };
 }
 
+export type PersistentAiHullCounts = Readonly<{ ussf: number; accord: number }>;
+export type AiHullReinforcementPlan = Readonly<{
+  faction: UniverseFaction | null;
+  hullCount: number;
+  totalBefore: number;
+  totalAfter: number;
+}>;
+
+/**
+ * Plan additive, bounded reinforcements only. Existing hulls and casualties are
+ * never removed or restored; reserve fleets are created with new durable IDs.
+ */
+export function planAiHullReinforcements(
+  current: PersistentAiHullCounts,
+  target: Readonly<{ ussf: number; accord: number }>,
+  maximumTotalHulls: number,
+  maximumAddedHulls: number,
+  minimumShareGap = 0.05,
+): AiHullReinforcementPlan {
+  const values = [
+    current.ussf, current.accord, target.ussf, target.accord,
+    maximumTotalHulls, maximumAddedHulls, minimumShareGap,
+  ];
+  if (!values.every(Number.isFinite) ||
+      ![current.ussf, current.accord, maximumTotalHulls, maximumAddedHulls]
+        .every(Number.isSafeInteger) ||
+      current.ussf < 0 || current.accord < 0 ||
+      maximumTotalHulls < 0 || maximumAddedHulls < 0 ||
+      target.ussf < 0 || target.ussf > 1 ||
+      target.accord < 0 || target.accord > 1 ||
+      Math.abs(target.ussf + target.accord - 1) > 1e-6 ||
+      minimumShareGap < 0 || minimumShareGap > 1) {
+    throw new Error("Invalid persistent AI hull balance input.");
+  }
+
+  const totalBefore = current.ussf + current.accord;
+  const available = Math.min(maximumTotalHulls - totalBefore, maximumAddedHulls);
+  if (totalBefore === 0 || available < 2) {
+    return { faction: null, hullCount: 0, totalBefore, totalAfter: totalBefore };
+  }
+
+  const gaps = {
+    ussf: target.ussf - current.ussf / totalBefore,
+    accord: target.accord - current.accord / totalBefore,
+  };
+  const faction: UniverseFaction = gaps.ussf >= gaps.accord ? "ussf" : "accord";
+  const gap = gaps[faction];
+  if (gap < minimumShareGap) {
+    return { faction: null, hullCount: 0, totalBefore, totalAfter: totalBefore };
+  }
+
+  const targetShare = target[faction];
+  const currentFactionCount = current[faction];
+  const required = targetShare >= 1
+    ? available
+    : Math.max(2, Math.ceil(
+      (targetShare * totalBefore - currentFactionCount) / (1 - targetShare),
+    ));
+  // Persistent formations contain 2–4 ships; keep every epoch's addition even
+  // so it can be stored as complete, deterministic patrol formations.
+  const hullCount = Math.floor(Math.min(required, available) / 2) * 2;
+  if (hullCount < 2) {
+    return { faction: null, hullCount: 0, totalBefore, totalAfter: totalBefore };
+  }
+  return { faction, hullCount, totalBefore, totalAfter: totalBefore + hullCount };
+}
+
 export type UniverseRegionClass =
   | "safe-core"
   | "established-route"

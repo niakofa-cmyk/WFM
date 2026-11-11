@@ -48,3 +48,20 @@ export function freeFlightPersistenceConfig(env: PersistenceEnvironment, flightE
     mode: shared ? "redis-fenced-shards" : "process-local",
   } as const;
 }
+
+/** Population balancing can mutate persistent fleets only in explicit staging. */
+export function freeFlightPopulationBalancerConfig(
+  env: PersistenceEnvironment,
+  sharedRuntime: boolean,
+): boolean {
+  const key = "ORBITAL_FREE_FLIGHT_POPULATION_BALANCER";
+  if (env[key] !== undefined && env[key] !== "0" && env[key] !== "1") {
+    throw new Error(`${key} must be 0 or 1.`);
+  }
+  const enabled = env[key] === "1";
+  if (enabled && (!sharedRuntime || env.NODE_ENV !== "production" ||
+      env.WFM_FREE_FLIGHT_SHARED_ENV !== "staging" || !env.DATABASE_URL)) {
+    throw new Error("Universe population balancing is limited to the shared WFM staging runtime.");
+  }
+  return enabled;
+}

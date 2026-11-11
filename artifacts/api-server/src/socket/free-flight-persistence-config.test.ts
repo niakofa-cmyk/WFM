@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { freeFlightPersistenceConfig, freeFlightPersistenceReadiness } from "./free-flight-persistence-config";
+import {
+  freeFlightPersistenceConfig,
+  freeFlightPersistenceReadiness,
+  freeFlightPopulationBalancerConfig,
+} from "./free-flight-persistence-config";
 import { startWingSocketServer } from "./server";
 
 test("persistent runtime cannot be constructed with missing authority dependencies", async () => {
@@ -60,6 +64,27 @@ test("persistent rollout requires exact opt-ins, database admission and Redis", 
   for (const key of ["ORBITAL_FREE_FLIGHT_SHARED", "ORBITAL_FREE_FLIGHT_REQUIRE_PERSISTENCE"]) {
     assert.throws(() => freeFlightPersistenceConfig({ ...env, [key]: "true" }, true), /must be 0 or 1/);
   }
+});
+
+test("persistent population balancing is explicitly staging-only and disabled by default", () => {
+  assert.equal(freeFlightPopulationBalancerConfig({}, false), false);
+  const staging = {
+    NODE_ENV: "production",
+    WFM_FREE_FLIGHT_SHARED_ENV: "staging",
+    DATABASE_URL: "postgresql://staging.invalid/example",
+    ORBITAL_FREE_FLIGHT_POPULATION_BALANCER: "1",
+  };
+  assert.equal(freeFlightPopulationBalancerConfig(staging, true), true);
+  assert.throws(() => freeFlightPopulationBalancerConfig({
+    ...staging, WFM_FREE_FLIGHT_SHARED_ENV: undefined,
+  }, true), /shared WFM staging/);
+  assert.throws(() => freeFlightPopulationBalancerConfig(staging, false), /shared WFM staging/);
+  assert.throws(() => freeFlightPopulationBalancerConfig({
+    ...staging, DATABASE_URL: undefined,
+  }, true), /shared WFM staging/);
+  assert.throws(() => freeFlightPopulationBalancerConfig({
+    ...staging, ORBITAL_FREE_FLIGHT_POPULATION_BALANCER: "true",
+  }, true), /must be 0 or 1/);
 });
 
 test("configuration failures never expose endpoint contents", () => {

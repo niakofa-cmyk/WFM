@@ -29,9 +29,9 @@ export type PersistentPatrolShip = {
 };
 
 /**
- * Sparse, server-owned strategic fleet state. Rows are materialized only for
- * regions around authenticated pilots; movement is advanced from timestamps,
- * not by a per-process timer.
+ * Server-owned strategic fleet state. Normal directory reads materialize nearby
+ * routes; the opt-in staging population controller may materialize the full
+ * named route network. Movement advances from timestamps, not a process timer.
  */
 export const universePatrolsTable = pgTable(
   "universe_patrols",

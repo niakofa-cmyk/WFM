@@ -3,6 +3,12 @@ import type {
   createFreeFlightRuntime,
   FreeFlightAdmission,
 } from "./free-flight-runtime";
+import {
+  publishPopulationSeats,
+  readGlobalFlightPopulationCensus,
+  type GlobalFlightPopulationCensus,
+  type PopulationSeatLease,
+} from "./free-flight-population-census";
 
 type Runtime = ReturnType<typeof createFreeFlightRuntime>;
 export type FreeFlightSocket = {
@@ -73,6 +79,8 @@ const LEASE_RENEW_MS = 4_000;
 const OWNER_CACHE_MS = 500;
 const REMOTE_HEARTBEAT_MS = 5_000;
 const REMOTE_TIMEOUT_MS = 20_000;
+const POPULATION_PUBLISH_INTERVAL_MS = 5_000;
+const POPULATION_READ_INTERVAL_MS = 30_000;
 const OPEN = 1;
 const CLOSE = 3;
 const OWNER_PATTERN = /^[0-9a-f-]{36}\|[1-9][0-9]*$/i;
@@ -192,6 +200,7 @@ export async function createFreeFlightSharedRuntime(options: {
   runtime: Runtime;
   bus: FreeFlightRedisBus;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
+  onGlobalPopulationCensus?: (census: GlobalFlightPopulationCensus) => Promise<void>;
   instanceId?: string;
   now?: () => number;
 }) {
@@ -210,6 +219,10 @@ export async function createFreeFlightSharedRuntime(options: {
   const remoteSockets = new Map<string, RemoteSocket>();
   const ownerCommandPattern = "wfm:freeflight:commands:*";
   const ownResponseChannel = responseChannel(instanceId);
+  let latestGlobalPopulationCensus: GlobalFlightPopulationCensus | null = null;
+  let lastPopulationPublishAt = 0;
+  let lastPopulationReadAt = 0;
+  let populationRefreshPending = false;
   let closing = false;
   let closed = false;
 
@@ -322,6 +335,58 @@ export async function createFreeFlightSharedRuntime(options: {
       safeClose(socket, 1012, "Free-flight session owner changed");
     }
     runtime.relinquishSession(sessionKey);
+  }
+
+  function activePopulationLeaseSeats(): PopulationSeatLease[] {
+    const routes = new Map<string, {
+      sessionKey: string;
+      connectionId: string;
+      owner: Owner;
+    }>();
+    for (const route of localSockets.values()) {
+      routes.set(route.userId, {
+        sessionKey: route.sessionKey,
+        connectionId: route.connectionId,
+        owner: route.owner,
+      });
+    }
+    for (const remote of remoteSockets.values()) {
+      if (!remote.joined || remote.readyState !== OPEN) continue;
+      routes.set(remote.userId, {
+        sessionKey: remote.sessionKey,
+        connectionId: remote.connectionId,
+        owner: { instanceId, fencingToken: remote.fencingToken },
+      });
+    }
+    const seats: PopulationSeatLease[] = [];
+    for (const pilot of runtime.activePopulationSeats) {
+      const route = routes.get(pilot.userId);
+      if (!route) continue;
+      seats.push({
+        userId: pilot.userId,
+        faction: pilot.faction,
+        leaseValue: userLeaseValue(route.sessionKey, route.owner, route.connectionId),
+      });
+    }
+    return seats;
+  }
+
+  async function refreshGlobalPopulationCensus(now: number) {
+    if (closing || closed || populationRefreshPending) return;
+    populationRefreshPending = true;
+    try {
+      if (now - lastPopulationPublishAt >= POPULATION_PUBLISH_INTERVAL_MS) {
+        await publishPopulationSeats(bus, activePopulationLeaseSeats());
+        lastPopulationPublishAt = now;
+      }
+      if (now - lastPopulationReadAt < POPULATION_READ_INTERVAL_MS) return;
+      const census = await readGlobalFlightPopulationCensus(bus);
+      latestGlobalPopulationCensus = census;
+      lastPopulationReadAt = now;
+      await options.onGlobalPopulationCensus?.(census);
+    } finally {
+      populationRefreshPending = false;
+    }
   }
 
   function sendResponse(remote: RemoteSocket, response: Response) {
@@ -669,6 +734,12 @@ export async function createFreeFlightSharedRuntime(options: {
 
   const renewTimer = setInterval(() => {
     expireOwners();
+    void refreshGlobalPopulationCensus(Date.now()).catch((error) => {
+      process.stderr.write(`${JSON.stringify({
+        event: "freeflight_population_refresh_failed",
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      })}\n`);
+    });
     for (const [sessionKey, owner] of owners) {
       if (renewingOwners.has(sessionKey)) continue;
       renewingOwners.add(sessionKey);
@@ -757,6 +828,7 @@ export async function createFreeFlightSharedRuntime(options: {
     },
     get sessionCount() { return runtime.sessionCount; },
     get pilotCount() { return runtime.pilotCount; },
+    get globalPopulationCensus() { return latestGlobalPopulationCensus; },
     async close() {
       if (closing || closed) return;
       closing = true;
@@ -788,6 +860,7 @@ export async function createFreeFlightSharedRuntime(options: {
         }
         closed = true;
         owners.clear();
+        latestGlobalPopulationCensus = null;
         leaseDeadlines.clear();
         proxyRoutes.clear();
         routeSockets.clear();

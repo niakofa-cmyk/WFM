@@ -10,10 +10,11 @@ AI force slots to be opposing USSF and 20% to be same-faction Accord support.
 Mirror those factions when USSF pilots are the majority. AI escorts should help
 in ordinary open-universe encounters, not put the player into a separate mode.
 
-This is a **design direction**, not an implemented live balancer or a green
-light to copy the sample code. A deterministic pure policy now calculates the
-requested target and tests its edge cases, but it is deliberately not wired to
-fleet spawning until population data is global and durable.
+This is an adjustable starting direction, not a guaranteed per-encounter ratio.
+The repository now contains a cross-owner active-seat census and a staging-only,
+transactional persistent-patrol balancer. The writer remains disabled by
+default; implementation and local tests do not certify the deployed staging
+runtime or a measured converged share.
 
 ## Repository facts checked
 
@@ -35,16 +36,20 @@ fleet spawning until population data is global and durable.
   pilots per session, actors per session, nearby actors and concurrent
   encounters; the server, rather than a population-balancer sample, must enforce
   these safety and performance limits.
-- The socket runtime now exposes and periodically logs anonymized
-  **single-owner-process** counts for connected pilots by faction, live AI
-  hulls, support actors, encounters and actors. It omits account IDs, region
-  keys and coordinates. It is telemetry for measurement, not a whole-universe
-  population count.
-- Neither the database patrol directory nor the encounter contract provides a
-  durable, cross-worker count of distinct, actively flying humans by faction.
-  The general operation/presence summaries must not be mistaken for such a
-  count until their identity, freshness, deployment scope and semantics have
-  been checked.
+- In shared Redis mode, socket owners publish hashed account identities with
+  faction and the exact current user-seat lease. Redis validates the lease on
+  write and read, deduplicates an account across workers, and expires stale
+  seats. The result contains faction counts only; it does not contain account
+  IDs or locations.
+- PostgreSQL now has a global population controller and append-only applied
+  epoch receipts. A row lock serializes the writer; deterministic baseline
+  patrols are inserted idempotently and actual ship rosters are counted.
+- Persistent reserve formations are added with epoch-scoped IDs on connected
+  routes. Existing patrols are never overwritten and destroyed hulls are never
+  restored to manipulate a ratio.
+- These are implementation capabilities in source. No live Redis Lua execution,
+  staging database migration, feature-flag activation, multi-replica population
+  count, or measured fleet-share convergence has yet been certified.
 - The current combat actor model has pilot and patrol actors. A persistent
   same-faction strategic patrol is not yet a dedicated in-combat AI escort
   diverted to a human wing. Human participants, their rewards and AI actors
@@ -54,15 +59,15 @@ fleet spawning until population data is global and durable.
 
 Use **active rostered ship hulls**, not fleet records or arbitrary actors, when
 measuring the faction share. Fleets contain different numbers of ships, and a
-live encounter lease must not count the same persistent hull twice. The current
-`universe-population-policy.ts` implements the pure target calculation and
-fresh-account filtering; it does not yet calculate the durable hull share or
-change any population.
+live encounter lease must not count the same persistent hull twice. The
+implemented writer reads durable patrol rosters and adds new formations under a
+single global PostgreSQL epoch lock; it does not remove or repair casualties.
 
 The requested example provides a concrete, adjustable starting target. Let `a`
 be the share of distinct authenticated, actively flying pilots whose saved
-faction is Accord. The default hostile-share ceiling is 80%, but policy callers
-can tune it between 50% and 100%:
+faction is Accord. The default hostile-share ceiling is 80%. The staging writer
+can tune it through `ORBITAL_FREE_FLIGHT_MAX_HOSTILE_SHARE` from 50% to 90%,
+retaining a friendly AI floor:
 
 ```text
 if no authenticated human pilots are active:
@@ -76,13 +81,14 @@ desiredFriendlyAccordShare = 1 - desiredEnemyUssfShare
 This deliberately maps 6 of 10 active pilots to Accord → an 80% USSF / 20%
 Accord-AI target, as requested. At a 50/50 pilot split it returns 50/50; the
 mirrored 4-of-10 Accord split returns a 20% USSF / 80% Accord-AI target. The
-The default 20–80% bounds prevent either faction from disappearing. This is an initial
+default 20–80% bounds prevent either faction from disappearing. This is an initial
 calibration, **not a finding that an 80/20 target is fun, safe or correct in all
 regions**; evaluate encounter completion, player damage, waiting distance,
 disconnects and match/server load before widening it. Avoid changing force
-ratios on every heartbeat: smooth small changes, apply hysteresis and a bounded
-update cadence, then show that the achieved regional hull share tracks its
-target without repeated spawning and despawning.
+ratios on every heartbeat: the source implementation uses an eight-point
+actual-hull-share deadband, a five-minute minimum epoch interval, an eight-hull
+per-epoch cap and a 128-hull extra-world cap. It adds only and does not despawn
+fleets, so the actual share may trail or differ from the target.
 
 Count only distinct authenticated pilots with a fresh, server-confirmed flight
 seat. Exclude dormant accounts, stale/disconnected sessions, spectators, public
@@ -133,40 +139,33 @@ rules. Do not invent an assist-credit amount, bounty or reputation award.
   test population balancing. Keep the standalone bundle-size guard at its
   current threshold.
 
-## Safe implementation sequence
+## Safe implementation and rollout status
 
-1. **Partially implemented—instrument, do not spawn:** the socket owner emits
-   anonymized process-local counts. Still needed: durable per-region roster
-   counts, leases, casualties, empty fleets and encounter outcomes; a
-   cross-owner active-seat census; and proof of reconnect/owner-handoff
-   deduplication. Keep counters private and never expose player identities or
-   hidden fleet coordinates publicly.
-2. **Implemented as pure policy tests:** covers no pilots; 5/5; 6/4; 4/6;
-   capped extremes; duplicate, stale, offline, spectator and conflicting
-    seats; faction-relative encounter sides; adjustable hostile share; regional
-    threat envelopes; and cooldown/hysteresis without writing the database.
-    Still needed: cross-region and actor-cap fixtures connected to a global
-    census.
-3. **Balance persistent patrols idempotently:** use stable IDs and persisted
-   bounded population epochs or another explicit durable generation key; protect
-   shared counts and updates with database transactions/revision checks.
-   Rebalance only at a bounded cadence. Preserve a battle reservation and never
-   erase a real casualty to satisfy a target. Apply global target mix and
-   regional minimum hostile-contact constraints separately.
-4. **Add escorts as a distinct NPC role:** reuse the authoritative Orbital flight
-   and battle runtime, not a parallel renderer, co-op operation, queue or user
-   account. Revalidate faction, active encounter, location, capacity and
-   candidate patrol availability before committing a dispatch. Deduplicate the
-   dispatch durably. Protect both human and AI casualty/settlement attribution.
-5. **Not yet staged:** test both player-faction majorities,
-   connected locations, empty/no-pilot regions, simultaneous API workers,
-   restart/reconnect, encounter reservation conflicts, rewards, rollback and
-   Android/network budgets. Compare the requested 80/20 target with measured
-   actual hull shares before calling the population self-balancing.
+1. **Implemented in source:** the shared socket census uses hashed account
+   identities, faction and the current Redis user-seat lease. It deduplicates
+   reconnects/owner handoffs, expires stale seats, and fails closed above the
+   configured population bound. Tests use an in-memory Redis contract fake;
+   they do not execute Lua against a live Redis service.
+2. **Implemented in source:** pure target planning, bounded additive hull
+   planning, deterministic epoch-scoped 2–4 ship reserve formations, whole-route
+   baseline materialization, and a durable PostgreSQL epoch/audit transaction
+   are covered by targeted tests and typechecks.
+3. **Implemented but disabled by default:** the writer requires an explicit
+   staging-only flag, shared Redis transport, staging marker, database, and
+   pre-existing schema. Additive migration 0008 is tracked; no runtime DDL is
+   performed. Production is rejected by the feature gate.
+4. **Not certified against live services:** apply the migration in staging,
+   verify the actual Redis Lua scripts, then test two replicas, both pilot
+   majorities, lease handoff, stale disconnects, concurrent epochs,
+   encounter reservations, casualty preservation and restart recovery. Measure
+   actual hull-share convergence before calling the system live or
+   self-balancing.
+5. **Still separate future work:** a same-faction strategic patrol is not
+   automatically dispatched as an in-combat AI escort. Any escort deployment
+   must use connected route movement, combat capacity, durable deduplication and
+   existing server settlement rather than teleporting an AI beside the pilot.
 
-Do not launch broad fleet spawning or schema changes from this reference alone.
-Preserve the current deterministic patrol network, shared-flight authority,
-human reward rules and compatibility rollback until these gates pass.
-
-See [Orbital fleet population and encounter director](ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md)
-for the current implementation boundary and next safe increments.
+See [Global AI Population Census and Durable Epochs](GLOBAL-AI-POPULATION-EPOCHS.md)
+for the implementation contract, safety caps and explicit staging gates. The
+[Orbital fleet population and encounter director](ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md)
+still describes the encounter behavior boundary.

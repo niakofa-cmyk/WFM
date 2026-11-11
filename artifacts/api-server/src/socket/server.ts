@@ -10,6 +10,7 @@ import {
   createFreeFlightSharedRuntime,
   type FreeFlightRedisBus,
 } from "./free-flight-shared-runtime";
+import type { GlobalFlightPopulationCensus } from "./free-flight-population-census";
 import type {
   FreeFlightSessionCheckpointV1,
   StoredFreeFlightCheckpoint,
@@ -135,6 +136,7 @@ export async function startWingSocketServer(
     onFreeFlightCampaignJoin?: (userId: string) => Promise<void>;
     enableFreeFlightFriendlyAi?: boolean;
     enableFreeFlightPopulationTelemetry?: boolean;
+    onFreeFlightPopulationCensus?: (census: GlobalFlightPopulationCensus) => Promise<void>;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
     freeFlightRedisBus?: FreeFlightRedisBus;
     freeFlightCheckpoints?: {
@@ -248,6 +250,7 @@ export async function startWingSocketServer(
         runtime: localFreeFlightRuntime,
         bus: options.freeFlightRedisBus,
         resolveAdmission: options.resolveFreeFlightAdmission,
+         onGlobalPopulationCensus: options.onFreeFlightPopulationCensus,
       })
     : localFreeFlightRuntime;
   const rooms = new Map<string, Room>();

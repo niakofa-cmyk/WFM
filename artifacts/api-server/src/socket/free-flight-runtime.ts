@@ -108,6 +108,11 @@ export type FreeFlightPopulationTelemetry = Readonly<{
   actorCount: number;
 }>;
 
+export type FreeFlightPopulationSeat = Readonly<{
+  userId: string;
+  faction: Faction;
+}>;
+
 type SharedInput = FlightControls & {
   fire: boolean;
   missile: boolean;
@@ -2787,5 +2792,15 @@ export function createFreeFlightRuntime(options: {
     get sessionCount() { return sessions.size; },
     get pilotCount() { return userSeats.size; },
     get populationTelemetry() { return populationTelemetry(sessions, Date.now()); },
+    get activePopulationSeats() {
+      const active = new Map<string, FreeFlightPopulationSeat>();
+      for (const session of sessions.values()) {
+        for (const pilot of session.pilotByUser.values()) {
+          if (!pilot.ownerUserId || pilot.socket?.readyState !== OPEN || !pilot.craft.alive) continue;
+          active.set(pilot.ownerUserId, { userId: pilot.ownerUserId, faction: pilot.faction });
+        }
+      }
+      return [...active.values()];
+    },
   };
 }

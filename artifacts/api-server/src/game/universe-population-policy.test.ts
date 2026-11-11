@@ -5,6 +5,7 @@ import {
   desiredAiFactionMixFromActivePilots,
   encounterAiFactionMixForCombat,
   encounterThreatEnvelope,
+  planAiHullReinforcements,
   shouldApplyAiMix,
 } from "./universe-population-policy";
 
@@ -103,4 +104,36 @@ test("mix changes require a bounded cadence and meaningful hysteresis", () => {
   assert.equal(shouldApplyAiMix(null, { ussf: 0.5, accord: 0.5 }, 0), true);
   assert.throws(() => shouldApplyAiMix(previous, { ussf: 0.7, accord: 0.7 }, 70_000),
     /Invalid AI population mix/);
+});
+
+test("persistent hull balancing adds only the underrepresented faction within hard caps", () => {
+  const targetAccordHeavy = { ussf: 0.8, accord: 0.2 };
+  assert.deepEqual(planAiHullReinforcements(
+    { ussf: 50, accord: 50 }, targetAccordHeavy, 228, 8,
+  ), {
+    faction: "ussf", hullCount: 8, totalBefore: 100, totalAfter: 108,
+  });
+  assert.deepEqual(planAiHullReinforcements(
+    { ussf: 50, accord: 50 }, { ussf: 0.2, accord: 0.8 }, 228, 8,
+  ), {
+    faction: "accord", hullCount: 8, totalBefore: 100, totalAfter: 108,
+  });
+  assert.deepEqual(planAiHullReinforcements(
+    { ussf: 80, accord: 20 }, targetAccordHeavy, 228, 8,
+  ), {
+    faction: null, hullCount: 0, totalBefore: 100, totalAfter: 100,
+  });
+  assert.deepEqual(planAiHullReinforcements(
+    { ussf: 50, accord: 50 }, targetAccordHeavy, 228, 1,
+  ), {
+    faction: null, hullCount: 0, totalBefore: 100, totalAfter: 100,
+  });
+  assert.deepEqual(planAiHullReinforcements(
+    { ussf: 50, accord: 50 }, targetAccordHeavy, 100, 8,
+  ), {
+    faction: null, hullCount: 0, totalBefore: 100, totalAfter: 100,
+  });
+  assert.throws(() => planAiHullReinforcements(
+    { ussf: -1, accord: 50 }, targetAccordHeavy, 228, 8,
+  ), /Invalid persistent AI hull balance/);
 });

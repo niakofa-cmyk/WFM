@@ -108,6 +108,69 @@ export function createSeededPatrols(
   return patrols;
 }
 
+/** Create new, durable reserve formations without reusing casualty identities. */
+export function createPopulationReservePatrols(
+  network: PatrolSectorNetwork,
+  faction: PatrolFaction,
+  epoch: number,
+  hullCount: number,
+  now: Date,
+): GeneratedPatrol[] {
+  if (!Number.isSafeInteger(epoch) || epoch < 1 ||
+      !Number.isSafeInteger(hullCount) || hullCount < 2 || hullCount > 128 ||
+      hullCount % 2 !== 0 || !Number.isFinite(now.getTime()) ||
+      (faction !== "ussf" && faction !== "accord")) {
+    throw new Error("Invalid population reserve formation request.");
+  }
+  const locations = Object.keys(network).sort();
+  const eligible = locations.filter((locationId) =>
+    (network[locationId] ?? []).some((neighbor) =>
+      neighbor !== locationId && locations.includes(neighbor)));
+  if (!eligible.length) throw new Error("Population reserve route network is empty.");
+
+  const fleets: GeneratedPatrol[] = [];
+  let remaining = hullCount;
+  let fleetIndex = 0;
+  while (remaining > 0) {
+    fleetIndex += 1;
+    const count = Math.min(4, remaining);
+    const patrolId = `population-reserve-v1:${faction}:${epoch}:${fleetIndex}`;
+    const seed = stableHash(patrolId);
+    const originLocationId = eligible[seed % eligible.length]!;
+    const neighbors = [...new Set(network[originLocationId] ?? [])]
+      .filter((locationId) => locationId !== originLocationId && locations.includes(locationId))
+      .sort();
+    if (!neighbors.length) throw new Error("Population reserve has no connected route.");
+    const destination = neighbors[stableHash(`${patrolId}:route`) % neighbors.length]!;
+    const hulls = HULLS[faction];
+    const shipRoster = Array.from({ length: count }, (_, index) => {
+      const hull = hulls[stableHash(`${patrolId}:hull:${index}`) % hulls.length]!;
+      return {
+        id: `${patrolId}:ship:${index + 1}`,
+        hullId: hull.id,
+        name: hull.name,
+        callsign: `${faction === "ussf" ? "U" : "A"}-R${(stableHash(`${patrolId}:callsign:${index}`) % 900) + 100}`,
+      };
+    });
+    fleets.push({
+      patrolId,
+      originLocationId,
+      currentLocationId: originLocationId,
+      faction,
+      objective: "route-security",
+      callsign: `${faction === "ussf" ? "USSF" : "ACCORD"}-RESERVE-${epoch}-${fleetIndex}`,
+      shipRoster,
+      route: [originLocationId, destination],
+      routeIndex: 0,
+      lastMovedAt: timeBucket(now),
+      revision: 0,
+      updatedAt: now,
+    });
+    remaining -= count;
+  }
+  return fleets;
+}
+
 export type PatrolMovementState = Pick<
   GeneratedPatrol,
   "route" | "routeIndex" | "currentLocationId" | "lastMovedAt" | "revision" | "updatedAt"

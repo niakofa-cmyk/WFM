@@ -1,6 +1,9 @@
 import { startWingSocketServer } from "./server";
 import { connectFreeFlightRedis } from "./free-flight-redis";
-import { freeFlightPersistenceConfig } from "./free-flight-persistence-config";
+import {
+  freeFlightPersistenceConfig,
+  freeFlightPopulationBalancerConfig,
+} from "./free-flight-persistence-config";
 import { eq } from "drizzle-orm";
 import { isOrbitalFreeFlightEnabled } from "@workspace/orbital-sim";
 import { SHIPS, type Faction, type ShipId } from "../game/ships";
@@ -66,6 +69,21 @@ const enableFreeFlight = isOrbitalFreeFlightEnabled({
 });
 const freeFlightPersistence = freeFlightPersistenceConfig(process.env, enableFreeFlight);
 const sharedFreeFlightRequested = freeFlightPersistence.shared;
+const freeFlightPopulationBalancerEnabled = freeFlightPopulationBalancerConfig(
+  process.env,
+  sharedFreeFlightRequested,
+);
+const freeFlightPopulationBalancer = freeFlightPopulationBalancerEnabled
+  ? await import("../game/universe-population-balancer")
+  : undefined;
+const maximumHostileAiShare = freeFlightPopulationBalancer
+  ? freeFlightPopulationBalancer.maximumHostileAiShareFromEnvironment(
+    process.env.ORBITAL_FREE_FLIGHT_MAX_HOSTILE_SHARE,
+  )
+  : 0.8;
+if (freeFlightPopulationBalancer) {
+  await freeFlightPopulationBalancer.assertUniversePopulationSchemaReady();
+}
 const freeFlightRedisBus = sharedFreeFlightRequested
   ? await connectFreeFlightRedis(process.env.REDIS_URL ?? "")
   : undefined;
@@ -80,6 +98,8 @@ process.stdout.write(`${JSON.stringify({
   mode: freeFlightPersistence.mode,
   persistenceRequired: freeFlightPersistence.persistenceRequired,
   checkpointStore: Boolean(freeFlightCheckpoints),
+  populationBalancerEnabled: freeFlightPopulationBalancerEnabled,
+  maximumHostileAiShare,
 })}\n`);
 const freeFlightLocations: Readonly<Record<string, string>> = {
   "phobos-yard": "mars-orbit",
@@ -176,6 +196,25 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   requireFreeFlightPersistence: freeFlightPersistence.persistenceRequired,
   enableFreeFlightFriendlyAi: process.env.ORBITAL_FREE_FLIGHT_FRIENDLY_AI === "true",
   enableFreeFlightPopulationTelemetry: enableFreeFlight,
+  onFreeFlightPopulationCensus: async (census) => {
+    if (!freeFlightPopulationBalancer) {
+      process.stdout.write(`${JSON.stringify({
+        event: "freeflight_global_population_census",
+        capturedAt: census.capturedAt,
+        activePilotsByFaction: census.activePilotsByFaction,
+        total: census.total,
+        balancingEnabled: false,
+      })}\n`);
+      return;
+    }
+    const result = await freeFlightPopulationBalancer.applyUniversePopulationEpoch(census, {
+      maximumHostileShare: maximumHostileAiShare,
+    });
+    process.stdout.write(`${JSON.stringify({
+      event: "freeflight_population_epoch",
+      ...freeFlightPopulationBalancer.populationEpochLogFields(result),
+    })}\n`);
+  },
   resolveFreeFlightAdmission,
   freeFlightRedisBus,
   freeFlightCheckpoints: freeFlightCheckpoints ? {

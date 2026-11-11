@@ -1,0 +1,76 @@
+# Global AI fleet population census and durable epochs
+
+## Purpose
+
+This implements the adjustable global AI hull-share direction from
+[Faction Population and AI Escort Direction](FACTION-POPULATION-AND-AI-ESCORT-DIRECTION.md)
+inside the existing persistent patrol network. The example remains an initial
+target: when Accord is the larger active human faction, the default target is
+80% USSF hostile hulls / 20% Accord friendly hulls; the target mirrors for a
+USSF-heavy group. This is a global hull-share target, not a promise that each
+individual encounter has those exact percentages.
+
+## Implemented contract
+
+- Shared socket owners publish only each live pilot's SHA-256 identity digest,
+  authenticated faction and exact current user-seat lease value to Redis. Raw
+  account IDs, locations and coordinates are not sent to the census keys or
+  emitted in logs. The digest is pseudonymous, not cryptographic anonymity; the
+  Redis records are short-lived and stay private to the server transport.
+- The census checks each digest against the existing Redis user-seat lease on
+  both write and read. An old owner cannot replace a newer seat, and an account
+  contributes at most one faction count. Presence older than 20 seconds is
+  removed; a census over 4,096 pilots fails closed instead of returning partial
+  numbers.
+- The active faction counts are sampled across the shared socket instances. A
+  local/process-only runtime cannot activate balancing.
+- PostgreSQL holds one `global` controller row. A `FOR UPDATE` transaction
+  serializes epochs across replicas, materializes the deterministic baseline
+  patrol network idempotently, counts actual roster hulls, and atomically
+  inserts reserve patrols, advances the epoch and records an audit receipt.
+- Reserve formations have new epoch-scoped IDs and connected routes. Each
+  contains 2–4 ships. The balancer only adds underrepresented hulls; it never
+  edits old rosters, restores destroyed hulls or despawns a fleet to force a
+  percentage.
+- Balancing is deliberately slow and bounded: at most one applied epoch per
+  five minutes, at most eight added hulls in an epoch, and at most 128 added
+  hulls beyond the deterministic baseline. It pauses when the actual hull-share
+  gap is below eight percentage points or there are no active human pilots.
+- The default maximum hostile share is 80%. The optional
+  `ORBITAL_FREE_FLIGHT_MAX_HOSTILE_SHARE` setting accepts 0.50–0.90, preserving
+  at least a 10% friendly share. The pure target function remains independently
+  testable.
+
+## Activation and safety
+
+The writer is off by default. It may be enabled only with
+`ORBITAL_FREE_FLIGHT_POPULATION_BALANCER=1` in the explicitly shared WFM
+staging runtime (`NODE_ENV=production`, `WFM_FREE_FLIGHT_SHARED_ENV=staging`,
+shared Redis transport, and `DATABASE_URL`). Startup checks that the new tables
+already exist; it does not create tables at runtime. The additive schema is
+`lib/db/migrations/0008_universe_population_epochs.sql`. Production is not
+enabled or changed by this feature.
+
+When the writer is off, shared census refresh still reports aggregate counts
+for private operational diagnosis; it does not alter any patrol. Do not expose
+the census or hidden patrol positions as a public roster API.
+
+## Verification boundary
+
+Pure policy, reserve identity/route, seat-lease deduplication, stale-seat
+rejection, staging-only configuration, and shared-runtime regression tests pass
+in the local test harness. The census tests use an in-memory Redis contract
+fake; they do not execute the Lua scripts against a live Redis service. The
+transactional writer is typechecked and migration-backed but has not yet been
+run against WFM staging PostgreSQL. No schema push, deployment, feature-flag
+change, live two-replica census, restart test, or measured fleet-share
+convergence is claimed here.
+
+Before enabling the writer in staging, apply migration 0008 through the
+staging-only schema workflow and verify the new tables. Then test two socket
+replicas with both pilot factions, a user-seat handoff, stale disconnects,
+concurrent epoch requests, an encounter reservation, confirmed casualties and
+restart recovery. Confirm the epoch advances once, reserve IDs do not duplicate,
+casualties are not restored, and hull counts move only toward the selected
+target within the stated caps. Keep Production untouched until those checks and
+separate approval.
