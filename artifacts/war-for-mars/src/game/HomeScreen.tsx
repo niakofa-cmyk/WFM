@@ -2,7 +2,7 @@ import { menuTip, type MenuAction, type MenuStateId } from "./menu";
 import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
 import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
-import type { Save } from "./save";
+import type { PilotControlLayout, Save } from "./save";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
@@ -24,6 +24,8 @@ type HomeProps = {
   ship: ShipId;
   scheme: Scheme;
   gyro: boolean;
+  pilotControlLayout: PilotControlLayout;
+  onPilotControlLayout: (layout: PilotControlLayout) => void;
   audioMuted: boolean;
   onAudioMute: () => void;
   refit: number;
@@ -634,6 +636,27 @@ function Settings(props: HomeProps & { initialTab: "controls" | "audio" | "accou
           <div className="grid gap-2 sm:grid-cols-2">
             <Pick testId="button-scheme-arc" on={props.scheme === "arc"} label="ARC" detail="Left stick turns the nose." click={() => props.onScheme("arc")} />
             <Pick testId="button-scheme-strafe" on={props.scheme === "strafe"} label="STRAFE" detail="Left stick slides. Right stick turns." click={() => props.onScheme("strafe")} />
+          </div>
+          <div className="wfm-settings-copy">
+            <PanelLabel>ORBITAL FLIGHT INPUT</PanelLabel>
+            <h3 className="mt-2 font-hud text-2xl tracking-wider">STICK PLACEMENT</h3>
+            <p className="mt-1 text-sm leading-relaxed text-muted">Choose the control layout for Orbital free flight. This preference is saved on this device.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Orbital flight stick placement">
+            <Pick
+              testId="button-control-layout-fixed"
+              on={props.pilotControlLayout === "fixed"}
+              label="FIXED STICKS"
+              detail="Keep both thumb controls visible in their usual positions."
+              click={() => props.onPilotControlLayout("fixed")}
+            />
+            <Pick
+              testId="button-control-layout-touch-anywhere"
+              on={props.pilotControlLayout === "touch-anywhere"}
+              label="TOUCH ANYWHERE"
+              detail="Use either screen half; each stick guide appears while touching."
+              click={() => props.onPilotControlLayout("touch-anywhere")}
+            />
           </div>
           <div className="wfm-settings-row">
             <div><h3 className="font-hud text-lg tracking-wider">GYRO AIM</h3><p className="mt-1 text-sm text-muted">Device permission is requested when enabled. This setting stays on this device.</p></div>

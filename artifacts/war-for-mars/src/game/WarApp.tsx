@@ -26,6 +26,7 @@ import {
   refitCost,
   saveFromProfile,
   writeDevicePreferences,
+  type PilotControlLayout,
   type Save,
 } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
@@ -143,6 +144,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   const [leaderboardSaving, setLeaderboardSaving] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
   const [audioMuted, setAudioMuted] = useState(false);
+  const [pilotControlLayout, setPilotControlLayout] = useState<PilotControlLayout>("fixed");
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -654,6 +656,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     let cancelled = false;
     const device = loadDevicePreferences();
     setAudioMuted(device.audioMuted === true);
+    setPilotControlLayout(device.pilotControlLayout);
     setMuted(device.audioMuted === true);
     setSave((previous) => ({ ...previous, gyro: device.gyro, drilled: device.drilled }));
     setProfileStatus("loading");
@@ -726,7 +729,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
     const sync = createProfileSync(loadServerProfile, (profile) => {
       if (loadoutSaveInFlightRef.current) return;
-      setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setSave((previous) => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
       setLeaderboardProfile({
         enabled: profile.publicLeaderboardOptIn,
         callsign: profile.publicLeaderboardCallsign ?? "",
@@ -756,8 +761,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
 
   useEffect(() => {
-    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled, audioMuted });
-  }, [save.gyro, save.drilled, audioMuted, ready]);
+    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled, audioMuted, pilotControlLayout });
+  }, [save.gyro, save.drilled, audioMuted, pilotControlLayout, ready]);
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
@@ -820,7 +825,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     try {
       const profile = await saveServerLoadout(input);
       if (authUserIdRef.current !== requestUserId) return false;
-      setSave(previous => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setSave(previous => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
       return true;
     } catch {
       if (authUserIdRef.current === requestUserId) {
@@ -862,7 +869,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       const profile = await saveServerControlScheme(scheme);
       if (authUserIdRef.current !== requestUserId) return;
       setSave((previous) =>
-        saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }),
+        saveFromProfile(profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
       );
     } catch (error) {
       if (authUserIdRef.current === requestUserId) {
@@ -974,7 +983,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       };
       const run = await startServerStrike(selection);
       setActiveRun(run);
-      setSave(saveFromProfile(run.profile, { gyro: save.gyro, drilled: save.drilled }));
+      setSave(saveFromProfile(run.profile, {
+        gyro: save.gyro, drilled: save.drilled, pilotControlLayout,
+      }));
       setOfflineMode(false);
       setPendingClaim(null);
       setClaimError("");
@@ -1084,7 +1095,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         reason: preview.reason,
       });
       setSave((previous) =>
-        saveFromProfile(grant.profile, { gyro: previous.gyro, drilled: previous.drilled }),
+        saveFromProfile(grant.profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
       );
       setArchiveOpen(true);
       void narrativeWorld.refetch();
@@ -1312,6 +1325,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
               }
               tech={null}
               gyro={save.gyro}
+              pilotControlLayout={pilotControlLayout}
               drilled
               onDrill={() => {}}
               localUniverse={{
@@ -1404,6 +1418,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         serverSeed={activeRun?.seed}
         orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
@@ -1584,6 +1599,8 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         ship={save.ship}
         scheme={save.scheme}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
+        onPilotControlLayout={setPilotControlLayout}
         audioMuted={audioMuted}
         refit={save.refit}
         credits={save.credits}

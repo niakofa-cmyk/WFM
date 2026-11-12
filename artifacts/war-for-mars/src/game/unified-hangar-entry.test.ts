@@ -61,6 +61,9 @@ test("settings tabs expose only working controls, audio, and account functions",
   assert.match(home, /onClick=\{props\.onAudioMute\}/);
   assert.match(home, /props\.onScheme\("arc"\)/);
   assert.match(home, /props\.onGyro/);
+  assert.match(home, /button-control-layout-fixed/);
+  assert.match(home, /button-control-layout-touch-anywhere/);
+  assert.match(home, /Choose the control layout for Orbital free flight/);
   assert.doesNotMatch(home, /DISPLAY BRIGHTNESS SLIDER|HUD SCALE SLIDER|MUSIC VOLUME SLIDER/);
 });
 

@@ -32,3 +32,16 @@ test("right-half floating input remains a separate, accessible virtual stick", (
   assert.match(html, /aria-label="Right thumb aim stick\. Aim and translate/);
   assert.match(html, /data-testid="stick-aim"/);
 });
+
+test("fixed Orbital sticks keep visible on-screen guides by default", () => {
+  const html = renderToStaticMarkup(createElement(PilotFlightStick, {
+    label: "Left thumb flight",
+    testId: "stick-flight",
+    className: "pilot-rust-disc-stick",
+    onAxis: () => {},
+  }));
+
+  assert.match(html, /pilot-rust-disc-stick/);
+  assert.match(html, /pilot-flight-stick-visual-static/);
+  assert.doesNotMatch(html, /data-floating-side=/);
+});

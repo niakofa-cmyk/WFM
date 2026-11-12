@@ -63,6 +63,7 @@ import { createOrbitalStarfieldBuffers } from "./orbital-starfield";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
+import type { PilotControlLayout } from "./save";
 import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pilot-hud";
 import {
   createOrbitalRuntime,
@@ -188,6 +189,7 @@ type ArenaProps = {
   tech: TechId | null;
   serverSeed?: number;
   gyro: boolean;
+  pilotControlLayout?: PilotControlLayout;
   drilled: boolean;
   onDrill: () => void;
   onDone: (
@@ -649,6 +651,7 @@ export function Arena({
   tech,
   serverSeed,
   gyro,
+  pilotControlLayout = "fixed",
   drilled,
   onDrill,
   onDone,
@@ -1230,6 +1233,7 @@ export function Arena({
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const unifiedOrbitalControls = orbital && !online;
+  const touchAnywhereControls = unifiedOrbitalControls && pilotControlLayout === "touch-anywhere";
   /** Exploration hides encounter-only actions; shared-flight primary fire remains available. */
   const exploringHud = Boolean(localUniverse) && universe?.phase !== "training";
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
@@ -3851,7 +3855,7 @@ export function Arena({
               <PilotFlightStick
                 label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
                 testId={`stick-${orbital ? "flight" : "move"}`}
-                floatingSide={unifiedOrbitalControls ? "left" : undefined}
+                floatingSide={touchAnywhereControls ? "left" : undefined}
                 disabled={paused}
                 size={unifiedOrbitalControls ? "rust-disc" : "arena"}
                 className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
@@ -4090,7 +4094,7 @@ export function Arena({
                 </div>
                 <div className="relative">
                   <PilotFlightStick label={rightThumbProfile.mode === "vector" ? "Right thumb vector" : "Right thumb aim"} testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
-                    floatingSide="right"
+                    floatingSide={touchAnywhereControls ? "right" : undefined}
                     interactionKey={rightThumbProfile.mode}
                     disabled={paused}
                     boostStatus={vectorBoostStatus}
