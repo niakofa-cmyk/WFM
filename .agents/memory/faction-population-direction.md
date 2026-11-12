@@ -18,12 +18,12 @@ reserve to approach and help a pilot already fighting multiple hostile fleets.
 Friendly traffic merely appearing nearby is not the intended assistance.
 
 Source now includes a cross-owner lease-validated pilot census and a durable,
-transactional population epoch balancer. The writer is disabled by default and
-staging-only; live Redis Lua behavior and staging convergence are not certified.
-It counts active ship hulls, adds bounded route-connected reserve fleets, and
-never restores destroyed rosters to force a ratio. A nearby persistent friendly
-patrol can now join a battle as bounded AI support; its casualties are settled
-with the same encounter receipt and do not create human kill credit.
+transactional population epoch balancer. The writer remains off by default and
+is enabled only in WFM staging; two-device convergence is not yet certified. It
+counts active ship hulls, adds bounded route-connected reserve fleets, and never
+restores destroyed rosters to force a ratio. A nearby persistent friendly patrol
+can join a battle as bounded AI support; its casualties are settled with the
+same encounter receipt and do not create human kill credit.
 
 **Why:** the owner clarified that 80% means hostile AI and 20% friendly AI from
 the active pilots' faction perspective, while keeping the percentage adjustable.
@@ -45,5 +45,15 @@ to avoid double-counts, duplicate fleets and casualty restoration.
 
 **How to apply:** use authenticated Redis seat leases for a fresh faction census
 and the PostgreSQL global epoch for additive, bounded persistent formations.
-Verify actual staging Redis, database migration and both socket replicas before
-enabling the staging flag. Do not enable in Production.
+Treat Redis time as authoritative for lease pruning, but measure census age from
+local receipt time so different socket-host clocks cannot reject a fresh read.
+Verify two authenticated pilots across both staging replicas before claiming
+convergence. Do not enable in Production.
+
+**Why:** staging telemetry showed fresh population reads rejected as stale when
+the epoch guard compared Redis and socket absolute clocks across hosts.
+
+**How to apply:** preserve the Redis-side 20-second lease freshness check, and
+use the receiving process's timestamp only for local elapsed-time validation.
+An empty census is not evidence that a shared multiplayer population has been
+verified.

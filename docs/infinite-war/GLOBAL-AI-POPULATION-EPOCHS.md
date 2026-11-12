@@ -22,6 +22,10 @@ individual encounter has those exact percentages.
   contributes at most one faction count. Presence older than 20 seconds is
   removed; a census over 4,096 pilots fails closed instead of returning partial
   numbers.
+- Redis timestamps and prunes the census using its own clock. Each successful
+  read also records the receiving socket's local time; the epoch freshness guard
+  compares that local receipt time rather than comparing absolute Redis and
+  socket clocks across hosts.
 - The active faction counts are sampled across the shared socket instances. A
   local/process-only runtime cannot activate balancing.
 - PostgreSQL holds one `global` controller row. A `FOR UPDATE` transaction
@@ -59,7 +63,7 @@ the census or hidden patrol positions as a public roster API.
 
 Pure policy, reserve identity/route, seat-lease deduplication, stale-seat
 rejection, staging-only configuration, and shared-runtime regression tests pass
-in the local test harness. Free-flight now loads both factions' local persistent
+in the local test harness. Free-flight loads both factions' local persistent
 patrols, routes up to two nearby friendly ships into an active battle without
 teleporting them, and settles any destroyed friendly ships atomically with the
 enemy fleet and reward receipt; see
@@ -67,16 +71,24 @@ enemy fleet and reward receipt; see
 The census tests use an in-memory Redis contract fake; they do not execute the
 Lua scripts against a live Redis service. The PostgreSQL epoch and allied-loss
 integration test skips unless the explicitly named disposable local database is
-configured. Neither the writer nor casualty settlement has yet been verified
-against WFM staging PostgreSQL. No schema push, deployment, feature-flag change,
-live two-replica census, restart test, or measured fleet-share convergence is
-claimed here.
+configured.
 
-Before enabling the writer in staging, apply migration 0008 through the
-staging-only schema workflow and verify the new tables. Then test two socket
-replicas with both pilot factions, a user-seat handoff, stale disconnects,
-concurrent epoch requests, an encounter reservation, confirmed casualties and
-restart recovery. Confirm the epoch advances once, reserve IDs do not duplicate,
-casualties are not restored, and hull counts move only toward the selected
-target within the stated caps. Keep Production untouched until those checks and
-separate approval.
+### Staging rollout status — November 12, 2026
+
+The additive schema push completed during the successful WFM staging API
+deployment. The staging-only writer flag is enabled, and both socket replicas
+are online on the same release. Runtime logs confirm population telemetry and
+epoch execution. The last available telemetry before authenticated pilots
+joined reported zero active pilots and no loaded sessions; it does not certify
+faction-share convergence, visible patrol encounters, or AI assistance. Initial
+epoch logs also exposed cross-host clock skew in the freshness guard; the guard
+now uses local read-receipt time, and this correction must be confirmed in the
+next staging deployment before the two-device test.
+
+Still required after that release: authenticate two pilots on separate devices,
+confirm both are routed into the same spatial session, verify both factions are
+counted once across socket replicas, exercise one user-seat handoff and stale
+disconnect, then verify an encounter and friendly support. Confirm any applied
+epoch is serialized once, reserve IDs do not duplicate, casualties are not
+restored, and hull counts move only toward the selected target within the
+stated caps. Production remains untouched.
