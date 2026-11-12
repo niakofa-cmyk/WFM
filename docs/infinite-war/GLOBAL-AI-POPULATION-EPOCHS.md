@@ -78,14 +78,13 @@ configured.
 The additive schema push completed during the successful WFM staging API
 deployment. The staging-only writer flag is enabled, and both socket replicas
 are online on the same release. Runtime logs confirm population telemetry and
-epoch execution. The last available telemetry before authenticated pilots
-joined reported zero active pilots and no loaded sessions; it does not certify
-faction-share convergence, visible patrol encounters, or AI assistance. Initial
-epoch logs also exposed cross-host clock skew in the freshness guard; the guard
-now uses local read-receipt time, and this correction must be confirmed in the
-next staging deployment before the two-device test.
+epoch execution. The latest census is empty because no authenticated pilots are
+currently connected; the epoch reports `empty-census`, not a successful
+population adjustment. The local-receipt freshness correction is deployed, and
+the current deployment no longer reports `stale-census`. This does not certify
+faction-share convergence, visible patrol encounters, or AI assistance.
 
-Still required after that release: authenticate two pilots on separate devices,
+Still required: authenticate two pilots on separate devices,
 confirm both are routed into the same spatial session, verify both factions are
 counted once across socket replicas, exercise one user-seat handoff and stale
 disconnect, then verify an encounter and friendly support. Confirm any applied

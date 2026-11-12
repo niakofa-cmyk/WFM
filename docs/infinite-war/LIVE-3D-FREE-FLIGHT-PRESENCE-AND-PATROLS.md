@@ -63,15 +63,15 @@ Do not fabricate pilot ships when no server presence exists.
   Clients cannot fabricate contacts or authorize damage from their local
   distance estimate.
 - Redis-backed session ownership and checkpoints are enabled in WFM staging.
-  Staging telemetry currently confirms the writer is running, but its latest
-  captured aggregate had no authenticated pilots. Therefore two-device
+  Staging telemetry confirms the writer is running, but its latest census is
+  empty because no authenticated pilots are currently connected. Two-device
   co-location, visible enemy fleets, and in-battle assistance are not yet
   certified against the live staging runtime. The owner plans to run that
   device check.
-- The staged free-flight population balancer previously emitted stale-census
-  results when comparing absolute timestamps across Redis and socket hosts.
-  Freshness now uses local receipt time after the Redis-side lease pruning; the
-  updated correction must be included in the next successful staging release.
+- A clock-skew correction is deployed: Redis prunes pilot leases using Redis
+  time, while each socket validates elapsed age from its own read-receipt time.
+  The current deployment reports empty-census and no stale-census; dynamic
+  faction-share convergence still requires active authenticated pilots.
 
 The strategic directory still covers the named nine-location route graph. This
 is not evidence of an unbounded infinite map. See

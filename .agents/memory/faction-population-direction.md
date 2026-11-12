@@ -25,6 +25,19 @@ restores destroyed rosters to force a ratio. A nearby persistent friendly patrol
 can join a battle as bounded AI support; its casualties are settled with the
 same encounter receipt and do not create human kill credit.
 
+Each materialized location also receives one persistent route-security
+formation per faction alongside the route-roaming formation. The local patrol
+prevents waypoint travel from leaving a location empty, while keeping its ships
+and casualties persistent.
+
+**Why:** a route-roaming fleet can be away from its origin for multiple
+waypoint intervals, and free flight previously loaded only fleets at the exact
+current location.
+
+**How to apply:** seed local route-security patrols additively and let them
+continue tactical flight movement. Never heal or recreate ships already
+destroyed; reserve reinforcements must use new persistent identities.
+
 **Why:** the owner clarified that 80% means hostile AI and 20% friendly AI from
 the active pilots' faction perspective, while keeping the percentage adjustable.
 
