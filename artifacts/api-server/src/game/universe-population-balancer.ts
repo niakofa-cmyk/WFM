@@ -20,6 +20,8 @@ import { WORLD_PATROL_SECTOR_NETWORK } from "./world";
 
 export type GlobalActivePilotCensus = Readonly<{
   capturedAt: number;
+  /** Local receipt timestamp; unlike capturedAt, shares the socket's clock. */
+  observedAt?: number;
   activePilotsByFaction: Readonly<{ ussf: number; accord: number }>;
   total: number;
 }>;
@@ -63,7 +65,8 @@ export function maximumHostileAiShareFromEnvironment(value: string | undefined):
 
 function pilotCounts(census: GlobalActivePilotCensus): PilotFactionCounts {
   const { ussf, accord } = census.activePilotsByFaction;
-  if (![census.capturedAt, census.total, ussf, accord].every(Number.isSafeInteger) ||
+  if (![census.capturedAt, census.observedAt ?? census.capturedAt,
+    census.total, ussf, accord].every(Number.isSafeInteger) ||
       census.total !== ussf + accord || ussf < 0 || accord < 0) {
     throw new Error("Invalid shared active-pilot census.");
   }
@@ -108,8 +111,13 @@ export async function applyUniversePopulationEpoch(
   const now = options.now ?? new Date();
   const nowMs = now.getTime();
   const counts = pilotCounts(census);
+  const observedAt = census.observedAt ?? census.capturedAt;
   if (!Number.isFinite(nowMs)) throw new Error("Invalid population epoch time.");
-  if (nowMs < census.capturedAt || nowMs - census.capturedAt > CENSUS_MAX_AGE_MS) {
+  // Redis applies freshness using its own clock while pruning leases. Validate
+  // only the elapsed time since this socket received the read; comparing Redis
+  // absolute time with each replica's wall clock can reject a fresh census
+  // when their clocks differ.
+  if (nowMs < observedAt || nowMs - observedAt > CENSUS_MAX_AGE_MS) {
     return { status: "stale-census" };
   }
   if (counts.total === 0) return { status: "empty-census" };

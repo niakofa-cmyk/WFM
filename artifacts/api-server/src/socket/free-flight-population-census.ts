@@ -8,7 +8,10 @@ export type PopulationSeatLease = Readonly<{
 }>;
 
 export type GlobalFlightPopulationCensus = Readonly<{
+  /** Timestamp assigned by Redis when the shared census was read. */
   capturedAt: number;
+  /** Local receipt time used only for same-process freshness validation. */
+  observedAt: number;
   activePilotsByFaction: Readonly<{ ussf: number; accord: number }>;
   total: number;
 }>;
@@ -144,6 +147,7 @@ export async function publishPopulationSeats(
 
 export async function readGlobalFlightPopulationCensus(
   bus: FreeFlightRedisBus,
+  localNow: () => number = Date.now,
 ): Promise<GlobalFlightPopulationCensus> {
   const result = await bus.eval(READ_CENSUS_SCRIPT, {
     keys: [PILOT_INDEX_KEY, PILOT_DATA_KEY],
@@ -172,8 +176,11 @@ export async function readGlobalFlightPopulationCensus(
       !validCount(payload.total) || payload.total !== factions.ussf + factions.accord) {
     throw new Error("Shared pilot census has an invalid shape.");
   }
+  const observedAt = localNow();
+  if (!validCount(observedAt)) throw new Error("Local census receipt time is invalid.");
   return {
     capturedAt: payload.capturedAt,
+    observedAt,
     activePilotsByFaction: { ussf: factions.ussf, accord: factions.accord },
     total: payload.total,
   };

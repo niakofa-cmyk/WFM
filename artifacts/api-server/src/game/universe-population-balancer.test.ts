@@ -8,13 +8,15 @@ import {
 test("population epoch requires fresh server census and does not mutate an empty universe", async () => {
   const stale = await applyUniversePopulationEpoch({
     capturedAt: 1_000,
+    observedAt: 1_000,
     activePilotsByFaction: { ussf: 1, accord: 0 },
     total: 1,
   }, { now: new Date(20_000) });
   assert.deepEqual(stale, { status: "stale-census" });
 
   const empty = await applyUniversePopulationEpoch({
-    capturedAt: 20_000,
+    capturedAt: 900_000,
+    observedAt: 20_000,
     activePilotsByFaction: { ussf: 0, accord: 0 },
     total: 0,
   }, { now: new Date(20_000) });

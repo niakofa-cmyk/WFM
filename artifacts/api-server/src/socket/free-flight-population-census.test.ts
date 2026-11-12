@@ -99,14 +99,24 @@ test("cross-owner census counts a live account once and fences an old seat owner
     pilot("pilot-a", "ussf", "new-owner/fence-2"),
     pilot("pilot-b", "accord", "owner-b/fence-1"),
   ]), 2);
-  const census = await readGlobalFlightPopulationCensus(bus);
+  const census = await readGlobalFlightPopulationCensus(bus, () => 101_000);
   assert.deepEqual(census, {
     capturedAt: 100_000,
+    observedAt: 101_000,
     activePilotsByFaction: { ussf: 1, accord: 1 },
     total: 2,
   });
   assert.ok(![...redis.data.keys()].includes("pilot-a"));
   assert.ok(!JSON.stringify([...redis.data.values()]).includes("pilot-a"));
+});
+
+test("local receipt time keeps a fresh Redis census valid across clock skew", async () => {
+  const redis = new FakePopulationRedis();
+  redis.now = 900_000;
+  const census = await readGlobalFlightPopulationCensus(redis.client(), () => 100_000);
+  assert.equal(census.capturedAt, 900_000);
+  assert.equal(census.observedAt, 100_000);
+  assert.deepEqual(census.activePilotsByFaction, { ussf: 0, accord: 0 });
 });
 
 test("stale seats and released authenticated leases leave the active census immediately", async () => {
