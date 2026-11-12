@@ -149,7 +149,7 @@ export async function startWingSocketServer(
       ): Promise<boolean>;
     };
     freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
-      "resolveUniversePatrols" | "reserveUniversePatrol" |
+      "resolveFreeFlightPatrols" | "reserveUniversePatrol" |
       "settleScoutEncounter" | "releaseUniversePatrol">>;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;

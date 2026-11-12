@@ -53,6 +53,9 @@ test("NPC assistance cannot impersonate an account, become bounty fodder or join
   assert.throws(() => combat.addAlliedNpc({ ...npc, faction: "accord" }, 1), /Invalid allied NPC/);
   assert.throws(() => combat.addAlliedNpc({ ...npc, id: "leader" }, 1), /Conflicting allied NPC/);
   assert.throws(() => combat.addAlliedNpc({ ...npc, hull: Infinity }, 1), /Invalid allied NPC/);
+  assert.throws(() => combat.addAlliedNpc({
+    ...npc, id: "not-a-patrol-ship", patrolId: "friendly-patrol",
+  }, 1), /Invalid allied NPC/);
   combat.addAlliedNpc(npc, 3);
   assert.throws(() => combat.addAlliedNpc({ ...npc, id: "backdated" }, 2), /Invalid allied NPC/);
 });
@@ -68,15 +71,24 @@ test("allied NPC admission stays bounded independently of human seats", () => {
 
 test("AI-only kills persist enemy casualties once and never mint a human kill bounty", async () => {
   const combat = encounter();
-  combat.addAlliedNpc(npc, 1);
+  combat.addAlliedNpc({ ...npc, id: "patrol-ship:friendly-wing",
+    patrolId: "friendly-patrol" }, 1);
   for (const [index, target] of ["patrol-ship:first", "patrol-ship:second"].entries()) {
     combat.recordDamage({ eventId: `escort-hit-${index}`, tick: index + 2,
-      attackerActorId: npc.id, targetActorId: target, hullDamage: 10 });
+      attackerActorId: "patrol-ship:friendly-wing", targetActorId: target, hullDamage: 10 });
   }
-  const receipt = combat.finalize(4, "completed", true);
+  combat.recordDamage({ eventId: "enemy-hit-friendly", tick: 4,
+    attackerActorId: "patrol-ship:first", targetActorId: "patrol-ship:friendly-wing",
+    hullDamage: 80 });
+  const receipt = combat.finalize(5, "completed", true);
+  assert.deepEqual(readExplorationReceipt(receipt).alliedPatrolCasualties, [{
+    patrolId: "friendly-patrol",
+    faction: "ussf",
+    destroyedActorIds: ["patrol-ship:friendly-wing"],
+  }]);
   const profiles = new Map([["human-leader", { credits: 90, revision: 0 }]]);
   const ledger = new Map<string, ExplorationLedgerRecord>();
-  const applied: string[][] = [];
+  const applied: Array<{ enemies: string[]; allies: string[] }> = [];
   const store: ExplorationRewardStore = {
     transaction: async (callback) => callback({
       lockProfiles: async (players) => {
@@ -88,8 +100,11 @@ test("AI-only kills persist enemy casualties once and never mint a human kill bo
         profiles.set(player, { credits: award.balanceAfter, revision: award.revision });
         ledger.set(`${player}:${key}`, { version: result.version, fingerprint: result.fingerprint, award });
       },
-      applyPatrolOutcome: async (_patrol, _encounter, casualties) => {
-        applied.push([...casualties]);
+      applyPatrolOutcome: async (_patrol, _encounter, casualties, alliedCasualties) => {
+        applied.push({
+          enemies: [...casualties],
+          allies: alliedCasualties?.flatMap((entry) => [...entry.destroyedActorIds]) ?? [],
+        });
       },
     }),
   };
@@ -97,7 +112,10 @@ test("AI-only kills persist enemy casualties once and never mint a human kill bo
   const duplicate = await settleExplorationWithStore(receipt, store, true);
   assert.equal(first.status, "settled");
   assert.equal(duplicate.status, "duplicate");
-  assert.deepEqual(applied, [["patrol-ship:first", "patrol-ship:second"]]);
+  assert.deepEqual(applied, [{
+    enemies: ["patrol-ship:first", "patrol-ship:second"],
+    allies: ["patrol-ship:friendly-wing"],
+  }]);
   assert.equal(profiles.get("human-leader")!.credits, 90);
   assert.ok(first.awards.every((award) => award.kills === 0 && award.credits === 0));
 });

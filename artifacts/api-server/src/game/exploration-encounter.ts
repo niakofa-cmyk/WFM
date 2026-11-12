@@ -116,7 +116,14 @@ export type ExplorationActor = {
   playerId?: string;
   /** Only explicitly approved NPC targets can generate kill credits. */
   rewardEligible?: boolean;
+  /** Persistent patrol provenance for a friendly, non-rewardable AI supporter. */
+  patrolId?: string;
 };
+export type AlliedPatrolCasualties = Readonly<{
+  patrolId: string;
+  faction: Faction;
+  destroyedActorIds: readonly string[];
+}>;
 export type ExplorationPolicy = {
   id: string;
   creditsPerNpcKill: number;
@@ -173,6 +180,8 @@ export type ExplorationResult = {
   pilots: readonly Readonly<ExplorationPilotResult>[];
   /** Every destroyed member of the reserved enemy patrol, including NPC final blows. */
   patrolDestroyedActorIds?: readonly string[];
+  /** Friendly AI patrol losses are durable but never count as player kills or rewards. */
+  alliedPatrolCasualties?: readonly AlliedPatrolCasualties[];
 };
 declare const receiptBrand: unique symbol;
 export type ExplorationReceipt = Readonly<{
@@ -432,13 +441,18 @@ export class ExplorationEncounter {
     integer(tick);
     if (tick < this.tick || actor.playerId !== undefined || actor.rewardEligible === true ||
         !["ussf", "accord"].includes(actor.faction) || actor.faction === this.spec.patrol.faction ||
+        actor.patrolId !== undefined && (actor.patrolId === this.spec.patrol.patrolId ||
+          !/^[A-Za-z0-9_:-]{1,128}$/.test(actor.patrolId) ||
+          !actor.id.startsWith("patrol-ship:")) ||
         !Number.isFinite(actor.hull) || actor.hull <= 0 || actor.hull > 1_000_000) {
       throw new Error("Invalid allied NPC.");
     }
     const existing = this.actors.get(actor.id);
     if (existing) {
       if (existing.playerId !== undefined || existing.faction !== actor.faction ||
-          existing.rewardEligible === true) throw new Error("Conflicting allied NPC identity.");
+          existing.rewardEligible === true || existing.patrolId !== actor.patrolId) {
+        throw new Error("Conflicting allied NPC identity.");
+      }
       return false;
     }
     if (this.actors.size >= 128) throw new Error("Invalid allied NPC roster.");
@@ -520,6 +534,24 @@ export class ExplorationEncounter {
             actor.playerId === undefined && actor.hull === 0)
           .map((actor) => actor.id).sort()),
       } : {}),
+      ...(this.spec.patrol ? (() => {
+        const byPatrol = new Map<string, { faction: Faction; actorIds: string[] }>();
+        for (const actor of this.actors.values()) {
+          if (!actor.patrolId || actor.playerId !== undefined || actor.hull !== 0 ||
+              actor.faction === this.spec.patrol.faction) continue;
+          const entry = byPatrol.get(actor.patrolId) ?? { faction: actor.faction, actorIds: [] };
+          if (entry.faction !== actor.faction) throw new Error("Conflicting allied patrol faction.");
+          entry.actorIds.push(actor.id);
+          byPatrol.set(actor.patrolId, entry);
+        }
+        const casualties = [...byPatrol]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([patrolId, entry]) => Object.freeze({
+            patrolId, faction: entry.faction,
+            destroyedActorIds: Object.freeze(entry.actorIds.sort()),
+          }));
+        return casualties.length ? { alliedPatrolCasualties: Object.freeze(casualties) } : {};
+      })() : {}),
       outcome, finalTick, objectiveCompleted, pilots: Object.freeze(pilots),
     };
     const result = Object.freeze({ ...content, fingerprint: hash([this.chain, content]) });

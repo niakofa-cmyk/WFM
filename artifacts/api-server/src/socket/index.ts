@@ -17,6 +17,7 @@ import { SECTOR_ORBITAL_PROTOCOL_VERSION } from "../game/sector-missions";
 import {
   releaseUniversePatrolEncounter,
   reserveUniversePatrolEncounter,
+  resolveUniverseFreeFlightPatrols,
   resolveUniversePatrolEncounter,
   resolveUniversePatrolEncounters,
 } from "../game/universe-patrols";
@@ -224,7 +225,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   // Continuous flight has its own versioned contract. Do not couple its
   // persistent combat adapters to the co-op sector protocol rollout.
   freeFlightCombat: enableFreeFlight && explorationRewards ? {
-    resolveUniversePatrols: resolveUniversePatrolEncounters,
+    resolveFreeFlightPatrols: resolveUniverseFreeFlightPatrols,
     reserveUniversePatrol: reserveUniversePatrolEncounter,
     releaseUniversePatrol: releaseUniversePatrolEncounter,
     settleScoutEncounter: (receipt) => explorationRewards.settleCompletedExploration(receipt, true),

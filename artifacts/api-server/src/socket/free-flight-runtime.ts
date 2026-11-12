@@ -82,6 +82,7 @@ const MAX_REGULAR_PATROL_ACTORS =
 const MAX_PROJECTILES_PER_SESSION = 512;
 const MAX_ENCOUNTER_PILOTS = FREE_FLIGHT_MAX_ENCOUNTER_PILOTS;
 const MAX_ACTIVE_ENCOUNTERS = 3;
+const MAX_AI_SUPPORT_PER_ENCOUNTER = 2;
 const PATROL_REFRESH_INTERVAL_MS = 15_000;
 // Match Combat Lab's 3 HP/s recovery after two seconds without damage.
 const SHIELD_RECOVERY_DELAY_TICKS = TICK_RATE * 2;
@@ -462,6 +463,9 @@ function populationTelemetry(
   let activeHumanEngagementCount = 0;
   let actorCount = 0;
   for (const session of sessions.values()) {
+    const assignedFriendlyAi = new Set([...session.combats.values()]
+      .filter((combat) => combat.phase === "active")
+      .flatMap((combat) => [...(combat.alliedNpcActorIds ?? [])]));
     actorCount += session.actors.size;
     activePatrolEncounterCount += activeCombats(session).length;
     activeHumanEngagementCount += session.pvpEngagements.size;
@@ -478,6 +482,7 @@ function populationTelemetry(
         liveFriendlyAiSupportCount += 1;
       } else {
         liveAiHullsByFaction[actor.faction] += 1;
+        if (assignedFriendlyAi.has(actor.actorId)) liveFriendlyAiSupportCount += 1;
       }
     }
   }
@@ -592,6 +597,7 @@ export function createFreeFlightRuntime(options: {
     checkpointSequence: number,
   ) => Promise<boolean>;
   retainEncounterReservationsOnClose?: boolean;
+  resolveFreeFlightPatrols?: (userId: string) => Promise<UniversePatrolEncounter[]>;
   resolveUniversePatrol?: (userId: string, faction: Faction) => Promise<UniversePatrolEncounter | null>;
   resolveUniversePatrols?: (userId: string, faction: Faction) => Promise<UniversePatrolEncounter[]>;
   reserveUniversePatrol?: (
@@ -704,10 +710,16 @@ export function createFreeFlightRuntime(options: {
             !/^[A-Za-z0-9_:-]{1,128}$/.test(id)) ||
           new Set(raw.participantActorIds).size !== raw.participantActorIds.length ||
           (raw.alliedNpcActorIds !== undefined && (!Array.isArray(raw.alliedNpcActorIds) ||
-            raw.alliedNpcActorIds.length > 2 || raw.alliedNpcActorIds.some((id) =>
-              typeof id !== "string" || !id.startsWith("patrol:escort:") ||
-              !actors.has(id) || actors.get(id)?.kind !== "patrol" ||
-              actors.get(id)?.faction !== raw.faction))) ||
+            raw.alliedNpcActorIds.length > MAX_AI_SUPPORT_PER_ENCOUNTER ||
+            raw.alliedNpcActorIds.some((id) => {
+              if (typeof id !== "string" || !actors.has(id)) return true;
+              const ally = actors.get(id)!;
+              const synthetic = id.startsWith("patrol:escort:");
+              const persistent = Boolean(ally.persistentPatrolId && ally.persistentShipId &&
+                persistentPatrols.has(ally.persistentPatrolId));
+              return ally.kind !== "patrol" || ally.faction !== raw.faction ||
+                !synthetic && !persistent;
+            }))) ||
           !["active", "settling", "settlement-unavailable", "complete"].includes(raw.phase) ||
           typeof raw.resultsApplied !== "boolean" ||
           combats.has(raw.patrol.patrolId)) {
@@ -1115,6 +1127,25 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
+  function patrolCombatForActor(session: Session, actor: Actor) {
+    const ownCombat = actor.persistentPatrolId
+      ? session.combats.get(actor.persistentPatrolId) : undefined;
+    if (ownCombat?.phase === "active") return ownCombat;
+    return activeCombats(session).find((combat) =>
+      combat.alliedNpcActorIds?.has(actor.actorId));
+  }
+
+  function combatForPatrolPair(session: Session, first: Actor, second: Actor) {
+    return activeCombats(session).find((combat) => {
+      const firstIsHostile = first.persistentPatrolId === combat.patrol.patrolId;
+      const secondIsHostile = second.persistentPatrolId === combat.patrol.patrolId;
+      if (firstIsHostile === secondIsHostile) return false;
+      const ally = firstIsHostile ? second : first;
+      return combat.participantActorIds.has(ally.actorId) ||
+        combat.alliedNpcActorIds?.has(ally.actorId) === true;
+    });
+  }
+
   function combatTarget(session: Session, actor: Actor, primaryFire = false): Actor | undefined {
     // Selection is persistent; geometry controls acquisition, not which enemy
     // a turning/evading pilot silently gets switched to.
@@ -1123,9 +1154,9 @@ export function createFreeFlightRuntime(options: {
       if (selected && eligiblePilotTarget(session, actor, selected)) return selected;
       if (!selected || !eligiblePilotTarget(session, actor, selected)) actor.selectedTargetActorId = null;
     }
-    const ownPatrolCombat = actor.persistentPatrolId
-      ? session.combats.get(actor.persistentPatrolId) : undefined;
-    const escort = actor.actorId.startsWith("patrol:escort:");
+    const patrolCombat = actor.kind === "patrol"
+      ? patrolCombatForActor(session, actor) : undefined;
+    const isCombatHostile = patrolCombat?.patrol.patrolId === actor.persistentPatrolId;
     const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
     const forward = rotate(actor.craft.space!.q, 0, 0, -1);
     const range = primaryFire ? NEARBY_RADIUS : missile.maxLockRange;
@@ -1145,15 +1176,15 @@ export function createFreeFlightRuntime(options: {
           if (candidate.faction === actor.faction || combat?.phase !== "active" ||
               !combat.participantActorIds.has(actor.actorId)) continue;
         }
-      } else if (escort) {
-        const hostileCombat = candidate.persistentPatrolId
-          ? session.combats.get(candidate.persistentPatrolId) : undefined;
-        if (candidate.faction === actor.faction || hostileCombat?.phase !== "active" ||
-            !hostileCombat.alliedNpcActorIds?.has(actor.actorId)) continue;
-      } else if (ownPatrolCombat?.phase !== "active" ||
-          !(ownPatrolCombat.participantActorIds.has(candidate.actorId) &&
-            candidate.socket?.readyState === OPEN ||
-            ownPatrolCombat.alliedNpcActorIds?.has(candidate.actorId))) continue;
+      } else if (patrolCombat?.phase !== "active" || candidate.faction === actor.faction) {
+        continue;
+      } else if (isCombatHostile) {
+        if (candidate.kind === "pilot" && candidate.socket?.readyState !== OPEN) continue;
+        if (!patrolCombat.participantActorIds.has(candidate.actorId) &&
+            !patrolCombat.alliedNpcActorIds?.has(candidate.actorId)) continue;
+      } else if (candidate.persistentPatrolId !== patrolCombat.patrol.patrolId) {
+        continue;
+      }
       const dx = candidate.craft.x - actor.craft.x;
       const dy = candidate.craft.space!.y - actor.craft.space!.y;
       const dz = candidate.craft.z - actor.craft.z;
@@ -1236,9 +1267,7 @@ export function createFreeFlightRuntime(options: {
     if (actor.actorId.startsWith("patrol:escort:") && !options.enableFriendlyAiSupport) return;
     const combat = actor.kind === "pilot"
       ? activeCombats(session).find((candidate) => candidate.participantActorIds.has(actor.actorId))
-      : actor.persistentPatrolId
-        ? session.combats.get(actor.persistentPatrolId)
-        : activeCombats(session).find((candidate) => candidate.alliedNpcActorIds?.has(actor.actorId));
+      : patrolCombatForActor(session, actor);
     const combatActive = combat?.phase === "active" ||
       actor.kind === "pilot" && pvpEngagementsForActor(session, actor.actorId).length > 0;
     if (actor.kind !== "pilot" && !combatActive) return;
@@ -1285,8 +1314,7 @@ export function createFreeFlightRuntime(options: {
       if (!engagement || !canDamageFreeFlightActor(source, target, undefined, engagement)) return undefined;
       return { kind: "pvp" as const, engagement };
     }
-    const patrolId = target.persistentPatrolId ?? source.persistentPatrolId;
-    const combat = patrolId ? session.combats.get(patrolId) : undefined;
+    const combat = combatForPatrolPair(session, source, target);
     return canDamageFreeFlightActor(source, target, combat)
       ? { kind: "patrol" as const, combat: combat! }
       : undefined;
@@ -1524,11 +1552,15 @@ export function createFreeFlightRuntime(options: {
   /** Refresh only idle opposing fleets after a rejected durable claim. Never
    * overwrite an active contract or import another saved location's contacts. */
   async function refreshRejectedPatrol(seat: Seat, contact: UniversePatrolEncounter): Promise<string> {
-    if (!options.resolveUniversePatrols) return "freeflight_patrol_reservation_unavailable";
+    if (!options.resolveFreeFlightPatrols && !options.resolveUniversePatrols) {
+      return "freeflight_patrol_reservation_unavailable";
+    }
     try {
       const admission = await options.resolveAdmission(seat.userId);
       if (!admission || admission.sessionKey !== seat.session.key) return "freeflight_location_changed";
-      const fresh = await options.resolveUniversePatrols(seat.userId, seat.actor.faction);
+      const fresh = options.resolveFreeFlightPatrols
+        ? await options.resolveFreeFlightPatrols(seat.userId)
+        : await options.resolveUniversePatrols!(seat.userId, seat.actor.faction);
       const session = seat.session;
       if (closed || sessions.get(session.key) !== session ||
           userSeats.get(seat.userId) !== seat) return "freeflight_encounter_interrupted";
@@ -2005,8 +2037,8 @@ export function createFreeFlightRuntime(options: {
     }
   }
 
-  /** One bounded defender per faction, shared by all that faction's live battles.
-   * It is a real NPC, never an account participant or a fabricated human kill. */
+  /** Route the nearest available friendly patrol into a battle; never clone or
+   * teleport its ships. A synthetic wing is retained only as a local fallback. */
   function reinforceActiveCombats(session: Session) {
     for (const combat of activeCombats(session)) {
       const factionMix = encounterAiFactionMixForCombat(combat.faction);
@@ -2014,6 +2046,68 @@ export function createFreeFlightRuntime(options: {
       const pilot = [...combat.participantActorIds].map(id => session.actors.get(id))
         .find(actor => actor?.craft.alive && actor.socket?.readyState === OPEN);
       if (!pilot) continue;
+      const allies = combat.alliedNpcActorIds ??= new Set<string>();
+      if (allies.size < MAX_AI_SUPPORT_PER_ENCOUNTER) {
+        const fleetGroups = new Map<string, Actor[]>();
+        for (const candidate of session.actors.values()) {
+          if (candidate.kind !== "patrol" || candidate.faction !== factionMix.friendlyFaction ||
+              !candidate.craft.alive || !candidate.persistentPatrolId || !candidate.persistentShipId ||
+              session.persistentPatrols.get(candidate.persistentPatrolId)?.reservedForCombat ||
+              (session.combats.get(candidate.persistentPatrolId) !== undefined &&
+                session.combats.get(candidate.persistentPatrolId)?.phase !== "complete") ||
+              activeCombats(session).some((other) => other !== combat &&
+                other.alliedNpcActorIds?.has(candidate.actorId))) continue;
+          const proximity = Math.min(
+            ...[...combat.participantActorIds].map((actorId) => session.actors.get(actorId))
+              .filter((participant): participant is Actor => Boolean(participant?.craft.alive))
+              .map((participant) => distanceBetween(candidate, participant)),
+            ...[...session.actors.values()]
+              .filter((hostile) => hostile.persistentPatrolId === combat.patrol.patrolId &&
+                hostile.craft.alive)
+              .map((hostile) => distanceBetween(candidate, hostile)),
+          );
+          if (proximity > PATROL_SENSOR_RANGE) continue;
+          const group = fleetGroups.get(candidate.persistentPatrolId) ?? [];
+          group.push(candidate);
+          fleetGroups.set(candidate.persistentPatrolId, group);
+        }
+        const nearestFleet = [...fleetGroups.entries()].map(([patrolId, actors]) => ({
+          patrolId,
+          actors: actors.sort((a, b) => a.actorId.localeCompare(b.actorId)),
+          distance: Math.min(...actors.flatMap((candidate) => [
+            ...[...combat.participantActorIds].map((actorId) => session.actors.get(actorId))
+              .filter((participant): participant is Actor => Boolean(participant?.craft.alive))
+              .map((participant) => distanceBetween(candidate, participant)),
+            ...[...session.actors.values()]
+              .filter((hostile) => hostile.persistentPatrolId === combat.patrol.patrolId &&
+                hostile.craft.alive)
+              .map((hostile) => distanceBetween(candidate, hostile)),
+          ])),
+        })).sort((a, b) => a.distance - b.distance || a.patrolId.localeCompare(b.patrolId))[0];
+        for (const support of nearestFleet?.actors ?? []) {
+          if (allies.size >= MAX_AI_SUPPORT_PER_ENCOUNTER) break;
+          if (allies.has(support.actorId)) continue;
+          combat.contract.addAlliedNpc({
+            id: encounterActorId(support),
+            faction: support.faction,
+            hull: support.craft.hullMax,
+            rewardEligible: false,
+            patrolId: support.persistentPatrolId,
+          }, session.tick);
+          allies.add(support.actorId);
+          broadcast(session, {
+            type: "freeflight_ai_support_joined",
+            encounterId: combat.id,
+            patrolId: support.persistentPatrolId,
+            actorId: support.actorId,
+            faction: support.faction,
+            callsign: support.callsign,
+            source: "nearby_patrol",
+          });
+        }
+      }
+      // Do not manufacture extra escorts when a real patrol has answered.
+      if (allies.size > 0) continue;
       const actorId = `patrol:escort:${factionMix.friendlyFaction}:1`;
       let escort = session.actors.get(actorId);
       if (!escort) {
@@ -2035,12 +2129,12 @@ export function createFreeFlightRuntime(options: {
         session.actors.set(actorId, escort);
       }
       // A destroyed defender is not silently healed or respawned.
-      if (!escort.craft.alive || combat.alliedNpcActorIds?.has(actorId)) continue;
+      if (!escort.craft.alive || allies.has(actorId)) continue;
       combat.contract.addAlliedNpc({
         id: encounterActorId(escort), faction: escort.faction,
         hull: escort.craft.hullMax, rewardEligible: false,
       }, session.tick);
-      (combat.alliedNpcActorIds ??= new Set()).add(actorId);
+      allies.add(actorId);
     }
   }
 
@@ -2065,15 +2159,20 @@ export function createFreeFlightRuntime(options: {
           session.tick * ORBITAL_DT,
         );
       }
-      const combat = actor.kind === "patrol" && actor.persistentPatrolId
-        ? session.combats.get(actor.persistentPatrolId)
-        : undefined;
+      const combat = actor.kind === "patrol"
+        ? patrolCombatForActor(session, actor) : undefined;
       let patrolTarget: Actor | undefined;
       let nearestParticipantDistance = Infinity;
       if (actor.kind === "patrol" && combat?.phase === "active") {
-        for (const actorId of [...combat.participantActorIds, ...(combat.alliedNpcActorIds ?? [])]) {
-          const candidate = session.actors.get(actorId);
-          if (!candidate?.craft.alive || candidate.kind === "pilot" && candidate.socket?.readyState !== OPEN) continue;
+        for (const candidate of session.actors.values()) {
+          if (!candidate.craft.alive || candidate.faction === actor.faction ||
+              candidate.kind === "pilot" && candidate.socket?.readyState !== OPEN) continue;
+          const actorIsHostile = actor.persistentPatrolId === combat.patrol.patrolId;
+          const belongsToOpposingSide = actorIsHostile
+            ? combat.participantActorIds.has(candidate.actorId) ||
+              combat.alliedNpcActorIds?.has(candidate.actorId)
+            : candidate.persistentPatrolId === combat.patrol.patrolId;
+          if (!belongsToOpposingSide) continue;
           const distance = distanceBetween(actor, candidate);
           if (distance < nearestParticipantDistance) {
             patrolTarget = candidate;
@@ -2081,23 +2180,8 @@ export function createFreeFlightRuntime(options: {
           }
         }
       }
-      const escort = actor.actorId.startsWith("patrol:escort:");
-      if (escort) {
-        for (const candidate of session.actors.values()) {
-          const hostileCombat = candidate.persistentPatrolId ? session.combats.get(candidate.persistentPatrolId) : undefined;
-          if (!candidate.craft.alive || candidate.faction === actor.faction ||
-              hostileCombat?.phase !== "active" || !hostileCombat.alliedNpcActorIds?.has(actor.actorId)) continue;
-          const distance = distanceBetween(actor, candidate);
-          if (distance <= PATROL_SENSOR_RANGE && distance < nearestParticipantDistance) {
-            patrolTarget = candidate;
-            nearestParticipantDistance = distance;
-          }
-        }
-      }
       const baseInput = actor.kind === "patrol"
-        ? patrolTarget && (escort || actor.scoutMemory?.mode === "tracking" &&
-            actor.scoutMemory.actorId === patrolTarget.actorId ||
-            combat?.alliedNpcActorIds?.has(patrolTarget.actorId))
+        ? patrolTarget
           ? patrolCombatInput(actor, patrolTarget, session)
           : patrolInput(actor, actor.scoutMemory
             ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)
@@ -2208,20 +2292,25 @@ export function createFreeFlightRuntime(options: {
         // lookup can legitimately be empty or temporarily unavailable; later
         // joins must be able to see durable patrols without resetting any
         // existing actors, contracts, casualties or attribution.
-        if (options.resolveUniversePatrols || options.resolveUniversePatrol) {
+        if (options.resolveFreeFlightPatrols ||
+            options.resolveUniversePatrols || options.resolveUniversePatrol) {
           try {
-            const [ussfPatrols, accordPatrols] = options.resolveUniversePatrols
-              ? await Promise.all([
+            if (options.resolveFreeFlightPatrols) {
+              initialPatrols = await options.resolveFreeFlightPatrols(userId);
+            } else {
+              const [ussfPatrols, accordPatrols] = options.resolveUniversePatrols
+                ? await Promise.all([
                   options.resolveUniversePatrols(userId, "ussf"),
                   options.resolveUniversePatrols(userId, "accord"),
                 ])
-              : await Promise.all([
+                : await Promise.all([
                   options.resolveUniversePatrol!(userId, "ussf"),
                   options.resolveUniversePatrol!(userId, "accord"),
                 ]).then((resolved) => resolved.map((patrol) => patrol ? [patrol] : []));
-            initialPatrols = [...new Map(
-              [...ussfPatrols, ...accordPatrols].map((patrol) => [patrol.patrolId, patrol]),
-            ).values()].slice(0, MAX_ACTIVE_ENCOUNTERS * 2);
+              initialPatrols = [...new Map(
+                [...ussfPatrols, ...accordPatrols].map((patrol) => [patrol.patrolId, patrol]),
+              ).values()].slice(0, MAX_ACTIVE_ENCOUNTERS * 2);
+            }
           } catch {
             // Flight remains available if the patrol directory is unavailable;
             // only persistent reward-bearing engagements fail closed.
@@ -2607,7 +2696,8 @@ export function createFreeFlightRuntime(options: {
   /** Refresh location-owned fleets without scene changes, actor resets or
    * replacing active/settling leases. One outstanding read per session. */
   async function refreshPatrolDirectory(session: Session, now: number) {
-    if (!options.resolveUniversePatrols || session.patrolRefreshPending ||
+    if ((!options.resolveFreeFlightPatrols && !options.resolveUniversePatrols) ||
+        session.patrolRefreshPending ||
         session.engagementPending || now < session.nextPatrolRefreshAt) return;
     const pilot = [...session.pilotByUser.values()].find((actor) =>
       actor.craft.alive && actor.socket?.readyState === OPEN && actor.ownerUserId);
@@ -2620,10 +2710,12 @@ export function createFreeFlightRuntime(options: {
     try {
       const admission = await options.resolveAdmission(pilotUserId);
       if (!admission || admission.sessionKey !== session.key) return;
-      const groups = await Promise.all([
-        options.resolveUniversePatrols(pilotUserId, "ussf"),
-        options.resolveUniversePatrols(pilotUserId, "accord"),
-      ]);
+      const groups = options.resolveFreeFlightPatrols
+        ? [await options.resolveFreeFlightPatrols(pilotUserId)]
+        : await Promise.all([
+          options.resolveUniversePatrols!(pilotUserId, "ussf"),
+          options.resolveUniversePatrols!(pilotUserId, "accord"),
+        ]);
       const currentAdmission = await options.resolveAdmission(pilotUserId);
       if (closed || sessions.get(session.key) !== session ||
           pilot.socket?.readyState !== OPEN ||

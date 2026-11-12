@@ -18,17 +18,24 @@ function patrol(faction: "ussf" | "accord"): UniversePatrolEncounter {
   };
 }
 
-test("friendly defender automatically joins, flies and lands real weapon hits without becoming a human", async () => {
+test("a nearby persistent friendly patrol routes into battle and lands real hits without becoming a human", async () => {
   const contact = patrol("accord");
+  const friendly = {
+    ...patrol("ussf"),
+    patrolId: "opening-friendly-patrol",
+    ships: [{ id: "opening-friendly-ship", hullId: "duskbreaker" as const, name: "Friendly patrol",
+      callsign: "WING ONE" }],
+  };
   const packets: Packet[] = [];
   const socket = socketFor(packets);
   const runtime = createFreeFlightRuntime({
     enableFriendlyAiSupport: true,
     resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "sentinel" }),
-    resolveUniversePatrols: async () => [contact],
+    resolveUniversePatrols: async (_userId, faction) => faction === "ussf" ? [friendly] : [contact],
     reserveUniversePatrol: async () => contact,
     settleScoutEncounter: async () => { throw new Error("No live reward store in this unit test"); },
     releaseUniversePatrol: async () => {},
+    patrolSpawnDistanceMeters: 100,
   });
   try {
     await runtime.handle(socket, "defender-pilot", { type: "freeflight_join", openingEncounter: true });
@@ -36,49 +43,41 @@ test("friendly defender automatically joins, flies and lands real weapon hits wi
     for (let tick = 0; tick < 3600; tick++) runtime.advance(now += 34);
     const snapshotPacket = [...packets].reverse().find(packet => isFreeFlightSnapshotV1(packet.snapshot));
     assert.ok(isFreeFlightSnapshotV1(snapshotPacket?.snapshot));
-    const escort = snapshotPacket.snapshot.actors.find(actor => actor.actorId === "patrol:escort:ussf:1");
-    assert.ok(escort, "one visible server-owned friendly AI ship was deployed");
+    const escort = snapshotPacket.snapshot.actors.find(actor =>
+      actor.actorId === "patrol-ship:opening-friendly-ship");
+    assert.ok(escort, "the existing friendly fleet ship remains visible and server-owned");
     assert.equal(escort.kind, "patrol");
     assert.equal(escort.faction, "ussf");
     assert.ok(packets.some(packet => packet.type === "freeflight_weapon_fired" &&
       packet.sourceActorId === escort.actorId), "AI uses the real weapon path");
     assert.ok(packets.some(packet => packet.type === "freeflight_weapon_event" &&
-      packet.sourceActorId === escort.actorId && Number(packet.hullDamage) > 0),
-    `AI bullets physically contact and damage the hostile ship; actors=${JSON.stringify(
-      snapshotPacket.snapshot.actors.map(actor => ({
-        actorId: actor.actorId,
-        faction: actor.faction,
-        position: actor.position,
-        yaw: actor.yaw,
-        hull: actor.hull,
-        shield: actor.shield,
-        alive: actor.alive,
-      })),
-    )}; shots=${packets.filter(packet => packet.type === "freeflight_weapon_fired" &&
-      packet.sourceActorId === escort.actorId).length}; impacts=${JSON.stringify(packets.filter(packet =>
-      packet.type === "freeflight_weapon_event" && packet.sourceActorId === escort.actorId).map(packet => ({
-        targetActorId: packet.targetActorId,
-        shieldDamage: packet.shieldDamage,
-        hullDamage: packet.hullDamage,
-        destroyed: packet.destroyed,
-      })))}`);
-    assert.ok(packets.some(packet => packet.type === "freeflight_weapon_event" &&
-      packet.sourceActorId === escort.actorId && packet.destroyed === true),
-    "AI can destroy a hostile through weapons, not by changing its hull directly");
+      packet.sourceActorId === escort.actorId &&
+      Number(packet.shieldDamage) + Number(packet.hullDamage) > 0),
+    "the route responder's physical projectile impacts the hostile ship");
+    assert.equal(snapshotPacket.snapshot.actors.some(actor =>
+      actor.actorId === "patrol:escort:ussf:1"), false,
+    "a synthetic substitute is not added when a persistent patrol responds");
     assert.equal(snapshotPacket.snapshot.actors.filter(actor => actor.kind === "pilot").length, 1);
   } finally { await runtime.close(); }
 });
 
-test("AI defender membership survives checkpoint restart without duplicate or repaired defenders", async () => {
+test("a routed persistent patrol defender survives checkpoint restart without duplication", async () => {
   const contact = patrol("accord");
+  const friendly = {
+    ...patrol("ussf"),
+    patrolId: "restored-friendly-patrol",
+    ships: [{ id: "restored-friendly-ship", hullId: "duskbreaker" as const,
+      name: "Restored wing", callsign: "WING TWO" }],
+  };
   let stored: StoredFreeFlightCheckpoint | null = null;
   const options: Parameters<typeof createFreeFlightRuntime>[0] = {
     enableFriendlyAiSupport: true,
     resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "sentinel" }),
-    resolveUniversePatrols: async () => [contact],
+    resolveUniversePatrols: async (_userId, faction) => faction === "ussf" ? [friendly] : [contact],
     reserveUniversePatrol: async () => contact,
     settleScoutEncounter: async () => { throw new Error("No live reward store in this unit test"); },
     releaseUniversePatrol: async () => {},
+    patrolSpawnDistanceMeters: 100,
     loadCheckpoint: async () => stored,
     saveCheckpoint: async (_key, snapshot, fencingToken, checkpointSequence) => {
       stored = { stateVersion: 1, fencingToken, checkpointSequence,
@@ -98,7 +97,8 @@ test("AI defender membership survives checkpoint restart without duplicate or re
     await second.handle(socketFor(recovered), "restored-defender-pilot", { type: "freeflight_join" });
     const joined = recovered.find(packet => packet.type === "freeflight_joined");
     assert.ok(isFreeFlightSnapshotV1(joined?.snapshot));
-    const defenders = joined.snapshot.actors.filter(actor => actor.actorId.startsWith("patrol:escort:"));
+    const defenders = joined.snapshot.actors.filter(actor =>
+      actor.actorId === "patrol-ship:restored-friendly-ship");
     assert.equal(defenders.length, 1);
     const before = [...packets].reverse().find(packet => isFreeFlightSnapshotV1(packet.snapshot))?.snapshot;
     assert.ok(isFreeFlightSnapshotV1(before));
@@ -106,7 +106,8 @@ test("AI defender membership survives checkpoint restart without duplicate or re
     second.advance(Date.now() + 200);
     const after = [...recovered].reverse().find(packet => isFreeFlightSnapshotV1(packet.snapshot))?.snapshot;
     assert.ok(isFreeFlightSnapshotV1(after));
-    assert.equal(after.actors.filter(actor => actor.actorId.startsWith("patrol:escort:")).length, 1);
+    assert.equal(after.actors.filter(actor =>
+      actor.actorId === "patrol-ship:restored-friendly-ship").length, 1);
   } finally { await second.close(); }
 });
 

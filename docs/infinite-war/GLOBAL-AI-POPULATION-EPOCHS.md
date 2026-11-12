@@ -59,12 +59,18 @@ the census or hidden patrol positions as a public roster API.
 
 Pure policy, reserve identity/route, seat-lease deduplication, stale-seat
 rejection, staging-only configuration, and shared-runtime regression tests pass
-in the local test harness. The census tests use an in-memory Redis contract
-fake; they do not execute the Lua scripts against a live Redis service. The
-transactional writer is typechecked and migration-backed but has not yet been
-run against WFM staging PostgreSQL. No schema push, deployment, feature-flag
-change, live two-replica census, restart test, or measured fleet-share
-convergence is claimed here.
+in the local test harness. Free-flight now loads both factions' local persistent
+patrols, routes up to two nearby friendly ships into an active battle without
+teleporting them, and settles any destroyed friendly ships atomically with the
+enemy fleet and reward receipt; see
+[Route-Based Friendly Patrol Support](ROUTE-BASED-FRIENDLY-PATROL-SUPPORT.md).
+The census tests use an in-memory Redis contract fake; they do not execute the
+Lua scripts against a live Redis service. The PostgreSQL epoch and allied-loss
+integration test skips unless the explicitly named disposable local database is
+configured. Neither the writer nor casualty settlement has yet been verified
+against WFM staging PostgreSQL. No schema push, deployment, feature-flag change,
+live two-replica census, restart test, or measured fleet-share convergence is
+claimed here.
 
 Before enabling the writer in staging, apply migration 0008 through the
 staging-only schema workflow and verify the new tables. Then test two socket

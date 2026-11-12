@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import type { WorldPatrolDirectory } from "@workspace/api-zod";
 import type { PatrolFaction, PersistentPatrolShip } from "@workspace/db";
+import type { AlliedPatrolCasualties } from "./exploration-encounter";
 import { advancePatrol, createSeededPatrols, projectPatrolTraffic } from "./universe-patrol-rules";
 import { WORLD_LOCATION_COORDINATES, WORLD_PATROL_SECTOR_NETWORK } from "./world";
 
@@ -29,12 +30,15 @@ export type UniversePatrolEncounter = {
   route: string[];
   ships: PersistentPatrolShip[];
   revision: number;
+  /** Internal free-flight dispatch guard; never sent to clients. */
+  reservedForCombat?: boolean;
 };
 
 export type UniversePatrolEncounterOutcome = {
   patrolId: string;
   encounterId: string;
   destroyedActorIds: readonly string[];
+  alliedPatrolCasualties?: readonly AlliedPatrolCasualties[];
 };
 
 type UniversePatrolTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -91,6 +95,39 @@ export async function resolveUniversePatrolEncounters(
     }));
 }
 
+/** Free flight needs both factions for visible live patrols and routed AI support. */
+export async function resolveUniverseFreeFlightPatrols(
+  userId: string,
+): Promise<UniversePatrolEncounter[]> {
+  const directory = await getUniversePatrolDirectory(userId);
+  const rows = directory.patrols.length
+    ? await db.select({
+      patrolId: universePatrolsTable.patrolId,
+      activeEncounterId: universePatrolsTable.activeEncounterId,
+      encounterLeaseExpiresAt: universePatrolsTable.encounterLeaseExpiresAt,
+    }).from(universePatrolsTable)
+      .where(inArray(universePatrolsTable.patrolId, directory.patrols.map((patrol) => patrol.id)))
+    : [];
+  const now = Date.now();
+  const reserved = new Set(rows.filter((row) =>
+    row.activeEncounterId !== null && row.encounterLeaseExpiresAt !== null &&
+    row.encounterLeaseExpiresAt.getTime() > now,
+  ).map((row) => row.patrolId));
+  return directory.patrols
+    .filter((patrol) => patrol.ships.length > 0)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((patrol) => ({
+      patrolId: patrol.id,
+      locationId: directory.currentLocationId,
+      faction: patrol.faction,
+      callsign: patrol.callsign,
+      route: patrol.route,
+      ships: patrol.ships,
+      revision: 0,
+      reservedForCombat: reserved.has(patrol.id),
+    }));
+}
+
 /**
  * Claim the persistent fleet at launch so two rooms cannot pay out for the same
  * ships concurrently. The player's location and the roster are rechecked under
@@ -140,6 +177,7 @@ export async function reserveUniversePatrolEncounter(
       route: reserved.route,
       ships: reserved.shipRoster,
       revision: reserved.revision,
+      reservedForCombat: true,
     };
   });
 }
@@ -168,29 +206,67 @@ export async function applyUniversePatrolOutcomeInTransaction(
   tx: UniversePatrolTransaction,
   outcome: UniversePatrolEncounterOutcome,
 ): Promise<void> {
-  const [row] = await tx.select().from(universePatrolsTable)
-    .where(eq(universePatrolsTable.patrolId, outcome.patrolId)).for("update");
-  if (!row || row.activeEncounterId !== outcome.encounterId) {
+  const allied = outcome.alliedPatrolCasualties ?? [];
+  const patrolIds = [outcome.patrolId, ...allied.map((entry) => entry.patrolId)];
+  if (!/^[A-Za-z0-9_:-]{1,128}$/.test(outcome.patrolId) ||
+      new Set(patrolIds).size !== patrolIds.length ||
+      patrolIds.some((patrolId) => !/^[A-Za-z0-9_:-]{1,128}$/.test(patrolId))) {
+    throw new Error("Invalid universe patrol settlement roster.");
+  }
+  const rows = await tx.select().from(universePatrolsTable)
+    .where(inArray(universePatrolsTable.patrolId, [...patrolIds].sort()))
+    .orderBy(universePatrolsTable.patrolId).for("update");
+  const rowById = new Map(rows.map((row) => [row.patrolId, row]));
+  const casualtyIds = (actorIds: readonly string[], roster: readonly PersistentPatrolShip[]) => {
+    const shipIds = actorIds.map((actorId) => {
+      if (typeof actorId !== "string" || !actorId.startsWith(ACTOR_SHIP_PREFIX)) {
+        throw new Error("Invalid universe patrol casualty identity.");
+      }
+      return actorId.slice(ACTOR_SHIP_PREFIX.length);
+    });
+    if (new Set(shipIds).size !== shipIds.length ||
+        shipIds.some((shipId) => !roster.some((ship) => ship.id === shipId))) {
+      throw new Error("Universe patrol casualty roster does not match the reserved fleet.");
+    }
+    return new Set(shipIds);
+  };
+  const enemy = rowById.get(outcome.patrolId);
+  if (!enemy || enemy.activeEncounterId !== outcome.encounterId) {
     throw new Error("Universe patrol reservation was lost before settlement.");
   }
-  const shipIds = outcome.destroyedActorIds.map((actorId) => {
-    if (typeof actorId !== "string" || !actorId.startsWith(ACTOR_SHIP_PREFIX)) {
-      throw new Error("Invalid universe patrol casualty identity.");
-    }
-    return actorId.slice(ACTOR_SHIP_PREFIX.length);
-  });
-  if (new Set(shipIds).size !== shipIds.length ||
-      shipIds.some((shipId) => !row.shipRoster.some((ship) => ship.id === shipId))) {
-    throw new Error("Universe patrol casualty roster does not match the reserved fleet.");
-  }
-  const destroyed = new Set(shipIds);
+  const destroyedEnemy = casualtyIds(outcome.destroyedActorIds, enemy.shipRoster);
+  const now = new Date();
   await tx.update(universePatrolsTable).set({
-    shipRoster: row.shipRoster.filter((ship) => !destroyed.has(ship.id)),
+    shipRoster: enemy.shipRoster.filter((ship) => !destroyedEnemy.has(ship.id)),
     activeEncounterId: null,
     encounterLeaseExpiresAt: null,
-    revision: row.revision + 1,
-    updatedAt: new Date(),
-  }).where(eq(universePatrolsTable.patrolId, row.patrolId));
+    revision: enemy.revision + 1,
+    updatedAt: now,
+  }).where(eq(universePatrolsTable.patrolId, enemy.patrolId));
+
+  for (const casualty of allied) {
+    if (!["ussf", "accord"].includes(casualty.faction) ||
+        !casualty.destroyedActorIds.length) {
+      throw new Error("Invalid allied patrol casualty record.");
+    }
+    const row = rowById.get(casualty.patrolId);
+    if (!row || row.faction !== casualty.faction) {
+      throw new Error("Allied universe patrol is unavailable for casualty settlement.");
+    }
+    const activeForeignReservation = row.activeEncounterId !== null &&
+      row.activeEncounterId !== outcome.encounterId &&
+      (row.encounterLeaseExpiresAt === null ||
+        row.encounterLeaseExpiresAt.getTime() > now.getTime());
+    if (activeForeignReservation) {
+      throw new Error("Allied universe patrol is unavailable for casualty settlement.");
+    }
+    const destroyedAllies = casualtyIds(casualty.destroyedActorIds, row.shipRoster);
+    await tx.update(universePatrolsTable).set({
+      shipRoster: row.shipRoster.filter((ship) => !destroyedAllies.has(ship.id)),
+      revision: row.revision + 1,
+      updatedAt: now,
+    }).where(eq(universePatrolsTable.patrolId, row.patrolId));
+  }
 }
 
 function neighboringLocations(locationId: string): string[] {

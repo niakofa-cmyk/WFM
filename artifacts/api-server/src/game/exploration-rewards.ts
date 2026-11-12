@@ -34,8 +34,10 @@ const databaseStore: ExplorationRewardStore = {
         if (award.playerId !== playerId || !Number.isSafeInteger(award.balanceAfter) || !Number.isSafeInteger(award.revision)) throw new Error("Invalid exploration ledger award.");
         return { version: EXPLORATION_CONTRACT, fingerprint: result.fingerprint, award };
       },
-      applyPatrolOutcome: async (patrolId, encounterId, destroyedActorIds) => {
-        await applyUniversePatrolOutcomeInTransaction(tx, { patrolId, encounterId, destroyedActorIds });
+      applyPatrolOutcome: async (patrolId, encounterId, destroyedActorIds, alliedPatrolCasualties) => {
+        await applyUniversePatrolOutcomeInTransaction(tx, {
+          patrolId, encounterId, destroyedActorIds, alliedPatrolCasualties,
+        });
       },
       writeResult: async (playerId, key, result, award) => {
         const profile = locked.get(playerId);
@@ -52,6 +54,8 @@ const databaseStore: ExplorationRewardStore = {
             runtime: result.runtime, policyId: result.policyId, rewardPolicy: result.rewardPolicy,
             finalTick: result.finalTick, outcome: result.outcome, objectiveCompleted: result.objectiveCompleted,
             ...(result.patrol ? { patrol: result.patrol } : {}),
+             ...(result.alliedPatrolCasualties?.length
+               ? { alliedPatrolCasualties: result.alliedPatrolCasualties } : {}),
             fingerprint: result.fingerprint, award },
         });
         await tx.insert(progressionEventsTable).values({

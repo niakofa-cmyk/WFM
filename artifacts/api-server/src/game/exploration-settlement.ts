@@ -1,4 +1,4 @@
-import { EXPLORATION_CONTRACT, readExplorationReceipt, type ExplorationPilotResult, type ExplorationReceipt, type ExplorationResult } from "./exploration-encounter";
+import { EXPLORATION_CONTRACT, readExplorationReceipt, type AlliedPatrolCasualties, type ExplorationPilotResult, type ExplorationReceipt, type ExplorationResult } from "./exploration-encounter";
 
 export type ExplorationAward = Readonly<ExplorationPilotResult & {
   balanceAfter: number;
@@ -17,6 +17,7 @@ export interface ExplorationRewardTransaction {
     patrolId: string,
     encounterId: string,
     destroyedActorIds: readonly string[],
+    alliedPatrolCasualties?: readonly AlliedPatrolCasualties[],
   ): Promise<void>;
   writeResult(playerId: string, key: string, result: Readonly<ExplorationResult>, award: ExplorationAward): Promise<void>;
   recordCampaignClear?(result: Readonly<ExplorationResult>): Promise<void>;
@@ -72,10 +73,16 @@ export async function settleExplorationWithStore(
       return { status: "duplicate", awards: previous };
     }
     if (result.patrol) {
-      if (!tx.applyPatrolOutcome) throw new Error("Persistent patrol settlement is unavailable.");
+      const applyPatrolOutcome = tx.applyPatrolOutcome;
+      if (!applyPatrolOutcome) throw new Error("Persistent patrol settlement is unavailable.");
       const destroyedActorIds = result.patrolDestroyedActorIds ??
         [...new Set(result.pilots.flatMap((pilot) => pilot.destroyedActorIds))].sort();
-      await tx.applyPatrolOutcome(result.patrol.patrolId, result.encounterId, destroyedActorIds);
+      await applyPatrolOutcome(
+        result.patrol.patrolId,
+        result.encounterId,
+        destroyedActorIds,
+        result.alliedPatrolCasualties ?? [],
+      );
     }
     const awards: ExplorationAward[] = [];
     for (const pilot of result.pilots) {

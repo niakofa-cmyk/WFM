@@ -907,6 +907,11 @@ export function Arena({
           } else if (packet.type === "freeflight_assist_call_update" &&
               packet.status === "accepted" && typeof packet.pilotCallsign === "string") {
             setFreeFlightNotice(`WING SUPPORT RESPONDING · ${packet.pilotCallsign.slice(0, 32)} joining.`);
+          } else if (packet.type === "freeflight_ai_support_joined" &&
+              packet.source === "nearby_patrol" &&
+              (packet.faction === "ussf" || packet.faction === "accord") &&
+              typeof packet.callsign === "string" && packet.callsign.length <= 80) {
+            setFreeFlightNotice(`FRIENDLY PATROL RESPONDING · ${packet.callsign.slice(0, 32)} joining the battle.`);
           } else if (packet.type === "freeflight_vector_boost_state") {
             setVectorBoostStatus(packet.accepted === true ? "VECTOR BURST · RECOVERING" : "BURST · ENERGY / RECOVERY");
             return;

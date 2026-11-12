@@ -1142,8 +1142,7 @@ test("shared-flight patrol combat settles independently of the co-op V1 rollback
     }),
     sectorProtocolVersion: 1,
     freeFlightCombat: {
-      resolveUniversePatrols: async (_userId, pilotFaction) =>
-        pilotFaction === "ussf" ? [contact, secondContact] : [],
+      resolveFreeFlightPatrols: async () => [contact, secondContact],
       reserveUniversePatrol: async (userIds, pilotFaction, reservation, encounterId) => {
         assert.deepEqual(userIds, ["combat-pilot"]);
         assert.equal(pilotFaction, "ussf");

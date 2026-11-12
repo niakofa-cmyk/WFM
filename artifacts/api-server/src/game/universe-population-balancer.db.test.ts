@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -16,9 +17,12 @@ const isDisposableLocalPopulationDb = (() => {
 test("Postgres serializes population epochs and never restores a removed casualty", {
   skip: !isDisposableLocalPopulationDb,
 }, async () => {
-  const [{ applyUniversePopulationEpoch }, { db, pool, universePatrolsTable, universePopulationEpochsTable, universePopulationStateTable }, { eq, sql }] =
+  const [{ applyUniversePopulationEpoch }, { applyUniversePatrolOutcomeInTransaction }, {
+    db, pool, universePatrolsTable, universePopulationEpochsTable, universePopulationStateTable,
+  }, { eq, sql }] =
     await Promise.all([
       import("./universe-population-balancer"),
+      import("./universe-patrols"),
       import("@workspace/db"),
       import("drizzle-orm"),
     ]);
@@ -73,6 +77,37 @@ test("Postgres serializes population epochs and never restores a removed casualt
     }).from(universePatrolsTable);
     assert.ok(!allRosters.some((row) =>
       row.shipRoster.some((ship) => ship.id === destroyedShipId)));
+
+    const [hostileFleet] = await db.select().from(universePatrolsTable)
+      .where(eq(universePatrolsTable.faction, "ussf")).limit(1);
+    const [friendlyFleet] = await db.select().from(universePatrolsTable)
+      .where(eq(universePatrolsTable.faction, "accord")).limit(1);
+    assert.ok(hostileFleet?.shipRoster.length && friendlyFleet?.shipRoster.length);
+    const hostileLoss = hostileFleet.shipRoster[0]!;
+    const friendlyLoss = friendlyFleet.shipRoster[0]!;
+    const encounterId = randomUUID();
+    await db.update(universePatrolsTable).set({
+      activeEncounterId: encounterId,
+      encounterLeaseExpiresAt: new Date(later.getTime() + 60_000),
+    }).where(eq(universePatrolsTable.patrolId, hostileFleet.patrolId));
+    await db.transaction((tx) => applyUniversePatrolOutcomeInTransaction(tx, {
+      patrolId: hostileFleet.patrolId,
+      encounterId,
+      destroyedActorIds: [`patrol-ship:${hostileLoss.id}`],
+      alliedPatrolCasualties: [{
+        patrolId: friendlyFleet.patrolId,
+        faction: "accord",
+        destroyedActorIds: [`patrol-ship:${friendlyLoss.id}`],
+      }],
+    }));
+    const [settledHostile] = await db.select().from(universePatrolsTable)
+      .where(eq(universePatrolsTable.patrolId, hostileFleet.patrolId));
+    const [settledFriendly] = await db.select().from(universePatrolsTable)
+      .where(eq(universePatrolsTable.patrolId, friendlyFleet.patrolId));
+    assert.equal(settledHostile?.activeEncounterId, null);
+    assert.ok(!settledHostile?.shipRoster.some((ship) => ship.id === hostileLoss.id));
+    assert.ok(!settledFriendly?.shipRoster.some((ship) => ship.id === friendlyLoss.id));
+
     const [state] = await db.select().from(universePopulationStateTable);
     const receipts = await db.select().from(universePopulationEpochsTable);
     assert.equal(state?.epoch, 2);

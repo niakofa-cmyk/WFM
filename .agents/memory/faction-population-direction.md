@@ -21,8 +21,9 @@ Source now includes a cross-owner lease-validated pilot census and a durable,
 transactional population epoch balancer. The writer is disabled by default and
 staging-only; live Redis Lua behavior and staging convergence are not certified.
 It counts active ship hulls, adds bounded route-connected reserve fleets, and
-never restores destroyed rosters to force a ratio. AI escort dispatch and any
-NPC reward policy remain separate work.
+never restores destroyed rosters to force a ratio. A nearby persistent friendly
+patrol can now join a battle as bounded AI support; its casualties are settled
+with the same encounter receipt and do not create human kill credit.
 
 **Why:** the owner clarified that 80% means hostile AI and 20% friendly AI from
 the active pilots' faction perspective, while keeping the percentage adjustable.
@@ -34,8 +35,9 @@ Keep its writer off until staging schema, Redis, replica handoff, restart and
 casualty checks pass. Keep fleet density, encounter frequency, and encounter
 intensity separate; never restore casualties, duplicate leases, or teleport an
 AI escort beside a battle. Preserve human reward attribution. The
-`docs/infinite-war/ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md` file
-describes the separate AI-escort and encounter work.
+`docs/infinite-war/ORBITAL-FLEET-POPULATION-AND-ENCOUNTER-DIRECTOR.md` and
+`docs/infinite-war/ROUTE-BASED-FRIENDLY-PATROL-SUPPORT.md` describe the
+encounter and friendly-patrol contracts.
 
 **Why:** the requested ratio is a target, not permission for destructive roster
 changes. Cross-instance presence and a serialized database epoch are required
