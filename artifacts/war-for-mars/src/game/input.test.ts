@@ -108,7 +108,7 @@ test("all four Rust Disc edge double-taps reach the matching Orbital maneuver ax
   }
 });
 
-test("circular roll streams live offline Orbital input and expires cleanly", () => {
+test("circular roll streams live Orbital input and expires cleanly", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftStickFlight = true;

@@ -26,6 +26,10 @@ device certification.
   free-flight enables it only after the socket advertises
   `orbital-barrel-roll-control-v1`; the client does not send it to older
   servers.
+- Screen coordinates grow downward, while positive ship-local Z rotation looks
+  counterclockwise from the chase view. The recognizer reverses the screen
+  angular sign so clockwise thumb circles produce a visible right roll and
+  counterclockwise circles produce a visible left roll.
 - Ordinary aiming begins immediately when the player starts dragging.
 - A deliberate arc around the visible stick center arms direct roll after
   60 degrees plus sample/time gates. The tracing window is ten seconds from

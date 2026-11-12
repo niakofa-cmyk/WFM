@@ -198,7 +198,7 @@ test("live barrel-roll control rotates during the thumb input and stops on relea
   assert.deepEqual(depleted.player.space!.q, beforeDepletedRoll, "the maneuver cannot roll with depleted energy");
 });
 
-test("offline right-stick roll input reaches the Orbital hull while aim and thrust stay active", () => {
+test("Orbital right-stick roll input reaches the hull while aim and thrust stay active", () => {
   const match = lab();
   const bus = createBus("arc");
   bus.orbital = true;

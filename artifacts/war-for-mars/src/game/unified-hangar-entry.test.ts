@@ -15,7 +15,11 @@ test("hangar exposes one prominent connected-universe gateway", () => {
 test("only Enter the Universe launches gameplay; legacy entry URLs return to the hangar", () => {
   const app = readFileSync(new URL("./WarApp.tsx", import.meta.url), "utf8");
   const router = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-  assert.match(app, /onEnterUniverse=\{\(\) => \{ unlockAudio\(\); void enterOrbitalUniverse\(\); \}\}/);
+  assert.match(app, /onEnterUniverse=\{enterUniverseFromHangar\}/);
+  assert.match(app, /const enterUniverseFromHangar = \(\) => \{\s*\/\/ requestFullscreen must run synchronously within the button gesture\.\s*const fullscreenRequest = enterMobileGameFullscreen\(\);\s*unlockAudio\(\);/);
+  const entryHandler = app.match(/const enterUniverseFromHangar = \(\) => \{[\s\S]*?\n  \};/)?.[0] ?? "";
+  assert.ok(entryHandler.indexOf("enterMobileGameFullscreen()") < entryHandler.indexOf("enterOrbitalUniverse()"));
+  assert.match(app, /if \(!orbitalUniverseOpen\) exitMobileGameFullscreen\(\)/);
   assert.match(app, /const enterOrbitalUniverse = async \(\) =>/);
   assert.match(app, /setOrbitalUniverseOpen\(true\)/);
   assert.match(app, /Use ENTER THE UNIVERSE in the hangar/);

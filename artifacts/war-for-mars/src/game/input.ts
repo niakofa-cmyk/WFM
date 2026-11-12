@@ -145,7 +145,7 @@ export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs =
   }, Math.max(1, durationMs));
 }
 
-/** Continuous roll is accepted only by the offline unified Orbital pilot adapter. */
+/** Continuous roll is buffered by the Orbital adapter and forwarded only when the server advertises support. */
 export const MAX_CIRCULAR_ROLL_HOLD_MS = 120;
 
 export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = MAX_CIRCULAR_ROLL_HOLD_MS) {

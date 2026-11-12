@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orbitalCameraPose } from "./orbital-camera";
+import { rotate } from "./orbital-flight";
+
+test("positive local Z roll moves the hull top toward screen-left from the chase view", () => {
+  const angle = Math.PI / 12;
+  const up = rotate([0, 0, Math.sin(angle), Math.cos(angle)], 0, 1, 0);
+  assert.ok(up.x < 0);
+  assert.ok(up.y > 0);
+});
 
 test("orbital camera stays horizon-stable through the middle of a barrel roll", () => {
   const upright = orbitalCameraPose([0, 0, 0, 1], false, 0);

@@ -61,6 +61,7 @@ import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe
 import type { SectorMissionId } from "./sector-missions";
 import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
 import { accountBootMenu, enterOrbitalOnAccountBoot } from "./wfm-boot";
+import { enterMobileGameFullscreen, exitMobileGameFullscreen } from "./mobile-game-fullscreen";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -182,6 +183,9 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
   const [universeEntryError, setUniverseEntryError] = useState("");
   const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
   const [universeExpeditionMission, setUniverseExpeditionMission] = useState<SectorMissionId | null>(null);
+  useEffect(() => {
+    if (!orbitalUniverseOpen) exitMobileGameFullscreen();
+  }, [orbitalUniverseOpen]);
   const universePatrolsQuery = useGetWorldPatrols({
     query: {
       enabled: Boolean(userId && orbitalUniverseOpen && narrativeWorld.data?.currentLocation),
@@ -951,6 +955,18 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
       return false;
     }
   };
+  const enterUniverseFromHangar = () => {
+    // requestFullscreen must run synchronously within the button gesture.
+    const fullscreenRequest = enterMobileGameFullscreen();
+    unlockAudio();
+    void enterOrbitalUniverse().then((entered) => {
+      if (!entered) {
+        void fullscreenRequest.then((fullscreenEntered) => {
+          if (fullscreenEntered) exitMobileGameFullscreen();
+        });
+      }
+    });
+  };
 
   const start = async (): Promise<boolean> => {
     if (shell === MenuState.LOADING || startingRun) return false;
@@ -1619,7 +1635,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
-        onEnterUniverse={() => { unlockAudio(); void enterOrbitalUniverse(); }}
+        onEnterUniverse={enterUniverseFromHangar}
         universeEntryError={universeEntryError}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}

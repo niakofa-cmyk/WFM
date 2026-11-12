@@ -100,6 +100,12 @@ live input reverses direction and stops on release, and a second pilot receives
 the same authoritative attitude. This is repository/runtime test evidence only;
 it does not establish staging deployment or physical-phone behavior.
 
+The screen-to-hull roll sign is intentionally inverted: browser pointer Y grows
+downward, and positive ship-local Z rotation appears counterclockwise from the
+stabilized chase view. Therefore clockwise touch circles map to visible right
+roll, and counterclockwise circles map to visible left roll. Keep this mapping
+covered by gesture tests so the left roll does not silently reverse again.
+
 The testing browser could not create WebGL. A separate bounded local Chromium
 SwiftShader check did render the scene and confirmed neutral touch-down, diagonal
 thumb input, simultaneous primary fire and physical positive X/Y displacement,

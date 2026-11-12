@@ -28,7 +28,7 @@ export type TacticalManeuverIntentV1 =
   | {
       version: 1;
       kind: "barrel-roll-control";
-      /** Signed live roll input from the offline Orbital right-stick circle. */
+      /** Signed live roll input from the Orbital right-stick circle. */
       input: number;
     };
 export type OrbitalFlight = {
