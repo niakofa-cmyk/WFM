@@ -44,51 +44,39 @@ with bounded range, short-lived snapshots, and disconnect expiry. They must not
 become a public location lookup, identity feed, or permanent coordinate record.
 Do not fabricate pilot ships when no server presence exists.
 
-## Verified baseline and current prototype — 2026-11-08
+## Current implementation and verification boundary — 2026-11-12
 
-The current implementation is a useful foundation, not this completed feature:
+- Persistent USSF/Accord patrol rosters now load as server-owned 3D actors in
+  the authenticated Orbital free-flight runtime. The renderer projects the same
+  versioned snapshots; it does not create another universe or decide combat.
+- Each materialized location seeds a route-roaming fleet and a
+  route-security fleet for each faction. The local fleet prevents a location
+  from appearing empty solely because its roaming formation is between
+  waypoints. Both continue tactical server AI movement. A casualty remains
+  removed; directory refresh does not heal or restore it.
+- The shared free-flight runtime owns pilot and patrol movement, target state,
+  projectiles, damage, encounter transitions, and result settlement. Nearby
+  same-faction human pilots and bounded persistent AI patrols can join the same
+  active encounter. AI support receives no human kill credit or player reward.
+- Patrol selection and settlement revalidate saved world location, persistent
+  fleet identity, current roster and encounter reservation on the server.
+  Clients cannot fabricate contacts or authorize damage from their local
+  distance estimate.
+- Redis-backed session ownership and checkpoints are enabled in WFM staging.
+  Staging telemetry currently confirms the writer is running, but its latest
+  captured aggregate had no authenticated pilots. Therefore two-device
+  co-location, visible enemy fleets, and in-battle assistance are not yet
+  certified against the live staging runtime. The owner plans to run that
+  device check.
+- The staged free-flight population balancer previously emitted stale-census
+  results when comparing absolute timestamps across Redis and socket hosts.
+  Freshness now uses local receipt time after the Redis-side lease pruning; the
+  updated correction must be included in the next successful staging release.
 
-- Persistent USSF/Accord strategic patrols are stored on the server and project
-  as 3D ship models into the local free-flight renderer.
-- The projection uses server-reported strategic traffic and a bounded sensor
-  radius. It is presentation only; the free-flight pilot pose and movement are
-  still local.
-- A separate authenticated Orbital V2 `universe-patrol` sector operation can
-  reserve a persistent fleet, simulate combat on the server, persist confirmed
-  kills/assists and casualties, and settle eligible rewards. The pilot explicitly
-  requests this operation; it does not inherit the visible contact's current
-  free-flight position.
-- The existing universe-presence API stores a server-derived destination and
-  returns aggregate counts. It does not distribute pilot ship poses. The
-  aggregate API remains separate from the new authenticated short-lived pose
-  stream.
-- A feature-gated JSON prototype now broadcasts server-simulated pilot and
-  temporary patrol actors to authenticated pilots in the same coarse
-  destination session. The current Arena projects those ships in the existing
-  Three.js scene; it does not open a parallel game universe.
-- A fresh shared-flight snapshot now drives the in-flight hostile-contact
-  prompt using the server-reported pilot and patrol positions. Requesting an
-  intercept opens the authenticated Orbital V2 patrol operation as an overlay:
-  the existing free-flight Arena stays mounted, pauses, and resumes at its
-  previous local position when the pilot returns. V2 pairs automatically in
-  development, with an explicit `false` override; Production still requires
-  the frontend and socket V2 flags.
-- The overlay operation resolves and reserves a persistent opposing fleet from
-  the server-owned account location and independently enforces its 180 m
-  combat-authorization gate. The prompt is not itself combat authorization.
-  The temporary visible patrol actor is not yet linked by persistent patrol ID
-  to the fleet selected for the operation, and the operation's combat still
-  runs in its server-run sector simulation rather than the continuous
-  free-flight physics session.
-- The player's rendered ship still follows local prediction; authoritative pose
-  reconciliation is not yet implemented. The prototype's sessions are not 3D
-  spatial cells, and its four patrols are not the persistent route fleet system.
-- Weapon actions are rejected in this slice. No kill attribution, rewards,
-  reputation, territory changes, or live-battle settlement are connected.
-- The landscape in-flight contact card now surfaces faction, ship class, range,
-  shield, and hull from the authenticated free-flight snapshot. It is a live
-  target-information display only; it does not imply that continuous-flight
-  weapons or damage have been enabled.
+The strategic directory still covers the named nine-location route graph. This
+is not evidence of an unbounded infinite map. See
+[persistent patrol implementation and limits](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
+for the current scope and acceptance gates.
 
 See [persistent patrol implementation and limits](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md)
 and [the server encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md).
@@ -101,20 +89,14 @@ The source audit, rollout gates, and exact prototype limits are in
 
 ## Implementation and acceptance gates
 
-1. Replace coarse destination sessions with server-owned bounded spatial cells
-   and feed existing persistent patrol route records into those interest groups.
-2. Reconcile predicted local pilot movement to the server pose; validate
-   reconnect, snapshot interpolation, and renderer parity through both supported
-   paths.
-3. Run encounter detection and escalation from server simulation state. Preserve
-   the current encounter rules and use existing result/settlement contracts
-   rather than trusting client proximity or opening a parallel battle instance.
-4. End combat back into the same authoritative universe session, applying
-   casualties and recording kill/assist history without resetting flight
-   position or silently advancing a hidden local simulation.
-5. Verify both renderer paths against identical snapshots and control outcomes.
-   Test both factions, multiple devices, latency, reconnect, stale presence,
-   privacy, duplicate settlement, and rollback on staging before rollout.
+1. Confirm two authenticated pilots on separate staging devices receive the same
+   session snapshot and can see the same human ships and persistent patrols.
+2. Verify the local patrol and roaming formations appear on both devices, and
+   that an encounter, assist, casualties, and continued flight remain consistent
+   after a socket-owner handoff.
+3. Verify both supported renderer paths against identical snapshots and control
+   outcomes. Test both factions, latency, reconnect, stale presence, privacy,
+   duplicate settlement, and rollback before any Production rollout.
 
 Do not call the universe continuously shared or describe human ships as live
 until authenticated multi-client flight has been observed in the same region

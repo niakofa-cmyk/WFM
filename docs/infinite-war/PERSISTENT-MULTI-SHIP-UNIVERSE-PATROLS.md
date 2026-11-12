@@ -26,10 +26,13 @@ the existing fixed seeded network.
 
 - The strategic patrol network is derived from the server-owned world travel
   graph, so an AI fleet cannot route through an unconnected destination.
-- A deterministic USSF and Accord multi-ship formation is lazily materialized
-  for the current region and its directly connected regions.
-- Each formation contains two to four existing WFM hull identities, a stable
-  server-assigned callsign, one strategic objective, and a two-node route.
+- Deterministic USSF and Accord formations are lazily materialized for the
+  current region and its directly connected regions. Each faction receives one
+  route-roaming formation and one local route-security formation.
+- Each formation contains two to four existing WFM hull identities and a stable
+  server-assigned callsign. The roaming formation follows a connected
+  two-location route; the route-security formation stays assigned to its
+  location so a route departure cannot leave a newly entered area empty.
 - The fleet roster, current region, route index, last movement time, and
   concurrency revision are stored in the additive `universe_patrols` table.
 - Strategic waypoints advance every two minutes from the saved timestamp. The
@@ -41,6 +44,10 @@ the existing fixed seeded network.
 - The Galaxy screen shows the server-reported patrols in the current region and
   their planned route. An unavailable sensor response is explicit; the UI does
   not invent a fleet count.
+- Both local and roaming persistent formations load as server-owned 3D actors in
+  continuous Orbital free flight. A route-security assignment remains at its
+  strategic location while its ships move on local server AI waypoints. Destroyed
+  hulls are not respawned by a directory refresh.
 
 The network currently covers the nine named world locations already present in
 the world route graph. Records materialize only around a visited location;
@@ -68,24 +75,21 @@ fleets for every possible future sector.
   recovered or settled through their existing server-authoritative contracts.
   A patrol objective alone does not reveal a hidden story fact.
 
-## Remaining implementation gates
+## Verification boundary and remaining gates
 
-1. Connect nearby strategic contacts directly to a shared, server-authoritative
-   free-flight session. The current client-side range prompt is not proof of
-   location and must not authorize combat or rewards.
-2. Carry the bounded patrol operation's validated actors, damage, kill/assist
-   attribution, and reconnect-safe identity into that shared flight without
-   creating a second simulation or losing the existing rollback path.
-3. Extend the existing result settlement to continuous free-flight outcomes and
-   define any faction-wide consequences separately. Keep the current bounded
-   operation's idempotency and reward gates; do not modify Wing rewards.
-4. Expand beyond the current named route graph through versioned sector IDs,
+1. Verify the deployed staging build from two authenticated devices: both pilots
+   must receive the same server-owned patrol actors in the same canonical
+   location, and the local route-security formations must remain visible after
+   the roaming formations advance.
+2. Verify live patrol engagement, friendly assistance, casualty persistence,
+   cross-replica handoff, and restart recovery in staging. The route directory
+   and unit tests are not a substitute for this device test.
+3. Expand beyond the current named route graph through versioned sector IDs,
    sparse world-state storage, interest management, and measured mobile/network
    budgets. Do not claim an infinite simulation merely because the generator is
    deterministic.
-5. Verify API concurrency, database persistence after restart, both factions,
-   route behavior, privacy, staging multi-device flight, and rollback before
-   widening the runtime rollout.
+4. Keep Production untouched until staging multi-device evidence, database
+   recovery, privacy and rollback checks pass and separate approval is given.
 
 ## Rollback
 

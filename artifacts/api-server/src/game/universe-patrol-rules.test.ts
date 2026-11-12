@@ -19,22 +19,41 @@ test("strategic patrol seeds are deterministic, multi-ship, faction-specific, an
   const second = createSeededPatrols(network, seededAt);
 
   assert.deepEqual(first, second);
-  assert.equal(first.length, 6);
+  assert.equal(first.length, 12);
   assert.equal(new Set(first.map((patrol) => patrol.patrolId)).size, first.length);
   assert.deepEqual(new Set(first.map((patrol) => patrol.faction)), new Set(["ussf", "accord"]));
   for (const patrol of first) {
     assert.ok(patrol.shipRoster.length >= 2 && patrol.shipRoster.length <= 4);
     assert.equal(patrol.route[0], patrol.originLocationId);
-    assert.equal(patrol.route.at(-1), patrol.route[1]);
-    for (let index = 1; index < patrol.route.length; index++) {
-      assert.ok(network[patrol.route[index - 1] as keyof typeof network].includes(patrol.route[index] as never));
+    if (patrol.patrolId.endsWith(":garrison")) {
+      assert.equal(patrol.objective, "route-security");
+      assert.deepEqual(patrol.route, [patrol.originLocationId, patrol.originLocationId]);
+      assert.equal(
+        advancePatrol(patrol, new Date(seededAt.getTime() + PATROL_WAYPOINT_INTERVAL_MS * 20))
+          .currentLocationId,
+        patrol.originLocationId,
+        "a local patrol remains materialized at its location while patrolling there",
+      );
+    } else {
+      assert.equal(patrol.route.at(-1), patrol.route[1]);
+      for (let index = 1; index < patrol.route.length; index++) {
+        assert.ok(network[patrol.route[index - 1] as keyof typeof network].includes(patrol.route[index] as never));
+      }
+    }
+  }
+  for (const location of Object.keys(network)) {
+    for (const faction of ["ussf", "accord"] as const) {
+      assert.equal(first.filter((patrol) =>
+        patrol.originLocationId === location && patrol.faction === faction &&
+        patrol.patrolId.endsWith(":garrison")).length, 1);
     }
   }
 });
 
 test("patrol waypoints advance from persisted time, catch up deterministically, and do not advance early", () => {
   const patrol = createSeededPatrols(network, new Date("2026-11-07T12:00:00.000Z"))
-    .find((entry) => entry.originLocationId === "alpha" && entry.faction === "ussf");
+    .find((entry) => entry.originLocationId === "alpha" && entry.faction === "ussf" &&
+      !entry.patrolId.endsWith(":garrison"));
   assert.ok(patrol);
 
   const beforeDue = advancePatrol(patrol, new Date(patrol.lastMovedAt.getTime() + PATROL_WAYPOINT_INTERVAL_MS - 1));

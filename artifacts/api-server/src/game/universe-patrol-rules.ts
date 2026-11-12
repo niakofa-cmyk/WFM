@@ -74,34 +74,43 @@ export function createSeededPatrols(
 
     for (const faction of ["ussf", "accord"] as const) {
       const patrolId = `strategic-patrol-v1:${originLocationId}:${faction}:0`;
-      const seed = stableHash(patrolId);
-      const destination = neighbors[stableHash(`${patrolId}:route`) % neighbors.length];
-      const shipCount = 2 + stableHash(`${patrolId}:size`) % 3;
-      const hulls = HULLS[faction];
-      const shipRoster = Array.from({ length: shipCount }, (_, index) => {
-        const hull = hulls[stableHash(`${patrolId}:hull:${index}`) % hulls.length];
-        const suffix = (stableHash(`${patrolId}:callsign:${index}`) % 900) + 100;
-        return {
-          id: `${patrolId}:ship:${index + 1}`,
-          hullId: hull.id,
-          name: hull.name,
-          callsign: `${faction === "ussf" ? "U" : "A"}-${suffix}`,
-        };
-      });
-      patrols.push({
-        patrolId,
-        originLocationId,
-        currentLocationId: originLocationId,
-        faction,
-        objective: OBJECTIVES[stableHash(`${patrolId}:objective`) % OBJECTIVES.length],
-        callsign: `${faction === "ussf" ? "USSF" : "ACCORD"}-${(seed % 0x10000).toString(16).padStart(4, "0").toUpperCase()}`,
-        shipRoster,
-        route: [originLocationId, destination],
-        routeIndex: 0,
-        lastMovedAt: seededAt,
-        revision: 0,
-        updatedAt: seededAt,
-      });
+      const garrisonId = `strategic-patrol-v1:${originLocationId}:${faction}:garrison`;
+      for (const [id, route, objective] of [
+        [
+          patrolId,
+          [originLocationId, neighbors[stableHash(`${patrolId}:route`) % neighbors.length]],
+          OBJECTIVES[stableHash(`${patrolId}:objective`) % OBJECTIVES.length]!,
+        ],
+        [garrisonId, [originLocationId, originLocationId], "route-security" as const],
+      ] as const) {
+        const seed = stableHash(id);
+        const shipCount = 2 + stableHash(`${id}:size`) % 3;
+        const hulls = HULLS[faction];
+        const shipRoster = Array.from({ length: shipCount }, (_, index) => {
+          const hull = hulls[stableHash(`${id}:hull:${index}`) % hulls.length];
+          const suffix = (stableHash(`${id}:callsign:${index}`) % 900) + 100;
+          return {
+            id: `${id}:ship:${index + 1}`,
+            hullId: hull.id,
+            name: hull.name,
+            callsign: `${faction === "ussf" ? "U" : "A"}-${suffix}`,
+          };
+        });
+        patrols.push({
+          patrolId: id,
+          originLocationId,
+          currentLocationId: originLocationId,
+          faction,
+          objective,
+          callsign: `${faction === "ussf" ? "USSF" : "ACCORD"}-${(seed % 0x10000).toString(16).padStart(4, "0").toUpperCase()}`,
+          shipRoster,
+          route: [...route],
+          routeIndex: 0,
+          lastMovedAt: seededAt,
+          revision: 0,
+          updatedAt: seededAt,
+        });
+      }
     }
   }
 

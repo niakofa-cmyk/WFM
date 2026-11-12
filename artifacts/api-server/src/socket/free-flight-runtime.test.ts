@@ -632,6 +632,62 @@ test("authenticated pilots see nearby pilots and both server patrol factions onl
   }
 });
 
+test("the first free-flight snapshot contains persistent local patrols from both factions", async () => {
+  const patrol = (
+    faction: "ussf" | "accord",
+    patrolId: string,
+    shipId: string,
+    hullId: "duskbreaker" | "mandjet",
+  ): UniversePatrolEncounter => ({
+    patrolId,
+    locationId: "phobos-yard",
+    faction,
+    callsign: `${faction.toUpperCase()} LOCAL GUARD`,
+    route: ["phobos-yard", "phobos-yard"],
+    revision: 0,
+    ships: [{
+      id: shipId,
+      hullId,
+      name: hullId,
+      callsign: `${faction.toUpperCase()} GUARD ONE`,
+    }],
+  });
+  const persistentPatrols = [
+    patrol("ussf", "ussf-local-garrison", "ussf-garrison-ship", "duskbreaker"),
+    patrol("accord", "accord-local-garrison", "accord-garrison-ship", "mandjet"),
+  ];
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: auth.verifySessionToken,
+    enableFreeFlight: true,
+    resolveFreeFlightAdmission: async () => ({
+      sessionKey: "mars:phobos-yard",
+      faction: "ussf",
+      shipId: "duskbreaker",
+    }),
+    freeFlightCombat: {
+      resolveFreeFlightPatrols: async () => persistentPatrols,
+      reserveUniversePatrol: async () => null,
+      releaseUniversePatrol: async () => {},
+      settleScoutEncounter: async () => ({ status: "disabled", awards: [] }),
+    },
+    snapshotIntervalMs: 50,
+  });
+  const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?freeflight=1`, "garrison-pilot");
+  try {
+    const snapshot = await join(socket);
+    const localGuards = snapshot.actors.filter((actor) =>
+      actor.kind === "patrol" &&
+      ["ussf-garrison-ship", "accord-garrison-ship"].some((id) =>
+        actor.actorId === `patrol-ship:${id}`));
+    assert.deepEqual(localGuards.map((actor) => actor.faction).sort(), ["accord", "ussf"]);
+    assert.deepEqual(localGuards.map((actor) => actor.callsign).sort(),
+      ["ACCORD GUARD ONE - PATROL", "USSF GUARD ONE - PATROL"]);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
 test("the server advances 3D pilot and patrol movement and rejects client combat state", async () => {
   const runtime = await makeRuntime();
   const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?freeflight=1`, "moving");
