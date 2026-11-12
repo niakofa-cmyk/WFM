@@ -13,6 +13,7 @@ import {
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
+  BARREL_ROLL_CONTROL_PROTOCOL_V1,
   MISSILE_CATALOG,
   PRIMARY_WEAPON_CATALOG,
   acquireTarget,
@@ -2435,6 +2436,7 @@ export function createFreeFlightRuntime(options: {
             protocol: VECTOR_BOOST_PROTOCOL_V1,
             nextSeq: (actor.vectorBoostSeq ?? 0) + 1,
           },
+          barrelRoll: { protocol: BARREL_ROLL_CONTROL_PROTOCOL_V1 },
           targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1, nearest: true },
           assistance: { protocol: FREE_FLIGHT_ASSIST_V1 },
           countermeasures: { protocol: 1, nextSeq: (actor.countermeasureSeq ?? 0) + 1,
@@ -2664,6 +2666,7 @@ export function createFreeFlightRuntime(options: {
         vertical: input.vertical, roll: input.roll, boost: input.boost, brake: input.brake,
         drift: input.drift, inertial: input.inertial, aimAssist: input.aimAssist,
         fire: input.fire, missile: input.missile, targetId: null,
+        ...(input.maneuver ? { maneuver: input.maneuver } : {}),
       };
       // Accepted intent is not proof of a projectile or a hit.
       send(socket, {

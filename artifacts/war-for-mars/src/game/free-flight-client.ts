@@ -4,6 +4,7 @@ import {
   ORBITAL_RULES_VERSION,
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
+  BARREL_ROLL_CONTROL_PROTOCOL_V1,
   isFreeFlightTargetState,
   type FreeFlightTargetState,
   VECTOR_BOOST_PROTOCOL_V1,
@@ -57,9 +58,11 @@ export class FreeFlightClient {
   private nearestTargetingAvailable = false;
   private assistanceAvailable = false;
   private countermeasuresAvailable = false;
+  private barrelRollAvailable = false;
   private countermeasureSeq = 1;
   private countermeasureReadyAt = 0;
   get canDeployCountermeasure() { return this.joined && this.countermeasuresAvailable; }
+  get canControlBarrelRoll() { return this.joined && this.barrelRollAvailable; }
   get countermeasureCooldownMs() { return Math.max(0, this.countermeasureReadyAt - performance.now()); }
   private targetCycleSeq = 1;
   private lastTargetState: FreeFlightTargetState | null = null;
@@ -126,6 +129,7 @@ export class FreeFlightClient {
     this.assistanceAvailable = false;
     this.lastTargetState = null;
     this.vectorBoostAvailable = false;
+    this.barrelRollAvailable = false;
     this.stopped = true;
     this.generation += 1;
     this.joined = false;
@@ -172,6 +176,10 @@ export class FreeFlightClient {
       inertial: controls.inertial,
       aimAssist: controls.aimAssist,
       countermeasure: false,
+      ...(this.barrelRollAvailable && controls.maneuver?.version === 1 &&
+        controls.maneuver.kind === "barrel-roll-control"
+        ? { maneuver: controls.maneuver }
+        : {}),
     };
     socket.send(JSON.stringify({ type: "freeflight_input", input }));
   }
@@ -261,6 +269,8 @@ export class FreeFlightClient {
         this.vectorBoostAvailable = vector?.protocol === VECTOR_BOOST_PROTOCOL_V1 &&
           Number.isSafeInteger(vector.nextSeq) && (vector.nextSeq as number) > 0;
         if (this.vectorBoostAvailable) this.vectorBoostSeq = vector!.nextSeq as number;
+        const barrelRoll = packet.barrelRoll as { protocol?: unknown } | undefined;
+        this.barrelRollAvailable = barrelRoll?.protocol === BARREL_ROLL_CONTROL_PROTOCOL_V1;
         if (!Number.isSafeInteger(packet.nextInputSeq) ||
             (packet.nextInputSeq as number) < 1 ||
             (packet.nextInputSeq as number) > 0x7fffffff) {

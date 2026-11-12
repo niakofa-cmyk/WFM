@@ -217,6 +217,79 @@ test("server-advertised directional bursts enforce sequence, cooldown and fixed 
   } finally { await runtime.close(); }
 });
 
+test("advertised barrel-roll controls rotate the shared hull, reverse live and stop on release", async () => {
+  const packets: Packet[] = [];
+  const observerPackets: Packet[] = [];
+  const socket = { readyState: 1, bufferedAmount: 0,
+    send: (data: string) => packets.push(JSON.parse(data) as Packet), close: () => {} };
+  const observer = { readyState: 1, bufferedAmount: 0,
+    send: (data: string) => observerPackets.push(JSON.parse(data) as Packet), close: () => {} };
+  const runtime = createFreeFlightRuntime({
+    resolveAdmission: async () => ({ sessionKey: "mars:barrel-roll-test", faction: "ussf", shipId: "glide" }),
+    resolveUniversePatrols: async () => [],
+  });
+  const actorFrom = (received: Packet[], actorId?: string) => {
+    const snapshot = [...received].reverse().find(packet =>
+      packet.type === "freeflight_snapshot" || packet.type === "freeflight_joined")?.snapshot;
+    assert.ok(isFreeFlightSnapshotV1(snapshot));
+    const actor = snapshot.actors.find(entry => actorId ? entry.actorId === actorId : entry.own);
+    assert.ok(actor);
+    return actor;
+  };
+  const dot = (a: { x: number; y: number; z: number; w: number },
+    b: { x: number; y: number; z: number; w: number }) =>
+    a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+  try {
+    await runtime.handle(socket, "barrel-roll-pilot", { type: "freeflight_join" });
+    const joined = packets.find(packet => packet.type === "freeflight_joined")!;
+    assert.equal((joined.barrelRoll as { protocol: string }).protocol,
+      "orbital-barrel-roll-control-v1");
+    await runtime.handle(observer, "barrel-roll-observer", { type: "freeflight_join" });
+    const initial = actorFrom(packets);
+    const initialObserverView = actorFrom(observerPackets, initial.actorId);
+    assert.deepEqual(initialObserverView.orientation, initial.orientation);
+    const rejected = input(1, {
+      maneuver: { version: 1, kind: "barrel-roll-control", input: 2 },
+    });
+    await runtime.handle(socket, "barrel-roll-pilot", { type: "freeflight_input", input: rejected });
+    assert.equal(packets.at(-1)?.reason, "freeflight_invalid_packet");
+
+    let clock = Date.now();
+    for (let seq = 1; seq <= 26; seq++) {
+      await runtime.handle(socket, "barrel-roll-pilot", {
+        type: "freeflight_input",
+        input: input(seq, { maneuver: { version: 1, kind: "barrel-roll-control", input: 0.5 } }),
+      });
+      runtime.advance(clock += 50);
+    }
+    assert.ok(packets.some(packet => packet.type === "freeflight_input_accepted" && packet.seq === 26));
+    const completed = actorFrom(packets);
+    assert.ok(dot(initial.orientation, completed.orientation) < -0.96,
+      "a sustained right-thumb input completes a full authoritative 360-degree hull roll");
+    assert.deepEqual(actorFrom(observerPackets, completed.actorId).orientation, completed.orientation,
+      "the other pilot receives the same server-owned rolled pose");
+
+    const beforeReverse = completed.orientation;
+    for (let seq = 27; seq <= 30; seq++) {
+      await runtime.handle(socket, "barrel-roll-pilot", {
+        type: "freeflight_input",
+        input: input(seq, { maneuver: { version: 1, kind: "barrel-roll-control", input: -0.5 } }),
+      });
+      runtime.advance(clock += 50);
+    }
+    const reversed = actorFrom(packets);
+    assert.ok(Math.abs(dot(beforeReverse, reversed.orientation)) < 0.99,
+      "counterclockwise input immediately changes the server-owned hull attitude");
+
+    const atRelease = reversed.orientation;
+    await runtime.handle(socket, "barrel-roll-pilot", { type: "freeflight_input", input: input(31) });
+    runtime.advance(clock += 100);
+    const released = actorFrom(packets);
+    assert.ok(dot(atRelease, released.orientation) > 0.999999,
+      "a neutral input stops rolling instead of queueing a client-side animation");
+  } finally { await runtime.close(); }
+});
+
 test("two nearby pilots damage one target and settle one kill plus an assist", async (t) => {
   const { createFreeFlightRuntime } = await import("./free-flight-runtime");
   let clock = Date.now(), reservations = 0, settlements = 0;

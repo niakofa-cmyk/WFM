@@ -33,9 +33,14 @@ input → shared intent → authority → physics → rendering chain.
   There is no teleport, invulnerability or automatic missile defeat.
 - Left steering, primary fire and missile input remain available during a burst.
   The burst temporarily owns lateral/vertical thrust, not the weapon controls.
-- Existing local circular roll remains available. Shared circle-roll authority,
-  missile countermeasures and additional combat abilities are separate
-  capabilities; this slice does not silently enable them.
+- Circular roll uses the deliberate right-stick arc in local Orbital and, in
+  shared free flight, is sent only when the socket advertises
+  `orbital-barrel-roll-control-v1`. The server validates the signed input,
+  applies the existing energy/disruption and bounded evasive-trajectory physics,
+  then publishes the resulting ship attitude in the shared snapshot. Neutral
+  input, disconnect, or stale input stops it; no roll grants invulnerability.
+- Missile countermeasures and other combat abilities remain separate
+  capabilities; adding roll does not enable them.
 
 ## Authority and compatibility
 
@@ -88,6 +93,12 @@ The full workspace typecheck, test suite and production builds passed. The
 Combat Lab initial static graph remained below its unchanged gzip budget.
 Targeted checks cover the right-thumb mapping/gesture/physics path and the
 authoritative burst contract, including duplicate and forged requests.
+
+The current code also advertises and tests the shared barrel-roll capability:
+malformed intent is rejected, the server completes a sustained 360-degree roll,
+live input reverses direction and stops on release, and a second pilot receives
+the same authoritative attitude. This is repository/runtime test evidence only;
+it does not establish staging deployment or physical-phone behavior.
 
 The testing browser could not create WebGL. A separate bounded local Chromium
 SwiftShader check did render the scene and confirmed neutral touch-down, diagonal

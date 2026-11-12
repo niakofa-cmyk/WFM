@@ -2369,11 +2369,15 @@ export function Arena({
         const primaryFireEnabled = freeFlightPrimaryFireEnabled(serverVitals);
         while (acc >= FIXED && steps < 5 && pilot.space) {
           const controls = readInput(bus);
-          // V1 authority has no drift or tactical-maneuver fields. Do not let
-          // local-only abilities diverge from the same transmitted controls.
+          // Shared flight keeps local-only drift disabled. Circular roll is
+          // retained only when this socket explicitly advertises its protocol.
           if (freeFlightEnabled) {
             controls.drift = false;
-            delete controls.maneuver;
+            if (!freeFlightClientRef.current?.canControlBarrelRoll ||
+                controls.maneuver?.version !== 1 ||
+                controls.maneuver.kind !== "barrel-roll-control") {
+              delete controls.maneuver;
+            }
           }
           freeFlightClientRef.current?.sendControls({
             ...controls,
@@ -4110,7 +4114,8 @@ export function Arena({
                       return requestRightVectorBoost(bus, direction, Date.now(),
                         !pilot || !pilot.alive || pilot.root > 0 || pilot.jam > 0);
                     } : undefined}
-                    onCircularRollInput={!freeFlightEnabled && bus?.orbital && bus.leftStickFlight ? (input) => {
+                    onCircularRollInput={bus?.orbital && bus.leftStickFlight &&
+                      (!freeFlightEnabled || freeFlightClientRef.current?.canControlBarrelRoll) ? (input) => {
                       setCircularRollControl(bus, input);
                       if (Math.abs(input) > 0.01) rollCameraStabilizationRef.current = 1;
                     } : undefined}

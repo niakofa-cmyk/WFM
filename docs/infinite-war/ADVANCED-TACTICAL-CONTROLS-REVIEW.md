@@ -53,6 +53,22 @@ re-audited end to end.
 | Live Wing / competitive / private / AI-fill | Existing room/socket authority and mappings remain; this patch does not enable gesture maneuvers online or change reward eligibility |
 | Other campaigns/arcade/universe destinations | Follow the existing mode inventory and migration gates in `INFINITE-UNIVERSE-ORBITAL-RUNTIME-DIRECTION.md`; no blanket parity certification from this input patch |
 
+### Shared barrel-roll follow-up — 2026-11-12
+
+The original audit above documented the local-only boundary at that time. The
+current shared free-flight path now advertises the additive
+`orbital-barrel-roll-control-v1` capability at join. A capable client forwards
+only the validated live circular-roll intent; the server applies the existing
+bounded quaternion roll, energy cost and evasive thrust, and broadcasts the
+resulting pose. Older clients continue sending the unchanged six-axis packet,
+and clients do not send roll to a server that did not advertise support. Live
+Wing, sector, Contact replay and the other mode adapters remain unchanged.
+
+Targeted tests prove left/right gesture recognition, malformed-intent rejection,
+a full server-simulated turn, reversal, stop-on-release and matching pose in a
+second pilot's snapshot. This does not certify staging rollout, physical-device
+input, or that a roll avoids a particular projectile.
+
 No permanent maneuver-button row or third joystick is added. Existing drawer
 actions are wired through input; the proposed Split-S/Immelmann/combined maneuver
 library is not secretly represented by new decorative icons.
@@ -93,7 +109,7 @@ directive's remaining scope. No new physical-device demonstration is claimed.
 | 10 — Compact feedback | PARTIALLY IMPLEMENTED: existing progress/direction/release, threat and energy cues; cancellation feedback corrected, new DOM-interaction/device evidence not captured here |
 | 11 / H — Tactical settings | PARTIALLY IMPLEMENTED: existing general controls/gyro/assists; unified advanced tactical preferences and persistence contract are NOT IMPLEMENTED |
 | 12 / I — Typed shared input | PARTIALLY IMPLEMENTED: shared normalization/adapters and bounded roll lease; complete library, sequencing and online validation remain absent |
-| 13 / K — Multiplayer safeguards | IMPLEMENTED AND VERIFIED for preserving omission/authority boundaries in existing tests; new online maneuver eligibility, duplicate/reconnect/parity acceptance BLOCKED until versioned server contract and staging evidence |
+| 13 / K — Multiplayer safeguards | Existing mode boundaries remain; shared Orbital direct roll now has an advertised, bounded server protocol and runtime tests. Staging and physical-device evidence remain outstanding |
 | 14 / J — Mobile lifecycle | PARTIALLY IMPLEMENTED: reset handlers and new safety guards; real landscape interruption/background/orientation demonstration remains BLOCKED on device evidence |
 | 15 — Automated tests | PARTIALLY IMPLEMENTED: gesture/input/shared flight/combat coverage exists and lease regressions added; this is not the complete listed combined-combat/multiplayer matrix |
 | 16 — Staged rollout | PARTIALLY IMPLEMENTED: source audit plus bounded safety changes; remaining phases are not marked complete |
@@ -102,8 +118,8 @@ directive's remaining scope. No new physical-device demonstration is claimed.
 
 ## Verification and next implementation order
 
-- Run WFM typecheck, game/auth tests and both builds/static checks for this change.
-  Record final results in `REDESIGN-IMPLEMENTATION-REPORT.md`.
+- Shared-roll source implementation is covered by the follow-up tests above;
+  staging/device verification remains a separate rollout gate.
 - Input regressions exercise invalid numbers, oversized holds, exact expiry,
   malformed bus state, backward clocks and mode changes.
 - Existing gesture tests cover clockwise/counterclockwise live arcs, ordinary
