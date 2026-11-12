@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
 import { boostDirectionAt, completedBoostDirection, registerBoostGesture, type BoostGestureState } from "./right-thumb-controls";
 import type { VectorBoostDirection } from "@workspace/orbital-sim";
@@ -53,6 +53,8 @@ type Props = {
   onCircularRollInput?: (input: number) => void;
   size?: "arena" | "rust-disc";
   disabled?: boolean;
+  /** Expand an Orbital thumb control over one screen half; its ring follows the active touch. */
+  floatingSide?: "left" | "right";
   /** Changing a profile invalidates any pending gesture and captured axes. */
   interactionKey?: string;
   className?: string;
@@ -64,8 +66,9 @@ function pointerTimestampMs(event: PointerEvent) {
   return event.timeStamp > 1e12 ? event.timeStamp : performance.timeOrigin + event.timeStamp;
 }
 
-export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, interactionKey, className = "", description }: Props) {
+export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, floatingSide, interactionKey, className = "", description }: Props) {
   const root = useRef<HTMLDivElement>(null);
+  const visual = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const feedbackAnnouncement = useRef<HTMLSpanElement>(null);
   const active = useRef<ActiveTouch | null>(null);
@@ -77,6 +80,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
   const pulseCallback = useRef(onPulse);
   const circularCallback = useRef(onCircularRollInput);
   const disabledRef = useRef(disabled);
+  const floating = floatingSide !== undefined;
   const [feedback, setFeedback] = useState<StickFeedback | null>(null);
   const rollGestureState = feedback?.kind === "roll-live"
     ? `live-${feedback.direction}`
@@ -128,6 +132,11 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
     if (root.current) {
       delete root.current.dataset.pulse;
       root.current.dataset.recenter = "true";
+      root.current.dataset.active = "false";
+    }
+    if (visual.current && floating) {
+      visual.current.style.left = "";
+      visual.current.style.top = "";
     }
     if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "";
   };
@@ -162,7 +171,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
     const touch = active.current;
     if (!el || !dot || !touch) return;
     const rect = el.getBoundingClientRect();
-    const max = Math.max(1, rect.width * 0.36);
+    const max = Math.max(1, floating ? 36 : rect.width * 0.36);
     const axes = stickAxesFromDelta(clientX - touch.originX, clientY - touch.originY, max);
     delete el.dataset.recenter;
     dot.style.transform = `translate(calc(-50% + ${axes.x * max}px), calc(-50% + ${axes.y * max}px))`;
@@ -176,7 +185,10 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
     circularCallback.current?.(0);
     sendAxis(0, 0);
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    if (root.current) root.current.dataset.recenter = "true";
+    if (root.current) {
+      root.current.dataset.recenter = "true";
+      root.current.dataset.active = "false";
+    }
     if (cancelled) {
       boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
@@ -284,14 +296,37 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
       data-roll-gesture={rollGestureState}
       data-axis-x="0.000"
       data-axis-y="0.000"
-      className={`pilot-flight-stick relative touch-none rounded-full border border-bone/30 bg-void/25 ${size === "arena" ? "size-28" : "h-24 w-24 sm:h-32 sm:w-32"} ${className}`}
+      data-active="false"
+      data-floating-side={floatingSide}
+      className={`pilot-flight-stick relative touch-none ${floating
+        ? "pilot-flight-stick-zone"
+        : `rounded-full border border-bone/30 bg-void/25 ${size === "arena" ? "size-28" : "h-24 w-24 sm:h-32 sm:w-32"} ${className}`}`}
+      style={floating ? {
+        position: "fixed",
+        top: 0,
+        bottom: 0,
+        [floatingSide === "left" ? "left" : "right"]: 0,
+        width: "50vw",
+        height: "100dvh",
+        zIndex: 1,
+      } : undefined}
       onPointerDown={(event) => {
         event.stopPropagation();
         if (disabledRef.current || active.current) return;
+        if ((event.target as HTMLElement).closest("button,input,select,textarea,[role=dialog]")) return;
         delete event.currentTarget.dataset.recenter;
         const rect = event.currentTarget.getBoundingClientRect();
+        if (floating && visual.current) {
+          const ringSize = 84;
+          const localX = Math.max(ringSize / 2, Math.min(rect.width - ringSize / 2, event.clientX - rect.left));
+          const localY = Math.max(ringSize / 2, Math.min(rect.height - ringSize / 2, event.clientY - rect.top));
+          visual.current.style.left = `${localX}px`;
+          visual.current.style.top = `${localY}px`;
+          event.currentTarget.dataset.active = "true";
+        }
         event.currentTarget.setPointerCapture(event.pointerId);
-        const radiusBounds = circularGestureRadiusBounds(rect.width, rect.height);
+        const gestureSize = floating ? 84 : rect.width;
+        const radiusBounds = circularGestureRadiusBounds(gestureSize, floating ? gestureSize : rect.height);
         const startedAt = pointerTimestampMs(event.nativeEvent);
         active.current = {
           pointerId: event.pointerId,
@@ -305,15 +340,15 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
           circularMode: false,
           circularTracker: circularCallback.current
             ? createCircularGestureTracker(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
+              floating ? event.clientX : rect.left + rect.width / 2,
+              floating ? event.clientY : rect.top + rect.height / 2,
               startedAt,
               radiusBounds.minRadiusPx,
               radiusBounds.maxRadiusPx,
             )
             : null,
           circularCandidateStarted: false,
-          boostRadius: Math.min(rect.width, rect.height) * .3,
+          boostRadius: floating ? 42 : Math.min(rect.width, rect.height) * .3,
           boostDirection: boostDirectionAt(
             (event.clientX - rect.left - rect.width / 2) / (rect.width / 2),
             (event.clientY - rect.top - rect.height / 2) / (rect.height / 2),
@@ -347,54 +382,56 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
       onLostPointerCapture={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
     >
       <span ref={feedbackAnnouncement} className="sr-only" role="status" aria-live="polite" aria-atomic="true" />
-      <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
-      <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
-      <div ref={knob} className="pilot-flight-stick-knob absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-bone/70 bg-bone/15 sm:size-12" />
-      {feedback?.kind === "roll-progress" || feedback?.kind === "roll-live" ? (
-        <>
-          <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="1.5" />
-            <circle
-              cx="50"
-              cy="50"
-              r="44"
-              fill="none"
-              stroke={feedback.kind === "roll-live" ? "#6ee7b7" : feedback.rejected ? "#ff705b" : "#e6a755"}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              pathLength="100"
-              strokeDasharray="100 100"
-              strokeDashoffset={100 - feedback.progress * 100}
-              transform="rotate(-90 50 50)"
-            />
-          </svg>
-          <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/80 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
-            {feedback.kind === "roll-progress" && feedback.rejected
-              ? "ROLL RETRY"
-              : feedback.kind === "roll-live"
-                ? `${feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"} · LIVE`
-                : `${feedback.direction === "clockwise" ? "ROLL CW" : feedback.direction === "counterclockwise" ? "ROLL CCW" : "DRAW ROLL"} ${Math.round(feedback.progress * 100)}%`}
+      <div ref={visual} className={`pilot-flight-stick-visual ${floating ? "" : "pilot-flight-stick-visual-static"}`}>
+        <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
+        <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
+        <div ref={knob} className="pilot-flight-stick-knob absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-bone/70 bg-bone/15 sm:size-12" />
+        {feedback?.kind === "roll-progress" || feedback?.kind === "roll-live" ? (
+          <>
+            <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="1.5" />
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                fill="none"
+                stroke={feedback.kind === "roll-live" ? "#6ee7b7" : feedback.rejected ? "#ff705b" : "#e6a755"}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                pathLength="100"
+                strokeDasharray="100 100"
+                strokeDashoffset={100 - feedback.progress * 100}
+                transform="rotate(-90 50 50)"
+              />
+            </svg>
+            <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/80 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
+              {feedback.kind === "roll-progress" && feedback.rejected
+                ? "ROLL RETRY"
+                : feedback.kind === "roll-live"
+                  ? `${feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"} · LIVE`
+                  : `${feedback.direction === "clockwise" ? "ROLL CW" : feedback.direction === "counterclockwise" ? "ROLL CCW" : "DRAW ROLL"} ${Math.round(feedback.progress * 100)}%`}
+            </span>
+          </>
+        ) : null}
+        {feedback?.kind === "roll-release" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
+            ROLL RELEASED
           </span>
-        </>
-      ) : null}
-      {feedback?.kind === "roll-release" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
-          ROLL RELEASED
-        </span>
-      ) : null}
-      {boostStatus ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 bottom-0 z-20 -translate-x-1/2 whitespace-nowrap" role="status" data-testid="vector-boost-server-status">{boostStatus}</span>
-      ) : null}
-      {feedback?.kind === "boost" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status" data-testid="vector-boost-gesture-status">
-          {feedback.requested ? `${feedback.direction.toUpperCase()} BURST` : "BURST UNAVAILABLE"}
-        </span>
-      ) : null}
-      {feedback?.kind === "vector" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status">
-          {feedback.pulse.axis === "vertical" ? (feedback.pulse.direction > 0 ? "UP THRUST" : "DOWN THRUST") : (feedback.pulse.direction < 0 ? "LEFT VECTOR" : "RIGHT VECTOR")}
-        </span>
-      ) : null}
+        ) : null}
+        {boostStatus ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 bottom-0 z-20 -translate-x-1/2 whitespace-nowrap" role="status" data-testid="vector-boost-server-status">{boostStatus}</span>
+        ) : null}
+        {feedback?.kind === "boost" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status" data-testid="vector-boost-gesture-status">
+            {feedback.requested ? `${feedback.direction.toUpperCase()} BURST` : "BURST UNAVAILABLE"}
+          </span>
+        ) : null}
+        {feedback?.kind === "vector" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status">
+            {feedback.pulse.axis === "vertical" ? (feedback.pulse.direction > 0 ? "UP THRUST" : "DOWN THRUST") : (feedback.pulse.direction < 0 ? "LEFT VECTOR" : "RIGHT VECTOR")}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

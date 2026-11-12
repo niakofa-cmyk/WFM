@@ -86,3 +86,19 @@
 .lab-flight .pilot-thumb-profile-option{min-width:44px;min-height:40px;padding:0 .5rem;border-radius:999px;color:#b6b1a9;font:700 9px/1 monospace;letter-spacing:.12em;touch-action:manipulation;pointer-events:auto}
 .lab-flight .pilot-thumb-profile-option[aria-pressed=true]{background:rgba(224,161,90,.85);color:#080b11}
 .lab-flight .pilot-thumb-profile-option:focus-visible{outline:2px solid #e6e1d6;outline-offset:2px}
+
+/* Exploration keeps the battlefield clear: invisible half-screen touch zones
+   accept a drag anywhere, and the joystick guide appears only during input. */
+.lab-flight .pilot-flight-stick-zone{position:fixed;top:0;bottom:0;width:50vw;height:100dvh;border:0;border-radius:0;background:transparent;touch-action:none;z-index:1}
+.lab-flight .pilot-flight-stick-visual{position:absolute;left:50%;top:50%;width:84px;height:84px;transform:translate(-50%,-50%);overflow:hidden;border:1px solid rgba(230,225,214,.48);border-radius:999px;background:rgba(7,8,13,.28);box-shadow:0 0 16px rgba(7,8,13,.24);opacity:0;transition:opacity .18s ease;pointer-events:none}
+.lab-flight .pilot-flight-stick-visual-static{inset:0;left:auto;top:auto;width:100%;height:100%;transform:none;overflow:visible;border:0;border-radius:999px;background:transparent;box-shadow:none;opacity:1;transition:none}
+.lab-flight .pilot-flight-stick-zone[data-active=true] .pilot-flight-stick-visual{opacity:.78}
+.lab-flight .pilot-flight-stick-zone .pilot-flight-stick-knob{width:2rem;height:2rem}
+.lab-flight .pilot-top-bar{z-index:12}
+.lab-flight .pilot-control-left{z-index:8}
+.lab-flight .pilot-control-left .pilot-flight-actions,.lab-flight .pilot-control-right .pilot-flight-actions,.lab-flight .pilot-control-right .pilot-combat-actions{position:relative;z-index:5}
+.lab-flight [data-testid=button-camera-toggle],.lab-flight [data-testid=button-pause]{position:relative;z-index:13}
+
+/* Campaign progress remains in command screens; it is not a flight overlay. */
+body:has([data-testid=arena-stage]) [data-testid=status-global-campaign]:not(.campaign-menu-status),
+body:has([data-testid=arena-stage]) [data-testid=status-campaign-unavailable]:not(.campaign-menu-status){display:none}

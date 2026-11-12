@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetGlobalCampaign,
@@ -26,7 +27,20 @@ export function GlobalCampaignStatus() {
   });
   const wasEnabled = useRef(false);
   const [, force] = useState(0);
+  const [campaignMenuHost, setCampaignMenuHost] = useState<HTMLElement | null>(null);
   const data = campaign.data;
+
+  useEffect(() => {
+    const syncMenuHost = () => {
+      const arena = document.querySelector('[data-testid="arena-stage"]');
+      const host = arena?.querySelector('[data-testid="campaign-status-slot"]') ?? null;
+      setCampaignMenuHost((current) => current === host ? current : host as HTMLElement | null);
+    };
+    syncMenuHost();
+    const observer = new MutationObserver(syncMenuHost);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (data?.enabled && !wasEnabled.current) {
@@ -38,6 +52,14 @@ export function GlobalCampaignStatus() {
   // Error with no trusted data: show only if the campaign was previously confirmed enabled.
   if (campaign.isError && (!data || !data.enabled)) {
     if (!wasEnabled.current) return null;
+    if (campaignMenuHost) {
+      return createPortal(
+        <p data-testid="status-campaign-unavailable" role="status" className="campaign-menu-status font-hud text-[9px] tracking-[0.2em] text-alert">
+          SHARED CAMPAIGN · LINK UNAVAILABLE
+        </p>,
+        campaignMenuHost,
+      );
+    }
     return (
       <div className="pointer-events-none fixed left-1/2 top-2 z-[60] -translate-x-1/2 font-hud">
         <p data-testid="status-campaign-unavailable" role="status" className="border border-alert/50 bg-void/80 px-2 py-0.5 text-[9px] tracking-[0.2em] text-alert">
@@ -101,6 +123,17 @@ export function GlobalCampaignStatus() {
   }
 
   const pct = Math.max(0, Math.min(100, data.progressPercent));
+  if (campaignMenuHost) {
+    return createPortal(
+      <div className="campaign-menu-status flex flex-wrap items-center justify-center gap-2 font-hud text-[9px] tracking-[0.16em] text-bone" data-testid="status-global-campaign" role="status" aria-live="polite">
+        <span className="text-spectral">SHARED CAMPAIGN</span>
+        <span className="text-solar">{pct.toFixed(1)}%</span>
+        <span className="text-muted">{PHASE_LABEL[data.phase] ?? data.phase}</span>
+        {campaign.isError ? <span className="text-alert">· STALE</span> : null}
+      </div>,
+      campaignMenuHost,
+    );
+  }
   return (
     <div className="pointer-events-none fixed left-1/2 top-2 z-[60] -translate-x-1/2 font-hud" data-testid="status-global-campaign" role="status" aria-live="polite">
       <div className="flex items-center gap-2 border border-solar/30 bg-void/75 px-2 py-0.5 text-[9px] tracking-[0.2em] text-bone">

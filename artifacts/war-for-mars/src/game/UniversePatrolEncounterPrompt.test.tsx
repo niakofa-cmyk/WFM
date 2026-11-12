@@ -23,7 +23,7 @@ test("local patrol traffic is a read-only preview and cannot launch a separate c
   assert.match(html, /ACCORD-0101/);
   assert.match(html, /3 SHIPS/);
   assert.match(html, /LOCAL PATROL CONTACT/);
-  assert.match(html, /LOCAL PREVIEW · NO SERVER COMBAT/);
+  assert.doesNotMatch(html, /LOCAL PREVIEW · NO SERVER COMBAT/);
   assert.doesNotMatch(html, /button-intercept-in-flight-patrol/);
   assert.doesNotMatch(html, /REQUEST PATROL INTERCEPT/);
 });
@@ -38,6 +38,8 @@ test("a nearby engageable server patrol exposes an in-scene free-flight engageme
   assert.match(html, /button-intercept-in-flight-patrol/);
   assert.match(html, /ENGAGE/);
   assert.match(html, /aria-label="Engage patrol in server-authoritative free flight"/);
+  assert.doesNotMatch(html, /patrol-integrity-from-server/);
+  assert.doesNotMatch(html, /INTERCEPT ENVELOPE/);
 });
 
 test("patrol prompt stays compact and non-actionable when distant or the shared link is unavailable", () => {

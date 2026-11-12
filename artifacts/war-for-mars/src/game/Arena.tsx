@@ -3851,6 +3851,7 @@ export function Arena({
               <PilotFlightStick
                 label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
                 testId={`stick-${orbital ? "flight" : "move"}`}
+                floatingSide={unifiedOrbitalControls ? "left" : undefined}
                 disabled={paused}
                 size={unifiedOrbitalControls ? "rust-disc" : "arena"}
                 className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
@@ -4089,6 +4090,7 @@ export function Arena({
                 </div>
                 <div className="relative">
                   <PilotFlightStick label={rightThumbProfile.mode === "vector" ? "Right thumb vector" : "Right thumb aim"} testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                    floatingSide="right"
                     interactionKey={rightThumbProfile.mode}
                     disabled={paused}
                     boostStatus={vectorBoostStatus}
@@ -4208,6 +4210,7 @@ export function Arena({
             <p className="mt-2 max-w-lg font-hud text-xs leading-relaxed tracking-wider text-muted">
               {online || freeFlightEnabled ? "Live shared flight continues while this menu is open. Opening this menu does not protect or repair your ship." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
             </p>
+            <div data-testid="campaign-status-slot" className="mt-3 border-y border-bone/10 py-2 text-center" />
             <button type="button" data-testid="button-resume-sortie" className="pilot-menu-primary mt-4" onClick={() => {
               pausedRef.current = false;
               setPaused(false);
