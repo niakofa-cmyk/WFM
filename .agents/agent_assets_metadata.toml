@@ -28,3 +28,17 @@ mtime_ms = 1794201447336
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/50b92ad0-aa06-476e-b694-5961f32225aa/d4dc4d14-cebf-45d4-8e88-77a832ed2423"
 storage_version_token = "1794201612329785"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "hNLUz7DYnzr270HT9BsJf"
+uri = "file://generated-artifacts/wfm-equipment-bay-proof.jpg"
+type = "image"
+title = "Verified staging equipment bay"
+description = "Authenticated staging capture showing the fitted primary and secondary weapons, equipment budgets, and successful verified-salvage recovery."
+logical_id = "cae22a9d-9503-4601-a6a0-3ceda08cc36a"
+content_hash = "sha256:893d501a9f39e26a6e26e1146347e22e1843065d46e59da5a81578784d005f92"
+size = 46028
+mtime_ms = 1794603851139
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/cae22a9d-9503-4601-a6a0-3ceda08cc36a/05ad2268-e2b4-446b-b033-74d21fa3a418"
+storage_version_token = "1794603977705174"
+content_type = "image/jpeg"
