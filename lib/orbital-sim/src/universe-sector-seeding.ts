@@ -1,3 +1,5 @@
+import { UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE } from "./universe-reference-frame";
+
 export type SeededUniverseAsteroid = {
   x: number;
   y: number;
@@ -16,6 +18,10 @@ export type SeededUniverseSector = {
 
 const SECTOR_NAMES = ["ASHEN REACH", "DUSTWAKE", "GLASS CURRENT", "NIGHTWARD", "PALE FRONTIER", "RED VEIL"] as const;
 const SECTOR_KINDS = ["asteroid-field", "debris-stream", "anomaly-front", "quiet-space"] as const;
+const SECTOR_EDGE_METERS = 512;
+// Keep the entire lensing assembly and a small visual gap clear of celestial bodies.
+const ANOMALY_BODY_CLEARANCE_METERS = 36;
+const CANONICAL_SECTOR_COORDINATE = /^-?(0|[1-9]\d*)$/;
 
 function hashText(value: string): number {
   let hash = 2166136261;
@@ -34,6 +40,83 @@ function randomStream(seed: number) {
     state ^= state << 5;
     return (state >>> 0) / 0x1_0000_0000;
   };
+}
+
+function canonicalSectorOffset(key: string) {
+  const parts = key.split(":");
+  if (parts.length !== 3 || parts.some((part) => !CANONICAL_SECTOR_COORDINATE.test(part))) return null;
+  const cells = parts.map(BigInt);
+  if (cells.some((cell) => cell < -1n || cell > 1n)) return null;
+  return cells.map((cell) => Number(cell) * SECTOR_EDGE_METERS) as [number, number, number];
+}
+
+function anomalyClearsCelestialBodies(
+  point: { x: number; y: number; z: number },
+  offset: readonly [number, number, number],
+) {
+  const worldPoint = {
+    x: point.x + offset[0],
+    y: point.y + offset[1],
+    z: point.z + offset[2],
+  };
+  return [UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE].every((body) => {
+    const distance = Math.hypot(
+      worldPoint.x - body.position.x,
+      worldPoint.y - body.position.y,
+      worldPoint.z - body.position.z,
+    );
+    return distance >= body.radius + ANOMALY_BODY_CLEARANCE_METERS;
+  });
+}
+
+function safeAnomalyPosition(
+  key: string,
+  candidate: { x: number; y: number; z: number },
+  seed: number,
+) {
+  const offset = canonicalSectorOffset(key);
+  if (!offset || anomalyClearsCelestialBodies(candidate, offset)) return candidate;
+
+  const choices = [-135, 0, 135] as const;
+  const verticalChoices = [-95, 0, 95] as const;
+  const safe: Array<{ x: number; y: number; z: number }> = [];
+  for (const x of choices) {
+    for (const y of verticalChoices) {
+      for (const z of choices) {
+        const point = { x, y, z };
+        if (anomalyClearsCelestialBodies(point, offset)) safe.push(point);
+      }
+    }
+  }
+  // At least one candidate is clear even in the origin cell. Rotation by the
+  // sector seed keeps the reposition deterministic without clustering anomalies.
+  if (safe.length > 0) return safe[seed % safe.length]!;
+
+  // Defensive fallback for future reference-frame changes: place it at the
+  // candidate with the greatest clearance rather than intersecting a body.
+  let farthest = candidate;
+  let farthestDistance = -1;
+  for (const x of choices) {
+    for (const y of verticalChoices) {
+      for (const z of choices) {
+        const point = { x, y, z };
+        const distance = Math.min(
+          ...[UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE].map((body) =>
+            Math.hypot(
+              point.x + offset[0] - body.position.x,
+              point.y + offset[1] - body.position.y,
+              point.z + offset[2] - body.position.z,
+            ) - body.radius,
+          ),
+        );
+        if (distance > farthestDistance) {
+          farthest = point;
+          farthestDistance = distance;
+        }
+      }
+    }
+  }
+  return farthest;
 }
 
 /**
@@ -56,8 +139,9 @@ export function seedUniverseSector(key: string): SeededUniverseSector {
     r: 7 + random() * 12,
     seed: (seed + index * 7919) >>> 0,
   }));
-  const anomaly = kind === "anomaly-front"
+  const anomalyCandidate = kind === "anomaly-front"
     ? { x: (random() * 2 - 1) * 145, y: (random() * 2 - 1) * 105, z: (random() * 2 - 1) * 145 }
     : null;
+  const anomaly = anomalyCandidate ? safeAnomalyPosition(key, anomalyCandidate, seed) : null;
   return { seed, name, kind, asteroids, anomaly };
 }

@@ -9,6 +9,8 @@ import {
   newFlight,
   normalizeFlightControls,
   seedUniverseSector,
+  UNIVERSE_MARS_REFERENCE,
+  UNIVERSE_MOON_REFERENCE,
 } from "@workspace/orbital-sim";
 import { SHIPS } from "./ships";
 
@@ -26,6 +28,37 @@ test("Orbital sector seeding repeats deterministically for large addresses", () 
 
 test("Orbital sector seeding rejects missing identity instead of silently creating origin content", () => {
   assert.throws(() => seedUniverseSector(""));
+});
+
+test("seeded anomaly lens assemblies stay clear of Mars and the Moon in nearby sectors", () => {
+  const bodies = [UNIVERSE_MARS_REFERENCE, UNIVERSE_MOON_REFERENCE];
+  let anomalyCount = 0;
+  for (let x = -1; x <= 1; x++) {
+    for (let y = -1; y <= 1; y++) {
+      for (let z = -1; z <= 1; z++) {
+        const sector = seedUniverseSector(`${x}:${y}:${z}`);
+        if (!sector.anomaly) continue;
+        anomalyCount += 1;
+        const worldPosition = {
+          x: x * 512 + sector.anomaly.x,
+          y: y * 512 + sector.anomaly.y,
+          z: z * 512 + sector.anomaly.z,
+        };
+        for (const body of bodies) {
+          const distance = Math.hypot(
+            worldPosition.x - body.position.x,
+            worldPosition.y - body.position.y,
+            worldPosition.z - body.position.z,
+          );
+          assert.ok(
+            distance >= body.radius + 36,
+            `anomaly in ${x}:${y}:${z} should leave the lens assembly clear of ${body.id}`,
+          );
+        }
+      }
+    }
+  }
+  assert.ok(anomalyCount > 0, "the nearby sector sample includes anomaly content");
 });
 
 test("anomaly gravity is deterministic, finite, bounded, and integrated by the shared flight kernel", () => {

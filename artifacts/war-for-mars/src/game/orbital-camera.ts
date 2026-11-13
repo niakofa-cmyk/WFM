@@ -70,10 +70,10 @@ export function orbitalCameraPose(
   const amount = clamp01(rollStabilization);
   const forward = rotate(q, 0, 0, -1);
   const stableUp = horizonUp(forward);
-  const offsetY = cockpit ? 1.2 : 4;
-  const offsetZ = cockpit ? -0.65 : 15;
+  const offsetY = cockpit ? 1.2 : 5;
+  const offsetZ = cockpit ? -0.65 : 21;
   const aheadY = cockpit ? 1.2 : 1.1;
-  const aheadZ = cockpit ? -40 : -24;
+  const aheadZ = cockpit ? -40 : -31;
   const rolledOffset = rotate(q, 0, offsetY, offsetZ);
   const rolledAhead = rotate(q, 0, aheadY, aheadZ);
   const rolledUp = rotate(q, 0, 1, 0);

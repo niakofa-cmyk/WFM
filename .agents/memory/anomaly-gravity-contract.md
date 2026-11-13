@@ -18,3 +18,17 @@ field must be translated into the client pilot's current frame.
 **How to apply:** When extending environmental effects, keep the payload
 versioned outside snapshot V1, negotiate before enabling physics, and never let
 the renderer or client choose authoritative field parameters or outcomes.
+
+**Placement rule:** Seeded anomaly lens assemblies must leave clearance around
+the fixed Mars and Moon references. Treat the full visible lens plus a safety
+margin as part of the occupied space; deterministic sector content must not
+render a lens through a planet or moon.
+
+**Why:** The lens is a separate deep-space feature, not a planetary attachment.
+An overlap reads as a broken landmark and can make the anomaly appear embedded
+in Mars.
+
+**How to apply:** Enforce celestial clearance in the shared server/browser
+sector seeder, then test absolute positions across neighboring sector cells.
+Do not patch only the renderer, because the gravity center and visual marker
+must continue to use the same deterministic location.

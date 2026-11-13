@@ -275,7 +275,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
       touch.circularMode = true;
       if (update.rollInput !== 0) circularCallback.current?.(update.rollInput);
       clearFeedbackTimer();
-      setFeedback({ kind: "roll-live", progress: update.progress, direction: update.direction });
+      setFeedback({ kind: "roll-live", progress: 0, direction: update.direction });
       return;
     }
     if (!update.direction || update.progress < 0.04) return;
@@ -375,7 +375,11 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
           }
           if (touch.circularTracker) updateCircular(touch, event.clientX, event.clientY, pointerTimestampMs(nativeEvent));
         }
-        updateAxis(event.clientX, event.clientY);
+        // Once the circular gesture is armed, keep the input dedicated to the
+        // hull roll. Letting the same loop also steer pitch/yaw obscures the
+        // roll and can make a left roll look like a camera turn.
+        if (touch.circularMode) sendAxis(0, 0);
+        else updateAxis(event.clientX, event.clientY);
       }}
       onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY); }}
       onPointerCancel={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
@@ -387,31 +391,13 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
         <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
         <div ref={knob} className="pilot-flight-stick-knob absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-bone/70 bg-bone/15 sm:size-12" />
         {feedback?.kind === "roll-progress" || feedback?.kind === "roll-live" ? (
-          <>
-            <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="1.5" />
-              <circle
-                cx="50"
-                cy="50"
-                r="44"
-                fill="none"
-                stroke={feedback.kind === "roll-live" ? "#6ee7b7" : feedback.rejected ? "#ff705b" : "#e6a755"}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                pathLength="100"
-                strokeDasharray="100 100"
-                strokeDashoffset={100 - feedback.progress * 100}
-                transform="rotate(-90 50 50)"
-              />
-            </svg>
-            <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/80 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
-              {feedback.kind === "roll-progress" && feedback.rejected
-                ? "ROLL RETRY"
-                : feedback.kind === "roll-live"
-                  ? `${feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"} · LIVE`
-                  : `${feedback.direction === "clockwise" ? "ROLL CW" : feedback.direction === "counterclockwise" ? "ROLL CCW" : "DRAW ROLL"} ${Math.round(feedback.progress * 100)}%`}
-            </span>
-          </>
+          <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/85 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
+            {feedback.kind === "roll-progress" && feedback.rejected
+              ? "ROLL RETRY"
+              : feedback.kind === "roll-live"
+                ? `${feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"} · LIVE`
+                : `${feedback.direction === "clockwise" ? "ROLL RIGHT · DRAW" : feedback.direction === "counterclockwise" ? "ROLL LEFT · DRAW" : "DRAW ROLL"}`}
+          </span>
         ) : null}
         {feedback?.kind === "roll-release" ? (
           <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">

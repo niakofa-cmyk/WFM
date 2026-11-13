@@ -44,6 +44,30 @@
 @media(max-width:390px){.pilot-action-button{width:40px;height:40px}.pilot-action-button svg{width:17px;height:17px}.pilot-action-fire{width:46px;height:46px}.lab-flight [data-testid=stick-flight],.lab-flight [data-testid=stick-move],.lab-flight [data-testid=stick-aim]{width:74px;height:74px}.lab-flight [data-testid=stick-flight] .absolute.rounded-full,.lab-flight [data-testid=stick-move] .absolute.rounded-full,.lab-flight [data-testid=stick-aim] .absolute.rounded-full{width:2rem;height:2rem}}
 @media(max-height:560px) and (orientation:landscape){.lab-flight [data-testid=stick-flight],.lab-flight [data-testid=stick-move],.lab-flight [data-testid=stick-aim]{width:84px;height:84px}.lab-flight [data-testid=stick-flight] .absolute.rounded-full,.lab-flight [data-testid=stick-move] .absolute.rounded-full,.lab-flight [data-testid=stick-aim] .absolute.rounded-full{width:2.25rem;height:2.25rem}.lab-flight .pilot-control-left{flex-direction:row;align-items:flex-end;gap:.65rem}.lab-flight .pilot-flight-actions{flex-direction:column;align-items:center}.lab-flight .pilot-control-right{flex-direction:row;align-items:flex-end;gap:.65rem}.lab-flight .pilot-combat-actions{flex-direction:column;align-items:center}.pilot-action-button{width:44px;height:44px}.pilot-action-fire{width:50px;height:50px}.pilot-action-button svg{width:19px;height:19px}.pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 6.6rem)}}
 
+/* Short landscape phone viewports need room for the full control clusters. */
+@media(max-height:380px) and (orientation:landscape){
+  .lab-flight [data-testid=flight-controls-left],
+  .lab-flight [data-testid=flight-controls-right]{bottom:calc(env(safe-area-inset-bottom,0px) + .3rem)!important}
+  .lab-flight [data-testid=stick-flight],
+  .lab-flight [data-testid=stick-move],
+  .lab-flight [data-testid=stick-aim],
+  .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+  .lab-flight .pilot-rust-disc-stick .pilot-flight-stick-knob{width:1.7rem;height:1.7rem}
+  .lab-flight .pilot-flight-stick-visual:not(.pilot-flight-stick-visual-static){width:64px;height:64px}
+  .lab-flight .pilot-flight-stick-zone .pilot-flight-stick-knob{width:1.5rem;height:1.5rem}
+  .lab-flight .pilot-action-button{width:36px;height:36px}
+  .lab-flight .pilot-action-button svg{width:16px;height:16px}
+  .lab-flight .pilot-action-fire{width:40px;height:40px}
+  .lab-flight .pilot-action-fire svg{width:19px;height:19px}
+  .lab-flight .pilot-control-left,
+  .lab-flight .pilot-control-right{gap:.3rem}
+  .lab-flight .pilot-control-left .pointer-events-auto,
+  .lab-flight .pilot-control-right .pointer-events-auto{gap:.3rem}
+  .lab-flight .pilot-flight-actions,
+  .lab-flight .pilot-combat-actions{gap:.3rem}
+  .lab-flight .pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 4.8rem);font-size:10px}
+}
+
 /* Offline Orbital pilot controls reuse Rust Disc's stick dimensions and combat row. */
 .lab-flight .pilot-rust-disc-stick{width:6rem;height:6rem}
 .lab-flight .pilot-rust-disc-stick .pilot-flight-stick-knob{width:2rem;height:2rem}

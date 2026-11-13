@@ -216,6 +216,7 @@ test("Orbital right-stick roll input reaches the hull while aim and thrust stay 
   step(match, active, 1 / 60);
   assert.notDeepEqual(match.player.space!.q, before);
   assert.ok(Math.abs(match.player.space!.q[2]!) > 0.001, "the hull roll is visible during the same simulation step");
+  assert.ok(match.player.space!.q[2]! > 0, "positive input from a counterclockwise gesture is a physical left roll");
 
   bus.leftY = 0;
   bus.rightX = 0;
@@ -225,6 +226,25 @@ test("Orbital right-stick roll input reaches the hull while aim and thrust stay 
   const afterRelease = [...match.player.space!.q];
   step(match, released, 1 / 60);
   assert.deepEqual(match.player.space!.q, afterRelease);
+});
+
+test("live left and right circular controls rotate in opposite physical directions", () => {
+  const left = lab();
+  const right = lab();
+  const leftBus = createBus("arc");
+  const rightBus = createBus("arc");
+  for (const bus of [leftBus, rightBus]) {
+    bus.orbital = true;
+    bus.leftStickFlight = true;
+  }
+
+  setCircularRollControl(leftBus, 1, 2_000);
+  setCircularRollControl(rightBus, -1, 2_000);
+  step(left, readInput(leftBus, 2_050), 1 / 60);
+  step(right, readInput(rightBus, 2_050), 1 / 60);
+
+  assert.ok(left.player.space!.q[2]! > 0, "counterclockwise thumb motion rotates the hull left");
+  assert.ok(right.player.space!.q[2]! < 0, "clockwise thumb motion rotates the hull right");
 });
 
 test("vector drift from Rust Disc keeps orbital momentum while the pilot turns", () => {

@@ -28,3 +28,12 @@ test("orbital camera keeps a valid up vector when the ship points vertically", (
   assert.ok(Number.isFinite(pose.offset.x + pose.offset.y + pose.offset.z));
   assert.ok(Number.isFinite(pose.ahead.x + pose.ahead.y + pose.ahead.z));
 });
+
+test("chase framing pulls back while cockpit framing remains unchanged", () => {
+  const chase = orbitalCameraPose([0, 0, 0, 1], false, 1);
+  const cockpit = orbitalCameraPose([0, 0, 0, 1], true, 1);
+  assert.ok(Math.abs(Math.hypot(chase.offset.x, chase.offset.y, chase.offset.z) - Math.hypot(5, 21)) < 1e-12);
+  assert.equal(Math.hypot(chase.ahead.x, chase.ahead.y, chase.ahead.z), Math.hypot(1.1, 31));
+  assert.equal(Math.hypot(cockpit.offset.x, cockpit.offset.y, cockpit.offset.z), Math.hypot(1.2, 0.65));
+  assert.equal(Math.hypot(cockpit.ahead.x, cockpit.ahead.y, cockpit.ahead.z), Math.hypot(1.2, 40));
+});
