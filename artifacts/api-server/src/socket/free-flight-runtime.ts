@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { admissionFailureDiagnostic, type AdmissionPhase } from "./free-flight-admission-diagnostic";
 import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
+import { advanceLivingFleet, formationOffset, newLivingFleet, validLivingFleet, type FleetRole } from "./living-fleet";
 import {
   ORBITAL_DT,
   ORBITAL_RULES_VERSION,
@@ -389,6 +390,17 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
     });
   });
   session.persistentPatrols.set(patrol.patrolId, patrol);
+  if (!patrol.operations) {
+    const roster = knownShips.slice().sort((a, b) =>
+      SHIPS[b.hullId as ShipId].hull - SHIPS[a.hullId as ShipId].hull || a.id.localeCompare(b.id));
+    patrol.operations = newLivingFleet(patrol.patrolId, patrol.faction, patrol.locationId, patrol.route,
+      roster.map((ship, index) => ({
+        id: patrolShipActorId(ship.id),
+        role: (index === 0 ? "command" : SHIPS[ship.hullId as ShipId].missileFit === "torpedo"
+          ? "missile-platform" : index === roster.length - 1 ? "recon"
+          : index % 2 ? "escort" : "interceptor") as FleetRole,
+      })));
+  }
 }
 
 function patrolInput(actor: Actor, searchTarget?: { x: number; y: number; z: number }): SharedInput {
@@ -717,6 +729,8 @@ export function createFreeFlightRuntime(options: {
     const persistentPatrols = new Map<string, UniversePatrolEncounter>();
     for (const patrol of snapshot.persistentPatrols) {
       if (!patrol || typeof patrol.patrolId !== "string" ||
+          patrol.operations !== undefined && (!validLivingFleet(patrol.operations) ||
+            patrol.operations.fleetId !== patrol.patrolId || patrol.operations.faction !== patrol.faction) ||
           persistentPatrols.has(patrol.patrolId)) {
         throw new Error("Invalid patrol checkpoint.");
       }
@@ -1663,6 +1677,7 @@ export function createFreeFlightRuntime(options: {
             session.combats.has(previous.patrolId) &&
             session.combats.get(previous.patrolId)!.phase !== "complete") continue;
         const replacement = current.find((patrol) => patrol.patrolId === previous.patrolId);
+        if (replacement) replacement.operations = previous.operations;
         const sameRoster = replacement && previous.ships.length === replacement.ships.length &&
           previous.ships.every((ship) => replacement.ships.some(
             (next) => next.id === ship.id && next.hullId === ship.hullId));
@@ -2152,6 +2167,7 @@ export function createFreeFlightRuntime(options: {
               subsystemEfficiency(candidate.subsystems, "bridge") === 0 ||
               !candidate.craft.alive || !candidate.persistentPatrolId || !candidate.persistentShipId ||
               session.persistentPatrols.get(candidate.persistentPatrolId)?.reservedForCombat ||
+              session.persistentPatrols.get(candidate.persistentPatrolId)?.operations?.combatState === "retreating" ||
               (session.combats.get(candidate.persistentPatrolId) !== undefined &&
                 session.combats.get(candidate.persistentPatrolId)?.phase !== "complete") ||
               activeCombats(session).some((other) => other !== combat &&
@@ -2241,6 +2257,23 @@ export function createFreeFlightRuntime(options: {
     refreshCampaignGate();
     if (options.campaignState && (campaignConcluded || Date.now() >= campaignVerifiedUntil)) return;
     session.tick += 1;
+    for (const patrol of session.persistentPatrols.values()) {
+      const fleet = patrol.operations;
+      if (!fleet) continue;
+      const members = fleet.ships.map(ship => session.actors.get(ship.id)).filter((a): a is Actor => Boolean(a));
+      const ownCombat = session.combats.get(patrol.patrolId);
+      const assisting = activeCombats(session).some(combat =>
+        members.some(member => combat.alliedNpcActorIds?.has(member.actorId)));
+      advanceLivingFleet(fleet, members.map(actor => ({
+        id: actor.actorId, alive: actor.craft.alive,
+        hullFraction: actor.craft.hull / Math.max(1, actor.craft.hullMax),
+        commandCapable: subsystemEfficiency(actor.subsystems, "bridge") > 0,
+        communications: subsystemEfficiency(actor.subsystems, "communications") > 0,
+        mobility: subsystemEfficiency(actor.subsystems, "engines") > 0,
+        observation: actor.scoutMemory,
+      })), session.tick * ORBITAL_DT, ownCombat?.phase === "active", assisting,
+      ownCombat?.alliedNpcActorIds?.size ?? 0);
+    }
     if (options.enableFriendlyAiSupport) reinforceActiveCombats(session);
     for (const actor of session.actors.values()) {
       if (!actor.craft.alive) continue;
@@ -2262,6 +2295,20 @@ export function createFreeFlightRuntime(options: {
       }
       const combat = actor.kind === "patrol"
         ? patrolCombatForActor(session, actor) : undefined;
+      const fleet = actor.persistentPatrolId
+        ? session.persistentPatrols.get(actor.persistentPatrolId)?.operations : undefined;
+      const commander = fleet?.commandVesselId ? session.actors.get(fleet.commandVesselId) : undefined;
+      let formationTarget: { x: number; y: number; z: number } | undefined;
+      if (fleet && commander && commander !== actor && commander.craft.alive &&
+          subsystemEfficiency(actor.subsystems, "communications") > 0 &&
+          subsystemEfficiency(commander.subsystems, "communications") > 0) {
+        const index = fleet.ships.findIndex(ship => ship.id === actor.actorId);
+        const offset = formationOffset(fleet.ships[index]?.role ?? "escort", index);
+        const world = rotate(commander.craft.space!.q, offset.x, offset.y, offset.z);
+        formationTarget = { x: commander.craft.x + world.x, y: commander.craft.space!.y + world.y,
+          z: commander.craft.z + world.z };
+        if (!actor.scoutMemory && fleet.lastContact) actor.scoutMemory = structuredClone(fleet.lastContact);
+      }
       let patrolTarget: Actor | undefined;
       let nearestParticipantDistance = Infinity;
       if (actor.kind === "patrol" && combat?.phase === "active") {
@@ -2285,22 +2332,22 @@ export function createFreeFlightRuntime(options: {
         ? patrolTarget
           ? patrolCombatInput(actor, patrolTarget, session)
           : patrolInput(actor, actor.scoutMemory
-            ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : undefined)
+            ? scoutDestination(actor.scoutMemory, session.tick * ORBITAL_DT) : formationTarget)
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
       if (actor.vectorBoost && (actor.socket?.readyState !== OPEN ||
           Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS)) actor.vectorBoost.remaining = 0;
       let input = actor.vectorBoost
         ? { ...baseInput, ...stepVectorBoost(actor.vectorBoost, baseInput, ORBITAL_DT) }
         : baseInput;
-      if (actor.kind === "patrol" && patrolTarget &&
-          (subsystemEfficiency(actor.subsystems, "reactor") < .3 ||
+      if (actor.kind === "patrol" && (patrolTarget || fleet?.lastContact) &&
+          (fleet?.combatState === "retreating" || subsystemEfficiency(actor.subsystems, "reactor") < .3 ||
             subsystemEfficiency(actor.subsystems, "weapons") === 0 &&
             subsystemEfficiency(actor.subsystems, "missiles") === 0)) {
         // Physical withdrawal, never teleportation, healing, or a kill receipt.
         input = { ...patrolInput(actor, {
-          x: actor.craft.x * 2 - patrolTarget.craft.x,
-          y: actor.craft.space!.y * 2 - patrolTarget.craft.space!.y,
-          z: actor.craft.z * 2 - patrolTarget.craft.z,
+          x: actor.craft.x * 2 - (patrolTarget?.craft.x ?? fleet!.lastContact!.position.x),
+          y: actor.craft.space!.y * 2 - (patrolTarget?.craft.space!.y ?? fleet!.lastContact!.position.y),
+          z: actor.craft.z * 2 - (patrolTarget?.craft.z ?? fleet!.lastContact!.position.z),
         }), fire: false, missile: false };
       }
       const power = subsystemEfficiency(actor.subsystems, "reactor");
@@ -2874,6 +2921,7 @@ export function createFreeFlightRuntime(options: {
         const actors = [...session.actors.values()].filter((actor) =>
           actor.persistentPatrolId === previous.patrolId);
         const next = fresh.get(previous.patrolId);
+        if (next) next.operations = previous.operations;
         if (combat?.phase === "complete" && actors.every((actor) => !actor.craft.alive)) {
           for (const actor of actors) session.actors.delete(actor.actorId);
           session.persistentPatrols.delete(previous.patrolId);

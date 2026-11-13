@@ -10,6 +10,7 @@ import type { PatrolFaction, PersistentPatrolShip } from "@workspace/db";
 import type { AlliedPatrolCasualties } from "./exploration-encounter";
 import { advancePatrol, createSeededPatrols, projectPatrolTraffic } from "./universe-patrol-rules";
 import { WORLD_LOCATION_COORDINATES, WORLD_PATROL_SECTOR_NETWORK } from "./world";
+import type { LivingFleet } from "../socket/living-fleet";
 
 const ENCOUNTER_LEASE_MS = 20 * 60_000;
 const ACTOR_SHIP_PREFIX = "patrol-ship:";
@@ -32,6 +33,8 @@ export type UniversePatrolEncounter = {
   revision: number;
   /** Internal free-flight dispatch guard; never sent to clients. */
   reservedForCombat?: boolean;
+  /** Tactical state travels with the existing fenced universe checkpoint. */
+  operations?: LivingFleet;
 };
 
 export type UniversePatrolEncounterOutcome = {
