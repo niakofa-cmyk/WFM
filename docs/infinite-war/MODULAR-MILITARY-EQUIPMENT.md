@@ -106,6 +106,15 @@ Development enables equipment by default (explicit `0` disables it).
 Rolling socket owners must be upgraded together before enabling newly issued
 module-equipped flights; mixed-version ownership is not certified.
 
+Staging's API pre-deploy command uses
+`node scripts/migrate-modular-equipment.mjs` instead of broad Drizzle schema
+sync for this rollout. The helper requires the exact authorized Railway
+project, environment and API service identities, uses the service's existing
+database configuration internally, acquires a transaction lock, applies only
+the additive equipment SQL, and verifies the unique indexes. It never prints
+credentials or touches existing player records. It intentionally refuses
+Production. Other schema changes need their own reviewed migration.
+
 Unit,
 database-concurrency and in-process flight/restart evidence are not a claim of
 authenticated two-phone staging certification.
