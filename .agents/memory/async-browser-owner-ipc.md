@@ -36,3 +36,15 @@ forever-running service awake or export sessions as a workaround.
 If the handoff also exceeds the bounded job lifetime, stop issuing replacement
 challenges until the user is ready for a coordinated sign-in. Extending
 keep-alive indefinitely is not a recovery strategy.
+
+A browser subprocess started by a short-lived tester is not a retained owner
+merely because the tester reports a background PID.
+
+**Why:** the tester's process disappeared when its job returned, leaving a stale
+socket and an unusable client-trust challenge before a fresh code was supplied.
+
+**How to apply:** keep the browser under a main-agent managed background task.
+Have the tester connect to that existing owner, then confirm IPC still works
+after the tester returns before requesting a code. Combine any unattended
+handoff with a bounded verification job and stop its keep-alive as soon as
+authentication succeeds or the handoff ends.
