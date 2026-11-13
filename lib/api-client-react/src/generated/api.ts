@@ -21,6 +21,9 @@ import type {
 
 import type {
   ControlSchemeInput,
+  EquipmentFitInput,
+  EquipmentLocker,
+  EquipmentRecoveryInput,
   ExploreLocationResult,
   GameProfile,
   GlobalCampaign,
@@ -80,6 +83,241 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment`
+}
+
+export const getEquipment = async ( options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+  return customFetch<EquipmentLocker>(getGetEquipmentUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEquipmentQueryKey = () => {
+    return [
+    `/api/game/equipment`
+    ] as const;
+    }
+
+
+export const getGetEquipmentQueryOptions = <TData = Awaited<ReturnType<typeof getEquipment>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEquipmentQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEquipment>>> = ({ signal }) => getEquipment({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEquipmentQueryResult = NonNullable<Awaited<ReturnType<typeof getEquipment>>>
+export type GetEquipmentQueryError = ErrorType<void>
+
+
+
+export function useGetEquipment<TData = Awaited<ReturnType<typeof getEquipment>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEquipmentQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFitEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment/fit`
+}
+
+export const fitEquipment = async (equipmentFitInput: EquipmentFitInput, options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EquipmentLocker>(getFitEquipmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(equipmentFitInput)
+  }
+);}
+
+
+
+
+
+export const getFitEquipmentMutationKey = () => ['fitEquipment'] as const;
+
+export const getFitEquipmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext> => {
+
+const mutationKey = getFitEquipmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof fitEquipment>>, FitEquipmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  fitEquipment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FitEquipmentMutationResult = NonNullable<Awaited<ReturnType<typeof fitEquipment>>>
+    export type FitEquipmentMutationBody = BodyType<EquipmentFitInput>
+    export type FitEquipmentMutationError = ErrorType<void>
+    export type FitEquipmentMutationVariables = {data: BodyType<EquipmentFitInput>}
+
+    export const useFitEquipment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof fitEquipment>>,
+        TError,
+        FitEquipmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFitEquipmentMutationOptions(options));
+    }
+
+export const getRecoverEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment/recover`
+}
+
+export const recoverEquipment = async (equipmentRecoveryInput: EquipmentRecoveryInput, options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EquipmentLocker>(getRecoverEquipmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(equipmentRecoveryInput)
+  }
+);}
+
+
+
+
+
+export const getRecoverEquipmentMutationKey = () => ['recoverEquipment'] as const;
+
+export const getRecoverEquipmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext> => {
+
+const mutationKey = getRecoverEquipmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recoverEquipment>>, RecoverEquipmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  recoverEquipment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecoverEquipmentMutationResult = NonNullable<Awaited<ReturnType<typeof recoverEquipment>>>
+    export type RecoverEquipmentMutationBody = BodyType<EquipmentRecoveryInput>
+    export type RecoverEquipmentMutationError = ErrorType<void>
+    export type RecoverEquipmentMutationVariables = {data: BodyType<EquipmentRecoveryInput>}
+
+    export const useRecoverEquipment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recoverEquipment>>,
+        TError,
+        RecoverEquipmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRecoverEquipmentMutationOptions(options));
+    }
 
 export const getGetGlobalCampaignUrl = () => {
 

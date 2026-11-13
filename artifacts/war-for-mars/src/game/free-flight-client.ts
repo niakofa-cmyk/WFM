@@ -6,6 +6,8 @@ import {
   FREE_FLIGHT_ASSIST_V1,
   BARREL_ROLL_CONTROL_PROTOCOL_V1,
   isFreeFlightTargetState,
+  isEquipmentTelemetry,
+  type EquipmentTelemetry,
   type FreeFlightTargetState,
   VECTOR_BOOST_PROTOCOL_V1,
   isVectorBoostDirection,
@@ -66,6 +68,8 @@ export class FreeFlightClient {
   get countermeasureCooldownMs() { return Math.max(0, this.countermeasureReadyAt - performance.now()); }
   private targetCycleSeq = 1;
   private lastTargetState: FreeFlightTargetState | null = null;
+  private lastEquipmentState: EquipmentTelemetry | null = null;
+  get equipmentState() { return this.joined ? this.lastEquipmentState : null; }
   get targetState() {
     return this.joined && this.lastTargetState?.sessionInstanceId === this.sessionInstanceId
       ? this.lastTargetState : null;
@@ -128,6 +132,7 @@ export class FreeFlightClient {
     this.nearestTargetingAvailable = false;
     this.assistanceAvailable = false;
     this.lastTargetState = null;
+    this.lastEquipmentState = null;
     this.vectorBoostAvailable = false;
     this.barrelRollAvailable = false;
     this.stopped = true;
@@ -256,6 +261,7 @@ export class FreeFlightClient {
         if (targeting && this.targetingAvailable) this.targetCycleSeq = targeting.nextSeq as number;
         this.nearestTargetingAvailable = this.targetingAvailable && targeting?.nearest === true;
         this.lastTargetState = null;
+        this.lastEquipmentState = null;
           const assistance = packet.assistance as { protocol?: unknown } | undefined;
           this.assistanceAvailable = assistance?.protocol === FREE_FLIGHT_ASSIST_V1;
         const defenses = packet.countermeasures as { protocol?: unknown; nextSeq?: unknown; cooldownMs?: unknown } | undefined;
@@ -309,6 +315,10 @@ export class FreeFlightClient {
             state.tick >= (this.lastTargetState?.tick ?? -1)) {
           this.lastTargetState = state;
         }
+        return;
+      }
+      if (packet.type === "freeflight_equipment_state" && this.joined && isEquipmentTelemetry(packet)) {
+        this.lastEquipmentState = packet;
         return;
       }
       if (packet.type === "freeflight_environment") {

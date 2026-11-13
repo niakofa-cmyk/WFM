@@ -1081,6 +1081,7 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const equipmentStatusRef = useRef<HTMLSpanElement>(null);
   const nearestTargetRef = useRef<HTMLButtonElement>(null);
   const targetMarkerRef = useRef<HTMLDivElement>(null);
   const targetMarkerLabelRef = useRef<HTMLSpanElement>(null);
@@ -3374,18 +3375,36 @@ export function Arena({
           if (targetLockValueRef.current) targetLockValueRef.current.textContent = `${percent}% LOCK`;
         }
         if (missileRef.current) {
-          missileRef.current.disabled = !sharedTargetState?.missileReady;
-          missileRef.current.setAttribute("aria-label", sharedTargetState?.missileReady
+          const equipment = freeFlightClientRef.current?.equipmentState;
+          const rocketReady = equipment?.unguided === true && Boolean(equipment.secondary &&
+            equipment.secondary.rounds > 0 && equipment.secondary.reload === 0 && !equipment.secondary.overheated &&
+            sharedTargetState && sharedTargetState.missileCooldown <= 0);
+          const ready = sharedTargetState?.missileReady || rocketReady;
+          missileRef.current.disabled = !ready;
+          missileRef.current.setAttribute("aria-label", rocketReady ? "Fire unguided rocket along the ship's forward axis" : sharedTargetState?.missileReady
             ? `Fire locked missile at ${sharedLocked?.callsign ?? "selected enemy"}`
             : !sharedLocked ? "Missile requires an enemy target"
               : sharedTargetState?.ammo === 0 ? "Missile ammunition empty"
                 : (sharedTargetState?.missileCooldown ?? 0) > 0 ? "Missile cooling down"
                   : `Missile acquiring lock, ${percent} percent; keep enemy in the missile aiming cone`);
           const badge = missileRef.current.querySelector(".pilot-action-badge");
-          if (badge) badge.textContent = sharedTargetState?.missileReady ? String(sharedTargetState.ammo)
+          if (badge) badge.textContent = ready ? String(sharedTargetState?.ammo ?? 0)
+            : equipment?.secondary?.reload ? `R${Math.ceil(equipment.secondary.reload)}`
+              : equipment?.secondary?.overheated ? "HOT"
             : (sharedTargetState?.missileCooldown ?? 0) > 0 ? `${Math.ceil(sharedTargetState!.missileCooldown)}s`
               : sharedTargetState?.ammo === 0 ? "0" : `L${percent}`;
         }
+      }
+      if (equipmentStatusRef.current) {
+        const weapons = freeFlightEnabled ? freeFlightClientRef.current?.equipmentState : null;
+        const status = (label: string, resource: NonNullable<typeof weapons>["primary"], cost = 0) => !resource ? "" :
+          `${label} ${resource.reload > 0 ? `RELOAD ${Math.ceil(resource.reload)}s`
+            : resource.overheated ? `COOLING ${Math.ceil(resource.heat)}%`
+              : (weapons?.energy ?? 100) < cost ? "LOW POWER"
+              : `${resource.rounds}/${resource.reserve} · ${Math.ceil(resource.heat)}% HEAT`}`;
+        const text = weapons ? [status("GUN", weapons.primary, weapons.primaryEnergy), status("ORD", weapons.secondary, weapons.secondaryEnergy)].filter(Boolean).join(" / ") : "";
+        equipmentStatusRef.current.hidden = !text;
+        equipmentStatusRef.current.textContent = text;
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
@@ -3946,6 +3965,8 @@ export function Arena({
           className="pilot-control-right absolute flex flex-col items-end gap-2"
           style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
+            <span ref={equipmentStatusRef} hidden data-testid="status-modular-weapons"
+              className="pointer-events-none absolute bottom-full right-0 mb-1 whitespace-nowrap bg-void/70 px-2 py-1 font-hud text-[9px] tracking-wide text-solar" />
           {unifiedOrbitalControls ? (
             <>
               {orbital && maneuversOpen ? (
@@ -4032,7 +4053,7 @@ export function Arena({
                         }}
                       />
                     ) : null}
-                    {orbitalCampaign || exploringHud ? null : (
+                    {orbitalCampaign || exploringHud && !freeFlightEnabled ? null : (
                       <PilotActionButton
                         ref={countermeasureRef}
                         icon="flare"

@@ -8,6 +8,177 @@
 import * as zod from 'zod';
 
 
+export const GetEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const fitEquipmentBodyShipIdMax = 32;
+
+export const fitEquipmentBodyHardpointIdMax = 32;
+
+export const fitEquipmentBodyExpectedRevisionMin = 0;
+
+
+
+export const FitEquipmentBody = zod.object({
+  "shipId": zod.string().max(fitEquipmentBodyShipIdMax),
+  "hardpointId": zod.string().max(fitEquipmentBodyHardpointIdMax),
+  "itemId": zod.string().uuid().nullable(),
+  "expectedRevision": zod.number().int().min(fitEquipmentBodyExpectedRevisionMin)
+})
+
+export const FitEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const recoverEquipmentBodyActorIdMax = 160;
+
+
+
+export const RecoverEquipmentBody = zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string().min(1).max(recoverEquipmentBodyActorIdMax)
+})
+
+export const RecoverEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
 export const getGlobalCampaignResponseCompletedOperationsMin = 0;
 
 

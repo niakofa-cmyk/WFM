@@ -130,7 +130,10 @@ const resolveFreeFlightAdmission = enableFreeFlight
       const faction = row.faction as Faction;
       const shipId = row.shipId as ShipId;
       if (!Object.hasOwn(SHIPS, shipId) || SHIPS[shipId].faction !== faction) return null;
-      return { sessionKey: `mars:${location}`, faction, shipId };
+      const { equipmentEnabled } = await import("../game/equipment-rollout");
+      const equipment = equipmentEnabled()
+        ? await (await import("../game/equipment")).loadEquipmentFlightFit(userId, shipId) : undefined;
+      return { sessionKey: `mars:${location}`, faction, shipId, equipment };
     }
   : undefined;
 process.stdout.write(`${JSON.stringify({

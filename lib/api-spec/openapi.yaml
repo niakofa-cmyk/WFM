@@ -13,6 +13,56 @@ tags:
   - name: progression
     description: Authenticated player profile and campaign progression
 paths:
+  /game/equipment:
+    get:
+      operationId: getEquipment
+      tags: [progression]
+      responses:
+        "200":
+          description: Account equipment, mount rules, and verified salvage opportunities
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "401": { description: Authentication required }
+        "503": { description: Modular equipment is not enabled in this environment }
+  /game/equipment/fit:
+    post:
+      operationId: fitEquipment
+      tags: [progression]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentFitInput" }
+      responses:
+        "200":
+          description: Persisted account fitting for the next issued flight
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "400": { description: Invalid fitting }
+        "401": { description: Authentication required }
+        "409": { description: Stale revision or incompatible equipment }
+        "503": { description: Modular equipment is not enabled in this environment }
+  /game/equipment/recover:
+    post:
+      operationId: recoverEquipment
+      tags: [progression]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentRecoveryInput" }
+      responses:
+        "200":
+          description: Idempotently recovered equipment from an authoritative destruction record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "400": { description: Invalid recovery request }
+        "401": { description: Authentication required }
+        "409": { description: No eligible verified destruction record }
+        "503": { description: Modular equipment is not enabled in this environment }
   /world/campaign:
     get:
       operationId: getGlobalCampaign
@@ -560,6 +610,94 @@ components:
       in: cookie
       name: __session
   schemas:
+    EquipmentDefinition:
+      type: object
+      required: [id, name, kind, effect, description, size, mass, power, damage, ammunition, magazine, roundsPerMinute, range, projectileVelocity, tracking, lockSeconds, reloadSeconds, heat, durability, energy]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [primary, secondary, special, defensive, utility] }
+        effect: { type: string }
+        description: { type: string }
+        size: { type: integer }
+        mass: { type: number }
+        power: { type: number }
+        damage: { type: number }
+        ammunition: { type: integer }
+        magazine: { type: integer }
+        roundsPerMinute: { type: number }
+        range: { type: number }
+        projectileVelocity: { type: number }
+        tracking: { type: number }
+        lockSeconds: { type: number }
+        reloadSeconds: { type: number }
+        heat: { type: number }
+        durability: { type: number }
+        energy: { type: number }
+    EquipmentItem:
+      type: object
+      required: [id, equipmentId, condition, shipId, hardpointId]
+      properties:
+        id: { type: string, format: uuid }
+        equipmentId: { type: string }
+        condition: { type: number }
+        shipId: { type: [string, "null"] }
+        hardpointId: { type: [string, "null"] }
+    EquipmentHardpoint:
+      type: object
+      required: [id, kind, size]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        size: { type: integer }
+    EquipmentHull:
+      type: object
+      required: [shipId, massLimit, powerLimit, hardpoints]
+      properties:
+        shipId: { type: string }
+        massLimit: { type: number }
+        powerLimit: { type: number }
+        hardpoints:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentHardpoint" }
+    EquipmentSalvage:
+      type: object
+      required: [eventId, actorId, equipmentId]
+      properties:
+        eventId: { type: string, format: uuid }
+        actorId: { type: string }
+        equipmentId: { type: string }
+    EquipmentLocker:
+      type: object
+      required: [revision, catalog, hulls, items, salvage]
+      properties:
+        revision: { type: integer }
+        catalog:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentDefinition" }
+        hulls:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentHull" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentItem" }
+        salvage:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentSalvage" }
+    EquipmentFitInput:
+      type: object
+      required: [shipId, hardpointId, itemId, expectedRevision]
+      properties:
+        shipId: { type: string, maxLength: 32 }
+        hardpointId: { type: string, maxLength: 32 }
+        itemId: { type: [string, "null"], format: uuid }
+        expectedRevision: { type: integer, minimum: 0 }
+    EquipmentRecoveryInput:
+      type: object
+      required: [eventId, actorId]
+      properties:
+        eventId: { type: string, format: uuid }
+        actorId: { type: string, minLength: 1, maxLength: 160 }
     GlobalCampaign:
       type: object
       required: [enabled, campaignId, completedOperations, targetOperations, progressPercent, phase, concluded, finaleEligible, finaleClaimed]

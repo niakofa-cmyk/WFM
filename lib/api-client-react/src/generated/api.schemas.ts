@@ -5,6 +5,97 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type EquipmentDefinitionKind = typeof EquipmentDefinitionKind[keyof typeof EquipmentDefinitionKind];
+
+
+export const EquipmentDefinitionKind = {
+  primary: 'primary',
+  secondary: 'secondary',
+  special: 'special',
+  defensive: 'defensive',
+  utility: 'utility',
+} as const;
+
+export interface EquipmentDefinition {
+  id: string;
+  name: string;
+  kind: EquipmentDefinitionKind;
+  effect: string;
+  description: string;
+  size: number;
+  mass: number;
+  power: number;
+  damage: number;
+  ammunition: number;
+  magazine: number;
+  roundsPerMinute: number;
+  range: number;
+  projectileVelocity: number;
+  tracking: number;
+  lockSeconds: number;
+  reloadSeconds: number;
+  heat: number;
+  durability: number;
+  energy: number;
+}
+
+export interface EquipmentItem {
+  id: string;
+  equipmentId: string;
+  condition: number;
+  /** @nullable */
+  shipId: string | null;
+  /** @nullable */
+  hardpointId: string | null;
+}
+
+export interface EquipmentHardpoint {
+  id: string;
+  kind: string;
+  size: number;
+}
+
+export interface EquipmentHull {
+  shipId: string;
+  massLimit: number;
+  powerLimit: number;
+  hardpoints: EquipmentHardpoint[];
+}
+
+export interface EquipmentSalvage {
+  eventId: string;
+  actorId: string;
+  equipmentId: string;
+}
+
+export interface EquipmentLocker {
+  revision: number;
+  catalog: EquipmentDefinition[];
+  hulls: EquipmentHull[];
+  items: EquipmentItem[];
+  salvage: EquipmentSalvage[];
+}
+
+export interface EquipmentFitInput {
+  /** @maxLength 32 */
+  shipId: string;
+  /** @maxLength 32 */
+  hardpointId: string;
+  /** @nullable */
+  itemId: string | null;
+  /** @minimum 0 */
+  expectedRevision: number;
+}
+
+export interface EquipmentRecoveryInput {
+  eventId: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  actorId: string;
+}
+
 export type GlobalCampaignPhase = typeof GlobalCampaignPhase[keyof typeof GlobalCampaignPhase];
 
 

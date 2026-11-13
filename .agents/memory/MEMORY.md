@@ -58,3 +58,4 @@
 - [Shared celestial reference](shared-celestial-reference.md) — Moon-relative agreement requires one authoritative spatial frame, not just shared session membership.
 - [Combat intelligence and recovery](combat-intelligence-and-recovery.md) — physical rear-positioning and evasion; confirmed kills restore bounded maneuver energy without permanent damage inflation.
 - [Shared combat visual authority](shared-combat-visual-authority.md) — server contacts drive bounded damage/explosion feedback independent of ship removal and floating-origin changes.
+- [Modular military equipment](modular-equipment-direction.md) — hull-compatible physical equipment and verified recovery preserve military character, not generic weapon replacement.

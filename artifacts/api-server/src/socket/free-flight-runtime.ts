@@ -14,8 +14,6 @@ import {
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
   BARREL_ROLL_CONTROL_PROTOCOL_V1,
-  MISSILE_CATALOG,
-  PRIMARY_WEAPON_CATALOG,
   acquireTarget,
   missileCanLaunch,
   applyHullDamage,
@@ -60,6 +58,11 @@ import {
 import type { ExplorationSettlement } from "../game/exploration-settlement";
 import { tacticalFlight, type TacticalMemory } from "../game/orbital-combat-intelligence";
 import { combatKillRecovery, validCombatKillProgress, type CombatKillProgress } from "../game/combat-kill-recovery";
+import { equipmentHas, validateEquipmentFit } from "@workspace/orbital-sim";
+import {
+  canFireEquipment, consumeEquipmentShot, equipmentEnergyCost, equipmentWeaponsState, fittedModule,
+  modularMissile, modularMissileDamage, modularPrimary, stepEquipmentWeapons, validEquipmentWeapons,
+} from "../game/modular-weapons";
 import {
   patrolShipActorId,
   type UniversePatrolEncounter,
@@ -126,6 +129,7 @@ export type FreeFlightAdmission = {
   sessionKey: string;
   faction: Faction;
   shipId: ShipId;
+  equipment?: import("@workspace/orbital-sim").EquippedModule[];
 };
 
 type Actor = {
@@ -168,6 +172,8 @@ type Actor = {
   scoutMemory?: ScoutMemory;
   tactics?: TacticalMemory;
   combatProgress?: CombatKillProgress;
+  equipment?: import("@workspace/orbital-sim").EquippedModule[];
+  equipmentWeapons?: import("@workspace/orbital-sim").EquipmentWeaponsState;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -675,6 +681,10 @@ export function createFreeFlightRuntime(options: {
         throw new Error("Invalid free-flight actor checkpoint.");
       }
       if (actors.has(actor.actorId)) throw new Error("Duplicate free-flight actor checkpoint.");
+      if (actor.equipment && (!Array.isArray(actor.equipment) || validateEquipmentFit(actor.shipId, actor.equipment) ||
+          !validEquipmentWeapons(actor.equipment, actor.equipmentWeapons))) {
+        throw new Error("Invalid equipment checkpoint.");
+      }
       actor.socket = null;
       actor.input = { ...IDLE };
       actor.lastInputAt = now;
@@ -1021,15 +1031,22 @@ export function createFreeFlightRuntime(options: {
     const target = pilot.selectedTargetActorId ? session.actors.get(pilot.selectedTargetActorId) : undefined;
     const valid = target && eligiblePilotTarget(session, pilot, target) ? target : undefined;
     const space = pilot.craft.space!;
-    const missile = MISSILE_CATALOG[SHIPS[pilot.shipId].missileFit];
+    const missile = modularMissile(pilot);
     send(pilot.socket, { type: "freeflight_target_state", state: {
       protocol: FREE_FLIGHT_TARGETING_V1, sessionInstanceId: session.instanceId, tick: session.tick,
       targetActorId: valid?.actorId ?? null,
       lockProgress: valid && space.lockTargetId === valid.numericId ? space.lockProgress : 0,
-      missileReady: Boolean(valid && missileCanLaunch(
+      missileReady: canFireEquipment(pilot, "secondary") && Boolean(valid && missileCanLaunch(
         pilot.craft, valid.craft, session.projectiles.length, [], missile)),
       missileCooldown: space.missileCd, ammo: space.ammo,
     } });
+    if (pilot.equipment?.length && pilot.equipmentWeapons) send(pilot.socket, {
+      type: "freeflight_equipment_state", protocol: 1, ...pilot.equipmentWeapons,
+      unguided: fittedModule(pilot, "secondary")?.id === "rocket",
+      energy: pilot.craft.space!.energy,
+      primaryEnergy: equipmentEnergyCost(pilot, "primary"),
+      secondaryEnergy: equipmentEnergyCost(pilot, "secondary"),
+    });
   }
 
   async function beginPvpEngagement(session: Session, attacker: Actor, target: Actor) {
@@ -1158,7 +1175,7 @@ export function createFreeFlightRuntime(options: {
     const patrolCombat = actor.kind === "patrol"
       ? patrolCombatForActor(session, actor) : undefined;
     const isCombatHostile = patrolCombat?.patrol.patrolId === actor.persistentPatrolId;
-    const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
+    const missile = modularMissile(actor);
     const forward = rotate(actor.craft.space!.q, 0, 0, -1);
     const range = primaryFire ? NEARBY_RADIUS : missile.maxLockRange;
     const cone = detCos(primaryFire ? PRIMARY_FIRE_ENGAGEMENT_CONE : missile.lockConeRadians);
@@ -1277,16 +1294,18 @@ export function createFreeFlightRuntime(options: {
     const target = actor.kind === "pilot" || combatActive
       ? combatTarget(session, actor) : undefined;
     const primaryTarget = combatActive ? combatTarget(session, actor, true) : undefined;
-    const missile = MISSILE_CATALOG[SHIPS[actor.shipId].missileFit];
+    const missile = modularMissile(actor);
     const cover = universeCollidersAt({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z });
     actor.craft.lockTargetId = target?.numericId ?? null;
     acquireTarget(actor.craft, target?.craft, ORBITAL_DT, cover, missile);
-    const ship = SHIPS[actor.shipId];
-    if (input.fire && actor.primaryCooldown <= 0) {
+    const primary = modularPrimary(actor);
+    if (input.fire && actor.primaryCooldown <= 0 && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "primary")) {
       const bullets = spawnPrimaryVolley(
-        actor.craft, primaryTarget?.craft, ship.shotSpeed, ship.shotDmg, cover,
-        PRIMARY_WEAPON_CATALOG[ship.primaryFit],
+        actor.craft, primaryTarget?.craft, primary.speed, primary.damage, cover,
+        primary.definition,
       );
+      const fitted = fittedModule(actor, "primary");
+      if (fitted) for (const bullet of bullets) bullet.weaponId = fitted.id;
       if (actor.kind === "pilot" && combatActive && primaryTarget) {
         // No arbitrary primary-gun range gate: retain each round long enough
         // to reach the server-selected hostile at its current range.
@@ -1299,13 +1318,31 @@ export function createFreeFlightRuntime(options: {
         }
       }
       addProjectiles(session, actor, bullets);
-      actor.primaryCooldown = ship.fireInterval;
+      if (bullets.length) consumeEquipmentShot(actor, "primary");
+      actor.primaryCooldown = primary.interval;
     }
-    if (input.missile && combatActive) {
-      addProjectiles(session, actor, spawnMissileVolley(
+    const rocket = fittedModule(actor, "secondary")?.id === "rocket";
+    if (input.missile && (combatActive || rocket) && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "secondary")) {
+      let bullets: SpatialBullet[];
+      if (rocket && actor.craft.space!.missileCd <= 0) {
+        bullets = spawnPrimaryVolley(actor.craft, undefined, missile.launchSpeed, modularMissileDamage(actor), cover, {
+          ...primary.definition, volleyCount: 1, projectileSpeedScale: 1, damageScale: 1,
+          projectileLifetimeSeconds: missile.lifetimeSeconds, visualEffect: "heavy",
+        }).map(bullet => ({ ...bullet, missile: true, homeId: null, homing: 0, weaponId: "rocket" }));
+        actor.craft.space!.missileCd = missile.cooldownSeconds;
+      } else if (!rocket) bullets = spawnMissileVolley(
         actor.craft, target?.craft, session.projectiles.length,
-        ship.missileDamage, cover, missile,
-      ));
+        modularMissileDamage(actor), cover, missile,
+      );
+      else bullets = [];
+      if (bullets.length) {
+        const fitted = fittedModule(actor, "secondary");
+        if (fitted) for (const bullet of bullets) bullet.weaponId = fitted.id;
+        consumeEquipmentShot(actor, "secondary");
+        addProjectiles(session, actor, bullets);
+        if (actor.equipmentWeapons?.secondary) actor.craft.space!.ammo =
+          actor.equipmentWeapons.secondary.rounds + actor.equipmentWeapons.secondary.reserve;
+      }
     }
   }
 
@@ -1344,9 +1381,15 @@ export function createFreeFlightRuntime(options: {
     if (!attacker || !damageContext || !target.craft.alive) return;
     const encounterId = damageContext.kind === "patrol"
       ? damageContext.combat.id : damageContext.engagement.id;
-    const shieldDamage = Math.min(target.shield, projectile.dmg);
+    const damage = projectile.dmg * (equipmentHas(target.equipment, "armor") ? .9 : 1);
+    if (!projectile.missile && equipmentHas(attacker.equipment, "emp")) {
+      const resistant = equipmentHas(target.equipment, "ew") ||
+        target.equipment?.some(item => item.equipmentId === "hardened-decoys");
+      target.craft.jam = Math.max(target.craft.jam, resistant ? .3 : .6);
+    }
+    const shieldDamage = Math.min(target.shield, damage);
     target.shield = Math.max(0, target.shield - shieldDamage);
-    const hullDamage = applyHullDamage(target.craft, projectile.dmg - shieldDamage);
+    const hullDamage = applyHullDamage(target.craft, damage - shieldDamage);
     if (target.craft.hull <= 0) target.craft.alive = false;
     if (shieldDamage + hullDamage > 0) target.lastDamageTick = session.tick;
     if (hullDamage > 0 && damageContext.kind === "patrol") {
@@ -1667,7 +1710,7 @@ export function createFreeFlightRuntime(options: {
       // A pilot helping against one fleet may assist against another nearby
       // fleet too. Membership in this encounter, not any encounter, excludes it.
       !combat.participantActorIds.has(candidate.actorId) &&
-      distanceBetween(candidate, target) <= NEARBY_RADIUS,
+      distanceBetween(candidate, target) <= NEARBY_RADIUS * (equipmentHas(actor.equipment, "comms") ? 1.25 : 1),
     ).slice(0, MAX_ENCOUNTER_PILOTS);
     actor.lastAssistCallAt = now;
     if (!invited.length) {
@@ -2208,6 +2251,7 @@ export function createFreeFlightRuntime(options: {
         actor.input.aimAssist = false;
       }
       actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
+      stepEquipmentWeapons(actor, ORBITAL_DT);
       actor.shield = recoverFreeFlightShield(
         actor.shield, actor.shieldMax, actor.lastDamageTick, session.tick,
       );
@@ -2370,6 +2414,17 @@ export function createFreeFlightRuntime(options: {
             primaryCooldown: 0, lastDamageTick: -1, kills: 0, assists: 0, creditsAwarded: 0,
             gravityEnvironmentV1: false,
           };
+          if (admission.equipment?.length) {
+            if (validateEquipmentFit(admission.shipId, admission.equipment)) throw new Error("Invalid issued equipment fit.");
+            actor.equipment = structuredClone(admission.equipment);
+            actor.equipmentWeapons = equipmentWeaponsState(actor.equipment);
+            if (equipmentHas(actor.equipment, "shield")) {
+              actor.shieldMax *= 1.15;
+              actor.shield = actor.shieldMax;
+            }
+            const secondary = fittedModule(actor, "secondary");
+            if (secondary) actor.craft.space!.ammo = secondary.ammunition;
+          }
           // Only a genuinely new seat may receive the opening insertion.
           // Never move/heal a retained actor, reset a roster or mint a fleet.
           if (packet.openingEncounter === true &&
@@ -2514,6 +2569,8 @@ export function createFreeFlightRuntime(options: {
       seat.actor.lastCountermeasureTick = seat.session.tick;
       seat.actor.craft.space!.countermeasureCd ??= 0;
       const result = deployCountermeasure(seat.session.projectiles, { ...seat.actor.craft, faction: seat.actor.faction });
+      if (result.activated && equipmentHas(seat.actor.equipment, "countermeasure"))
+        seat.actor.craft.space!.countermeasureCd! *= .5;
       send(socket, { type: "freeflight_countermeasure_state", protocol: 1, ...result,
         cooldownMs: Math.ceil((seat.actor.craft.space!.countermeasureCd ?? 0) * 1000) });
       return;
@@ -2634,7 +2691,7 @@ export function createFreeFlightRuntime(options: {
       const selectedHostilePilot = selectedTarget?.kind === "pilot" &&
         eligiblePilotTarget(seat.session, seat.actor, selectedTarget);
       if (input.missile && !pilotHasActiveCombat(seat.session, seat.actor.actorId) &&
-          !selectedHostilePilot) {
+          !selectedHostilePilot && fittedModule(seat.actor, "secondary")?.id !== "rocket") {
         if (!input.fire) {
           error("freeflight_engagement_required");
           return;

@@ -11,6 +11,7 @@ import { HangarShip } from "./HangarShip";
 import { campaignBriefing } from "./command-briefing";
 import { expeditionFeatureEnabled } from "./sector-client";
 import { OpeningHistory } from "./OpeningHistory";
+import { EquipmentBay } from "./EquipmentBay";
 
 const EXPEDITION_ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -527,6 +528,7 @@ function Armory(props: HomeProps & { initialTab: "fleet" | "loadout" }) {
       ) : null}
       {tab === "loadout" ? (
         <section id="panel-armory-loadout" role="tabpanel" aria-labelledby="tab-armory-loadout" className="flex flex-col gap-3" data-testid="panel-armory-loadout">
+          <EquipmentBay shipId={draft.ship} signedIn={props.signedIn} />
           <div>
             <PanelLabel>ACTIVE AIRFRAME · {FACTION_NAME[draft.faction]}</PanelLabel>
             <h3 className="mt-1 font-hud text-2xl">{SHIPS[draft.ship].name.toUpperCase()}</h3>
