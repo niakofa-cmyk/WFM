@@ -2,6 +2,9 @@ import {
   integrateSpatialFlight,
   resolveUniverseMotion,
   normalizeFlightControls,
+  subsystemFlightControls,
+  subsystemEfficiency,
+  type ShipSubsystemState,
   type AnomalyGravityWellV1,
 } from "@workspace/orbital-sim";
 import { SHIPS } from "./ships";
@@ -154,11 +157,12 @@ export function advanceLocalUniverseFlight(
   dt: number,
   sharedGravityWells?: readonly AnomalyGravityWellV1[] | null,
   sharedFlight = false,
+  subsystems?: ShipSubsystemState,
 ): UniverseSectorAddress | null {
   if (session.phase !== "exploration") return null;
   const pilot = match.player;
   const beforeMotion = { x: pilot.x, y: pilot.space!.y, z: pilot.z };
-  const controls = normalizeFlightControls(input);
+  const controls = subsystemFlightControls(normalizeFlightControls(input), sharedFlight ? subsystems : undefined);
   const gravityWells = sharedGravityWells === undefined
     ? universeSectorGravityWells(session.sectorAddress)
     : sharedGravityWells ?? [];
@@ -173,6 +177,8 @@ export function advanceLocalUniverseFlight(
     gravityWells,
   });
   resolveUniverseMotion(pilot, beforeMotion, universeSectorColliders(session.sectorAddress));
+  if (sharedFlight) pilot.space!.energy = Math.min(pilot.space!.energy,
+    100 * subsystemEfficiency(subsystems, "reactor"));
   const rebased = rebaseUniversePosition(session.sectorAddress, { x: pilot.x, y: pilot.space!.y, z: pilot.z });
   if (!rebased.crossed) return null;
   pilot.x = rebased.local.x;

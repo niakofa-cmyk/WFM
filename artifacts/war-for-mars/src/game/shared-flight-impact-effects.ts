@@ -5,7 +5,7 @@ export type SharedFlightImpact = {
   eventId: string;
   targetActorId?: string;
   point: Point;
-  kind: "shield" | "hull" | "world" | "destruction";
+  kind: "shield" | "hull" | "world" | "subsystem" | "destruction";
 };
 const point = (p: unknown): p is Point => !!p && typeof p === "object" &&
   ["x", "y", "z"].every(k => typeof (p as Record<string, unknown>)[k] === "number" &&
@@ -26,7 +26,8 @@ export function readSharedFlightImpact(packet: Record<string, unknown>): SharedF
   return {
     eventId: packet.eventId, targetActorId: packet.targetActorId,
     point: { ...packet.to },
-    kind: packet.destroyed ? "destruction" : Number(packet.hullDamage) > 0 ? "hull" : "shield",
+    kind: packet.destroyed ? "destruction" : packet.subsystemDisabled === true &&
+      Number(packet.hullDamage) > 0 ? "subsystem" : Number(packet.hullDamage) > 0 ? "hull" : "shield",
   };
 }
 
@@ -109,12 +110,13 @@ export function createSharedFlightImpactEffects(scene: THREE.Scene) {
       slot.started = now;
       slot.kind = impact.kind;
       slot.point = { ...impact.point };
-      slot.life = impact.kind === "destruction" ? 1.25 : .4;
+      slot.life = impact.kind === "destruction" ? 1.25 : impact.kind === "subsystem" ? .8 : .4;
       slot.group.position.set(local.x, local.y, local.z);
       slot.group.userData.kind = impact.kind;
       slot.group.visible = true;
       const color = impact.kind === "shield" ? 0x71cfff :
-        impact.kind === "world" ? 0xffe3a1 : impact.kind === "destruction" ? 0xffad3d : 0xff6940;
+        impact.kind === "world" ? 0xffe3a1 : impact.kind === "destruction" ? 0xffad3d :
+          impact.kind === "subsystem" ? 0xffde59 : 0xff6940;
       slot.coreMaterial.color.setHex(color);
       slot.ringMaterial.color.setHex(color);
       slot.sparkMaterial.color.setHex(color);

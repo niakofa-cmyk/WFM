@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SUBSYSTEM_LABELS, SUBSYSTEM_OFFSETS, SHIP_SUBSYSTEMS, rotate as rotateSubsystemOffset } from "@workspace/orbital-sim";
 import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
 import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
@@ -2399,6 +2400,7 @@ export function Arena({
             FIXED,
             localFreeFlightGravity(pilot),
             freeFlightEnabled,
+            freeFlightEnabled ? freeFlightClientRef.current?.subsystemState?.own : undefined,
           );
           if (nextSector) {
             const previousSector = universeRef.current!.sectorAddress;
@@ -2878,7 +2880,21 @@ export function Arena({
             sharedLockedPosition.x,
             sharedLockedPosition.y,
             sharedLockedPosition.z,
-          ).project(camera);
+          );
+          const component = freeFlightClientRef.current?.subsystemState;
+          const selected = component?.targetActorId === sharedLocked.actorId ? component.selected : null;
+          if (selected && component) {
+            const point = SUBSYSTEM_OFFSETS[selected];
+            const q = sharedLocked.orientation;
+            const offset = rotateSubsystemOffset([q.x, q.y, q.z, q.w],
+              point.x * component.targetRadius, point.y * component.targetRadius, point.z * component.targetRadius);
+            targetScreenPosition.x += offset.x;
+            targetScreenPosition.y += offset.y;
+            targetScreenPosition.z += offset.z;
+            bracket.position.copy(targetScreenPosition);
+            bracket.scale.setScalar(.65);
+          }
+          targetScreenPosition.project(camera);
           const bounds = renderer.domElement.getBoundingClientRect();
           const placement = targetMarkerPlacement(
             targetScreenPosition, bounds.width, bounds.height,
@@ -2893,7 +2909,9 @@ export function Arena({
             targetMarker.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
             const range = Math.round(sharedLockedRange);
             const lockPercent = Math.floor(sharedTargetState.lockProgress * 100);
-            const markerLabel = `${sharedLocked.callsign} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
+            const componentLabel = selected && component?.target
+              ? ` · ${SUBSYSTEM_LABELS[selected]} ${Math.ceil(component.target.health[selected] / component.target.maximum * 100)}%` : "";
+            const markerLabel = `${sharedLocked.callsign}${componentLabel} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
             if (targetMarkerLabelRef.current &&
                 targetMarkerLabelRef.current.textContent !== markerLabel) {
               targetMarkerLabelRef.current.textContent = markerLabel;
@@ -3379,7 +3397,9 @@ export function Arena({
           const rocketReady = equipment?.unguided === true && Boolean(equipment.secondary &&
             equipment.secondary.rounds > 0 && equipment.secondary.reload === 0 && !equipment.secondary.overheated &&
             sharedTargetState && sharedTargetState.missileCooldown <= 0);
-          const ready = sharedTargetState?.missileReady || rocketReady;
+          const systems = freeFlightClientRef.current?.subsystemState?.own;
+          const ready = (sharedTargetState?.missileReady || rocketReady) &&
+            (!systems || systems.health.missiles > 0 && systems.health.sensors > 0);
           missileRef.current.disabled = !ready;
           missileRef.current.setAttribute("aria-label", rocketReady ? "Fire unguided rocket along the ship's forward axis" : sharedTargetState?.missileReady
             ? `Fire locked missile at ${sharedLocked?.callsign ?? "selected enemy"}`
@@ -3402,7 +3422,11 @@ export function Arena({
             : resource.overheated ? `COOLING ${Math.ceil(resource.heat)}%`
               : (weapons?.energy ?? 100) < cost ? "LOW POWER"
               : `${resource.rounds}/${resource.reserve} · ${Math.ceil(resource.heat)}% HEAT`}`;
-        const text = weapons ? [status("GUN", weapons.primary, weapons.primaryEnergy), status("ORD", weapons.secondary, weapons.secondaryEnergy)].filter(Boolean).join(" / ") : "";
+        const systems = freeFlightClientRef.current?.subsystemState?.own;
+        const disabled = systems ? SHIP_SUBSYSTEMS.filter(id => systems.health[id] === 0)
+          .map(id => `${SUBSYSTEM_LABELS[id]} OFFLINE`) : [];
+        const text = [...(weapons ? [status("GUN", weapons.primary, weapons.primaryEnergy),
+          status("ORD", weapons.secondary, weapons.secondaryEnergy)] : []), ...disabled].filter(Boolean).join(" / ");
         equipmentStatusRef.current.hidden = !text;
         equipmentStatusRef.current.textContent = text;
       }
@@ -3927,7 +3951,10 @@ export function Arena({
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
                     {exploringHud && !sharedFreeFlightPrimaryFireReady ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
-                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
+                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <div className="pointer-events-auto flex gap-1">
+                      <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} />
+                      <PilotActionButton icon="aim" badge="SYS" label="Cycle enemy subsystem aim point; aim and fire to damage it" testId="button-target-subsystem" onActivate={() => freeFlightClientRef.current?.cycleSubsystem()} />
+                    </div> : null}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -4159,7 +4186,10 @@ export function Arena({
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
                 {!exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
-                {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} /> : null}
+                {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <div className="pointer-events-auto flex gap-1">
+                  <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} />
+                  <PilotActionButton icon="aim" badge="SYS" label="Cycle enemy subsystem aim point; aim and fire to damage it" testId="button-target-subsystem" onActivate={() => freeFlightClientRef.current?.cycleSubsystem()} />
+                </div> : null}
                 {orbital ? (
                   !exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton
                     ref={missileRef}

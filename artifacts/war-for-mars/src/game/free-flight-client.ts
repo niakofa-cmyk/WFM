@@ -1,4 +1,5 @@
 import { readFreeFlightRecoveryHint } from "./free-flight-recovery-hint";
+import { isShipSubsystemTelemetry, type ShipSubsystemTelemetry } from "@workspace/orbital-sim";
 import { isCombatRecoveryState } from "./combat-recovery-state";
 import {
   ORBITAL_RULES_VERSION,
@@ -69,6 +70,15 @@ export class FreeFlightClient {
   private targetCycleSeq = 1;
   private lastTargetState: FreeFlightTargetState | null = null;
   private lastEquipmentState: EquipmentTelemetry | null = null;
+  private subsystemSeq = 1;
+  private subsystemsAvailable = false;
+  private lastSubsystemState: ShipSubsystemTelemetry | null = null;
+  get subsystemState() { return this.joined ? this.lastSubsystemState : null; }
+  cycleSubsystem() {
+    if (!this.joined || !this.subsystemsAvailable || this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(JSON.stringify({ type: "freeflight_subsystem_cycle", protocol: 1, seq: this.subsystemSeq++ }));
+    return true;
+  }
   get equipmentState() { return this.joined ? this.lastEquipmentState : null; }
   get targetState() {
     return this.joined && this.lastTargetState?.sessionInstanceId === this.sessionInstanceId
@@ -133,6 +143,8 @@ export class FreeFlightClient {
     this.assistanceAvailable = false;
     this.lastTargetState = null;
     this.lastEquipmentState = null;
+    this.lastSubsystemState = null;
+    this.subsystemsAvailable = false;
     this.vectorBoostAvailable = false;
     this.barrelRollAvailable = false;
     this.stopped = true;
@@ -262,6 +274,11 @@ export class FreeFlightClient {
         this.nearestTargetingAvailable = this.targetingAvailable && targeting?.nearest === true;
         this.lastTargetState = null;
         this.lastEquipmentState = null;
+        this.lastSubsystemState = null;
+        const subsystems = packet.subsystems as { protocol?: unknown; nextSeq?: unknown } | undefined;
+        this.subsystemsAvailable = subsystems?.protocol === 1 &&
+          Number.isSafeInteger(subsystems.nextSeq) && (subsystems.nextSeq as number) > 0;
+        if (this.subsystemsAvailable) this.subsystemSeq = subsystems!.nextSeq as number;
           const assistance = packet.assistance as { protocol?: unknown } | undefined;
           this.assistanceAvailable = assistance?.protocol === FREE_FLIGHT_ASSIST_V1;
         const defenses = packet.countermeasures as { protocol?: unknown; nextSeq?: unknown; cooldownMs?: unknown } | undefined;
@@ -319,6 +336,14 @@ export class FreeFlightClient {
       }
       if (packet.type === "freeflight_equipment_state" && this.joined && isEquipmentTelemetry(packet)) {
         this.lastEquipmentState = packet;
+        return;
+      }
+      if (packet.type === "freeflight_subsystem_state") {
+        if (this.joined && isShipSubsystemTelemetry(packet) &&
+            packet.sessionInstanceId === this.sessionInstanceId && packet.actorId === this.ownActorId &&
+            packet.tick >= (this.lastSubsystemState?.tick ?? -1)) {
+          this.lastSubsystemState = packet;
+        }
         return;
       }
       if (packet.type === "freeflight_environment") {

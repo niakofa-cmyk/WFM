@@ -1,3 +1,4 @@
+export * from "./ship-subsystems";
 export * from "./flight";
 export * from "./weapons";
 export * from "./weapons-catalog";

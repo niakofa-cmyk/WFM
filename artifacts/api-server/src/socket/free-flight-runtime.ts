@@ -60,6 +60,10 @@ import { tacticalFlight, type TacticalMemory } from "../game/orbital-combat-inte
 import { combatKillRecovery, validCombatKillProgress, type CombatKillProgress } from "../game/combat-kill-recovery";
 import { equipmentHas, validateEquipmentFit } from "@workspace/orbital-sim";
 import {
+  SHIP_SUBSYSTEMS, newShipSubsystems, validShipSubsystems, subsystemEfficiency,
+  subsystemAtContact, damageShipSubsystem, subsystemFlightControls, type ShipSubsystemState, type ShipSubsystem,
+} from "@workspace/orbital-sim";
+import {
   canFireEquipment, consumeEquipmentShot, equipmentEnergyCost, equipmentWeaponsState, fittedModule,
   modularMissile, modularMissileDamage, modularPrimary, stepEquipmentWeapons, validEquipmentWeapons,
 } from "../game/modular-weapons";
@@ -174,6 +178,9 @@ type Actor = {
   combatProgress?: CombatKillProgress;
   equipment?: import("@workspace/orbital-sim").EquippedModule[];
   equipmentWeapons?: import("@workspace/orbital-sim").EquipmentWeaponsState;
+  subsystems?: ShipSubsystemState;
+  selectedSubsystem?: ShipSubsystem;
+  subsystemCycleSeq?: number;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -681,6 +688,10 @@ export function createFreeFlightRuntime(options: {
         throw new Error("Invalid free-flight actor checkpoint.");
       }
       if (actors.has(actor.actorId)) throw new Error("Duplicate free-flight actor checkpoint.");
+      if (actor.subsystems !== undefined && !validShipSubsystems(actor.subsystems))
+        throw new Error("Invalid ship subsystem checkpoint.");
+      if (actor.selectedSubsystem !== undefined && !SHIP_SUBSYSTEMS.includes(actor.selectedSubsystem))
+        throw new Error("Invalid ship subsystem selection checkpoint.");
       if (actor.equipment && (!Array.isArray(actor.equipment) || validateEquipmentFit(actor.shipId, actor.equipment) ||
           !validEquipmentWeapons(actor.equipment, actor.equipmentWeapons))) {
         throw new Error("Invalid equipment checkpoint.");
@@ -1032,11 +1043,22 @@ export function createFreeFlightRuntime(options: {
     const valid = target && eligiblePilotTarget(session, pilot, target) ? target : undefined;
     const space = pilot.craft.space!;
     const missile = modularMissile(pilot);
+    send(pilot.socket, {
+      type: "freeflight_subsystem_state", protocol: 1, sessionInstanceId: session.instanceId,
+      tick: session.tick, actorId: pilot.actorId,
+      own: pilot.subsystems ?? newShipSubsystems(pilot.craft.hullMax),
+      targetActorId: valid?.actorId ?? null,
+      target: valid ? valid.subsystems ?? newShipSubsystems(valid.craft.hullMax) : null,
+      selected: pilot.selectedSubsystem ?? null,
+      targetRadius: valid?.craft.radius ?? 0,
+    });
     send(pilot.socket, { type: "freeflight_target_state", state: {
       protocol: FREE_FLIGHT_TARGETING_V1, sessionInstanceId: session.instanceId, tick: session.tick,
       targetActorId: valid?.actorId ?? null,
       lockProgress: valid && space.lockTargetId === valid.numericId ? space.lockProgress : 0,
-      missileReady: canFireEquipment(pilot, "secondary") && Boolean(valid && missileCanLaunch(
+      missileReady: subsystemEfficiency(pilot.subsystems, "missiles") > 0 &&
+        subsystemEfficiency(pilot.subsystems, "sensors") > 0 &&
+        canFireEquipment(pilot, "secondary") && Boolean(valid && missileCanLaunch(
         pilot.craft, valid.craft, session.projectiles.length, [], missile)),
       missileCooldown: space.missileCd, ammo: space.ammo,
     } });
@@ -1297,11 +1319,17 @@ export function createFreeFlightRuntime(options: {
     const missile = modularMissile(actor);
     const cover = universeCollidersAt({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z });
     actor.craft.lockTargetId = target?.numericId ?? null;
-    acquireTarget(actor.craft, target?.craft, ORBITAL_DT, cover, missile);
+    acquireTarget(actor.craft, target?.craft,
+      ORBITAL_DT * (.25 + .75 * subsystemEfficiency(actor.subsystems, "sensors")), cover, missile);
+    if (subsystemEfficiency(actor.subsystems, "sensors") === 0) {
+      actor.craft.space!.lockProgress = 0;
+      actor.craft.space!.lockTargetId = null;
+    }
     const primary = modularPrimary(actor);
-    if (input.fire && actor.primaryCooldown <= 0 && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "primary")) {
+    if (input.fire && subsystemEfficiency(actor.subsystems, "weapons") > 0 &&
+        actor.primaryCooldown <= 0 && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "primary")) {
       const bullets = spawnPrimaryVolley(
-        actor.craft, primaryTarget?.craft, primary.speed, primary.damage, cover,
+        actor.craft, actor.selectedSubsystem ? undefined : primaryTarget?.craft, primary.speed, primary.damage, cover,
         primary.definition,
       );
       const fitted = fittedModule(actor, "primary");
@@ -1319,10 +1347,12 @@ export function createFreeFlightRuntime(options: {
       }
       addProjectiles(session, actor, bullets);
       if (bullets.length) consumeEquipmentShot(actor, "primary");
-      actor.primaryCooldown = primary.interval;
+      actor.primaryCooldown = primary.interval / (.25 + .75 * subsystemEfficiency(actor.subsystems, "weapons"));
     }
     const rocket = fittedModule(actor, "secondary")?.id === "rocket";
-    if (input.missile && (combatActive || rocket) && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "secondary")) {
+    if (input.missile && subsystemEfficiency(actor.subsystems, "missiles") > 0 &&
+        subsystemEfficiency(actor.subsystems, "sensors") > 0 &&
+        (combatActive || rocket) && session.projectiles.length < MAX_PROJECTILES_PER_SESSION && canFireEquipment(actor, "secondary")) {
       let bullets: SpatialBullet[];
       if (rocket && actor.craft.space!.missileCd <= 0) {
         bullets = spawnPrimaryVolley(actor.craft, undefined, missile.launchSpeed, modularMissileDamage(actor), cover, {
@@ -1389,7 +1419,22 @@ export function createFreeFlightRuntime(options: {
     }
     const shieldDamage = Math.min(target.shield, damage);
     target.shield = Math.max(0, target.shield - shieldDamage);
-    const hullDamage = applyHullDamage(target.craft, damage - shieldDamage);
+    const penetratingDamage = damage - shieldDamage;
+    let hitSubsystem: ShipSubsystem | null = null;
+    let subsystemDisabled = false;
+    if (penetratingDamage > 0) {
+      const q = target.craft.space!.q;
+      const radius = Math.max(.1, target.craft.radius);
+      const local = rotate([-q[0], -q[1], -q[2], q[3]],
+        (to.x - target.craft.x) / radius,
+        (to.y - target.craft.space!.y) / radius,
+        (to.z - target.craft.z) / radius);
+      hitSubsystem = subsystemAtContact(local);
+      target.subsystems ??= newShipSubsystems(target.craft.hullMax);
+      subsystemDisabled = damageShipSubsystem(target.subsystems, hitSubsystem, penetratingDamage * .35);
+    }
+    // Shared damage budget: components take the remainder, not a second full hull hit.
+    const hullDamage = applyHullDamage(target.craft, penetratingDamage * .65);
     if (target.craft.hull <= 0) target.craft.alive = false;
     if (shieldDamage + hullDamage > 0) target.lastDamageTick = session.tick;
     if (hullDamage > 0 && damageContext.kind === "patrol") {
@@ -1418,6 +1463,8 @@ export function createFreeFlightRuntime(options: {
       to,
       shieldDamage,
       hullDamage,
+      hitSubsystem,
+      subsystemDisabled,
       destroyed: !target.craft.alive,
     });
     if (!target.craft.alive && attacker.kind === "pilot" && attacker.ownerUserId &&
@@ -1656,6 +1703,12 @@ export function createFreeFlightRuntime(options: {
 
   function requestWingAssist(socket: WebSocketLike, seat: Seat) {
     const { session, actor } = seat;
+    if (subsystemEfficiency(actor.subsystems, "communications") === 0 ||
+        subsystemEfficiency(actor.subsystems, "bridge") === 0) {
+      send(socket, { type: "freeflight_assist_call_result", delivered: 0, cooldownMs: 0,
+        reason: "communications_disabled" });
+      return;
+    }
     const now = Date.now();
     const pilotCombats = activeCombats(session).filter((candidate) =>
       candidate.participantActorIds.has(actor.actorId));
@@ -2095,6 +2148,8 @@ export function createFreeFlightRuntime(options: {
         const fleetGroups = new Map<string, Actor[]>();
         for (const candidate of session.actors.values()) {
           if (candidate.kind !== "patrol" || candidate.faction !== factionMix.friendlyFaction ||
+              subsystemEfficiency(candidate.subsystems, "communications") === 0 ||
+              subsystemEfficiency(candidate.subsystems, "bridge") === 0 ||
               !candidate.craft.alive || !candidate.persistentPatrolId || !candidate.persistentShipId ||
               session.persistentPatrols.get(candidate.persistentPatrolId)?.reservedForCombat ||
               (session.combats.get(candidate.persistentPatrolId) !== undefined &&
@@ -2198,7 +2253,9 @@ export function createFreeFlightRuntime(options: {
             position: { x: pilot.craft.x, y: pilot.craft.space!.y, z: pilot.craft.z },
             hostile: pilot.faction !== actor.faction, alive: pilot.craft.alive,
             connected: pilot.socket?.readyState === OPEN,
-            concealed: pilot.craft.cloak > 0 || pilot.craft.untargetable > 0,
+            concealed: pilot.craft.cloak > 0 || pilot.craft.untargetable > 0 ||
+              distanceBetween(actor, pilot) > PATROL_SENSOR_RANGE *
+                (.15 + .85 * subsystemEfficiency(actor.subsystems, "sensors")),
           })),
           session.tick * ORBITAL_DT,
         );
@@ -2232,9 +2289,22 @@ export function createFreeFlightRuntime(options: {
         : Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS ? IDLE : actor.input;
       if (actor.vectorBoost && (actor.socket?.readyState !== OPEN ||
           Date.now() - actor.lastInputAt > INPUT_TIMEOUT_MS)) actor.vectorBoost.remaining = 0;
-      const input = actor.vectorBoost
+      let input = actor.vectorBoost
         ? { ...baseInput, ...stepVectorBoost(actor.vectorBoost, baseInput, ORBITAL_DT) }
         : baseInput;
+      if (actor.kind === "patrol" && patrolTarget &&
+          (subsystemEfficiency(actor.subsystems, "reactor") < .3 ||
+            subsystemEfficiency(actor.subsystems, "weapons") === 0 &&
+            subsystemEfficiency(actor.subsystems, "missiles") === 0)) {
+        // Physical withdrawal, never teleportation, healing, or a kill receipt.
+        input = { ...patrolInput(actor, {
+          x: actor.craft.x * 2 - patrolTarget.craft.x,
+          y: actor.craft.space!.y * 2 - patrolTarget.craft.space!.y,
+          z: actor.craft.z * 2 - patrolTarget.craft.z,
+        }), fire: false, missile: false };
+      }
+      const power = subsystemEfficiency(actor.subsystems, "reactor");
+      input = subsystemFlightControls(input, actor.subsystems);
       const beforeMotion = { x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z };
       actor.previousPosition = beforeMotion;
       integrateSpatialFlight(
@@ -2252,8 +2322,11 @@ export function createFreeFlightRuntime(options: {
       }
       actor.primaryCooldown = Math.max(0, actor.primaryCooldown - ORBITAL_DT);
       stepEquipmentWeapons(actor, ORBITAL_DT);
+      actor.craft.space!.energy = Math.min(actor.craft.space!.energy, 100 * power);
+      const shieldEfficiency = subsystemEfficiency(actor.subsystems, "shields");
+      actor.shield = Math.min(actor.shield, actor.shieldMax * shieldEfficiency);
       actor.shield = recoverFreeFlightShield(
-        actor.shield, actor.shieldMax, actor.lastDamageTick, session.tick,
+        actor.shield, actor.shieldMax * shieldEfficiency, actor.lastDamageTick, session.tick,
       );
       fireWeapons(session, actor, input);
     }
@@ -2493,6 +2566,7 @@ export function createFreeFlightRuntime(options: {
           },
           barrelRoll: { protocol: BARREL_ROLL_CONTROL_PROTOCOL_V1 },
           targeting: { protocol: FREE_FLIGHT_TARGETING_V1, nextSeq: (actor.targetCycleSeq ?? 0) + 1, nearest: true },
+          subsystems: { protocol: 1, nextSeq: (actor.subsystemCycleSeq ?? 0) + 1 },
           assistance: { protocol: FREE_FLIGHT_ASSIST_V1 },
           countermeasures: { protocol: 1, nextSeq: (actor.countermeasureSeq ?? 0) + 1,
             cooldownMs: Math.ceil((actor.craft.space!.countermeasureCd ?? 0) * 1000) },
@@ -2591,6 +2665,18 @@ export function createFreeFlightRuntime(options: {
         return;
       }
       await startEngagement(socket, seat, packet.targetActorId);
+      return;
+    }
+    if (packet.type === "freeflight_subsystem_cycle") {
+      if (Object.keys(packet).length !== 3 || packet.protocol !== 1 ||
+          !Number.isSafeInteger(packet.seq) || (packet.seq as number) <= (seat.actor.subsystemCycleSeq ?? 0)) {
+        error("invalid_freeflight_subsystem_cycle");
+        return;
+      }
+      seat.actor.subsystemCycleSeq = packet.seq as number;
+      const index = seat.actor.selectedSubsystem ? SHIP_SUBSYSTEMS.indexOf(seat.actor.selectedSubsystem) : -1;
+      seat.actor.selectedSubsystem = index === SHIP_SUBSYSTEMS.length - 1 ? undefined : SHIP_SUBSYSTEMS[index + 1];
+      sendTargetState(seat.session, seat.actor);
       return;
     }
     if (packet.type === "freeflight_assist_call") {

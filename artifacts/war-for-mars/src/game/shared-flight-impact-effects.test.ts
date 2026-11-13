@@ -13,6 +13,8 @@ const hit = (overrides: Record<string, unknown> = {}) => ({
 });
 test("only validated authoritative contacts select shield, hull, world or destruction visuals", () => {
   assert.equal(readSharedFlightImpact(hit())?.kind, "hull");
+  assert.equal(readSharedFlightImpact(hit({ subsystemDisabled: true }))?.kind, "subsystem");
+  assert.equal(readSharedFlightImpact(hit({ subsystemDisabled: true, destroyed: true }))?.kind, "destruction");
   assert.equal(readSharedFlightImpact(hit({ shieldDamage: 12, hullDamage: 0 }))?.kind, "shield");
   assert.equal(readSharedFlightImpact(hit({ destroyed: true }))?.kind, "destruction");
   assert.equal(readSharedFlightImpact(hit({ type: "freeflight_world_impact" }))?.kind, "world");
