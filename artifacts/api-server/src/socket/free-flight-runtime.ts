@@ -390,9 +390,16 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
     });
   });
   session.persistentPatrols.set(patrol.patrolId, patrol);
+  ensureFleetOperations(patrol, knownShips);
+}
+
+function ensureFleetOperations(
+  patrol: UniversePatrolEncounter,
+  ships: UniversePatrolEncounter["ships"] = patrol.ships,
+) {
+  const roster = ships.filter(ship => Object.hasOwn(SHIPS, ship.hullId)).slice().sort((a, b) =>
+    SHIPS[b.hullId as ShipId].hull - SHIPS[a.hullId as ShipId].hull || a.id.localeCompare(b.id));
   if (!patrol.operations) {
-    const roster = knownShips.slice().sort((a, b) =>
-      SHIPS[b.hullId as ShipId].hull - SHIPS[a.hullId as ShipId].hull || a.id.localeCompare(b.id));
     patrol.operations = newLivingFleet(patrol.patrolId, patrol.faction, patrol.locationId, patrol.route,
       roster.map((ship, index) => ({
         id: patrolShipActorId(ship.id),
@@ -400,7 +407,25 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
           ? "missile-platform" : index === roster.length - 1 ? "recon"
           : index % 2 ? "escort" : "interceptor") as FleetRole,
       })));
+    return;
   }
+  const old = patrol.operations;
+  const oldShips = new Map(old.ships.map(ship => [ship.id, ship.role]));
+  const roles: FleetRole[] = roster.map((ship, index) =>
+    oldShips.get(patrolShipActorId(ship.id)) ??
+    (index === 0 ? "command" : SHIPS[ship.hullId as ShipId].missileFit === "torpedo"
+      ? "missile-platform" : index === roster.length - 1 ? "recon" : index % 2 ? "escort" : "interceptor"));
+  const commanderIndex = roster.findIndex(ship => patrolShipActorId(ship.id) === old.commandVesselId);
+  const nextCommanderIndex = commanderIndex >= 0 ? commanderIndex : roster.length ? 0 : -1;
+  for (let i = 0; i < roles.length; i++) {
+    if (roles[i] === "command") roles[i] = "escort";
+    if (i === nextCommanderIndex) roles[i] = "command";
+  }
+  old.ships = roster.map((ship, index) => ({ id: patrolShipActorId(ship.id), role: roles[index]! }));
+  old.commandVesselId = nextCommanderIndex >= 0 ? patrolShipActorId(roster[nextCommanderIndex]!.id) : null;
+  old.commanderId = old.commandVesselId ? `${old.commandVesselId}:commander` : null;
+  old.territoryId = patrol.locationId;
+  old.patrolRoute = [...patrol.route];
 }
 
 function patrolInput(actor: Actor, searchTarget?: { x: number; y: number; z: number }): SharedInput {
@@ -2044,6 +2069,8 @@ export function createFreeFlightRuntime(options: {
       error("freeflight_encounter_capacity");
       return;
     }
+    reserved.operations = session.persistentPatrols.get(reserved.patrolId)?.operations;
+    ensureFleetOperations(reserved);
     session.persistentPatrols.set(reserved.patrolId, reserved);
     const participantActorIds = new Set(participants.map((candidate) => candidate.actorId));
     const contract = new ExplorationEncounter({
@@ -2272,7 +2299,7 @@ export function createFreeFlightRuntime(options: {
         mobility: subsystemEfficiency(actor.subsystems, "engines") > 0,
         observation: actor.scoutMemory,
       })), session.tick * ORBITAL_DT, ownCombat?.phase === "active", assisting,
-      ownCombat?.alliedNpcActorIds?.size ?? 0);
+      0);
     }
     if (options.enableFriendlyAiSupport) reinforceActiveCombats(session);
     for (const actor of session.actors.values()) {

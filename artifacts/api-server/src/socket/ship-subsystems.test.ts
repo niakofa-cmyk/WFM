@@ -7,6 +7,7 @@ import {
   subsystemFlightControls,
 } from "@workspace/orbital-sim";
 import { createFreeFlightRuntime, type FreeFlightSessionCheckpointV1 } from "./free-flight-runtime";
+import { advanceLivingFleet, formationOffset, newLivingFleet, validLivingFleet } from "./living-fleet";
 
 test("all eight physical component regions can be hit independently without killing the hull", () => {
   const state = newShipSubsystems(200);
@@ -33,6 +34,43 @@ test("all eight physical component regions can be hit independently without kill
   assert.equal(mapped.boost, false);
   assert.equal(mapped.yaw, .3);
   assert.equal(input.throttle, 1, "never double-scale the raw transmitted input");
+});
+
+test("persistent fleet command succession, observed contact, pursuit and casualty retreat", () => {
+  const fleet = newLivingFleet("fleet-1", "accord", "mars", ["mars", "phobos"], [
+    { id: "ship-command", role: "command" },
+    { id: "ship-recon", role: "recon" },
+    { id: "ship-escort", role: "escort" },
+  ]);
+  const report = { actorId: "pilot-1", position: { x: 120, y: 5, z: -50 }, seenAt: 10, mode: "tracking" as const };
+  const members = [
+    { id: "ship-command", alive: true, hullFraction: 1, commandCapable: true, communications: true, mobility: true },
+    { id: "ship-recon", alive: true, hullFraction: 1, commandCapable: true, communications: true, mobility: true,
+      observation: report },
+    { id: "ship-escort", alive: true, hullFraction: 1, commandCapable: false, communications: true, mobility: true },
+  ];
+  advanceLivingFleet(fleet, members, 10, false, false, 0);
+  assert.equal(fleet.commandVesselId, "ship-command");
+  assert.equal(fleet.detectionState, "contact");
+  assert.deepEqual(fleet.lastContact?.position, report.position);
+  advanceLivingFleet(fleet, members.slice(1), 11, true, false, 0);
+  assert.equal(fleet.commandVesselId, "ship-recon", "successor takes command without replacing a ship");
+  assert.equal(fleet.currentMission, "intercept");
+  assert.equal(fleet.combatState, "engaged");
+  advanceLivingFleet(fleet, [
+    { id: "ship-recon", alive: true, hullFraction: .1, commandCapable: true, communications: true, mobility: true },
+  ], 12, true, false, 0);
+  assert.equal(fleet.currentMission, "withdraw");
+  assert.equal(fleet.combatState, "retreating");
+  assert.equal(fleet.formations, "dispersed");
+  assert.equal(fleet.reinforcements.committed, 0);
+  assert.ok(Math.abs(formationOffset("recon", 0).z) > Math.abs(formationOffset("escort", 0).z));
+  assert.ok(Math.abs(formationOffset("missile-platform", 1).z) >
+    Math.abs(formationOffset("escort", 1).z));
+  assert.equal(validLivingFleet(fleet), true);
+  assert.equal(validLivingFleet({ ...fleet, ships: undefined }), false);
+  const restored = structuredClone(fleet);
+  assert.equal(validLivingFleet(restored), true, "operational state is checkpoint-safe JSON");
 });
 
 test("disabled components survive restart and suppress weapons, shields, power and assistance without granting kills", async () => {

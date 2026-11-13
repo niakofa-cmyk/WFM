@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isFreeFlightSnapshotV1 } from "@workspace/orbital-sim";
-import { createFreeFlightRuntime, type StoredFreeFlightCheckpoint } from "./free-flight-runtime";
+import { createFreeFlightRuntime, type FreeFlightSessionCheckpointV1, type StoredFreeFlightCheckpoint } from "./free-flight-runtime";
 import type { UniversePatrolEncounter } from "../game/universe-patrols";
 
 type Packet = Record<string, unknown>;
@@ -91,6 +91,13 @@ test("a routed persistent patrol defender survives checkpoint restart without du
   first.advance(Date.now() + 200);
   await first.close();
   assert.ok(stored);
+  const savedCheckpoint = (stored as StoredFreeFlightCheckpoint).snapshot as unknown as FreeFlightSessionCheckpointV1;
+  const savedFleet = savedCheckpoint.persistentPatrols.find(p => p.patrolId === contact.patrolId);
+  assert.ok(savedFleet?.operations, "fleet command, mission and sensor state share the Orbital checkpoint");
+  assert.equal(savedFleet.operations.fleetId, contact.patrolId);
+  assert.equal(savedFleet.operations.commandVesselId, "patrol-ship:opening-ship-accord");
+  assert.equal(savedFleet.operations.ships.find(ship => ship.role === "command")?.id,
+    savedFleet.operations.commandVesselId);
   const second = createFreeFlightRuntime(options);
   const recovered: Packet[] = [];
   try {

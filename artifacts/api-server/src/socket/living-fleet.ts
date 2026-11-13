@@ -52,6 +52,12 @@ export function advanceLivingFleet(
   const live = members.filter(member => member.alive);
   const commander = live.find(member => member.id === fleet.commandVesselId && member.commandCapable) ??
     live.filter(member => member.commandCapable).sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (commander?.id !== fleet.commandVesselId) {
+    const previous = fleet.ships.find(ship => ship.id === fleet.commandVesselId);
+    if (previous) previous.role = "escort";
+    const next = fleet.ships.find(ship => ship.id === commander?.id);
+    if (next) next.role = "command";
+  }
   fleet.commandVesselId = commander?.id ?? null;
   fleet.commanderId = commander ? `${commander.id}:commander` : null;
   const reports = live.filter(member => member.communications)
@@ -93,7 +99,8 @@ export function formationOffset(role: FleetRole, index: number): ScoutPoint {
 export function validLivingFleet(value: unknown): value is LivingFleet {
   if (!value || typeof value !== "object") return false;
   const f = value as LivingFleet;
-  const ids = Array.isArray(f.ships) ? f.ships.map(ship => ship?.id) : [];
+  if (!Array.isArray(f.ships)) return false;
+  const ids = f.ships.map(ship => ship?.id);
   const contact = f.lastContact;
   return f.version === 1 && typeof f.fleetId === "string" && typeof f.territoryId === "string" &&
     ["ussf", "accord"].includes(f.faction) && ids.every(id => typeof id === "string") &&
@@ -101,6 +108,8 @@ export function validLivingFleet(value: unknown): value is LivingFleet {
     f.ships.every(ship => ["command", "escort", "interceptor", "missile-platform", "recon"].includes(ship.role)) &&
     (f.commandVesselId === null || ids.includes(f.commandVesselId)) &&
     f.commanderId === (f.commandVesselId ? `${f.commandVesselId}:commander` : null) &&
+    (f.commandVesselId === null || f.ships.find(ship => ship.id === f.commandVesselId)?.role === "command") &&
+    f.ships.filter(ship => ship.role === "command").length <= 1 &&
     Array.isArray(f.patrolRoute) && f.patrolRoute.every(id => typeof id === "string") &&
     ["screen", "pursuit", "dispersed"].includes(f.formations) &&
     ["patrol", "intercept", "search", "assist", "withdraw", "destroyed"].includes(f.currentMission) &&
