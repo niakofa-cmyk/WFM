@@ -303,11 +303,13 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost
         : `rounded-full border border-bone/30 bg-void/25 ${size === "arena" ? "size-28" : "h-24 w-24 sm:h-32 sm:w-32"} ${className}`}`}
       style={floating ? {
         position: "fixed",
-        top: 0,
-        bottom: 0,
-        [floatingSide === "left" ? "left" : "right"]: 0,
-        width: "50vw",
-        height: "100dvh",
+        top: "var(--flight-viewport-top, 0px)",
+        bottom: "auto",
+        left: floatingSide === "left"
+          ? "var(--flight-viewport-left, 0px)"
+          : "calc(var(--flight-viewport-left, 0px) + var(--flight-viewport-width, 100vw) * .5)",
+        width: "calc(var(--flight-viewport-width, 100vw) * .5)",
+        height: "var(--flight-viewport-height, 100dvh)",
         zIndex: 1,
       } : undefined}
       onPointerDown={(event) => {

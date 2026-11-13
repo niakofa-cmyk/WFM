@@ -131,3 +131,26 @@ body:has([data-testid=arena-stage]) [data-testid=status-campaign-unavailable]:no
 @media(max-height:380px) and (orientation:landscape){
   .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
 }
+
+/* Android can expose a smaller visual viewport than its CSS layout viewport.
+   Keep the selected compact layout when that happens, without changing camera pose. */
+.lab-flight[data-compact-viewport=true] [data-testid=flight-controls-left],
+.lab-flight[data-compact-viewport=true] [data-testid=flight-controls-right]{bottom:calc(env(safe-area-inset-bottom,0px) + .3rem)!important}
+.lab-flight[data-compact-viewport=true] [data-testid=stick-flight],
+.lab-flight[data-compact-viewport=true] [data-testid=stick-move],
+.lab-flight[data-compact-viewport=true] [data-testid=stick-aim],
+.lab-flight[data-compact-viewport=true] .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-knob{width:1.7rem;height:1.7rem}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-visual:not(.pilot-flight-stick-visual-static){width:64px;height:64px}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-zone .pilot-flight-stick-knob{width:1.5rem;height:1.5rem}
+.lab-flight[data-compact-viewport=true] .pilot-action-button{width:36px;height:36px}
+.lab-flight[data-compact-viewport=true] .pilot-action-button svg{width:16px;height:16px}
+.lab-flight[data-compact-viewport=true] .pilot-action-fire{width:40px;height:40px}
+.lab-flight[data-compact-viewport=true] .pilot-action-fire svg{width:19px;height:19px}
+.lab-flight[data-compact-viewport=true] .pilot-control-left,
+.lab-flight[data-compact-viewport=true] .pilot-control-right,
+.lab-flight[data-compact-viewport=true] .pilot-control-left .pointer-events-auto,
+.lab-flight[data-compact-viewport=true] .pilot-control-right .pointer-events-auto,
+.lab-flight[data-compact-viewport=true] .pilot-flight-actions,
+.lab-flight[data-compact-viewport=true] .pilot-combat-actions{gap:.3rem}
+.lab-flight[data-compact-viewport=true] .pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 4.8rem);font-size:10px}

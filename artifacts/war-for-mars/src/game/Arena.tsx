@@ -38,6 +38,7 @@ import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
 import { orbitalAbilityAvailability } from "./orbital-abilities";
 import { orbitalCameraFov, orbitalCameraPose } from "./orbital-camera";
+import { attachFlightViewport } from "./flight-viewport";
 import { targetMarkerPlacement } from "./free-flight-target-marker";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
@@ -1063,6 +1064,11 @@ export function Arena({
   const missileRef = useRef<HTMLButtonElement>(null);
   const countermeasureRef = useRef<HTMLButtonElement>(null);
   const countermeasureFeedbackRef = useRef<HTMLParagraphElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (stageRef.current) return attachFlightViewport(stageRef.current);
+    return undefined;
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const radarRef = useRef<HTMLCanvasElement>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -3496,6 +3502,7 @@ export function Arena({
     sharedFreeFlightJoined && freeFlightPrimaryFireEnabled(freeFlightPilot);
   return (
     <div
+      ref={stageRef}
       data-testid="arena-stage"
       data-mode-id={modeId}
       data-runtime-id={runtime}
