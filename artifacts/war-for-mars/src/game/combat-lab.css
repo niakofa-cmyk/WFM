@@ -126,3 +126,8 @@
 /* Campaign progress remains in command screens; it is not a flight overlay. */
 body:has([data-testid=arena-stage]) [data-testid=status-global-campaign]:not(.campaign-menu-status),
 body:has([data-testid=arena-stage]) [data-testid=status-campaign-unavailable]:not(.campaign-menu-status){display:none}
+
+/* Keep the short-landscape control cluster compact even on wide Android phones. */
+@media(max-height:380px) and (orientation:landscape){
+  .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+}

@@ -10,6 +10,24 @@ export type OrbitalCameraPose = {
 };
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+const REFERENCE_ASPECT = 16 / 9;
+const REFERENCE_VERTICAL_FOV = 58;
+const MIN_VERTICAL_FOV = 38;
+const MAX_VERTICAL_FOV = 74;
+
+/**
+ * Preserve the same horizontal view across landscape devices. A fixed vertical
+ * FOV makes ultra-wide phones show substantially more of the sides than shorter
+ * screens, which changes the apparent framing of the shared flight scene.
+ */
+export function orbitalCameraFov(aspectRatio: number): number {
+  const aspect = Number.isFinite(aspectRatio) && aspectRatio > 0
+    ? aspectRatio
+    : REFERENCE_ASPECT;
+  const horizontalHalfFov = Math.tan((REFERENCE_VERTICAL_FOV * Math.PI) / 360) * REFERENCE_ASPECT;
+  const verticalFov = (2 * Math.atan(horizontalHalfFov / aspect) * 180) / Math.PI;
+  return Math.max(MIN_VERTICAL_FOV, Math.min(MAX_VERTICAL_FOV, verticalFov));
+}
 
 function horizonUp(forward: CameraVector): CameraVector {
   const forwardLength = Math.hypot(forward.x, forward.y, forward.z);

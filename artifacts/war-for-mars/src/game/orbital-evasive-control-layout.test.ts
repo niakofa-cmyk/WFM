@@ -35,4 +35,8 @@ test("live barrel rolls isolate hull rotation and never show false full-turn com
   assert.doesNotMatch(stick, /strokeDashoffset=\{100 - feedback\.progress/);
   assert.match(controlsCss, /max-height:380px.*orientation:landscape/);
   assert.match(controlsCss, /pilot-flight-stick-visual:not\(\.pilot-flight-stick-visual-static\)\{width:64px;height:64px\}/);
+  const desktopStickRule = controlsCss.indexOf("@media(min-width:640px){.lab-flight .pilot-rust-disc-stick{width:8rem");
+  const compactOverride = controlsCss.lastIndexOf("@media(max-height:380px) and (orientation:landscape)");
+  assert.ok(compactOverride > desktopStickRule, "short landscape overrides must win over wide-screen stick sizing");
+  assert.match(controlsCss.slice(compactOverride), /\.lab-flight \.pilot-rust-disc-stick\{width:4\.35rem;height:4\.35rem\}/);
 });

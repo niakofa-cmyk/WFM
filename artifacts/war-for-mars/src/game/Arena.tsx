@@ -37,7 +37,7 @@ import { battlefieldProfile } from "./battlefield";
 import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
 import { orbitalAbilityAvailability } from "./orbital-abilities";
-import { orbitalCameraPose } from "./orbital-camera";
+import { orbitalCameraFov, orbitalCameraPose } from "./orbital-camera";
 import { targetMarkerPlacement } from "./free-flight-target-marker";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
@@ -2158,7 +2158,7 @@ export function Arena({
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(1, h);
-      camera.fov = w < h ? 74 : 58;
+      camera.fov = orbital ? orbitalCameraFov(camera.aspect) : w < h ? 74 : 58;
       camera.updateProjectionMatrix();
     };
     resize();
