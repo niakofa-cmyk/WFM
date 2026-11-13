@@ -32,13 +32,13 @@ test("orbital camera keeps a valid up vector when the ship points vertically", (
 test("chase framing pulls back while cockpit framing remains unchanged", () => {
   const chase = orbitalCameraPose([0, 0, 0, 1], false, 1);
   const cockpit = orbitalCameraPose([0, 0, 0, 1], true, 1);
-  assert.ok(Math.abs(Math.hypot(chase.offset.x, chase.offset.y, chase.offset.z) - Math.hypot(5, 21)) < 1e-12);
-  assert.equal(Math.hypot(chase.ahead.x, chase.ahead.y, chase.ahead.z), Math.hypot(1.1, 31));
+  assert.ok(Math.abs(Math.hypot(chase.offset.x, chase.offset.y, chase.offset.z) - Math.hypot(5, 26)) < 1e-12);
+  assert.equal(Math.hypot(chase.ahead.x, chase.ahead.y, chase.ahead.z), Math.hypot(1.1, 26));
   assert.equal(Math.hypot(cockpit.offset.x, cockpit.offset.y, cockpit.offset.z), Math.hypot(1.2, 0.65));
   assert.equal(Math.hypot(cockpit.ahead.x, cockpit.ahead.y, cockpit.ahead.z), Math.hypot(1.2, 40));
 });
 
-test("Orbital keeps a consistent horizontal field of view across phone aspect ratios", () => {
+test("Orbital avoids narrowing the view on ultra-wide phones", () => {
   const referenceAspect = 16 / 9;
   const referenceFov = 58;
   const horizontalFov = (verticalFov: number, aspect: number) =>
@@ -46,7 +46,10 @@ test("Orbital keeps a consistent horizontal field of view across phone aspect ra
   const referenceHorizontal = horizontalFov(referenceFov, referenceAspect);
 
   assert.equal(orbitalCameraFov(referenceAspect), referenceFov);
-  for (const aspect of [1.6, 16 / 9, 2.22, 2.4]) {
+  for (const aspect of [2.22, 2.4, 3]) {
+    assert.equal(orbitalCameraFov(aspect), referenceFov);
+  }
+  for (const aspect of [1.4, 1.6, 16 / 9]) {
     const result = horizontalFov(orbitalCameraFov(aspect), aspect);
     assert.ok(Math.abs(result - referenceHorizontal) < 1e-12, `horizontal FOV should match at aspect ${aspect}`);
   }
@@ -57,5 +60,5 @@ test("Orbital camera FOV is finite and bounded for unusual viewport sizes", () =
     assert.equal(orbitalCameraFov(aspect), 58);
   }
   assert.equal(orbitalCameraFov(0.5), 74);
-  assert.equal(orbitalCameraFov(12), 38);
+  assert.equal(orbitalCameraFov(12), 58);
 });

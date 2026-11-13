@@ -131,3 +131,11 @@ body:has([data-testid=arena-stage]) [data-testid=status-campaign-unavailable]:no
 @media(max-height:380px) and (orientation:landscape){
   .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
 }
+
+/* Lift the full control clusters above gesture/navigation areas on short phones. */
+@media(max-height:480px) and (orientation:landscape){
+  .lab-flight [data-testid=flight-controls-left],
+  .lab-flight [data-testid=flight-controls-right]{
+    bottom:max(calc(env(safe-area-inset-bottom,0px) + .65rem),2.25rem)!important
+  }
+}
