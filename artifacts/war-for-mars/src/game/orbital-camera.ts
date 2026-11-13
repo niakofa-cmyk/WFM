@@ -25,12 +25,7 @@ export function orbitalCameraFov(aspectRatio: number): number {
     ? aspectRatio
     : REFERENCE_ASPECT;
   const horizontalHalfFov = Math.tan((REFERENCE_VERTICAL_FOV * Math.PI) / 360) * REFERENCE_ASPECT;
-  // On ultra-wide landscape screens, keep the familiar vertical scale instead
-  // of narrowing FOV and making the world appear closer. On narrower screens,
-  // widen vertically to preserve the reference horizontal field where possible.
-  const verticalFov = aspect >= REFERENCE_ASPECT
-    ? REFERENCE_VERTICAL_FOV
-    : (2 * Math.atan(horizontalHalfFov / aspect) * 180) / Math.PI;
+  const verticalFov = (2 * Math.atan(horizontalHalfFov / aspect) * 180) / Math.PI;
   return Math.max(MIN_VERTICAL_FOV, Math.min(MAX_VERTICAL_FOV, verticalFov));
 }
 
@@ -94,9 +89,9 @@ export function orbitalCameraPose(
   const forward = rotate(q, 0, 0, -1);
   const stableUp = horizonUp(forward);
   const offsetY = cockpit ? 1.2 : 5;
-  const offsetZ = cockpit ? -0.65 : 26;
+  const offsetZ = cockpit ? -0.65 : 21;
   const aheadY = cockpit ? 1.2 : 1.1;
-  const aheadZ = cockpit ? -40 : -26;
+  const aheadZ = cockpit ? -40 : -31;
   const rolledOffset = rotate(q, 0, offsetY, offsetZ);
   const rolledAhead = rotate(q, 0, aheadY, aheadZ);
   const rolledUp = rotate(q, 0, 1, 0);
