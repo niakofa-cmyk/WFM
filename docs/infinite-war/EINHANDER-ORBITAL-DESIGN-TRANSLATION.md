@@ -36,7 +36,77 @@ document; they are not independently certified here.
 | Cinematic industrial atmosphere | Use contrasting faction weapons, readable silhouettes and local contact effects. Lighting, audio and additional assets remain separate work; camera choreography must not take control from the pilot. |
 | Efficient architecture | Keep lazy renderer loading, bounded effects, negotiated protocols and deterministic shared simulation. Do not replace tested systems with speculative sample code. |
 
-## This implementation's evidence boundary
+## Six required design pillars
+
+The creator explicitly reaffirmed the following six requirements. They apply
+inside the continuous multiplayer universe, not only in menus or a separate
+demonstration. The following is a source-level assessment, **not** a physical
+device or deployed gameplay certification.
+
+1. **Weapons belong to the universe.** Compatible hardpoints, issued flight
+   equipment, ammunition/heat/power, owned modules and physical wreck crates
+   exist. Recovery adds to the locker and fitting occurs at the established
+   service boundary, not instantaneously in combat. **Partial:** the current
+   `salvagePackage` function selects from a deterministic catalog pool using
+   encounter/actor identity. It does not establish that the recovered module
+   was the exact piece fitted to, rendered on and fired by that enemy.
+   Hull-authored weapon geometry is not proof of per-item mounted geometry.
+   Completion requires one authoritative enemy equipment manifest driving its
+   weapons, mount presentation and surviving recoverable hardware, with
+   compatibility, ownership and duplicate-recovery protections preserved.
+2. **Enemy components have tactical purposes.** Eight server-owned component
+   states affect propulsion, guns, launchers, shields, sensors, communications,
+   reactor and bridge. Penetrating hits select approximate local hull regions;
+   the selected subsystem aim marker is not client authority over damage.
+   Completion evidence must show different tactics producing different
+   surviving enemy capabilities. Do not label approximate region collision
+   as individually authored, triangle-accurate turret collision.
+3. **The environment participates in combat.** Registered celestial/asteroid
+   collision volumes provide cover and stop physical rounds, and confirmed
+   world contacts drive sparks. **Partial:** collision and a spark do not make
+   a station, asteroid, factory or reactor destructible. Tactical environment
+   work must define server-owned object health, solid cover, hazards, damage
+   permissions, shared state and recovery before any visible destruction can
+   alter routes or objectives. The referenced train/city/factory scenes are
+   examples, not existing WFM environments.
+4. **Encounters are deliberately composed without restricting 3D flight.**
+   Persistent formations, observation/detection, role-based positioning,
+   threat, command exposure, retreat and allied participation are the existing
+   foundation. A reinforcement request is not a dispatched fleet. Heavy
+   arrivals and boss phases must use actual available world entities and
+   authoritative state; do not add rail stages, fabricate human allies,
+   teleport ships or swing the pilot's camera to force drama.
+5. **Learning relationships improves outcomes.** Existing subsystem selection,
+   cover, ammunition, heat, guidance, countermeasures, maneuver energy and
+   compatible equipment create learnable constraints. Completion requires
+   readable, truthful feedback connecting actions to consequences and
+   objectives. **Partial:** the existence of statistics or a reward ledger
+   does not prove that players can understand these relationships. Do not
+   invent permanent damage inflation or client-issued rewards as a substitute.
+6. **One coherent industrial military science-fiction aesthetic.** Preserve
+   faction silhouettes, compatible equipment scale, restrained readable
+   contacts, distinct subsystem-disable/destruction effects and uncluttered
+   controls. **Partial:** the presence of ship models, weapon colours and sound
+   effects is not certification of a coherent soundtrack, lighting and art
+   direction across the whole universe. Future audiovisual work must remain
+   original/licensed, readable on supported phones and performance-budgeted.
+
+### Evidence map
+
+- Equipment and fitting: `MODULAR-MILITARY-EQUIPMENT.md`,
+  `artifacts/api-server/src/game/equipment.ts`, shared equipment catalog,
+  shared-flight salvage protocol and Three.js salvage visuals.
+- Mechanical enemies: `SHIP-SUBSYSTEM-COMBAT.md`, shared subsystem rules and
+  server projectile/contact handling.
+- Orchestration: `LIVING-ENEMY-FORMATIONS.md`, persistent patrol and encounter
+  runtime. Its explicit limitations still apply.
+- Presentation: `SHARED-FLIGHT-DAMAGE-AND-EXPLOSION-VISUALS.md`, main Three.js
+  `Arena.tsx`, impact pools and shared projectile-motion presentation.
+
+Source and Node/scene-graph evidence may establish contracts and integration;
+they do not close the two-phone visual acceptance gate.
+
+## Missile implementation evidence boundary
 
 The missile path work is presentation fed by the existing authoritative runtime.
 It does not change weapon damage, guidance physics, ammunition, collisions,

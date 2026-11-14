@@ -61,3 +61,4 @@
 - [Modular military equipment](modular-equipment-direction.md) — hull-compatible physical equipment and verified recovery preserve military character, not generic weapon replacement.
 - [Component-based combat](ship-subsystem-direction.md) — crippled systems alter live ship capabilities; component disables are not hull kills or reward claims.
 - [Living enemy formations](living-enemy-formations.md) — patrol fleets coordinate existing hulls, preserve casualties and use bounded observed contact; never fabricate reinforcements.
+- [Military encounter design](military-encounter-design.md) — six pillars: physical equipment, purposeful components, tactical environments, orchestration, learning and a coherent military aesthetic.

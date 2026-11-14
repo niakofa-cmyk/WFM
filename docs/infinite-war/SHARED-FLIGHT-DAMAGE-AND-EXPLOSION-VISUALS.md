@@ -140,3 +140,43 @@ Consequently this pass has no pixel-level or authenticated live-battle visual
 certification. No authentication challenge or account data was changed.
 The native WebGL companion's impact presentation is not redesigned by this
 Three.js visual change. Production is untouched.
+
+## Physical two-phone acceptance gate
+
+**Status: not certified.** The available automated-browser evidence cannot
+substitute for two GPU-capable physical devices. The public entry-page capture
+does not show a signed-in battle. Do not infer a new success from historical
+verification challenges or scene-graph tests. No new authentication challenge,
+account, deployment or secret access is required to record this status.
+
+Use two existing, authorized **Development** accounts in the main Three.js
+universe through the hangar. Record build revision/test time, both device/OS/
+browser versions and quality settings. Do not use Production or create accounts.
+If fresh authentication is needed, codes belong exclusively in Secrets.
+
+Required evidence from one continuous shared encounter:
+
+1. Confirm both pilots share a celestial reference and see the same live target;
+   retain the same identifiable fleet/target through both recordings.
+2. Show shield absorption contacts and later hull contacts. Do not mistake a
+   subsystem's small electrical disable effect for a hull kill.
+3. Fire against registered solid cover and show a contact spark at its surface,
+   rather than a line continuing through it. Decorative scenery is not proof
+   of a registered collider.
+4. Destroy a ship through actual accepted player fire. Both views must show the
+   same contact and destruction location, allowing ordinary network delay.
+   A single core/ring/debris burst should persist after the ship mesh is gone;
+   its configured maximum duration is 1.25 seconds, not an instantaneous hide
+   or repeated explosions on each snapshot.
+5. Continue flying after destruction, vary viewpoint, and cross a floating-origin
+   boundary where practical. The blast and remaining ships must stay spatially
+   consistent. There must be no new game launch or replacement universe.
+6. Capture comparable quiet-flight and busy-combat frame timing, plus recovery
+   after the burst. Report frame intervals/p95, sustained stalls, resolution and
+   quality changes; a video alone is not a numerical frame-time measurement.
+   Predeclare the supported-device/quality budget before reporting a pass.
+
+Retain recordings and performance traces outside Git as generated evidence.
+Redact sign-in details and never record verification codes or credentials.
+If either view, build identity or frame-timing evidence is missing, record the
+specific missing criterion instead of marking this gate complete.
