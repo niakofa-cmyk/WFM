@@ -50,7 +50,9 @@ export function stepEquipmentWeapons(actor: ModularPilot, dt: number) {
 export function canFireEquipment(actor: ModularPilot, kind: "primary" | "secondary") {
   const resource = actor.equipmentWeapons?.[kind];
   const def = fittedModule(actor, kind);
-  if (!def || !resource) return true; // Existing stock weapons retain their rules.
+  if (!def) return true; // Only an empty mount retains the stock weapon rules.
+  // A fitted weapon must never bypass ammunition/heat/power by losing state.
+  if (!resource) return false;
   return actor.craft.alive && actor.craft.root <= 0 && resource.rounds > 0 && resource.reload === 0 &&
     !resource.overheated && actor.craft.space!.energy >= equipmentEnergyCost(actor, kind);
 }
@@ -62,7 +64,7 @@ export function equipmentEnergyCost(actor: ModularPilot, kind: "primary" | "seco
 }
 export function consumeEquipmentShot(actor: ModularPilot, kind: "primary" | "secondary") {
   const resource = actor.equipmentWeapons?.[kind], def = fittedModule(actor, kind);
-  if (!resource || !def) return;
+  if (!resource || !def || !canFireEquipment(actor, kind)) return;
   const special = fittedModule(actor, "special");
   const extra = kind === "primary" && ["emp", "plasma"].includes(special?.effect ?? "") ||
     kind === "secondary" && special?.effect === "warhead" ? special : undefined;

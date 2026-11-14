@@ -106,6 +106,39 @@ device or deployed gameplay certification.
 Source and Node/scene-graph evidence may establish contracts and integration;
 they do not close the two-phone visual acceptance gate.
 
+## Implementation order and deliverables
+
+The creator's requested sequence is deliberate. Do not attempt all five major
+deliverables simultaneously or mark an earlier phase complete because a later
+one has a prototype.
+
+| Priority | Phase | Exit requirement |
+| --- | --- | --- |
+| 1 | Weapon and hardpoint foundation | Compatible weapons mount, fire, consume issued ammunition/heat/power and apply validated damage. Missing state must not turn a fitted weapon into an unlimited stock fallback. Exact enemy hardware provenance and per-item mounting remain explicit gaps. |
+| 2 | Ship subsystem destruction | Independently damaged components produce their documented functional consequences, distinct from a hull kill. |
+| 3 | Enemy combat behavior | Observation, pursuit, evasion, attack position and disengagement make meaningful, server-owned tactical choices. |
+| 4 | Fleet formations and coordination | Existing ships operate as coherent units with command, escorts, reconnaissance and bounded real reinforcement dispatch. |
+| 5 | Multiplayer battle orchestration | Authenticated pilots and eligible allied AI can join the same freely navigable engagement and observe the same battle. |
+| 6 | Persistent encounters | Outcomes and valid ship/combat state survive disconnects and owner restarts without duplicate ships, equipment or rewards. |
+
+The five major deliverables group this work as:
+
+- **Modular Armament:** compatible interchangeable hardpoints, ammunition,
+  damage, weapon behavior and physical military equipment.
+- **Destructible Military Vessels:** independently simulated systems and
+  tactically meaningful disables/destruction.
+- **Living Enemy Fleets:** persistent faction formations, routes, command
+  structure and actual resource-backed reinforcements.
+- **Dynamic Combat Encounters:** phases, objectives, appropriate heavy/boss
+  behavior and authoritative environmental interactions.
+- **Cinematic Battlefield Presentation:** readable mechanical animation,
+  effects and coherent audio. Camera presentation remains heading-stable and
+  pilot-controlled; “cinematic” does not authorize forced camera swings.
+
+Existing later-phase systems are retained while phase 1 is strengthened; this
+sequence is not permission to remove multiplayer, persistence or verified
+combat. Physical-device evidence remains necessary for presentation claims.
+
 ## Missile implementation evidence boundary
 
 The missile path work is presentation fed by the existing authoritative runtime.

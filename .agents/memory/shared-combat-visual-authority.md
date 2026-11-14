@@ -14,8 +14,9 @@ must be distinguished from test-fixture damage and actual authenticated play.
 **How to apply:** effects consume server-confirmed contacts and absolute world
 coordinates, remain independent of the target mesh, survive spatial rebasing
 and stay bounded/deduplicated. Rendering never grants damage, kills or rewards.
-Collision tests must require accepted versioned input before treating absence
-of hits as a physics failure. Keep registered solid collision, decorative
+Collision tests must require admitted faction-compatible pilots, valid server
+hostility and accepted versioned input before treating absence of hits as a
+physics failure. Keep registered solid collision, decorative
 geometry and destructible objects distinct.
 
 Einhänder is encounter-composition and military-readability research, not

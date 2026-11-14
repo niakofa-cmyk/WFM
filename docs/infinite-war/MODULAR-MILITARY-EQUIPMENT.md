@@ -34,6 +34,19 @@ between 75% and 100% of catalog output. Condition is durable inventory metadata;
 this package does **not** introduce accumulating combat wear, field repair,
 weapon trading or an ammunition purchasing economy.
 
+A fitted primary or secondary without its issued resource state fails closed.
+Only an actually empty mount uses the original integral weapon's rules.
+Blocked shot consumption is a no-op: empty/reloading/overheated, unpowered,
+rooted or destroyed craft cannot spend another round or drive counts negative.
+Admission/checkpoint validation remains the first boundary; these guards also
+protect the weapon adapter if called with incomplete state.
+
+The focused armament regression also fires an actually fitted railgun through
+accepted shared-flight input at a selected hostile pilot. It requires a matching
+launch/contact identity, identical authoritative hull damage on both pilot
+connections, one consumed magazine round, and unchanged reserve ammunition.
+This is an isolated admitted-runtime fixture, not a two-phone visual claim.
+
 Primary range is nominal, not a new immunity gate: existing selected-target
 projectile lifetime extension remains. Direct physical projectile hits retain
 the authoritative swept-contact damage path. Unguided rockets need no lock.

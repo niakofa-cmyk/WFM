@@ -25,3 +25,16 @@ catalog-selected drop with provenance from an enemy's actual fitted module,
 collision with destructibility, or automated fixtures with two-phone evidence.
 Preserve authoritative shared state, licensed/original assets and player camera
 control when extending these systems.
+
+Build in the creator's stated order: armament/hardpoints, subsystem destruction,
+enemy tactics, fleet coordination, multiplayer orchestration, then durable
+encounter verification. Group the results into Modular Armament, Destructible
+Military Vessels, Living Enemy Fleets, Dynamic Combat Encounters and Cinematic
+Battlefield Presentation.
+
+**Why:** The creator explicitly asked not to attempt all major deliverables
+simultaneously and supplied a verification requirement for each phase.
+
+**How to apply:** Strengthen the earliest unmet acceptance criterion first
+without removing existing later-phase functionality. Cinematic presentation
+must preserve the established freely controlled, heading-stable camera.
