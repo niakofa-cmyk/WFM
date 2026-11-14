@@ -3,6 +3,7 @@ import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense } from "react";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { GameApiSession } from "./game/GameApiSession";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
@@ -14,7 +15,9 @@ const clerkPubKey = publishableKeyFromHost(
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string) {
-  return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
+  return basePath && (path === basePath || path.startsWith(`${basePath}/`))
+    ? path.slice(basePath.length) || "/"
+    : path;
 }
 
 const appearance = {
@@ -132,14 +135,14 @@ function PublicLanding() {
 
 function SignedInGame() {
   return (
-    <>
+    <GameApiSession>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
-    </>
+    </GameApiSession>
   );
 }
 
@@ -152,6 +155,8 @@ function Routes() {
       appearance={appearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
+      signInForceRedirectUrl={`${basePath}/`}
+      signUpForceRedirectUrl={`${basePath}/`}
       localization={{
         signIn: { start: { title: "Welcome back, pilot", subtitle: "Return to the Phobos yard" } },
         signUp: { start: { title: "Create your pilot account", subtitle: "Your campaign progress stays with you" } },
