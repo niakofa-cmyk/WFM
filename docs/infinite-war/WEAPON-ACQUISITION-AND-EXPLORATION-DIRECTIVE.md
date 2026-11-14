@@ -63,7 +63,7 @@ system and presentation overhaul simultaneously.
 | Source recommendation | Current evidence | Remaining requirement |
 | --- | --- | --- |
 | Weapon catalog and hull compatibility | Catalog, hardpoint kind/size, mass/power restrictions, condition and issued weapon resources are implemented and tested. | More hull-authored geometry, firing arcs and shared mount/emitter definitions require separate validation. |
-| Visible physical mounts | Main Three.js shared flight now renders compatible issued-fit classes on the own ship and nearby equipped actors. Geometry follows the existing hull transform; the stream excludes private inventory IDs. | Native companion still uses integral fittings. Per-hardpoint recoil, reload animation, muzzle/emitter agreement, hangar detach/attach animation and physical-phone appearance are not certified. |
+| Visible physical mounts | Main Three.js shared flight renders compatible issued-fit classes and confirmed-shot muzzle flashes/recoil on the own ship and nearby equipped actors. Geometry follows the hull transform; the stream excludes private inventory IDs. | Native companion still uses integral fittings. Shared authoritative launch origins, reload animation, hangar detach/attach animation and physical-phone appearance remain separate requirements. |
 | Enemy loadout provenance | Newly created persistent AI ships use versioned issued primary/secondary fittings when modular equipment is enabled. The same fit drives real weapon resources, nearby appearance and destruction evidence; configured checkpoints retain it. | Native companion geometry, richer fleet-role loadouts, non-weapon NPC modules and physical-phone appearance still need separate work. Older actors are not retroactively refitted. |
 | Destruction-based salvage | New receipts freeze actual fitted equipment and aggregate subsystem survival. Versioned recovery preserves source/condition and the existing one-package claim identity. | Historical catalog packages remain historical. Individual turret hit geometry, volatile ordnance rules, multiple packages per wreck and deployed cross-instance certification are not established by these checks. |
 | Distinct weapon behavior | Existing cannons, rotary guns, railguns, guided/unguided ordnance and equipment effects have resource/combat rules. | A model or catalog description does not establish a sustained beam, charged mode, independent turret or every proposed armor interaction. |
@@ -241,6 +241,37 @@ checkpoint store. Runtime recovery was exercised with test checkpoint adapters;
 the separate recovery-transaction tests used SQL-backed records. Neither
 establishes durable multi-instance behavior for this running Development service.
 
-Still next: mount/emitter agreement and physical-device appearance/performance,
+Still next: authoritative launch-origin agreement and physical-device appearance/performance,
 then bounded exploration/derelict acquisition and real consumable-resource cargo.
 No staging/Production deployment or human inventory transfer was performed here.
+
+## Mounted firing presentation — 2026-11-14
+
+Confirmed `freeflight_weapon_fired` events now drive the equipped Three.js
+primary/secondary mount belonging to that source actor. The own ship, nearby
+human pilots and equipped AI use the same controller. A weapon that does not
+match the issued visible fitting cannot animate another mount.
+
+Model-local emitters sit just beyond the authored barrel/launcher nose.
+Recoil affects the moving weapon assembly, not its hardpoint base, ship pose,
+flight controls or camera. Rotary/rocket multi-tube appearances alternate tips.
+Muzzles inherit hull rotation, scale and floating-origin movement directly.
+
+Flashes and materials are reused instead of allocating a new object per shot.
+Detail visibility, fit replacement, actor removal, disposal and session changes
+cancel old feedback. A bounded, short-lived launch queue tolerates a briefly
+late fitting snapshot, suppresses recent duplicate launches and never invents
+launches from recovered projectile-motion or fitting snapshots.
+
+**Authority boundary:** this aligns visible flashes/recoil with visible geometry.
+It deliberately does not move server projectiles, aim rays, damage contacts or
+hit/explosion effects onto a client-selected muzzle. A future change to actual
+launch origins requires a shared, versioned simulation contract and compatibility
+proof across renderers and replay. Native companion weapon effects are unchanged.
+
+Verification: all **516 frontend tests** passed, including own/nearby source
+matching, every compatible cannon/launcher template, hull transform/origin
+inheritance, expiry/reset, bounded queues, resource disposal and sustained firing
+without geometry growth. Workspace type checks, package builds, bundle audits
+and four static-preview checks passed. These are scene-graph/automated checks,
+not physical-phone battle footage or GPU frame-time certification.

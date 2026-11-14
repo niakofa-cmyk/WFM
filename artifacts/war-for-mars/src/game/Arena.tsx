@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { readSalvageContacts, type SalvageContact } from "@workspace/orbital-sim";
 import { createSalvageVisuals } from "./shared-salvage-visuals";
 import { createMountedArmamentVisuals, ARMAMENT_DETAIL_DISTANCE } from "./mounted-armament-visuals";
+import { createMountedFireQueue } from "./mounted-armament-fire-events";
 import { readArmamentSnapshot, type VisibleArmamentActor, type ArmamentSnapshot } from "@workspace/orbital-sim";
 import {
   createSharedProjectileMotion, clipProjectileTrail, MAX_PROJECTILE_TRAIL_POINTS, MAX_PROJECTILE_VISUALS,
@@ -805,6 +806,7 @@ export function Arena({
   }>({ previous: null, current: null });
   const freeFlightCombatActiveRef = useRef(false);
   const freeFlightWeaponEffectsRef = useRef<SharedFlightWeaponEffect[]>([]);
+  const freeFlightMountFiresRef = useRef(createMountedFireQueue());
   const freeFlightArmamentRef = useRef<{
     snapshot: ArmamentSnapshot; receivedAt: number; actors: Map<string, VisibleArmamentActor>;
   } | null>(null);
@@ -1086,8 +1088,10 @@ export function Arena({
               isFlightVector(packet.from) && isFlightVector(packet.velocity) &&
               typeof packet.lifetimeSeconds === "number" &&
               Number.isFinite(packet.lifetimeSeconds)) {
-            if (freeFlightProjectileMotionRef.current.hasEnded(packet.eventId) ||
-                freeFlightWeaponEffectsRef.current.some(e => e.eventId === packet.eventId)) return;
+            if (freeFlightProjectileMotionRef.current.hasEnded(packet.eventId)) return;
+            freeFlightMountFiresRef.current.accept(packet,
+              freeFlightFramesRef.current.current?.snapshot.sessionInstanceId ?? null, performance.now());
+            if (freeFlightWeaponEffectsRef.current.some(e => e.eventId === packet.eventId)) return;
             freeFlightWeaponEffectsRef.current.push({
               eventId: packet.eventId,
               sourceFaction: packet.sourceFaction,
@@ -1939,6 +1943,7 @@ export function Arena({
       }
       sharedFlightEffects.clear();
       freeFlightWeaponEffectsRef.current = [];
+      freeFlightMountFiresRef.current.clear();
       freeFlightProjectileMotionRef.current.clear();
       freeFlightImpactQueueRef.current.clear();
       sharedImpactEffects.clear();
@@ -2061,6 +2066,8 @@ export function Arena({
       const snapshot = current.snapshot;
       if (sharedVisualSessionId !== snapshot.sessionInstanceId) {
         sharedImpactEffects.clear();
+        playerArmament.clear();
+        for (const entry of sharedFlightGroups.values()) entry.armament.clear();
         sharedVisualSessionId = snapshot.sessionInstanceId;
       }
       const own = snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId);
@@ -2167,6 +2174,13 @@ export function Arena({
         disposePatrolShipGroup(entry.group, entry.designation);
         sharedFlightGroups.delete(actorId);
       }
+      freeFlightMountFiresRef.current.process(now, snapshot.sessionInstanceId, event => {
+        const armament = event.actorId === snapshot.ownActorId
+          ? playerArmament : sharedFlightGroups.get(event.actorId)?.armament;
+        return armament?.fire(event.weaponId, event.receivedAt) ?? false;
+      });
+      playerArmament.animate(now);
+      for (const entry of sharedFlightGroups.values()) entry.armament.animate(now);
       renderSharedFlightEffects(now, address);
       salvageVisuals.update(salvageContactsRef.current, point => {
         const local = sharedPointInLocalFrame(point, address);

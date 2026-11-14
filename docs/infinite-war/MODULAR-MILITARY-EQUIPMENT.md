@@ -127,6 +127,21 @@ compatibility previews, complete module statistics, fitting/unfitting, condition
 and verified salvage recovery. A successful response replaces the account-scoped
 cache; refresh-on-mount and finite freshness cover other sessions.
 
+## Mounted launch feedback
+
+Main Three.js shared flight maps server-confirmed launches to the source actor's
+actual issued weapon. Muzzle flashes follow authored barrel tips and moving
+barrels recoil independently of the stationary mount. The same controller serves
+the player and nearby human/AI ships, with bounded launch deduplication and no
+per-shot geometry allocation. Visibility/session changes clear old feedback;
+recovered projectile snapshots never replay firing animations.
+
+This is presentation alignment, not a change to authoritative projectile origins,
+collision, damage, controls or camera. Native companion effects remain unchanged.
+Physical-phone rendering and shared server/renderer launch-origin agreement are
+still separate verification requirements. See the
+[acquisition directive](WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md#mounted-firing-presentation--2026-11-14).
+
 ## Kill-to-recovery boundary
 
 Recovery reads existing server-settled patrol exploration ledger records. A

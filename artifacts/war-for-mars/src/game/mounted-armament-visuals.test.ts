@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "./three-flight-runtime";
-import { isArmamentSnapshot, isVisibleArmamentActor, readArmamentSnapshot, type VisibleArmamentActor } from "@workspace/orbital-sim";
+import { EQUIPMENT_CATALOG, isArmamentSnapshot, isVisibleArmamentActor, readArmamentSnapshot, type VisibleArmamentActor } from "@workspace/orbital-sim";
 import { buildOrbitalShip } from "./orbital-visuals";
 import { createMountedArmamentVisuals, MAX_ARMAMENT_MESHES_PER_SHIP } from "./mounted-armament-visuals";
 
@@ -109,5 +109,118 @@ test("incompatible or foreign-hull appearance fails closed without changing the 
   assert.equal(model.getObjectByName("primary-cannon-1")!.visible, true);
   visuals.update(record([{ hardpointId: "primary", equipmentId: "capital-cannon" }]));
   assert.equal(visuals.root, null);
+  visuals.dispose();
+});
+
+test("confirmed mounted fire recoils barrel parts and flashes at the muzzle through hull rotation, scale and origin shifts", () => {
+  const model = buildOrbitalShip("bastion");
+  const visuals = createMountedArmamentVisuals(model, "bastion");
+  visuals.update(record());
+  const mount = visuals.root!.getObjectByName("hardpoint:primary")!;
+  const barrel = mount.getObjectByName("recoiling-weapon")!;
+  const flash = barrel.getObjectByName("mounted-muzzle-flash") as THREE.Mesh;
+  const base = mount.children[0]!;
+  const basePosition = base.position.clone(), mountPosition = mount.position.clone();
+  assert.equal(visuals.fire("autocannon", 1000), false, "a different fitted weapon cannot flash");
+  assert.equal(visuals.fire("railgun", NaN), false);
+  assert.equal(flash.visible, false, "a fit snapshot is not a shot");
+  model.position.set(30, -18, 40);
+  model.rotation.set(.4, -.8, 1.1);
+  model.scale.setScalar(2.1);
+  const originalPose = { p: model.position.toArray(), q: model.quaternion.toArray() };
+  assert.equal(visuals.fire("railgun", 1000), true);
+  visuals.animate(1000);
+  assert.ok(barrel.position.z < 0);
+  assert.deepEqual(base.position, basePosition);
+  assert.deepEqual(mount.position, mountPosition);
+  assert.equal(flash.visible, true);
+  assert.equal(flash.position.z, .805, "rail tips end at .775; flash is .03 ahead, on the same assembly");
+  for (const shift of [0, 100_000]) {
+    model.position.x = originalPose.p[0]! + shift;
+    model.updateMatrixWorld(true);
+    const expected = barrel.localToWorld(new THREE.Vector3(0, 0, .805));
+    assert.ok(flash.getWorldPosition(new THREE.Vector3()).distanceTo(expected) < 1e-8);
+  }
+  assert.deepEqual(model.quaternion.toArray(), originalPose.q, "recoil never rotates the pilot or camera");
+  visuals.animate(1100);
+  assert.equal(flash.visible, false);
+  assert.ok(barrel.position.z < 0, "the barrel returns after the brief flash ends");
+  visuals.animate(1250);
+  assert.ok(Math.abs(barrel.position.z) < 1e-12);
+  visuals.dispose();
+});
+
+test("launcher flashes alternate actual tube tips; visibility, stale fits and disposal cancel animation", () => {
+  const model = buildOrbitalShip("bastion");
+  const visuals = createMountedArmamentVisuals(model, "bastion");
+  visuals.update(record());
+  const mount = visuals.root!.getObjectByName("hardpoint:secondary")!;
+  const barrel = mount.getObjectByName("recoiling-weapon")!;
+  const flash = barrel.getObjectByName("mounted-muzzle-flash") as THREE.Mesh;
+  visuals.fire("rocket", 1000); visuals.animate(1000);
+  assert.deepEqual(flash.position.toArray(), [-.075, -.07, .405]);
+  visuals.fire("rocket", 1100); visuals.animate(1100);
+  assert.deepEqual(flash.position.toArray(), [.075, -.07, .405]);
+  visuals.hide();
+  assert.equal(flash.visible, false);
+  assert.equal(barrel.position.z, 0);
+  assert.equal(visuals.fire("rocket", 1200), false);
+  visuals.update(record());
+  visuals.animate(1200);
+  assert.equal(flash.visible, false, "showing a hull must not replay a hidden launch");
+  model.visible = false;
+  assert.equal(visuals.fire("rocket", 1200), false);
+  model.visible = true;
+  visuals.update(record([{ hardpointId: "primary", equipmentId: "autocannon" }]));
+  assert.equal(visuals.fire("rocket", 1200), false);
+  visuals.dispose();
+  assert.equal(visuals.fire("autocannon", 1300), false);
+});
+
+test("sustained firing reuses a bounded flash and material per weapon slot", () => {
+  const model = buildOrbitalShip("bastion");
+  const visuals = createMountedArmamentVisuals(model, "bastion");
+  visuals.update(record());
+  const meshes: THREE.Object3D[] = [];
+  visuals.root!.traverse(object => { if (object instanceof THREE.Mesh) meshes.push(object); });
+  assert.ok(meshes.length <= MAX_ARMAMENT_MESHES_PER_SHIP);
+  const root = visuals.root;
+  for (let i = 0; i < 1000; i++) {
+    visuals.fire(i % 2 ? "railgun" : "rocket", i * 10);
+    visuals.animate(i * 10);
+  }
+  const after: THREE.Object3D[] = [];
+  visuals.root!.traverse(object => { if (object instanceof THREE.Mesh) after.push(object); });
+  assert.equal(visuals.root, root);
+  assert.deepEqual(after, meshes);
+  visuals.dispose();
+});
+
+test("each supported cannon and launcher puts its flash directly beyond the authored barrel or nose", () => {
+  const model = buildOrbitalShip("bastion");
+  const visuals = createMountedArmamentVisuals(model, "bastion");
+  const covered = new Set<string>();
+  for (const def of EQUIPMENT_CATALOG) {
+    if (def.kind !== "primary" && def.kind !== "secondary") continue;
+    const appearance = record([{ hardpointId: def.kind, equipmentId: def.id }]);
+    if (!isVisibleArmamentActor(appearance)) continue; // Capital-only fittings remain incompatible.
+    visuals.update(appearance);
+    const barrel = visuals.root!.getObjectByName("recoiling-weapon")!;
+    const flash = barrel.getObjectByName("mounted-muzzle-flash")!;
+    let end = -Infinity;
+    for (const part of barrel.children) {
+      if (!(part instanceof THREE.Mesh) || part === flash) continue;
+      part.updateMatrix();
+      part.geometry.computeBoundingBox();
+      end = Math.max(end, part.geometry.boundingBox!.clone().applyMatrix4(part.matrix).max.z);
+    }
+    assert.ok(Math.abs(flash.position.z - end - .03) < 1e-6, def.id);
+    assert.equal(visuals.fire(def.id, 1000), true);
+    visuals.animate(1000);
+    assert.equal(flash.visible, true);
+    covered.add(def.id);
+  }
+  for (const id of ["autocannon", "rotary-gun", "railgun", "rocket", "seeker", "torpedo"])
+    assert.ok(covered.has(id), `missing barrel coverage: ${id}`);
   visuals.dispose();
 });

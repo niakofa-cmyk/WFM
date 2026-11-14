@@ -67,3 +67,12 @@ change ownership policy, or describe unrelated legacy loot as recovered hardware
 
 **How to apply:** preserve old claims verbatim, version new evidence, and widen
 allocation only alongside an explicit economy/ownership decision.
+
+Mounted cosmetic feedback must not silently relocate authoritative launch or
+damage origins to match renderer geometry.
+
+**Why:** using a client mesh as the damage source would change collision fairness
+and replay behavior, especially between Three.js and the native companion.
+
+**How to apply:** trigger cosmetic recoil/flashes from confirmed launches; treat
+true mount-based projectile origins as a separate versioned simulation change.
