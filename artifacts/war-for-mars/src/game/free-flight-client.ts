@@ -87,6 +87,13 @@ export class FreeFlightClient {
   get canSelectTarget() { return this.joined && this.targetingAvailable; }
   get canSelectNearestTarget() { return this.canSelectTarget && this.nearestTargetingAvailable; }
 
+  recoverSalvage(packageId: string) {
+    if (!this.joined || this.socket?.readyState !== WebSocket.OPEN ||
+        !packageId || packageId.length > 400) return false;
+    this.socket.send(JSON.stringify({ type: "freeflight_salvage_recover", protocol: 1, packageId }));
+    return true;
+  }
+
   selectNearestTarget() {
     if (!this.canSelectNearestTarget || this.socket?.readyState !== WebSocket.OPEN) return false;
     this.socket.send(JSON.stringify({
@@ -363,6 +370,8 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_world_impact" ||
+          packet.type === "freeflight_salvage" ||
+          packet.type === "freeflight_salvage_recovered" ||
           packet.type === "freeflight_vector_boost_state" ||
           packet.type === "freeflight_recovered" ||
           packet.type === "freeflight_assist_request" ||

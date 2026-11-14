@@ -5,6 +5,8 @@ import { EQUIPMENT_CATALOG, hullEquipmentRules, validateEquipmentFit, type Equip
 import { getPlayerProfile } from "./progression";
 import { SHIPS } from "./ships";
 import { EXPLORATION_CONTRACT } from "./exploration-encounter";
+import { freeFlightCheckpointsTable } from "@workspace/db/schema";
+import { salvageInReach, validWreckPackages } from "@workspace/orbital-sim";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export class EquipmentError extends Error {
@@ -88,7 +90,9 @@ export async function fitEquipment(userId: string, input: {
 }
 export async function recoverEquipment(userId: string, input: { eventId: string; actorId: string }) {
   await getPlayerProfile(userId);
-  return db.transaction(async tx => {
+  return db.transaction(tx => recoverWithTransaction(tx, userId, input));
+}
+async function recoverWithTransaction(tx: Tx, userId: string, input: { eventId: string; actorId: string }) {
     const state = await locker(tx, userId);
     const [event] = await tx.select().from(progressionEventsTable).where(and(
       eq(progressionEventsTable.id, input.eventId), eq(progressionEventsTable.userId, userId),
@@ -100,6 +104,37 @@ export async function recoverEquipment(userId: string, input: { eventId: string;
     }).onConflictDoNothing().returning({ id: equipmentItemsTable.id });
     if (result.length) await tx.update(equipmentLockersTable).set({ revision: state.revision + 1 }).where(eq(equipmentLockersTable.userId, userId));
     return snapshot(tx, userId);
+}
+/** Socket-owner only: validate persisted authority, position and kill ownership in the issuing transaction. */
+export async function recoverSpatialEquipment(userId: string, input: {
+  sessionKey: string; fencingToken: number; packageId: string;
+}) {
+  return db.transaction(async tx => {
+    const [checkpoint] = await tx.select().from(freeFlightCheckpointsTable)
+      .where(eq(freeFlightCheckpointsTable.sessionKey, input.sessionKey)).for("update");
+    if (!checkpoint || checkpoint.fencingToken !== input.fencingToken)
+      throw new EquipmentError("Salvage owner changed; reconnect and retry.");
+    const state = checkpoint.snapshot;
+    if (!validWreckPackages(state.wreckPackages) || !Array.isArray(state.actors))
+      throw new EquipmentError("Salvage checkpoint is unavailable.");
+    const wreck = state.wreckPackages.find(p => p.id === input.packageId);
+    const pilot = state.actors.find((a: any) => a.ownerUserId === userId && a.kind === "pilot");
+    if (!wreck || wreck.ownerUserId !== userId || wreck.status === "pending" ||
+        !pilot?.craft?.alive || !Number.isFinite(pilot.craft.space?.y) ||
+        !salvageInReach({ x: pilot.craft.x, y: pilot.craft.space.y, z: pilot.craft.z }, wreck))
+      throw new EquipmentError("Fly within recovery range of your verified wreck package.");
+    const [event] = await tx.select({ id: progressionEventsTable.id }).from(progressionEventsTable).where(and(
+      eq(progressionEventsTable.userId, userId),
+      eq(progressionEventsTable.idempotencyKey, `${EXPLORATION_CONTRACT}:${wreck.encounterId}`),
+      eq(progressionEventsTable.kind, "world_exploration")));
+    if (!event) throw new EquipmentError("Combat settlement is not ready.");
+    const result = await recoverWithTransaction(tx, userId, { eventId: event.id, actorId: wreck.actorId });
+    // The item and recovered world state commit together; a crash before the
+    // socket's next checkpoint cannot leave an unissued item or duplicate source.
+    wreck.status = "recovered";
+    await tx.update(freeFlightCheckpointsTable).set({ snapshot: state })
+      .where(eq(freeFlightCheckpointsTable.sessionKey, input.sessionKey));
+    return { equipmentId: salvagePackage(event.id, wreck.actorId).equipmentId, revision: result.revision };
   });
 }
 /** A new flight captures this immutable fit. Reconnect restores checkpointed equipment instead. */

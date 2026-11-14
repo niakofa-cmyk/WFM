@@ -70,8 +70,48 @@ simultaneous recovery requests idempotent. Recovery does not equip the item or
 charge credits. The bay lists opportunities from the newest 30 relevant ledger
 records; the recovery service still checks the actual owned record.
 
-This is hangar recovery from verified combat records, not a new rendered,
-shared-space wreck-pickup system.
+### Physical recovery in the shared universe
+
+Continuous-flight NPC destruction now leaves a server-owned equipment crate at
+the destroyed ship's absolute celestial coordinates. The crate is a wireframe
+military package in the existing Three.js scene, not a new salvage runtime or
+launch route. It shares the ships' floating-origin transform and streams through
+the existing single-owner/Redis ingress routing.
+
+Crates are pending until the encounter's reward ledger is settled. Only the
+pilot credited with that specific rewardable NPC kill can recover it; assists,
+friendly casualties, AI-only kills, PvP and training cannot issue a package.
+Nearby pilots can see the physical crate but do not receive another account's
+identity or inventory data. Within 60 metres a living eligible pilot gets the
+contextual **Recover wreck package** action. A successful recovery removes the
+crate and invalidates the account's equipment-bay cache. The item goes to the
+locker, not onto a live hardpoint; the issued-flight boundary is unchanged.
+
+The client sends only the package identifier and protocol version. The socket
+owner first saves a fresh fenced checkpoint. The equipment transaction locks
+that checkpoint, verifies the fencing token, ship life, absolute position and
+package ownership, then resolves the existing owned combat ledger. Both hangar
+and spatial recovery insert through the same event/target source key and locker
+transaction. Simultaneous or repeated requests therefore issue one physical
+item, not one per recovery surface.
+
+The package state and item commit in the same transaction. Checkpoint writes
+preserve already-recovered package tombstones so a queued pre-claim write cannot
+resurrect a crate. The session checkpoint includes pending, available and
+recovered packages; old checkpoints with no packages remain supported.
+At most 128 crates are retained per spatial session. Recovered records are
+reclaimed first; the oldest settled crate can then leave the spatial display to
+make room for new destruction. Its permanent ledger recovery remains available
+through the equipment bay's existing recovery rules.
+
+The existing equipment rollout gate and a configured durable checkpoint store
+are required. Isolated process-local Development without that store does not
+advertise physical pickup actions; hangar-ledger recovery remains available.
+This does not silently enable a second persistence mode or change environment
+configuration. No new database table, migration,
+startup DDL, production deployment or public recovery endpoint is introduced.
+Older already-settled historical kills are not retroactively fabricated into
+world-space wrecks without a trustworthy destruction position.
 
 ## Shared-universe runtime and recovery
 
@@ -118,6 +158,17 @@ Production. Other schema changes need their own reviewed migration.
 Unit,
 database-concurrency and in-process flight/restart evidence are not a claim of
 authenticated two-phone staging certification.
+
+### Physical-salvage verification
+
+Regression coverage exercises real two-pilot combat destruction, crate location,
+kill-versus-assist ownership, continued flight, replacement-owner streaming,
+cross-ingress recovery, and recovered crates remaining absent after restart.
+Database tests race hangar and spatial recovery, reject foreign pilots, distant
+or disabled ships and stale fencing tokens, and verify a queued checkpoint write
+cannot resurrect a recovered package. Rendering tests verify rebasing, crate
+updates and geometry/material disposal. These are automated Development checks,
+not authenticated staging or physical-device certification.
 
 ### Development evidence, 2026-11-13
 

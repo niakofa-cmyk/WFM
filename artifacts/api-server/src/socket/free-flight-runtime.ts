@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { MAX_WRECK_PACKAGES, SALVAGE_RECOVERY_METERS, salvageInReach, validWreckPackages, type WreckPackage } from "@workspace/orbital-sim";
 import { admissionFailureDiagnostic, type AdmissionPhase } from "./free-flight-admission-diagnostic";
 import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
 import { advanceLivingFleet, formationOffset, newLivingFleet, validLivingFleet, type FleetRole } from "./living-fleet";
@@ -185,6 +186,8 @@ type Actor = {
   selectedSubsystem?: ShipSubsystem;
   subsystemCycleSeq?: number;
   lastTacticalReportAt?: number;
+  salvagePending?: boolean;
+  lastSalvageAt?: number;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -250,6 +253,7 @@ type Session = {
   nextPatrolRefreshAt: number;
   patrolRefreshPending: boolean;
   checkpointSequence: number;
+  wreckPackages: WreckPackage[];
 };
 type Seat = { session: Session; actor: Actor; userId: string };
 
@@ -279,6 +283,7 @@ export type FreeFlightSessionCheckpointV1 = {
   nextNumericId: number;
   tick: number;
   checkpointSequence: number;
+  wreckPackages?: WreckPackage[];
 };
 
 export type StoredFreeFlightCheckpoint = {
@@ -661,10 +666,14 @@ export function createFreeFlightRuntime(options: {
     encounterId: string,
   ) => Promise<UniversePatrolEncounter | null>;
   settleScoutEncounter?: (receipt: ExplorationReceipt) => Promise<ExplorationSettlement>;
+  recoverSalvage?: (userId: string, input: {
+    sessionKey: string; fencingToken: number; packageId: string;
+  }) => Promise<{ equipmentId: string; revision: number }>;
   releaseUniversePatrol?: (patrolId: string, encounterId: string) => Promise<void>;
   /** Trusted test seam for deterministic approach/weapon integration tests. */
   patrolSpawnDistanceMeters?: number;
 }) {
+  const salvageEnabled = Boolean(options.recoverSalvage && options.saveCheckpoint);
   const sessions = new Map<string, Session>();
   const sessionInitializations = new Map<string, Promise<Session | null>>();
   const seats = new Map<WebSocketLike, Seat>();
@@ -840,6 +849,7 @@ export function createFreeFlightRuntime(options: {
       }
       autoEngagementCooldowns.set(id, until);
     }
+    if (!validWreckPackages(snapshot.wreckPackages ?? [])) throw new Error("Invalid wreck checkpoint.");
     return {
       key,
       instanceId: snapshot.instanceId,
@@ -865,6 +875,7 @@ export function createFreeFlightRuntime(options: {
       nextPatrolRefreshAt: now,
       patrolRefreshPending: false,
       checkpointSequence: stored.checkpointSequence,
+      wreckPackages: structuredClone(snapshot.wreckPackages ?? []),
     };
   }
 
@@ -873,7 +884,7 @@ export function createFreeFlightRuntime(options: {
       version: 1,
       key: session.key,
       instanceId: session.instanceId,
-      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, ...actor }) =>
+      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, salvagePending: _pending, ...actor }) =>
         structuredClone(actor)),
       anomalyGravityWells: structuredClone(session.anomalyGravityWells),
       gravityEnvironmentEnabled: session.gravityEnvironmentEnabled,
@@ -907,6 +918,7 @@ export function createFreeFlightRuntime(options: {
       nextNumericId: session.nextNumericId,
       tick: session.tick,
       checkpointSequence: session.checkpointSequence,
+      wreckPackages: structuredClone(session.wreckPackages),
     };
   }
 
@@ -945,6 +957,7 @@ export function createFreeFlightRuntime(options: {
       lastAdvanceAt: now, lastSnapshotAt: now, emptySince: null,
       nextPatrolRefreshAt: now + PATROL_REFRESH_INTERVAL_MS, patrolRefreshPending: false,
       checkpointSequence: 0,
+      wreckPackages: [],
     };
     sessions.set(key, session);
     if (patrols.length) {
@@ -1133,11 +1146,27 @@ export function createFreeFlightRuntime(options: {
             type: "freeflight_tactical_snapshot",
             snapshot: tacticalSnapshotFor(session, actor),
           });
+          if (salvageEnabled) sendSalvage(session, actor);
         }
         sendTargetState(session, actor);
         sendCombatProgress(session, actor);
       }
     }
+  }
+
+  function sendSalvage(session: Session, viewer: Actor) {
+    const position = { x: viewer.craft.x, y: viewer.craft.space!.y, z: viewer.craft.z };
+    send(viewer.socket, {
+      type: "freeflight_salvage", protocol: 1, sessionInstanceId: session.instanceId,
+      packages: session.wreckPackages.filter(p => p.status !== "recovered").flatMap(p => {
+        const distanceMeters = Math.hypot(position.x - p.position.x, position.y - p.position.y, position.z - p.position.z);
+        return distanceMeters > NEARBY_RADIUS ? [] : [{
+          id: p.id, position: p.position, distanceMeters,
+          recoverable: p.status === "available" && p.ownerUserId === viewer.ownerUserId &&
+            viewer.craft.alive && distanceMeters <= SALVAGE_RECOVERY_METERS,
+        }];
+      }),
+    });
   }
 
   function sendCombatProgress(session: Session, actor: Actor, recovery?: { restored: number; milestone: number | null }) {
@@ -1594,6 +1623,22 @@ export function createFreeFlightRuntime(options: {
       subsystemDisabled,
       destroyed: !target.craft.alive,
     });
+    if (!target.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
+        damageContext.kind === "patrol" && salvageEnabled) {
+      const actorId = encounterActorId(target);
+      const id = `${damageContext.combat.id}:${actorId}`;
+      session.wreckPackages = session.wreckPackages.filter(p => p.status !== "recovered");
+      if (session.wreckPackages.length >= MAX_WRECK_PACKAGES) {
+        const oldestSettled = session.wreckPackages.findIndex(p => p.status === "available");
+        if (oldestSettled >= 0) session.wreckPackages.splice(oldestSettled, 1);
+      }
+      if (!session.wreckPackages.some(p => p.id === id) && session.wreckPackages.length < MAX_WRECK_PACKAGES) {
+        session.wreckPackages.push({
+          id, encounterId: damageContext.combat.id, actorId, ownerUserId: null, status: "pending",
+          position: { x: target.craft.x, y: target.craft.space!.y, z: target.craft.z },
+        });
+      }
+    }
     if (!target.craft.alive && attacker.kind === "pilot" && attacker.ownerUserId &&
         attacker.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
         target.faction !== attacker.faction) {
@@ -1715,6 +1760,13 @@ export function createFreeFlightRuntime(options: {
           throw new Error("freeflight_patrol_reward_not_settled");
         }
         const result = readExplorationReceipt(combat.receipt!);
+        for (const wreck of session.wreckPackages) {
+          if (wreck.encounterId !== combat.id || wreck.status !== "pending") continue;
+          const owner = settlement.awards.find(award =>
+            award.rewardableNpcKills > 0 && award.destroyedActorIds.includes(wreck.actorId));
+          if (owner) { wreck.ownerUserId = owner.playerId; wreck.status = "available"; }
+          else wreck.status = "recovered"; // AI/support kills grant no equipment.
+        }
         for (const pilotResult of result.pilots) {
           const actor = [...combat.participantActorIds]
             .map((actorId) => session.actors.get(actorId))
@@ -2758,6 +2810,48 @@ export function createFreeFlightRuntime(options: {
 
     const seat = seats.get(socket);
     if (!seat || seat.userId !== userId) { error("freeflight_join_required"); return; }
+    if (packet.type === "freeflight_salvage_recover") {
+      if (Object.keys(packet).length !== 3 || packet.protocol !== 1 ||
+          typeof packet.packageId !== "string" || packet.packageId.length > 400) {
+        error("invalid_freeflight_salvage"); return;
+      }
+      const { actor, session } = seat;
+      const wreck = session.wreckPackages.find(p => p.id === packet.packageId);
+      if (!options.recoverSalvage || !options.saveCheckpoint || !wreck ||
+          wreck.ownerUserId !== userId || wreck.status === "pending" || !actor.craft.alive ||
+          !salvageInReach({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z }, wreck)) {
+        error("freeflight_salvage_out_of_reach"); return;
+      }
+      if (actor.salvagePending || Date.now() - (actor.lastSalvageAt ?? 0) < 500) {
+        error("freeflight_rate_limited"); return;
+      }
+      actor.salvagePending = true;
+      actor.lastSalvageAt = Date.now();
+      const fence = fencingTokens.get(session.key) ?? 1;
+      const currentOwner = () => !closed && sessions.get(session.key) === session &&
+        seats.get(socket) === seat && actor.socket === socket && (fencingTokens.get(session.key) ?? 1) === fence;
+      try {
+        if (!await persistSessionFresh(session)) {
+          if (currentOwner()) error("freeflight_salvage_unavailable");
+          return;
+        }
+        if (!currentOwner()) return;
+        const recovered = await options.recoverSalvage(userId, {
+          sessionKey: session.key, fencingToken: fence, packageId: wreck.id,
+        });
+        if (!currentOwner()) return;
+        wreck.status = "recovered";
+        await persistSessionFresh(session);
+        send(socket, { type: "freeflight_salvage_recovered", protocol: 1, packageId: wreck.id, ...recovered });
+        for (const pilot of session.pilotByUser.values()) {
+          if (pilot.socket?.readyState === OPEN) sendSalvage(session, pilot);
+        }
+        publish(session);
+      } catch {
+        if (currentOwner()) error("freeflight_salvage_unavailable");
+      } finally { actor.salvagePending = false; }
+      return;
+    }
     if (packet.type === "freeflight_recover") {
       if (Object.keys(packet).length !== 1) {
         error("invalid_freeflight_recovery");

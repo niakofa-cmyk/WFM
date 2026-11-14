@@ -11,6 +11,9 @@ import {
 import { fitEquipment, getEquipmentLocker, loadEquipmentFlightFit, recoverEquipment, salvageActors, salvagePackage } from "./equipment";
 import { EXPLORATION_CONTRACT } from "./exploration-encounter";
 import { equipmentEnabled } from "./equipment-rollout";
+import { recoverSpatialEquipment } from "./equipment";
+import { freeFlightCheckpointsTable } from "@workspace/db/schema";
+import { ensureFreeFlightCheckpointSchema, saveFreeFlightCheckpoint, loadFreeFlightCheckpoint } from "./free-flight-checkpoints";
 
 after(async () => { await pool.end(); });
 const module = (equipmentId: string, hardpointId: string): EquippedModule =>
@@ -20,6 +23,71 @@ test("staging and production do not query new equipment tables without explicit 
   assert.equal(equipmentEnabled({ NODE_ENV: "development" }), true);
   assert.equal(equipmentEnabled({ NODE_ENV: "development", WFM_MODULAR_EQUIPMENT_ENABLED: "0" }), false);
   assert.equal(equipmentEnabled({ NODE_ENV: "production", WFM_MODULAR_EQUIPMENT_ENABLED: "1" }), true);
+});
+test("spatial and hangar recovery share one permanent source under concurrent claims and reject stale owners", async () => {
+  const user = `test_wreck_${randomUUID()}`, other = `test_wreck_other_${randomUUID()}`;
+  const sessionKey = `wreck:${randomUUID()}`, encounterId = randomUUID(), actorId = "patrol-ship:wreck";
+  const eventId = randomUUID(), packageId = `${encounterId}:${actorId}`;
+  const claim = { sessionKey, fencingToken: 7, packageId };
+  const state = {
+    actors: [{ kind: "pilot", ownerUserId: user, craft: { alive: true, x: 0, z: 0, space: { y: 0 } } }],
+    wreckPackages: [{ id: packageId, encounterId, actorId, ownerUserId: user,
+      position: { x: 30, y: 0, z: 0 }, status: "available" }],
+  };
+  try {
+    await ensureFreeFlightCheckpointSchema();
+    await getEquipmentLocker(user); await getEquipmentLocker(other);
+    await db.insert(progressionEventsTable).values({ id: eventId, userId: user,
+      idempotencyKey: `${EXPLORATION_CONTRACT}:${encounterId}`, kind: "world_exploration",
+      amount: 0, balanceBefore: 90, balanceAfter: 90,
+      result: { mode: EXPLORATION_CONTRACT, patrol: { patrolId: "wreck-patrol" }, fingerprint: "verified",
+        award: { playerId: user, rewardableNpcKills: 1, destroyedActorIds: [actorId] } } });
+    await db.insert(freeFlightCheckpointsTable).values({ sessionKey, stateVersion: 1,
+      fencingToken: 7, checkpointSequence: 1, snapshot: state });
+    await assert.rejects(recoverSpatialEquipment(user, { ...claim, fencingToken: 6 }), /owner changed/);
+    await assert.rejects(recoverSpatialEquipment(other, claim), /recovery range/);
+    state.wreckPackages[0]!.status = "pending";
+    await db.update(freeFlightCheckpointsTable).set({ snapshot: state }).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await assert.rejects(recoverSpatialEquipment(user, claim), /recovery range/);
+    state.wreckPackages[0]!.status = "available";
+    state.wreckPackages[0]!.actorId = "patrol-ship:uncredited";
+    state.wreckPackages[0]!.id = `${encounterId}:patrol-ship:uncredited`;
+    await db.update(freeFlightCheckpointsTable).set({ snapshot: state }).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await assert.rejects(recoverSpatialEquipment(user, { ...claim, packageId: state.wreckPackages[0]!.id }), /No server-verified/);
+    state.wreckPackages[0]!.actorId = actorId;
+    state.wreckPackages[0]!.id = packageId;
+    state.actors[0]!.craft.x = 1000;
+    await db.update(freeFlightCheckpointsTable).set({ snapshot: state }).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await assert.rejects(recoverSpatialEquipment(user, claim), /recovery range/);
+    state.actors[0]!.craft.x = 0;
+    state.actors[0]!.craft.alive = false;
+    await db.update(freeFlightCheckpointsTable).set({ snapshot: state }).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await assert.rejects(recoverSpatialEquipment(user, claim), /recovery range/);
+    state.actors[0]!.craft.alive = true;
+    await db.update(freeFlightCheckpointsTable).set({ snapshot: state }).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await Promise.all([
+      ...Array.from({ length: 4 }, () => recoverSpatialEquipment(user, claim)),
+      ...Array.from({ length: 4 }, () => recoverEquipment(user, { eventId, actorId })),
+    ]);
+    const locker = await getEquipmentLocker(user);
+    assert.equal(locker.items.length, 7);
+    assert.equal(locker.revision, 1);
+    assert.equal(locker.salvage.length, 0);
+    const [restored] = await db.select().from(freeFlightCheckpointsTable).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    assert.equal((restored!.snapshot.wreckPackages as Array<{ status: string }>)[0]!.status, "recovered");
+    await recoverSpatialEquipment(user, claim);
+    assert.equal((await getEquipmentLocker(user)).items.length, 7);
+    assert.equal(await saveFreeFlightCheckpoint(sessionKey, state, 6, 10), false,
+      "an old simulation owner cannot overwrite a recovered wreck");
+    assert.equal(await saveFreeFlightCheckpoint(sessionKey, state, 8, 2), true);
+    const afterQueuedWrite = await loadFreeFlightCheckpoint(sessionKey);
+    assert.equal((afterQueuedWrite!.snapshot.wreckPackages as Array<{ status: string }>)[0]!.status, "recovered",
+      "a queued pre-claim simulation snapshot cannot resurrect the physical package");
+    await assert.rejects(recoverSpatialEquipment(user, claim), /owner changed/);
+  } finally {
+    await db.delete(freeFlightCheckpointsTable).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await cleanup(user); await cleanup(other);
+  }
 });
 async function cleanup(user: string) {
   for (const table of [equipmentItemsTable, equipmentLockersTable, progressionEventsTable, playerProgressTable])

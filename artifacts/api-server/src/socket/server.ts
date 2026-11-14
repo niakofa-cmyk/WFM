@@ -150,7 +150,8 @@ export async function startWingSocketServer(
     };
     freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
       "resolveFreeFlightPatrols" | "reserveUniversePatrol" |
-      "settleScoutEncounter" | "releaseUniversePatrol">>;
+      "settleScoutEncounter" | "releaseUniversePatrol">> &
+      Pick<Parameters<typeof createFreeFlightRuntime>[0], "recoverSalvage">;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;

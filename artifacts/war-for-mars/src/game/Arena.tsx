@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { readSalvageContacts, type SalvageContact } from "@workspace/orbital-sim";
+import { createSalvageVisuals } from "./shared-salvage-visuals";
 import { SUBSYSTEM_LABELS, SUBSYSTEM_OFFSETS, SHIP_SUBSYSTEMS, rotate as rotateSubsystemOffset } from "@workspace/orbital-sim";
 import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
@@ -728,6 +731,12 @@ export function Arena({
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const sharedPatrolContactRef = useRef<UniversePatrolEncounterNotice | null>(null);
   const [sharedTacticalSnapshot, setSharedTacticalSnapshot] = useState<FreeFlightTacticalSnapshotV1 | null>(null);
+  const salvageQueryClient = useQueryClient();
+  const salvageContactsRef = useRef<SalvageContact[]>([]);
+  const [salvageContacts, setSalvageContacts] = useState<SalvageContact[]>([]);
+  const [salvageNotice, setSalvageNotice] = useState("");
+  const [salvagePending, setSalvagePending] = useState(false);
+  const pendingSalvageIdRef = useRef<string | null>(null);
   const sharedTacticalSnapshotRef = useRef<FreeFlightTacticalSnapshotV1 | null>(null);
   const tacticalRoleByActorRef = useRef(new Map<string, string>());
   const lastEncounterFleetIdRef = useRef<string | null>(null);
@@ -879,6 +888,11 @@ export function Arena({
           if (state === "joined") setRetainedFlightHint(null);
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
+            salvageContactsRef.current = [];
+            setSalvageContacts([]);
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice("");
             setPresenceFresh(false);
             setSharedFlightReference(null);
             lastSharedReferenceAt.current = -Infinity;
@@ -907,6 +921,36 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_salvage") {
+            const contacts = packet.protocol === 1 &&
+              packet.sessionInstanceId === freeFlightFramesRef.current.current?.snapshot.sessionInstanceId
+              ? readSalvageContacts(packet.packages) : null;
+            if (contacts) {
+              salvageContactsRef.current = contacts;
+              setSalvageContacts(previous => previous.length === contacts.length && previous.every((p, i) =>
+                p.id === contacts[i]!.id && p.recoverable === contacts[i]!.recoverable &&
+                Math.round(p.distanceMeters) === Math.round(contacts[i]!.distanceMeters))
+                ? previous : contacts);
+            }
+            return;
+          }
+          if (packet.type === "freeflight_salvage_recovered" && packet.protocol === 1 &&
+              typeof packet.packageId === "string" && typeof packet.equipmentId === "string") {
+            salvageContactsRef.current = salvageContactsRef.current.filter(p => p.id !== packet.packageId);
+            setSalvageContacts(salvageContactsRef.current);
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice(`Recovered ${packet.equipmentId} · available in your hangar equipment locker`);
+            void salvageQueryClient.invalidateQueries({ queryKey: ["/api/game/equipment"] });
+            return;
+          }
+          if (packet.type === "freeflight_error" && typeof packet.reason === "string" &&
+              (packet.reason.includes("salvage") || pendingSalvageIdRef.current !== null &&
+                ["freeflight_rate_limited", "freeflight_service_unavailable"].includes(packet.reason))) {
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice("Recovery unavailable. Stay within 60 m of your settled wreck package and retry.");
+          }
           if (packet.type === "freeflight_tactical_snapshot") {
             const report = readFreeFlightTacticalSnapshot(packet.snapshot);
             const currentSession = freeFlightFramesRef.current.current?.snapshot.sessionInstanceId;
@@ -1814,6 +1858,7 @@ export function Arena({
       damage: ReturnType<typeof createOrbitalDamageController>;
     }>();
     const sharedImpactEffects = createSharedFlightImpactEffects(scene);
+    const salvageVisuals = createSalvageVisuals(scene);
     let lastSharedBoomAt = -Infinity;
     let sharedVisualSessionId: string | null = null;
     const sharedFlightEffects = new Map<string, {
@@ -1828,6 +1873,7 @@ export function Arena({
       sharedFlightGroups.clear();
     };
     const removeSharedFlightEffects = () => {
+      salvageVisuals.clear();
       for (const { line, material } of sharedFlightEffects.values()) {
         scene.remove(line);
         line.geometry.dispose();
@@ -2045,6 +2091,10 @@ export function Arena({
         sharedFlightGroups.delete(actorId);
       }
       renderSharedFlightEffects(now, address);
+      salvageVisuals.update(salvageContactsRef.current, point => {
+        const local = sharedPointInLocalFrame(point, address);
+        return local ? { ...local, y: UNIVERSE_RENDER_Y_OFFSET + local.y } : null;
+      });
       return true;
     };
     const universePatrolOrigin = localUniverse ? {
@@ -3746,6 +3796,26 @@ export function Arena({
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      {localUniverse && sharedFreeFlightJoined && (salvageContacts.some(p => p.recoverable) || salvageNotice) ? (
+        <div className="absolute left-1/2 top-16 z-20 -translate-x-1/2 text-center">
+          {salvageContacts.filter(p => p.recoverable).sort((a, b) => a.distanceMeters - b.distanceMeters).slice(0, 1).map(p => (
+            <button key={p.id} type="button" data-testid="button-recover-wreck" disabled={salvagePending}
+              className="border border-cyan-300/60 bg-black/80 px-3 py-2 font-hud text-xs text-cyan-200 disabled:opacity-50"
+              onClick={() => {
+                setSalvageNotice("");
+                if (freeFlightClientRef.current?.recoverSalvage(p.id)) {
+                  pendingSalvageIdRef.current = p.id;
+                  setSalvagePending(true);
+                }
+                else setSalvageNotice("Shared flight disconnected. Reconnect to recover.");
+              }}>
+              {salvagePending ? "RECOVERING…" : `RECOVER WRECK PACKAGE · ${Math.round(p.distanceMeters)} M`}
+            </button>
+          ))}
+          {salvageNotice ? <button type="button" className="block max-w-xs bg-black/80 p-2 text-xs text-cyan-100"
+            onClick={() => setSalvageNotice("")} aria-label="Dismiss salvage notice">{salvageNotice}</button> : null}
+        </div>
       ) : null}
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
