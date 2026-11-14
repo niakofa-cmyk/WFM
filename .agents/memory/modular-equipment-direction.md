@@ -57,3 +57,13 @@ without an explicit loss/transfer policy.
 keep one authoritative manifest for firing/appearance/salvage, preserve legacy
 claims, and treat illustrative acquisition percentages as proposals rather than
 drop rates or faction-population settings.
+
+Keep the existing one kill-owned equipment package per wreck until multi-item
+allocation, cargo capacity and assist-sharing policy are deliberately designed.
+Unknown new provenance must not fall back to historical random catalog loot.
+
+**Why:** connecting real enemy equipment should not silently multiply rewards,
+change ownership policy, or describe unrelated legacy loot as recovered hardware.
+
+**How to apply:** preserve old claims verbatim, version new evidence, and widen
+allocation only alongside an explicit economy/ownership decision.

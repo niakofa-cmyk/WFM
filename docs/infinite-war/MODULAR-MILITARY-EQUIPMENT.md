@@ -134,7 +134,13 @@ package requires a credited, rewardable destroyed NPC owned by that pilot's
 award. Client-reported kills, PvP, local training, assist-only records and another
 account's ledger cannot issue equipment.
 
-Each event/target pair deterministically selects one package and condition.
+Historical event/target pairs retain their original deterministic catalog package.
+New version-2 physical-equipment outcomes allocate one surviving weapon from the
+actual issued enemy manifest, retaining its subsystem-derived condition. No
+surviving weapon means no equipment claim; malformed new records never fall
+back to the old catalog pool. See the
+[acquisition directive](WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md#connected-implementation-increment--2026-11-14)
+for source identities, survival rules and remaining scope.
 The database source key is permanently unique per account, making retries and
 simultaneous recovery requests idempotent. Recovery does not equip the item or
 charge credits. The bay lists opportunities from the newest 30 relevant ledger

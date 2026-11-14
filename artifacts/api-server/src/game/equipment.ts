@@ -7,6 +7,7 @@ import { SHIPS } from "./ships";
 import { EXPLORATION_CONTRACT } from "./exploration-encounter";
 import { freeFlightCheckpointsTable } from "@workspace/db/schema";
 import { salvageInReach, validWreckPackages } from "@workspace/orbital-sim";
+import { validEquipmentSalvageLedger, survivingEquipment } from "@workspace/orbital-sim";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export class EquipmentError extends Error {
@@ -17,6 +18,16 @@ const salvagePool = EQUIPMENT_CATALOG.filter(item => item.id !== "capital-cannon
 export function salvagePackage(eventId: string, actorId: string) {
   const digest = createHash("sha256").update(`equipment-v1:${eventId}:${actorId}`).digest();
   return { equipmentId: salvagePool[digest.readUInt16BE(0) % salvagePool.length]!.id, condition: 55 + digest[2]! % 36 };
+}
+export function equipmentPackageForResult(eventId: string, actorId: string, result: Record<string, unknown>) {
+  if (!Object.hasOwn(result, "equipmentSalvage")) return salvagePackage(eventId, actorId);
+  if (!validEquipmentSalvageLedger(result.equipmentSalvage)) return null;
+  const patrolId = (result.patrol as { patrolId?: unknown } | undefined)?.patrolId;
+  if (typeof patrolId !== "string" || result.equipmentSalvage.actors.some(actor => actor.manifest.fleetId !== patrolId))
+    return null;
+  const evidence = result.equipmentSalvage.actors.find(item => item.actorId === actorId);
+  if (evidence) return survivingEquipment(evidence);
+  return result.equipmentSalvage.legacyActorIds.includes(actorId) ? salvagePackage(eventId, actorId) : null;
 }
 /** Stored server ledger only: client-reported kills and PvP cannot create equipment. */
 export function salvageActors(userId: string, result: Record<string, unknown>): string[] {
@@ -53,7 +64,10 @@ async function snapshot(tx: Tx, userId: string) {
   const claimed = new Set(items.map(item => item.sourceKey));
   const salvage = events.flatMap(event => salvageActors(userId, event.result)
     .filter(actorId => !claimed.has(`${event.id}:${actorId}`))
-    .map(actorId => ({ eventId: event.id, actorId, equipmentId: salvagePackage(event.id, actorId).equipmentId })));
+    .flatMap(actorId => {
+      const recovered = equipmentPackageForResult(event.id, actorId, event.result);
+      return recovered ? [{ eventId: event.id, actorId, equipmentId: recovered.equipmentId }] : [];
+    }));
   return { revision: state!.revision, catalog: [...EQUIPMENT_CATALOG], hulls: Object.keys(SHIPS).map(hullEquipmentRules),
     items: items.map(({ id, equipmentId, condition, shipId, hardpointId }) => ({ id, equipmentId, condition, shipId, hardpointId })), salvage };
 }
@@ -99,8 +113,10 @@ async function recoverWithTransaction(tx: Tx, userId: string, input: { eventId: 
       eq(progressionEventsTable.kind, "world_exploration")));
     if (!event || !salvageActors(userId, event.result).includes(input.actorId))
       throw new EquipmentError("No server-verified recoverable enemy destruction belongs to this pilot.");
+    const recovered = equipmentPackageForResult(event.id, input.actorId, event.result);
+    if (!recovered) throw new EquipmentError("No surviving equipment is available from this destruction.");
     const result = await tx.insert(equipmentItemsTable).values({
-      userId, ...salvagePackage(event.id, input.actorId), sourceKey: `${event.id}:${input.actorId}`,
+      userId, ...recovered, sourceKey: `${event.id}:${input.actorId}`,
     }).onConflictDoNothing().returning({ id: equipmentItemsTable.id });
     if (result.length) await tx.update(equipmentLockersTable).set({ revision: state.revision + 1 }).where(eq(equipmentLockersTable.userId, userId));
     return snapshot(tx, userId);
@@ -123,18 +139,20 @@ export async function recoverSpatialEquipment(userId: string, input: {
         !pilot?.craft?.alive || !Number.isFinite(pilot.craft.space?.y) ||
         !salvageInReach({ x: pilot.craft.x, y: pilot.craft.space.y, z: pilot.craft.z }, wreck))
       throw new EquipmentError("Fly within recovery range of your verified wreck package.");
-    const [event] = await tx.select({ id: progressionEventsTable.id }).from(progressionEventsTable).where(and(
+    const [event] = await tx.select({ id: progressionEventsTable.id, result: progressionEventsTable.result }).from(progressionEventsTable).where(and(
       eq(progressionEventsTable.userId, userId),
       eq(progressionEventsTable.idempotencyKey, `${EXPLORATION_CONTRACT}:${wreck.encounterId}`),
       eq(progressionEventsTable.kind, "world_exploration")));
     if (!event) throw new EquipmentError("Combat settlement is not ready.");
+    const recovered = equipmentPackageForResult(event.id, wreck.actorId, event.result);
+    if (!recovered) throw new EquipmentError("No surviving equipment is available from this wreck.");
     const result = await recoverWithTransaction(tx, userId, { eventId: event.id, actorId: wreck.actorId });
     // The item and recovered world state commit together; a crash before the
     // socket's next checkpoint cannot leave an unissued item or duplicate source.
     wreck.status = "recovered";
     await tx.update(freeFlightCheckpointsTable).set({ snapshot: state })
       .where(eq(freeFlightCheckpointsTable.sessionKey, input.sessionKey));
-    return { equipmentId: salvagePackage(event.id, wreck.actorId).equipmentId, revision: result.revision };
+    return { equipmentId: recovered.equipmentId, revision: result.revision };
   });
 }
 /** A new flight captures this immutable fit. Reconnect restores checkpointed equipment instead. */

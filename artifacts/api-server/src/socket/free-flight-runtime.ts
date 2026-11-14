@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { issueEnemyEquipment, validEnemyEquipment, survivingEquipment, evaluateEnemyEquipment,
+  type EnemyEquipmentManifest } from "@workspace/orbital-sim";
 import { ARMAMENT_PRESENTATION_PROTOCOL, ARMAMENT_PRESENTATION_INTERVAL_TICKS,
   type ArmamentSnapshot } from "@workspace/orbital-sim";
 import {
@@ -195,6 +197,7 @@ type Actor = {
   projectileMotionV1?: boolean;
   lastProjectileMotionTick?: number;
   armamentPresentationV1?: boolean;
+  enemyEquipmentManifest?: EnemyEquipmentManifest;
   lastArmamentPresentationTick?: number;
   salvagePending?: boolean;
   lastSalvageAt?: number;
@@ -366,7 +369,7 @@ function createPatrols(session: Session, radius = 360) {
   }
 }
 
-function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, radius = 360) {
+function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, radius = 360, modular = false) {
   if (session.persistentPatrols.has(patrol.patrolId)) return;
   const knownShips = patrol.ships.filter((ship) => Object.hasOwn(SHIPS, ship.hullId));
   const newShips = knownShips.filter((ship) => !session.actors.has(patrolShipActorId(ship.id)));
@@ -396,6 +399,7 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       detCos(angle) * (fleetRadius + index * 12), 0,
       detSin(angle) * (fleetRadius + index * 12), angle + Math.PI / 2,
     );
+    const manifest = modular ? issueEnemyEquipment(patrol.patrolId, ship.id, shipId) : undefined;
     session.actors.set(actorId, {
       actorId, numericId, kind: "patrol", faction: patrol.faction, shipId, craft,
       shield: SHIPS[shipId].shield, shieldMax: SHIPS[shipId].shield,
@@ -406,6 +410,11 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       persistentShipId: ship.id, primaryCooldown: 0, lastDamageTick: -1,
       kills: 0, assists: 0, creditsAwarded: 0,
       gravityEnvironmentV1: false,
+      ...(manifest ? {
+        enemyEquipmentManifest: manifest,
+        equipment: structuredClone(manifest.modules),
+        equipmentWeapons: equipmentWeaponsState(manifest.modules),
+      } : {}),
     });
   });
   session.persistentPatrols.set(patrol.patrolId, patrol);
@@ -655,6 +664,7 @@ export function createFreeFlightRuntime(options: {
   campaignState?: () => Promise<{ concluded: boolean }>;
   onCampaignJoin?: (userId: string) => Promise<void>;
   enableFriendlyAiSupport?: boolean;
+  enableEnemyEquipment?: boolean;
   /** Emits anonymous per-owner aggregates; never includes user, region or pose data. */
   enablePopulationTelemetry?: boolean;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
@@ -755,6 +765,18 @@ export function createFreeFlightRuntime(options: {
       if (actor.equipment && (!Array.isArray(actor.equipment) || validateEquipmentFit(actor.shipId, actor.equipment) ||
           !validEquipmentWeapons(actor.equipment, actor.equipmentWeapons))) {
         throw new Error("Invalid equipment checkpoint.");
+      }
+      if (actor.enemyEquipmentManifest !== undefined) {
+        const manifest = actor.enemyEquipmentManifest;
+        if (actor.kind !== "patrol" || !validEnemyEquipment(manifest) ||
+            manifest.fleetId !== actor.persistentPatrolId || manifest.shipId !== actor.persistentShipId ||
+            manifest.hullId !== actor.shipId || actor.actorId !== patrolShipActorId(manifest.shipId) ||
+            actor.equipment?.length !== manifest.modules.length ||
+            !manifest.modules.every((item, i) => {
+              const actual = actor.equipment![i]!;
+              return actual.instanceId === item.instanceId && actual.equipmentId === item.equipmentId &&
+                actual.hardpointId === item.hardpointId && actual.condition === item.condition;
+            })) throw new Error("Invalid AI equipment provenance checkpoint.");
       }
       actor.socket = null;
       actor.input = { ...IDLE };
@@ -948,7 +970,7 @@ export function createFreeFlightRuntime(options: {
     let session = sessions.get(key);
     if (session) {
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
       return session;
     }
@@ -957,7 +979,7 @@ export function createFreeFlightRuntime(options: {
       session = restoreSession(key, now, checkpoint);
       sessions.set(key, session);
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
       return session;
     }
@@ -979,7 +1001,7 @@ export function createFreeFlightRuntime(options: {
     sessions.set(key, session);
     if (patrols.length) {
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
     } else if (!options.resolveUniversePatrols && !options.resolveUniversePatrol) {
       // Compatibility-only traffic must never stand in for an empty or
@@ -1694,8 +1716,14 @@ export function createFreeFlightRuntime(options: {
       subsystemDisabled,
       destroyed: !target.craft.alive,
     });
+    const equipmentOutcome = !target.craft.alive && target.kind === "patrol" && target.enemyEquipmentManifest
+      ? evaluateEnemyEquipment(encounterActorId(target), target.enemyEquipmentManifest, target.subsystems) : null;
+    if (equipmentOutcome && damageContext.kind === "patrol" &&
+        target.faction === damageContext.combat.patrol.faction)
+      damageContext.combat.contract.recordEnemyEquipment(encounterActorId(target), target.subsystems);
     if (!target.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
-        damageContext.kind === "patrol" && salvageEnabled) {
+        damageContext.kind === "patrol" && salvageEnabled &&
+        (!equipmentOutcome || survivingEquipment(equipmentOutcome))) {
       const actorId = encounterActorId(target);
       const id = `${damageContext.combat.id}:${actorId}`;
       session.wreckPackages = session.wreckPackages.filter(p => p.status !== "recovered");
@@ -1928,7 +1956,7 @@ export function createFreeFlightRuntime(options: {
       for (const patrol of current) {
         if (!session.persistentPatrols.has(patrol.patrolId) &&
             session.actors.size + patrol.ships.length <= MAX_ACTORS_PER_SESSION) {
-          addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+          addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment);
         }
       }
       publish(session);
@@ -2301,14 +2329,17 @@ export function createFreeFlightRuntime(options: {
         ...participants.map((candidate) => ({
           id: encounterActorId(candidate),
           faction: candidate.faction,
-          hull: candidate.craft.hullMax,
+          hull: candidate.craft.hull,
           playerId: candidate.ownerUserId!,
         })),
         ...reserved.ships.map((ship) => ({
           id: patrolShipActorId(ship.id),
           faction: reserved!.faction,
-          hull: SHIPS[ship.hullId as ShipId].hull,
+          hull: session.actors.get(patrolShipActorId(ship.id))?.craft.hull ?? SHIPS[ship.hullId as ShipId].hull,
           rewardEligible: true,
+          ...(session.actors.get(patrolShipActorId(ship.id))?.enemyEquipmentManifest ? {
+            equipmentManifest: structuredClone(session.actors.get(patrolShipActorId(ship.id))!.enemyEquipmentManifest!),
+          } : {}),
         })),
       ],
       rewardPolicy: {
@@ -3247,7 +3278,7 @@ export function createFreeFlightRuntime(options: {
             session.combats.get(patrol.patrolId)?.phase === "complete" &&
               ![...session.actors.values()].some((actor) =>
                 actor.persistentPatrolId === patrol.patrolId && actor.craft.alive)) continue;
-        addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+        addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment);
       }
       publish(session);
     } catch {

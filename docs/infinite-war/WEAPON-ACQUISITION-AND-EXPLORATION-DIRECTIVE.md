@@ -64,14 +64,14 @@ system and presentation overhaul simultaneously.
 | --- | --- | --- |
 | Weapon catalog and hull compatibility | Catalog, hardpoint kind/size, mass/power restrictions, condition and issued weapon resources are implemented and tested. | More hull-authored geometry, firing arcs and shared mount/emitter definitions require separate validation. |
 | Visible physical mounts | Main Three.js shared flight now renders compatible issued-fit classes on the own ship and nearby equipped actors. Geometry follows the existing hull transform; the stream excludes private inventory IDs. | Native companion still uses integral fittings. Per-hardpoint recoil, reload animation, muzzle/emitter agreement, hangar detach/attach animation and physical-phone appearance are not certified. |
-| Enemy loadout provenance | Issued player fits survive configured checkpoint restoration. AI ships have combat capabilities and integral hull models. | AI stock weapons are not yet one modular enemy manifest driving firing, presentation and exact recoverable equipment. Empty AI manifests must not be advertised as completed modular enemy loadouts. |
-| Destruction-based salvage | Authorized kill-ledger recovery, physical crates, owned equipment and duplicate-claim protections exist. | The legacy package chooses from a deterministic catalog pool. That is not proof the victim carried the result. Survival must use the original issued enemy equipment and validated destruction state. |
+| Enemy loadout provenance | Newly created persistent AI ships use versioned issued primary/secondary fittings when modular equipment is enabled. The same fit drives real weapon resources, nearby appearance and destruction evidence; configured checkpoints retain it. | Native companion geometry, richer fleet-role loadouts, non-weapon NPC modules and physical-phone appearance still need separate work. Older actors are not retroactively refitted. |
+| Destruction-based salvage | New receipts freeze actual fitted equipment and aggregate subsystem survival. Versioned recovery preserves source/condition and the existing one-package claim identity. | Historical catalog packages remain historical. Individual turret hit geometry, volatile ordnance rules, multiple packages per wreck and deployed cross-instance certification are not established by these checks. |
 | Distinct weapon behavior | Existing cannons, rotary guns, railguns, guided/unguided ordnance and equipment effects have resource/combat rules. | A model or catalog description does not establish a sustained beam, charged mode, independent turret or every proposed armor interaction. |
 | Discoveries and resources | Scenery, wreck recovery, stations, energy mechanics and world infrastructure provide foundations. | The six-category discovery economy, persistent deposits, resource cargo, research and manufacturing loop are proposals, not enabled features. |
 | Repairs and upgrades | Compatible fitting and ownership are established boundaries. | A complete condition repair, material consumption and manufacturing service still needs implementation and verification. Do not equate a displayed condition value with working repairs. |
 | Shared persistence | Runtime checkpoint tests establish specific configured recovery behaviors. | These tests and the appearance stream do not certify a deployed multi-instance universe or physical-device performance. |
 
-## Next prerequisite: one real enemy equipment manifest
+## Issued enemy equipment foundation
 
 Before a new enemy enters service, issue a validated, versioned equipment
 manifest owned by the authoritative fleet/ship identity:
@@ -187,3 +187,60 @@ until after shipping an exploitable client-side economy.
 **Not performed by this document review:** new inventory grants, live loot
 changes, player item losses, migrations, account creation, sign-in challenges,
 staging deployment or Production changes.
+
+## Connected implementation increment — 2026-11-14
+
+The creator reattached this directive unchanged. Its directions remain the
+foundation; this implementation adds a bounded first equipment-provenance slice,
+not the entire exploration economy.
+
+- The existing modular-equipment rollout now also controls newly issued
+  persistent AI fittings. The initial conservative fit is an autocannon and
+  seeker launcher on compatible primary/secondary hardpoints. Physical source
+  identities derive from the persistent ship and slot. Existing actors and
+  legacy receipts keep their original behavior; restoration does not reroll them.
+- AI firing uses those actual catalog definitions, finite ammunition, reload,
+  heat and power checks. Authorized nearby appearance publishes only slot/class
+  information through the existing interest-filtered stream.
+- On an authoritative NPC death, its server-issued encounter roster freezes
+  the original manifest and subsystem state into a version-2 equipment outcome.
+  Primary condition follows the weapons subsystem; secondary condition follows
+  missile launchers. Remaining condition is rounded down. Zero is destroyed,
+  1–79 damaged, and 80–100 intact. These are aggregate rules, not individual
+  barrel collision claims. Non-weapon AI modules and volatile explosion outcomes
+  require explicit future rules and are not issued by this version.
+- Preserve the established **one kill-owned package per event/actor**. Allocate
+  the first surviving issued mount in manifest order, not unrelated catalog
+  gear. Do not claim every remaining weapon was recovered. An all-destroyed
+  manifest produces no recoverable crate or inventory opportunity. Human PvP
+  ownership and assist-only equipment allocations are unchanged.
+- Store provenance in the existing immutable progression-event JSON and retain
+  its permanent event/actor item-source key. No database columns or schema
+  migration are required for this increment. Unknown/malformed new metadata
+  fails closed instead of silently using the historical generator.
+- Spatial and hangar recovery share the same owned outcome and transactional
+  source. Recovery remains locker-only; fitting requires a compatible hull and
+  a new issued flight. Live combat cannot replace its immutable equipment.
+- New encounter rosters start with actual remaining ship hull, not maximum hull.
+  A previously wounded target can therefore die and settle against its real
+  remaining health. Existing saved encounter rosters are not rewritten.
+
+Verification separates deterministic/server proof from visual/device proof:
+the regression fixtures exercise real AI firing and projectile destruction,
+matching two-viewer fitting/contact data, source restoration and continued flight.
+SQL-backed tests exercise concurrent hangar/spatial recovery, an all-destroyed
+manifest, condition retention, compatible fitting and permanent retry denial.
+The complete workspace regression run passed **920 tests**, with one existing
+explicit skip; all type checks, package builds, bundle audits and four static
+preview checks also passed. Three.js remained outside the initial static graph
+(main initial JavaScript 106,802 B gzip; lazy Three.js 138,117 B gzip).
+These are isolated automated fixtures, not authenticated physical-phone footage,
+live multi-owner certification or proof of authored muzzle/recoil alignment.
+The running Development socket reports process-local transport and no configured
+checkpoint store. Runtime recovery was exercised with test checkpoint adapters;
+the separate recovery-transaction tests used SQL-backed records. Neither
+establishes durable multi-instance behavior for this running Development service.
+
+Still next: mount/emitter agreement and physical-device appearance/performance,
+then bounded exploration/derelict acquisition and real consumable-resource cargo.
+No staging/Production deployment or human inventory transfer was performed here.

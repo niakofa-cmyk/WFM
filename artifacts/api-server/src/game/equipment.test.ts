@@ -7,6 +7,7 @@ import { db, pool, equipmentItemsTable, equipmentLockersTable, playerProgressTab
 import {
   EQUIPMENT_CATALOG, hullEquipmentRules, validateEquipmentFit, isEquipmentTelemetry,
   type EquippedModule,
+  issueEnemyEquipment, evaluateEnemyEquipment, newShipSubsystems,
 } from "@workspace/orbital-sim";
 import { fitEquipment, getEquipmentLocker, loadEquipmentFlightFit, recoverEquipment, salvageActors, salvagePackage } from "./equipment";
 import { EXPLORATION_CONTRACT } from "./exploration-encounter";
@@ -191,4 +192,70 @@ test("only owned authoritative patrol kills issue salvage, concurrently and perm
     assert.deepEqual(salvageActors(user, { ...result, patrol: undefined }), []);
     assert.deepEqual(salvageActors(user, { ...result, award: { ...result.award, rewardableNpcKills: 0 } }), []);
   } finally { await cleanup(user); await cleanup(other); }
+});
+
+test("new physical provenance survives SQL storage and concurrent spatial/hangar recovery, then fits only a compatible hull", async () => {
+  const user = `test_physical_salvage_${randomUUID()}`;
+  const sessionKey = `physical:${randomUUID()}`, encounterId = randomUUID(), eventId = randomUUID();
+  const actorId = "patrol-ship:issued-platform", lostActorId = "patrol-ship:destroyed-platform";
+  const packageId = `${encounterId}:${actorId}`, patrolId = "issued-fleet";
+  const manifest = issueEnemyEquipment(patrolId, "issued-platform", "bastion");
+  manifest.modules[0]!.equipmentId = "railgun";
+  const systems = newShipSubsystems(100);
+  systems.health.weapons = systems.maximum / 2;
+  systems.health.missiles = 0;
+  const intact = evaluateEnemyEquipment(actorId, manifest, systems);
+  const lostSystems = newShipSubsystems(100);
+  lostSystems.health.weapons = 0; lostSystems.health.missiles = 0;
+  const destroyed = evaluateEnemyEquipment(lostActorId,
+    issueEnemyEquipment(patrolId, "destroyed-platform", "bastion"), lostSystems);
+  try {
+    await ensureFreeFlightCheckpointSchema();
+    await getEquipmentLocker(user);
+    await db.insert(progressionEventsTable).values({
+      id: eventId, userId: user, idempotencyKey: `${EXPLORATION_CONTRACT}:${encounterId}`,
+      kind: "world_exploration", amount: 0, balanceBefore: 90, balanceAfter: 90,
+      result: { mode: EXPLORATION_CONTRACT, patrol: { patrolId }, fingerprint: "trusted-test-receipt",
+        equipmentSalvage: { version: 2, actors: [intact, destroyed], legacyActorIds: [] },
+        award: { playerId: user, rewardableNpcKills: 2, destroyedActorIds: [actorId, lostActorId] } },
+    });
+    await db.insert(freeFlightCheckpointsTable).values({
+      sessionKey, stateVersion: 1, fencingToken: 7, checkpointSequence: 1,
+      snapshot: {
+        actors: [{ kind: "pilot", ownerUserId: user, craft: { alive: true, x: 0, z: 0, space: { y: 0 } } }],
+        wreckPackages: [{ id: packageId, encounterId, actorId, ownerUserId: user,
+          position: { x: 30, y: 0, z: 0 }, status: "available" }],
+      },
+    });
+    assert.deepEqual((await getEquipmentLocker(user)).salvage, [{ eventId, actorId, equipmentId: "railgun" }]);
+    await assert.rejects(recoverEquipment(user, { eventId, actorId: lostActorId }), /No surviving equipment/);
+    const claim = { sessionKey, fencingToken: 7, packageId };
+    await assert.rejects(recoverSpatialEquipment(user, { ...claim, fencingToken: 6 }), /owner changed/);
+    await Promise.all([
+      ...Array.from({ length: 4 }, () => recoverEquipment(user, { eventId, actorId })),
+      ...Array.from({ length: 4 }, () => recoverSpatialEquipment(user, claim)),
+    ]);
+    let locker = await getEquipmentLocker(user);
+    assert.equal(locker.revision, 1);
+    assert.equal(locker.items.length, 7);
+    const recovered = locker.items.find(item => item.equipmentId === "railgun")!;
+    assert.equal(recovered.condition, 50);
+    assert.equal(recovered.shipId, null, "recovery must not replace the current in-flight fit");
+    const [row] = await db.select().from(equipmentItemsTable).where(eq(equipmentItemsTable.id, recovered.id));
+    assert.equal(row!.sourceKey, `${eventId}:${actorId}`, "the permanent source still links to the complete frozen enemy manifest");
+    await assert.rejects(fitEquipment(user, {
+      shipId: "glide", hardpointId: "primary", itemId: recovered.id, expectedRevision: 1,
+    }), /larger/);
+    locker = await fitEquipment(user, {
+      shipId: "bastion", hardpointId: "primary", itemId: recovered.id, expectedRevision: 1,
+    });
+    assert.equal(locker.revision, 2);
+    assert.deepEqual((await loadEquipmentFlightFit(user, "bastion")).map(item => [item.instanceId, item.equipmentId, item.condition]),
+      [[recovered.id, "railgun", 50]]);
+    await recoverSpatialEquipment(user, claim);
+    assert.equal((await getEquipmentLocker(user)).revision, 2, "recovery retries cannot mint another item or revision");
+  } finally {
+    await db.delete(freeFlightCheckpointsTable).where(eq(freeFlightCheckpointsTable.sessionKey, sessionKey));
+    await cleanup(user);
+  }
 });

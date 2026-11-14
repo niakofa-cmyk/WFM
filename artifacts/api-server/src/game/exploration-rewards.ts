@@ -54,6 +54,7 @@ const databaseStore: ExplorationRewardStore = {
             runtime: result.runtime, policyId: result.policyId, rewardPolicy: result.rewardPolicy,
             finalTick: result.finalTick, outcome: result.outcome, objectiveCompleted: result.objectiveCompleted,
             ...(result.patrol ? { patrol: result.patrol } : {}),
+            ...(result.equipmentSalvage ? { equipmentSalvage: result.equipmentSalvage } : {}),
              ...(result.alliedPatrolCasualties?.length
                ? { alliedPatrolCasualties: result.alliedPatrolCasualties } : {}),
             fingerprint: result.fingerprint, award },
