@@ -4,7 +4,8 @@ import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { setBaseUrl } from "@workspace/api-client-react";
+import { GameApiSession } from "./game/GameApiSession";
 import { ActionRecovery } from "./game/useDurableAction";
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { PublicWingLeaderboard } from "./game/PublicWingLeaderboard";
@@ -20,7 +21,9 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
 setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
-  return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
+  return basePath && (path === basePath || path.startsWith(`${basePath}/`))
+    ? path.slice(basePath.length) || "/"
+    : path;
 }
 
 const appearance = {
@@ -166,7 +169,7 @@ function SignedInGame() {
   const client = useQueryClient();
   useEffect(() => () => { client.clear(); }, [client]);
   return (
-    <>
+    <GameApiSession>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp initialOrbitalOpen />
       </Suspense>
@@ -175,7 +178,7 @@ function SignedInGame() {
       <div data-testid="account-control" className="wfm-account-control fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
-    </>
+    </GameApiSession>
   );
 }
 
@@ -184,24 +187,6 @@ function AccountGameEntry() {
   // Never mount account/progression hooks until the session is confirmed.
   if (isLoaded && isSignedIn) return <SignedInGame key={userId} />;
   return <PublicLanding />;
-}
-
-function ApiAuthBridge() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
-
-  useEffect(() => {
-    if (!apiBaseUrl) {
-      setAuthTokenGetter(null);
-      return;
-    }
-
-    setAuthTokenGetter(() =>
-      isLoaded && isSignedIn ? getToken() : null,
-    );
-    return () => setAuthTokenGetter(null);
-  }, [getToken, isLoaded, isSignedIn]);
-
-  return null;
 }
 
 function Routes() {
@@ -214,6 +199,8 @@ function Routes() {
       appearance={appearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
+      signInForceRedirectUrl={`${basePath}/`}
+      signUpForceRedirectUrl={`${basePath}/`}
       localization={{
         signIn: { start: { title: "Welcome back, pilot", subtitle: "Return to the Phobos yard" } },
         signUp: { start: { title: "Create your pilot account", subtitle: "Your campaign progress stays with you" } },
@@ -221,7 +208,6 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <ApiAuthBridge />
       <Switch>
         <Route path="/"><AccountGameEntry /></Route>
         <Route path="/command"><Redirect to="/" /></Route>

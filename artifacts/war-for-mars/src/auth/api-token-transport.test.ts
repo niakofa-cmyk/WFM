@@ -39,13 +39,15 @@ async function captureRequestHeaders(
   }
 }
 
-test("WFM mounts the Clerk token bridge inside its provider", async () => {
+test("WFM gates signed-in consumers on the Clerk token provider", async () => {
   const appSource = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
+  const gateSource = await readFile(new URL("../game/GameApiSession.tsx", import.meta.url), "utf8");
 
-  assert.match(appSource, /function ApiAuthBridge\(\)/);
-  assert.match(appSource, /setAuthTokenGetter\(\(\) =>/);
-  assert.match(appSource, /isLoaded && isSignedIn \? getToken\(\) : null/);
-  assert.match(appSource, /<ApiAuthBridge\s*\/>/);
+  assert.match(appSource, /<ClerkProvider[\s\S]*?<AccountGameEntry\s*\/>[\s\S]*?<\/ClerkProvider>/);
+  assert.match(appSource, /<GameApiSession>[\s\S]*?<WarApp\b[\s\S]*?<\/GameApiSession>/);
+  assert.match(gateSource, /installGameApiSession\(\(\) => getToken\(\), setAuthTokenGetter\)/);
+  assert.match(gateSource, /readySession !== sessionId/);
+  assert.doesNotMatch(gateSource, /if \(!apiBaseUrl\)/);
 });
 
 test("customFetch forwards the signed-in session as a bearer header", async () => {
