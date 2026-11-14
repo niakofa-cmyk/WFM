@@ -2,8 +2,19 @@ import { randomInt, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { socketOriginAllowed } from "./origin-policy";
+import { freeFlightPersistenceReadiness } from "./free-flight-persistence-config";
 import type { SocketSessionVerifier } from "./clerk-session-verifier";
 import { createSectorRuntime, type SectorOperationPresence } from "./sector-runtime";
+import { createFreeFlightRuntime, type FreeFlightAdmission } from "./free-flight-runtime";
+import {
+  createFreeFlightSharedRuntime,
+  type FreeFlightRedisBus,
+} from "./free-flight-shared-runtime";
+import type { GlobalFlightPopulationCensus } from "./free-flight-population-census";
+import type {
+  FreeFlightSessionCheckpointV1,
+  StoredFreeFlightCheckpoint,
+} from "./free-flight-runtime";
 import { sectorMission, type SectorProgress, type SectorProtocolVersion } from "../game/sector-missions";
 import type { CompletedSectorMission } from "../game/sector-completion";
 import {
@@ -96,6 +107,7 @@ type Client = {
   aiFillQueueRequested: boolean;
   queueEnteredAt: number | null;
   sectorMission: string | null;
+  freeFlightRequested: boolean;
 };
 
 type PendingCompetitiveAssignment = {
@@ -118,10 +130,59 @@ export async function startWingSocketServer(
     enableCasualAiQueue?: boolean;
     enableWingRewards?: boolean;
     enableSectorFlight?: boolean;
+    enableFreeFlight?: boolean;
+    requireFreeFlightPersistence?: boolean;
+    freeFlightCampaignState?: () => Promise<{ concluded: boolean }>;
+    onFreeFlightCampaignJoin?: (userId: string) => Promise<void>;
+    enableFreeFlightFriendlyAi?: boolean;
+    enableFreeFlightPopulationTelemetry?: boolean;
+    onFreeFlightPopulationCensus?: (census: GlobalFlightPopulationCensus) => Promise<void>;
+    resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
+    freeFlightRedisBus?: FreeFlightRedisBus;
+    freeFlightCheckpoints?: {
+      load(sessionKey: string): Promise<StoredFreeFlightCheckpoint | null>;
+      save(
+        sessionKey: string,
+        snapshot: FreeFlightSessionCheckpointV1,
+        fencingToken: number,
+        sequence: number,
+      ): Promise<boolean>;
+    };
+    freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
+      "resolveFreeFlightPatrols" | "reserveUniversePatrol" |
+      "settleScoutEncounter" | "releaseUniversePatrol">>;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
+    recordScoutResults?: (entries: readonly {
+      userId: string;
+      result: import("../game/sector-missions").SectorScoutResult;
+    }[]) => Promise<void>;
+    settleScoutEncounter?: (
+      receipt: import("../game/exploration-encounter").ExplorationReceipt,
+    ) => Promise<import("../game/exploration-settlement").ExplorationSettlement>;
+    recoverNarrativeEvidence?: (
+      userId: string,
+      evidenceId: string,
+      encounterId: string,
+    ) => Promise<"recovered" | "duplicate">;
     isAtCinderRing?: (userId: string) => Promise<boolean>;
+    resolveUniversePatrol?: (
+      userId: string,
+      faction: "ussf" | "accord",
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
+    resolveUniversePatrols?: (
+      userId: string,
+      faction: "ussf" | "accord",
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter[]>;
+    reserveUniversePatrol?: (
+      userIds: readonly string[],
+      faction: "ussf" | "accord",
+      contact: Pick<import("../game/universe-patrols").UniversePatrolEncounter, "patrolId" | "locationId" | "faction">,
+      encounterId: string,
+    ) => Promise<import("../game/universe-patrols").UniversePatrolEncounter | null>;
+    releaseUniversePatrol?: (patrolId: string, encounterId: string) => Promise<void>;
+    freeFlightPatrolSpawnDistanceMeters?: number;
     publishSectorOperation?: (state: SectorOperationPresence) => Promise<void>;
     publishCompetitiveMatch?: (state: {
       matchId: string;
@@ -144,13 +205,54 @@ export async function startWingSocketServer(
     shutdownAckTimeoutMs?: number;
   },
 ) {
+  // Enforce at the runtime boundary as well as the environment entrypoint.
+  const freeFlightReadiness = freeFlightPersistenceReadiness({
+    enabled: Boolean(options.enableFreeFlight && options.resolveFreeFlightAdmission),
+    distributed: Boolean(options.freeFlightRedisBus),
+    checkpoints: Boolean(options.freeFlightCheckpoints),
+    required: options.requireFreeFlightPersistence === true,
+  });
   const sectorRuntime = createSectorRuntime({
     loadProgress: options.loadSectorProgress,
     settle: options.settleSectorDiscovery,
+    recordScoutResults: options.recordScoutResults,
+    settleScoutEncounter: options.settleScoutEncounter,
+    recoverNarrativeEvidence: options.recoverNarrativeEvidence,
     isAtCinderRing: options.isAtCinderRing,
+    resolveUniversePatrol: options.resolveUniversePatrol,
+    reserveUniversePatrol: options.reserveUniversePatrol,
     publishOperation: options.publishSectorOperation,
     protocolVersion: options.sectorProtocolVersion,
   });
+  const localFreeFlightRuntime = options.enableFreeFlight && options.resolveFreeFlightAdmission
+    ? createFreeFlightRuntime({
+        campaignState: options.freeFlightCampaignState,
+        onCampaignJoin: options.onFreeFlightCampaignJoin,
+        enableFriendlyAiSupport: options.enableFreeFlightFriendlyAi,
+         enablePopulationTelemetry: options.enableFreeFlightPopulationTelemetry,
+        resolveAdmission: options.resolveFreeFlightAdmission,
+        loadCheckpoint: options.freeFlightCheckpoints?.load,
+        saveCheckpoint: options.freeFlightCheckpoints?.save,
+        retainEncounterReservationsOnClose: Boolean(options.freeFlightRedisBus),
+        ...(options.freeFlightCombat ?? {
+          resolveUniversePatrol: options.resolveUniversePatrol,
+          resolveUniversePatrols: options.resolveUniversePatrols,
+          reserveUniversePatrol: options.reserveUniversePatrol,
+          settleScoutEncounter: options.settleScoutEncounter,
+          releaseUniversePatrol: options.releaseUniversePatrol,
+        }),
+        patrolSpawnDistanceMeters: options.freeFlightPatrolSpawnDistanceMeters,
+      })
+    : null;
+  const freeFlightRuntime = localFreeFlightRuntime && options.freeFlightRedisBus &&
+      options.resolveFreeFlightAdmission
+    ? await createFreeFlightSharedRuntime({
+        runtime: localFreeFlightRuntime,
+        bus: options.freeFlightRedisBus,
+        resolveAdmission: options.resolveFreeFlightAdmission,
+         onGlobalPopulationCensus: options.onFreeFlightPopulationCensus,
+      })
+    : localFreeFlightRuntime;
   const rooms = new Map<string, Room>();
   const clients = new Map<WebSocket, Client>();
   const competitiveQueue: Client[] = [];
@@ -173,7 +275,13 @@ export async function startWingSocketServer(
   const httpServer = createServer((request, response) => {
     if (request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ status: "ok", rooms: rooms.size }));
+      response.end(JSON.stringify({
+        status: "ok",
+        rooms: rooms.size,
+        freeFlightSessions: freeFlightRuntime?.sessionCount ?? 0,
+        freeFlightPilots: freeFlightRuntime?.pilotCount ?? 0,
+        freeFlight: freeFlightReadiness,
+      }));
       return;
     }
     response.writeHead(404);
@@ -192,6 +300,7 @@ export async function startWingSocketServer(
       aiFillQueueRequested: boolean;
       sectorMission: string | null;
       spectateMatchId: string | null;
+      freeFlightRequested: boolean;
     }
   >();
 
@@ -222,6 +331,16 @@ export async function startWingSocketServer(
     }
     const roomId = (url.searchParams.get("room") ?? "").trim().toLowerCase();
     const sectorId = url.searchParams.get("sector");
+    const freeFlightRequested =
+      url.searchParams.get("freeflight") === "1" && url.searchParams.size === 1;
+    if (url.searchParams.has("freeflight") && !freeFlightRequested) {
+      rejectUpgrade(socket, "400 Bad Request");
+      return;
+    }
+    if (freeFlightRequested && (!options.enableFreeFlight || !freeFlightRuntime)) {
+      rejectUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
     const requestedSpectateId = url.searchParams.get("spectate");
     const spectateMatchId =
       requestedSpectateId && SPECTATE_MATCH_ID.test(requestedSpectateId)
@@ -271,7 +390,7 @@ export async function startWingSocketServer(
     }
     if (
       (url.pathname !== "/ws" && url.pathname !== "/ws/") ||
-      (!queueRequested && !roomRequested && !spectatorRequested) ||
+      (!queueRequested && !roomRequested && !spectatorRequested && !freeFlightRequested) ||
       (url.searchParams.has("spectate") && !spectatorRequested)
     ) {
       rejectUpgrade(socket, "400 Bad Request");
@@ -284,6 +403,7 @@ export async function startWingSocketServer(
         aiFillQueueRequested,
         sectorMission: sectorId,
         spectateMatchId: spectatorRequested ? spectateMatchId : null,
+        freeFlightRequested,
       });
       sockets.emit("connection", client, request);
     });
@@ -786,6 +906,7 @@ export async function startWingSocketServer(
       aiFillQueueRequested: request?.aiFillQueueRequested ?? false,
       queueEnteredAt: null,
       sectorMission: request?.sectorMission ?? null,
+      freeFlightRequested: request?.freeFlightRequested ?? false,
     };
     clients.set(socket, client);
     let authenticationTimeout: ReturnType<typeof setTimeout> | null =
@@ -890,6 +1011,16 @@ export async function startWingSocketServer(
       if (client.sectorMission) {
         void sectorRuntime.handle(socket, client.playerId, client.sectorMission, client.roomId, packet)
           .catch(() => send(socket, { type: "error", reason: "sector_service_unavailable" }));
+        return;
+      }
+
+      if (client.freeFlightRequested) {
+        if (!freeFlightRuntime || !client.playerId) {
+          send(socket, { type: "error", reason: "freeflight_unavailable" });
+          return;
+        }
+        void freeFlightRuntime.handle(socket, client.playerId, packet)
+          .catch(() => send(socket, { type: "error", reason: "freeflight_service_unavailable" }));
         return;
       }
 
@@ -1229,6 +1360,7 @@ export async function startWingSocketServer(
 
     socket.on("close", () => {
       sectorRuntime.detach(socket);
+      freeFlightRuntime?.detach(socket);
       clearAuthenticationTimeout();
       shutdownAckWaiters.get(socket)?.("closed");
       if (removeFromCompetitiveQueue(client)) matchCompetitiveQueue();
@@ -1426,6 +1558,7 @@ export async function startWingSocketServer(
   const timer = setInterval(() => {
     const now = Date.now();
     sectorRuntime.advance(now);
+    freeFlightRuntime?.advance(now);
     const shouldBroadcast = now - lastBroadcastAt >= snapshotIntervalMs;
     if (shouldBroadcast) lastBroadcastAt = now;
     for (const client of [...competitiveQueue]) {
@@ -1600,6 +1733,7 @@ export async function startWingSocketServer(
       clearInterval(timer);
       clearInterval(heartbeat);
       const sectorClosed = sectorRuntime.close();
+      const freeFlightClosed = freeFlightRuntime?.close() ?? Promise.resolve();
       const httpClosed = new Promise<void>((resolve, reject) => {
         httpServer.close((error) => (error ? reject(error) : resolve()));
       });
@@ -1663,6 +1797,7 @@ export async function startWingSocketServer(
         const results = await Promise.all(shutdownNotices);
         await Promise.all(settlementClosures);
         await sectorClosed;
+        await freeFlightClosed;
         if (results.length > 0) {
           process.stdout.write(
             `${JSON.stringify({

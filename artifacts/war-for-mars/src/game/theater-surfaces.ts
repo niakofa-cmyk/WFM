@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "./three-flight-runtime";
 
 /** Render-only detail. Never use this noise, or its output, in match simulation. */
 function noise(x: number, y: number, z: number): number {

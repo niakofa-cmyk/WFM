@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import {
+  GetWorldExplorationResultsResponse,
   GetWorldOperationsResponse,
+  GetWorldPatrolsResponse,
   LeaveWorldOperationInstanceParams,
   RegisterWorldOperationInstanceBody,
   RegisterWorldOperationInstanceParams,
@@ -9,6 +11,9 @@ import {
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
 import { OperationError, operationCoordinator } from "../game/operation-network";
 import { logger } from "../lib/logger";
+import { getRecentSectorScoutResults } from "../game/sector-progression";
+import { getUniversePatrolDirectory } from "../game/universe-patrols";
+import type { WorldPatrolDirectory } from "@workspace/api-zod";
 
 function storeUnavailable(res: import("express").Response, error: unknown, action: string): void {
   logger.error(
@@ -25,8 +30,27 @@ const MAX_OPERATION_EVENT_SUBSCRIPTIONS = 100;
 export function createWorldOperationsRouter(
   coordinator = operationCoordinator,
   eventIntervalMs = 15_000,
+  readPatrols: (userId: string) => Promise<WorldPatrolDirectory> = getUniversePatrolDirectory,
 ): IRouter {
   const router: IRouter = Router();
+  router.get("/world/patrols", requirePlayerAuth, async (req, res): Promise<void> => {
+    res.setHeader("Cache-Control", "private, no-store");
+    try {
+      const patrols = await readPatrols(playerIdFromRequest(req));
+      res.json(GetWorldPatrolsResponse.parse(patrols));
+    } catch (error) {
+      storeUnavailable(res, error, "strategic patrol directory");
+    }
+  });
+  router.get("/world/exploration/results", requirePlayerAuth, async (req, res): Promise<void> => {
+    res.setHeader("Cache-Control", "private, no-store");
+    try {
+      const results = await getRecentSectorScoutResults(playerIdFromRequest(req));
+      res.json(GetWorldExplorationResultsResponse.parse({ results }));
+    } catch (error) {
+      storeUnavailable(res, error, "scout result history");
+    }
+  });
   router.get("/world/operations", async (_req, res, next) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=5, stale-while-revalidate=10");

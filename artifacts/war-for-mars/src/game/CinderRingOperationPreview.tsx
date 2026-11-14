@@ -1,0 +1,50 @@
+import { getGetWorldOperationsQueryKey, useGetWorldOperations } from "@workspace/api-client-react";
+import { isOperationDirectoryFresh, selectCinderLiveOperations, useWorldOperationEvents } from "./world-operation-events";
+
+type Props = { onOpenOperations?: () => void };
+
+/** Read-only live signal. The server's operation admission remains in GalaxyScreen. */
+export function CinderRingOperationPreview({ onOpenOperations }: Props) {
+  const streamState = useWorldOperationEvents();
+  const query = useGetWorldOperations({
+    query: {
+      queryKey: getGetWorldOperationsQueryKey(),
+      refetchInterval: streamState === "live" ? false : 30_000,
+    },
+  });
+  const fresh = isOperationDirectoryFresh(query.data);
+  const operations = fresh ? selectCinderLiveOperations(query.data) : [];
+  if (operations.length === 0) return null;
+
+  return (
+    <section
+      aria-label="Cinder Ring live operations"
+      data-testid="cinder-live-operations"
+      className="pointer-events-auto max-w-full bg-void/45 px-2 py-1 text-shadow"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-hud text-[9px] tracking-[0.18em] text-solar">
+          CINDER RING · {streamState === "live" ? "LIVE SIGNAL" : streamState === "reconnecting" ? "RECONNECTING" : streamState === "connecting" ? "CONNECTING" : "SIGNAL UNAVAILABLE"}
+        </p>
+        {onOpenOperations ? (
+          <button
+            type="button"
+            data-testid="button-open-cinder-operations"
+            onClick={onOpenOperations}
+            className="min-h-9 px-2 font-hud text-[9px] tracking-widest text-solar hover:text-bone"
+          >
+            OPERATIONS
+          </button>
+        ) : null}
+      </div>
+      <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        {operations.slice(0, 2).map((operation) => (
+          <li key={operation.id} data-testid={`cinder-live-operation-${operation.id}`} className="text-[10px] leading-snug text-bone/85">
+            <span className="font-hud text-solar">{operation.title}</span>
+            <span className="ml-2 text-muted">{operation.experience.toUpperCase()} · {operation.currentPlayers}/{operation.capacity}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

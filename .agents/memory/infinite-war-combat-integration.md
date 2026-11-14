@@ -11,6 +11,30 @@ first versioned orbital campaign replay; capable clients receive server-selected
 Do not silently reinterpret an issued run. Keep squad orders and capital-ship
 objectives in validated co-op operations.
 
+Use Combat Lab's actual gameplay mechanics as the reference for live encounters,
+not a separate training match launched when a pilot meets a fleet.
+
+**Why:** the user explicitly wants the training flight, framing and battle
+functions carried into the continuous playable universe, followed by continued
+exploration.
+
+**How to apply:** share simulation helpers rather than replace newer authority
+and recovery code with older uploaded snapshots. Distinguish proven shared
+building blocks from features still awaiting migration or live verification.
+
+For continuous shared free flight, keep primary guns ready for every living
+pilot, including before an encounter begins. A real collision with a
+server-owned target determines damage; clients cannot choose targets or submit
+damage, kills, or rewards. Keep missiles separately governed by their lock and
+encounter rules.
+
+**Why:** The user wants the Combat Lab's ready-to-fire, hit-based combat feel
+carried into the playable universe instead of isolated behind a training link.
+
+**How to apply:** Preserve the distinction between no-reward local Combat Lab
+training and server-settled open-universe combat. Do not reintroduce an
+encounter-only gate for primary guns or trust client-reported outcomes.
+
 A verified first Contact win advances the existing campaign-clear counter,
 which unlocks Pale Beacons in the saved galaxy. Reuse this server-owned
 progression-to-map bridge instead of adding a parallel world-event store.
@@ -33,4 +57,6 @@ socket migration passes staging. See
 `docs/references/wfm-infinite-war-build-evaluation.md` for the current feature
 and pull-request review boundary. Migrate later campaign sorties only as
 versioned, client/server-parity-tested vertical slices; this first slice does
-not connect orbital combat to competitive Wing or live socket rooms.
+not connect Contact/campaign sorties to competitive Wing or sector-room
+protocols. Continuous open-flight combat remains a separate
+server-authoritative runtime.

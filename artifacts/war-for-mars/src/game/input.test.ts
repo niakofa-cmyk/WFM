@@ -1,7 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl } from "./input";
+import { clearInput, createBus, MAX_CIRCULAR_ROLL_HOLD_MS, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl } from "./input";
 import { pulseForSector } from "./pilot-stick-gestures";
+
+test("a released primary tap survives until one simulation sample, without auto-fire", () => {
+  const bus = createBus("arc");
+  bus.orbital = true;
+  bus.leftStickFlight = true;
+  bus.fireButton = true;
+  bus.firePulse = true;
+  bus.fireButton = false;
+  assert.equal(readInput(bus).fire, true);
+  assert.equal(readInput(bus).fire, false);
+  bus.firePulse = true;
+  clearInput(bus);
+  assert.equal(readInput(bus).fire, false, "blur/cancel clears queued firing");
+});
 
 test("offline Orbital left stick drives signed forward/reverse throttle and coordinated steering", () => {
   const bus = createBus("arc");
@@ -94,7 +108,7 @@ test("all four Rust Disc edge double-taps reach the matching Orbital maneuver ax
   }
 });
 
-test("circular roll streams live offline Orbital input and expires cleanly", () => {
+test("circular roll streams live Orbital input and expires cleanly", () => {
   const bus = createBus("arc");
   bus.orbital = true;
   bus.leftStickFlight = true;
@@ -125,6 +139,53 @@ test("Orbital countermeasure button is consumed as one action pulse", () => {
   bus.countermeasurePulse = true;
   assert.equal(readInput(bus).countermeasure, true);
   assert.equal(readInput(bus).countermeasure, false);
+});
+
+test("circular roll rejects invalid clocks and durations while neutralizing prior input", () => {
+  const bus = createBus("arc");
+  bus.orbital = bus.leftStickFlight = true;
+  for (const [value, at, hold] of [
+    [Infinity, 1000, 120], [NaN, 1000, 120],
+    [1, Infinity, 120], [1, NaN, 120], [1, -1, 120],
+    [1, 1000, Infinity], [1, 1000, NaN], [1, 1000, -1], [1, 1000, 0],
+  ]) {
+    setCircularRollControl(bus, 1, 1000);
+    setCircularRollControl(bus, value, at, hold);
+    assert.equal(bus.circularRoll, 0);
+    assert.equal(bus.circularRollStartedAt, 0);
+    assert.equal(bus.circularRollUntil, 0);
+    assert.equal(readInput(bus, 1050).maneuver, undefined);
+  }
+});
+
+test("circular roll watchdog cannot be extended by oversized holds or malformed bus deadlines", () => {
+  const bus = createBus("arc");
+  bus.orbital = bus.leftStickFlight = true;
+  setCircularRollControl(bus, 8, 1000, 60_000);
+  assert.equal(bus.circularRollUntil, 1000 + MAX_CIRCULAR_ROLL_HOLD_MS);
+  assert.deepEqual(readInput(bus, 1001).maneuver, { version: 1, kind: "barrel-roll-control", input: 1 });
+  assert.equal(readInput(bus, 1120).maneuver, undefined);
+  for (const [value, deadline, at] of [[1, Infinity, 1000], [NaN, 1120, 1000], [1, 60_000, 1000], [1, 1120, NaN]]) {
+    bus.circularRoll = value;
+    bus.circularRollUntil = deadline;
+    assert.equal(readInput(bus, at).maneuver, undefined);
+    assert.equal(bus.circularRollUntil, 0);
+    assert.equal(bus.circularRoll, 0);
+  }
+});
+
+test("mode changes and backward clock jumps cannot revive a prior circular roll", () => {
+  const bus = createBus("arc");
+  bus.orbital = bus.leftStickFlight = true;
+  setCircularRollControl(bus, 1, 1000);
+  assert.equal(readInput(bus, 900).maneuver, undefined);
+  setCircularRollControl(bus, 1, 1000, 1);
+  assert.equal(readInput(bus, 999).maneuver, undefined);
+  setCircularRollControl(bus, 1, 2000);
+  bus.leftStickFlight = false;
+  setCircularRollControl(bus, 1, 2001);
+  bus.leftStickFlight = true;
+  assert.equal(readInput(bus, 2050).maneuver, undefined);
 });
 
 test("campaign-compatible Orbital input omits the new training-only countermeasure field", () => {

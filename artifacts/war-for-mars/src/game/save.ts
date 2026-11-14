@@ -6,7 +6,13 @@ import type { GameProfile } from "@workspace/api-client-react";
 
 const DEVICE_KEY = "wfm-device-v1";
 
-export type DevicePreferences = { gyro: boolean; drilled: boolean };
+export type PilotControlLayout = "fixed" | "touch-anywhere";
+export type DevicePreferences = {
+  gyro: boolean;
+  drilled: boolean;
+  audioMuted?: boolean;
+  pilotControlLayout: PilotControlLayout;
+};
 
 export type Save = {
   v: 1;
@@ -50,11 +56,16 @@ export function defaultSave(): Save {
 export function loadDevicePreferences(): DevicePreferences {
   try {
     const raw = localStorage.getItem(DEVICE_KEY);
-    if (!raw) return { gyro: false, drilled: false };
+    if (!raw) return { gyro: false, drilled: false, audioMuted: false, pilotControlLayout: "fixed" };
     const value = JSON.parse(raw) as Partial<DevicePreferences>;
-    return { gyro: value.gyro === true, drilled: value.drilled === true };
+    return {
+      gyro: value.gyro === true,
+      drilled: value.drilled === true,
+      audioMuted: value.audioMuted === true,
+      pilotControlLayout: value.pilotControlLayout === "touch-anywhere" ? "touch-anywhere" : "fixed",
+    };
   } catch {
-    return { gyro: false, drilled: false };
+    return { gyro: false, drilled: false, audioMuted: false, pilotControlLayout: "fixed" };
   }
 }
 

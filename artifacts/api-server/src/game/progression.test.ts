@@ -10,6 +10,7 @@ import {
   progressionEventsTable,
   pool,
   strikeRunsTable,
+  worldDiscoveriesTable,
 } from "@workspace/db";
 import {
   ApplyProgressionActionBody,
@@ -463,6 +464,7 @@ test(
   { skip: !process.env.DATABASE_URL },
   async () => {
     const userId = `test_progression_${randomUUID()}`;
+    const unrelatedUserId = `test_narrative_isolation_${randomUUID()}`;
     const selection = {
       shipId: "mandjet",
       faction: "accord",
@@ -580,6 +582,13 @@ test(
         worldAfterContactClaim.locations.find((location) => location.id === "pale-beacons")?.unlocked,
         beaconsUnlocked,
       );
+      assert.deepEqual(
+        worldAfterContactClaim.narrative.map((record) => record.id),
+        beaconsUnlocked
+          ? ["dusk-rise", "quiet-mandate", "unlisted-expedition", "mars-is-not-empty", "last-fleet-transmission"]
+          : [],
+      );
+      assert.equal((await getWorldSnapshot(unrelatedUserId)).narrative.length, 0);
 
       // Prove the reward survives a fresh profile read, not only the claim response.
       const persistedAfterFirstClaim = await getPlayerProfile(userId);
@@ -609,6 +618,13 @@ test(
         .from(progressionEventsTable)
         .where(eq(progressionEventsTable.idempotencyKey, rewardEventKey));
       assert.equal(rewardEventsAfterDuplicate.length, 1);
+      assert.equal(
+        (await db
+          .select()
+          .from(worldDiscoveriesTable)
+          .where(eq(worldDiscoveriesTable.userId, userId))).length,
+        beaconsUnlocked ? 5 : 0,
+      );
       await assert.rejects(
         claimPlayerStrike(userId, currentRun.runId, [{
           throttle: 0,
@@ -634,7 +650,12 @@ test(
         1,
       );
     } finally {
+      await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, unrelatedUserId));
+      await db.delete(worldDiscoveriesTable).where(eq(worldDiscoveriesTable.userId, unrelatedUserId));
+      await db.delete(playerWorldStateTable).where(eq(playerWorldStateTable.userId, unrelatedUserId));
+      await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, unrelatedUserId));
       await db.delete(progressionEventsTable).where(eq(progressionEventsTable.userId, userId));
+      await db.delete(worldDiscoveriesTable).where(eq(worldDiscoveriesTable.userId, userId));
       await db.delete(strikeRunsTable).where(eq(strikeRunsTable.userId, userId));
       await db.delete(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
       await db.delete(playerProgressTable).where(eq(playerProgressTable.userId, userId));

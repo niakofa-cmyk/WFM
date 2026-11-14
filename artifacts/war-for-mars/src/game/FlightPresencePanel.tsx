@@ -1,0 +1,124 @@
+import React, { useState } from "react";
+import { FREE_FLIGHT_MAX_PILOTS, FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
+import type { SharedFlightReference } from "./free-flight-reference-frame";
+
+export type FlightPresenceEntry = {
+  actorId: string;
+  callsign: string;
+  faction: "ussf" | "accord";
+  kind: "pilot" | "patrol";
+  friendly: boolean;
+  alive: boolean;
+  distanceMeters: number;
+};
+
+type Props = {
+  entries: FlightPresenceEntry[];
+  connected: boolean;
+  region: string;
+  status: string;
+  sessionInstanceId?: string | null;
+  reference?: SharedFlightReference | null;
+};
+
+function formatRange(meters: number) {
+  if (!Number.isFinite(meters) || meters < 0) return "RANGE —";
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} KM` : `${Math.round(meters)} M`;
+}
+
+export function SharedFlightReferenceReadout({ reference }: { reference: SharedFlightReference }) {
+  return (
+    <div data-testid="text-flight-reference" className="mt-1 font-mono text-[9px] text-bone/70">
+      <p>FRAME · {reference.frameId} · METRES</p>
+      <p>SECTOR · {reference.sector.x} / {reference.sector.y} / {reference.sector.z}</p>
+      <p>LOCAL XYZ · {reference.local.x.toFixed(1)} / {reference.local.y.toFixed(1)} / {reference.local.z.toFixed(1)}</p>
+      <p>MOON RANGE · {reference.moonRange.toFixed(1)} m</p>
+      <p>MOON ΔXYZ · {reference.moonOffset.x.toFixed(1)} / {reference.moonOffset.y.toFixed(1)} / {reference.moonOffset.z.toFixed(1)}</p>
+    </div>
+  );
+}
+
+export function FlightPresencePanel({ entries, connected, region, status, sessionInstanceId, reference }: Props) {
+  const [open, setOpen] = useState(false);
+  const sorted = connected ? [...entries].sort((a, b) => a.distanceMeters - b.distanceMeters) : [];
+  const humans = sorted.filter((e) => e.kind === "pilot").length;
+  const ai = sorted.length - humans;
+
+  return (
+    <div className="pointer-events-auto font-hud">
+      <button
+        type="button"
+        data-testid="button-flight-presence"
+        data-session-instance={connected ? sessionInstanceId ?? undefined : undefined}
+        aria-expanded={open}
+        aria-controls="flight-presence-panel"
+        onClick={() => setOpen((v) => !v)}
+        className="border border-solar/50 bg-void/85 px-2 py-1 text-[10px] tracking-widest text-solar hover:bg-solar/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-solar"
+      >
+        PILOTS {connected ? `· ${humans + 1} HUMAN · ${ai} AI` : "· —"} {open ? "▴" : "▾"}
+      </button>
+      {open ? (
+        <section
+          id="flight-presence-panel"
+          data-testid="panel-flight-presence"
+          aria-label="Nearby pilots"
+          className="mt-1 w-[min(18rem,80vw)] border border-bone/15 bg-void/90 text-bone"
+        >
+          <header className="border-b border-bone/10 px-2 py-1.5">
+            <p className="text-[9px] tracking-[0.18em] text-spectral">{connected ? "SERVER-CONFIRMED NEARBY" : "PRESENCE UNCONFIRMED"} · {region.toUpperCase()}</p>
+            <p data-testid="status-flight-presence" role="status" aria-live="polite" className="mt-0.5 text-[9px] tracking-wide text-muted">
+              {status}
+            </p>
+            {connected && sessionInstanceId ? (
+              <p data-testid="text-flight-session" className="mt-1 break-all font-mono text-[9px] text-bone/70">
+                SHARED SESSION · {sessionInstanceId}
+              </p>
+            ) : null}
+            {connected && reference ? (
+              <SharedFlightReferenceReadout reference={reference} />
+            ) : null}
+          </header>
+          {!connected ? (
+            <p data-testid="text-flight-presence-unconfirmed" className="px-2 py-2 text-[10px] leading-snug text-alert">
+              Live nearby contacts cannot be confirmed; no earlier roster is shown.
+            </p>
+          ) : sorted.length === 0 ? (
+            <p data-testid="text-flight-presence-empty" className="px-2 py-2 text-[10px] leading-snug text-muted">
+              No contacts confirmed near you in this region. Pilots elsewhere are not listed.
+            </p>
+          ) : (
+            <ul className="max-h-[40dvh] overflow-y-auto">
+              {sorted.map((e) => (
+                <li
+                  key={e.actorId}
+                  data-testid={`row-flight-presence-${e.actorId}`}
+                  className={`flex items-center justify-between gap-2 border-b border-bone/5 px-2 py-1 text-[10px] ${e.alive ? "" : "opacity-50"}`}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className={`shrink-0 border px-1 text-[8px] tracking-widest ${e.kind === "pilot" ? "border-solar/60 text-solar" : "border-bone/30 text-bone/70"}`}
+                    >
+                      {e.kind === "pilot" ? "HUMAN" : "AI"}
+                    </span>
+                    <span className="truncate">{e.callsign}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5 text-[9px] tracking-wide">
+                    <span className={e.friendly ? "text-green-300" : "text-alert"}>
+                      {e.friendly ? "FRIENDLY" : "HOSTILE"} · {e.faction.toUpperCase()}
+                    </span>
+                    <span className="text-muted">{e.alive ? formatRange(e.distanceMeters) : "DISABLED"}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+            <p className="px-2 py-1 text-[8px] tracking-wide text-muted">
+              Human count includes you; rows show other nearby contacts, not a global roster.
+              Compare location and shared session on both phones.
+              {" "}{FREE_FLIGHT_MAX_PILOTS} pilot seats · up to {FREE_FLIGHT_MAX_ENCOUNTER_PILOTS} pilots per fleet encounter, subject to total actor capacity.
+            </p>
+        </section>
+      ) : null}
+    </div>
+  );
+}

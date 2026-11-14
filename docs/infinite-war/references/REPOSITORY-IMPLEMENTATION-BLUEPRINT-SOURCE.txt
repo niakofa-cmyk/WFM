@@ -1,0 +1,568 @@
+# WFM — Repository-specific implementation blueprint
+
+I checked the current `staging` branch again. The key finding is that the story, campaign, cooperative missions, and orbital runtime are still separate systems that need to be connected through shared data contracts and server-authoritative operations.
+
+Implementation not yet present
+
+Baseline: `3663e144938ba931cccaa624004814ab0fd65ff1`
+
+The most important source-level findings:
+
+- `campaign.ts` defines Contact, Beacon, Warden, and Cage, plus the skirmish path.
+- `sector-missions.ts` defines Rust Disc, Mars Approach, Pale Beacons, and Iron Eclipse. These are not the same mission catalog.
+- The cooperative mission definitions use variations of the same `RUST_DISC_SECTOR` geometry with a 3,000-unit radius and fixed Mars position. They are not yet a continuous planetary route network.
+- The same sector mission and protocol definitions are duplicated in the game client and API server.
+- `command-briefing.ts` is explicitly presentation-only. It does not establish authoritative campaign progression.
+- The current tactical command protocol has only Attack, Defend, Escort, and Regroup, with limited target semantics.
+- `DeploymentBriefing.tsx` presents a fixed-duration arena-style briefing, rather than a complete operation order with route, phases, threats, wing assignments, and extraction conditions.
+
+The implementation should preserve the existing story mystery—especially the Warden, Eon Dusk, the Cage, and the signal beneath Mars—while making those events part of one connected universe.
+
+## 1. Target architecture and exact repository boundaries
+
+The following is the proposed implementation map. These are planned module boundaries, not claims that the files already exist.
+
+| Area                                | Existing source                                                     | Proposed responsibility                                               |
+| ----------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Canonical world and route contracts | `lib/orbital-sim/src/`                                              | Shared route, coordinate, region, POI, event and world-time contracts |
+| Canonical mission catalog           | `lib/orbital-sim/src/`                                              | One mission/operation catalog imported by client and server           |
+| Campaign narrative                  | `artifacts/war-for-mars/src/game/campaign.ts`                       | Story chapters, narrative prerequisites, intel and mission references |
+| Cooperative missions                | `artifacts/war-for-mars/src/game/sector-missions.ts`                | Replace duplicated mission definitions with shared catalog imports    |
+| API mission authority               | `artifacts/api-server/src/game/sector-missions.ts`                  | Validate mission state, objectives, commands and completion on server |
+| Live sector runtime                 | `artifacts/api-server/src/socket/sector-runtime.ts`                 | Run operation phases, AI orders, event state and extraction           |
+| Socket protocol                     | `artifacts/api-server/src/socket/sector-feature.ts`                 | Validate and route authenticated command and operation packets        |
+| World authority                     | `artifacts/api-server/src/game/orbital-authority.ts`                | Connect operation state to Orbital simulation authority               |
+| Navigation                          | `artifacts/war-for-mars/src/game/sector-navigation.ts`              | Render route and destination information from canonical world data    |
+| Player operation experience         | `artifacts/war-for-mars/src/game/SectorExpedition.tsx`              | Deployment, navigation, wing orders, objectives and debrief           |
+| Briefings                           | `artifacts/war-for-mars/src/game/DeploymentBriefing.tsx`            | Display actual operation orders and dynamic mission conditions        |
+| Persistence                         | `docs/migrations/universe-services.sql` and API progression modules | Persist validated operation outcomes and world-state changes          |
+
+Engine boundary: Orbital Combat Engine remains the exclusive game engine and runtime. It must own rendering, world simulation, flight, physics, combat, camera, streaming and spatial effects. React remains the interface layer. No Three.js renderer or parallel Three.js game runtime should be introduced.
+
+### One canonical source of truth
+
+The first technical change should eliminate the duplicate client/server mission catalog.
+
+I recommend creating shared contracts and data modules under:
+
+```
+lib/orbital-sim/src/universe/
+  coordinates.ts
+  world-clock.ts
+  regions.ts
+  routes.ts
+  points-of-interest.ts
+  world-events.ts
+  operations.ts
+  commands.ts
+  index.ts
+```
+
+The API server should import these definitions and validate every player request against them. The client should use the same definitions to render its map and mission briefings. The client must never be trusted to declare that an objective was completed.
+
+## 2. Canonical route and world data model
+
+Routes should become navigable geographic corridors, not separate mission arenas. A route can guide the player toward an objective, but it must not confine the player to a mission-specific bubble.
+
+A proposed TypeScript contract:
+
+```
+export type WorldBodyId =
+  | "mars"
+  | "phobos"
+  | "deimos"
+  | "outer-fringe";
+
+export type RouteLayer =
+  | "interplanetary"
+  | "planetary-orbit"
+  | "moon-orbit"
+  | "station-approach"
+  | "atmospheric"
+  | "surface";
+
+export type WorldRoute = {
+  id: string;
+  version: number;
+  bodyId: WorldBodyId;
+  layer: RouteLayer;
+
+  originPoiId: string;
+  destinationPoiId: string;
+
+  corridor: {
+    waypoints: Array<{
+      id: string;
+      position: WorldPosition;
+    }>;
+    preferredLane?: string;
+    deviationRadius?: number;
+  };
+
+  hazards: string[];
+  factionPresence: string[];
+  eventPool: string[];
+  operationIds: string[];
+
+  discovery: {
+    initiallyKnown: boolean;
+    unlockCondition?: string;
+  };
+};
+```
+
+`WorldPosition` should be a shared Orbital-native world coordinate contract—not a fresh collection of unrelated local `Vector3` coordinates for every mission.
+
+The route model should support:
+
+- Body-centered and sector-local coordinate transforms.
+- A rotating Mars frame and shared universe clock.
+- High orbit, low orbit, moon orbit, stations and other destinations.
+- Day-to-night-to-day travel without a mission reset.
+- Streaming boundaries and sector handoffs.
+- POIs that remain discoverable outside the campaign.
+- Route hazards and dynamic events that can change while players are in transit.
+
+Important: Do not pretend that a Mars surface, atmospheric flight, or planetary landing is implemented merely because a route record describes it. Each route layer needs a capability flag and an acceptance test proving that the Orbital runtime supports it.
+
+### Initial Mars route catalog
+
+| Route or destination | Narrative purpose           | Gameplay purpose                                             |
+| -------------------- | --------------------------- | ------------------------------------------------------------ |
+| Rust Disc            | First unexplained signal    | Relay recovery, salvage, patrols and distress calls          |
+| Mars Approach        | Arrival at the Mars theater | Orbital reconnaissance, traffic and defense-grid encounters  |
+| Pale Beacons         | Signal conspiracy           | Triangulation, sensor operations and anomaly investigation   |
+| Night-side Station   | Warden blockade             | Day/night navigation, blackout, rescue and interception      |
+| Dust Lane            | The Cage operation          | Convoy escort, pursuit, ambush and extraction                |
+| Phobos Yard          | Fleet logistics hub         | Docking, refitting, squad assembly and supply                |
+| Iron Eclipse         | Major fleet engagement      | Capital-ship assault, wing coordination and fleet objectives |
+
+This gives the story recognizable geography. The player is no longer selecting a disconnected map and pretending to travel through a universe.
+
+## 3. Rebuild the storyline as a connected operation sequence
+
+The current narrative already has a strong foundation. I would retain its original mystery and reorganize the experience around these chapters:
+
+1. Chapter I — Silent Frontier
+
+   Contact at Rust Disc. Recover the relay and its route key. Establish that the signal is not an ordinary distress call.
+2. Chapter II — Mars Arrival
+
+   Mars Approach. Enter the orbital theater, encounter its defense and traffic network, and establish Phobos Yard as a real destination.
+3. Chapter III — Pale Beacon Conspiracy
+
+   Trace the beacon chain. Discover that someone has deliberately kept the receivers silent.
+4. Chapter IV — Night-side Blockade
+
+   Follow the signal across Mars's day/night boundary. Find the Warden and recover its black box.
+5. Chapter V — Eon Dusk Extraction
+
+   The Cage becomes a multi-stage convoy operation. The player can intercept the transport or protect it, depending on faction and mission context.
+6. Chapter VI — Iron Eclipse
+
+   A major fleet operation that belongs to the larger war chronology. Its trigger, strategic consequences and relationship to the signal must be established in the story bible.
+7. Chapter VII — Beyond the Signal
+
+   The Mars mystery opens into the wider universe: new systems, civilizations, anomalies and future theaters.
+
+These are proposed chapter placements, not a claim that all seven are currently implemented.
+
+### Critical story rule
+
+The campaign must not force every player into a single linear activity list.
+
+The narrative should have:
+
+- Main story operations that advance the central mystery.
+- Optional investigations that reveal additional information.
+- Repeatable patrol, escort, rescue, salvage and defense operations.
+- Faction-driven operations with different objectives.
+- Persistent world events that can be encountered without starting a campaign mission.
+
+A player who ignores the campaign should still be able to explore, fight, cooperate, discover and participate in the persistent universe.
+
+## 4. Operation framework: replace disconnected mission scripts
+
+Create reusable operation definitions. A mission should describe what is happening in the world; an operation instance should describe what a particular group of players is doing about it.
+
+Proposed operation contract:
+
+```
+export type OperationType =
+  | "patrol"
+  | "recon"
+  | "escort"
+  | "convoy-defense"
+  | "interception"
+  | "rescue"
+  | "station-recovery"
+  | "suppression"
+  | "capital-assault"
+  | "anomaly-investigation"
+  | "salvage";
+
+export type OperationPhase =
+  | "briefing"
+  | "staging"
+  | "travel"
+  | "engagement"
+  | "objective"
+  | "contingency"
+  | "extraction"
+  | "debrief"
+  | "failed"
+  | "interrupted";
+
+export type OperationDefinition = {
+  id: string;
+  storyChapterId?: string;
+  routeIds: string[];
+  type: OperationType;
+
+  factionRules: {
+    eligibleFactions: string[];
+    opposingFactions: string[];
+  };
+
+  phases: Array<{
+    id: string;
+    phase: OperationPhase;
+    objectiveIds: string[];
+    entryConditions?: string[];
+    exitConditions: string[];
+    eventPool?: string[];
+  }>;
+
+  objectives: OperationObjective[];
+  rewards: OperationRewardRules;
+  worldConsequences: WorldConsequence[];
+};
+```
+
+The first implementation should not attempt to create every operation type at once. It should prove one complete, reusable operation lifecycle, then use that framework to build additional operations.
+
+### Escort and convoy missions need a substantial upgrade
+
+An escort must be an actual moving entity in the shared world—not a stationary objective marker with a countdown.
+
+It needs:
+
+- A convoy with position, velocity, route and destination.
+- Individual vessel health, shields, cargo and operational state.
+- Friendly and hostile escort vessels.
+- Threats that can emerge along the route.
+- Orders that can change convoy speed, formation and destination.
+- Contingencies such as engine damage, route obstruction, ambush or rescue.
+- Outcomes based on cargo survival, convoy survival, time, and optional objectives.
+- A server-validated debrief and persistent consequences.
+
+For Cage, this means the player is participating in an unfolding military operation rather than simply winning an arena condition.
+
+## 5. Rebuild military command as a real gameplay system
+
+The current command protocol is a useful starting point, but it is not yet a complete military command structure.
+
+I recommend five command levels:
+
+| Level     | Authority         | Example                                |
+| --------- | ----------------- | -------------------------------------- |
+| Strategic | Faction / theater | Secure Mars orbit                      |
+| Fleet     | Fleet commander   | Protect the Phobos supply corridor     |
+| Squadron  | Squadron leader   | Intercept hostile reinforcements       |
+| Wing      | Wing leader       | Assign formation and target priorities |
+| Tactical  | Individual pilot  | Attack, defend, escort, regroup        |
+
+### Proposed tactical command vocabulary
+
+Preserve the existing commands, then expand them:
+
+| Command       | Expected gameplay behavior                         |
+| ------------- | -------------------------------------------------- |
+| Attack        | Engage a specified hostile target or target group  |
+| Defend        | Protect a specified pilot, vessel or objective     |
+| Escort        | Maintain formation and protect a moving asset      |
+| Regroup       | Return to the assigned formation or rally point    |
+| Hold Position | Maintain a designated location or patrol boundary  |
+| Intercept     | Pursue and engage a moving target                  |
+| Cover         | Protect an allied unit or assigned approach vector |
+| Suppress      | Reduce hostile effectiveness in a designated area  |
+| Disengage     | Break contact and move toward a safe rally point   |
+| Recon         | Scan a location or target and report discoveries   |
+| Salvage       | Recover designated resources or wreckage           |
+
+A command must have an actual effect on the simulation. A button that changes text on the HUD is not a working command.
+
+### Command packet proposal
+
+```
+export type TacticalOrderType =
+  | "attack"
+  | "defend"
+  | "escort"
+  | "regroup"
+  | "hold-position"
+  | "intercept"
+  | "cover"
+  | "suppress"
+  | "disengage"
+  | "recon"
+  | "salvage";
+
+export type TacticalOrder = {
+  id: string;
+  operationId: string;
+  issuedByPilotId: string;
+  assignedUnitIds: string[];
+
+  order: TacticalOrderType;
+
+  target?: {
+    entityId?: string;
+    poiId?: string;
+    position?: WorldPosition;
+  };
+
+  priority: "low" | "normal" | "high" | "critical";
+  issuedAtTick: number;
+  expiresAtTick?: number;
+};
+```
+
+The server must validate the issuer's authority, assigned units, operation state, target validity and order permissions. It then applies the command to the authoritative AI or player-controlled wing state and publishes the resulting snapshot.
+
+Do not give every player unrestricted fleet-command authority. Command permissions should follow squad leadership and operation roles, with clear delegation and succession when the leader disconnects.
+
+## 6. Three connected map experiences
+
+The map should be one view of the same world data, with three functional layers.
+
+[AI Robotic Space Systems - Space Dust Industries Inc.](https://images.openai.com/static-rsc-4/aMwDzG7_OkCM-nPrEAdhlVmcRP7QUyRlnJMTC-GreajLSeVNtWuvVz0JdEJD0gwDjiTyIFjBIP_6Lw6m5ClEoAILy4IK9Kkb7ZRf1utTVNl6nCp3zkVTsbdHRaqvSTc3tdi_mqTREqzBCpwiv_F2ndOGT-Nr2-ULIgnu6mFPBh8?purpose=inline)
+
+Navigation map
+
+Pilot-facing map with current position, route, destination, waypoints, POIs, hazards and nearby traffic. Supports route selection without restricting free flight.
+
+[4X Space Strategy Game: Explore and Conquer | Aleryos](https://images.openai.com/static-rsc-4/RHTZTGJen10v30Y8SEn1GvjpWyYVNxlDG59q4sJYeDr8kUhMiqNpv4kAFS56H5k40aIl8FqHcrTTI-6LEkrPE0YP9PIjso0MIKkSb65QbM1pjDt9QeojkilZkpIFjjWri7PQlaciw_tAO0D7Ds0cpGWYWPCDJtz4Ns2KEWRdeE4?purpose=inline)
+
+Operational map
+
+Shows friendly and hostile units, convoy movements, mission objectives, threat zones, squad positions and active events.
+
+[Actualités Aleryos : mises à jour et événements | Aleryos](https://images.openai.com/static-rsc-4/6z6flkIbubZVr0V4mkIRm4dkJYoVp28SULDIJR7W4tyKmFmHhQ2uPQoompcqLl1f_ZARkGPKLHEdknRdDqa8S8R7J49UJeElc8JS4dTe87cmcr0be6_QY8--L8l7OXENfTsFO4DkihxHthpi4CEbye1ou5nFMXdSZlpvpBAEN18?purpose=inline)
+
+Strategic command map
+
+Shows the wider theater: planetary regions, fleet deployments, faction influence, supply corridors, discovered systems and strategic events.
+
+All three maps must reference the same canonical coordinate, route, POI and entity identifiers. They must not become three independently maintained maps.
+
+## 7. The first implementation milestone
+
+I recommend a single vertical slice named:
+
+Operation: NIGHTFALL — The Mars Night-side Corridor
+
+This is the best first proof because it tests the storyline, continuous geography, navigation, commands, multiplayer, AI and persistent consequences together.
+
+## Operation NIGHTFALL
+
+First vertical slice
+
+[Космическая стратегия Falling Frontier отложена до 2025 года](https://images.openai.com/static-rsc-4/GVjq7Kqk6ovtVO2Hd3U5aEmkX_Yvo8bSb96f9epnI6CmI0rodv0E-_y6kUVzZnRdm_zMGbd87bfglYA8sOeH9JEDpub5yxqlXRFlN6lajmt6B6FoJ9xj5b86VxjyQvfBjDyg4oZpvod9YmpuouzW-XIk68ufLR_LW96hkADUcPU?purpose=inline)
+
+[playground.ru](https://www.playground.ru/falling_frontier/news/kosmicheskaya_strategiya_falling_frontier_otlozhena_do_2025_goda-1665748?utm_source=chatgpt.com)
+
+Mission premise
+
+A USSF wing receives orders to investigate the loss of a Mars night-side relay. The route crosses from the daylight hemisphere into darkness. A damaged station and an unidentified convoy are discovered. Hostile forces attempt to prevent the wing from recovering the station's flight recorder.
+
+Playable sequence
+
+1. Receive a command briefing and assigned wing role.
+2. Launch into the existing Orbital world.
+3. Navigate along the actual Mars orbital corridor.
+4. Cross the day/night boundary without a mission reset or player-state discontinuity.
+5. Encounter a dynamic distress event and make an operational decision.
+6. Issue wing orders and verify that AI units respond in the authoritative simulation.
+7. Recover the station recorder or complete an alternate objective.
+8. Extract, receive a validated debrief and record the outcome.
+9. Revisit the world and verify that the resulting event and progression state persisted.
+
+### What must be demonstrated
+
+- The Orbital engine renders and simulates the entire playable journey.
+- Mars uses a consistent coordinate and world-time model.
+- The player can navigate beyond the original bounded mission sector.
+- At least two authenticated pilots share authoritative world and event state.
+- Commands cause observable AI or unit behavior.
+- The operation can be interrupted and resumed according to defined rules.
+- Completion is validated by the API, not asserted by the client.
+- A reconnect does not duplicate rewards or corrupt operation state.
+- The debrief records optional and primary objectives separately.
+- The world consequence is visible after the operation ends.
+
+## 8. Implementation phases and PR boundaries
+
+I would not put this entire transformation into one enormous code change. The safer approach is a sequence of independently reviewable staging PRs.
+
+| Phase | PR scope                                    | Completion gate                                          |
+| ----- | ------------------------------------------- | -------------------------------------------------------- |
+| 0     | Story and source-of-truth audit             | Canonical story bible and continuity decisions approved  |
+| 1     | Shared world, route and operation contracts | Client and server consume the same definitions           |
+| 2     | Mars coordinate and route foundation        | Navigation across the Mars day/night boundary            |
+| 3     | Operation lifecycle                         | Server-controlled phases, objectives and extraction      |
+| 4     | Command authority and AI behavior           | Orders validated and visibly executed                    |
+| 5     | Multiplayer and persistence                 | Two pilots, reconnect, settlement and world consequences |
+| 6     | NIGHTFALL vertical slice                    | Complete journey passes all acceptance tests             |
+| 7     | Wider universe expansion                    | Additional destinations, systems and anomaly frameworks  |
+
+### Specific tests to add
+
+Shared contracts
+
+- Client and server resolve the same mission and route IDs.
+- Invalid route references and unknown operation IDs are rejected.
+- Versioned protocol compatibility is tested.
+- Coordinate conversions remain deterministic.
+
+Navigation and world
+
+- Mars rotation and day/night continuity are correct.
+- A pilot can leave and re-enter a route corridor.
+- Sector handoffs preserve position, velocity and orientation.
+- POIs and events remain stable across streaming and reconnect.
+- Streaming does not duplicate world entities.
+
+Commands
+
+- Unauthorized pilots cannot issue leader-only orders.
+- Invalid targets are rejected.
+- Expired orders do not remain active.
+- AI responds to each supported command.
+- Leader disconnect and succession are handled safely.
+
+Operations
+
+- Objectives cannot be completed by client-only messages.
+- Optional objectives do not incorrectly fail primary objectives.
+- Escort and convoy outcomes use actual asset state.
+- Extraction is validated on the server.
+- Interrupted operations have deterministic recovery behavior.
+
+Persistence and multiplayer
+
+- Two authenticated pilots observe consistent operation state.
+- Reconnect restores the correct operation snapshot.
+- Completion and rewards are idempotent.
+- Duplicate settlement requests do not duplicate rewards.
+- World consequences persist and are visible to subsequent players.
+
+## 9. The developer implementation directive
+
+This is the directive I would give the engineering team for the first implementation PR.
+
+# WAR FOR MARS: INFINITE WAR
+
+## Implementation Directive — Unified Story, Mars Routes, Military Commands and Operations
+
+### Objective
+
+Transform the existing campaign, cooperative sector missions, route system and tactical command implementation into one coherent, persistent, multiplayer universe powered exclusively by the Orbital Combat Engine.
+
+This is not a new game beside the current game. The Orbital runtime is the game. All campaign, exploration, fleet operations, cooperative missions, competitive engagements and persistent-world activities must ultimately run through that same engine and world.
+
+### Non-negotiable architecture
+
+1. Orbital Combat Engine exclusively owns game rendering, simulation, physics, flight, combat, world coordinates, camera, effects and streaming.
+2. React remains the interface layer for menus, HUD, briefings, hangar, maps and account experiences.
+3. The API remains authoritative for identity, operation permissions, multiplayer state, persistence and rewards.
+4. Create one shared mission, route, operation and command contract. Do not maintain separate client and server copies.
+5. Do not introduce a Three.js renderer or parallel game runtime. Extract useful techniques from reference systems and implement them natively in Orbital.
+6. Preserve existing functionality until its replacement has demonstrated parity and passed its acceptance tests.
+
+### Story requirements
+
+- Audit existing campaign, dispatches, recovered intelligence, factions, mission descriptions and all available original owner-provided narrative documents.
+- Preserve the central mystery involving the Rust Disc, Pale Beacons, Warden, Eon Dusk, the Cage and the signal beneath Mars.
+- Establish one canonical chronology and connect Iron Eclipse to the larger war.
+- Distinguish established canon from proposed narrative additions.
+- Make campaign chapters, optional investigations and repeatable operations part of one connected universe.
+- Do not discard original owner source material or silently overwrite existing narrative.
+
+### World and route requirements
+
+- Create shared contracts for world positions, bodies, regions, routes, POIs, events and world time.
+- Make Mars a continuous navigable theater with day/night continuity.
+- Support orbital corridors, stations, Phobos and Deimos destinations, and future planetary and interplanetary expansion.
+- Keep routes advisory rather than restrictive.
+- Implement coordinate transforms, streaming handoffs, world persistence and multiplayer interest management.
+- Mark unimplemented world layers explicitly; do not advertise unsupported landing, atmospheric or surface gameplay as complete.
+
+### Mission and operation requirements
+
+- Replace disconnected mission-specific logic with reusable operation definitions and instances.
+- Support patrol, reconnaissance, escort, convoy defense, interception, rescue, station recovery, suppression, capital assault, anomaly investigation and salvage.
+- Model operation phases, objectives, contingencies, extraction and debrief.
+- Model moving convoy assets and their physical state.
+- Connect operation outcomes to authoritative progression and persistent world consequences.
+
+### Command requirements
+
+- Implement strategic, fleet, squadron, wing and tactical authority levels.
+- Preserve Attack, Defend, Escort and Regroup.
+- Add Hold Position, Intercept, Cover, Suppress, Disengage, Recon and Salvage as supported by actual AI behavior.
+- Validate issuer permissions, target validity, operation state and command expiry on the server.
+- Commands must change authoritative AI and unit behavior. HUD-only command acknowledgements do not count.
+
+### First vertical slice
+
+Implement Operation NIGHTFALL: The Mars Night-side Corridor.
+
+The complete journey must include briefing, launch, actual world navigation, day/night transition, dynamic event, multiplayer wing coordination, authoritative orders, objective completion, extraction, debrief, persistence and reconnect verification.
+
+### Required deliverables
+
+1. Canonical story bible and chronology.
+2. Continuity and source-document audit.
+3. Unified mission and operation catalog.
+4. Shared route, world and coordinate contracts.
+5. Mars navigation and POI specification.
+6. Military command hierarchy and protocol.
+7. Server-authoritative operation lifecycle.
+8. AI command execution and validation tests.
+9. Persistent world-event and progression integration.
+10. NIGHTFALL vertical slice and end-to-end test evidence.
+11. Orbital-native implementation and migration plan.
+12. Staging verification report with known limitations.
+
+### Execution rules
+
+- Work from the current staging branch.
+- Inspect actual files and existing interfaces before changing architecture.
+- Prefer small, reviewable PRs with explicit scope.
+- Run relevant tests, type checks, builds and multiplayer integration tests.
+- Do not silently remove legacy implementations.
+- Do not modify Production data, credentials, Railway configuration or deployments without explicit authorization.
+- Do not claim a feature is implemented until source inspection and runtime tests demonstrate it.
+
+### Definition of done
+
+The player can enter the same persistent Orbital universe, receive a coherent military operation, navigate the real world, coordinate with other pilots, issue effective orders, complete objectives, extract, reconnect and observe validated consequences in the world. The experience must be one game, one runtime and one connected universe.
+
+## 10. What I would do first
+
+There is one important sequencing decision: do not start by rewriting every mission or adding more routes. First establish the shared contracts and authoritative operation lifecycle. Otherwise, new missions will reproduce the same fragmentation under new names.
+
+I would start the first PR with:
+
+1. `lib/orbital-sim/src/universe/` — shared route, operation and command contracts.
+2. `artifacts/war-for-mars/src/game/sector-missions.ts` — consume the shared catalog.
+3. `artifacts/api-server/src/game/sector-missions.ts` — remove duplicated definitions and validate shared catalog data.
+4. `artifacts/api-server/src/socket/sector-runtime.ts` and `sector-feature.ts` — define the operation lifecycle and command authority integration.
+5. Tests for contract parity, mission prerequisites, command validation and operation transitions.
+
+Then build NIGHTFALL as the first proof—not as a throwaway demo, but as the first reusable operation running through the intended architecture.
+
+One repository status note: PR #15's documentation files were not present on the inspected `staging` tree, and its returned GitHub metadata had conflicting state indicators. The blueprint above is therefore grounded in the source files actually retrieved from staging, not an assumption that PR #15's documentation has been integrated.
+
+The next engineering action should be to implement the shared contracts and operation lifecycle on a new staging feature branch, with no Production deployment or data changes.

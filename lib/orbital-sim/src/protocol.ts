@@ -1,5 +1,8 @@
 import { ORBITAL_RULES_VERSION, type FlightControls } from "./flight";
 
+/** Optional server-advertised live maneuver; ordinary Orbital input stays compatible. */
+export const BARREL_ROLL_CONTROL_PROTOCOL_V1 = "orbital-barrel-roll-control-v1" as const;
+
 export type OrbitalInput = FlightControls & {
   version: typeof ORBITAL_RULES_VERSION; seq: number; targetId: number | null;
   fire: boolean; missile: boolean; boost: boolean; brake: boolean; inertial: boolean; aimAssist: boolean; countermeasure: boolean;
@@ -17,10 +20,25 @@ export type InputResult = { ok: true; input: OrbitalInput } | { ok: false; reaso
 export function parseOrbitalInput(value: unknown): InputResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, reason: "invalid_packet" };
   const packet = value as Record<string, unknown>;
-  if (Object.keys(packet).some((key) => !KEYS.has(key)) || Object.keys(packet).length !== KEYS.size) return { ok: false, reason: "invalid_packet" };
+  const hasManeuver = Object.hasOwn(packet, "maneuver");
+  if (Object.keys(packet).some((key) => !KEYS.has(key) && key !== "maneuver") ||
+      Object.keys(packet).length !== KEYS.size + Number(hasManeuver)) return { ok: false, reason: "invalid_packet" };
   if (packet.version !== ORBITAL_RULES_VERSION) return { ok: false, reason: "version" };
   if (!Number.isSafeInteger(packet.seq) || (packet.seq as number) < 1 || (packet.seq as number) > 0x7fffffff) return { ok: false, reason: "sequence" };
   if (packet.targetId !== null && (!Number.isSafeInteger(packet.targetId) || (packet.targetId as number) < 1)) return { ok: false, reason: "invalid_packet" };
+  let maneuver: FlightControls["maneuver"];
+  if (hasManeuver) {
+    const raw = packet.maneuver;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, reason: "invalid_packet" };
+    const control = raw as Record<string, unknown>;
+    if (Object.keys(control).length !== 3 ||
+        !Object.hasOwn(control, "version") || !Object.hasOwn(control, "kind") || !Object.hasOwn(control, "input") ||
+        control.version !== 1 || control.kind !== "barrel-roll-control" ||
+        typeof control.input !== "number" || !Number.isFinite(control.input) || Math.abs(control.input) > 1) {
+      return { ok: false, reason: "invalid_packet" };
+    }
+    maneuver = { version: 1, kind: "barrel-roll-control", input: control.input };
+  }
   for (const key of AXES) {
     const axis = packet[key];
     if (typeof axis !== "number" || !Number.isFinite(axis) || Math.abs(axis) > 1) return { ok: false, reason: "invalid_packet" };
@@ -30,5 +48,6 @@ export function parseOrbitalInput(value: unknown): InputResult {
     throttle: packet.throttle as number, yaw: packet.yaw as number, pitch: packet.pitch as number, strafe: packet.strafe as number,
     vertical: packet.vertical as number, roll: packet.roll as number, fire: packet.fire as boolean, missile: packet.missile as boolean,
      boost: packet.boost as boolean, brake: packet.brake as boolean, inertial: packet.inertial as boolean,
-     aimAssist: packet.aimAssist as boolean, countermeasure: packet.countermeasure as boolean } };
+      aimAssist: packet.aimAssist as boolean, countermeasure: packet.countermeasure as boolean,
+      ...(maneuver ? { maneuver } : {}) } };
 }

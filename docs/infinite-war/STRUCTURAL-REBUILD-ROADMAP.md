@@ -1,22 +1,50 @@
 # WAR FOR MARS: THE INFINITE WAR — structural rebuild roadmap
 
+## Phase 0 extraction audit
+
+The latest user-provided rebuild direction requires the complete extraction
+audit before more isolated prototypes. The current source-level audit is
+[`ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md).
+It maps boot/runtime ownership, simulation imports, renderer lifecycle,
+controls, authority, and real mode launch paths. Source inventory is complete;
+automated path-contract tests and authenticated staging reconciliation remain
+open proof gates.
+
+The full user source is preserved at
+[`references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt`](references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt).
+Its priority is to make Orbital the actual WFM game engine, preserve working
+authority services during migration, and execute mode migrations in sequence.
+
+## First local runtime slice
+
+The offline Orbital universe now has one Arena-owned exploration, deterministic
+streamed local sectors, physical Cinder docking, training/debrief and
+retained-flight return loop.
+See [implementation and evidence](ORBITAL-LOCAL-UNIVERSE-SLICE.md).
+Interactive browser certification is blocked by the test browser's unavailable
+WebGL context; do not mark the full rebuild or online migration complete.
+
 ## Current precedence
 
-The 2026-11-06 master directive
-`Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`
-now controls the immediate sequence: engine source audit and consolidation
-before universe appearance redesign. The target is one Orbital main engine
-with distinct configurations/adapters; independently retained engines are
-compatibility and rollback paths, not a permanent end state. See the
+The owner's controlling clarification is recorded in the
+[Orbital universe rebuild contract](ORBITAL-UNIVERSE-REBUILD-CONTRACT.md).
+The **game and its playable universe run inside the rebuilt Orbital foundation**;
+Orbital must not remain a training side link beside a separately executed
+universe. Break down the Lab's entry, simulation, rendering, controls and return
+functions into the primary game runtime. Training becomes a subordinate
+activity; existing runtimes remain compatibility/rollback paths until verified.
+The target is one Orbital main foundation with distinct configurations and
+authority adapters, not one monolithic multiplayer server. See the
 [current engine architecture](engine/MASTER-ENGINE-ARCHITECTURE.md) and
 [mode migration proof](engine/GAME-MODE-MIGRATION-MATRIX.md). The priority order
 and checkpoints below are historical where they conflict with this directive.
-
-The renderer clarification of 2026-11-08 keeps Three.js as the primary 3D
-renderer and scene-runtime foundation, with native Orbital WebGL2 as a
-companion. Orbital owns shared gameplay and world-state contracts; do not read
-"engine consolidation" as a plan to remove Three.js. See
-[`RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+For the current renderer relationship and Mars route/adventure model, see
+[Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md)
+and [Mars planetary routes and adventures](MARS-PLANETARY-ROUTES-AND-ADVENTURES.md):
+the Orbital universe is the single gameplay/world owner; Three.js is its primary
+renderer, with native WebGL2 retained as a companion backend. Do not create a
+duplicate universe, and do not remove either renderer under the superseded
+one-renderer rule.
 
 The complete owner-supplied source is preserved unchanged in
 [`STRUCTURAL-REBUILD-STRATEGY.txt`](./STRUCTURAL-REBUILD-STRATEGY.txt).
@@ -49,16 +77,29 @@ unrelated menu commands.
 The target is an authored, expandable universe with bounded simulations, not an
 unbounded count of live ships or a literally infinite galaxy.
 
+The current narrative relationship and next story-graph gates are recorded in
+[Connected Storyline and Adventure Rebuild](CONNECTED-STORYLINE-AND-ADVENTURE-REBUILD.md).
+The owner-directed Dusk/Accord premise and the First Witness mystery are
+maintained in [WAR FOR MARS Storyline Foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md).
+The canonical working order and explicit lore gaps are in
+[Mars Story Chronology and Canon](MARS-STORY-CHRONOLOGY-AND-CANON.md).
+Do not collapse the existing Contact/Beacon/Warden/Cage campaign and the
+Rust Disc/Mars Approach/Pale Beacons sector progression into one unlock chain
+until the shared story, route, and operation identities are reconciled.
+
 ## Preserve before replacing
 
-- Keep Three.js/Vite as the primary 3D rendering foundation. Needle remains a
-  research/authoring candidate, not an approved replacement or second production
-  runtime. Orbital owns the shared gameplay simulation and world state; neither
-  renderer is a separate multiplayer authority.
-- Develop Orbital Combat Lab as a combat simulation foundation and validation
-  environment. Integrate its simulation and rendering per operation only after
-  parity, authority, networking, progression, and rollback are proven. Do not
-  force every established experience into one runtime.
+- The final game uses Orbital Combat Lab as its single gameplay and universe
+  foundation. Keep and use the Three.js and native Orbital WebGL2 renderers as
+  presentation backends over shared Orbital state; Three.js is the primary
+  renderer for the main open universe. Preserve the historical renderer audit
+  for its testing and performance gates, not its recommendation to remove
+  Three.js.
+- Re-engineer Orbital Combat Lab into the main playable universe runtime,
+  retaining training as an internal activity and validation profile. Consolidate
+  simulation/render/input ownership without flattening different mode rules;
+  migrate authoritative operation adapters only after parity, networking,
+  progression and rollback are proven.
 - Retain Rust Disc, Mars Approach, Pale Beacons, Iron Eclipse, Arcade Skirmish,
   and Wing as distinct playable/authoritative experiences behind explicit
   operation entry points. Preserve their existing combat engines until a

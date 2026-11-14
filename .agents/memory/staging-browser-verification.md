@@ -16,6 +16,18 @@ variables, and a six-minute Strike exceeds the foreground shell time limit.
 emit sanitized status fields, and use the existing testing agent to evaluate
 that driver's evidence rather than starting another tester.
 
+A staging app restart may invalidate the private gateway authorization while
+the underlying Clerk session remains valid in the same browser.
+
+**Why:** after a staging rollout, both previously authenticated pilots saw the
+private gateway page. Re-entering only its normal access form restored both
+existing Clerk sessions without another email verification challenge.
+
+**How to apply:** distinguish a gateway page from a Clerk sign-out. Restore the
+normal gateway form inside the retained browser using the approved secret flow;
+then recheck session and profile before requesting new codes. Finish long code
+and rollout work before opening time-bounded browser owners whenever possible.
+
 Synthetic HTTP tests that explicitly supply Origin do not prove browser form
 submissions will supply the same Origin under the page's privacy headers.
 
@@ -92,6 +104,31 @@ completed sign-in and returned HTTP 200 profiles.
 staging account's current challenge, and log only sanitized status and error
 categories—not the code or full authentication response.
 
+When one secure-form-supplied code per active challenge still leaves multiple
+accounts at `needs_client_trust`, stop the browser owners and record the cause as
+unknown. Do not infer that a code was invalid, retry it, or begin gameplay.
+
+**Why:** On 2026-11-09, two isolated staging sessions remained at
+`needs_client_trust` after one code submission each; neither authenticated
+profile was established and no safe error category was available.
+
+**How to apply:** Before another attempt, improve the allowlisted challenge
+diagnostic to distinguish a rejected/expired code from a submission-flow issue.
+Only start gameplay after each account has an active session and profile HTTP
+200; never log code values or raw authentication responses.
+
+A visible-error category of `none` is not proof of OTP acceptance or an
+authentication-system defect.
+
+**Why:** retained sessions stayed at client trust without a visible alert, but
+the user identified incorrect codes and a corrected secure handoff completed
+both sessions without authentication wiring changes.
+
+**How to apply:** require an active session and profile HTTP 200. If the user
+corrects a code, submit it once to its matching active challenge. Otherwise,
+use allowlisted diagnostics rather than blind retries or auth configuration
+changes.
+
 When Clerk instance metadata does not expose a comparable instance identifier,
 compare the frontend and Backend API JWKS sets in memory and report only whether
 they match.
@@ -106,13 +143,20 @@ JWK values. Verify Development mode before any account lookup or write.
 
 Keep OTP submission in the process/client that owns the waiting browser page.
 Do not assume a second Playwright connection can resume another client's page.
+If the workspace sleeps or restarts and that owner is lost, do not submit
+previously supplied codes to a replacement challenge.
 
 **Why:** separate connections to a Playwright launch server exposed isolated
 contexts; reconnecting succeeded but returned no original contexts or pages.
+Workspace suspension also terminated both pending browser owners during a
+secure-code handoff.
 
 **How to apply:** prove a private, in-process OTP handoff with synthetic input
 before starting another live challenge. Never log codes, expose a public relay,
 or persist browser login state as a workaround.
+For a bounded pending verification, keep the workers alive only through a
+short explicit timeout, stop them after testing, and request new codes if their
+original challenge was lost.
 
 Keep helper diagnostics failure-isolated from the browser-owning process.
 
@@ -134,3 +178,25 @@ metadata and local unit tests did not establish runtime replay acceptance.
 backend without truncating it or weakening validation. Freeze the accepted
 balance before a duplicate request; asynchronous response listeners must not
 overwrite the comparison baseline.
+
+Attach flight observers before the sign-in redirect or universe entry can open
+the live socket. A late observer reporting zero sockets is not proof of failure.
+
+**Why:** authenticated staging sessions entered live encounters before gameplay
+inspection; a normal observed reconnect restored snapshots but preserved the
+pilots' genuine destroyed state.
+
+**How to apply:** prepare observation before entry, inspect authoritative life
+immediately, and avoid slow baseline/profile work while a live encounter runs.
+Do not revive or fabricate a new result to make a blocked verification pass.
+
+Exercise sustained firing and genuine evasive movement before diagnosing live
+combat balance from an automated loss.
+
+**Why:** gapped or mostly stationary inputs lost fights that normal lateral
+and vertical evasion could survive without changing ship or damage stats.
+
+**How to apply:** prepare bounded 3D aiming, missile requests and movement
+before entry. Separate destruction from survival, verify the authoritative
+settlement against the frozen balance, and measure actual movement after the
+result. An idle second pilot is not evidence of assistance.

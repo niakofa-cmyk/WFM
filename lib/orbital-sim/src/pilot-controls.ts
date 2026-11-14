@@ -59,6 +59,27 @@ export function pilotAxesToSpatialAxes(value: { yaw?: number; roll?: number; str
   return { yaw: -axis(value.yaw), roll: -axis(value.roll), strafe: -axis(value.strafe) };
 }
 
+export type RightThumbProfile = { mode: "hybrid" | "aim" | "vector"; attitudeGain: number; translationGain: number };
+export function normalizeRightThumbProfile(value?: Partial<RightThumbProfile>): RightThumbProfile {
+  return {
+    mode: value?.mode === "aim" ? "aim" : value?.mode === "vector" ? "vector" : "hybrid",
+    attitudeGain: Number.isFinite(value?.attitudeGain) ? Math.max(.2, Math.min(1.25, value!.attitudeGain!)) : 1,
+    translationGain: Number.isFinite(value?.translationGain) ? Math.max(0, Math.min(1, value!.translationGain!)) : 1,
+  };
+}
+/** Device-facing intent, converted to spatial signs once by the existing adapter. */
+export function rightThumbFlightAxes(x: number, y: number, profile: RightThumbProfile) {
+  const clean = normalizeRightThumbProfile(profile);
+  const right = axis(x), up = -axis(y);
+  const length = Math.max(1, Math.hypot(right, up));
+  return {
+    yaw: clean.mode === "vector" ? 0 : axis(right * clean.attitudeGain),
+    pitch: clean.mode === "vector" ? 0 : axis(up * clean.attitudeGain),
+    strafe: clean.mode !== "aim" ? right / length * clean.translationGain : 0,
+    vertical: clean.mode !== "aim" ? up / length * clean.translationGain : 0,
+  };
+}
+
 /**
  * Preserve the existing sector protocol: reverse is braking and tactical
  * maneuver intents are not forwarded. This is not a network capability upgrade.

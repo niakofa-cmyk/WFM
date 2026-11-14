@@ -17,28 +17,26 @@ maintained roadmap and asteroid-hub contract for current implementation.
 The newest controlling source and its one-main-engine precedence are recorded
 in [master development directive](master-development-directive.md).
 
-**Rule:** The latest master directive supersedes the earlier permanent
-multiple-engine direction: one main Orbital engine supports distinct
-experiences through adapters. Existing runtimes remain explicit compatibility
-paths until migration is verified. The Three.js/Vite layer owns navigation, destination
-presentation, and local approach scenes; it is not the multiplayer combat
-engine. Orbital Combat Lab is a simulation foundation and validation environment
-that may be integrated per mode after proof. Preserve Rust Disc, Arcade Skirmish,
-and Wing as independent playable/authoritative experiences until each proposed
-migration passes gameplay, network, reward, and rollback checks. Retain existing
-identity, matchmaking, economy, progression, and reward services.
+**Rule:** Orbital Combat Lab owns the finished game's single universe, gameplay
+state, flight/combat simulation, and authority. Keep and use both Three.js and
+native Orbital WebGL2 rendering. Three.js is the primary renderer for the main
+open universe; native WebGL2 is a supported companion path. Both render the same
+Orbital-owned state and must not become separate game worlds or simulation
+owners. Preserve identity, matchmaking, economy, progression, reward services,
+and working operation paths.
 
-**Why:** the owner's newest master directive explicitly makes Orbital the primary
-foundation without allowing a reckless rewrite or removal of working systems.
-Cinder Ring remains the physical competition hub, and current combat runtimes
-continue executing their battles until each replacement passes proof.
+**Why:** on 2026-11-08 the owner explicitly revised the earlier one-renderer
+recommendation and asked to continue building the main Orbital universe with
+Three.js while retaining native WebGL2 and other useful rendering support.
 
-**How to apply:** use explicit operation definitions/adapters to connect
-destination, discovery, and launch to the correct existing runtime. The Cinder
-Ring approach is local/no-reward and cannot authorize a queue or create an
-operation. Migrate a combat runtime only one mode at a time, version changed
-network/replay contracts, and change client/API/socket authority together.
-Retain Wing's server-owned competitive and reward gates.
+**How to apply:** use
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md` as the current
+renderer decision. Integrate Rust Disc and Mars routes as activities in the
+shared universe; preserve their flight controls and mission behavior without
+forking Orbital physics. Keep renderers behind clear presentation boundaries,
+measure parity and device performance, and retain server-owned competitive and
+reward gates. Older Orbital-only-renderer documents are historical on renderer
+removal, not on shared simulation, authority, or validation requirements.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc
@@ -58,6 +56,16 @@ private invitations and pilot identities must remain private.
 the server, and publish only match status and anonymized spectator state. Never
 infer a live match from a catalog entry or change Wing reward rules through
 this directory.
+
+**Owner-reported verification:** The user confirmed that the local Cinder
+approach worked correctly at 22 m; the device and runtime were not specified.
+
+**Why:** this confirms the corrected local approach behavior, but does not
+establish Android, staging, persistent-location or multiplayer verification.
+
+**How to apply:** retain the 22 m local docking approach as a user-confirmed
+behavior while keeping platform and authority claims limited to separately
+verified evidence.
 
 **Why:** application code and catalog definitions do not create live operations;
 the server must register each session and publish only its actual lifecycle.

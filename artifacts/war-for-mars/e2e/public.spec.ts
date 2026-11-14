@@ -1,7 +1,167 @@
 import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
-test("landing page explains the game and offers a solo flight", async ({ page }) => {
+test("local Cinder approach docks at 22m, runs training, and returns to the same Arena", async ({ page }) => {
+  test.setTimeout(120_000);
+  const pageErrors: string[] = [];
+  const apiWrites: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("requestfailed", (request) => {
+    const error = request.failure()?.errorText;
+    if (error !== "net::ERR_ABORTED") pageErrors.push(`${request.method()} ${request.url()}: ${error}`);
+  });
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/") && request.method() !== "GET") {
+      apiWrites.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
+  });
+  await page.setViewportSize({ width: 803, height: 360 });
+  await page.addInitScript(() => {
+    const pending = new Set<number>();
+    const requestNative = window.requestAnimationFrame.bind(window);
+    const cancelNative = window.cancelAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => {
+      let id = 0;
+      id = requestNative((time) => {
+        pending.delete(id);
+        callback(time);
+      });
+      pending.add(id);
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      pending.delete(id);
+      cancelNative(id);
+    };
+    Object.defineProperty(window, "__wfmActiveAnimationFrames", {
+      configurable: true,
+      get: () => pending.size,
+    });
+  });
+  await page.goto("/combat-lab.html?universe=1");
+  await expect(page.getByTestId("arena-stage")).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByTestId("text-universe-scope")).toContainText("LOCAL · OFFLINE · NO REWARDS");
+  await expect(page.getByTestId("button-universe-dock")).toBeDisabled();
+  await expect(page.getByTestId("button-fire")).toHaveCount(0);
+  await expect(page.getByTestId("button-missile")).toHaveCount(0);
+  const runtimeReady = await page.evaluate(() => typeof window.__controlsTest?.getPosition === "function");
+  expect(runtimeReady, "a real Orbital/WebGL runtime must initialize before flight can be tested").toBe(true);
+  const activeAnimationFrames = () => page.evaluate(
+    () => (window as Window & { __wfmActiveAnimationFrames?: number }).__wfmActiveAnimationFrames ?? -1,
+  );
+  await expect.poll(activeAnimationFrames).toBe(1);
+
+  const canvas = await page.locator("canvas").first().elementHandle();
+  expect(canvas).not.toBeNull();
+  const initialCanvasCount = await page.locator("canvas").count();
+  const flightStick = page.getByTestId("stick-flight");
+  const stickBox = await flightStick.boundingBox();
+  expect(stickBox).not.toBeNull();
+  if (!stickBox) throw new Error("The left flight control is missing.");
+  const startPose = await page.evaluate(() => window.__controlsTest!.getPosition!());
+  const stickX = stickBox.x + stickBox.width / 2;
+  const stickY = stickBox.y + stickBox.height / 2;
+  await page.mouse.move(stickX, stickY);
+  await page.mouse.down();
+  await page.mouse.move(stickX, stickY - Math.min(30, stickBox.height * 0.3), { steps: 3 });
+  await expect(page.getByTestId("pilot-throttle-meter")).toBeVisible();
+  await expect.poll(async () => Number(await page.getByTestId("pilot-throttle-meter").getAttribute("aria-valuenow"))).toBeGreaterThan(20);
+  await page.waitForTimeout(400);
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).toBeLessThan(startPose.z);
+  const command = async (key: "w" | "b" | "") => {
+    const code = key === "w" ? "KeyW" : key === "b" ? "KeyB" : null;
+    await page.evaluate((keyCode) => window.__controlsTest!.setKeys?.(keyCode ? [keyCode] : []), code);
+  };
+  let dockReady = false;
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const pose = await page.evaluate(() => window.__controlsTest!.getPosition!());
+    const speed = await page.evaluate(() => window.__controlsTest!.getSpeed());
+    const distance = Math.hypot(pose.x, pose.y, pose.z + 118);
+    if (distance <= 22 && speed <= 4) {
+      dockReady = true;
+      break;
+    }
+    const nextKey = distance > 22 ? "w" : speed > 4 ? "b" : "";
+    await command(nextKey);
+    await page.waitForTimeout(120);
+  }
+  await command("");
+  expect(dockReady, "the 22m approach should become dockable at safe speed and alignment").toBe(true);
+  await expect(page.getByTestId("button-universe-dock")).toBeEnabled();
+  await page.getByTestId("button-universe-dock").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await page.getByTestId("button-universe-launch-training").click();
+  await expect(page.getByTestId("text-universe-training")).toBeVisible();
+  await expect(page.getByTestId("button-fire")).toBeVisible();
+  await page.getByTestId("button-universe-abort-training").click();
+  await expect(page.getByTestId("text-universe-debrief")).toContainText("TRAINING ABORTED");
+  await page.getByTestId("button-universe-return").click();
+  await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    await page.getByTestId("button-universe-launch-training").click();
+    await expect(page.getByTestId("text-universe-training")).toBeVisible();
+    await page.getByTestId("button-universe-abort-training").click();
+    await expect(page.getByTestId("text-universe-debrief")).toContainText("TRAINING ABORTED");
+    await page.getByTestId("button-universe-return").click();
+    await expect(page.getByTestId("text-universe-docked")).toBeVisible();
+    expect(await page.locator("canvas").count()).toBe(initialCanvasCount);
+    expect(await activeAnimationFrames()).toBe(1);
+  }
+  const dockedPosition = await page.evaluate(() => window.__controlsTest!.getPosition!());
+  await page.getByTestId("button-universe-undock").click();
+  await expect.poll(() => page.evaluate(() => window.__controlsTest!.getPosition!().z)).not.toBe(dockedPosition.z);
+  expect(await canvas!.evaluate((element) => element.isConnected)).toBe(true);
+  expect(await page.locator("canvas").count()).toBe(initialCanvasCount);
+
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    await page.getByTestId("button-universe-exit").click();
+    await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+    await expect.poll(activeAnimationFrames).toBe(0);
+    await expect(page.locator("canvas")).toHaveCount(0);
+    await page.getByTestId("button-launch-local-universe").click();
+    await expect(page.getByTestId("arena-stage")).toBeVisible();
+    await expect.poll(activeAnimationFrames).toBe(1);
+    await expect(page.locator("canvas")).toHaveCount(initialCanvasCount);
+  }
+  await page.getByTestId("button-universe-exit").click();
+  await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+  await expect.poll(activeAnimationFrames).toBe(0);
+  await expect(page.locator("canvas")).toHaveCount(0);
+  expect(apiWrites).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test("primary boot opens Orbital and preserves the command rollback entry", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("orbital-primary-boot")).toBeVisible();
+  await expect(page.getByTestId("button-launch-local-universe")).toBeVisible();
+  await expect(page.getByTestId("button-launch-combat-lab")).toHaveCount(0);
+  await expect(page.getByTestId("button-launch-cinder-approach")).toHaveCount(0);
+  await expect(page.getByTestId("link-compatibility-command")).toHaveAttribute("href", "/command");
+  await page.goto("/?boot=compatibility");
+  await expect(page.getByRole("link", { name: "TRY SOLO FLIGHT" })).toBeVisible();
+});
+
+test("the Cinder destination enters the same Orbital universe flight runtime", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 803, height: 360 });
+  await page.goto("/");
+  await page.getByTestId("button-destination-cinder-ring").click();
+  await expect(page.getByTestId("button-launch-local-universe")).toContainText("APPROACH CINDER");
+  await page.getByTestId("button-launch-local-universe").click();
+  await expect(page.getByTestId("arena-stage")).toHaveAttribute("data-mode-id", "orbital-universe-local");
+  await expect(page.getByTestId("universe-exploration-hud")).toBeVisible();
+  await expect(page.getByTestId("button-universe-dock")).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => {
+    const position = window.__controlsTest!.getPosition!();
+    return Math.hypot(position.x, position.y, position.z + 118);
+  })).toBeCloseTo(44, 0);
+  await expect(page.getByTestId("button-universe-launch-training")).toHaveCount(0);
+});
+
+test("compatibility landing page explains the game and offers a solo flight", async ({ page }) => {
   await page.route("**/api/game/leaderboard", (route) =>
     route.fulfill({
       status: 200,
@@ -11,7 +171,7 @@ test("landing page explains the game and offers a solo flight", async ({ page })
       }),
     }),
   );
-  await page.goto("/");
+  await page.goto("/command");
 
   await expect(page.getByRole("heading", { name: /war for mars/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
@@ -25,7 +185,7 @@ test("landing page explains the game and offers a solo flight", async ({ page })
 });
 
 test("landing page presents the Orbital training entry without a separate Rust Disc command", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/command");
 
   const operations = page.getByTestId("details-public-operations");
   await expect(operations.locator("summary")).toContainText("TRAINING & CO-OP OPERATIONS");
@@ -172,7 +332,7 @@ test("empty Wing leaderboard explains its reward eligibility requirement", async
       body: JSON.stringify({ entries: [] }),
     }),
   );
-  await page.goto("/");
+  await page.goto("/command");
 
   await expect(page.getByRole("heading", { name: "WING LEADERBOARD" })).toBeVisible();
   await expect(page.getByTestId("public-wing-leaderboard")).toContainText(

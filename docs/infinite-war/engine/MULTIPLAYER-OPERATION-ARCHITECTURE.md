@@ -26,6 +26,13 @@ sector services exist. They are not yet one certified Orbital multiplayer
 simulation. Local docking cannot authorize a seat. An Orbital authority unit
 test or two-device private surface match does not certify ten-human Orbital.
 
+The target also includes authenticated, server-authoritative exploration with
+faction encounters, validated enemy-hull tallies, and eligible PvE/exploration
+rewards. This is separate from offline no-reward practice and from private or
+AI-fill Wing rooms. It needs a dedicated encounter/result contract; it must not
+be implemented as a client-side award path. See
+[`../DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md`](../DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
+
 ## Room simulation contract
 
 Protocol 2 advertises `orbital-v2`/rules 2 and now dispatches that same pinned

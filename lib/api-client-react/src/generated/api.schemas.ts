@@ -5,6 +5,135 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type EquipmentDefinitionKind = typeof EquipmentDefinitionKind[keyof typeof EquipmentDefinitionKind];
+
+
+export const EquipmentDefinitionKind = {
+  primary: 'primary',
+  secondary: 'secondary',
+  special: 'special',
+  defensive: 'defensive',
+  utility: 'utility',
+} as const;
+
+export interface EquipmentDefinition {
+  id: string;
+  name: string;
+  kind: EquipmentDefinitionKind;
+  effect: string;
+  description: string;
+  size: number;
+  mass: number;
+  power: number;
+  damage: number;
+  ammunition: number;
+  magazine: number;
+  roundsPerMinute: number;
+  range: number;
+  projectileVelocity: number;
+  tracking: number;
+  lockSeconds: number;
+  reloadSeconds: number;
+  heat: number;
+  durability: number;
+  energy: number;
+}
+
+export interface EquipmentItem {
+  id: string;
+  equipmentId: string;
+  condition: number;
+  /** @nullable */
+  shipId: string | null;
+  /** @nullable */
+  hardpointId: string | null;
+}
+
+export interface EquipmentHardpoint {
+  id: string;
+  kind: string;
+  size: number;
+}
+
+export interface EquipmentHull {
+  shipId: string;
+  massLimit: number;
+  powerLimit: number;
+  hardpoints: EquipmentHardpoint[];
+}
+
+export interface EquipmentSalvage {
+  eventId: string;
+  actorId: string;
+  equipmentId: string;
+}
+
+export interface EquipmentLocker {
+  revision: number;
+  catalog: EquipmentDefinition[];
+  hulls: EquipmentHull[];
+  items: EquipmentItem[];
+  salvage: EquipmentSalvage[];
+}
+
+export interface EquipmentFitInput {
+  /** @maxLength 32 */
+  shipId: string;
+  /** @maxLength 32 */
+  hardpointId: string;
+  /** @nullable */
+  itemId: string | null;
+  /** @minimum 0 */
+  expectedRevision: number;
+}
+
+export interface EquipmentRecoveryInput {
+  eventId: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  actorId: string;
+}
+
+export type GlobalCampaignPhase = typeof GlobalCampaignPhase[keyof typeof GlobalCampaignPhase];
+
+
+export const GlobalCampaignPhase = {
+  INITIAL_CONTACT: 'INITIAL_CONTACT',
+  BEACON_RECON: 'BEACON_RECON',
+  WARDEN_INTERCEPT: 'WARDEN_INTERCEPT',
+  CAGE_CLIMAX: 'CAGE_CLIMAX',
+  SYSTEM_VICTORY: 'SYSTEM_VICTORY',
+} as const;
+
+export interface GlobalCampaign {
+  enabled: boolean;
+  campaignId: string;
+  /** @minimum 0 */
+  completedOperations: number;
+  /** @minimum 1 */
+  targetOperations: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progressPercent: number;
+  phase: GlobalCampaignPhase;
+  concluded: boolean;
+  finaleEligible: boolean;
+  finaleClaimed: boolean;
+}
+
+export interface GlobalCampaignFinale {
+  campaignId: string;
+  credits: number;
+  campaignXp: number;
+  badge: string;
+  shieldMk2: boolean;
+  replayed: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -1172,6 +1301,155 @@ export interface OperationDirectoryResponse {
   presenceStatus?: OperationDirectoryResponsePresenceStatus;
 }
 
+export type WorldPatrolShipHullId = typeof WorldPatrolShipHullId[keyof typeof WorldPatrolShipHullId];
+
+
+export const WorldPatrolShipHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolShip {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  id: string;
+  hullId: WorldPatrolShipHullId;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 16
+     */
+  callsign: string;
+}
+
+export type WorldPatrolFleetFaction = typeof WorldPatrolFleetFaction[keyof typeof WorldPatrolFleetFaction];
+
+
+export const WorldPatrolFleetFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolFleetObjective = typeof WorldPatrolFleetObjective[keyof typeof WorldPatrolFleetObjective];
+
+
+export const WorldPatrolFleetObjective = {
+  recon: 'recon',
+  'route-security': 'route-security',
+  escort: 'escort',
+  'supply-screen': 'supply-screen',
+} as const;
+
+export interface WorldPatrolFleet {
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  callsign: string;
+  faction: WorldPatrolFleetFaction;
+  objective: WorldPatrolFleetObjective;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  /**
+     * @minItems 2
+     * @maxItems 3
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  route: string[];
+  /**
+     * @minItems 2
+     * @maxItems 4
+     */
+  ships: WorldPatrolShip[];
+  lastMovedAt: string;
+}
+
+export type WorldPatrolTrafficContactFaction = typeof WorldPatrolTrafficContactFaction[keyof typeof WorldPatrolTrafficContactFaction];
+
+
+export const WorldPatrolTrafficContactFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolTrafficContactHullId = typeof WorldPatrolTrafficContactHullId[keyof typeof WorldPatrolTrafficContactHullId];
+
+
+export const WorldPatrolTrafficContactHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolTrafficContact {
+  /**
+     * @minLength 1
+     * @maxLength 220
+     */
+  contactId: string;
+  faction: WorldPatrolTrafficContactFaction;
+  hullId: WorldPatrolTrafficContactHullId;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  position: UniverseVector3;
+  velocity: UniverseVector3;
+  /**
+     * @minimum -6.284
+     * @maximum 6.284
+     */
+  yaw: number;
+}
+
+export type WorldPatrolDirectorySimulationLayer = typeof WorldPatrolDirectorySimulationLayer[keyof typeof WorldPatrolDirectorySimulationLayer];
+
+
+export const WorldPatrolDirectorySimulationLayer = {
+  strategic: 'strategic',
+} as const;
+
+export interface WorldPatrolDirectory {
+  generatedAt: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  currentLocationId: string;
+  simulationLayer: WorldPatrolDirectorySimulationLayer;
+  /** @maxItems 128 */
+  patrols: WorldPatrolFleet[];
+  /** @maxItems 512 */
+  traffic: WorldPatrolTrafficContact[];
+}
+
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];
 
 
@@ -1296,6 +1574,72 @@ export interface WorldRoute {
   available: boolean;
 }
 
+export type CampaignNarrativeRecordMissionId = typeof CampaignNarrativeRecordMissionId[keyof typeof CampaignNarrativeRecordMissionId];
+
+
+export const CampaignNarrativeRecordMissionId = {
+  contact: 'contact',
+  beacon: 'beacon',
+  warden: 'warden',
+  cage: 'cage',
+  'rust-disc': 'rust-disc',
+} as const;
+
+export type CampaignNarrativeRecordKnowledgeLayer = typeof CampaignNarrativeRecordKnowledgeLayer[keyof typeof CampaignNarrativeRecordKnowledgeLayer];
+
+
+export const CampaignNarrativeRecordKnowledgeLayer = {
+  public: 'public',
+  restricted: 'restricted',
+  classified: 'classified',
+  unresolved: 'unresolved',
+} as const;
+
+export interface CampaignNarrativeDialogueLine {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  speaker: string;
+  /**
+     * @minLength 1
+     * @maxLength 800
+     */
+  text: string;
+}
+
+export interface CampaignNarrativeRecord {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  chapter: string;
+  missionId: CampaignNarrativeRecordMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  source: string;
+  knowledgeLayer: CampaignNarrativeRecordKnowledgeLayer;
+  /**
+     * @minLength 1
+     * @maxLength 1200
+     */
+  synopsis: string;
+  transcript: CampaignNarrativeDialogueLine[];
+  discoveredAt: string;
+}
+
 export interface WorldState {
   /**
      * @minimum 1
@@ -1317,6 +1661,8 @@ export interface WorldState {
   routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
+  /** Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes. */
+  narrative: CampaignNarrativeRecord[];
   quests: WorldQuest[];
 }
 
@@ -1367,6 +1713,87 @@ export interface WorldQuestActionResult {
   /** @minimum 0 */
   rewardCredits: number;
   replayed: boolean;
+}
+
+export type WorldScoutEncounterResultMissionId = typeof WorldScoutEncounterResultMissionId[keyof typeof WorldScoutEncounterResultMissionId];
+
+
+export const WorldScoutEncounterResultMissionId = {
+  'pale-beacons': 'pale-beacons',
+  'universe-patrol': 'universe-patrol',
+} as const;
+
+export type WorldScoutEncounterResultOutcome = typeof WorldScoutEncounterResultOutcome[keyof typeof WorldScoutEncounterResultOutcome];
+
+
+export const WorldScoutEncounterResultOutcome = {
+  completed: 'completed',
+  aborted: 'aborted',
+} as const;
+
+export type WorldScoutEncounterResultOpposingFaction = typeof WorldScoutEncounterResultOpposingFaction[keyof typeof WorldScoutEncounterResultOpposingFaction];
+
+
+export const WorldScoutEncounterResultOpposingFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface WorldScoutEncounterResult {
+  encounterId: string;
+  missionId: WorldScoutEncounterResultMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  sectorId: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  runtime: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  policyId: string;
+  outcome: WorldScoutEncounterResultOutcome;
+  /** @minimum 0 */
+  finalTick: number;
+  objectiveCompleted: boolean;
+  /** @minimum 0 */
+  kills: number;
+  /** @minimum 0 */
+  assists: number;
+  /**
+     * @maxItems 128
+     * @items.minLength 1
+     * @items.maxLength 128
+     */
+  destroyedActorIds: string[];
+  /** @minimum 0 */
+  rewardableNpcKills: number;
+  /** @minimum 0 */
+  creditsAwarded: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolLocationId?: string;
+  opposingFaction?: WorldScoutEncounterResultOpposingFaction;
+  /** @pattern ^[0-9a-f]{64}$ */
+  fingerprint: string;
+  recordedAt: string;
+}
+
+export interface WorldExplorationResults {
+  /** @maxItems 10 */
+  results: WorldScoutEncounterResult[];
 }
 
 export interface WorldServiceInput {

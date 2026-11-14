@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WebSocket } from "ws";
-import { createSectorRuntime, parseIronEclipseCommand, parseSectorCommand, parseSectorInput } from "./sector-runtime";
+import {
+  createSectorRuntime, isUniversePatrolWithinEngagementRange, parseIronEclipseCommand, parseSectorCommand, parseSectorEvidenceRecovery,
+  parseSectorInput, parseSectorTransponder, roamingPatrolPosition,
+} from "./sector-runtime";
 import { sectorFlightEnabled, sectorProtocolVersion } from "./sector-feature";
 import {
   ORBITAL_RUNTIME_ID, ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_ORBITAL_PROTOCOL_VERSION,
@@ -12,6 +15,7 @@ import { validSectorCompletion } from "../game/sector-completion";
 import type { SectorProgress, SectorSnapshot } from "../game/sector-missions";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readExplorationReceipt } from "../game/exploration-encounter";
 
 function socket() {
   const packets: any[] = [];
@@ -22,6 +26,134 @@ function socket() {
   };
   return { ws: fake as unknown as WebSocket, packets, latest: () => packets.filter(p => p.type === "sector_snapshot").at(-1) as SectorSnapshot };
 }
+test("Orbital patrol route is deterministic and evidence recovery packets carry no client-selected record", () => {
+  assert.deepEqual(roamingPatrolPosition(0), { x: 950, y: 300, z: -1150 });
+  assert.deepEqual(roamingPatrolPosition(4500), roamingPatrolPosition(0));
+  assert.notDeepEqual(roamingPatrolPosition(450), roamingPatrolPosition(0));
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence" }), true);
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", evidenceId: "first-witness-trace" }), false);
+  assert.equal(parseSectorEvidenceRecovery({ type: "sector_recover_evidence", position: { x: 0, y: 0, z: 0 } }), false);
+});
+test("server patrol engagement range is inclusive at 180m and rejects client-sized or invalid distances", () => {
+  assert.equal(isUniversePatrolWithinEngagementRange(180), true);
+  assert.equal(isUniversePatrolWithinEngagementRange(179.99), true);
+  assert.equal(isUniversePatrolWithinEngagementRange(180.01), false);
+  assert.equal(isUniversePatrolWithinEngagementRange(null), false);
+  assert.equal(isUniversePatrolWithinEngagementRange(Number.NaN), false);
+});
+test("universe patrols resolve as visible opposing fleets and settle server-attributed casualties", async () => {
+  const contact = {
+    patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
+    locationId: "mars-orbit",
+    faction: "accord" as const,
+    callsign: "ASHEN SPEAR",
+    route: ["mars-orbit", "cinder-asteroid"],
+    revision: 0,
+    ships: [{
+      id: "strategic-patrol-v1:mars-orbit:accord:0:ship:0",
+      hullId: "mandjet" as const,
+      name: "Mandjet",
+      callsign: "ASHEN-1",
+    }],
+  };
+  let reservedPilots: readonly string[] = [];
+  let serverApproachMovementSteps = 0;
+  const settledResults: ReturnType<typeof readExplorationReceipt>[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: [], persistenceAvailable: true }),
+    resolveUniversePatrol: async (_userId, faction) => faction === "ussf" ? contact : null,
+    reserveUniversePatrol: async (userIds, faction, requested) => {
+      reservedPilots = userIds;
+      assert.equal(faction, "ussf");
+      assert.equal(requested.patrolId, contact.patrolId);
+      return contact;
+    },
+    physics: (state, input, _seconds, sector) => {
+      if (input.throttle > 0) {
+        serverApproachMovementSteps++;
+        state.position = {
+          x: state.drone.position.x,
+          y: state.drone.position.y,
+          z: state.drone.position.z + 100,
+        };
+      }
+      if (input.fire) {
+        state.stage = "drone";
+        state.drone.hull = 0;
+      } else if (state.stage === "extract") {
+        state.position = { ...(sector?.extraction ?? RUST_DISC_SECTOR.extraction) };
+        state.stage = "complete";
+      }
+    },
+    settleScoutEncounter: async (receipt) => {
+      const result = readExplorationReceipt(receipt);
+      settledResults.push(result);
+      return {
+        status: "settled",
+        awards: result.pilots.map((pilot) => ({
+          ...pilot,
+          balanceAfter: pilot.credits,
+          revision: 1,
+        })),
+      };
+    },
+  });
+  const host = socket();
+  const room = "universe-patrol-room";
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_join",
+    version: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  }, 0);
+  assert.equal(host.latest().hostileFleet?.faction, "accord");
+  assert.equal(host.latest().hostileFleet?.ships[0]?.shipId, "mandjet");
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room,
+    { type: "sector_ready", ready: true }, 1);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room,
+    { type: "sector_launch" }, 2);
+  assert.deepEqual(reservedPilots, ["patrol-pilot"]);
+  assert.equal(host.latest().patrolApproach?.combatAuthorized, false);
+  assert.ok((host.latest().patrolApproach?.distanceMeters ?? 0) > 180);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 3);
+  runtime.advance(0);
+  runtime.advance(17);
+  assert.equal(host.latest().scoutResult, undefined, "a distant client fire request is not simulated as a patrol kill");
+  assert.equal(host.latest().patrolApproach?.combatAuthorized, false);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 1, input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 1 },
+  }, 20);
+  runtime.advance(119);
+  assert.ok(serverApproachMovementSteps > 0, "the active Orbital server tick consumed the approach input");
+  assert.equal(
+    host.latest().patrolApproach?.combatAuthorized,
+    true,
+    "the server's simulated position crossed the gate",
+  );
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 2, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 120);
+  runtime.advance(136);
+  await runtime.handle(host.ws, "patrol-pilot", "universe-patrol", room, {
+    type: "sector_input", seq: 3, input: NEUTRAL_FLIGHT_INPUT,
+  }, 140);
+  runtime.advance(221);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.equal(host.latest().phase, "complete");
+  assert.equal(host.latest().scoutResult?.missionId, "universe-patrol");
+  assert.equal(host.latest().scoutResult?.kills, 1);
+  assert.equal(host.latest().scoutResult?.creditsAwarded, 12);
+  assert.equal(host.latest().scoutResultStatus, "recorded");
+  assert.equal(settledResults[0]?.patrol?.patrolId, contact.patrolId);
+  assert.deepEqual(settledResults[0]?.pilots[0]?.destroyedActorIds, [
+    `patrol-ship:${contact.ships[0]!.id}`,
+  ]);
+  await runtime.close();
+});
 test("new sector feature fails closed in Production and rejects ambiguous declarations", () => {
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production" }), false);
   assert.equal(sectorFlightEnabled({ NODE_ENV: "production", WFM_SECTOR_FLIGHT_ENABLED: "TRUE" }), false);
@@ -30,7 +162,10 @@ test("new sector feature fails closed in Production and rejects ambiguous declar
   assert.equal(sectorFlightEnabled({ NODE_ENV: "development", WFM_SECTOR_FLIGHT_ENABLED: "false" }), false);
 });
 test("Orbital sector protocol requires an explicit paired deployment opt-in", () => {
-  assert.equal(sectorProtocolVersion({ NODE_ENV: "development" }), 1);
+  assert.equal(sectorProtocolVersion({ NODE_ENV: "development" }), SECTOR_ORBITAL_PROTOCOL_VERSION);
+  assert.equal(sectorProtocolVersion({
+    NODE_ENV: "development", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "false",
+  }), 1);
   assert.equal(sectorProtocolVersion({
     NODE_ENV: "development", WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true",
   }), 2);
@@ -59,6 +194,8 @@ test("3D inputs exclude forged coordinates, results, identities, unknown buttons
     { ...NEUTRAL_FLIGHT_INPUT, drift: "true" },
     { ...NEUTRAL_FLIGHT_INPUT, strafe: 2 },
     { ...NEUTRAL_FLIGHT_INPUT, vertical: Number.NaN },
+    { ...NEUTRAL_FLIGHT_INPUT, factionContact: { stage: "reinforcements" } },
+    { ...NEUTRAL_FLIGHT_INPUT, transponder: "silent" },
   ]) assert.equal(parseSectorInput(value), null);
 });
 test("server sector wrapper defaults to the same deterministic Orbital flight used by local Rust Disc", () => {
@@ -127,6 +264,287 @@ test("Orbital protocol handshake pins the server session to the canonical simula
   assert.deepEqual(final.pilots, wing.latest().pilots, "the host and wing receive identical server-owned state");
   assert.equal(final.version, SECTOR_ORBITAL_PROTOCOL_VERSION);
   assert.deepEqual(final.simulation, ORBITAL_SECTOR_SIMULATION_CONTRACT);
+  await runtime.close();
+});
+
+test("Pale Beacons scout results come from Orbital server hull damage and persist for the authenticated pilot", async () => {
+  const oldProtocol = createSectorRuntime({});
+  const oldClient = socket();
+  await oldProtocol.handle(oldClient.ws, "scout-pilot", "pale-beacons", "scout-old-room", {
+    type: "sector_join", version: 1, shipId: "glide",
+  }, 0);
+  assert.equal(oldClient.packets.at(-1).reason, "scout_requires_orbital_runtime");
+  await oldProtocol.close();
+
+  const saved: Array<{ userId: string; result: import("../game/sector-missions").SectorScoutResult }> = [];
+  const proofs: CompletedSectorMission[] = [];
+  const settlements: string[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    settle: async (proof) => {
+      proofs.push(proof);
+      return { progress: { completed: ["mars-approach", "pale-beacons"], persistenceAvailable: true }, replayed: false };
+    },
+    recordScoutResults: async (entries) => { saved.push(...entries); },
+    settleScoutEncounter: async (receipt) => {
+      const { readExplorationReceipt } = await import("../game/exploration-encounter");
+      const result = readExplorationReceipt(receipt);
+      settlements.push(result.encounterId);
+      return {
+        status: "settled",
+        awards: result.pilots.map((entry) => ({
+          ...entry,
+          balanceAfter: 90 + entry.credits,
+          revision: 1,
+        })),
+      };
+    },
+    physics: (state, input, seconds) => {
+      if (state.stage === "complete" || state.stage === "destroyed") return;
+      state.elapsed += seconds;
+      state.discoveries = 1;
+      if (state.drone.hull > 0) state.stage = "drone";
+      if (input.fire && state.drone.hull > 0) {
+        state.drone.hull = Math.max(0, state.drone.hull - 48);
+        state.hits++;
+      }
+      if (state.drone.hull <= 0) state.stage = state.elapsed >= 5 ? "complete" : "extract";
+    },
+  });
+  const pilot = socket(), wrongFaction = socket();
+  const join = {
+    type: "sector_join", version: 2, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", join, 0);
+  await runtime.handle(wrongFaction.ws, "other-pilot", "pale-beacons", "scout-room", {
+    ...join, shipId: "mandjet",
+  }, 1);
+  assert.equal(wrongFaction.packets.at(-1).reason, "scout_faction_mismatch");
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+    type: "sector_ready", ready: true,
+  }, 2);
+  await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+    type: "sector_launch",
+  }, 3);
+  let seq = 0, nextInputAt = 0;
+  for (let now = 17; now <= 6_100; now += 17) {
+    if (now >= nextInputAt) {
+      await runtime.handle(pilot.ws, "scout-pilot", "pale-beacons", "scout-room", {
+        type: "sector_input", seq: seq++,
+        input: { ...NEUTRAL_FLIGHT_INPUT, throttle: 0.5, fire: now < 300 },
+      }, now);
+      nextInputAt = now + 100;
+    }
+    runtime.advance(now);
+  }
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const result = pilot.latest().scoutResult;
+  assert.ok(result);
+  assert.equal(result.outcome, "completed");
+  assert.equal(result.kills, 1);
+  assert.equal(result.creditsAwarded, 12);
+  assert.equal(result.assists, 0);
+  assert.deepEqual(result.destroyedActorIds, ["scout-pale-beacons"]);
+  assert.equal(pilot.latest().scoutResultStatus, "recorded");
+  assert.deepEqual(settlements, [result.encounterId]);
+  assert.equal(saved.length, 0, "completed results are persisted atomically with their bounty");
+  assert.equal(proofs.length, 1);
+  assert.equal(proofs[0]!.scoutResult?.kills, 1);
+  await runtime.close();
+});
+
+test("Orbital Pale Beacons moves its patrol and recovers only server-selected nearby evidence", async () => {
+  const recovered: Array<{ userId: string; evidenceId: string; encounterId: string }> = [];
+  let pilotPosition = { x: 0, y: 0, z: 0 };
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    recoverNarrativeEvidence: async (userId, evidenceId, encounterId) => {
+      recovered.push({ userId, evidenceId, encounterId });
+      return "recovered";
+    },
+    physics: (state, _input, seconds) => {
+      state.position = { ...pilotPosition };
+      state.elapsed += seconds;
+      state.stage = "drone";
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: SECTOR_ORBITAL_PROTOCOL_VERSION, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", join, 0);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_launch",
+  }, 2);
+
+  runtime.advance(120);
+  const firstPatrolPosition = pilot.latest().pilots[0]!.flight.drone.position;
+  runtime.advance(240);
+  const secondPatrolPosition = pilot.latest().pilots[0]!.flight.drone.position;
+  assert.notDeepEqual(secondPatrolPosition, firstPatrolPosition, "the server snapshot follows the moving patrol");
+
+  const sites = pilot.latest().evidence;
+  assert.equal(sites?.length, 2);
+  assert.deepEqual(sites?.map(site => site.id), ["pale-beacon-record", "earth-first-response"]);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 241);
+  assert.equal(pilot.packets.at(-1)?.reason, "evidence_not_in_recovery_range");
+  assert.equal(recovered.length, 0, "a distant request cannot recover or settle a record");
+  pilotPosition = { ...sites![0]!.position };
+  runtime.advance(1200);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence", evidenceId: "first-witness-trace",
+  }, 1201);
+  assert.equal(pilot.packets.at(-1)?.reason, "invalid_sector_evidence_recovery",
+    "the client cannot select or forge the narrative record id");
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 1202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["pale-beacon-record"]);
+  assert.equal(pilot.latest().evidence?.[0]?.state, "recovered");
+
+  pilotPosition = { ...sites![1]!.position };
+  runtime.advance(2200);
+  await runtime.handle(pilot.ws, "evidence-pilot", "pale-beacons", "evidence-room", {
+    type: "sector_recover_evidence",
+  }, 2300);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["pale-beacon-record", "earth-first-response"]);
+  assert.equal(recovered[0]?.userId, "evidence-pilot");
+  assert.equal(recovered[0]?.encounterId, recovered[1]?.encounterId);
+  assert.deepEqual(pilot.latest().evidence?.map(site => site.state), ["recovered", "recovered"]);
+  await runtime.close();
+});
+
+test("Orbital Rust Disc archives its relay record only after server-verified recovery", async () => {
+  const recovered: Array<{ userId: string; evidenceId: string; encounterId: string }> = [];
+  let pilotPosition = { x: 0, y: 0, z: 0 };
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: [], persistenceAvailable: true }),
+    recoverNarrativeEvidence: async (userId, evidenceId, encounterId) => {
+      recovered.push({ userId, evidenceId, encounterId });
+      return "recovered";
+    },
+    physics: (state, _input, seconds) => {
+      state.position = { ...pilotPosition };
+      state.elapsed += seconds;
+      state.stage = "drone";
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: SECTOR_ORBITAL_PROTOCOL_VERSION, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", join, 0);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_launch",
+  }, 2);
+
+  runtime.advance(120);
+  const site = pilot.latest().evidence?.[0];
+  assert.equal(site?.id, "rust-disc-relay-record");
+  assert.equal(site?.state, "available");
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence",
+  }, 3);
+  assert.equal(pilot.packets.at(-1)?.reason, "evidence_not_in_recovery_range");
+  assert.equal(recovered.length, 0, "a distant relay claim cannot enter the account archive");
+
+  pilotPosition = { ...site!.position };
+  runtime.advance(1200);
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence", evidenceId: "earth-first-response",
+  }, 1201);
+  assert.equal(pilot.packets.at(-1)?.reason, "invalid_sector_evidence_recovery",
+    "the client cannot choose a record ID");
+  await runtime.handle(pilot.ws, "rust-evidence-pilot", "rust-disc", "rust-evidence-room", {
+    type: "sector_recover_evidence",
+  }, 1202);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(recovered.map(item => item.evidenceId), ["rust-disc-relay-record"]);
+  assert.equal(recovered[0]?.userId, "rust-evidence-pilot");
+  assert.ok(recovered[0]?.encounterId, "the archive write is scoped to the server encounter");
+  assert.equal(pilot.latest().evidence?.[0]?.state, "recovered");
+  await runtime.close();
+});
+
+test("Pale Beacons contact actions use server-verified inputs and gate hostile fire by faction response", async () => {
+  const publicListings: unknown[] = [];
+  const runtime = createSectorRuntime({
+    protocolVersion: SECTOR_ORBITAL_PROTOCOL_VERSION,
+    loadProgress: async () => ({ completed: ["mars-approach"], persistenceAvailable: true }),
+    publishOperation: async state => { publicListings.push(state); },
+    physics: (state, input, seconds, sector) => {
+      if (state.elapsed === 0) {
+        state.stage = "drone";
+        state.droneCooldown = 0;
+      }
+      stepFlight(state, input, seconds, sector, ORBITAL_RUNTIME_ID);
+    },
+  });
+  const pilot = socket();
+  const join = {
+    type: "sector_join", version: 2, shipId: "glide",
+    simulation: ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  };
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", join, 0);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_ready", ready: true,
+  }, 1);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_launch",
+  }, 2);
+  for (let time = 17; time <= 119; time += 17) runtime.advance(time);
+  assert.equal(pilot.latest().factionContact?.actorFaction, "accord");
+  assert.equal(pilot.latest().factionContact?.action, "scan");
+  assert.equal(pilot.latest().pilots[0]!.flight.projectiles.some(projectile => projectile.hostile), false);
+
+  assert.equal(parseSectorTransponder({ type: "sector_transponder", mode: "silent" }), "silent");
+  assert.equal(parseSectorTransponder({ type: "sector_transponder", mode: "silent", action: "kill" }), null);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "silent",
+  }, 120);
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "reinforcements",
+  }, 121);
+  assert.equal(pilot.packets.at(-1).reason, "invalid_sector_transponder");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_transponder", mode: "broadcast",
+  }, 122);
+  assert.equal(pilot.packets.at(-1).reason, "sector_transponder_rate_limited");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_input", seq: 0,
+    input: { ...NEUTRAL_FLIGHT_INPUT, fire: true, factionContact: { action: "reinforcements" } } as never,
+  }, 123);
+  assert.equal(pilot.packets.at(-1).reason, "invalid_sector_input");
+  for (let time = 136; time <= 238; time += 17) runtime.advance(time);
+  assert.equal(pilot.latest().factionContact?.action, "shadow");
+  await runtime.handle(pilot.ws, "contact-pilot", "pale-beacons", "contact-room", {
+    type: "sector_input", seq: 0, input: { ...NEUTRAL_FLIGHT_INPUT, fire: true },
+  }, 239);
+  for (let time = 255; time <= 357; time += 17) runtime.advance(time);
+
+  const contact = pilot.latest().factionContact;
+  assert.equal(contact?.transponder, "silent");
+  assert.equal(contact?.action, "intercept");
+  assert.equal(contact?.weaponsHot, true);
+  assert.equal(pilot.latest().pilots[0]!.flight.projectiles.some(projectile => projectile.hostile), true,
+    "the Accord scout only retaliates after the server classifies an intercept");
+  assert.deepEqual(publicListings, [], "private Pale Beacons contacts never enter the public operation directory");
   await runtime.close();
 });
 test("latency probes require a joined seat, echo only valid nonces, and are throttled per socket", async () => {

@@ -1,5 +1,10 @@
 # Cinder Ring Asteroid Arena — Architecture and Roadmap
 
+> Historical roadmap. The current entry policy is
+> [Asteroid Competition Entry](ASTEROID-COMPETITION-ENTRY.md): the only alternate
+> gameplay is asteroid 5v5 competition. Private docks, standalone approaches and
+> solo training launches described below are not current player entry points.
+
 ## Product direction
 
 **The universe is the battlefield. Every competitive engagement is an operation within the larger war. Every operation can have consequences for the universe.**
@@ -17,7 +22,21 @@ The asteroid is a venue, not a mandate to merge every mode into one simulation:
 | Orbital Combat Lab | Offline combat development and validation; promote only after compatibility and authority checks |
 | Rust Disc and campaign | Preserve their specialist flight, story, and progression systems while connecting them through explicit operation contracts |
 
-The universe layer must not replace the existing Wing combat runtime. Orbital Combat Lab is not yet a universal production runtime. Future operations can use distinct engines and rulesets while sharing the same trusted identity, destination, operation directory, and server-owned outcome boundaries.
+The latest rebuild direction targets one canonical Orbital game runtime. Existing Wing and specialist runtimes remain protected compatibility paths until their coordinated migrations pass parity, authority, and rollback gates. Authenticated exploration and dynamic faction encounters are intended to be server-authoritative and reward-capable; this does not change the separate no-reward rules for private rooms, AI-fill matches, or the offline local sandbox.
+
+## Dynamic encounters and multiplayer exploration
+
+The asteroid hub is one entry point in a larger living universe. Travel can reveal
+server-created faction patrols, reconnaissance, fleet engagements, station
+distress calls, and active multiplayer operations. Opposing actors should
+investigate, identify, warn, intercept, or engage according to sensors,
+territory, faction, reputation, speed, transponder, weapons state, and existing
+orders—not all attack immediately.
+
+Exploration combat may produce a server-confirmed hull-destruction tally and
+eligible rewards. The operation directory, spectator feed, and join path must
+continue to expose only real server instances and honor privacy/capacity rules.
+See [the dynamic encounter and exploration authority direction](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
 
 ## First vertical slice: live Cinder Ring Relay arena
 
@@ -79,7 +98,8 @@ This is a local navigation/presentation step only. It does not register a
 multiplayer operation, write campaign state, grant a match seat, or replace any
 combat runtime. The competitive queue still validates location and ten human
 pilots on the server. Private rooms remain no-reward and absent from public
-discovery.
+discovery. This local approach rule does not define the future reward policy for
+authenticated multiplayer exploration.
 
 ## Explicitly not claimed as complete
 

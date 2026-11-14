@@ -25,6 +25,12 @@ test("salvage, material refits, hyperdrive gates, contracts and black-market con
   try {
     await getMarketSnapshot(user);
     original = await db.select().from(marketGoodsTable);
+    // Market stock is shared test data and may legitimately have been depleted
+    // by an earlier run. Give this loop a known, bounded supply before trading;
+    // the original global rows are restored in finally below.
+    await db.update(marketGoodsTable).set({
+      stock: 1000, targetStock: 1000, demandScore: 0,
+    });
     await db.update(playerProgressTable).set({ credits: 10000, cleared: 4 }).where(eq(playerProgressTable.userId, user));
     await getWorldSnapshot(user);
     await db.update(playerWorldStateTable).set({ accordReputation: 10 }).where(eq(playerWorldStateTable.userId, user));

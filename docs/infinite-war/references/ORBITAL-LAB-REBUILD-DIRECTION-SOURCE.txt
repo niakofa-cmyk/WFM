@@ -1,0 +1,52 @@
+## The rebuild direction is now clear
+
+I checked the latest `staging` branch of `niakofa-cmyk/WFM`. The latest commit I can verify is `3663e144`, merged November 4, 2026. It is the same staging revision examined in the previous review; I have not yet found a newer commit.
+
+Your clarification changes the architectural objective in an important way:
+
+Orbital Combat Lab is not supposed to remain a separate combat-training product with an infinite-universe game attached to it. Its existing combat-training experience is the foundation to be dismantled, reorganized, and rebuilt into the actual WAR FOR MARS: INFINITE WAR game engine.
+
+The player should enter one game and experience its universe, ships, flight, exploration, multiplayer, missions, combat, and progression through that rebuilt engine. The old offline training experience should not remain the primary destination or constrain the new game to a small arena.
+
+Mars is the central stage and starting theater—not the boundary of the universe. The architecture must eventually support travel to other planets, star systems, galaxies, dimensions, and distinct universes, while making those destinations actual game spaces rather than decorative map screens.
+
+## What I found in the current build
+
+The Lab already contains useful pieces for this transformation: six-axis flight, targeting and missile acquisition, 3D collision, shield/armor/hull damage, ship visuals, camera behavior, HUD telemetry, effects, touch controls, and a local combat lifecycle.
+
+But the repository still has distinct systems: Rust Disc flight, authenticated co-op sectors, Iron Eclipse, campaign, competitive Wing, and persistent Galaxy/economy services. The current code does not yet make these one shared open-universe game.
+
+The distinction matters: we should transform the Lab into the primary runtime, but we should not throw away the older systems that contain working multiplayer, account, progression, and server-authority infrastructure. Those systems need to be migrated into the new runtime—not replaced with unverified offline equivalents.
+
+I have now saved the clarified direction in a dedicated rebuild directive and updated the existing structural roadmap and master development directive on a separate review branch. This is a documentation and architecture update; I have not yet changed the game runtime or claimed that the rebuild is implemented.
+
+## Saved files and review request
+
+Saved and verified
+
+The new documentation is on branch `docs/infinite-universe-orbital-lab-rebuild`.
+
+| File | Change |
+| --- | --- |
+| `docs/infinite-war/ORBITAL-LAB-UNIVERSE-REBUILD-DIRECTIVE.md` | New, detailed master rebuild prompt |
+| `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md` | Updated to establish the new runtime direction |
+| `docs/infinite-war/STRUCTURAL-REBUILD-ROADMAP.md` | Updated with the new implementation phases |
+
+Draft pull request #15
+
+[Review the saved rebuild files and PR #15](https://github.com/niakofa-cmyk/WFM/pull/15?utm_source=chatgpt.com)
+
+The PR is open and unmerged. It contains three documentation changes, with no game source, database, authentication, or deployment changes.
+
+## The implementation order I recommend
+
+1. Deconstruct Orbital Combat Lab: map every function, dependency, lifecycle, and capability.
+2. Rebuild its foundation: turn the Lab into the primary WFM game boot, hangar, scene, and universe runtime.
+3. Bring Rust Disc flight into it: preserve the original pilot experience and controls.
+4. Build the Mars theater: actual surface, orbital, planetary, and spatial navigation.
+5. Integrate multiplayer operations: co-op, Iron Eclipse, competitive Wing, campaign, and fleet warfare.
+6. Expand the universe: other planets, star systems, galaxies, anomalies, dimensions, and alternate universes.
+
+The most important correction: We are not building an infinite universe around Orbital Combat Lab. We are rebuilding Orbital Combat Lab into the engine through which the entire Infinite War universe is experienced.
+
+The next engineering task should be the complete Phase 0 forensic extraction audit—not another isolated prototype.

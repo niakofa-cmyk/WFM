@@ -20,6 +20,15 @@ grant invulnerability or guaranteed missile escape.
 - `PilotFlightStick.tsx` is reused by Arena and Rust Disc.
 - `pilot-stick-gestures.ts` and `pilot-circular-gesture.ts` recognize bounded
   gestures; `input.ts` maps Arena device state to shared pilot intent.
+- Cinder Ring's local approach now reuses that same bus, signed left-stick
+  throttle/turn, right aim/direct roll and vector-pulse callbacks. Its signed
+  slider shares the left throttle axis; the meter is hidden until commanded
+  motion or actual movement. It reuses `orbitalCameraPose` to keep direct hull
+  roll visible instead of rolling the chase camera with it.
+- Cinder reset paths clear input on cancellation, blur, backgrounding,
+  orientation change, abort, docking and unmount. Its own scene and variable
+  render-frame stepping remain; this is input/camera-helper reuse, not full
+  lifecycle consolidation. Local transit still has no combat, seat or reward.
 - `RustDiscFlight.tsx` still owns its `TouchControls` wrapper and throttle/aim
   composition. This is not identical to Arena's signed left-stick throttle.
 - Both now consume the engine-owned frame/adapters. Sharing the data contract

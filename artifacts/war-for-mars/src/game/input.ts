@@ -2,6 +2,7 @@ import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
 import { toOrbitalPilotStepInput, toOrbitalStepInput } from "./flight-control";
 import { COORDINATED_BANK, mapFlightStickAxes, type ManeuverPulse } from "./pilot-stick-gestures";
+import { rightThumbFlightAxes, type RightThumbProfile, newVectorBoost, startVectorBoost, stepVectorBoost, type VectorBoostState, type VectorBoostDirection } from "@workspace/orbital-sim";
 
 export type Bus = {
   keys: Set<string>;
@@ -11,13 +12,19 @@ export type Bus = {
   leftY: number;
   rightX: number;
   rightY: number;
+  rightThumbProfile?: RightThumbProfile;
+  rightBoost?: VectorBoostState;
+  rightBoostSampleAt?: number;
+  flightEnergy?: number;
   fireCanvas: boolean;
   fireButton: boolean;
+  firePulse: boolean;
   ultPulse: boolean;
   lockPulse: boolean;
   missilePulse: boolean;
   countermeasurePulse: boolean;
   circularRoll: number;
+  circularRollStartedAt: number;
   circularRollUntil: number;
   inertialPulse: boolean;
   aimAssistPulse: boolean;
@@ -52,11 +59,13 @@ export function createBus(scheme: Scheme): Bus {
     rightY: 0,
     fireCanvas: false,
     fireButton: false,
+    firePulse: false,
     ultPulse: false,
     lockPulse: false,
     missilePulse: false,
     countermeasurePulse: false,
     circularRoll: 0,
+    circularRollStartedAt: 0,
     circularRollUntil: 0,
     inertialPulse: false,
     aimAssistPulse: false,
@@ -76,6 +85,8 @@ export function createBus(scheme: Scheme): Bus {
 }
 
 export function clearInput(bus: Bus) {
+  if (bus.rightBoost) bus.rightBoost.remaining = 0;
+  bus.rightBoostSampleAt = undefined;
   if (bus.pulseTimers.vertical) clearTimeout(bus.pulseTimers.vertical);
   if (bus.pulseTimers.strafe) clearTimeout(bus.pulseTimers.strafe);
   bus.pulseTimers.vertical = null;
@@ -91,11 +102,13 @@ export function clearInput(bus: Bus) {
   bus.rightY = 0;
   bus.fireCanvas = false;
   bus.fireButton = false;
+  bus.firePulse = false;
   bus.ultPulse = false;
   bus.lockPulse = false;
   bus.missilePulse = false;
   bus.countermeasurePulse = false;
   bus.circularRoll = 0;
+  bus.circularRollStartedAt = 0;
   bus.circularRollUntil = 0;
   bus.inertialPulse = false;
   bus.aimAssistPulse = false;
@@ -110,6 +123,16 @@ export function clearInput(bus: Bus) {
   bus.lastKeys?.clear();
 }
 
+/** Offline input projects the burst into legacy replayable axes; shared flight requests it separately. */
+export function requestRightVectorBoost(bus: Bus, direction: VectorBoostDirection, at = Date.now(), disabled = false) {
+  if (disabled || !bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim" ||
+      !Number.isFinite(at) || at < 0) return false;
+  bus.rightBoost ??= newVectorBoost();
+  const accepted = startVectorBoost(bus.rightBoost, direction, bus.flightEnergy ?? 100);
+  if (accepted) bus.rightBoostSampleAt = at;
+  return accepted;
+}
+
 export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs = 180) {
   const timer = bus.pulseTimers[pulse.axis];
   if (timer) clearTimeout(timer);
@@ -122,16 +145,24 @@ export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs =
   }, Math.max(1, durationMs));
 }
 
-/** Continuous roll is accepted only by the offline unified Orbital pilot adapter. */
-export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = 120) {
-  if (!bus.orbital || !bus.leftStickFlight) return;
-  if (!Number.isFinite(input) || Math.abs(input) < 0.01) {
+/** Continuous roll is buffered by the Orbital adapter and forwarded only when the server advertises support. */
+export const MAX_CIRCULAR_ROLL_HOLD_MS = 120;
+
+export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = MAX_CIRCULAR_ROLL_HOLD_MS) {
+  if (
+    !bus.orbital || !bus.leftStickFlight ||
+    !Number.isFinite(input) || Math.abs(input) < 0.01 ||
+    !Number.isFinite(at) || at < 0 ||
+    !Number.isFinite(holdMs) || holdMs <= 0
+  ) {
     bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
     bus.circularRollUntil = 0;
     return;
   }
   bus.circularRoll = Math.max(-1, Math.min(1, input));
-  bus.circularRollUntil = at + Math.max(1, holdMs);
+  bus.circularRollStartedAt = at;
+  bus.circularRollUntil = at + Math.min(MAX_CIRCULAR_ROLL_HOLD_MS, Math.max(1, holdMs));
 }
 
 function clamp(n: number): number {
@@ -174,6 +205,9 @@ export function readThrottle(bus: Bus): number {
 }
 
 export function readInput(bus: Bus, at = Date.now()): StepInput {
+  if (bus.rightBoost && (!bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim")) {
+    bus.rightBoost.remaining = 0;
+  }
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
@@ -183,7 +217,9 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     ? mapFlightStickAxes(bus.leftX, 0)
     : null;
   const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
-  const orbitalAim = bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null;
+  const rightAxes = bus.orbital && bus.leftStickFlight && bus.rightThumbProfile
+    ? rightThumbFlightAxes(bus.rightX, bus.rightY, bus.rightThumbProfile) : null;
+  const orbitalAim = rightAxes ?? (bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null);
   const aimYaw = orbitalAim?.yaw ?? -bus.rightX;
   const flightYaw = bus.leftStickFlight
     ? clamp((bus.orbital ? keyFlightYaw : keyYaw) + (orbitalFlightStick?.yaw ?? stickYaw))
@@ -204,12 +240,19 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
   const flightPitch = orbitalFlightStick?.pitch ?? 0;
   const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
   const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
-  const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
-  const circularRoll = bus.orbital && bus.leftStickFlight && at < bus.circularRollUntil
+  const fire = bus.fireCanvas || bus.fireButton || bus.firePulse || keys.has("Space");
+  bus.firePulse = false;
+  const circularRoll = bus.orbital && bus.leftStickFlight &&
+    Number.isFinite(at) && at >= 0 &&
+    Number.isFinite(bus.circularRoll) && Number.isFinite(bus.circularRollUntil) &&
+    Number.isFinite(bus.circularRollStartedAt) &&
+    at >= bus.circularRollStartedAt && at < bus.circularRollUntil &&
+    bus.circularRollUntil - bus.circularRollStartedAt <= MAX_CIRCULAR_ROLL_HOLD_MS
     ? clamp(bus.circularRoll)
     : 0;
   if (circularRoll === 0) {
     bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
     bus.circularRollUntil = 0;
   }
   const fDown = keys.has("KeyF");
@@ -246,10 +289,10 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
     bus.aimAssistPulse = false;
     const controls = {
       throttle, yaw,
-      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX)),
+      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX) + (rightAxes?.strafe ?? 0)),
       pitch: clamp(pitch + axis("KeyI", "KeyK")),
       roll: clamp((bus.orbital && bus.leftStickFlight ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
-      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY)),
+      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY) + (rightAxes?.vertical ?? 0)),
       fire, lock,
       boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
       drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
@@ -262,6 +305,15 @@ export function readInput(bus: Bus, at = Date.now()): StepInput {
       : toOrbitalStepInput(controls);
     if (!bus.countermeasureEnabled) delete result.countermeasure;
     bus.lastKeys = new Set(keys);
+    if (bus.rightBoost) {
+      if (!Number.isFinite(at) || at < 0) throw new RangeError("Invalid vector boost sample time");
+      const elapsed = at - (bus.rightBoostSampleAt ?? at);
+      // A wall-clock correction cannot extend an active maneuver.
+      if (elapsed < 0) bus.rightBoost.remaining = 0;
+      const dt = Math.max(0, Math.min(.1, elapsed / 1000));
+      bus.rightBoostSampleAt = at;
+      return { ...result, ...stepVectorBoost(bus.rightBoost, result, dt) };
+    }
     return result;
   }
   return { throttle, yaw, strafe, pitch, fire, ult, lock, evade, preset };

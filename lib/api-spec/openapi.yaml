@@ -13,6 +13,78 @@ tags:
   - name: progression
     description: Authenticated player profile and campaign progression
 paths:
+  /game/equipment:
+    get:
+      operationId: getEquipment
+      tags: [progression]
+      responses:
+        "200":
+          description: Account equipment, mount rules, and verified salvage opportunities
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "401": { description: Authentication required }
+        "503": { description: Modular equipment is not enabled in this environment }
+  /game/equipment/fit:
+    post:
+      operationId: fitEquipment
+      tags: [progression]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentFitInput" }
+      responses:
+        "200":
+          description: Persisted account fitting for the next issued flight
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "400": { description: Invalid fitting }
+        "401": { description: Authentication required }
+        "409": { description: Stale revision or incompatible equipment }
+        "503": { description: Modular equipment is not enabled in this environment }
+  /game/equipment/recover:
+    post:
+      operationId: recoverEquipment
+      tags: [progression]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentRecoveryInput" }
+      responses:
+        "200":
+          description: Idempotently recovered equipment from an authoritative destruction record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentLocker" }
+        "400": { description: Invalid recovery request }
+        "401": { description: Authentication required }
+        "409": { description: No eligible verified destruction record }
+        "503": { description: Modular equipment is not enabled in this environment }
+  /world/campaign:
+    get:
+      operationId: getGlobalCampaign
+      tags: [world]
+      responses:
+        "200":
+          description: One server-owned timeline shared by all authenticated pilots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GlobalCampaign" }
+  /world/campaign/finale:
+    post:
+      operationId: claimGlobalCampaignFinale
+      tags: [world]
+      responses:
+        "200":
+          description: Permanently idempotent finale award for a verified participant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GlobalCampaignFinale" }
+        "409":
+          description: Campaign not complete or pilot not eligible
   /healthz:
     get:
       operationId: healthCheck
@@ -301,6 +373,25 @@ paths:
                 $ref: "#/components/schemas/WorldState"
         "401":
           description: Authentication required
+  /world/patrols:
+    get:
+      operationId: getWorldPatrols
+      tags: [progression]
+      summary: Get server-owned patrols and traffic near the authenticated pilot
+      description: Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Strategic patrol directory for the authenticated pilot's current location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldPatrolDirectory"
+        "401":
+          description: Authentication required
+        "503":
+          description: Persistent patrol state is temporarily unavailable
   /world/operations:
     get:
       operationId: getWorldOperations
@@ -314,6 +405,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperationDirectoryResponse"
+  /world/exploration/results:
+    get:
+      operationId: getWorldExplorationResults
+      tags: [progression]
+      summary: Recover the authenticated pilot's confirmed scout encounter results
+      description: Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+      security:
+        - ClerkSession: []
+      responses:
+        "200":
+          description: Latest confirmed scout results owned by the authenticated pilot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldExplorationResults"
+        "401":
+          description: Authentication required
   /world/presence/heartbeat:
     post:
       operationId: heartbeatWorldPresence
@@ -502,6 +610,117 @@ components:
       in: cookie
       name: __session
   schemas:
+    EquipmentDefinition:
+      type: object
+      required: [id, name, kind, effect, description, size, mass, power, damage, ammunition, magazine, roundsPerMinute, range, projectileVelocity, tracking, lockSeconds, reloadSeconds, heat, durability, energy]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [primary, secondary, special, defensive, utility] }
+        effect: { type: string }
+        description: { type: string }
+        size: { type: integer }
+        mass: { type: number }
+        power: { type: number }
+        damage: { type: number }
+        ammunition: { type: integer }
+        magazine: { type: integer }
+        roundsPerMinute: { type: number }
+        range: { type: number }
+        projectileVelocity: { type: number }
+        tracking: { type: number }
+        lockSeconds: { type: number }
+        reloadSeconds: { type: number }
+        heat: { type: number }
+        durability: { type: number }
+        energy: { type: number }
+    EquipmentItem:
+      type: object
+      required: [id, equipmentId, condition, shipId, hardpointId]
+      properties:
+        id: { type: string, format: uuid }
+        equipmentId: { type: string }
+        condition: { type: number }
+        shipId: { type: [string, "null"] }
+        hardpointId: { type: [string, "null"] }
+    EquipmentHardpoint:
+      type: object
+      required: [id, kind, size]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        size: { type: integer }
+    EquipmentHull:
+      type: object
+      required: [shipId, massLimit, powerLimit, hardpoints]
+      properties:
+        shipId: { type: string }
+        massLimit: { type: number }
+        powerLimit: { type: number }
+        hardpoints:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentHardpoint" }
+    EquipmentSalvage:
+      type: object
+      required: [eventId, actorId, equipmentId]
+      properties:
+        eventId: { type: string, format: uuid }
+        actorId: { type: string }
+        equipmentId: { type: string }
+    EquipmentLocker:
+      type: object
+      required: [revision, catalog, hulls, items, salvage]
+      properties:
+        revision: { type: integer }
+        catalog:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentDefinition" }
+        hulls:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentHull" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentItem" }
+        salvage:
+          type: array
+          items: { $ref: "#/components/schemas/EquipmentSalvage" }
+    EquipmentFitInput:
+      type: object
+      required: [shipId, hardpointId, itemId, expectedRevision]
+      properties:
+        shipId: { type: string, maxLength: 32 }
+        hardpointId: { type: string, maxLength: 32 }
+        itemId: { type: [string, "null"], format: uuid }
+        expectedRevision: { type: integer, minimum: 0 }
+    EquipmentRecoveryInput:
+      type: object
+      required: [eventId, actorId]
+      properties:
+        eventId: { type: string, format: uuid }
+        actorId: { type: string, minLength: 1, maxLength: 160 }
+    GlobalCampaign:
+      type: object
+      required: [enabled, campaignId, completedOperations, targetOperations, progressPercent, phase, concluded, finaleEligible, finaleClaimed]
+      properties:
+        enabled: { type: boolean }
+        campaignId: { type: string }
+        completedOperations: { type: integer, minimum: 0 }
+        targetOperations: { type: integer, minimum: 1 }
+        progressPercent: { type: number, minimum: 0, maximum: 100 }
+        phase: { type: string, enum: [INITIAL_CONTACT, BEACON_RECON, WARDEN_INTERCEPT, CAGE_CLIMAX, SYSTEM_VICTORY] }
+        concluded: { type: boolean }
+        finaleEligible: { type: boolean }
+        finaleClaimed: { type: boolean }
+    GlobalCampaignFinale:
+      type: object
+      required: [campaignId, credits, campaignXp, badge, shieldMk2, replayed]
+      properties:
+        campaignId: { type: string }
+        credits: { type: integer }
+        campaignXp: { type: integer }
+        badge: { type: string }
+        shieldMk2: { type: boolean }
+        replayed: { type: boolean }
     HealthStatus:
       type: object
       properties:
@@ -939,6 +1158,64 @@ components:
         presenceStatus:
           type: string
           enum: [available, unavailable]
+    WorldPatrolShip:
+      type: object
+      required: [id, hullId, name, callsign]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 160 }
+        hullId:
+          type: string
+          enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide]
+        name: { type: string, minLength: 1, maxLength: 80 }
+        callsign: { type: string, minLength: 1, maxLength: 16 }
+    WorldPatrolFleet:
+      type: object
+      required: [id, callsign, faction, objective, locationId, route, ships, lastMovedAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 180 }
+        callsign: { type: string, minLength: 1, maxLength: 40 }
+        faction: { type: string, enum: [ussf, accord] }
+        objective: { type: string, enum: [recon, route-security, escort, supply-screen] }
+        locationId: { type: string, minLength: 1, maxLength: 100 }
+        route:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items: { type: string, minLength: 1, maxLength: 100 }
+        ships:
+          type: array
+          minItems: 2
+          maxItems: 4
+          items: { $ref: "#/components/schemas/WorldPatrolShip" }
+        lastMovedAt: { type: string, format: date-time }
+    WorldPatrolTrafficContact:
+      type: object
+      required: [contactId, faction, hullId, locationId, position, velocity, yaw]
+      properties:
+        contactId: { type: string, minLength: 1, maxLength: 220 }
+        faction: { type: string, enum: [ussf, accord] }
+        hullId:
+          type: string
+          enum: [mandjet, shakuna, sundara, tripura, duskbreaker, sentinel, splitter, glide]
+        locationId: { type: string, minLength: 1, maxLength: 100 }
+        position: { $ref: "#/components/schemas/UniverseVector3" }
+        velocity: { $ref: "#/components/schemas/UniverseVector3" }
+        yaw: { type: number, minimum: -6.284, maximum: 6.284 }
+    WorldPatrolDirectory:
+      type: object
+      required: [generatedAt, currentLocationId, simulationLayer, patrols, traffic]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        currentLocationId: { type: string, minLength: 1, maxLength: 100 }
+        simulationLayer: { type: string, enum: [strategic] }
+        patrols:
+          type: array
+          maxItems: 128
+          items: { $ref: "#/components/schemas/WorldPatrolFleet" }
+        traffic:
+          type: array
+          maxItems: 512
+          items: { $ref: "#/components/schemas/WorldPatrolTrafficContact" }
     WorldLocation:
       type: object
       required: [id, name, kind, x, y, unlockAfter, unlocked, explored, description, services]
@@ -973,7 +1250,7 @@ components:
         reputationReward: { type: integer, minimum: 0 }
     WorldState:
       type: object
-      required: [event, reputation, currentLocation, routes, locations, discoveries, quests, hyperdriveTier, inventory, activities, history, cargoUsed, cargoCapacity, installedUpgrades, rejections]
+      required: [event, reputation, currentLocation, routes, locations, discoveries, narrative, quests, hyperdriveTier, inventory, activities, history, cargoUsed, cargoCapacity, installedUpgrades, rejections]
       properties:
         hyperdriveTier: { type: integer, minimum: 1, maximum: 3 }
         cargoUsed: { type: integer, minimum: 0 }
@@ -1000,9 +1277,36 @@ components:
         discoveries:
           type: array
           items: { type: string }
+        narrative:
+          type: array
+          description: Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.
+          items: { $ref: "#/components/schemas/CampaignNarrativeRecord" }
         quests:
           type: array
           items: { $ref: "#/components/schemas/WorldQuest" }
+    CampaignNarrativeDialogueLine:
+      type: object
+      additionalProperties: false
+      required: [speaker, text]
+      properties:
+        speaker: { type: string, minLength: 1, maxLength: 80 }
+        text: { type: string, minLength: 1, maxLength: 800 }
+    CampaignNarrativeRecord:
+      type: object
+      additionalProperties: false
+      required: [id, chapter, missionId, title, source, knowledgeLayer, synopsis, transcript, discoveredAt]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 80 }
+        chapter: { type: string, minLength: 1, maxLength: 120 }
+        missionId: { type: string, enum: [contact, beacon, warden, cage, rust-disc] }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        source: { type: string, minLength: 1, maxLength: 160 }
+        knowledgeLayer: { type: string, enum: [public, restricted, classified, unresolved] }
+        synopsis: { type: string, minLength: 1, maxLength: 1200 }
+        transcript:
+          type: array
+          items: { $ref: "#/components/schemas/CampaignNarrativeDialogueLine" }
+        discoveredAt: { type: string, format: date-time }
     WorldRoute:
       type: object
       required: [destinationId, costCredits, available]
@@ -1088,6 +1392,41 @@ components:
         title: { type: string }
         creditsDelta: { type: integer }
         createdAt: { type: string, format: date-time }
+    WorldExplorationResults:
+      type: object
+      additionalProperties: false
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/WorldScoutEncounterResult" }
+    WorldScoutEncounterResult:
+      type: object
+      additionalProperties: false
+      required: [encounterId, missionId, sectorId, runtime, policyId, outcome, finalTick, objectiveCompleted, kills, assists, destroyedActorIds, rewardableNpcKills, creditsAwarded, fingerprint, recordedAt]
+      properties:
+        encounterId: { type: string, format: uuid }
+        missionId: { type: string, enum: [pale-beacons, universe-patrol] }
+        sectorId: { type: string, minLength: 1, maxLength: 128 }
+        runtime: { type: string, minLength: 1, maxLength: 64 }
+        policyId: { type: string, minLength: 1, maxLength: 128 }
+        outcome: { type: string, enum: [completed, aborted] }
+        finalTick: { type: integer, minimum: 0 }
+        objectiveCompleted: { type: boolean }
+        kills: { type: integer, minimum: 0 }
+        assists: { type: integer, minimum: 0 }
+        destroyedActorIds:
+          type: array
+          maxItems: 128
+          items: { type: string, minLength: 1, maxLength: 128 }
+        rewardableNpcKills: { type: integer, minimum: 0 }
+        creditsAwarded: { type: integer, minimum: 0 }
+        patrolId: { type: string, minLength: 1, maxLength: 128 }
+        patrolLocationId: { type: string, minLength: 1, maxLength: 128 }
+        opposingFaction: { type: string, enum: [ussf, accord] }
+        fingerprint: { type: string, pattern: "^[0-9a-f]{64}$" }
+        recordedAt: { type: string, format: date-time }
     WorldServiceInput:
       type: object
       additionalProperties: false

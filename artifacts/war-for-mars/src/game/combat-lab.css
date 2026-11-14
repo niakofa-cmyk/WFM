@@ -22,6 +22,7 @@
 .pilot-map-legend{display:flex;justify-content:center;gap:1rem;color:#b6b1a9}
 .pilot-map-legend span{display:flex;align-items:center;gap:.35rem}
 .pilot-map-key{display:inline-block;width:8px;height:8px}
+.pilot-map-key.pilot-map-evidence{background:#b9a4ff;transform:rotate(45deg)}
 .pilot-map-friendly{background:#e0a15a}
 .pilot-map-hostile{background:#c45c48}
 .pilot-map-objective{background:#8d877c}
@@ -42,6 +43,30 @@
 @media(max-width:700px){.pilot-action-button{width:42px;height:42px}.pilot-action-button svg{width:18px;height:18px}.pilot-action-fire{width:48px;height:48px}.lab-flight [data-testid=stick-flight],.lab-flight [data-testid=stick-move],.lab-flight [data-testid=stick-aim]{width:82px;height:82px}.lab-flight [data-testid=stick-flight] .absolute.rounded-full,.lab-flight [data-testid=stick-move] .absolute.rounded-full,.lab-flight [data-testid=stick-aim] .absolute.rounded-full{width:2.25rem;height:2.25rem}.pilot-rust-maneuvers{max-width:45vw}.pilot-map-canvas{width:min(74vw,340px);height:min(74vw,340px)}}
 @media(max-width:390px){.pilot-action-button{width:40px;height:40px}.pilot-action-button svg{width:17px;height:17px}.pilot-action-fire{width:46px;height:46px}.lab-flight [data-testid=stick-flight],.lab-flight [data-testid=stick-move],.lab-flight [data-testid=stick-aim]{width:74px;height:74px}.lab-flight [data-testid=stick-flight] .absolute.rounded-full,.lab-flight [data-testid=stick-move] .absolute.rounded-full,.lab-flight [data-testid=stick-aim] .absolute.rounded-full{width:2rem;height:2rem}}
 @media(max-height:560px) and (orientation:landscape){.lab-flight [data-testid=stick-flight],.lab-flight [data-testid=stick-move],.lab-flight [data-testid=stick-aim]{width:84px;height:84px}.lab-flight [data-testid=stick-flight] .absolute.rounded-full,.lab-flight [data-testid=stick-move] .absolute.rounded-full,.lab-flight [data-testid=stick-aim] .absolute.rounded-full{width:2.25rem;height:2.25rem}.lab-flight .pilot-control-left{flex-direction:row;align-items:flex-end;gap:.65rem}.lab-flight .pilot-flight-actions{flex-direction:column;align-items:center}.lab-flight .pilot-control-right{flex-direction:row;align-items:flex-end;gap:.65rem}.lab-flight .pilot-combat-actions{flex-direction:column;align-items:center}.pilot-action-button{width:44px;height:44px}.pilot-action-fire{width:50px;height:50px}.pilot-action-button svg{width:19px;height:19px}.pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 6.6rem)}}
+
+/* Short landscape phone viewports need room for the full control clusters. */
+@media(max-height:380px) and (orientation:landscape){
+  .lab-flight [data-testid=flight-controls-left],
+  .lab-flight [data-testid=flight-controls-right]{bottom:calc(env(safe-area-inset-bottom,0px) + .3rem)!important}
+  .lab-flight [data-testid=stick-flight],
+  .lab-flight [data-testid=stick-move],
+  .lab-flight [data-testid=stick-aim],
+  .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+  .lab-flight .pilot-rust-disc-stick .pilot-flight-stick-knob{width:1.7rem;height:1.7rem}
+  .lab-flight .pilot-flight-stick-visual:not(.pilot-flight-stick-visual-static){width:64px;height:64px}
+  .lab-flight .pilot-flight-stick-zone .pilot-flight-stick-knob{width:1.5rem;height:1.5rem}
+  .lab-flight .pilot-action-button{width:36px;height:36px}
+  .lab-flight .pilot-action-button svg{width:16px;height:16px}
+  .lab-flight .pilot-action-fire{width:40px;height:40px}
+  .lab-flight .pilot-action-fire svg{width:19px;height:19px}
+  .lab-flight .pilot-control-left,
+  .lab-flight .pilot-control-right{gap:.3rem}
+  .lab-flight .pilot-control-left .pointer-events-auto,
+  .lab-flight .pilot-control-right .pointer-events-auto{gap:.3rem}
+  .lab-flight .pilot-flight-actions,
+  .lab-flight .pilot-combat-actions{gap:.3rem}
+  .lab-flight .pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 4.8rem);font-size:10px}
+}
 
 /* Offline Orbital pilot controls reuse Rust Disc's stick dimensions and combat row. */
 .lab-flight .pilot-rust-disc-stick{width:6rem;height:6rem}
@@ -66,3 +91,66 @@
 .pilot-throttle-meter[data-direction=coast]{color:#b3bdc9}
 .pilot-throttle-meter[data-direction=coast] .pilot-throttle-fill{background:#b3bdc9}
 .pilot-action-button[data-energy-level=low] .pilot-action-badge{color:#ff655e;border-color:#ff655e}
+.free-flight-target-marker{position:absolute;z-index:24;display:flex;flex-direction:column;align-items:center;gap:4px;transform:translate(-50%,-50%);pointer-events:none;white-space:nowrap;color:#ffd27c;text-shadow:0 1px 5px #000,0 0 9px #e0a15a}
+.free-flight-target-marker[hidden]{display:none!important}
+.free-flight-target-reticle{position:relative;display:block;width:54px;height:54px;border:1px solid color-mix(in srgb,var(--target-accent,#e0a15a) 72%,transparent);border-radius:50%;box-shadow:0 0 12px color-mix(in srgb,var(--target-accent,#e0a15a) 28%,transparent),inset 0 0 12px rgba(4,7,12,.55)}
+.free-flight-target-reticle:before,.free-flight-target-reticle:after{position:absolute;content:"";background:var(--target-accent,#e0a15a);box-shadow:0 0 6px currentColor}
+.free-flight-target-reticle:before{left:50%;top:-5px;width:1px;height:64px;transform:translateX(-50%);opacity:.72}
+.free-flight-target-reticle:after{top:50%;left:-5px;width:64px;height:1px;transform:translateY(-50%);opacity:.72}
+.free-flight-target-reticle-core{position:absolute;inset:18px;border:1px solid currentColor;border-radius:50%;background:rgba(8,12,18,.48)}
+.free-flight-target-label{max-width:min(58vw,19rem);overflow:hidden;border:1px solid rgba(224,161,90,.58);background:rgba(5,8,13,.88);padding:3px 6px;font:700 8px/1.2 Arial,sans-serif;letter-spacing:.13em;text-align:center}
+.free-flight-target-marker[data-missile-ready=true] .free-flight-target-reticle{border-color:#8ff0c0;box-shadow:0 0 16px rgba(143,240,192,.72),inset 0 0 12px rgba(4,7,12,.55);color:#8ff0c0}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle{width:20px;height:20px;border:0;border-radius:0;box-shadow:none;transform:rotate(var(--target-marker-angle,0deg))}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle:before{left:4px;top:1px;width:2px;height:11px;transform:rotate(-42deg);transform-origin:bottom}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle:after{top:1px;left:13px;width:2px;height:11px;transform:rotate(42deg);transform-origin:bottom}
+.free-flight-target-marker[data-edge=true] .free-flight-target-reticle-core{display:none}
+
+/* Unified Orbital: compact right-thumb profile switch inside maneuver drawer. */
+.lab-flight .pilot-thumb-profile{display:flex;gap:2px;padding:2px;border:1px solid rgba(230,225,214,.3);border-radius:999px;background:rgba(10,13,19,.6);backdrop-filter:blur(5px);pointer-events:auto}
+.lab-flight .pilot-thumb-profile-option{min-width:44px;min-height:40px;padding:0 .5rem;border-radius:999px;color:#b6b1a9;font:700 9px/1 monospace;letter-spacing:.12em;touch-action:manipulation;pointer-events:auto}
+.lab-flight .pilot-thumb-profile-option[aria-pressed=true]{background:rgba(224,161,90,.85);color:#080b11}
+.lab-flight .pilot-thumb-profile-option:focus-visible{outline:2px solid #e6e1d6;outline-offset:2px}
+
+/* Exploration keeps the battlefield clear: invisible half-screen touch zones
+   accept a drag anywhere, and the joystick guide appears only during input. */
+.lab-flight .pilot-flight-stick-zone{position:fixed;top:0;bottom:0;width:50vw;height:100dvh;border:0;border-radius:0;background:transparent;touch-action:none;z-index:1}
+.lab-flight .pilot-flight-stick-visual{position:absolute;left:50%;top:50%;width:84px;height:84px;transform:translate(-50%,-50%);overflow:hidden;border:1px solid rgba(230,225,214,.48);border-radius:999px;background:rgba(7,8,13,.28);box-shadow:0 0 16px rgba(7,8,13,.24);opacity:0;transition:opacity .18s ease;pointer-events:none}
+.lab-flight .pilot-flight-stick-visual-static{inset:0;left:auto;top:auto;width:100%;height:100%;transform:none;overflow:visible;border:0;border-radius:999px;background:transparent;box-shadow:none;opacity:1;transition:none}
+.lab-flight .pilot-flight-stick-zone[data-active=true] .pilot-flight-stick-visual{opacity:.78}
+.lab-flight .pilot-flight-stick-zone .pilot-flight-stick-knob{width:2rem;height:2rem}
+.lab-flight .pilot-top-bar{z-index:12}
+.lab-flight .pilot-control-left{z-index:8}
+.lab-flight .pilot-control-left .pilot-flight-actions,.lab-flight .pilot-control-right .pilot-flight-actions,.lab-flight .pilot-control-right .pilot-combat-actions{position:relative;z-index:5}
+.lab-flight [data-testid=button-camera-toggle],.lab-flight [data-testid=button-pause]{position:relative;z-index:13}
+
+/* Campaign progress remains in command screens; it is not a flight overlay. */
+body:has([data-testid=arena-stage]) [data-testid=status-global-campaign]:not(.campaign-menu-status),
+body:has([data-testid=arena-stage]) [data-testid=status-campaign-unavailable]:not(.campaign-menu-status){display:none}
+
+/* Keep the short-landscape control cluster compact even on wide Android phones. */
+@media(max-height:380px) and (orientation:landscape){
+  .lab-flight .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+}
+
+/* Android can expose a smaller visual viewport than its CSS layout viewport.
+   Keep the selected compact layout when that happens, without changing camera pose. */
+.lab-flight[data-compact-viewport=true] [data-testid=flight-controls-left],
+.lab-flight[data-compact-viewport=true] [data-testid=flight-controls-right]{bottom:calc(env(safe-area-inset-bottom,0px) + .3rem)!important}
+.lab-flight[data-compact-viewport=true] [data-testid=stick-flight],
+.lab-flight[data-compact-viewport=true] [data-testid=stick-move],
+.lab-flight[data-compact-viewport=true] [data-testid=stick-aim],
+.lab-flight[data-compact-viewport=true] .pilot-rust-disc-stick{width:4.35rem;height:4.35rem}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-knob{width:1.7rem;height:1.7rem}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-visual:not(.pilot-flight-stick-visual-static){width:64px;height:64px}
+.lab-flight[data-compact-viewport=true] .pilot-flight-stick-zone .pilot-flight-stick-knob{width:1.5rem;height:1.5rem}
+.lab-flight[data-compact-viewport=true] .pilot-action-button{width:36px;height:36px}
+.lab-flight[data-compact-viewport=true] .pilot-action-button svg{width:16px;height:16px}
+.lab-flight[data-compact-viewport=true] .pilot-action-fire{width:40px;height:40px}
+.lab-flight[data-compact-viewport=true] .pilot-action-fire svg{width:19px;height:19px}
+.lab-flight[data-compact-viewport=true] .pilot-control-left,
+.lab-flight[data-compact-viewport=true] .pilot-control-right,
+.lab-flight[data-compact-viewport=true] .pilot-control-left .pointer-events-auto,
+.lab-flight[data-compact-viewport=true] .pilot-control-right .pointer-events-auto,
+.lab-flight[data-compact-viewport=true] .pilot-flight-actions,
+.lab-flight[data-compact-viewport=true] .pilot-combat-actions{gap:.3rem}
+.lab-flight[data-compact-viewport=true] .pilot-coach{bottom:calc(env(safe-area-inset-bottom,0px) + 4.8rem);font-size:10px}

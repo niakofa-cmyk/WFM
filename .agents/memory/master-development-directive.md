@@ -3,12 +3,57 @@ name: WFM master development directive
 description: Owner-designated execution order and consolidation rules for Infinite War.
 ---
 
-The controlling owner directive is now
+The owner clarified again that the playable Infinite War universe and game
+must run **inside the rebuilt Orbital Combat Lab runtime**, not beside it with
+Orbital left as an optional offline `COMBAT TRAINING` link. Training becomes
+one activity within the main game. A chart redesign or account-universe link
+does not satisfy this rebuild.
+
+The landscape hangar is the command deck. Its single **ENTER UNIVERSE** action
+must install the pilot directly into Orbital's active universe runtime, not open
+the Galaxy/operations directory as a separate destination. Campaign, exploration,
+combat, and multiplayer are intended to run as activities within that universe.
+The current direct handoff is only an entry-flow change; it does not certify that
+every existing runtime has already been consolidated.
+
+**Why:** the user explicitly corrected the execution boundary and asked to save
+it in the rebuild/redesign files.
+
+**How to apply:** use `docs/infinite-war/ORBITAL-UNIVERSE-REBUILD-CONTRACT.md`
+for the end-to-end lifecycle breakdown and acceptance loop. Extract and
+re-engineer the Lab's runtime responsibilities; do not just rename or move its
+training card. Preserve working replacements, offline capability and server
+authority while consolidating. The current source archive and direction remain
+indexed in `docs/infinite-war/REDESIGN-DIRECTION.md`.
+The subsequent Infinite Open Universe source restores one canonical Orbital
+gameplay/runtime owner as the final target. Specialist experiences remain
+distinct configurations/adapters; existing runtimes are migration and rollback
+paths, not a permanent multi-engine architecture. Do not delete working modes
+or flatten distinctive mechanics for a visual consolidation.
+
+**Why:** the user explicitly authorized redesign and then supplied an additional
+Infinite Open Universe directive requiring one canonical engine.
+
+**How to apply:** implement bounded connected-universe presentation and real
+entry paths without claiming live battles, infinite streaming or full engine
+migration from visuals. Preserve authentication, authority, rewards and rollback.
+
+Keep local no-reward Orbital training independent of hosted authentication and
+account-world availability. Share presentation with the connected account
+universe, but do not require a live account service to launch offline training.
+
+**Why:** connecting persisted travel/discovery must not remove the verified
+offline training boundary or treat a local approach as server location authority.
+
+**How to apply:** reuse existing account world/travel/operation contracts for
+connected navigation; preserve the independent local launch and its no-write
+boundary. A chart selection or completed local docking animation never grants
+server position, match access or rewards.
+
+The previous engine-first owner directive is retained at
 `attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
-It explicitly says to consolidate the actual Orbital main engine before
-redesigning the universe's appearance. One main engine supports distinct
-experiences through configurations/adapters; retained engines are migration
-and rollback paths, not the permanent product architecture.
+It put engine consolidation before appearance redesign; the user's newer
+authorization now permits a visual slice before that consolidation is complete.
 
 **Why:** the user repeated that the new game is built through Orbital Combat Lab
 and supplied a directive explicitly resolving the older multiple-engine wording.
@@ -17,6 +62,26 @@ and supplied a directive explicitly resolving the older multiple-engine wording.
 `docs/infinite-war/engine/MASTER-ENGINE-ARCHITECTURE.md`; extract verified
 capabilities, preserve distinctive mechanics and authority, and never call a
 visual/menu redesign an engine migration.
+
+**Latest rebuild sequence:** Orbital Combat Lab must be rebuilt as the actual
+WAR FOR MARS game engine, not remain a separate training product with a universe
+layer around it. Phase 0 maps the real boot, subsystem lifecycle, mode imports,
+simulation versions, renderers, and authority before the next feature prototype.
+
+**Why:** the user supplied a new rebuild direction and explicitly asked to save
+it as the redesign reference; it makes the forensic extraction audit the first
+engineering step.
+
+**How to apply:** follow
+`docs/infinite-war/references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt` and
+`docs/infinite-war/ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`. Build the
+primary Orbital boot and migrate modes incrementally, retaining working
+server-owned identity, mission, multiplayer, and reward systems until verified.
+Treat the Phase 0 inventory as a retained migration baseline; consult
+`docs/infinite-war/PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md` for the
+consolidation boundary and rollback/activation rules.
+**Why:** a shared primary entry does not certify shared authoritative simulation;
+retaining the baseline makes outstanding mode migrations explicit.
 Keep normalized pilot intent distinct from versioned replay/network commands:
 unsupported capabilities must remain omitted, not merely set to false.
 **Why:** consolidating input must not silently widen older accepted contracts.
@@ -29,29 +94,23 @@ The current source audit is in
 and ordered migration proof gates are in
 `docs/infinite-war/INFINITE-UNIVERSE-ORBITAL-RUNTIME-DIRECTION.md`.
 
-The leading direction is one canonical Orbital gameplay runtime, with Rust
-Disc, Iron Eclipse, Route to Mars, Arcade, Campaign, co-op, and Wing capabilities
-migrated through versioned, tested operation adapters. Do not transplant the
-legacy Rust Disc flight scene. Three.js may remain only as a low-level renderer
-dependency if the Orbital presentation layer owns scene, camera, renderer and
-gameplay-loop lifecycle; removing Three.js itself requires a separate benchmark.
+Current renderer decision: retain and use Three.js and native Orbital WebGL2
+rendering. Build primarily on the main Orbital Combat Lab open-universe
+experience, using Three.js as its primary renderer and native WebGL2 as a
+companion/backup or specialized render path. Orbital remains the single owner of
+the universe, gameplay state, simulation, flight, and authority. Multiple
+renderers do not authorize duplicate worlds or physics. Rust Disc and the
+attached flight reference provide behaviors to preserve and integrate as
+in-world routes and operations.
 
-**Why:** the newest owner directive explicitly designates Orbital Combat as the
-main engine and calls for extraction of verified systems, not a visual-only
-rebuild. It also requires mobile controls, deterministic simulation, server
-authority, compatibility, and rollback during migration.
+**Why:** on 2026-11-08 the user explicitly corrected the prior renderer decision
+and asked to save this direction: keep both Three.js and Orbital WebGL2, build
+the main game in the Orbital universe, and continue using Three.js there.
 
-**How to apply:** use the source-backed extraction matrix before broad rewrites.
-Keep the custom Three.js/Vite renderer, but move mode gameplay toward the shared
-Orbital simulation through explicit adapters. Preserve Clerk identity, Wing
-matchmaking/rewards, co-op progression, campaign claims, and account data.
-Integrate one versioned slice at a time; keep training no-reward; do not claim
-mobile performance, live ten-human orbital combat, or full mode migration without
-their acceptance evidence.
-
-The new directive makes Rust Disc pilot controls and co-op operation behavior
-required extraction sources, and defines the intended extended universe. Keep
-that target distinct from current bounded sectors and navigation. Track
-simulation migration separately from presentation migration: a mode must not
-be called fully consolidated while a legacy scene owns its rendering lifecycle.
-Preserve identity, server authority, progression and rewards throughout migration.
+**How to apply:** follow
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`. Keep the shared
+Orbital simulation and controls authoritative across renderers; keep multiplayer,
+identity, progression, and rewards server-owned. Do not remove Three.js or
+discard Rust Disc flight/mission behavior under the superseded Orbital-only
+renderer rule. Retain measurement, parity, performance, accessibility, and
+rollback checks before changing a renderer path.

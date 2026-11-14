@@ -1,5 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/react";
+import {
+  getGetWorldPatrolsQueryKey,
+  getGetWorldQueryKey,
+  useGetWorld,
+  useGetWorldPatrols,
+  useGetGlobalCampaign,
+  getGetGlobalCampaignQueryKey,
+} from "@workspace/api-client-react";
 import type {
   StrikeResult,
   OnlineRoom,
@@ -18,10 +26,11 @@ import {
   refitCost,
   saveFromProfile,
   writeDevicePreferences,
+  type PilotControlLayout,
   type Save,
 } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
-import { sfxUi, unlockAudio } from "./audio";
+import { isMuted, setMuted, sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
@@ -32,7 +41,6 @@ import {
 } from "./progression-api";
 import {
   DISPATCHES,
-  RECOVERED_INTEL,
   SORTIES,
   sortieById,
   sortieUnlocked,
@@ -48,7 +56,12 @@ import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
 import { useDurableAction } from "./useDurableAction";
 import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
 import { createProfileSync } from "./profile-sync";
-import { isOrbitalRuntimeId } from "@workspace/orbital-sim";
+import { isOrbitalFreeFlightEnabled, isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe-session";
+import type { SectorMissionId } from "./sector-missions";
+import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
+import { accountBootMenu, enterOrbitalOnAccountBoot } from "./wfm-boot";
+import { enterMobileGameFullscreen, exitMobileGameFullscreen } from "./mobile-game-fullscreen";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
@@ -106,8 +119,15 @@ type LobbySession = {
   ready: boolean;
 };
 
-export function WarApp() {
+export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false }: { initialUniverseOpen?: boolean; initialOrbitalOpen?: boolean }) {
   const { getToken, userId } = useAuth();
+  const narrativeWorld = useGetWorld({
+    query: { enabled: Boolean(userId), queryKey: getGetWorldQueryKey() },
+  });
+  const globalCampaign = useGetGlobalCampaign({ query: {
+    queryKey: getGetGlobalCampaignQueryKey(),
+    enabled: Boolean(userId), refetchInterval: 5_000, refetchOnWindowFocus: true,
+  } });
   const authUserIdRef = useRef(userId);
   const controlSchemeSaveInFlightRef = useRef(false);
   const loadoutSaveInFlightRef = useRef(false);
@@ -124,6 +144,8 @@ export function WarApp() {
   });
   const [leaderboardSaving, setLeaderboardSaving] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [pilotControlLayout, setPilotControlLayout] = useState<PilotControlLayout>("fixed");
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -143,7 +165,9 @@ export function WarApp() {
     runId: string;
     inputs: StepInput[];
     preview: StrikeResult;
+    mission: StrikeRun["config"]["mission"];
   } | null>(null);
+  const [verifiedMission, setVerifiedMission] = useState<StrikeRun["config"]["mission"] | null>(null);
   const [claimError, setClaimError] = useState("");
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -153,7 +177,47 @@ export function WarApp() {
     authUserIdRef.current = userId;
   }, [userId]);
   const durable = useDurableAction();
-  const [galaxyOpen, setGalaxyOpen] = useState(false);
+  const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
+  const [orbitalUniverseOpen, setOrbitalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
+  const [orbitalStartLocation, setOrbitalStartLocation] = useState<UniverseStartLocation | null>(userId ? null : "mars-orbit");
+  const [universeEntryError, setUniverseEntryError] = useState("");
+  const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
+  const [universeExpeditionMission, setUniverseExpeditionMission] = useState<SectorMissionId | null>(null);
+  useEffect(() => {
+    if (!orbitalUniverseOpen) exitMobileGameFullscreen();
+  }, [orbitalUniverseOpen]);
+  const universePatrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && orbitalUniverseOpen && narrativeWorld.data?.currentLocation),
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
+      queryKey: [...getGetWorldPatrolsQueryKey(), narrativeWorld.data?.currentLocation],
+    },
+  });
+  const universePatrolDirectory =
+    narrativeWorld.data
+    && universePatrolsQuery.data?.currentLocationId === narrativeWorld.data.currentLocation
+    && orbitalStartLocation === orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation)
+      ? universePatrolsQuery.data
+      : null;
+  const returnToOrbitalAfterOperationRef = useRef(false);
+  useEffect(() => {
+    if (!userId) {
+      setOrbitalStartLocation("mars-orbit");
+      return;
+    }
+    if (!orbitalUniverseOpen || !narrativeWorld.data) return;
+    const startLocation = orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation);
+    if (!startLocation) {
+      setUniverseEntryError(
+        `The server-verified location ${narrativeWorld.data.currentLocation} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+      );
+      setOrbitalUniverseOpen(false);
+      return;
+    }
+    setUniverseEntryError("");
+    setOrbitalStartLocation(startLocation);
+  }, [userId, orbitalUniverseOpen, narrativeWorld.data?.currentLocation]);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -183,6 +247,10 @@ export function WarApp() {
     setCasualAiQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
+    if (returnToOrbitalAfterOperationRef.current) {
+      returnToOrbitalAfterOperationRef.current = false;
+      void enterOrbitalUniverse();
+    }
   };
 
   const beginOnline = (socket: WebSocket, packet: Record<string, unknown>, roomId: string) => {
@@ -591,7 +659,10 @@ export function WarApp() {
   useEffect(() => {
     let cancelled = false;
     const device = loadDevicePreferences();
-    setSave((previous) => ({ ...previous, ...device }));
+    setAudioMuted(device.audioMuted === true);
+    setPilotControlLayout(device.pilotControlLayout);
+    setMuted(device.audioMuted === true);
+    setSave((previous) => ({ ...previous, gyro: device.gyro, drilled: device.drilled }));
     setProfileStatus("loading");
     setProfileError("");
     void loadServerProfile()
@@ -613,6 +684,7 @@ export function WarApp() {
                 runId?: unknown;
                 inputs?: unknown;
                 preview?: unknown;
+                mission?: unknown;
               };
               if (
                 typeof pending.runId === "string" &&
@@ -621,8 +693,19 @@ export function WarApp() {
                 pending.preview &&
                 typeof pending.preview === "object"
               ) {
-                const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
+                const campaignMissions = ["skirmish", "contact", "beacon", "warden", "cage"] as const;
+                const mission = typeof pending.mission === "string" &&
+                  campaignMissions.includes(pending.mission as typeof campaignMissions[number])
+                  ? pending.mission as StrikeRun["config"]["mission"]
+                  : profile.mission;
+                const restored = {
+                  runId: pending.runId,
+                  inputs: pending.inputs as StepInput[],
+                  preview: pending.preview as StrikeResult,
+                  mission,
+                };
                 setPendingClaim(restored);
+                setVerifiedMission(mission);
                 setResult(restored.preview);
                 setPhase("debrief");
               }
@@ -650,7 +733,9 @@ export function WarApp() {
     if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
     const sync = createProfileSync(loadServerProfile, (profile) => {
       if (loadoutSaveInFlightRef.current) return;
-      setSave((previous) => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setSave((previous) => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
       setLeaderboardProfile({
         enabled: profile.publicLeaderboardOptIn,
         callsign: profile.publicLeaderboardCallsign ?? "",
@@ -680,14 +765,16 @@ export function WarApp() {
   }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
 
   useEffect(() => {
-    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
-  }, [save.gyro, save.drilled, ready]);
+    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled, audioMuted, pilotControlLayout });
+  }, [save.gyro, save.drilled, audioMuted, pilotControlLayout, ready]);
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
-    const id = window.setTimeout(() => setShell(MenuState.TITLE), 800);
+    const id = window.setTimeout(() => setShell(
+      accountBootMenu(initialOrbitalOpen, initialUniverseOpen, window.location.search),
+    ), 800);
     return () => window.clearTimeout(id);
-  }, [shell]);
+  }, [shell, initialOrbitalOpen, initialUniverseOpen]);
 
   useEffect(() => {
     if (shell !== MenuState.LOADING) return;
@@ -703,9 +790,13 @@ export function WarApp() {
     if (shell === MenuState.LOADING) return;
     unlockAudio();
     sfxUi();
+    if (action === "DEPLOY" || action === "LAUNCH" || action === "ARCADE") {
+      setUniverseEntryError("Use ENTER THE UNIVERSE in the hangar to join the shared live flight.");
+      setShell(MenuState.MAIN_MENU);
+      return;
+    }
     setOfflineAvailable(false);
     setOnlineStatus("");
-    if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
     setShell((prev) => nextMenu(prev, action));
   };
 
@@ -738,7 +829,9 @@ export function WarApp() {
     try {
       const profile = await saveServerLoadout(input);
       if (authUserIdRef.current !== requestUserId) return false;
-      setSave(previous => saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }));
+      setSave(previous => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
       return true;
     } catch {
       if (authUserIdRef.current === requestUserId) {
@@ -780,7 +873,9 @@ export function WarApp() {
       const profile = await saveServerControlScheme(scheme);
       if (authUserIdRef.current !== requestUserId) return;
       setSave((previous) =>
-        saveFromProfile(profile, { gyro: previous.gyro, drilled: previous.drilled }),
+        saveFromProfile(profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
       );
     } catch (error) {
       if (authUserIdRef.current === requestUserId) {
@@ -817,20 +912,81 @@ export function WarApp() {
     }
   };
 
-  const start = async () => {
-    if (shell === MenuState.LOADING || startingRun) return;
+  const enterOrbitalUniverse = async () => {
+    setUniverseEntryError("");
+    if (userId && !isOrbitalFreeFlightEnabled({
+      environment: import.meta.env.MODE,
+      featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+      prerequisitesReady: true,
+    })) {
+      setUniverseEntryError("Shared universe flight is disabled in this client build. No offline substitute was launched. Use a staging client with shared flight enabled.");
+      return false;
+    }
+    if (!userId) {
+      setUniverseEntryError("Sign in to enter the one shared live universe. No local substitute was launched.");
+      return false;
+    }
+    try {
+      const campaign = await globalCampaign.refetch();
+      if (campaign.error) {
+        setUniverseEntryError("The shared campaign timeline could not be confirmed. No private timeline was created.");
+        return false;
+      }
+      if (campaign.data?.enabled && campaign.data.concluded) {
+        setUniverseEntryError("The shared campaign has ended. Your finale entitlement remains available in Command.");
+        return false;
+      }
+      const world = (await narrativeWorld.refetch()).data;
+      const startLocation = orbitalStartForVerifiedWorldLocation(world?.currentLocation);
+      if (!startLocation) {
+        setUniverseEntryError(
+          `The server-verified location ${world?.currentLocation ?? "could not be confirmed"} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+        );
+        return false;
+      }
+      setOrbitalStartLocation(startLocation);
+      setGalaxyOpen(false);
+      setUniverseServicesOpen(false);
+      setUniverseExpeditionMission(null);
+      setOrbitalUniverseOpen(true);
+      return true;
+    } catch {
+      setUniverseEntryError("Could not verify your server-owned universe location. Retry before entering flight.");
+      return false;
+    }
+  };
+  const enterUniverseFromHangar = () => {
+    // requestFullscreen must run synchronously within the button gesture.
+    const fullscreenRequest = enterMobileGameFullscreen();
+    unlockAudio();
+    void enterOrbitalUniverse().then((entered) => {
+      if (!entered) {
+        void fullscreenRequest.then((fullscreenEntered) => {
+          if (fullscreenEntered) exitMobileGameFullscreen();
+        });
+      }
+    });
+  };
+
+  const start = async (): Promise<boolean> => {
+    if (shell === MenuState.LOADING || startingRun) return false;
     if (pendingClaim) {
       setCampaignError("Verify the pending sortie before starting another run.");
-      return;
+      return false;
     }
     unlockAudio();
     setResult(null);
     setPhase("brief");
     setCampaignError("");
+    if (returnToOrbitalAfterOperationRef.current && offlineMode && !activeRun) {
+      setCampaignError("A server-authorized campaign launch needs an online account session. No offline sortie was started.");
+      return false;
+    }
     if (offlineMode && !activeRun) {
       setShell(MenuState.LOADING);
-      return;
+      return true;
     }
+    setStartingRun(true);
     try {
       const selection: StrikeStartInput = {
         shipId: save.ship,
@@ -843,13 +999,21 @@ export function WarApp() {
       };
       const run = await startServerStrike(selection);
       setActiveRun(run);
-      setSave(saveFromProfile(run.profile, { gyro: save.gyro, drilled: save.drilled }));
+      setSave(saveFromProfile(run.profile, {
+        gyro: save.gyro, drilled: save.drilled, pilotControlLayout,
+      }));
       setOfflineMode(false);
       setPendingClaim(null);
       setClaimError("");
+      if (returnToOrbitalAfterOperationRef.current) {
+        setUniverseServicesOpen(false);
+        setOrbitalUniverseOpen(false);
+      }
       setShell(MenuState.LOADING);
+      return true;
     } catch (error) {
       setCampaignError(error instanceof Error ? error.message : "The yard could not authorize this sortie.");
+      return false;
     } finally {
       setStartingRun(false);
     }
@@ -872,9 +1036,16 @@ export function WarApp() {
     }
   };
 
-  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult, liveChecksums?: number[]) => {
-    const pending = { runId, inputs, preview };
+  const submitClaim = async (
+    runId: string,
+    inputs: StepInput[],
+    preview: StrikeResult,
+    liveChecksums?: number[],
+    claimedMission = activeRun?.runId === runId ? activeRun.config.mission : save.mission,
+  ) => {
+    const pending = { runId, inputs, preview, mission: claimedMission };
     setPendingClaim(pending);
+    setVerifiedMission(claimedMission);
     if (stagingRewardDiagnosticsEnabled) {
       const diagnosticWindow = window as StagingDiagnosticWindow;
       if (!diagnosticWindow.__wfmStagingRewardDiagnostic) {
@@ -940,8 +1111,12 @@ export function WarApp() {
         reason: preview.reason,
       });
       setSave((previous) =>
-        saveFromProfile(grant.profile, { gyro: previous.gyro, drilled: previous.drilled }),
+        saveFromProfile(grant.profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
       );
+      setArchiveOpen(true);
+      void narrativeWorld.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The yard could not verify this sortie.";
       const status =
@@ -1114,9 +1289,114 @@ export function WarApp() {
           setOnlineLobby(null);
           setOnlineStatus("Left lobby.");
           setOfflineAvailable(false);
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
       />
+    );
+  }
+
+  if (orbitalUniverseOpen && userId && !orbitalStartLocation) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-bone" data-testid="panel-orbital-location-sync">
+        <p className="font-hud text-xs tracking-[0.2em] text-solar">ORBITAL POSITION CHECK</p>
+        <h1 className="font-hud text-3xl">VERIFYING FLIGHT ENTRY</h1>
+        <p role="status" className="max-w-lg text-center text-sm text-muted">
+          {universeEntryError || "Waiting for the account service to confirm your server-owned universe location."}
+        </p>
+        <button type="button" onClick={() => void enterOrbitalUniverse()} className="min-h-11 bg-solar px-5 font-hud text-xs tracking-widest text-void">RETRY LOCATION SYNC</button>
+        <button type="button" onClick={() => setOrbitalUniverseOpen(false)} className="min-h-11 border border-bone/25 px-5 font-hud text-xs tracking-widest">RETURN TO COMMAND</button>
+      </main>
+    );
+  }
+
+  if (orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession) {
+    return (
+      <>
+        <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>
+          <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
+            <Arena
+              key={`orbital-universe-${userId ?? "guest"}-${save.ship}-${save.faction}-${orbitalStartLocation ?? "unverified"}`}
+              modeId={UNIVERSE_MODE_ID}
+              runtime={ORBITAL_RUNTIME_ID}
+              shipId={save.ship}
+              faction={save.faction}
+              scheme={save.scheme}
+              refit={save.refit}
+              shieldMk2={save.shieldMk2 ?? false}
+              pace="practice"
+              goal="disc"
+              disc="rust"
+              allyCount={1}
+              foeCount={3}
+              objective={
+                orbitalStartLocation === "rust-disc" ? "RUST DISC · RELAY APPROACH"
+                  : orbitalStartLocation === "mars-night-side" ? "MARS NIGHT-SIDE · STATION APPROACH"
+                    : orbitalStartLocation === "cinder-ring" ? "CINDER RING · OPEN UNIVERSE"
+                      : "MARS ORBIT · OPEN UNIVERSE"
+              }
+              tech={null}
+              gyro={save.gyro}
+              pilotControlLayout={pilotControlLayout}
+              drilled
+              onDrill={() => {}}
+              localUniverse={{
+                servicesHref: "/universe",
+                startLocation: orbitalStartLocation ?? "mars-orbit",
+                openingEncounter: true,
+                servicesOpen: universeServicesOpen,
+                patrolDirectory: universePatrolDirectory,
+                getSessionToken: getToken,
+                freeFlightEnabled: isOrbitalFreeFlightEnabled({
+                  environment: import.meta.env.MODE,
+                  featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+                  prerequisitesReady: Boolean(userId),
+                }),
+                onExit: () => {
+                  setUniverseServicesOpen(false);
+                  setOrbitalUniverseOpen(false);
+                },
+                onOpenOperations: () => setUniverseServicesOpen(true),
+              }}
+              onNetworkExit={() => {
+                throw new Error("The local Orbital universe must not open a network session.");
+              }}
+              onDone={() => {}}
+            />
+          </Suspense>
+        </div>
+        {universeServicesOpen ? (
+          <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
+            <Suspense fallback={<ModuleLoading label="CONNECTING TO ACCOUNT OPERATIONS…" />}>
+              <GalaxyScreen
+                onBack={() => {
+                  setUniverseServicesOpen(false);
+                  void narrativeWorld.refetch();
+                }}
+                credits={save.credits}
+                onCredits={syncCredits}
+                shipId={save.ship}
+                faction={save.faction}
+                onJoinCompetitiveQueue={() => {
+                  // The only alternate gameplay entry: the asteroid competition.
+                  // Keep shared flight mounted while matchmaking is pending.
+                  returnToOrbitalAfterOperationRef.current = true;
+                  joinOnline("", "competitive");
+                }}
+                onCancelCompetitiveQueue={() => failOnline("Competition queue cancelled. Continuing in the shared universe.")}
+                competitiveQueueAvailable={competitiveQueueAvailable}
+                competitiveQueueing={competitiveQueueing}
+                onlineStatus={onlineStatus}
+                presenceHeartbeat={false}
+              />
+            </Suspense>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -1154,6 +1434,7 @@ export function WarApp() {
         serverSeed={activeRun?.seed}
         orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
@@ -1181,7 +1462,12 @@ export function WarApp() {
           setOfflineAvailable(true);
           setResult(null);
           setPhase("brief");
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
         online={onlineSession ?? undefined}
       />
@@ -1198,8 +1484,8 @@ export function WarApp() {
         : result.outcome === "win"
         ? goal === "extract"
           ? save.faction === "ussf"
-            ? "Cage away"
-            : "Cage stopped"
+            ? "USSF secures transfer"
+            : "Accord transfer completed"
           : goal === "ace"
           ? "Warden down"
           : goal === "beacons"
@@ -1207,11 +1493,11 @@ export function WarApp() {
             : "Disc held"
         : result.outcome === "loss"
           ? goal === "extract"
-            ? save.faction === "ussf"
-              ? "Cage lost"
-              : "Cage escaped"
+            ? "Cage escapes contested"
             : "Wing lost"
-          : "Split disc";
+          : goal === "extract"
+            ? "Cage escapes contested"
+            : "Split disc";
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
@@ -1229,12 +1515,46 @@ export function WarApp() {
             : `${ship.name} came back with ${result.kills} kills and ${result.relays} relays. The hangar logged ${gain} credits. ${cargoLine || "No crate in the hold."} ${advance}`}
         </p>
         <p className="font-hud text-2xl text-solar">{save.credits} CR</p>
+        {!pendingClaim && userId && narrativeWorld.data?.narrative.some((record) => record.missionId === save.mission) ? (
+          <section className="border border-solar/35 bg-panel/80 p-3" aria-label="Verified campaign scene">
+            <p className="font-hud text-[10px] tracking-[0.2em] text-solar">VERIFIED STORY SCENE</p>
+            <ol className="mt-2 grid gap-3">
+              {narrativeWorld.data.narrative
+                .filter((record) => record.missionId === verifiedMission)
+                .map((record) => (
+                  <li key={record.id} className="border-t border-bone/10 pt-2">
+                    <p className="font-hud text-[9px] tracking-widest text-muted">
+                      {record.chapter} · {record.source}
+                    </p>
+                    <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                    <div className="mt-2 border-l border-solar/40 pl-2">
+                      {record.transcript.map((line, index) => (
+                        <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                          <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                          {line.text}
+                        </p>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+            </ol>
+          </section>
+        ) : !pendingClaim && userId && narrativeWorld.isFetching ? (
+          <p role="status" className="text-xs text-muted">Syncing the verified story scene…</p>
+        ) : null}
         {pendingClaim ? (
           <button
             type="button"
             disabled={claimSubmitting}
             className="h-12 bg-solar font-hud text-lg tracking-widest text-void disabled:opacity-50"
-            onClick={() => void submitClaim(pendingClaim.runId, pendingClaim.inputs, pendingClaim.preview)}
+            onClick={() => void submitClaim(
+              pendingClaim.runId,
+              pendingClaim.inputs,
+              pendingClaim.preview,
+              undefined,
+              pendingClaim.mission,
+            )}
           >
             {claimSubmitting ? "VERIFYING…" : "RETRY VERIFICATION"}
           </button>
@@ -1255,10 +1575,16 @@ export function WarApp() {
           className="h-12 border border-bone/30 font-hud text-lg tracking-widest text-bone"
           onClick={() => {
             setPhase("brief");
-            setShell(MenuState.HANGAR);
+            if (returnToOrbitalAfterOperationRef.current) {
+              returnToOrbitalAfterOperationRef.current = false;
+              setShell(MenuState.MAIN_MENU);
+              void enterOrbitalUniverse();
+            } else {
+              setShell(MenuState.HANGAR);
+            }
           }}
         >
-          Hangar
+          {returnToOrbitalAfterOperationRef.current ? "Return to Universe" : "Hangar"}
         </button>
       </main>
     );
@@ -1273,18 +1599,6 @@ export function WarApp() {
           onCredits={syncCredits}
           shipId={save.ship}
           faction={save.faction}
-          roomCode={roomCode}
-          onRoomCode={setRoomCode}
-          onCreatePrivateRoom={() => {
-            const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-            setRoomCode(generated);
-            joinOnline(generated);
-          }}
-          onJoinPrivateRoom={(code) => joinOnline(code)}
-          onlineStatus={onlineStatus}
-          onJoinCompetitiveQueue={() => joinOnline("", "competitive")}
-          competitiveQueueAvailable={competitiveQueueAvailable}
-          competitiveQueueing={competitiveQueueing}
         />
       </Suspense>
     );
@@ -1301,6 +1615,9 @@ export function WarApp() {
         ship={save.ship}
         scheme={save.scheme}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
+        onPilotControlLayout={setPilotControlLayout}
+        audioMuted={audioMuted}
         refit={save.refit}
         credits={save.credits}
         tech={save.tech}
@@ -1311,11 +1628,15 @@ export function WarApp() {
         publicLeaderboardSaving={leaderboardSaving}
         publicLeaderboardError={leaderboardError}
         onSavePublicLeaderboard={persistLeaderboardProfile}
-        cleared={save.cleared}
+        cleared={globalCampaign.data?.enabled ? ({
+          INITIAL_CONTACT: 0, BEACON_RECON: 1, WARDEN_INTERCEPT: 2,
+          CAGE_CLIMAX: 3, SYSTEM_VICTORY: 4,
+        }[globalCampaign.data.phase]) : save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
         refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
-        onGalaxy={() => setGalaxyOpen(true)}
+        onEnterUniverse={enterUniverseFromHangar}
+        universeEntryError={universeEntryError}
         onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
         onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
         onCancelMatchmaking={cancelMatchmaking}
@@ -1347,6 +1668,11 @@ export function WarApp() {
             return;
           }
           void armGyro().then((ok) => setSave((prev) => ({ ...prev, gyro: ok })));
+        }}
+        onAudioMute={() => {
+          const next = !isMuted();
+          setMuted(next);
+          setAudioMuted(next);
         }}
         onTech={(id: TechId) =>
           setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
@@ -1464,23 +1790,48 @@ export function WarApp() {
           onClick={() => setArchiveOpen((open) => !open)}
         >
           <span className="font-hud text-sm tracking-widest text-solar">
-            RECOVERED FLIGHT RECORDERS · {save.cleared}/4
+            VERIFIED STORY ARCHIVE · {narrativeWorld.data?.narrative.length ?? "SYNC"}
           </span>
           <span className="text-muted">{archiveOpen ? "−" : "+"}</span>
         </button>
         {archiveOpen ? (
           <ol className="grid gap-2 px-3 pb-3">
-            {RECOVERED_INTEL.filter((record) => save.cleared >= record.need).length ? (
-              RECOVERED_INTEL.filter((record) => save.cleared >= record.need).map((record) => (
-                <li key={record.from} className="border-t border-bone/10 pt-2">
-                  <p className="font-hud text-xs tracking-widest text-solar">{record.from}</p>
+            {!userId ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Sign in to view your server-verified story archive.
+              </li>
+            ) : narrativeWorld.isPending ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Connecting to the authenticated campaign archive…
+              </li>
+            ) : narrativeWorld.isError ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                The server archive is unavailable. Local progress is not treated as verified story evidence.
+              </li>
+            ) : narrativeWorld.data?.narrative.length ? (
+              narrativeWorld.data.narrative.map((record) => (
+                <li key={record.id} className="border-t border-bone/10 pt-3">
+                  <p className="font-hud text-[10px] tracking-widest text-solar">
+                    {record.chapter} · {record.missionId.toUpperCase()}
+                  </p>
                   <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.text}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                  <div className="mt-2 border-l border-solar/40 pl-2" aria-label="Recovered story dialogue">
+                    {record.transcript.map((line, index) => (
+                      <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                        <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                        {line.text}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="mt-2 font-hud text-[9px] tracking-widest text-muted">
+                    {record.knowledgeLayer.toUpperCase()} · {record.source}
+                  </p>
                 </li>
               ))
             ) : (
               <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
-                No recordings recovered. Complete the Contact sortie to decode the first signal.
+                No server-verified story records yet. Win the Contact sortie to recover the first Rust Disc archive.
               </li>
             )}
           </ol>

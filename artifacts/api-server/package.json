@@ -22,8 +22,8 @@
     "@clerk/express": "^2.1.80",
     "@clerk/shared": "^4.40.0",
     "@workspace/api-zod": "workspace:*",
-    "@workspace/orbital-sim": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/orbital-sim": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",
@@ -31,6 +31,7 @@
     "http-proxy-middleware": "^4.2.0",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
+    "redis": "^6.3.1",
     "ws": "^8.22.0",
     "zod": "catalog:"
   },
