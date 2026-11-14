@@ -737,8 +737,8 @@
     "productionUntouched": true,
     "promotionCertified": false
   },
-  "testedSourceCommit": "798d6e94896411b1ddd1dc4bab13a369c7d91c60",
-  "testedSourceCommitScope": "Frozen-lockfile install, typecheck, all workspace tests, and builds passed on source commit 798d6e94896411b1ddd1dc4bab13a369c7d91c60. Later staging-branch commits changed only evidence documentation. The frontend runtime remains at commit 5255198; API and socket have since been redeployed at documentation-only commit 4b114d67b93f0996172ead95b164a9b33cd7a046. Runtime code is unchanged across these revisions. Production was not changed.",
+  "testedSourceCommit": "81ad603a5a0d300714bee024d58342c8115312df",
+  "testedSourceCommitScope": "Workspace quality and Android staging CI passed on candidate 81ad603a5a0d300714bee024d58342c8115312df. The exact deployed frontend, API, and socket candidate then passed a fresh two-account staging sign-in/profile preflight. Full staging promotion evidence remains incomplete; see the per-test results and latestCandidateStagingSigninCheck. Subsequent staging-branch changes are limited to STAGING-TEST-RESULTS.json and STAGING-TEST-REPORT.md. Production was not changed.",
   "environment": {
     "separateRepl": true,
     "separateStagingDatabase": true,
@@ -2680,5 +2680,35 @@
       "Does not verify Production"
     ],
     "productionSettingsOrDeploymentChanged": false
+  },
+  "latestCandidateStagingSigninCheck": {
+    "date": "2026-11-14",
+    "candidateSourceCommit": "81ad603a5a0d300714bee024d58342c8115312df",
+    "stagingSourceCommitMatchesCandidate": true,
+    "stagingDeployments": {
+      "frontend": "SUCCESS",
+      "api": "SUCCESS",
+      "socket": "SUCCESS",
+      "allOnCandidateCommit": true
+    },
+    "privateGatewayAccess": "PASS",
+    "accounts": {
+      "separateApprovedStagingAccounts": true,
+      "browserContexts": "isolated",
+      "accountA": {
+        "clerkSession": "active",
+        "profileResponseStatus": 200
+      },
+      "accountB": {
+        "clerkSession": "active",
+        "profileResponseStatus": 200
+      }
+    },
+    "newAccountSignup": "NOT_RUN",
+    "crossAccountProgressInventoryHistory": "NOT_RUN",
+    "flightOrRewardWrites": false,
+    "interruptedClaimDenial": "NOT_RUN",
+    "productionSettingsOrDeploymentChanged": false,
+    "scope": "Confirms that two separate existing staging accounts completed fresh Clerk verification in isolated browser contexts and each received an authenticated profile response on the current candidate. No sign-up, progression mutation, flight, reward claim, purchase, or refit was performed. This does not satisfy the complete staging promotion gate."
   }
 }

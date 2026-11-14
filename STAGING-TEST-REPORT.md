@@ -2067,3 +2067,20 @@ its slower `inspect` operation provided the evidence. This diagnostic issue
 does not establish an application failure. No pose/health injection, reset,
 new challenge or environment change was used. Both bounded browser owners
 were stopped after collecting results. Production remains unchanged.
+
+## 2026-11-14 — Current-candidate sign-in preflight
+
+The WFM release candidate was deployed successfully to the isolated staging
+frontend, API, and socket services at
+`81ad603a5a0d300714bee024d58342c8115312df`. The private staging gateway
+accepted its owner-provided access code. Two separate existing staging
+accounts completed fresh Clerk verification in isolated browser contexts;
+both sessions became active and each authenticated `GET /api/game/profile`
+returned HTTP 200 through the staging gateway.
+
+This check covers sign-in for existing accounts only. No new account was
+created. No game progress, credits, reward claims, purchases, or refits were
+written, and no interrupted-flight claim was submitted. Production was not
+changed. The full staging results remain **PENDING**: this preflight does not
+replace the required sign-up, cross-account progress/inventory/history,
+server-owned reward and duplicate-claim, or interrupted-claim-denial evidence.
