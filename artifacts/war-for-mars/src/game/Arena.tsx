@@ -75,6 +75,7 @@ import {
   type AnomalyGravityWellV1,
   type CombatRuntimeId,
   type FreeFlightEnvironmentV1,
+  type FreeFlightTacticalSnapshotV1,
   type GameModeId,
 } from "@workspace/orbital-sim";
 import {
@@ -104,6 +105,11 @@ import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } fro
 import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
 import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
 import { displayedPatrolContact, sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import {
+  encounterCompositionView,
+  readFreeFlightTacticalSnapshot,
+  sameTacticalSnapshotContent,
+} from "./encounter-composition";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -240,11 +246,16 @@ function pilotCraft(match: Match, slotId: number): Craft {
   return match.enemies[slotId - 5] ?? match.player;
 }
 
-function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" | "accord", kind: "pilot" | "patrol" = "patrol") {
+function createPatrolDesignationSprite(
+  callsign: string,
+  patrolFaction: "ussf" | "accord",
+  kind: "pilot" | "patrol" = "patrol",
+  role?: string,
+) {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = 320;
+  canvas.height = role ? 84 : 64;
   const context = canvas.getContext("2d");
   if (!context) return null;
   const accent = patrolFaction === "ussf" ? "#77ddff" : "#f0a95d";
@@ -262,6 +273,12 @@ function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" |
   context.fillText(label, 10, 46);
   context.fillStyle = accent;
   context.fillRect(10, 56, 155, 2);
+  if (role) {
+    context.font = '700 13px "Barlow Condensed", sans-serif';
+    context.fillStyle = "#f4d5a3";
+    context.strokeText(role.toUpperCase().replaceAll("-", " "), 10, 77);
+    context.fillText(role.toUpperCase().replaceAll("-", " "), 10, 77);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   const material = new THREE.SpriteMaterial({
@@ -272,18 +289,21 @@ function createPatrolDesignationSprite(callsign: string, patrolFaction: "ussf" |
     opacity: 0.95,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.name = "wfm-hostile-patrol-designation";
-  sprite.scale.set(48, 12, 1);
+  sprite.name = role ? `wfm-${role}-designation` : "wfm-hostile-patrol-designation";
+  sprite.scale.set(role ? 56 : 48, role ? 15 : 12, 1);
   sprite.renderOrder = 12;
   return sprite;
 }
 
+function disposePatrolDesignationSprite(designation?: THREE.Sprite) {
+  if (!designation) return;
+  designation.removeFromParent();
+  designation.material.map?.dispose();
+  designation.material.dispose();
+}
+
 function disposePatrolShipGroup(group: THREE.Group, designation?: THREE.Sprite) {
-  if (designation) {
-    designation.removeFromParent();
-    designation.material.map?.dispose();
-    designation.material.dispose();
-  }
+  disposePatrolDesignationSprite(designation);
   group.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
     object.geometry.dispose();
@@ -706,6 +726,11 @@ export function Arena({
   const relayInteractionKeyRef = useRef("");
   const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
+  const sharedPatrolContactRef = useRef<UniversePatrolEncounterNotice | null>(null);
+  const [sharedTacticalSnapshot, setSharedTacticalSnapshot] = useState<FreeFlightTacticalSnapshotV1 | null>(null);
+  const sharedTacticalSnapshotRef = useRef<FreeFlightTacticalSnapshotV1 | null>(null);
+  const tacticalRoleByActorRef = useRef(new Map<string, string>());
+  const lastEncounterFleetIdRef = useRef<string | null>(null);
   const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
   const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
   const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
@@ -830,12 +855,19 @@ export function Arena({
             actor.kind === "pilot" && !actor.own && actor.alive &&
             actor.faction === ownActor.faction).length : 0;
           setNearbyFriendlyPilots((current) => current === friendlyCount ? current : friendlyCount);
-          setSharedPatrolContact((previousContact) => {
-            const nextContact = sharedFlightPatrolContact(frame.snapshot, previousContact?.actorId);
-            return sameSharedPatrolContact(previousContact, nextContact)
-              ? previousContact
-              : nextContact;
-          });
+          const nextPatrolContact = sharedFlightPatrolContact(
+            frame.snapshot, sharedPatrolContactRef.current?.actorId,
+          );
+          const previousPatrolContact = sharedPatrolContactRef.current;
+          sharedPatrolContactRef.current = nextPatrolContact;
+          setSharedPatrolContact(sameSharedPatrolContact(previousPatrolContact, nextPatrolContact)
+            ? previousPatrolContact : nextPatrolContact);
+          if (nextPatrolContact?.actorId) {
+            const fleet = sharedTacticalSnapshotRef.current?.fleets.find((candidate) =>
+              candidate.units.some((unit) => unit.actorId === nextPatrolContact.actorId),
+            );
+            if (fleet) lastEncounterFleetIdRef.current = fleet.fleetId;
+          }
           const enemyPatrolCount = frame.snapshot.actors.filter(
             (actor) => actor.kind === "patrol" && actor.faction !== faction && actor.alive,
           ).length;
@@ -859,6 +891,11 @@ export function Arena({
             setRespondingToAssistCallId(null);
             setAssistCallCooldownUntil(0);
             setIncomingAssistCall(null);
+            sharedTacticalSnapshotRef.current = null;
+            tacticalRoleByActorRef.current.clear();
+            setSharedTacticalSnapshot(null);
+            sharedPatrolContactRef.current = null;
+            lastEncounterFleetIdRef.current = null;
             setFreeFlightNotice(reason?.startsWith("freeflight_recovery")
               ? freeFlightCombatNotice(reason)
               : "");
@@ -870,6 +907,27 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_tactical_snapshot") {
+            const report = readFreeFlightTacticalSnapshot(packet.snapshot);
+            const currentSession = freeFlightFramesRef.current.current?.snapshot.sessionInstanceId;
+            if (!report || report.sessionInstanceId !== currentSession ||
+                report.tick < (sharedTacticalSnapshotRef.current?.tick ?? -1)) return;
+            sharedTacticalSnapshotRef.current = report;
+            tacticalRoleByActorRef.current.clear();
+            for (const fleet of report.fleets) {
+              for (const unit of fleet.units) tacticalRoleByActorRef.current.set(unit.actorId, unit.role);
+            }
+            const currentContact = sharedPatrolContactRef.current;
+            if (currentContact?.actorId) {
+              const fleet = report.fleets.find((candidate) =>
+                candidate.units.some((unit) => unit.actorId === currentContact.actorId),
+              );
+              if (fleet) lastEncounterFleetIdRef.current = fleet.fleetId;
+            }
+            setSharedTacticalSnapshot((previous) =>
+              sameTacticalSnapshotContent(previous, report) ? previous : report);
+            return;
+          }
           if (isCombatRecoveryState(packet)) {
             const pilot = matchRef.current?.player;
             if (pilot?.space) pilot.space.energy = packet.energy;
@@ -1752,6 +1810,7 @@ export function Arena({
     const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite }>();
     const sharedFlightGroups = new Map<string, {
       group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite;
+      designationRole?: string;
       damage: ReturnType<typeof createOrbitalDamageController>;
     }>();
     const sharedImpactEffects = createSharedFlightImpactEffects(scene);
@@ -1925,6 +1984,9 @@ export function Arena({
         if (actor.own || actor.actorId === snapshot.ownActorId ||
             !Object.hasOwn(SHIPS, actor.shipId)) continue;
         visibleIds.add(actor.actorId);
+        const tacticalRole = actor.kind === "patrol"
+          ? tacticalRoleByActorRef.current.get(actor.actorId)
+          : undefined;
         let entry = sharedFlightGroups.get(actor.actorId);
         if (!entry || entry.shipId !== actor.shipId) {
           if (entry) {
@@ -1934,11 +1996,18 @@ export function Arena({
           const group = buildOrbitalShip(actor.shipId as ShipId);
           group.scale.setScalar(actor.kind === "patrol" ? 2.4 : 2.1);
           scene.add(group);
-          const designation = createPatrolDesignationSprite(actor.callsign, actor.faction, actor.kind) ?? undefined;
+          const designation = createPatrolDesignationSprite(actor.callsign, actor.faction, actor.kind, tacticalRole) ?? undefined;
           if (designation) scene.add(designation);
-          entry = { group, shipId: actor.shipId as ShipId, designation,
+          entry = { group, shipId: actor.shipId as ShipId, designation, designationRole: tacticalRole,
             damage: createOrbitalDamageController(group) };
           sharedFlightGroups.set(actor.actorId, entry);
+        } else if (entry.designationRole !== tacticalRole) {
+          disposePatrolDesignationSprite(entry.designation);
+          entry.designation = createPatrolDesignationSprite(
+            actor.callsign, actor.faction, actor.kind, tacticalRole,
+          ) ?? undefined;
+          entry.designationRole = tacticalRole;
+          if (entry.designation) scene.add(entry.designation);
         }
         const previousActor = sameSession
           ? previous?.snapshot.actors.find((candidate) => candidate.actorId === actor.actorId)
@@ -3543,6 +3612,12 @@ export function Arena({
       freeFlightCombatStatus === "active", freeFlightPilot);
   const sharedFreeFlightPrimaryFireReady =
     sharedFreeFlightJoined && freeFlightPrimaryFireEnabled(freeFlightPilot);
+  const visiblePatrolContact = displayedPatrolContact(
+    freeFlightEnabled, sharedPatrolContact, patrolContact,
+  );
+  const encounterComposition = encounterCompositionView(
+    sharedTacticalSnapshot, visiblePatrolContact, lastEncounterFleetIdRef.current,
+  );
   return (
     <div
       ref={stageRef}
@@ -3674,7 +3749,8 @@ export function Arena({
       ) : null}
       {localUniverse ? (
         <UniversePatrolEncounterPrompt
-          contact={displayedPatrolContact(freeFlightEnabled, sharedPatrolContact, patrolContact)}
+          contact={visiblePatrolContact}
+          composition={encounterComposition}
           enabled={sharedFreeFlightJoined && freeFlightPilot?.alive === true}
           notice={freeFlightNotice}
           onEngage={sharedFreeFlightJoined && freeFlightPilot?.alive === true ? () => {

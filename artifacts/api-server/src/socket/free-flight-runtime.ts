@@ -12,6 +12,7 @@ import {
   FREE_FLIGHT_MAX_ENCOUNTER_PILOTS,
   FREE_FLIGHT_GUARANTEED_PILOT_SEATS,
   FREE_FLIGHT_ENVIRONMENT_PROTOCOL_V1,
+  FREE_FLIGHT_TACTICS_PROTOCOL_V1,
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
   BARREL_ROLL_CONTROL_PROTOCOL_V1,
@@ -46,6 +47,7 @@ import {
   type AnomalyGravityWellV1,
   type FreeFlightEnvironmentV1,
   type FreeFlightSnapshotV1,
+  type FreeFlightTacticalSnapshotV1,
   type SpatialBullet,
   type SpatialCraft,
 } from "@workspace/orbital-sim";
@@ -182,6 +184,7 @@ type Actor = {
   subsystems?: ShipSubsystemState;
   selectedSubsystem?: ShipSubsystem;
   subsystemCycleSeq?: number;
+  lastTacticalReportAt?: number;
 };
 type FreeFlightProjectile = SpatialBullet & {
   id: number;
@@ -870,7 +873,7 @@ export function createFreeFlightRuntime(options: {
       version: 1,
       key: session.key,
       instanceId: session.instanceId,
-      actors: [...session.actors.values()].map(({ socket: _socket, ...actor }) =>
+      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, ...actor }) =>
         structuredClone(actor)),
       anomalyGravityWells: structuredClone(session.anomalyGravityWells),
       gravityEnvironmentEnabled: session.gravityEnvironmentEnabled,
@@ -1042,10 +1045,95 @@ export function createFreeFlightRuntime(options: {
     };
   }
 
+  /**
+   * Send encounter composition only for real persistent fleet units in this
+   * authenticated pilot's nearby interest radius. This is presentation intel;
+   * movement, firing, encounter admission and settlement remain server-owned.
+   */
+  function tacticalSnapshotFor(session: Session, viewer: Actor): FreeFlightTacticalSnapshotV1 {
+    const fleets: FreeFlightTacticalSnapshotV1["fleets"] = [];
+    for (const patrol of session.persistentPatrols.values()) {
+      const fleet = patrol.operations;
+      if (!fleet) continue;
+      const units = fleet.ships.flatMap((member) => {
+        const actor = session.actors.get(member.id);
+        if (!actor) return [];
+        const distanceMeters = distanceBetween(viewer, actor);
+        if (!Number.isFinite(distanceMeters) || distanceMeters > NEARBY_RADIUS) return [];
+        return [{
+          actorId: actor.actorId,
+          shipId: actor.shipId,
+          role: member.role,
+          alive: actor.craft.alive,
+          hull: actor.craft.hull,
+          hullMax: actor.craft.hullMax,
+          shield: actor.shield,
+          shieldMax: actor.shieldMax,
+          distanceMeters,
+        }];
+      });
+      if (!units.length) continue;
+      const combat = session.combats.get(patrol.patrolId);
+      const activeParticipants = combat?.phase === "active" ? combat.participantActorIds : new Set<string>();
+      const alliedPilotCount = [...activeParticipants].filter((actorId) => {
+        const pilot = session.actors.get(actorId);
+        return pilot && pilot !== viewer && pilot.kind === "pilot" && pilot.faction === viewer.faction &&
+          pilot.socket?.readyState === OPEN && distanceBetween(viewer, pilot) <= NEARBY_RADIUS;
+      }).length;
+      const alliedAiCount = combat?.phase === "active"
+        ? [...(combat.alliedNpcActorIds ?? [])].filter((actorId) => {
+            const ally = session.actors.get(actorId);
+            return ally?.craft.alive === true && ally.faction === viewer.faction &&
+              distanceBetween(viewer, ally) <= NEARBY_RADIUS;
+          }).length
+        : 0;
+      const commandActorId = units.some((unit) => unit.actorId === fleet.commandVesselId)
+        ? fleet.commandVesselId
+        : null;
+      fleets.push({
+        fleetId: patrol.patrolId,
+        faction: patrol.faction,
+        callsign: patrol.callsign.slice(0, 80),
+        formation: fleet.formations,
+        mission: fleet.currentMission,
+        detectionState: fleet.detectionState,
+        combatState: fleet.combatState,
+        encounterPhase: combat?.phase ?? "idle",
+        threatLevel: fleet.threatLevel,
+        commandActorId,
+        units,
+        alliedPilotCount,
+        alliedAiCount,
+      });
+    }
+    fleets.sort((left, right) =>
+      Math.min(...left.units.map((unit) => unit.distanceMeters)) -
+        Math.min(...right.units.map((unit) => unit.distanceMeters)) ||
+      left.fleetId.localeCompare(right.fleetId),
+    );
+    return {
+      protocol: FREE_FLIGHT_TACTICS_PROTOCOL_V1,
+      sessionInstanceId: session.instanceId,
+      tick: session.tick,
+      incomingHostileMissileCount: session.projectiles.filter((projectile) =>
+        projectile.missile === true && projectile.homeId === viewer.numericId &&
+        projectile.faction !== viewer.faction).length,
+      fleets: fleets.slice(0, 32),
+    };
+  }
+
   function publish(session: Session) {
     for (const actor of session.actors.values()) {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
+        const now = Date.now();
+        if (!actor.lastTacticalReportAt || now - actor.lastTacticalReportAt >= 500) {
+          actor.lastTacticalReportAt = now;
+          send(actor.socket, {
+            type: "freeflight_tactical_snapshot",
+            snapshot: tacticalSnapshotFor(session, actor),
+          });
+        }
         sendTargetState(session, actor);
         sendCombatProgress(session, actor);
       }

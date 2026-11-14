@@ -6,6 +6,7 @@ import {
   anomalyGravityWellForSector,
   isFreeFlightEnvironmentV1,
   isFreeFlightSnapshotV1,
+  isFreeFlightTacticalSnapshotV1,
   rotate,
   type FreeFlightSnapshotV1,
 } from "@workspace/orbital-sim";
@@ -755,6 +756,55 @@ test("the first free-flight snapshot contains persistent local patrols from both
     assert.deepEqual(localGuards.map((actor) => actor.faction).sort(), ["accord", "ussf"]);
     assert.deepEqual(localGuards.map((actor) => actor.callsign).sort(),
       ["ACCORD GUARD ONE - PATROL", "USSF GUARD ONE - PATROL"]);
+  } finally {
+    await close(socket);
+    await runtime.close();
+  }
+});
+
+test("server tactical feed describes only actual nearby fleet roles and encounter assets", async () => {
+  const patrol: UniversePatrolEncounter = {
+    patrolId: "accord-composition-test",
+    locationId: "phobos-yard",
+    faction: "accord",
+    callsign: "ACCORD COMPOSITION",
+    route: ["phobos-yard", "phobos-yard"],
+    revision: 0,
+    ships: [
+      { id: "composition-command", hullId: "mandjet", name: "Mandjet", callsign: "A-001" },
+      { id: "composition-scout", hullId: "shakuna", name: "Shakuna", callsign: "A-002" },
+    ],
+  };
+  const runtime = await startWingSocketServer(0, "127.0.0.1", {
+    verifySessionToken: auth.verifySessionToken,
+    enableFreeFlight: true,
+    resolveFreeFlightAdmission: async () => ({
+      sessionKey: "mars:phobos-yard", faction: "ussf", shipId: "duskbreaker",
+    }),
+    freeFlightCombat: {
+      resolveFreeFlightPatrols: async () => [patrol],
+      reserveUniversePatrol: async () => null,
+      releaseUniversePatrol: async () => {},
+      settleScoutEncounter: async () => ({ status: "disabled", awards: [] }),
+    },
+    snapshotIntervalMs: 50,
+  });
+  const socket = await connect(`ws://127.0.0.1:${runtime.port}/ws?freeflight=1`, "composition-pilot");
+  try {
+    await join(socket);
+    const packet = await nextPacket(socket, (message) => message.type === "freeflight_tactical_snapshot");
+    assert.ok(isFreeFlightTacticalSnapshotV1(packet.snapshot));
+    const report = packet.snapshot;
+    const enemy = report.fleets.find((fleet) => fleet.fleetId === patrol.patrolId);
+    assert.ok(enemy);
+    assert.equal(enemy.faction, "accord");
+    assert.equal(enemy.encounterPhase, "idle");
+    assert.equal(enemy.units.length, 2);
+    assert.ok(enemy.units.some((unit) => unit.role === "command"));
+    assert.ok(enemy.units.some((unit) => unit.role === "recon"));
+    assert.equal(enemy.alliedAiCount, 0);
+    assert.equal(report.incomingHostileMissileCount, 0);
+    assert.equal(report.fleets.some((fleet) => fleet.fleetId === "not-a-real-fleet"), false);
   } finally {
     await close(socket);
     await runtime.close();
