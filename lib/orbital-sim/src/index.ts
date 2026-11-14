@@ -23,6 +23,7 @@ export * from "./free-flight-contract";
 export * from "./free-flight-tactics";
 export * from "./free-flight-salvage";
 export * from "./free-flight-projectiles";
+export * from "./free-flight-armament";
 export * from "./free-flight-targeting";
 export * from "./free-flight-assistance";
 export * from "./free-flight-rollout";

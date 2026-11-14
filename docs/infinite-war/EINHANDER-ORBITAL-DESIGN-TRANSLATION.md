@@ -2,6 +2,11 @@
 
 ## Source and limits
 
+The follow-on [weapon acquisition and exploration directive](WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md)
+applies the creator's full acquisition reference to this same runtime. It
+extends physical weapons into salvage, discovery and progression without
+claiming those planned services are already implemented.
+
 The creator supplied the complete forensic architecture analysis, preserved
 unaltered in [the reference archive](references/EINHANDER-FORENSIC-ARCHITECTURE-CREATOR-REFERENCE.txt).
 Its SHA-256 is `7eba9739636fd7ca8277a40e80318eeebc85d53e58135d6c3496f835b52193d6`.
@@ -50,7 +55,10 @@ device or deployed gameplay certification.
    `salvagePackage` function selects from a deterministic catalog pool using
    encounter/actor identity. It does not establish that the recovered module
    was the exact piece fitted to, rendered on and fired by that enemy.
-   Hull-authored weapon geometry is not proof of per-item mounted geometry.
+   Main Three.js shared flight now adds class-specific visible fittings from
+   each visible actor's immutable, server-issued equipment. This is not an
+   Armory draft or a claim that catalog-based salvage came from that enemy.
+   Native companion rendering retains the existing integral hull fittings.
    Completion requires one authoritative enemy equipment manifest driving its
    weapons, mount presentation and surviving recoverable hardware, with
    compatibility, ownership and duplicate-recovery protections preserved.
@@ -114,7 +122,7 @@ one has a prototype.
 
 | Priority | Phase | Exit requirement |
 | --- | --- | --- |
-| 1 | Weapon and hardpoint foundation | Compatible weapons mount, fire, consume issued ammunition/heat/power and apply validated damage. Missing state must not turn a fitted weapon into an unlimited stock fallback. Exact enemy hardware provenance and per-item mounting remain explicit gaps. |
+| 1 | Weapon and hardpoint foundation | Compatible weapons mount, fire, consume issued ammunition/heat/power and apply validated damage. Missing state must not turn a fitted weapon into an unlimited stock fallback. Main Three.js issued-fit mounts are implemented; exact enemy-to-salvage hardware provenance and physical-device appearance verification remain open. |
 | 2 | Ship subsystem destruction | Independently damaged components produce their documented functional consequences, distinct from a hull kill. |
 | 3 | Enemy combat behavior | Observation, pursuit, evasion, attack position and disengagement make meaningful, server-owned tactical choices. |
 | 4 | Fleet formations and coordination | Existing ships operate as coherent units with command, escorts, reconnaissance and bounded real reinforcement dispatch. |

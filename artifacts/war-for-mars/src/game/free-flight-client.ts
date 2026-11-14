@@ -3,6 +3,8 @@ import { isShipSubsystemTelemetry, type ShipSubsystemTelemetry } from "@workspac
 import { isCombatRecoveryState } from "./combat-recovery-state";
 import {
   ORBITAL_RULES_VERSION,
+  ARMAMENT_PRESENTATION_PROTOCOL,
+  readArmamentSnapshot,
   PROJECTILE_MOTION_PROTOCOL,
   isProjectileMotionSnapshot,
   FREE_FLIGHT_TARGETING_V1,
@@ -66,6 +68,8 @@ export class FreeFlightClient {
   private barrelRollAvailable = false;
   private projectileMotionAvailable = false;
   private lastProjectileMotionTick = -1;
+  private armamentAvailable = false;
+  private lastArmamentTick = -1;
   private countermeasureSeq = 1;
   private countermeasureReadyAt = 0;
   get canDeployCountermeasure() { return this.joined && this.countermeasuresAvailable; }
@@ -160,6 +164,8 @@ export class FreeFlightClient {
     this.barrelRollAvailable = false;
     this.projectileMotionAvailable = false;
     this.lastProjectileMotionTick = -1;
+    this.armamentAvailable = false;
+    this.lastArmamentTick = -1;
     this.stopped = true;
     this.generation += 1;
     this.joined = false;
@@ -321,6 +327,12 @@ export class FreeFlightClient {
         this.options.onState?.("joined");
         this.acceptSnapshot(packet.snapshot);
         this.acceptEnvironment(packet.environment);
+        const armament = packet.armamentPresentation as { protocol?: unknown } | undefined;
+        this.armamentAvailable = armament?.protocol === ARMAMENT_PRESENTATION_PROTOCOL;
+        this.lastArmamentTick = -1;
+        if (this.armamentAvailable) socket.send(JSON.stringify({
+          type: "freeflight_armament_subscribe", protocol: ARMAMENT_PRESENTATION_PROTOCOL,
+        }));
         const projectileMotion = packet.projectileMotion as { protocol?: unknown } | undefined;
         this.projectileMotionAvailable = projectileMotion?.protocol === PROJECTILE_MOTION_PROTOCOL;
         this.lastProjectileMotionTick = -1;
@@ -335,6 +347,15 @@ export class FreeFlightClient {
         // Capability negotiation keeps older server/client pairs on their
         // existing movement rules during a rolling deployment.
         socket.send(JSON.stringify({ type: "freeflight_environment_request" }));
+        return;
+      }
+      if (packet.type === "freeflight_armament_snapshot") {
+        const appearance = this.joined && this.armamentAvailable
+          ? readArmamentSnapshot(packet.snapshot, this.sessionInstanceId, this.lastArmamentTick) : null;
+        if (appearance) {
+          this.lastArmamentTick = appearance.tick;
+          this.options.onCombatPacket?.(packet);
+        }
         return;
       }
       if (packet.type === "freeflight_projectile_motion") {
@@ -475,6 +496,8 @@ export class FreeFlightClient {
     this.joined = false;
     this.projectileMotionAvailable = false;
     this.lastProjectileMotionTick = -1;
+    this.armamentAvailable = false;
+    this.lastArmamentTick = -1;
     this.sessionInstanceId = null;
     this.inputScheduler.reset();
     this.options.onState?.("reconnecting", reason);

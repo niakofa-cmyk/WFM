@@ -29,3 +29,31 @@ violate the immutable issued-flight boundary.
 
 **How to apply:** Preserve the shared provenance identity and transaction
 boundary when adding future cargo, recovery animations or wreck navigation.
+
+Live equipment appearance must follow the server-issued flight loadout, not
+an editable Armory draft. Public appearance must not expose inventory instance
+identities or cargo.
+
+**Why:** changing a draft during flight must not change the military equipment
+other pilots believe a ship carries, or leak the owner's private inventory.
+
+**How to apply:** derive public fittings from issued authoritative state,
+clear stale appearances across reconnect/session changes, and keep appearance
+separate from weapon authority and exact salvage provenance.
+
+Acquisition must support combat salvage, exploration/scanning, and derelict or
+installation discoveries; kills must not be the only equipment source.
+Separate durable equipment from energy cells, ammunition and crafting resources.
+For enemy salvage, recoverable hardware must come from that enemy's actual
+issued equipment and validated destruction state, not an unrelated loot pool.
+
+**Why:** the creator supplied the complete weapon-acquisition reference to make
+exploration meaningful and connect visible enemies, military equipment and
+progression. A unique human-owned item must not be cloned or lost on a PvP kill
+without an explicit loss/transfer policy.
+
+**How to apply:** follow
+[the acquisition directive](../../docs/infinite-war/WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md),
+keep one authoritative manifest for firing/appearance/salvage, preserve legacy
+claims, and treat illustrative acquisition percentages as proposals rather than
+drop rates or faction-population settings.

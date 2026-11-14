@@ -47,6 +47,63 @@ launch/contact identity, identical authoritative hull damage on both pilot
 connections, one consumed magazine round, and unchanged reserve ammunition.
 This is an isolated admitted-runtime fixture, not a two-phone visual claim.
 
+## Server-issued visible fittings in the main Three.js universe
+
+The [weapon acquisition and exploration directive](WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md)
+records the full creator reference, exact-enemy provenance requirement and
+acceptance gates for acquisition beyond combat-only drops.
+
+Shared flight advertises an optional armament-presentation capability. New
+clients explicitly subscribe; legacy clients receive no added appearance stream.
+The server derives the appearance directly from issued craft equipment,
+including checkpoint-restored fits when persistence is configured, not the
+account's current Armory draft.
+
+Each complete appearance snapshot uses exactly the same nearby/authorized actor
+selection as the flight pose snapshot, at most 32 actors with 8 compatible
+hardpoints each. Updates occur no more often than every 15 simulation ticks
+(about twice per second at 30 Hz). Repeated subscriptions send no extra snapshots.
+Only actor ID, hull ID, hardpoint ID and equipment definition ID are public.
+Inventory instance IDs, cargo, module condition and account identity are excluded.
+
+The main Three.js renderer attaches original, low-poly military equipment to
+the hull's existing weapon/launcher attachment positions and auxiliary points.
+Railgun rails, rotary barrels, cannon barrels, rocket pods, guided ordnance,
+defensive cassettes and special/utility packages represent their actual fitted
+classes. Replaced integral gun/round models are hidden while the fit is known;
+empty/legacy/unavailable manifests retain the ordinary integral hull models.
+These are equipment-class models, not unique cosmetic skins per inventory item.
+
+Fits follow the ship's existing position, orientation and scale, including the
+shared floating-origin frame. No camera, flight controls, hitboxes, ammunition,
+target locks or damage values are changed. Empty fits allocate no attachment
+meshes. Near-neighbor detail is limited to 250 metres and at most 24 added meshes
+per hull; repeated identical snapshots reuse geometry. Actor removal, hull
+replacement and scene disposal release attachment resources. Session changes,
+reconnects, stale telemetry and invalid/incompatible packets clear appearance.
+
+Native WebGL2 companion ships still use their integral hull fittings. These
+appearance changes do not yet establish an enemy equipment manifest that drives
+its combat and its exact surviving recoverable loot. Physical-phone appearance,
+explosion pixels and frame timing also remain separate, unproved acceptance gates.
+
+### Verification of this increment
+
+- Workspace typecheck passed.
+- Frontend: 509 passing tests, including compatible/incompatible attachment
+  models, real hull-transform inheritance, geometry reuse and resource disposal.
+- Backend: 345 passing tests with one existing explicit skip. The new fixture
+  verifies matching issued-railgun appearance for two viewers after checkpoint
+  restoration despite a changed account draft; nearby/session privacy, opt-in
+  cadence, duplicate-subscription protection and transient-state stripping.
+- Scripts: 61 passing tests. All package builds and four static-preview checks
+  passed. Main initial JavaScript remained 106,802 bytes gzip; Three.js remained
+  lazy and outside the initial graph. Audit limits were not relaxed.
+- The combined shell command timed out after tests during build. The remaining
+  package-build stage passed separately; tests were not repeated to fill that gap.
+- No authenticated physical-phone battle, GPU frame-time measurement, staging
+  sign-in, migration, staging deployment or Production change was performed.
+
 Primary range is nominal, not a new immunity gate: existing selected-target
 projectile lifetime extension remains. Direct physical projectile hits retain
 the authoritative swept-contact damage path. Unguided rockets need no lock.
