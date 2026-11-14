@@ -2,6 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { readSalvageContacts, type SalvageContact } from "@workspace/orbital-sim";
 import { createSalvageVisuals } from "./shared-salvage-visuals";
+import {
+  createSharedProjectileMotion, clipProjectileTrail, MAX_PROJECTILE_TRAIL_POINTS, MAX_PROJECTILE_VISUALS,
+} from "./shared-projectile-motion";
 import { SUBSYSTEM_LABELS, SUBSYSTEM_OFFSETS, SHIP_SUBSYSTEMS, rotate as rotateSubsystemOffset } from "@workspace/orbital-sim";
 import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
@@ -163,6 +166,8 @@ type SharedFlightWeaponEffect = {
   lifetimeSeconds: number;
   receivedAt: number;
   impact?: { to: { x: number; y: number; z: number }; receivedAt: number };
+  authoritativeMotion?: boolean;
+  missile?: boolean;
 };
 
 function isFlightVector(value: unknown): value is { x: number; y: number; z: number } {
@@ -798,6 +803,7 @@ export function Arena({
   }>({ previous: null, current: null });
   const freeFlightCombatActiveRef = useRef(false);
   const freeFlightWeaponEffectsRef = useRef<SharedFlightWeaponEffect[]>([]);
+  const freeFlightProjectileMotionRef = useRef(createSharedProjectileMotion());
   const freeFlightImpactQueueRef = useRef(createSharedFlightImpactQueue());
   const localUniverseActive = Boolean(localUniverse);
   const freeFlightEnabled = localUniverseActive &&
@@ -854,6 +860,7 @@ export function Arena({
           if (previous && previous.snapshot.sessionInstanceId !== frame.snapshot.sessionInstanceId) {
             freeFlightImpactQueueRef.current.clear();
             freeFlightWeaponEffectsRef.current = [];
+            freeFlightProjectileMotionRef.current.clear();
           }
           freeFlightFramesRef.current = { previous, current: frame };
           const vitals = freeFlightPilotVitals(frame.snapshot);
@@ -888,6 +895,8 @@ export function Arena({
           if (state === "joined") setRetainedFlightHint(null);
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
+            freeFlightProjectileMotionRef.current.clear();
+            freeFlightWeaponEffectsRef.current = [];
             salvageContactsRef.current = [];
             setSalvageContacts([]);
             setSalvagePending(false);
@@ -921,6 +930,29 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_projectile_motion") {
+            const now = performance.now();
+            const report = freeFlightProjectileMotionRef.current.accept(packet.snapshot,
+              freeFlightFramesRef.current.current?.snapshot.sessionInstanceId ?? null, now);
+            if (!report) return;
+            for (const sample of report.projectiles) {
+              if (freeFlightProjectileMotionRef.current.hasEnded(sample.eventId)) continue;
+              const existing = freeFlightWeaponEffectsRef.current.find(e => e.eventId === sample.eventId);
+              if (existing) {
+                existing.authoritativeMotion = true;
+                existing.missile = sample.missile;
+              } else {
+                freeFlightWeaponEffectsRef.current.push({
+                  eventId: sample.eventId, sourceFaction: sample.sourceFaction, visualEffect: sample.visualEffect,
+                  from: sample.position, velocity: sample.velocity, lifetimeSeconds: sample.remainingSeconds,
+                  receivedAt: now, authoritativeMotion: true, missile: sample.missile,
+                });
+              }
+            }
+            if (freeFlightWeaponEffectsRef.current.length > MAX_PROJECTILE_VISUALS)
+              freeFlightWeaponEffectsRef.current.splice(0, freeFlightWeaponEffectsRef.current.length - MAX_PROJECTILE_VISUALS);
+            return;
+          }
           if (packet.type === "freeflight_salvage") {
             const contacts = packet.protocol === 1 &&
               packet.sessionInstanceId === freeFlightFramesRef.current.current?.snapshot.sessionInstanceId
@@ -1030,12 +1062,15 @@ export function Arena({
             localUniverseRef.current?.onExit();
           } else if (packet.type === "freeflight_weapon_fired" &&
               typeof packet.eventId === "string" &&
+              packet.eventId.startsWith(`${freeFlightFramesRef.current.current?.snapshot.sessionInstanceId}:`) &&
               (packet.sourceFaction === "ussf" || packet.sourceFaction === "accord") &&
               typeof packet.visualEffect === "string" &&
               Object.hasOwn(WEAPON_EFFECT_COLORS, packet.visualEffect) &&
               isFlightVector(packet.from) && isFlightVector(packet.velocity) &&
               typeof packet.lifetimeSeconds === "number" &&
               Number.isFinite(packet.lifetimeSeconds)) {
+            if (freeFlightProjectileMotionRef.current.hasEnded(packet.eventId) ||
+                freeFlightWeaponEffectsRef.current.some(e => e.eventId === packet.eventId)) return;
             freeFlightWeaponEffectsRef.current.push({
               eventId: packet.eventId,
               sourceFaction: packet.sourceFaction,
@@ -1044,11 +1079,12 @@ export function Arena({
               velocity: packet.velocity,
               lifetimeSeconds: Math.max(0, Math.min(5, packet.lifetimeSeconds)),
               receivedAt: performance.now(),
+              authoritativeMotion: packet.motionProtocol === 1,
             });
-            if (freeFlightWeaponEffectsRef.current.length > 160) {
+            if (freeFlightWeaponEffectsRef.current.length > MAX_PROJECTILE_VISUALS) {
               freeFlightWeaponEffectsRef.current.splice(
                 0,
-                freeFlightWeaponEffectsRef.current.length - 160,
+                freeFlightWeaponEffectsRef.current.length - MAX_PROJECTILE_VISUALS,
               );
             }
           } else if (packet.type === "freeflight_countermeasure_state" &&
@@ -1058,12 +1094,14 @@ export function Arena({
               ? `COUNTERMEASURE · ${packet.decoyed} decoyed · ${packet.disrupted} disrupted`
               : "COUNTERMEASURE · No incoming seeker or defense recharging");
           } else if ((packet.type === "freeflight_weapon_event" || packet.type === "freeflight_world_impact") &&
-              typeof packet.eventId === "string" && isFlightVector(packet.to)) {
+              typeof packet.eventId === "string" && isFlightVector(packet.to) &&
+              packet.eventId.startsWith(`${freeFlightFramesRef.current.current?.snapshot.sessionInstanceId}:`)) {
+            if (!freeFlightImpactQueueRef.current.push(packet, performance.now())) return;
+            freeFlightProjectileMotionRef.current.contact(packet.eventId, packet.to, performance.now());
             const effect = freeFlightWeaponEffectsRef.current.find(
               (candidate) => candidate.eventId === packet.eventId,
             );
             if (effect) effect.impact = { to: packet.to, receivedAt: performance.now() };
-            freeFlightImpactQueueRef.current.push(packet, performance.now());
           } else if (packet.type === "freeflight_engagement_started") {
             setIncomingAssistCall(null);
             setRespondingToAssistCallId(null);
@@ -1881,6 +1919,7 @@ export function Arena({
       }
       sharedFlightEffects.clear();
       freeFlightWeaponEffectsRef.current = [];
+      freeFlightProjectileMotionRef.current.clear();
       freeFlightImpactQueueRef.current.clear();
       sharedImpactEffects.clear();
     };
@@ -1909,7 +1948,9 @@ export function Arena({
         const impactAge = effect.impact
           ? Math.max(0, (now - effect.impact.receivedAt) / 1_000)
           : null;
-        if (effect.impact ? impactAge! > 0.28 : age > effect.lifetimeSeconds) {
+        const motionPath = effect.authoritativeMotion
+          ? freeFlightProjectileMotionRef.current.path(effect.eventId, now) : null;
+        if (effect.impact ? impactAge! > 0.28 : effect.authoritativeMotion ? !motionPath : age > effect.lifetimeSeconds) {
           effects.splice(index, 1);
           const entry = sharedFlightEffects.get(effect.eventId);
           if (entry) {
@@ -1929,10 +1970,8 @@ export function Arena({
             opacity: 1,
             depthWrite: false,
           });
-          const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(),
-            new THREE.Vector3(),
-          ]);
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MAX_PROJECTILE_TRAIL_POINTS * 3), 3));
           const line = new THREE.Line(geometry, material);
           line.frustumCulled = false;
           line.renderOrder = 6;
@@ -1966,13 +2005,16 @@ export function Arena({
                 z: tip.z - velocity.z / speed * 5,
               }
             : effect.from;
-        const start = sharedPointInLocalFrame(tail, address);
-        const end = sharedPointInLocalFrame(tip, address);
-        entry.line.visible = Boolean(start && end);
-        if (!start || !end) continue;
+        const confirmedPoints = motionPath
+          ? clipProjectileTrail(motionPath, effect.missile ? 60 : 8) : [tail, tip];
+        const projected = confirmedPoints.map(point => sharedPointInLocalFrame(point, address));
+        entry.line.visible = projected.length >= 2 && projected.every(Boolean);
+        if (!entry.line.visible) continue;
         const position = entry.line.geometry.getAttribute("position") as THREE.BufferAttribute;
-        position.setXYZ(0, start.x, UNIVERSE_RENDER_Y_OFFSET + start.y, start.z);
-        position.setXYZ(1, end.x, UNIVERSE_RENDER_Y_OFFSET + end.y, end.z);
+        projected.forEach((point, index) => {
+          position.setXYZ(index, point!.x, UNIVERSE_RENDER_Y_OFFSET + point!.y, point!.z);
+        });
+        entry.line.geometry.setDrawRange(0, projected.length);
         position.needsUpdate = true;
         entry.line.geometry.computeBoundingSphere();
         entry.material.opacity = effect.impact

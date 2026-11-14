@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  MAX_PROJECTILE_MOTION_SAMPLES, PROJECTILE_MOTION_INTERVAL_TICKS, PROJECTILE_MOTION_PROTOCOL,
+  type ProjectileMotionSnapshot,
+} from "@workspace/orbital-sim";
 import { MAX_WRECK_PACKAGES, SALVAGE_RECOVERY_METERS, salvageInReach, validWreckPackages, type WreckPackage } from "@workspace/orbital-sim";
 import { admissionFailureDiagnostic, type AdmissionPhase } from "./free-flight-admission-diagnostic";
 import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
@@ -186,10 +190,13 @@ type Actor = {
   selectedSubsystem?: ShipSubsystem;
   subsystemCycleSeq?: number;
   lastTacticalReportAt?: number;
+  projectileMotionV1?: boolean;
+  lastProjectileMotionTick?: number;
   salvagePending?: boolean;
   lastSalvageAt?: number;
 };
 type FreeFlightProjectile = SpatialBullet & {
+  previousVisualPosition?: { x: number; y: number; z: number };
   id: number;
   sourceActorId: string;
   faction: Faction;
@@ -620,7 +627,7 @@ function encounterActorId(actor: Actor) {
 }
 
 function weaponEventId(session: Session, projectileId: number) {
-  return `${session.instanceId}:${session.tick}:${projectileId}`;
+  return `${session.instanceId}:projectile:${projectileId}`;
 }
 
 export function recoverFreeFlightShield(
@@ -752,6 +759,8 @@ export function createFreeFlightRuntime(options: {
       actor.inputCount = 0;
       actor.disconnectedAt = now;
       actor.gravityEnvironmentV1 = false;
+      actor.projectileMotionV1 = false;
+      actor.lastProjectileMotionTick = undefined;
       if (actor.combatProgress && !validCombatKillProgress(actor.combatProgress))
         throw new Error("Invalid combat progress checkpoint.");
       if (actor.tactics && (![actor.tactics.evadeUntil, actor.tactics.readyAt].every(n => Number.isSafeInteger(n) && n >= 0) ||
@@ -884,7 +893,8 @@ export function createFreeFlightRuntime(options: {
       version: 1,
       key: session.key,
       instanceId: session.instanceId,
-      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, salvagePending: _pending, ...actor }) =>
+      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, salvagePending: _pending,
+        projectileMotionV1: _motion, lastProjectileMotionTick: _motionTick, ...actor }) =>
         structuredClone(actor)),
       anomalyGravityWells: structuredClone(session.anomalyGravityWells),
       gravityEnvironmentEnabled: session.gravityEnvironmentEnabled,
@@ -1139,6 +1149,10 @@ export function createFreeFlightRuntime(options: {
     for (const actor of session.actors.values()) {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
+        if (actor.projectileMotionV1 &&
+            session.tick - (actor.lastProjectileMotionTick ?? -PROJECTILE_MOTION_INTERVAL_TICKS) >= PROJECTILE_MOTION_INTERVAL_TICKS) {
+          sendProjectileMotion(session, actor);
+        }
         const now = Date.now();
         if (!actor.lastTacticalReportAt || now - actor.lastTacticalReportAt >= 500) {
           actor.lastTacticalReportAt = now;
@@ -1152,6 +1166,35 @@ export function createFreeFlightRuntime(options: {
         sendCombatProgress(session, actor);
       }
     }
+  }
+
+  function sendProjectileMotion(session: Session, viewer: Actor) {
+    // Match the authenticated actor interest set. No home/lock target, remote
+    // user identity, unseen source or exact out-of-interest projectile leaks.
+    const authorizedSources = new Set(snapshotFor(session, viewer).actors.map(a => a.actorId));
+    const position = { x: viewer.craft.x, y: viewer.craft.space!.y, z: viewer.craft.z };
+    const distance = (p: FreeFlightProjectile) =>
+      Math.hypot(p.x - position.x, (p.y ?? 0) - position.y, p.z - position.z);
+    const previousPoint = (p: FreeFlightProjectile) => {
+      const point = p.previousVisualPosition;
+      return point && Math.hypot(point.x - position.x, point.y - position.y, point.z - position.z) <= NEARBY_RADIUS
+        ? point : { x: p.x, y: p.y ?? 0, z: p.z };
+    };
+    const snapshot: ProjectileMotionSnapshot = {
+      protocol: PROJECTILE_MOTION_PROTOCOL, sessionInstanceId: session.instanceId, tick: session.tick,
+      projectiles: session.projectiles.filter(p => p.life > 0 && authorizedSources.has(p.sourceActorId) &&
+        distance(p) <= NEARBY_RADIUS)
+        .sort((a, b) => Number(Boolean(b.missile)) - Number(Boolean(a.missile)) || distance(a) - distance(b) || a.id - b.id)
+        .slice(0, MAX_PROJECTILE_MOTION_SAMPLES).map(p => ({
+          eventId: weaponEventId(session, p.id), sourceFaction: p.faction,
+          visualEffect: p.visualEffect ?? (p.missile ? "swarm" : "pulse"), missile: Boolean(p.missile),
+          position: { x: p.x, y: p.y ?? 0, z: p.z },
+          previousPosition: previousPoint(p),
+          velocity: { x: p.vx, y: p.vy ?? 0, z: p.vz }, remainingSeconds: Math.min(60, p.life),
+        })),
+    };
+    viewer.lastProjectileMotionTick = session.tick;
+    send(viewer.socket, { type: "freeflight_projectile_motion", snapshot });
   }
 
   function sendSalvage(session: Session, viewer: Actor) {
@@ -1446,6 +1489,7 @@ export function createFreeFlightRuntime(options: {
       const projectile = session.projectiles[session.projectiles.length - 1]!;
       broadcast(session, {
         type: "freeflight_weapon_fired",
+        motionProtocol: PROJECTILE_MOTION_PROTOCOL,
         eventId: weaponEventId(session, projectile.id),
         sourceActorId: actor.actorId,
         sourceFaction: actor.faction,
@@ -1709,6 +1753,7 @@ export function createFreeFlightRuntime(options: {
             candidate.craft.id === projectile.homeId && candidate.craft.alive);
       if (projectile.missile) guideMissile(projectile, intended?.craft, ORBITAL_DT, source.craft);
       const from = { x: projectile.x, y: projectile.y ?? 0, z: projectile.z };
+      projectile.previousVisualPosition = from;
       projectile.x += projectile.vx * ORBITAL_DT;
       projectile.y = (projectile.y ?? 0) + (projectile.vy ?? 0) * ORBITAL_DT;
       projectile.z += projectile.vz * ORBITAL_DT;
@@ -2761,6 +2806,8 @@ export function createFreeFlightRuntime(options: {
         if (previousSeat) seats.delete(previousSeat.actor.socket!);
         actor.socket = socket;
         actor.gravityEnvironmentV1 = false;
+        actor.projectileMotionV1 = false;
+        actor.lastProjectileMotionTick = undefined;
         actor.disconnectedAt = null;
         actor.lastInputAt = now;
         actor.input = { ...IDLE };
@@ -2771,6 +2818,7 @@ export function createFreeFlightRuntime(options: {
         const environmentChanged = refreshGravityEnvironment(session);
         send(socket, {
           type: "freeflight_joined",
+          projectileMotion: { protocol: PROJECTILE_MOTION_PROTOCOL },
           nextInputSeq: actor.lastSeq + 1,
           snapshot: snapshotFor(session, actor),
           environment: environmentFor(session),
@@ -2810,6 +2858,16 @@ export function createFreeFlightRuntime(options: {
 
     const seat = seats.get(socket);
     if (!seat || seat.userId !== userId) { error("freeflight_join_required"); return; }
+    if (packet.type === "freeflight_projectile_motion_subscribe") {
+      if (Object.keys(packet).length !== 2 || packet.protocol !== PROJECTILE_MOTION_PROTOCOL) {
+        error("invalid_freeflight_projectile_motion"); return;
+      }
+      if (!seat.actor.projectileMotionV1) {
+        seat.actor.projectileMotionV1 = true;
+        sendProjectileMotion(seat.session, seat.actor);
+      }
+      return;
+    }
     if (packet.type === "freeflight_salvage_recover") {
       if (Object.keys(packet).length !== 3 || packet.protocol !== 1 ||
           typeof packet.packageId !== "string" || packet.packageId.length > 400) {
