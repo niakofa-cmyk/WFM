@@ -9,6 +9,8 @@
     "build:socket": "node ./build.mjs",
     "dev:socket": "export NODE_ENV=development && pnpm run build:socket && node --enable-source-maps ./dist/socket.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "start:staging": "node --enable-source-maps ./dist/staging-gateway.mjs",
+    "test:staging": "tsx --test --test-concurrency=1 src/staging/*.test.ts",
     "certify:ships": "tsx src/game/ship-certification.ts",
     "test:wing": "tsx --test src/game/wing.test.ts",
     "test:network": "tsx --test src/socket/network-impairment.test.ts",
