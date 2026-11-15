@@ -3,6 +3,7 @@ import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense } from "react";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { AuthInitialization } from "./components/auth-initialization";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
@@ -159,17 +160,19 @@ function Routes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <Switch>
-        <Route path="/" component={() => (
-          <>
-            <Show when="signed-in"><SignedInGame /></Show>
-            <Show when="signed-out"><PublicLanding /></Show>
-          </>
-        )} />
-        <Route path="/sign-in/*?" component={SignInPage} />
-        <Route path="/sign-up/*?" component={SignUpPage} />
-        <Route component={PublicLanding} />
-      </Switch>
+      <AuthInitialization>
+        <Switch>
+          <Route path="/" component={() => (
+            <>
+              <Show when="signed-in"><SignedInGame /></Show>
+              <Show when="signed-out"><PublicLanding /></Show>
+            </>
+          )} />
+          <Route path="/sign-in/*?" component={SignInPage} />
+          <Route path="/sign-up/*?" component={SignUpPage} />
+          <Route component={PublicLanding} />
+        </Switch>
+      </AuthInitialization>
     </ClerkProvider>
   );
 }
