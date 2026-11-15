@@ -1,4 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@clerk/react";
+import { createPilotSessionStorage } from "./pilot-session-storage";
 import type { StrikeResult, OnlineRoom } from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
 import {
@@ -63,6 +65,8 @@ type LobbySession = {
 };
 
 export function WarApp() {
+  const { userId } = useAuth();
+  const pilotStorage = useMemo(() => createPilotSessionStorage(userId), [userId]);
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -128,7 +132,7 @@ export function WarApp() {
     const reconnectToken = String(packet.reconnectToken ?? "");
     if (reconnectToken) {
       try {
-        sessionStorage.setItem(`wfm-room-${roomId}`, reconnectToken);
+        pilotStorage.setItem(`wfm-room-${roomId}`, reconnectToken);
       } catch {
         // The live socket still reconnects; storage may be disabled in private browsing.
       }
@@ -185,7 +189,7 @@ export function WarApp() {
       window.history.replaceState({}, "", roomPath);
       let token = "";
       try {
-        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        token = pilotStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
       } catch {
         token = "";
       }
@@ -226,7 +230,7 @@ export function WarApp() {
             }
             if (reason === "session_lost") {
               try {
-                sessionStorage.removeItem(`wfm-room-${normalizedRoomCode}`);
+                pilotStorage.removeItem(`wfm-room-${normalizedRoomCode}`);
               } catch {
                 // A fresh room can still be created if storage is unavailable.
               }
@@ -240,7 +244,7 @@ export function WarApp() {
             token = String(packet.reconnectToken ?? token);
             if (token) {
               try {
-                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+                pilotStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
               } catch {
                 // The live socket can reconnect without browser storage.
               }
@@ -355,7 +359,7 @@ export function WarApp() {
         if (cancelled) return;
         setSave(saveFromProfile(profile, device));
         try {
-          const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
+          const rawPending = pilotStorage.getItem("wfm-pending-claim-v1");
           if (rawPending) {
             const pending = JSON.parse(rawPending) as {
               runId?: unknown;
@@ -504,7 +508,7 @@ export function WarApp() {
     const pending = { runId, inputs, preview };
     setPendingClaim(pending);
     try {
-      sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
+      pilotStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
     } catch {
       // The live request can still complete; if the tab closes, the run expires without client-side rewards.
     }
@@ -519,7 +523,7 @@ export function WarApp() {
       const grant = await claimServerStrike(runId, { inputs });
       setPendingClaim(null);
       try {
-        sessionStorage.removeItem("wfm-pending-claim-v1");
+        pilotStorage.removeItem("wfm-pending-claim-v1");
       } catch {
         // The verified profile remains authoritative even if local session storage is unavailable.
       }
@@ -549,7 +553,7 @@ export function WarApp() {
         setPendingClaim(null);
         setActiveRun(null);
         try {
-          sessionStorage.removeItem("wfm-pending-claim-v1");
+          pilotStorage.removeItem("wfm-pending-claim-v1");
         } catch {
           // The rejected run is also invalidated server-side.
         }
@@ -566,7 +570,7 @@ export function WarApp() {
   const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
     if (onlineSession) {
       try {
-        sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
+        pilotStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
       } catch {
         // A completed room does not need a browser-stored reconnect token.
       }
@@ -647,7 +651,7 @@ export function WarApp() {
           joinSocketRef.current?.close();
           joinSocketRef.current = null;
           try {
-            sessionStorage.removeItem(`wfm-room-${onlineLobby.roomId}`);
+            pilotStorage.removeItem(`wfm-room-${onlineLobby.roomId}`);
           } catch {
             // The room can still be left when browser storage is unavailable.
           }
@@ -693,7 +697,7 @@ export function WarApp() {
         onDone={finish}
         onNetworkExit={(reason) => {
           try {
-            if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
+            if (onlineSession) pilotStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
           } catch {
             // Keep the server-restart message visible even without browser storage.
           }
