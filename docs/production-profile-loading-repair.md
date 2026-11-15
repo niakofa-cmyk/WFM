@@ -235,6 +235,27 @@ reload retention, with corroborating staging profile HTTP 200 responses.
 authentication after a frontend release. The provider email limit remains;
 no production frontend was deployed during this check.
 
+## Production frontend hotfix prepared for review
+
+Draft pull request: https://github.com/niakofa-cmyk/WFM/pull/22
+
+The hotfix is based on the actual production revision
+`05e17d8040856336904178e115425d6e56e2d9f4`, with proposed head
+`3ade9ec51a8eb896f264c0c836c1635fcef22559`. It contains only the three
+frontend auth files, frontend test-command wiring, and a release-review document.
+The auth source files are byte-identical to the deployed staging hotfix; no
+staging gateway, gameplay change, migration or backend change is included.
+
+All 25 frontend tests, library/frontend type checks, and a build mounted at
+`/kids/wfm/` passed. GitHub's full **Verify workspace** job also passed.
+
+The separate **Verify staging evidence** promotion check failed: non-staging
+branches must satisfy a restricted exception, and the existing auth-recovery
+exception is pinned to an earlier approved production base. That guard was
+not changed or bypassed. The failure and evidence limits are recorded on the
+draft PR. A separately approved, narrowly scoped release path is needed before
+merging or deploying. Production remains unchanged by this preparation.
+
 ## Read-only check before any repair
 
 An authorized operator must select this exact production API service's database,
