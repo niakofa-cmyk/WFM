@@ -45,6 +45,16 @@ any production write. The user confirmed that liveness, connectivity and profile
 readiness must remain separate; schema failure must not trigger process restarts.
 A healthy connectivity probe alone does not establish authenticated profile loading.
 
+The user confirmed the production game database is fresh, with no earlier pilot
+saves to recover.
+
+**Why:** fresh initialization is appropriate only after that distinction is
+explicit; missing tables alone never established it.
+
+**How to apply:** a reviewed fresh-schema candidate may be prepared for this
+initialization. Still obtain explicit approval before executing production SQL;
+do not treat this statement as permission to reset a database after it has saves.
+
 Structured JSON stdout can appear in Railway logs as an empty `message` with
 the event and fields stored in `attributes`, not as searchable message text.
 

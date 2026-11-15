@@ -50,6 +50,37 @@ schema is absent too. Resolve the saved-data history first, then propose either
 a recovery/reconnection plan or a reviewed fresh-database migration. Obtain
 explicit approval before applying either production repair.
 
+## Proposed fresh-production initialization
+
+The user confirmed that production is fresh and has no previous saved pilot
+progress. This permits preparing initialization instead of a save-recovery plan;
+it does **not** by itself approve executing production SQL.
+
+The manual candidate is `lib/db/repairs/initialize-fresh-production.sql`:
+
+- Creates the current Drizzle schema: 22 tables, seven enum types, indexes,
+  checks, primary keys and campaign foreign keys.
+- Covers profiles, equipment, inventory/economy, world state, patrols, presence,
+  checkpoints and shared campaign storage, not just the first failing table.
+- Inserts no pilot profiles, rewards, balances, campaign progress or market rows.
+  Existing application initialization remains responsible for initial records.
+- Contains no drops, deletes, updates, grants or replacement tables.
+- Runs atomically with local lock/statement timeouts and an advisory lock.
+- Refuses a database other than `railway`, or one containing application
+  relations or user enum/domain types. Repeat application fails closed.
+- Must be invoked only through the already verified production API service;
+  the database name alone is not sufficient target verification.
+- Is not registered in startup, build, publishing or automatic migrations.
+
+`node --test scripts/fresh-production-schema.test.mjs` checks exact equivalence
+to a fresh Drizzle export, the refusal guard, and schema/profile initialization
+in an isolated Development transaction that is always rolled back. It is not a
+production sign-in certification. Review and obtain explicit production write
+approval before applying the candidate; recheck target identity and emptiness
+immediately before execution. Afterward verify columns/permissions and then
+authenticated profile loading and website reload. Do not silently promote a
+new API build as part of the database-only repair.
+
 ## Read-only check before any repair
 
 An authorized operator must select this exact production API service's database,
