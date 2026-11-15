@@ -1,4 +1,6 @@
 import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
+import { setBaseUrl } from "@workspace/api-client-react";
+import { GameApiSession } from "./game/GameApiSession";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense } from "react";
@@ -13,6 +15,10 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
+
+// Keep API routing explicit when the game API is hosted separately.
+setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
   return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
@@ -133,14 +139,16 @@ function PublicLanding() {
 
 function SignedInGame() {
   return (
-    <>
+    <GameApiSession>
+      <>
       <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
         <WarApp />
       </Suspense>
       <div className="fixed right-3 top-3 z-[100]">
         <UserButton />
       </div>
-    </>
+      </>
+    </GameApiSession>
   );
 }
 
