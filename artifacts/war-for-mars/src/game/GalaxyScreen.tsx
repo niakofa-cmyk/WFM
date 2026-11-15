@@ -1,117 +1,123 @@
-import { lazy, Suspense, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  getGetMarketQueryKey,
-  getGetWorldQueryKey,
-  useActOnWorldQuest,
-  useExploreLocation,
-  useGetWorld,
-  useTravelWorld,
-} from "@workspace/api-client-react";
-import type { WorldLocation, WorldQuest } from "@workspace/api-client-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useAuth } from "@clerk/react";
+import { getGetWorldOperationsQueryKey, getGetWorldPatrolsQueryKey, getGetWorldQueryKey, useGetWorld, useGetWorldOperations, useGetWorldPatrols } from "@workspace/api-client-react";
+import { heartbeatWorldPresence } from "@workspace/api-client-react";
+import type { OperationDirectoryResponse, WorldLocation, WorldQuest } from "@workspace/api-client-react";
+import type { Faction, ShipId } from "./ships";
+import { useDurableAction, useOfflineSnapshot } from "./useDurableAction";
+import { UniverseActivities, repLabel } from "./UniverseActivities";
+import { CommandBackdrop, FactionMark } from "./CommandArt";
+import { sectorMission } from "./sector-missions";
+import { useWorldOperationEvents } from "./world-operation-events";
+import { UniverseActivityFeed } from "./UniverseActivityFeed";
+import { ConnectedUniverseNavigation } from "./ConnectedUniverseNavigation";
+import { connectedDestinations } from "./orbital-navigation";
+import { UniversePatrolPanel } from "./UniversePatrolPanel";
+import { AsteroidArenaHub } from "./AsteroidArenaHub";
 
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
+const CINDER_RING_LOCATION_ID = "cinder-asteroid";
 
-type Props = { onBack: () => void; credits: number; onCredits: (credits: number) => void };
-
-const kindLabel: Record<string, string> = {
-  station: "STATION",
-  relay: "RELAY",
-  moon: "MOON",
-  ruins: "RUINS",
+type Props = {
+  onBack: () => void;
+  credits: number;
+  onCredits: (credits: number) => void;
+  shipId: ShipId;
+  faction: Faction;
+  presenceHeartbeat?: boolean;
+  onJoinCompetitiveQueue?: () => void;
+  onCancelCompetitiveQueue?: () => void;
+  competitiveQueueAvailable?: boolean;
+  competitiveQueueing?: boolean;
+  onlineStatus?: string;
 };
+
+const kindLabel: Record<string, string> = { station: "STATION", relay: "RELAY", moon: "MOON", ruins: "RUINS", asteroid: "ASTEROID" };
 const statusLabel: Record<string, string> = {
-  locked: "LOCKED",
-  available: "AVAILABLE",
-  accepted: "IN PROGRESS",
-  ready: "READY TO CLAIM",
-  claimed: "CLAIMED",
+  locked: "LOCKED", available: "AVAILABLE", accepted: "IN PROGRESS", ready: "READY TO CLAIM", claimed: "CLAIMED",
 };
 const money = (value: number) => `${value.toLocaleString()} CR`;
 const errorText = (error: unknown) =>
-  error instanceof Error ? error.message : "Operation could not be completed. Try again.";
+  `${error instanceof Error ? error.message : "No response."} Outcome unknown: the server may or may not have applied this action. Retry the retained request to find out.`;
 
-export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
-  const queryClient = useQueryClient();
-  const worldQuery = useGetWorld({
-    query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() },
+export function GalaxyScreen({
+  onBack,
+  credits,
+  onCredits,
+  shipId,
+  faction,
+  presenceHeartbeat = true,
+  onJoinCompetitiveQueue,
+  onCancelCompetitiveQueue,
+  competitiveQueueAvailable = false,
+  competitiveQueueing = false,
+  onlineStatus,
+}: Props) {
+  const { getToken, userId } = useAuth();
+  const operationStreamState = useWorldOperationEvents();
+  const worldQuery = useGetWorld({ query: { refetchInterval: 15000, queryKey: getGetWorldQueryKey() } });
+  const operationsQuery = useGetWorldOperations({
+    query: {
+      refetchInterval: operationStreamState === "live" ? 15000 : 30000,
+      queryKey: getGetWorldOperationsQueryKey(),
+    },
   });
-  const travel = useTravelWorld();
-  const explore = useExploreLocation();
-  const questAction = useActOnWorldQuest();
+  const snapshot = useOfflineSnapshot("world", worldQuery.data, worldQuery.isError || worldQuery.fetchStatus === "paused");
+  const durable = useDurableAction();
   const [actionError, setActionError] = useState("");
-  const requestKeys = useRef(new Map<string, string>());
-  const world = worldQuery.data;
-  const busy = travel.isPending || explore.isPending || questAction.isPending;
-
-  const keyFor = (name: string) => {
-    const existing = requestKeys.current.get(name);
-    if (existing) return existing;
-    const next = crypto.randomUUID();
-    requestKeys.current.set(name, next);
-    return next;
-  };
-
-  const applyWorldResult = async (nextWorld: typeof world) => {
-    if (nextWorld) queryClient.setQueryData(getGetWorldQueryKey(), nextWorld);
-    await queryClient.invalidateQueries({ queryKey: getGetWorldQueryKey() });
-  };
-
-  const travelTo = async (destinationId: string) => {
-    const requestName = `travel:${destinationId}`;
+  const world = snapshot.data;
+  const patrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && world && !snapshot.cached),
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
+      queryKey: [...getGetWorldPatrolsQueryKey(), world?.currentLocation],
+    },
+  });
+  useEffect(() => {
+    if (!userId || !presenceHeartbeat) return;
+    let active = true;
+    let inFlight = false;
+    const sendHeartbeat = async () => {
+      if (!active || document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      try {
+        const token = await getToken();
+        if (active && token) {
+          await heartbeatWorldPresence({ headers: { Authorization: `Bearer ${token}` } });
+        }
+      } catch {
+        // The directory exposes presence availability without blocking navigation.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const timer = window.setInterval(() => void sendHeartbeat(), 20_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void sendHeartbeat();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void sendHeartbeat();
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [getToken, presenceHeartbeat, userId]);
+  const cached = snapshot.cached;
+  const busy = durable.blocked;
+  const go = async (request: Parameters<typeof durable.run>[0], label: string) => {
     setActionError("");
-    try {
-      const result = await travel.mutateAsync({
-        data: { idempotencyKey: keyFor(requestName), destinationId },
-      });
-      onCredits(result.credits);
-      await Promise.all([
-        applyWorldResult(result.world),
-        queryClient.invalidateQueries({ queryKey: getGetMarketQueryKey() }),
-      ]);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
+    try { await durable.run(request, label); } catch (error) { setActionError(errorText(error)); }
   };
-
-  const exploreLocation = async (location: WorldLocation) => {
-    const requestName = `explore:${location.id}`;
-    setActionError("");
-    try {
-      const result = await explore.mutateAsync({
-        locationId: location.id,
-        data: { idempotencyKey: keyFor(requestName) },
-      });
-      await applyWorldResult(result.world);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
-  };
-
-  const actQuest = async (quest: WorldQuest, action: "accept" | "claim") => {
-    const requestName = `quest:${quest.id}:${action}`;
-    setActionError("");
-    try {
-      const result = await questAction.mutateAsync({
-        questId: quest.id,
-        data: { idempotencyKey: keyFor(requestName), action },
-      });
-      if (action === "claim") onCredits(result.credits);
-      await Promise.all([
-        applyWorldResult(result.world),
-        ...(action === "claim"
-          ? [queryClient.invalidateQueries({ queryKey: getGetMarketQueryKey() })]
-          : []),
-      ]);
-      requestKeys.current.delete(requestName);
-    } catch (error) {
-      setActionError(errorText(error));
-    }
-  };
-
-  if (worldQuery.isLoading) {
+  const travelTo = (destinationId: string) => go({ kind: "travel", data: { destinationId, maxCost: world?.routes.find((route) => route.destinationId === destinationId)?.costCredits } }, `Travel to ${destinationId}.`);
+  const exploreLocation = (location: WorldLocation) => go({ kind: "explore", data: { locationId: location.id } }, `Explore ${location.name}.`);
+  const actQuest = (quest: WorldQuest, action: "accept" | "claim") => go({ kind: "quest", data: { questId: quest.id, action } }, `${action === "accept" ? "Accept" : "Claim"} contract ${quest.title}.`);
+  const runService = (serviceId: string, locationId: string, title: string) => go({ kind: "service", data: { serviceId, locationId, cycleDate: world!.event.cycleDate.slice(0, 10), creditLimit: world!.activities.find((item) => item.id === serviceId)?.creditCost } }, `Station activity: ${title}.`);
+  const travel = { isPending: durable.busy };
+  const explore = travel;
+  const questAction = travel;
+  if (worldQuery.isLoading && !world) {
     return (
       <main className="min-h-dvh bg-void px-4 py-6 text-bone sm:px-8 sm:py-9">
         <div className="mx-auto max-w-6xl animate-pulse" role="status" aria-label="Loading theater state">
@@ -127,7 +133,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
     );
   }
 
-  if (worldQuery.isError || !world) {
+  if (!world) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center bg-void px-5 text-center text-bone">
         <p className="font-hud text-sm tracking-[0.22em] text-alert">THEATER LINK UNAVAILABLE</p>
@@ -146,7 +152,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
           type="button"
           data-testid="button-galaxy-back"
           onClick={onBack}
-          className="mt-3 h-10 px-5 font-hud tracking-widest text-muted"
+          className="mt-3 min-h-11 px-5 font-hud tracking-widest text-muted"
         >
           BACK TO HANGAR
         </button>
@@ -165,16 +171,43 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
   );
   const routes = world.routes;
   const discovered = new Set(world.discoveries);
+  const directoryUnavailable = operationsQuery.isError || operationsQuery.fetchStatus === "paused";
+  const operationDirectory = directoryUnavailable ? undefined : operationsQuery.data as OperationDirectoryResponse | undefined;
+  const atCinderRing = world.currentLocation === CINDER_RING_LOCATION_ID;
+  const navigationBlocked = cached || worldQuery.isError || worldQuery.fetchStatus === "paused" || busy;
+  const navigationDestinations = connectedDestinations(world, operationDirectory, credits, navigationBlocked);
+  const scrollToControls = (target: string) => {
+    const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]"))
+      .find((entry) => entry.dataset.testid === target);
+    if (!element) return;
+    element.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+    element.setAttribute("tabindex", "-1");
+    element.focus({ preventScroll: true });
+  };
+  const openDestination = () => {
+    if (navigationBlocked) return;
+    scrollToControls(atCinderRing
+        ? "panel-shared-universe-services" : "panel-operation-network");
+  };
+  const openOperation = (operationId: string) => {
+    const current = navigationDestinations.find((entry) => entry.id === world.currentLocation);
+    const operation = current?.operations.find((entry) => entry.id === operationId);
+    if (!current?.canOpen || !operation || directoryUnavailable) return;
+    scrollToControls("panel-operation-network");
+  };
 
   return (
-    <main className="min-h-dvh bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="relative min-h-dvh overflow-x-hidden bg-void px-4 py-5 text-bone sm:px-8 sm:py-8">
+      <div className="absolute inset-x-0 top-0 h-[22rem]"><CommandBackdrop dense /></div>
+      <div className="relative mx-auto max-w-6xl">
+        {cached ? <p role="status" data-testid="status-world-cached" className="mb-3 border border-alert/50 bg-alert/10 px-3 py-2 font-hud text-xs tracking-widest text-bone">OFFLINE SNAPSHOT - NOT LIVE. Showing last known theater state; nothing is confirmed until the server acknowledges.</p> : null}
+        {durable.pending || durable.error ? <p role="status" data-testid="status-world-pending" className="mb-3 border border-solar/40 px-3 py-2 text-xs text-bone">{durable.pending ? `Awaiting server confirmation: ${durable.pending.label}` : durable.error}</p> : null}
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-solar/30 pb-5">
           <div>
             <p className="font-hud text-[10px] tracking-[0.24em] text-solar sm:text-xs">
               WAR FOR MARS / USSF–ACCORD THEATER
             </p>
-            <h1 className="mt-2 font-hud text-4xl leading-none sm:text-6xl">THEATER CONTROL</h1>
+            <h1 className="mt-2 font-hud text-4xl leading-none sm:text-6xl">ORBITAL UNIVERSE</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
               Move between verified routes, log discoveries, and fulfill persistent contracts.
             </p>
@@ -190,12 +223,26 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
               type="button"
               data-testid="button-galaxy-back"
               onClick={onBack}
-              className="h-11 border border-bone/30 px-4 font-hud text-xs tracking-widest text-bone sm:text-sm"
+              className="min-h-11 border border-bone/30 bg-void/70 px-4 font-hud text-xs tracking-widest text-bone sm:text-sm"
             >
               BACK TO HANGAR
             </button>
           </div>
         </header>
+
+        <ConnectedUniverseNavigation
+          destinations={navigationDestinations}
+          currentLocationId={world.currentLocation}
+          directoryState={directoryUnavailable ? "unavailable" : operationDirectory ? "available" : "loading"}
+          stale={cached || worldQuery.isError || worldQuery.fetchStatus === "paused"}
+          busy={busy}
+          onTravel={(id) => {
+            if (navigationDestinations.find((entry) => entry.id === id)?.canTravel) void travelTo(id);
+          }}
+          onOpenOperation={openOperation}
+          onOpenDestination={openDestination}
+          onRefresh={() => { void worldQuery.refetch(); void operationsQuery.refetch(); }}
+        />
 
         <section
           data-testid="panel-world-event"
@@ -218,6 +265,30 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
             </div>
           </div>
         </section>
+
+        <UniverseActivityFeed
+          directory={operationDirectory}
+          locations={locations}
+          currentLocationId={world.currentLocation}
+          streamState={operationStreamState}
+          loading={operationsQuery.isLoading}
+          unavailable={directoryUnavailable}
+        />
+        <UniversePatrolPanel
+          directory={patrolsQuery.data}
+          currentLocationId={world.currentLocation}
+          currentLocationName={currentLocation?.name}
+          nearbyPilotCount={operationDirectory?.presence?.find(
+            (entry) => entry.locationId === world.currentLocation,
+          )?.activePilots ?? 0}
+          pilotFaction={faction}
+          shipId={shipId}
+          canLaunchEncounter={false}
+          locations={locations}
+          loading={patrolsQuery.isLoading}
+          unavailable={patrolsQuery.isError || patrolsQuery.fetchStatus === "paused"}
+          onRetry={() => { void patrolsQuery.refetch(); }}
+        />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-5">
@@ -249,13 +320,14 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                       </span>
                     )) : <span className="text-xs text-muted">No services at this location.</span>}
                   </div>
+                  {currentLocation.sector ? <p className="mt-3 font-hud text-[10px] tracking-widest text-solar">SECTOR / {currentLocation.sector.toUpperCase()}</p> : null}
                   {currentLocation.unlocked && !currentLocation.explored ? (
                     <button
                       type="button"
                       data-testid={`button-explore-${currentLocation.id}`}
                       disabled={busy}
                       onClick={() => void exploreLocation(currentLocation)}
-                      className="mt-4 h-10 w-full border border-solar/50 font-hud text-xs tracking-widest text-solar disabled:opacity-40 sm:w-auto sm:px-5"
+                      className="mt-4 min-h-11 w-full border border-solar/50 font-hud text-xs tracking-widest text-solar disabled:opacity-40 sm:w-auto sm:px-5"
                     >
                       {explore.isPending ? "RECORDING DISCOVERY…" : "EXPLORE CURRENT LOCATION"}
                     </button>
@@ -270,6 +342,104 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
               )}
             </section>
 
+            <section data-testid="panel-shared-universe-services" className="border border-spectral/30 bg-panel/70 p-4">
+              <h2 className="font-hud tracking-widest text-spectral">SHARED UNIVERSE · STATION SERVICES</h2>
+              <p className="mt-2 text-sm text-muted">Cinder Ring is a location in the same live universe, not a separate game. Close services to resume your existing flight. Combat, patrols and allied assistance stay in that flight session.</p>
+              <button type="button" onClick={onBack} className="mt-3 min-h-11 border border-bone/25 px-4 font-hud text-xs tracking-widest">CLOSE SERVICES</button>
+            </section>
+
+            {atCinderRing && onJoinCompetitiveQueue && onCancelCompetitiveQueue ? (
+              <AsteroidArenaHub
+                operations={operationDirectory}
+                directoryLoading={operationsQuery.isLoading}
+                directoryError={directoryUnavailable}
+                atAsteroid={atCinderRing}
+                queueAvailable={competitiveQueueAvailable && !navigationBlocked}
+                queueing={competitiveQueueing}
+                onlineStatus={onlineStatus}
+                onJoinQueue={onJoinCompetitiveQueue}
+                onCancelQueue={onCancelCompetitiveQueue}
+                onTravel={() => scrollToControls("panel-operation-network")}
+              />
+            ) : null}
+
+            <section data-testid="panel-operation-network" className="border border-spectral/35 bg-panel/75">
+              <div className="border-b border-bone/10 px-4 py-4">
+                <p className="flex flex-wrap items-center justify-between gap-2 font-hud text-xs tracking-[0.2em] text-spectral">
+                  <span>ORBITAL OPERATIONS NETWORK</span>
+                  <span
+                    data-testid="status-operation-stream"
+                    className={operationStreamState === "live" ? "text-green-300" : "text-muted"}
+                    aria-live="polite"
+                  >
+                    {operationStreamState === "live"
+                      ? "LIVE STATUS LINK"
+                      : operationStreamState === "reconnecting"
+                        ? "RECONNECTING"
+                        : operationStreamState === "unavailable"
+                          ? "STATUS LINK UNAVAILABLE"
+                          : "CONNECTING"}
+                  </span>
+                </p>
+                <h2 className="mt-1 font-hud text-2xl">Asteroid operations</h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted">Read-only operation status. All playable patrols and battles belong in your existing shared flight; this directory does not launch another game.</p>
+              </div>
+              {operationsQuery.isLoading && !operationDirectory ? (
+                <p role="status" className="p-4 text-sm text-muted">Querying the public operation directory…</p>
+              ) : operationsQuery.isError || !operationDirectory ? (
+                <div className="p-4">
+                  <p role="alert" className="text-sm text-alert">Operation directory unavailable. No live operation status can be confirmed.</p>
+                  <button type="button" onClick={() => void operationsQuery.refetch()} className="mt-3 min-h-11 border border-bone/25 px-4 font-hud text-xs tracking-widest">RETRY DIRECTORY</button>
+                </div>
+              ) : operationDirectory.operations.length === 0 ? (
+                <p className="p-4 text-sm text-muted">No operations are currently listed.</p>
+              ) : (
+                <div className="divide-y divide-bone/10">
+                  {operationDirectory.operations.map((operation) => {
+                    const site = operationDirectory.locations.find((location) => location.id === operation.locationId);
+                    const siteState = site ? locations.find((location) => location.id === site.worldLocationId) : undefined;
+                    const route = siteState ? routes.find((item) => item.destinationId === siteState.id) : undefined;
+                    const instances = operationDirectory.instances.filter((item) => item.operationId === operation.id);
+                    return (
+                      <article key={operation.id} data-testid={`card-operation-${operation.id}`} className="p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-hud text-lg">{operation.title}</h3>
+                            <p className="mt-1 text-xs text-spectral">{site?.name ?? "LOCATION SIGNAL UNAVAILABLE"} · {operation.runtimeId.toUpperCase()}</p>
+                          </div>
+                          <span className="border border-solar/35 px-2 py-1 font-hud text-[9px] tracking-widest text-solar">
+                            {operation.access === "local-training" ? "LOCAL SPECIALIST MODE" : operation.access.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-muted">{operation.description}</p>
+                        {instances.length === 0 ? (
+                          <p data-testid={`status-no-live-${operation.id}`} className="mt-3 border-l border-bone/25 pl-2 text-xs text-muted">NO PUBLIC INSTANCE · No live multiplayer match or spectator feed is available.</p>
+                        ) : operation.experience !== "flight-simulation" || operation.access !== "local-training" ? (
+                          <div className="mt-3 space-y-1 text-xs text-solar" data-testid={`status-live-${operation.id}`}>
+                            {instances.map((instance) => (
+                              <p key={instance.id}>{instance.phase.toUpperCase()} · {instance.currentPlayers}/{instance.capacity} PILOTS</p>
+                            ))}
+                            <p className="text-muted">Anonymous status only. Room codes and pilot identities are never listed here.</p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-1 text-xs text-solar">
+                            <p>{instances.length} server-registered solo session{instances.length === 1 ? "" : "s"} listed</p>
+                            <p className="text-muted">These are not multiplayer matches; occupied seats cannot be joined.</p>
+                          </div>
+                        )}
+                        {operation.experience === "cooperative" && route ? (
+                          <button type="button" data-testid={`button-route-${operation.id}`} disabled={!route.available || credits < route.costCredits || busy} onClick={() => void travelTo(route.destinationId)} className="mt-3 min-h-11 w-full border border-spectral/50 px-4 font-hud text-xs tracking-widest text-spectral disabled:opacity-40">
+                            {route.available ? `TRAVEL TO ${site?.name.toUpperCase()} · ${money(route.costCredits)}` : "ROUTE UNAVAILABLE"}
+                          </button>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <UniverseActivities world={world} blocked={busy} onRun={runService} />
             <section className="border border-bone/15 bg-panel/65">
               <div className="flex flex-wrap items-end justify-between gap-3 border-b border-bone/10 px-4 py-4">
                 <div>
@@ -289,7 +459,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                     const available = route.available && Boolean(destination?.unlocked);
                     const canAfford = credits >= route.costCredits;
                     const lockedReason = destination
-                      ? `LOCKED · CLEAR ${destination.unlockAfter}`
+                      ? `LOCKED · ${destination.lockReason ?? `CLEAR ${destination.unlockAfter}`}`
                       : "DESTINATION SIGNAL MISSING";
                     return (
                       <article
@@ -308,7 +478,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                           </div>
                           <p className="mt-1 text-xs text-muted">
                             {destination
-                              ? `${kindLabel[destination.kind] ?? destination.kind.toUpperCase()} · GRID ${String(destination.x).padStart(2, "0")} / ${String(destination.y).padStart(2, "0")}`
+                              ? `${destination.sector ? destination.sector.toUpperCase() + " · " : ""}${destination.requiredTechTier ? `HYPERDRIVE T${destination.requiredTechTier} · ` : ""}${destination.requiredRep ? `REP ${destination.requiredRep}+ · ` : ""}${kindLabel[destination.kind] ?? destination.kind.toUpperCase()} · GRID ${String(destination.x).padStart(2, "0")} / ${String(destination.y).padStart(2, "0")}`
                               : "Destination details not charted"}
                           </p>
                         </div>
@@ -324,7 +494,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                             data-testid={`button-travel-${route.destinationId}`}
                             disabled={!available || !canAfford || busy}
                             onClick={() => void travelTo(route.destinationId)}
-                            className="h-10 min-w-28 bg-solar px-3 font-hud text-xs tracking-widest text-void disabled:border disabled:border-bone/10 disabled:bg-transparent disabled:text-muted"
+                            className="min-h-11 min-w-28 bg-solar px-3 font-hud text-xs tracking-widest text-void disabled:border disabled:border-bone/10 disabled:bg-transparent disabled:text-muted"
                           >
                             {travel.isPending ? "IN TRANSIT…" : !available ? "UNAVAILABLE" : canAfford ? "TRAVEL" : "INSUFFICIENT"}
                           </button>
@@ -341,16 +511,16 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
             <section className="border border-bone/15 bg-panel/65 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-solar">FACTION STANDING</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="border-l-2 border-solar bg-void/45 p-3">
-                  <p className="text-[10px] tracking-widest text-muted">THE ACCORD</p>
-                  <p data-testid="text-reputation-accord" className="mt-1 font-mono text-3xl">
-                    {world.reputation.accord.toLocaleString()}
+                <div className="min-w-0 border-l-2 border-[#a9c9cc] bg-void/45 p-3">
+                  <p className="flex items-center gap-2 text-[10px] tracking-widest text-muted"><FactionMark faction="accord" className="h-6 w-6" />THE ACCORD</p>
+                  <p data-testid="text-reputation-accord" className="mt-1 font-mono text-2xl sm:text-3xl">
+                    {world.reputation.accord.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.accord)}</span>
                   </p>
                 </div>
-                <div className="border-l-2 border-bone/50 bg-void/45 p-3">
-                  <p className="text-[10px] tracking-widest text-muted">USSF</p>
-                  <p data-testid="text-reputation-ussf" className="mt-1 font-mono text-3xl">
-                    {world.reputation.ussf.toLocaleString()}
+                <div className="min-w-0 border-l-2 border-bone/50 bg-void/45 p-3">
+                  <p className="flex items-center gap-2 text-[10px] tracking-widest text-muted"><FactionMark faction="ussf" className="h-6 w-6" />USSF</p>
+                  <p data-testid="text-reputation-ussf" className="mt-1 font-mono text-2xl sm:text-3xl">
+                    {world.reputation.ussf.toLocaleString()} <span className="block font-hud text-[10px] tracking-widest text-solar">{repLabel(world.reputation.ussf)}</span>
                   </p>
                 </div>
               </div>
@@ -409,7 +579,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                             data-testid={`button-${action}-quest-${quest.id}`}
                             disabled={busy}
                             onClick={() => void actQuest(quest, action)}
-                            className="mt-3 h-10 w-full bg-solar font-hud text-xs tracking-widest text-void disabled:opacity-45"
+                            className="mt-3 min-h-11 w-full bg-solar font-hud text-xs tracking-widest text-void disabled:opacity-45"
                           >
                             {questAction.isPending
                               ? "UPDATING CONTRACT…"
@@ -436,11 +606,15 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
                 </p>
               ) : (
                 <ul className="mt-3 space-y-2">
-                  {world.discoveries.map((discovery) => (
-                    <li key={discovery} className="border-l border-solar/50 pl-3 text-sm text-bone/80">
-                      {locations.find((location) => location.id === discovery)?.name ?? discovery}
-                    </li>
-                  ))}
+                  {world.discoveries.map((discovery) => {
+                    const expeditionId = discovery.startsWith("flight:") ? discovery.slice("flight:".length) : "";
+                    const expedition = sectorMission(expeditionId);
+                    return (
+                      <li key={discovery} className="border-l border-solar/50 pl-3 text-sm text-bone/80">
+                        {expedition ? `${expedition.title} · VERIFIED FLIGHT` : locations.find((location) => location.id === discovery)?.name ?? discovery}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
@@ -457,7 +631,7 @@ export function GalaxyScreen({ onBack, credits, onCredits }: Props) {
 
         {actionError ? (
           <p role="alert" data-testid="status-world-error" className="mt-4 border border-alert/40 bg-alert/10 px-3 py-3 text-sm leading-relaxed text-bone">
-            {actionError} Retry the same action; its request key is retained.
+            {actionError}
           </p>
         ) : null}
       </div>

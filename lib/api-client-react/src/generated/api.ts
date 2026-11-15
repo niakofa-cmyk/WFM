@@ -20,22 +20,38 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ControlSchemeInput,
+  EquipmentFitInput,
+  EquipmentLocker,
+  EquipmentRecoveryInput,
   ExploreLocationResult,
   GameProfile,
+  GlobalCampaign,
+  GlobalCampaignFinale,
   HealthStatus,
+  LeaderboardProfileUpdateInput,
+  LoadoutInput,
   MarketSnapshot,
   MarketTradeInput,
   MarketTradeResult,
+  OperationDirectoryResponse,
+  OperationRegistrationBody,
+  OperationRegistrationResponse,
   ProgressionActionInput,
   ProgressionActionResult,
+  PublicWingLeaderboardResponse,
   ReadinessCheckResponse,
   StrikeClaimInput,
   StrikeClaimResult,
   StrikeRun,
   StrikeStartInput,
+  WorldExplorationResults,
   WorldExploreInput,
+  WorldPatrolDirectory,
   WorldQuestActionInput,
   WorldQuestActionResult,
+  WorldServiceInput,
+  WorldServiceResult,
   WorldState,
   WorldTravelInput,
   WorldTravelResult
@@ -67,6 +83,380 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment`
+}
+
+export const getEquipment = async ( options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+  return customFetch<EquipmentLocker>(getGetEquipmentUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEquipmentQueryKey = () => {
+    return [
+    `/api/game/equipment`
+    ] as const;
+    }
+
+
+export const getGetEquipmentQueryOptions = <TData = Awaited<ReturnType<typeof getEquipment>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEquipmentQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEquipment>>> = ({ signal }) => getEquipment({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEquipmentQueryResult = NonNullable<Awaited<ReturnType<typeof getEquipment>>>
+export type GetEquipmentQueryError = ErrorType<void>
+
+
+
+export function useGetEquipment<TData = Awaited<ReturnType<typeof getEquipment>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEquipment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEquipmentQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFitEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment/fit`
+}
+
+export const fitEquipment = async (equipmentFitInput: EquipmentFitInput, options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EquipmentLocker>(getFitEquipmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(equipmentFitInput)
+  }
+);}
+
+
+
+
+
+export const getFitEquipmentMutationKey = () => ['fitEquipment'] as const;
+
+export const getFitEquipmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext> => {
+
+const mutationKey = getFitEquipmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof fitEquipment>>, FitEquipmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  fitEquipment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FitEquipmentMutationResult = NonNullable<Awaited<ReturnType<typeof fitEquipment>>>
+    export type FitEquipmentMutationBody = BodyType<EquipmentFitInput>
+    export type FitEquipmentMutationError = ErrorType<void>
+    export type FitEquipmentMutationVariables = {data: BodyType<EquipmentFitInput>}
+
+    export const useFitEquipment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof fitEquipment>>, TError,FitEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof fitEquipment>>,
+        TError,
+        FitEquipmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFitEquipmentMutationOptions(options));
+    }
+
+export const getRecoverEquipmentUrl = () => {
+
+
+
+
+  return `/api/game/equipment/recover`
+}
+
+export const recoverEquipment = async (equipmentRecoveryInput: EquipmentRecoveryInput, options?: Parameters<typeof customFetch>[1]): Promise<EquipmentLocker> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EquipmentLocker>(getRecoverEquipmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(equipmentRecoveryInput)
+  }
+);}
+
+
+
+
+
+export const getRecoverEquipmentMutationKey = () => ['recoverEquipment'] as const;
+
+export const getRecoverEquipmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext> => {
+
+const mutationKey = getRecoverEquipmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recoverEquipment>>, RecoverEquipmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  recoverEquipment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecoverEquipmentMutationResult = NonNullable<Awaited<ReturnType<typeof recoverEquipment>>>
+    export type RecoverEquipmentMutationBody = BodyType<EquipmentRecoveryInput>
+    export type RecoverEquipmentMutationError = ErrorType<void>
+    export type RecoverEquipmentMutationVariables = {data: BodyType<EquipmentRecoveryInput>}
+
+    export const useRecoverEquipment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverEquipment>>, TError,RecoverEquipmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recoverEquipment>>,
+        TError,
+        RecoverEquipmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRecoverEquipmentMutationOptions(options));
+    }
+
+export const getGetGlobalCampaignUrl = () => {
+
+
+
+
+  return `/api/world/campaign`
+}
+
+export const getGlobalCampaign = async ( options?: Parameters<typeof customFetch>[1]): Promise<GlobalCampaign> => {
+
+  return customFetch<GlobalCampaign>(getGetGlobalCampaignUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGlobalCampaignQueryKey = () => {
+    return [
+    `/api/world/campaign`
+    ] as const;
+    }
+
+
+export const getGetGlobalCampaignQueryOptions = <TData = Awaited<ReturnType<typeof getGlobalCampaign>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGlobalCampaignQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGlobalCampaign>>> = ({ signal }) => getGlobalCampaign({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGlobalCampaignQueryResult = NonNullable<Awaited<ReturnType<typeof getGlobalCampaign>>>
+export type GetGlobalCampaignQueryError = ErrorType<unknown>
+
+
+
+export function useGetGlobalCampaign<TData = Awaited<ReturnType<typeof getGlobalCampaign>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGlobalCampaign>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGlobalCampaignQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimGlobalCampaignFinaleUrl = () => {
+
+
+
+
+  return `/api/world/campaign/finale`
+}
+
+export const claimGlobalCampaignFinale = async ( options?: Parameters<typeof customFetch>[1]): Promise<GlobalCampaignFinale> => {
+
+  return customFetch<GlobalCampaignFinale>(getClaimGlobalCampaignFinaleUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimGlobalCampaignFinaleMutationKey = () => ['claimGlobalCampaignFinale'] as const;
+
+export const getClaimGlobalCampaignFinaleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext> => {
+
+const mutationKey = getClaimGlobalCampaignFinaleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, void> = () => {
+
+
+          return  claimGlobalCampaignFinale(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimGlobalCampaignFinaleMutationResult = NonNullable<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>>
+
+    export type ClaimGlobalCampaignFinaleMutationError = ErrorType<void>
+
+
+    export const useClaimGlobalCampaignFinale = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGlobalCampaignFinale>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimGlobalCampaignFinale>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getClaimGlobalCampaignFinaleMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 
@@ -299,6 +689,348 @@ export function useGetGameProfile<TData = Awaited<ReturnType<typeof getGameProfi
 
 
 
+
+export const getGetPublicWingLeaderboardUrl = () => {
+
+
+
+
+  return `/api/game/leaderboard`
+}
+
+/**
+ * Returns only callsigns and aggregate server-verified Wing reward credits.
+ * @summary Get the public opt-in Wing credit leaderboard
+ */
+export const getPublicWingLeaderboard = async ( options?: Parameters<typeof customFetch>[1]): Promise<PublicWingLeaderboardResponse> => {
+
+  return customFetch<PublicWingLeaderboardResponse>(getGetPublicWingLeaderboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicWingLeaderboardQueryKey = () => {
+    return [
+    `/api/game/leaderboard`
+    ] as const;
+    }
+
+
+export const getGetPublicWingLeaderboardQueryOptions = <TData = Awaited<ReturnType<typeof getPublicWingLeaderboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicWingLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicWingLeaderboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicWingLeaderboard>>> = ({ signal }) => getPublicWingLeaderboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicWingLeaderboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicWingLeaderboardQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicWingLeaderboard>>>
+export type GetPublicWingLeaderboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the public opt-in Wing credit leaderboard
+ */
+
+export function useGetPublicWingLeaderboard<TData = Awaited<ReturnType<typeof getPublicWingLeaderboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicWingLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicWingLeaderboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateLeaderboardProfileUrl = () => {
+
+
+
+
+  return `/api/game/profile/leaderboard`
+}
+
+/**
+ * @summary Set the authenticated player's public leaderboard preference
+ */
+export const updateLeaderboardProfile = async (leaderboardProfileUpdateInput: LeaderboardProfileUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<GameProfile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameProfile>(getUpdateLeaderboardProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(leaderboardProfileUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateLeaderboardProfileMutationKey = () => ['updateLeaderboardProfile'] as const;
+
+export const getUpdateLeaderboardProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLeaderboardProfile>>, TError,UpdateLeaderboardProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLeaderboardProfile>>, TError,UpdateLeaderboardProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLeaderboardProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLeaderboardProfile>>, UpdateLeaderboardProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateLeaderboardProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLeaderboardProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateLeaderboardProfile>>>
+    export type UpdateLeaderboardProfileMutationBody = BodyType<LeaderboardProfileUpdateInput>
+    export type UpdateLeaderboardProfileMutationError = ErrorType<void>
+    export type UpdateLeaderboardProfileMutationVariables = {data: BodyType<LeaderboardProfileUpdateInput>}
+
+    /**
+ * @summary Set the authenticated player's public leaderboard preference
+ */
+export const useUpdateLeaderboardProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLeaderboardProfile>>, TError,UpdateLeaderboardProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLeaderboardProfile>>,
+        TError,
+        UpdateLeaderboardProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLeaderboardProfileMutationOptions(options));
+    }
+
+export const getUpdateLoadoutUrl = () => {
+
+
+
+
+  return `/api/game/profile/loadout`
+}
+
+/**
+ * @summary Save the authenticated player's selected faction and hull
+ */
+export const updateLoadout = async (loadoutInput: LoadoutInput, options?: Parameters<typeof customFetch>[1]): Promise<GameProfile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameProfile>(getUpdateLoadoutUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(loadoutInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateLoadoutMutationKey = () => ['updateLoadout'] as const;
+
+export const getUpdateLoadoutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLoadout>>, TError,UpdateLoadoutMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLoadout>>, TError,UpdateLoadoutMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLoadoutMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLoadout>>, UpdateLoadoutMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateLoadout(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLoadoutMutationResult = NonNullable<Awaited<ReturnType<typeof updateLoadout>>>
+    export type UpdateLoadoutMutationBody = BodyType<LoadoutInput>
+    export type UpdateLoadoutMutationError = ErrorType<void>
+    export type UpdateLoadoutMutationVariables = {data: BodyType<LoadoutInput>}
+
+    /**
+ * @summary Save the authenticated player's selected faction and hull
+ */
+export const useUpdateLoadout = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLoadout>>, TError,UpdateLoadoutMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLoadout>>,
+        TError,
+        UpdateLoadoutMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLoadoutMutationOptions(options));
+    }
+
+export const getUpdateControlSchemeUrl = () => {
+
+
+
+
+  return `/api/game/profile/control-scheme`
+}
+
+/**
+ * @summary Save the authenticated player's control scheme
+ */
+export const updateControlScheme = async (controlSchemeInput: ControlSchemeInput, options?: Parameters<typeof customFetch>[1]): Promise<GameProfile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GameProfile>(getUpdateControlSchemeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(controlSchemeInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateControlSchemeMutationKey = () => ['updateControlScheme'] as const;
+
+export const getUpdateControlSchemeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateControlSchemeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateControlScheme>>, UpdateControlSchemeMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateControlScheme(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateControlSchemeMutationResult = NonNullable<Awaited<ReturnType<typeof updateControlScheme>>>
+    export type UpdateControlSchemeMutationBody = BodyType<ControlSchemeInput>
+    export type UpdateControlSchemeMutationError = ErrorType<void>
+    export type UpdateControlSchemeMutationVariables = {data: BodyType<ControlSchemeInput>}
+
+    /**
+ * @summary Save the authenticated player's control scheme
+ */
+export const useUpdateControlScheme = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateControlScheme>>, TError,UpdateControlSchemeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateControlScheme>>,
+        TError,
+        UpdateControlSchemeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateControlSchemeMutationOptions(options));
+    }
 
 export const getApplyProgressionActionUrl = () => {
 
@@ -730,6 +1462,88 @@ export const useTradeMarket = <TError = ErrorType<void>,
       return useMutation(getTradeMarketMutationOptions(options));
     }
 
+export const getExecuteWorldServiceUrl = () => {
+
+
+
+
+  return `/api/world/services`
+}
+
+export const executeWorldService = async (worldServiceInput: WorldServiceInput, options?: Parameters<typeof customFetch>[1]): Promise<WorldServiceResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WorldServiceResult>(getExecuteWorldServiceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(worldServiceInput)
+  }
+);}
+
+
+
+
+
+export const getExecuteWorldServiceMutationKey = () => ['executeWorldService'] as const;
+
+export const getExecuteWorldServiceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeWorldService>>, TError,ExecuteWorldServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeWorldService>>, TError,ExecuteWorldServiceMutationVariables, TContext> => {
+
+const mutationKey = getExecuteWorldServiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeWorldService>>, ExecuteWorldServiceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  executeWorldService(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExecuteWorldServiceMutationResult = NonNullable<Awaited<ReturnType<typeof executeWorldService>>>
+    export type ExecuteWorldServiceMutationBody = BodyType<WorldServiceInput>
+    export type ExecuteWorldServiceMutationError = ErrorType<unknown>
+    export type ExecuteWorldServiceMutationVariables = {data: BodyType<WorldServiceInput>}
+
+    export const useExecuteWorldService = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeWorldService>>, TError,ExecuteWorldServiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof executeWorldService>>,
+        TError,
+        ExecuteWorldServiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExecuteWorldServiceMutationOptions(options));
+    }
+
 export const getGetWorldUrl = () => {
 
 
@@ -806,6 +1620,557 @@ export function useGetWorld<TData = Awaited<ReturnType<typeof getWorld>>, TError
 
 
 
+
+export const getGetWorldPatrolsUrl = () => {
+
+
+
+
+  return `/api/world/patrols`
+}
+
+/**
+ * Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
+ */
+export const getWorldPatrols = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldPatrolDirectory> => {
+
+  return customFetch<WorldPatrolDirectory>(getGetWorldPatrolsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldPatrolsQueryKey = () => {
+    return [
+    `/api/world/patrols`
+    ] as const;
+    }
+
+
+export const getGetWorldPatrolsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldPatrols>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldPatrolsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldPatrols>>> = ({ signal }) => getWorldPatrols({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldPatrolsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldPatrols>>>
+export type GetWorldPatrolsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
+ */
+
+export function useGetWorldPatrols<TData = Awaited<ReturnType<typeof getWorldPatrols>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldPatrols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldPatrolsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWorldOperationsUrl = () => {
+
+
+
+
+  return `/api/world/operations`
+}
+
+/**
+ * Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
+ * @summary Discover public operations in the universe
+ */
+export const getWorldOperations = async ( options?: Parameters<typeof customFetch>[1]): Promise<OperationDirectoryResponse> => {
+
+  return customFetch<OperationDirectoryResponse>(getGetWorldOperationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldOperationsQueryKey = () => {
+    return [
+    `/api/world/operations`
+    ] as const;
+    }
+
+
+export const getGetWorldOperationsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldOperations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldOperationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldOperations>>> = ({ signal }) => getWorldOperations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldOperationsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldOperations>>>
+export type GetWorldOperationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Discover public operations in the universe
+ */
+
+export function useGetWorldOperations<TData = Awaited<ReturnType<typeof getWorldOperations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldOperations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldOperationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWorldExplorationResultsUrl = () => {
+
+
+
+
+  return `/api/world/exploration/results`
+}
+
+/**
+ * Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+export const getWorldExplorationResults = async ( options?: Parameters<typeof customFetch>[1]): Promise<WorldExplorationResults> => {
+
+  return customFetch<WorldExplorationResults>(getGetWorldExplorationResultsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorldExplorationResultsQueryKey = () => {
+    return [
+    `/api/world/exploration/results`
+    ] as const;
+    }
+
+
+export const getGetWorldExplorationResultsQueryOptions = <TData = Awaited<ReturnType<typeof getWorldExplorationResults>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorldExplorationResultsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorldExplorationResults>>> = ({ signal }) => getWorldExplorationResults({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorldExplorationResultsQueryResult = NonNullable<Awaited<ReturnType<typeof getWorldExplorationResults>>>
+export type GetWorldExplorationResultsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+
+export function useGetWorldExplorationResults<TData = Awaited<ReturnType<typeof getWorldExplorationResults>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorldExplorationResults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorldExplorationResultsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getHeartbeatWorldPresenceUrl = () => {
+
+
+
+
+  return `/api/world/presence/heartbeat`
+}
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const heartbeatWorldPresence = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getHeartbeatWorldPresenceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getHeartbeatWorldPresenceMutationKey = () => ['heartbeatWorldPresence'] as const;
+
+export const getHeartbeatWorldPresenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext> => {
+
+const mutationKey = getHeartbeatWorldPresenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof heartbeatWorldPresence>>, void> = () => {
+
+
+          return  heartbeatWorldPresence(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeartbeatWorldPresenceMutationResult = NonNullable<Awaited<ReturnType<typeof heartbeatWorldPresence>>>
+
+    export type HeartbeatWorldPresenceMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const useHeartbeatWorldPresence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof heartbeatWorldPresence>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof heartbeatWorldPresence>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getHeartbeatWorldPresenceMutationOptions(options));
+    }
+
+export const getSubscribeWorldOperationEventsUrl = () => {
+
+
+
+
+  return `/api/world/operations/events`
+}
+
+/**
+ * Server-sent events stream. Each `operations.snapshot` event carries a public OperationDirectoryResponse snapshot with no account identifiers. The stream is read-only; clients cannot publish status through it.
+ * @summary Subscribe to read-only universe operation status
+ */
+export const subscribeWorldOperationEvents = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getSubscribeWorldOperationEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubscribeWorldOperationEventsQueryKey = () => {
+    return [
+    `/api/world/operations/events`
+    ] as const;
+    }
+
+
+export const getSubscribeWorldOperationEventsQueryOptions = <TData = Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSubscribeWorldOperationEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>> = ({ signal }) => subscribeWorldOperationEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SubscribeWorldOperationEventsQueryResult = NonNullable<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>>
+export type SubscribeWorldOperationEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Subscribe to read-only universe operation status
+ */
+
+export function useSubscribeWorldOperationEvents<TData = Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof subscribeWorldOperationEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSubscribeWorldOperationEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegisterWorldOperationInstanceUrl = (operationId: string,) => {
+
+
+
+
+  return `/api/world/operations/${operationId}/instances`
+}
+
+/**
+ * Registers only supported on-demand operations at their server-verified world location. Admission is single-seat, server-issued, expires automatically, and cannot grant rewards.
+ * @summary Authenticated player registers and enters an operation
+ */
+export const registerWorldOperationInstance = async (operationId: string,
+    operationRegistrationBody: OperationRegistrationBody, options?: Parameters<typeof customFetch>[1]): Promise<OperationRegistrationResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OperationRegistrationResponse>(getRegisterWorldOperationInstanceUrl(operationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(operationRegistrationBody)
+  }
+);}
+
+
+
+
+
+export const getRegisterWorldOperationInstanceMutationKey = () => ['registerWorldOperationInstance'] as const;
+
+export const getRegisterWorldOperationInstanceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext> => {
+
+const mutationKey = getRegisterWorldOperationInstanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerWorldOperationInstance>>, RegisterWorldOperationInstanceMutationVariables> = (props) => {
+          const {operationId,data} = props ?? {};
+
+          return  registerWorldOperationInstance(operationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterWorldOperationInstanceMutationResult = NonNullable<Awaited<ReturnType<typeof registerWorldOperationInstance>>>
+    export type RegisterWorldOperationInstanceMutationBody = BodyType<OperationRegistrationBody>
+    export type RegisterWorldOperationInstanceMutationError = ErrorType<void>
+    export type RegisterWorldOperationInstanceMutationVariables = {operationId: string;data: BodyType<OperationRegistrationBody>}
+
+    /**
+ * @summary Authenticated player registers and enters an operation
+ */
+export const useRegisterWorldOperationInstance = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerWorldOperationInstance>>, TError,RegisterWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerWorldOperationInstance>>,
+        TError,
+        RegisterWorldOperationInstanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRegisterWorldOperationInstanceMutationOptions(options));
+    }
+
+export const getLeaveWorldOperationInstanceUrl = (instanceId: string,) => {
+
+
+
+
+  return `/api/world/operations/instances/${instanceId}/leave`
+}
+
+/**
+ * @summary End the authenticated player's operation seat
+ */
+export const leaveWorldOperationInstance = async (instanceId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLeaveWorldOperationInstanceUrl(instanceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLeaveWorldOperationInstanceMutationKey = () => ['leaveWorldOperationInstance'] as const;
+
+export const getLeaveWorldOperationInstanceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext> => {
+
+const mutationKey = getLeaveWorldOperationInstanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, LeaveWorldOperationInstanceMutationVariables> = (props) => {
+          const {instanceId} = props ?? {};
+
+          return  leaveWorldOperationInstance(instanceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LeaveWorldOperationInstanceMutationResult = NonNullable<Awaited<ReturnType<typeof leaveWorldOperationInstance>>>
+
+    export type LeaveWorldOperationInstanceMutationError = ErrorType<void>
+    export type LeaveWorldOperationInstanceMutationVariables = {instanceId: string}
+
+    /**
+ * @summary End the authenticated player's operation seat
+ */
+export const useLeaveWorldOperationInstance = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof leaveWorldOperationInstance>>, TError,LeaveWorldOperationInstanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof leaveWorldOperationInstance>>,
+        TError,
+        LeaveWorldOperationInstanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLeaveWorldOperationInstanceMutationOptions(options));
+    }
 
 export const getTravelWorldUrl = () => {
 

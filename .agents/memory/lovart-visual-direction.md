@@ -1,0 +1,54 @@
+---
+name: Lovart visual direction
+description: User-supplied WFM art reference, revision precedence and interpretation boundaries.
+---
+
+The owner asked that the shared Lovart canvas guide WFM graphics improvements
+and that its overall understanding be preserved for future work.
+
+**Why:** the owner wants the game's presentation and graphics to advance from
+their supplied visual material rather than unrelated stock imagery.
+
+**How to apply:** start with `docs/lovart-visual-audit.md` for the reference link,
+revision inventory and explicit exclusions. Follow the newest corrected faction
+identity, not whichever older image appears first in the canvas. Treat concept
+statistics, lettering and inferred faction assignments as art, not authoritative
+game rules. Preserve gameplay/balance while adapting the visuals. Keep local
+software-rendering evidence distinct from physical Android performance and
+Production readiness; consult the dated game improvement record for progress.
+
+The owner also supplied a full forensic design audit and asked that it remain
+a reference for the reimagined game. Its original text is preserved at
+`docs/references/wfm-forensic-design-audit.md`.
+
+**Why:** the requested direction is a coherent, faction-driven opening
+experience, not unrelated page decoration or replacement of working gameplay.
+
+**How to apply:** use the audit together with the Lovart reference. Its explicit
+starting scope is public discovery, title arrival and command center with a
+reusable presentation foundation. Reconcile source-level claims against current
+code: the audit itself states it did not verify the live game. Read
+`docs/opening-experience-rebuild.md` for verified coverage and limitations;
+do not treat proposed routes, trailer sequences, telemetry or art as implemented
+game capabilities.
+
+Selection artwork may interpret the concept hulls without replacing flight
+geometry; identify it explicitly as an illustration.
+
+The owner's corrected faction color direction is explicit: **blue is USSF;
+Accord hulls must not use blue and instead use the warm solar/amber family.**
+
+**Why:** the owner corrected the older visual references, which had assigned
+these colors to the wrong faction.
+
+**How to apply:** apply this identity consistently to menu illustrations,
+selection accents and flight hull materials. Keep team hostility markings
+separate from faction identity and preserve the code-owned ship roster.
+
+**Why:** the owner wants visible ship graphics during selection, while opening
+another live 3D renderer on the Android menu would add GPU cost and concept
+silhouettes must not silently change ship balance or collision behavior.
+
+**How to apply:** favor lightweight ship-specific menu artwork, retain
+code-owned faction assignments and stats, and treat any later flight-model
+replacement as separate work with its own gameplay verification.

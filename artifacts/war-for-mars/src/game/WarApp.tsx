@@ -1,25 +1,46 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { StrikeResult, OnlineRoom } from "./Arena";
+import { useAuth } from "@clerk/react";
+import {
+  getGetWorldPatrolsQueryKey,
+  getGetWorldQueryKey,
+  useGetWorld,
+  useGetWorldPatrols,
+  useGetGlobalCampaign,
+  getGetGlobalCampaignQueryKey,
+} from "@workspace/api-client-react";
+import type {
+  StrikeResult,
+  OnlineRoom,
+  WingRewardNotice,
+} from "./Arena";
 import { armGyro, disarmGyro } from "./gyro";
+import { currentWingSocketUrl } from "./socket-endpoint";
+import {
+  CLIENT_RECONNECT_WINDOW_MS,
+  SOCKET_HANDSHAKE_TIMEOUT_MS,
+  nextReconnectDelayMs,
+} from "./reconnect-policy";
 import {
   defaultSave,
   loadDevicePreferences,
   refitCost,
   saveFromProfile,
   writeDevicePreferences,
+  type PilotControlLayout,
   type Save,
 } from "./save";
 import { refitMul, ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
-import { sfxUi, unlockAudio } from "./audio";
+import { isMuted, setMuted, sfxUi, unlockAudio } from "./audio";
 import {
   claimServerStrike,
   loadServerProfile,
-  sendProgressionAction,
+  saveServerLeaderboardProfile,
+  saveServerControlScheme,
+  saveServerLoadout,
   startServerStrike,
 } from "./progression-api";
 import {
   DISPATCHES,
-  RECOVERED_INTEL,
   SORTIES,
   sortieById,
   sortieUnlocked,
@@ -27,14 +48,50 @@ import {
   type TechId,
 } from "./campaign";
 import { HomeScreen } from "./HomeScreen";
+import { DeploymentBriefing } from "./DeploymentBriefing";
 import { OnlineLobby, type LobbyState } from "./OnlineLobby";
 import type { StepInput } from "./sim";
 import { MenuState, nextMenu, type MenuAction, type MenuStateId } from "./menu";
 import type { StrikeRun, StrikeStartInput } from "@workspace/api-client-react";
+import { useDurableAction } from "./useDurableAction";
+import { resolveArenaModeId, resolveArenaRuntime, resolveArenaTech } from "./arena-config";
+import { createProfileSync } from "./profile-sync";
+import { isOrbitalFreeFlightEnabled, isOrbitalRuntimeId, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { UNIVERSE_MODE_ID, type UniverseStartLocation } from "./orbital-universe-session";
+import type { SectorMissionId } from "./sector-missions";
+import { orbitalStartForVerifiedWorldLocation } from "./orbital-world-entry";
+import { accountBootMenu, enterOrbitalOnAccountBoot } from "./wfm-boot";
+import { enterMobileGameFullscreen, exitMobileGameFullscreen } from "./mobile-game-fullscreen";
 
 const Arena = lazy(() => import("./Arena").then((module) => ({ default: module.Arena })));
 const MarketPanel = lazy(() => import("./MarketPanel").then((module) => ({ default: module.MarketPanel })));
 const GalaxyScreen = lazy(() => import("./GalaxyScreen").then((module) => ({ default: module.GalaxyScreen })));
+
+const stagingRewardDiagnosticsEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
+const competitiveQueueAvailable =
+  import.meta.env.VITE_WFM_COMPETITIVE_QUEUE_ENABLED === "true";
+const casualAiQueueAvailable =
+  import.meta.env.VITE_WFM_CASUAL_AI_QUEUE_ENABLED === "true";
+
+type StagingRewardDiagnostic = {
+  runId: string;
+  config: StrikeRun["config"] | null;
+  inputs: StepInput[];
+  preview: StrikeResult;
+  /** Bit-exact live Arena state checksums; compare with `pnpm run test:determinism -- --replay`. */
+  liveChecksums: number[] | null;
+  submittedAtUtc: string;
+  firstClaimResponse: {
+    status: number;
+    statusText: string;
+    body: unknown;
+    receivedAtUtc: string;
+  } | null;
+};
+
+type StagingDiagnosticWindow = Window & {
+  __wfmStagingRewardDiagnostic?: StagingRewardDiagnostic;
+};
 
 function ModuleLoading({ label }: { label: string }) {
   return (
@@ -62,12 +119,33 @@ type LobbySession = {
   ready: boolean;
 };
 
-export function WarApp() {
+export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false }: { initialUniverseOpen?: boolean; initialOrbitalOpen?: boolean }) {
+  const { getToken, userId } = useAuth();
+  const narrativeWorld = useGetWorld({
+    query: { enabled: Boolean(userId), queryKey: getGetWorldQueryKey() },
+  });
+  const globalCampaign = useGetGlobalCampaign({ query: {
+    queryKey: getGetGlobalCampaignQueryKey(),
+    enabled: Boolean(userId), refetchInterval: 5_000, refetchOnWindowFocus: true,
+  } });
+  const authUserIdRef = useRef(userId);
+  const controlSchemeSaveInFlightRef = useRef(false);
+  const loadoutSaveInFlightRef = useRef(false);
+  const [loadoutSaving, setLoadoutSaving] = useState(false);
+  const [loadoutError, setLoadoutError] = useState("");
   const [save, setSave] = useState<Save>(defaultSave);
   const [ready, setReady] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"loading" | "ready" | "error">("loading");
   const [profileError, setProfileError] = useState("");
   const [profileRetry, setProfileRetry] = useState(0);
+  const [leaderboardProfile, setLeaderboardProfile] = useState({
+    enabled: false,
+    callsign: "",
+  });
+  const [leaderboardSaving, setLeaderboardSaving] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [pilotControlLayout, setPilotControlLayout] = useState<PilotControlLayout>("fixed");
   const [phase, setPhase] = useState<Phase>("brief");
   const [shell, setShell] = useState<MenuStateId>(MenuState.BOOT);
   const [sortie, setSortie] = useState(0);
@@ -78,6 +156,8 @@ export function WarApp() {
   const [onlineSession, setOnlineSession] = useState<OnlineRoom | null>(null);
   const [onlineLobby, setOnlineLobby] = useState<LobbySession | null>(null);
   const [onlineStatus, setOnlineStatus] = useState("");
+  const [competitiveQueueing, setCompetitiveQueueing] = useState(false);
+  const [casualAiQueueing, setCasualAiQueueing] = useState(false);
   const [offlineAvailable, setOfflineAvailable] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [activeRun, setActiveRun] = useState<StrikeRun | null>(null);
@@ -85,13 +165,59 @@ export function WarApp() {
     runId: string;
     inputs: StepInput[];
     preview: StrikeResult;
+    mission: StrikeRun["config"]["mission"];
   } | null>(null);
+  const [verifiedMission, setVerifiedMission] = useState<StrikeRun["config"]["mission"] | null>(null);
   const [claimError, setClaimError] = useState("");
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-  const actionKeyRef = useRef<string | null>(null);
-  const [galaxyOpen, setGalaxyOpen] = useState(false);
+
+  useEffect(() => {
+    authUserIdRef.current = userId;
+  }, [userId]);
+  const durable = useDurableAction();
+  const [galaxyOpen, setGalaxyOpen] = useState(initialUniverseOpen);
+  const [orbitalUniverseOpen, setOrbitalUniverseOpen] = useState(() => enterOrbitalOnAccountBoot(initialOrbitalOpen, initialUniverseOpen, window.location.search));
+  const [orbitalStartLocation, setOrbitalStartLocation] = useState<UniverseStartLocation | null>(userId ? null : "mars-orbit");
+  const [universeEntryError, setUniverseEntryError] = useState("");
+  const [universeServicesOpen, setUniverseServicesOpen] = useState(false);
+  const [universeExpeditionMission, setUniverseExpeditionMission] = useState<SectorMissionId | null>(null);
+  useEffect(() => {
+    if (!orbitalUniverseOpen) exitMobileGameFullscreen();
+  }, [orbitalUniverseOpen]);
+  const universePatrolsQuery = useGetWorldPatrols({
+    query: {
+      enabled: Boolean(userId && orbitalUniverseOpen && narrativeWorld.data?.currentLocation),
+      refetchInterval: 5_000,
+      refetchIntervalInBackground: false,
+      queryKey: [...getGetWorldPatrolsQueryKey(), narrativeWorld.data?.currentLocation],
+    },
+  });
+  const universePatrolDirectory =
+    narrativeWorld.data
+    && universePatrolsQuery.data?.currentLocationId === narrativeWorld.data.currentLocation
+    && orbitalStartLocation === orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation)
+      ? universePatrolsQuery.data
+      : null;
+  const returnToOrbitalAfterOperationRef = useRef(false);
+  useEffect(() => {
+    if (!userId) {
+      setOrbitalStartLocation("mars-orbit");
+      return;
+    }
+    if (!orbitalUniverseOpen || !narrativeWorld.data) return;
+    const startLocation = orbitalStartForVerifiedWorldLocation(narrativeWorld.data.currentLocation);
+    if (!startLocation) {
+      setUniverseEntryError(
+        `The server-verified location ${narrativeWorld.data.currentLocation} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+      );
+      setOrbitalUniverseOpen(false);
+      return;
+    }
+    setUniverseEntryError("");
+    setOrbitalStartLocation(startLocation);
+  }, [userId, orbitalUniverseOpen, narrativeWorld.data?.currentLocation]);
   const [campaignError, setCampaignError] = useState("");
   const [startingRun, setStartingRun] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -103,19 +229,28 @@ export function WarApp() {
   );
   const joinSocketRef = useRef<WebSocket | null>(null);
   const joinTimeoutRef = useRef<number | null>(null);
+  const joinAttemptTimeoutRef = useRef<number | null>(null);
   const lobbyRetryRef = useRef<number | null>(null);
 
   const failOnline = (reason: string) => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
     joinTimeoutRef.current = null;
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
+    joinAttemptTimeoutRef.current = null;
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     lobbyRetryRef.current = null;
     joinSocketRef.current?.close();
     joinSocketRef.current = null;
     setOnlineLobby(null);
     setOnlineSession(null);
+    setCompetitiveQueueing(false);
+    setCasualAiQueueing(false);
     setOnlineStatus(reason);
     setOfflineAvailable(true);
+    if (returnToOrbitalAfterOperationRef.current) {
+      returnToOrbitalAfterOperationRef.current = false;
+      void enterOrbitalUniverse();
+    }
   };
 
   const beginOnline = (socket: WebSocket, packet: Record<string, unknown>, roomId: string) => {
@@ -142,6 +277,7 @@ export function WarApp() {
       team: Number(packet.team) as 0 | 1,
       reconnectToken,
       name: "Pilot",
+      getSessionToken: () => getToken(),
     });
     setOnlineStatus("");
     setOfflineMode(false);
@@ -160,51 +296,145 @@ export function WarApp() {
       pilots_not_ready: "Every connected pilot must ready up before launch.",
       invalid_input: "The server rejected an invalid control packet.",
       rate_limited: "Too many messages were sent. Reconnect and try again.",
+      already_queued: "This account is already waiting in the competitive queue.",
+      already_in_match: "This account is already assigned to an active match.",
+      queue_capacity: "The competitive queue is full. Try again shortly.",
+      cinder_ring_required: "Travel to Cinder Ring before joining the 5v5 Relay queue.",
+      arena_status_unavailable: "The arena location service is unavailable. No competitive queue entry was made.",
+      spectator_match_unavailable: "That live competition has ended or is no longer available.",
+      spectator_capacity: "This match has reached its spectator limit.",
+      spectator_read_only: "Spectator connections cannot send combat commands.",
+      queue_wait_expired: "Queue wait expired. Rejoin when you are ready.",
+      competitive_queue_required: "That match is reserved for pilots assigned by the competitive queue.",
+      queue_identity_conflict: "The match could not verify ten unique pilots. Please rejoin the queue.",
+      queue_assignment_failed: "The match could not be assembled. Please rejoin the queue.",
+      competitive_queue_not_requested: "Reconnect through the matchmaking button you used.",
+      not_queued: "You are no longer waiting in matchmaking.",
+      auto_launch_only: "This quick match launches automatically when its pilot window ends.",
     };
     return messages[code] ?? "Could not connect to that room. Check the code and try again.";
   };
 
-  const joinOnline = (requestedRoomCode: string) => {
+  const joinOnline = (
+    requestedRoomCode: string,
+    queueMode: "competitive" | "casual_ai" | null = null,
+  ) => {
     if (joinSocketRef.current || onlineLobby || onlineSession) return;
-    const normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
+    let normalizedRoomCode = requestedRoomCode.trim().toUpperCase();
+    const matchmaking = queueMode !== null;
+    if (!matchmaking && !/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(normalizedRoomCode)) {
       setOnlineStatus("Enter a room code (6–24 letters, numbers, or hyphens).");
       return;
     }
-    setRoomCode(normalizedRoomCode);
+    if (queueMode === "competitive") setCompetitiveQueueing(true);
+    else if (queueMode === "casual_ai") setCasualAiQueueing(true);
+    else setRoomCode(normalizedRoomCode);
     setOfflineMode(false);
     unlockAudio();
-    setOnlineStatus("Calling the wing…");
+    setOnlineStatus(
+      queueMode === "competitive"
+        ? "Connecting to competitive queue…"
+        : queueMode === "casual_ai"
+          ? "Finding pilots for a quick match…"
+          : "Calling the wing…",
+    );
     setOfflineAvailable(false);
     let url: URL;
     try {
-      url = new URL(`${import.meta.env.BASE_URL}ws`, window.location.href);
-      url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      url.searchParams.set("room", normalizedRoomCode.toLowerCase());
-      const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
-      window.history.replaceState({}, "", roomPath);
-      let token = "";
-      try {
-        token = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
-      } catch {
-        token = "";
+      url = currentWingSocketUrl();
+      if (queueMode) {
+        url.searchParams.set("queue", queueMode === "casual_ai" ? "casual-ai" : "competitive");
+      } else {
+        url.searchParams.set("room", normalizedRoomCode.toLowerCase());
+        const roomPath = `${window.location.pathname}?room=${encodeURIComponent(normalizedRoomCode)}`;
+        window.history.replaceState({}, "", roomPath);
       }
+      let reconnectToken = "";
+      if (!matchmaking) {
+        try {
+          reconnectToken = sessionStorage.getItem(`wfm-room-${normalizedRoomCode}`) ?? "";
+        } catch {
+          reconnectToken = "";
+        }
+      }
+      let waitingForQueue = matchmaking;
       let joined = false;
       let started = false;
-      let retries = 0;
+      let retryAttempt = 0;
+      let initialJoinDeadline = performance.now() + (matchmaking ? 60_000 : 5_000);
+      let reconnectDeadline = 0;
       let mySlotId: number | null = null;
       let myTeam: 0 | 1 = 0;
-      joinTimeoutRef.current = window.setTimeout(() => {
-        if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
-      }, 5000);
+      const clearAttemptTimeout = () => {
+        if (joinAttemptTimeoutRef.current != null) {
+          window.clearTimeout(joinAttemptTimeoutRef.current);
+        }
+        joinAttemptTimeoutRef.current = null;
+      };
+      const scheduleRetry = () => {
+        if (started) return;
+        const now = performance.now();
+        if (joined && reconnectDeadline === 0) {
+          reconnectDeadline = now + CLIENT_RECONNECT_WINDOW_MS;
+        }
+        const deadline = joined ? reconnectDeadline : initialJoinDeadline;
+        const delay = nextReconnectDelayMs(retryAttempt++, deadline, now);
+        if (delay == null) {
+          if (joined) {
+            failOnline("Signal was not restored before the room's reconnect hold expired. Rejoin the room.");
+          } else if (waitingForQueue) {
+            failOnline(
+              queueMode === "casual_ai"
+                ? "Quick-match connection was not restored. Tap QUICK MATCH to try again."
+                : "Queue connection was not restored. Tap Find Competitive Match to rejoin.",
+            );
+          }
+          return;
+        }
+        if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+        lobbyRetryRef.current = window.setTimeout(() => {
+          lobbyRetryRef.current = null;
+          connect(url);
+        }, delay);
+      };
+      if (!matchmaking) {
+        joinTimeoutRef.current = window.setTimeout(() => {
+          if (!joined) failOnline("Room connection timed out. Check your connection and retry.");
+        }, 5000);
+      }
 
       const connect = (targetUrl: URL) => {
-        if (started || retries > 5) return;
-        const socket = new WebSocket(targetUrl);
+        if (started) return;
+        let socket: WebSocket;
+        try {
+          socket = new WebSocket(targetUrl);
+        } catch {
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          scheduleRetry();
+          return;
+        }
         joinSocketRef.current = socket;
+        let joinSent = false;
+        clearAttemptTimeout();
+        joinAttemptTimeoutRef.current = window.setTimeout(() => {
+          if (joinSocketRef.current !== socket || started) return;
+          setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+          socket.close();
+        }, SOCKET_HANDSHAKE_TIMEOUT_MS);
         socket.addEventListener("open", () => {
           if (joinSocketRef.current !== socket) return;
-          socket.send(JSON.stringify({ type: "join", name: "Pilot", ...(token ? { reconnectToken: token } : {}) }));
+          void getToken().then((sessionToken) => {
+            if (joinSocketRef.current !== socket || socket.readyState !== WebSocket.OPEN) return;
+            if (!sessionToken) {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
+            socket.send(JSON.stringify({ type: "authenticate", token: sessionToken }));
+          }).catch(() => {
+            if (joinSocketRef.current === socket) {
+              failOnline("Could not verify your sign-in session. Check your connection and try again.");
+            }
+          });
         });
         socket.addEventListener("message", (event) => {
           let packet: { type?: string; [key: string]: unknown };
@@ -213,9 +443,43 @@ export function WarApp() {
           } catch {
             return;
           }
+          if (packet.type === "authenticated") {
+            if (joinSent) return;
+            joinSent = true;
+            try {
+              socket.send(JSON.stringify(waitingForQueue
+                ? { type: "queue_join" }
+                : {
+                    type: "join",
+                    name: "Pilot",
+                    ...(reconnectToken ? { reconnectToken } : {}),
+                  }));
+            } catch {
+              socket.close();
+            }
+            return;
+          }
+          if (packet.type === "queue_status") {
+            const position = Number(packet.position);
+            const required = Number(packet.requiredPilots);
+            initialJoinDeadline = performance.now() + 60_000;
+            setCompetitiveQueueing(true);
+            setOnlineStatus(packet.reason === "server_capacity"
+              ? "COMPETITIVE QUEUE · MATCH CAPACITY TEMPORARILY FULL"
+              : `COMPETITIVE QUEUE · ${Number.isFinite(position) ? position : "?"}/${Number.isFinite(required) ? required : 10} PILOTS`);
+            return;
+          }
+          if (packet.type === "queue_cancelled") {
+            failOnline(queueMode === "casual_ai" ? "Quick match cancelled." : "Competitive queue cancelled.");
+            return;
+          }
           if (packet.type === "error") {
             if (started) return;
             const reason = String(packet.reason ?? "unavailable");
+            if (reason === "authentication_required") {
+              failOnline("Your sign-in session could not be verified. Sign in again before joining online play.");
+              return;
+            }
             if (reason === "match_not_started" || reason === "invalid_lobby_action") {
               setOnlineStatus(showOnlineError(reason));
               return;
@@ -235,12 +499,35 @@ export function WarApp() {
             return;
           }
           if (packet.type === "joined") {
+            if (waitingForQueue) {
+              const assignedRoomId = String(packet.roomId ?? "").trim().toUpperCase();
+              if (!/^[A-Z0-9][A-Z0-9-]{5,23}$/.test(assignedRoomId)) {
+                failOnline("The queue returned an invalid match assignment.");
+                return;
+              }
+              normalizedRoomCode = assignedRoomId;
+              waitingForQueue = false;
+              url.searchParams.delete("queue");
+              url.searchParams.set("room", assignedRoomId.toLowerCase());
+              window.history.replaceState(
+                {},
+                "",
+                `${window.location.pathname}?room=${encodeURIComponent(assignedRoomId)}`,
+              );
+              setRoomCode(assignedRoomId);
+              setCompetitiveQueueing(false);
+              setCasualAiQueueing(false);
+            }
             joined = true;
-            retries = 0;
-            token = String(packet.reconnectToken ?? token);
-            if (token) {
+            retryAttempt = 0;
+            reconnectDeadline = 0;
+            clearAttemptTimeout();
+            if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
+            lobbyRetryRef.current = null;
+            reconnectToken = String(packet.reconnectToken ?? reconnectToken);
+            if (reconnectToken) {
               try {
-                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, token);
+                sessionStorage.setItem(`wfm-room-${normalizedRoomCode}`, reconnectToken);
               } catch {
                 // The live socket can reconnect without browser storage.
               }
@@ -266,21 +553,33 @@ export function WarApp() {
                 roomId: normalizedRoomCode,
                 slotId,
                 team,
-                reconnectToken: token,
+                reconnectToken,
                 name: "Pilot",
                 ready: previous?.slotId === slotId ? previous.ready : false,
-                lobby: previous?.lobby ?? {
-                  phase: "lobby",
-                  hostSlotId: slotId,
-                  connectedCount: 1,
-                  maxPlayers: 10,
-                  players: snapshot.players.map((player) => ({
-                    slotId: player.slotId,
-                    team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
-                    connected: player.connected === true,
-                    name: typeof player.name === "string" ? player.name : null,
-                    ready: false,
-                  })),
+                lobby: {
+                  ...(previous?.lobby ?? {
+                    phase: "lobby" as const,
+                    hostSlotId: slotId,
+                    connectedCount: 1,
+                    maxPlayers: 10,
+                    battlefield: {
+                      disc: snapshot.match.disc,
+                      relays: snapshot.match.relays.map(({ x, z, own }) => ({ x, z, own })),
+                      rocks: snapshot.match.rocks.map(({ x, z, r }) => ({ x, z, r })),
+                    },
+                    players: snapshot.players.map((player) => ({
+                      slotId: player.slotId,
+                      team: (player.slotId < 5 ? 0 : 1) as 0 | 1,
+                      connected: player.connected === true,
+                      name: typeof player.name === "string" ? player.name : null,
+                      ready: false,
+                    })),
+                  }),
+                  matchMode: packet.matchMode === "casual_ai" ? "casual_ai" : "private",
+                  countdownSeconds:
+                    Number.isFinite(Number(packet.countdownSeconds))
+                      ? Number(packet.countdownSeconds)
+                      : null,
                 },
               }));
               setOnlineStatus("");
@@ -290,7 +589,6 @@ export function WarApp() {
             return;
           }
           if (packet.type === "lobby") {
-            retries = 0;
             const lobby = packet as unknown as LobbyState;
             setOnlineLobby((previous) => previous ? {
               ...previous,
@@ -301,34 +599,35 @@ export function WarApp() {
           }
           if (packet.type === "started") {
             started = true;
+            clearAttemptTimeout();
+            reconnectDeadline = 0;
             if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
             joinTimeoutRef.current = null;
             beginOnline(socket, {
               ...packet,
               slotId: mySlotId ?? -1,
               team: myTeam,
-              reconnectToken: token,
+              reconnectToken,
             }, normalizedRoomCode);
           }
         });
         socket.addEventListener("close", () => {
           if (started || joinSocketRef.current !== socket) return;
+          clearAttemptTimeout();
           if (!joined) {
-            failOnline("Room connection closed before joining. Check the room code and retry.");
+            setOnlineStatus(waitingForQueue
+              ? "Queue connection interrupted · retrying…"
+              : "Room connection interrupted · retrying…");
+            scheduleRetry();
             return;
           }
-          retries += 1;
-          setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
-          if (retries > 5) {
-            failOnline("Could not reconnect before the seat hold expired. Rejoin the room.");
-            return;
-          }
-          const delay = Math.min(2800, 450 * 2 ** (retries - 1));
-          lobbyRetryRef.current = window.setTimeout(() => connect(targetUrl), delay);
+            setOnlineStatus("Signal lost · reconnecting (seat held for 5 seconds)");
+          scheduleRetry();
         });
         socket.addEventListener("error", () => {
-          if (!joined && joinSocketRef.current === socket) {
-            setOnlineStatus("Connection failed · retrying…");
+          if (joinSocketRef.current === socket) {
+            setOnlineStatus(joined ? "Signal lost · reconnecting…" : "Connection failed · retrying…");
+            socket.close();
           }
         });
       };
@@ -338,8 +637,21 @@ export function WarApp() {
     }
   };
 
+  const cancelMatchmaking = () => {
+    const socket = joinSocketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify({ type: "queue_cancel" }));
+      } catch {
+        // Closing the queue socket also removes its waiting entry server-side.
+      }
+    }
+    failOnline(casualAiQueueing ? "Quick match cancelled." : "Competitive queue cancelled.");
+  };
+
   useEffect(() => () => {
     if (joinTimeoutRef.current != null) window.clearTimeout(joinTimeoutRef.current);
+    if (joinAttemptTimeoutRef.current != null) window.clearTimeout(joinAttemptTimeoutRef.current);
     if (lobbyRetryRef.current != null) window.clearTimeout(lobbyRetryRef.current);
     joinSocketRef.current?.close();
   }, []);
@@ -347,32 +659,56 @@ export function WarApp() {
   useEffect(() => {
     let cancelled = false;
     const device = loadDevicePreferences();
-    setSave((previous) => ({ ...previous, ...device }));
+    setAudioMuted(device.audioMuted === true);
+    setPilotControlLayout(device.pilotControlLayout);
+    setMuted(device.audioMuted === true);
+    setSave((previous) => ({ ...previous, gyro: device.gyro, drilled: device.drilled }));
     setProfileStatus("loading");
     setProfileError("");
     void loadServerProfile()
       .then((profile) => {
         if (cancelled) return;
         setSave(saveFromProfile(profile, device));
+        setLeaderboardProfile({
+          enabled: profile.publicLeaderboardOptIn,
+          callsign: profile.publicLeaderboardCallsign ?? "",
+        });
         try {
-          const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
-          if (rawPending) {
-            const pending = JSON.parse(rawPending) as {
-              runId?: unknown;
-              inputs?: unknown;
-              preview?: unknown;
-            };
-            if (
-              typeof pending.runId === "string" &&
-              Array.isArray(pending.inputs) &&
-              pending.inputs.length <= 22_000 &&
-              pending.preview &&
-              typeof pending.preview === "object"
-            ) {
-              const restored = pending as { runId: string; inputs: StepInput[]; preview: StrikeResult };
-              setPendingClaim(restored);
-              setResult(restored.preview);
-              setPhase("debrief");
+          if (stagingRewardDiagnosticsEnabled) {
+            // Diagnostics mode keeps raw replay inputs in memory only.
+            sessionStorage.removeItem("wfm-pending-claim-v1");
+          } else {
+            const rawPending = sessionStorage.getItem("wfm-pending-claim-v1");
+            if (rawPending) {
+              const pending = JSON.parse(rawPending) as {
+                runId?: unknown;
+                inputs?: unknown;
+                preview?: unknown;
+                mission?: unknown;
+              };
+              if (
+                typeof pending.runId === "string" &&
+                Array.isArray(pending.inputs) &&
+                pending.inputs.length <= 22_000 &&
+                pending.preview &&
+                typeof pending.preview === "object"
+              ) {
+                const campaignMissions = ["skirmish", "contact", "beacon", "warden", "cage"] as const;
+                const mission = typeof pending.mission === "string" &&
+                  campaignMissions.includes(pending.mission as typeof campaignMissions[number])
+                  ? pending.mission as StrikeRun["config"]["mission"]
+                  : profile.mission;
+                const restored = {
+                  runId: pending.runId,
+                  inputs: pending.inputs as StepInput[],
+                  preview: pending.preview as StrikeResult,
+                  mission,
+                };
+                setPendingClaim(restored);
+                setVerifiedMission(mission);
+                setResult(restored.preview);
+                setPhase("debrief");
+              }
             }
           }
         } catch {
@@ -393,14 +729,52 @@ export function WarApp() {
   }, [profileRetry]);
 
   useEffect(() => {
-    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled });
-  }, [save.gyro, save.drilled, ready]);
+    // Never overwrite a flight snapshot or an in-progress account mutation.
+    if (!ready || phase === "fight" || actionBusy || claimSubmitting || startingRun) return;
+    const sync = createProfileSync(loadServerProfile, (profile) => {
+      if (loadoutSaveInFlightRef.current) return;
+      setSave((previous) => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
+    }, () => {
+      setActionError("Profile sync unavailable. Your last loaded progress is unchanged; reconnect or reload before another purchase.");
+    });
+    const refresh = () => {
+      if (document.visibilityState !== "hidden") void sync.refresh();
+    };
+    // Other browsers do not share the writer's local state. Revalidate when
+    // returning to this window, recovering connectivity, and while visible.
+    window.addEventListener("wfm:profile-refresh", refresh);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const interval = window.setInterval(refresh, 30_000);
+    refresh();
+    return () => {
+      sync.dispose();
+      window.clearInterval(interval);
+      window.removeEventListener("wfm:profile-refresh", refresh);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [ready, phase, actionBusy, claimSubmitting, startingRun]);
+
+  useEffect(() => {
+    if (ready) writeDevicePreferences({ gyro: save.gyro, drilled: save.drilled, audioMuted, pilotControlLayout });
+  }, [save.gyro, save.drilled, audioMuted, pilotControlLayout, ready]);
 
   useEffect(() => {
     if (shell !== MenuState.BOOT) return;
-    const id = window.setTimeout(() => setShell(MenuState.TITLE), 800);
+    const id = window.setTimeout(() => setShell(
+      accountBootMenu(initialOrbitalOpen, initialUniverseOpen, window.location.search),
+    ), 800);
     return () => window.clearTimeout(id);
-  }, [shell]);
+  }, [shell, initialOrbitalOpen, initialUniverseOpen]);
 
   useEffect(() => {
     if (shell !== MenuState.LOADING) return;
@@ -416,9 +790,13 @@ export function WarApp() {
     if (shell === MenuState.LOADING) return;
     unlockAudio();
     sfxUi();
+    if (action === "DEPLOY" || action === "LAUNCH" || action === "ARCADE") {
+      setUniverseEntryError("Use ENTER THE UNIVERSE in the hangar to join the shared live flight.");
+      setShell(MenuState.MAIN_MENU);
+      return;
+    }
     setOfflineAvailable(false);
     setOnlineStatus("");
-    if (action === "ARCADE") setSave((prev) => ({ ...prev, mission: "skirmish" }));
     setShell((prev) => nextMenu(prev, action));
   };
 
@@ -430,27 +808,185 @@ export function WarApp() {
   const goal = active?.goal ?? "disc";
 
   const pickFaction = (faction: Faction) => {
-    setSave((prev) => ({
-      ...prev,
+    void persistLoadout({
       faction,
-      ship: ROSTER[faction].includes(prev.ship) ? prev.ship : ROSTER[faction][0],
-    }));
+      shipId: ROSTER[faction].includes(save.ship) ? save.ship : ROSTER[faction][0],
+    });
   };
 
-  const start = async () => {
-    if (shell === MenuState.LOADING || startingRun) return;
+  const persistLoadout = async (input: { faction: Faction; shipId: ShipId }): Promise<boolean> => {
+    if (!ready || !userId || profileStatus !== "ready" || actionBusy ||
+        loadoutSaveInFlightRef.current || claimSubmitting || startingRun) {
+      setLoadoutError("Wait for the current profile action to finish, then save again.");
+      return false;
+    }
+    const requestUserId = userId;
+    loadoutSaveInFlightRef.current = true;
+    setLoadoutSaving(true);
+    setLoadoutError("");
+    setActionError("");
+    setActionBusy(true);
+    try {
+      const profile = await saveServerLoadout(input);
+      if (authUserIdRef.current !== requestUserId) return false;
+      setSave(previous => saveFromProfile(profile, {
+        gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+      }));
+      return true;
+    } catch {
+      if (authUserIdRef.current === requestUserId) {
+        setLoadoutError("Hull not saved. Check your connection and press Save Hull to retry.");
+        setActionError("Hull not saved. Check your connection and retry your selection.");
+      }
+      return false;
+    } finally {
+      loadoutSaveInFlightRef.current = false;
+      if (authUserIdRef.current === requestUserId) {
+        setLoadoutSaving(false);
+        setActionBusy(false);
+      }
+    }
+  };
+
+  const persistControlScheme = async (scheme: Scheme) => {
+    if (
+      !ready ||
+      !userId ||
+      scheme === save.scheme ||
+      profileStatus !== "ready" ||
+      actionBusy ||
+      claimSubmitting ||
+      startingRun ||
+      activeRun ||
+      pendingClaim ||
+      phase === "fight" ||
+      controlSchemeSaveInFlightRef.current
+    ) {
+      return;
+    }
+
+    const requestUserId = userId;
+    controlSchemeSaveInFlightRef.current = true;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      const profile = await saveServerControlScheme(scheme);
+      if (authUserIdRef.current !== requestUserId) return;
+      setSave((previous) =>
+        saveFromProfile(profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
+      );
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setActionError(error instanceof Error ? error.message : "Could not save the control scheme.");
+      }
+    } finally {
+      controlSchemeSaveInFlightRef.current = false;
+      setActionBusy(false);
+    }
+  };
+
+  const persistLeaderboardProfile = async (enabled: boolean, callsign: string) => {
+    if (!userId || profileStatus !== "ready" || leaderboardSaving) return;
+    const requestUserId = userId;
+    setLeaderboardSaving(true);
+    setLeaderboardError("");
+    try {
+      const profile = await saveServerLeaderboardProfile(
+        enabled ? { enabled: true, callsign } : { enabled: false },
+      );
+      if (authUserIdRef.current !== requestUserId) return;
+      setLeaderboardProfile({
+        enabled: profile.publicLeaderboardOptIn,
+        callsign: profile.publicLeaderboardCallsign ?? "",
+      });
+    } catch (error) {
+      if (authUserIdRef.current === requestUserId) {
+        setLeaderboardError(
+          error instanceof Error ? error.message : "Could not save leaderboard preference.",
+        );
+      }
+    } finally {
+      if (authUserIdRef.current === requestUserId) setLeaderboardSaving(false);
+    }
+  };
+
+  const enterOrbitalUniverse = async () => {
+    setUniverseEntryError("");
+    if (userId && !isOrbitalFreeFlightEnabled({
+      environment: import.meta.env.MODE,
+      featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+      prerequisitesReady: true,
+    })) {
+      setUniverseEntryError("Shared universe flight is disabled in this client build. No offline substitute was launched. Use a staging client with shared flight enabled.");
+      return false;
+    }
+    if (!userId) {
+      setUniverseEntryError("Sign in to enter the one shared live universe. No local substitute was launched.");
+      return false;
+    }
+    try {
+      const campaign = await globalCampaign.refetch();
+      if (campaign.error) {
+        setUniverseEntryError("The shared campaign timeline could not be confirmed. No private timeline was created.");
+        return false;
+      }
+      if (campaign.data?.enabled && campaign.data.concluded) {
+        setUniverseEntryError("The shared campaign has ended. Your finale entitlement remains available in Command.");
+        return false;
+      }
+      const world = (await narrativeWorld.refetch()).data;
+      const startLocation = orbitalStartForVerifiedWorldLocation(world?.currentLocation);
+      if (!startLocation) {
+        setUniverseEntryError(
+          `The server-verified location ${world?.currentLocation ?? "could not be confirmed"} has no physical Orbital flight anchor yet. No substitute spawn was selected.`,
+        );
+        return false;
+      }
+      setOrbitalStartLocation(startLocation);
+      setGalaxyOpen(false);
+      setUniverseServicesOpen(false);
+      setUniverseExpeditionMission(null);
+      setOrbitalUniverseOpen(true);
+      return true;
+    } catch {
+      setUniverseEntryError("Could not verify your server-owned universe location. Retry before entering flight.");
+      return false;
+    }
+  };
+  const enterUniverseFromHangar = () => {
+    // requestFullscreen must run synchronously within the button gesture.
+    const fullscreenRequest = enterMobileGameFullscreen();
+    unlockAudio();
+    void enterOrbitalUniverse().then((entered) => {
+      if (!entered) {
+        void fullscreenRequest.then((fullscreenEntered) => {
+          if (fullscreenEntered) exitMobileGameFullscreen();
+        });
+      }
+    });
+  };
+
+  const start = async (): Promise<boolean> => {
+    if (shell === MenuState.LOADING || startingRun) return false;
     if (pendingClaim) {
       setCampaignError("Verify the pending sortie before starting another run.");
-      return;
+      return false;
     }
     unlockAudio();
     setResult(null);
     setPhase("brief");
     setCampaignError("");
+    if (returnToOrbitalAfterOperationRef.current && offlineMode && !activeRun) {
+      setCampaignError("A server-authorized campaign launch needs an online account session. No offline sortie was started.");
+      return false;
+    }
     if (offlineMode && !activeRun) {
       setShell(MenuState.LOADING);
-      return;
+      return true;
     }
+    setStartingRun(true);
     try {
       const selection: StrikeStartInput = {
         shipId: save.ship,
@@ -459,40 +995,40 @@ export function WarApp() {
         pace: save.pace,
         mission: save.mission,
         tech: save.tech,
+        supportsOrbitalReplay: true,
       };
       const run = await startServerStrike(selection);
       setActiveRun(run);
-      setSave(saveFromProfile(run.profile, { gyro: save.gyro, drilled: save.drilled }));
+      setSave(saveFromProfile(run.profile, {
+        gyro: save.gyro, drilled: save.drilled, pilotControlLayout,
+      }));
       setOfflineMode(false);
       setPendingClaim(null);
       setClaimError("");
+      if (returnToOrbitalAfterOperationRef.current) {
+        setUniverseServicesOpen(false);
+        setOrbitalUniverseOpen(false);
+      }
       setShell(MenuState.LOADING);
+      return true;
     } catch (error) {
       setCampaignError(error instanceof Error ? error.message : "The yard could not authorize this sortie.");
+      return false;
     } finally {
       setStartingRun(false);
     }
   };
 
   const performRefit = async () => {
-    if (actionBusy) return;
+    if (actionBusy || durable.blocked) return;
     if (pendingClaim) {
       setActionError("Retry the pending sortie verification before changing the yard ledger.");
       return;
     }
-    const idempotencyKey = actionKeyRef.current ?? crypto.randomUUID();
-    actionKeyRef.current = idempotencyKey;
     setActionBusy(true);
     setActionError("");
     try {
-      const result = await sendProgressionAction({
-        idempotencyKey,
-        action: "refit",
-      });
-      setSave((previous) =>
-        saveFromProfile(result.profile, { gyro: previous.gyro, drilled: previous.drilled }),
-      );
-      actionKeyRef.current = null;
+      await durable.run({ kind: "refit", data: { action: "refit" } }, "Standard Phobos ship refit");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The yard rejected that transaction.");
     } finally {
@@ -500,13 +1036,40 @@ export function WarApp() {
     }
   };
 
-  const submitClaim = async (runId: string, inputs: StepInput[], preview: StrikeResult) => {
-    const pending = { runId, inputs, preview };
+  const submitClaim = async (
+    runId: string,
+    inputs: StepInput[],
+    preview: StrikeResult,
+    liveChecksums?: number[],
+    claimedMission = activeRun?.runId === runId ? activeRun.config.mission : save.mission,
+  ) => {
+    const pending = { runId, inputs, preview, mission: claimedMission };
     setPendingClaim(pending);
-    try {
-      sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
-    } catch {
-      // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+    setVerifiedMission(claimedMission);
+    if (stagingRewardDiagnosticsEnabled) {
+      const diagnosticWindow = window as StagingDiagnosticWindow;
+      if (!diagnosticWindow.__wfmStagingRewardDiagnostic) {
+        diagnosticWindow.__wfmStagingRewardDiagnostic = {
+          runId,
+          config: activeRun?.runId === runId ? structuredClone(activeRun.config) : null,
+          inputs: inputs.map((frame) => ({ ...frame })),
+          preview: { ...preview },
+          liveChecksums: liveChecksums ? [...liveChecksums] : null,
+          submittedAtUtc: new Date().toISOString(),
+          firstClaimResponse: null,
+        };
+      }
+      try {
+        sessionStorage.removeItem("wfm-pending-claim-v1");
+      } catch {
+        // Diagnostics still remain available in this page's memory.
+      }
+    } else {
+      try {
+        sessionStorage.setItem("wfm-pending-claim-v1", JSON.stringify(pending));
+      } catch {
+        // The live request can still complete; if the tab closes, the run expires without client-side rewards.
+      }
     }
     setClaimError("");
     setClaimSubmitting(true);
@@ -517,6 +1080,18 @@ export function WarApp() {
     setPhase("debrief");
     try {
       const grant = await claimServerStrike(runId, { inputs });
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          diagnostic.firstClaimResponse = {
+            status: 200,
+            statusText: "OK",
+            body: grant,
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setPendingClaim(null);
       try {
         sessionStorage.removeItem("wfm-pending-claim-v1");
@@ -536,14 +1111,33 @@ export function WarApp() {
         reason: preview.reason,
       });
       setSave((previous) =>
-        saveFromProfile(grant.profile, { gyro: previous.gyro, drilled: previous.drilled }),
+        saveFromProfile(grant.profile, {
+          gyro: previous.gyro, drilled: previous.drilled, pilotControlLayout,
+        }),
       );
+      setArchiveOpen(true);
+      void narrativeWorld.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The yard could not verify this sortie.";
       const status =
         error && typeof error === "object" && "status" in error
           ? Number((error as { status: unknown }).status)
           : 0;
+      if (stagingRewardDiagnosticsEnabled) {
+        const diagnosticWindow = window as StagingDiagnosticWindow;
+        const diagnostic = diagnosticWindow.__wfmStagingRewardDiagnostic;
+        if (diagnostic?.runId === runId && !diagnostic.firstClaimResponse) {
+          const apiError = error && typeof error === "object"
+            ? error as { statusText?: unknown; data?: unknown }
+            : null;
+          diagnostic.firstClaimResponse = {
+            status,
+            statusText: typeof apiError?.statusText === "string" ? apiError.statusText : "",
+            body: apiError && "data" in apiError ? apiError.data : { message },
+            receivedAtUtc: new Date().toISOString(),
+          };
+        }
+      }
       setClaimError(message);
       if (status === 400 || status === 404 || status === 409) {
         setPendingClaim(null);
@@ -563,7 +1157,11 @@ export function WarApp() {
     }
   };
 
-  const finish = (next: StrikeResult, replay: { seed: number; inputs: StepInput[] }) => {
+  const finish = (
+    next: StrikeResult,
+    replay: { seed: number; inputs: StepInput[]; checksums?: number[] },
+    wingReward?: WingRewardNotice,
+  ) => {
     if (onlineSession) {
       try {
         sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -571,8 +1169,44 @@ export function WarApp() {
         // A completed room does not need a browser-stored reconnect token.
       }
       setResult(next);
-      setGain(0);
-      setCargoLine("Live wing operation complete.");
+      if (wingReward?.status === "awarded") {
+        setGain(wingReward.gain);
+        if (wingReward.balanceAfter !== null) {
+          setSave((previous) => ({
+            ...previous,
+            credits: wingReward.balanceAfter!,
+          }));
+        }
+        setCargoLine(
+          `Server verified ${wingReward.outcome}. +${wingReward.gain} credits added to your balance.`,
+        );
+      } else if (wingReward?.status === "daily_limit") {
+        setGain(0);
+        setCargoLine(
+          "Match verified. Your five-reward daily limit has been reached; no additional credits were added.",
+        );
+      } else if (wingReward?.status === "disabled") {
+        setGain(0);
+        setCargoLine(
+          "Online Wing rewards are disabled. No credits were added.",
+        );
+      } else if (wingReward?.status === "not_eligible") {
+        setGain(0);
+        setCargoLine(
+          wingReward.reason === "competitive_queue_required"
+            ? "Private, Practice, and test rooms are not reward-eligible. No credits were added."
+            : wingReward.reason === "participation_threshold"
+            ? "Match verified, but the participation minimum was not met. No credits were added."
+            : wingReward.reason === "not_connected_at_completion"
+              ? "Match verified, but you were disconnected at completion. No credits were added."
+              : "Match verified, but eligible opposing human participation was not met. No credits were added.",
+        );
+      } else {
+        setGain(0);
+        setCargoLine(
+          "The match ended, but its credit reward could not be confirmed. Refresh your profile before flying again.",
+        );
+      }
       setAdvance("");
       setPhase("debrief");
       setOnlineSession(null);
@@ -587,12 +1221,12 @@ export function WarApp() {
       setPhase("debrief");
       return;
     }
-    void submitClaim(activeRun.runId, replay.inputs, next);
+    void submitClaim(activeRun.runId, replay.inputs, next, replay.checksums);
   };
 
   if (profileStatus === "loading") {
     return (
-      <main className="flex h-dvh items-center justify-center bg-void px-6 text-center">
+      <main className="flex min-h-dvh items-center justify-center bg-void px-6 text-center">
         <p className="font-hud text-lg tracking-widest text-solar">CONNECTING TO PHOBOS YARD…</p>
       </main>
     );
@@ -600,7 +1234,7 @@ export function WarApp() {
 
   if (profileStatus === "error") {
     return (
-      <main className="flex h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
         <p className="font-hud text-sm tracking-widest text-alert">PLAYER PROFILE UNAVAILABLE</p>
         <h1 className="font-hud text-4xl text-bone">No progress is stored on this device.</h1>
         <p className="max-w-lg text-sm leading-relaxed text-muted">{profileError}</p>
@@ -655,24 +1289,135 @@ export function WarApp() {
           setOnlineLobby(null);
           setOnlineStatus("Left lobby.");
           setOfflineAvailable(false);
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
       />
     );
   }
 
+  if (orbitalUniverseOpen && userId && !orbitalStartLocation) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-bone" data-testid="panel-orbital-location-sync">
+        <p className="font-hud text-xs tracking-[0.2em] text-solar">ORBITAL POSITION CHECK</p>
+        <h1 className="font-hud text-3xl">VERIFYING FLIGHT ENTRY</h1>
+        <p role="status" className="max-w-lg text-center text-sm text-muted">
+          {universeEntryError || "Waiting for the account service to confirm your server-owned universe location."}
+        </p>
+        <button type="button" onClick={() => void enterOrbitalUniverse()} className="min-h-11 bg-solar px-5 font-hud text-xs tracking-widest text-void">RETRY LOCATION SYNC</button>
+        <button type="button" onClick={() => setOrbitalUniverseOpen(false)} className="min-h-11 border border-bone/25 px-5 font-hud text-xs tracking-widest">RETURN TO COMMAND</button>
+      </main>
+    );
+  }
+
+  if (orbitalUniverseOpen && phase === "brief" && !galaxyOpen && !onlineSession) {
+    return (
+      <>
+        <div className={`fixed inset-0 ${universeServicesOpen ? "invisible pointer-events-none" : ""}`}>
+          <Suspense fallback={<ModuleLoading label="INITIALIZING ORBITAL UNIVERSE…" />}>
+            <Arena
+              key={`orbital-universe-${userId ?? "guest"}-${save.ship}-${save.faction}-${orbitalStartLocation ?? "unverified"}`}
+              modeId={UNIVERSE_MODE_ID}
+              runtime={ORBITAL_RUNTIME_ID}
+              shipId={save.ship}
+              faction={save.faction}
+              scheme={save.scheme}
+              refit={save.refit}
+              shieldMk2={save.shieldMk2 ?? false}
+              pace="practice"
+              goal="disc"
+              disc="rust"
+              allyCount={1}
+              foeCount={3}
+              objective={
+                orbitalStartLocation === "rust-disc" ? "RUST DISC · RELAY APPROACH"
+                  : orbitalStartLocation === "mars-night-side" ? "MARS NIGHT-SIDE · STATION APPROACH"
+                    : orbitalStartLocation === "cinder-ring" ? "CINDER RING · OPEN UNIVERSE"
+                      : "MARS ORBIT · OPEN UNIVERSE"
+              }
+              tech={null}
+              gyro={save.gyro}
+              pilotControlLayout={pilotControlLayout}
+              drilled
+              onDrill={() => {}}
+              localUniverse={{
+                servicesHref: "/universe",
+                startLocation: orbitalStartLocation ?? "mars-orbit",
+                openingEncounter: true,
+                servicesOpen: universeServicesOpen,
+                patrolDirectory: universePatrolDirectory,
+                getSessionToken: getToken,
+                freeFlightEnabled: isOrbitalFreeFlightEnabled({
+                  environment: import.meta.env.MODE,
+                  featureFlag: import.meta.env.VITE_WFM_ORBITAL_FREE_FLIGHT_ENABLED,
+                  prerequisitesReady: Boolean(userId),
+                }),
+                onExit: () => {
+                  setUniverseServicesOpen(false);
+                  setOrbitalUniverseOpen(false);
+                },
+                onOpenOperations: () => setUniverseServicesOpen(true),
+              }}
+              onNetworkExit={() => {
+                throw new Error("The local Orbital universe must not open a network session.");
+              }}
+              onDone={() => {}}
+            />
+          </Suspense>
+        </div>
+        {universeServicesOpen ? (
+          <div className="fixed inset-0 z-[80] overflow-y-auto bg-void">
+            <Suspense fallback={<ModuleLoading label="CONNECTING TO ACCOUNT OPERATIONS…" />}>
+              <GalaxyScreen
+                onBack={() => {
+                  setUniverseServicesOpen(false);
+                  void narrativeWorld.refetch();
+                }}
+                credits={save.credits}
+                onCredits={syncCredits}
+                shipId={save.ship}
+                faction={save.faction}
+                onJoinCompetitiveQueue={() => {
+                  // The only alternate gameplay entry: the asteroid competition.
+                  // Keep shared flight mounted while matchmaking is pending.
+                  returnToOrbitalAfterOperationRef.current = true;
+                  joinOnline("", "competitive");
+                }}
+                onCancelCompetitiveQueue={() => failOnline("Competition queue cancelled. Continuing in the shared universe.")}
+                competitiveQueueAvailable={competitiveQueueAvailable}
+                competitiveQueueing={competitiveQueueing}
+                onlineStatus={onlineStatus}
+                presenceHeartbeat={false}
+              />
+            </Suspense>
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   if (phase === "fight") {
     const runConfig = activeRun?.config;
+    const orbitalCampaign =
+      runConfig?.mission === "contact" && isOrbitalRuntimeId(runConfig.flightModel);
+    const arenaRuntime = resolveArenaRuntime(runConfig, Boolean(onlineSession));
     const runGoal = runConfig?.goal ?? goal;
     const runFaction = runConfig?.faction ?? save.faction;
     return (
       <Suspense fallback={<ModuleLoading label="LOADING COMBAT SYSTEMS…" />}>
       <Arena
         key={`${activeRun?.runId ?? "offline"}-${sortie}-${save.scheme}`}
+        modeId={resolveArenaModeId(runConfig, Boolean(onlineSession), offlineMode)}
+        runtime={arenaRuntime}
         shipId={runConfig?.shipId ?? save.ship}
         faction={runFaction}
         scheme={save.scheme}
         refit={runConfig?.refit ?? save.refit}
+        shieldMk2={runConfig?.shieldMk2 ?? save.shieldMk2 ?? false}
         pace={runConfig?.pace ?? pace}
         goal={runGoal}
         disc={runConfig?.disc ?? active?.disc ?? "rust"}
@@ -685,12 +1430,22 @@ export function WarApp() {
               : "STOP THE CAGE"
             : (active?.objective ?? "HOLD TWO RELAYS")
         }
-        tech={runConfig?.tech ?? save.tech}
+        tech={resolveArenaTech(runConfig, save.tech)}
         serverSeed={activeRun?.seed}
+        orbitalCampaign={orbitalCampaign}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
         drilled={save.drilled}
         onDrill={() => setSave((prev) => (prev.drilled ? prev : { ...prev, drilled: true }))}
         onDone={finish}
+        onGraphicsError={(message) => {
+          setActionError(`3D flight stopped: ${message}. No reward was claimed. Return to setup and relaunch after checking your browser graphics settings.`);
+          if (onlineSession) onlineSession.socket.close();
+          setOnlineSession(null);
+          setActiveRun(null);
+          setPhase("brief");
+          setShell(MenuState.TITLE);
+        }}
         onNetworkExit={(reason) => {
           try {
             if (onlineSession) sessionStorage.removeItem(`wfm-room-${onlineSession.roomId}`);
@@ -707,7 +1462,12 @@ export function WarApp() {
           setOfflineAvailable(true);
           setResult(null);
           setPhase("brief");
-          setShell(MenuState.MAIN_MENU);
+          if (returnToOrbitalAfterOperationRef.current) {
+            returnToOrbitalAfterOperationRef.current = false;
+            void enterOrbitalUniverse();
+          } else {
+            setShell(MenuState.MAIN_MENU);
+          }
         }}
         online={onlineSession ?? undefined}
       />
@@ -724,8 +1484,8 @@ export function WarApp() {
         : result.outcome === "win"
         ? goal === "extract"
           ? save.faction === "ussf"
-            ? "Cage away"
-            : "Cage stopped"
+            ? "USSF secures transfer"
+            : "Accord transfer completed"
           : goal === "ace"
           ? "Warden down"
           : goal === "beacons"
@@ -733,13 +1493,13 @@ export function WarApp() {
             : "Disc held"
         : result.outcome === "loss"
           ? goal === "extract"
-            ? save.faction === "ussf"
-              ? "Cage lost"
-              : "Cage escaped"
+            ? "Cage escapes contested"
             : "Wing lost"
-          : "Split disc";
+          : goal === "extract"
+            ? "Cage escapes contested"
+            : "Split disc";
     return (
-      <main className="mx-auto flex h-dvh max-w-xl flex-col justify-center gap-4 overflow-y-auto px-5 py-8">
+      <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-8">
         <p className="font-hud text-sm tracking-widest text-solar">DEBRIEF</p>
         <h1 className="font-hud text-5xl leading-none text-bone">{title}</h1>
         <p data-testid="text-result-reason" className="text-sm leading-relaxed text-solar">
@@ -755,12 +1515,46 @@ export function WarApp() {
             : `${ship.name} came back with ${result.kills} kills and ${result.relays} relays. The hangar logged ${gain} credits. ${cargoLine || "No crate in the hold."} ${advance}`}
         </p>
         <p className="font-hud text-2xl text-solar">{save.credits} CR</p>
+        {!pendingClaim && userId && narrativeWorld.data?.narrative.some((record) => record.missionId === save.mission) ? (
+          <section className="border border-solar/35 bg-panel/80 p-3" aria-label="Verified campaign scene">
+            <p className="font-hud text-[10px] tracking-[0.2em] text-solar">VERIFIED STORY SCENE</p>
+            <ol className="mt-2 grid gap-3">
+              {narrativeWorld.data.narrative
+                .filter((record) => record.missionId === verifiedMission)
+                .map((record) => (
+                  <li key={record.id} className="border-t border-bone/10 pt-2">
+                    <p className="font-hud text-[9px] tracking-widest text-muted">
+                      {record.chapter} · {record.source}
+                    </p>
+                    <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                    <div className="mt-2 border-l border-solar/40 pl-2">
+                      {record.transcript.map((line, index) => (
+                        <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                          <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                          {line.text}
+                        </p>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+            </ol>
+          </section>
+        ) : !pendingClaim && userId && narrativeWorld.isFetching ? (
+          <p role="status" className="text-xs text-muted">Syncing the verified story scene…</p>
+        ) : null}
         {pendingClaim ? (
           <button
             type="button"
             disabled={claimSubmitting}
             className="h-12 bg-solar font-hud text-lg tracking-widest text-void disabled:opacity-50"
-            onClick={() => void submitClaim(pendingClaim.runId, pendingClaim.inputs, pendingClaim.preview)}
+            onClick={() => void submitClaim(
+              pendingClaim.runId,
+              pendingClaim.inputs,
+              pendingClaim.preview,
+              undefined,
+              pendingClaim.mission,
+            )}
           >
             {claimSubmitting ? "VERIFYING…" : "RETRY VERIFICATION"}
           </button>
@@ -781,10 +1575,16 @@ export function WarApp() {
           className="h-12 border border-bone/30 font-hud text-lg tracking-widest text-bone"
           onClick={() => {
             setPhase("brief");
-            setShell(MenuState.HANGAR);
+            if (returnToOrbitalAfterOperationRef.current) {
+              returnToOrbitalAfterOperationRef.current = false;
+              setShell(MenuState.MAIN_MENU);
+              void enterOrbitalUniverse();
+            } else {
+              setShell(MenuState.HANGAR);
+            }
           }}
         >
-          Hangar
+          {returnToOrbitalAfterOperationRef.current ? "Return to Universe" : "Hangar"}
         </button>
       </main>
     );
@@ -797,6 +1597,8 @@ export function WarApp() {
           onBack={() => setGalaxyOpen(false)}
           credits={save.credits}
           onCredits={syncCredits}
+          shipId={save.ship}
+          faction={save.faction}
         />
       </Suspense>
     );
@@ -806,28 +1608,42 @@ export function WarApp() {
     return (
       <div className="relative">
       <HomeScreen
+        key={userId}
         state={shell}
         tipIndex={sortie}
         faction={save.faction}
         ship={save.ship}
         scheme={save.scheme}
         gyro={save.gyro}
+        pilotControlLayout={pilotControlLayout}
+        onPilotControlLayout={setPilotControlLayout}
+        audioMuted={audioMuted}
         refit={save.refit}
         credits={save.credits}
         tech={save.tech}
-        cleared={save.cleared}
+        profile={save}
+        signedIn={Boolean(userId)}
+        publicLeaderboardOptIn={leaderboardProfile.enabled}
+        publicLeaderboardCallsign={leaderboardProfile.callsign}
+        publicLeaderboardSaving={leaderboardSaving}
+        publicLeaderboardError={leaderboardError}
+        onSavePublicLeaderboard={persistLeaderboardProfile}
+        cleared={globalCampaign.data?.enabled ? ({
+          INITIAL_CONTACT: 0, BEACON_RECON: 1, WARDEN_INTERCEPT: 2,
+          CAGE_CLIMAX: 3, SYSTEM_VICTORY: 4,
+        }[globalCampaign.data.phase]) : save.cleared}
         refitLabel={save.refit >= 5 ? "REFIT MAX" : `REFIT +6% · ${cost}`}
-        refitDisabled={save.refit >= 5 || save.credits < cost}
+        refitDisabled={save.refit >= 5 || save.credits < cost || durable.blocked}
         onAction={act}
-        onGalaxy={() => setGalaxyOpen(true)}
-        onOnline={joinOnline}
-        roomCode={roomCode}
-        onRoomCode={setRoomCode}
-        onCreateRoom={() => {
-          const generated = crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
-          setRoomCode(generated);
-          joinOnline(generated);
-        }}
+        onEnterUniverse={enterUniverseFromHangar}
+        universeEntryError={universeEntryError}
+        onJoinCompetitiveQueue={() => setGalaxyOpen(true)}
+        onJoinCasualAiQueue={() => joinOnline("", "casual_ai")}
+        onCancelMatchmaking={cancelMatchmaking}
+        competitiveQueueing={competitiveQueueing}
+        competitiveQueueAvailable={competitiveQueueAvailable}
+        casualAiQueueing={casualAiQueueing}
+        casualAiQueueAvailable={casualAiQueueAvailable}
         onlineStatus={onlineStatus}
         offlineAvailable={offlineAvailable}
         onOfflineStrike={() => {
@@ -840,8 +1656,11 @@ export function WarApp() {
           setShell(MenuState.LOADING);
         }}
         onFaction={pickFaction}
-        onShip={(id: ShipId) => setSave((prev) => ({ ...prev, ship: id }))}
-        onScheme={(scheme: Scheme) => setSave((prev) => ({ ...prev, scheme }))}
+        onShip={(id: ShipId) => void persistLoadout({ faction: save.faction, shipId: id })}
+        onSaveLoadout={persistLoadout}
+        loadoutSaving={loadoutSaving}
+        loadoutError={loadoutError}
+        onScheme={(scheme: Scheme) => void persistControlScheme(scheme)}
         onGyro={() => {
           if (save.gyro) {
             disarmGyro();
@@ -849,6 +1668,11 @@ export function WarApp() {
             return;
           }
           void armGyro().then((ok) => setSave((prev) => ({ ...prev, gyro: ok })));
+        }}
+        onAudioMute={() => {
+          const next = !isMuted();
+          setMuted(next);
+          setAudioMuted(next);
         }}
         onTech={(id: TechId) =>
           setSave((prev) => ({ ...prev, tech: prev.tech === id ? null : id }))
@@ -878,8 +1702,8 @@ export function WarApp() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col px-4 pt-5">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 px-4 pb-5 pt-5">
+      <div className="flex flex-col gap-4 pb-3">
       <header>
         <p className="font-hud text-sm tracking-widest text-solar">USSF VS THE ACCORD</p>
         <h1 className="font-hud text-5xl leading-none text-bone sm:text-6xl">WAR FOR MARS</h1>
@@ -934,13 +1758,20 @@ export function WarApp() {
           );
         })}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        {active
-          ? active.brief
-          : save.pace === "strike"
-            ? "Six-minute Strike: hold two relays to drain enemy integrity. Kills also drain it; the higher integrity bar wins at 0:00."
-            : "Two-minute practice: learn the controls, capture relays, and break enemy integrity before the clock runs out."}
-      </p>
+      <DeploymentBriefing
+        mission={active?.name ?? "Arcade Skirmish"}
+        objective={active?.objective ?? "HOLD TWO RELAYS"}
+        description={
+          active?.brief
+          ?? (save.pace === "strike"
+            ? "A six-minute Strike against an AI-filled wing. Take the relays, pressure the enemy, and protect your integrity."
+            : "A two-minute practice flight against an AI-filled wing. Learn the controls and contest the relays.")
+        }
+        goal={goal}
+        pace={pace}
+        scheme={save.scheme}
+        gyro={save.gyro}
+      />
       <section className="border border-bone/15 px-3 py-3">
         <p className="font-hud text-sm tracking-widest text-solar">YARD CHANNEL</p>
         <ul className="mt-2 flex flex-col gap-2">
@@ -959,23 +1790,48 @@ export function WarApp() {
           onClick={() => setArchiveOpen((open) => !open)}
         >
           <span className="font-hud text-sm tracking-widest text-solar">
-            RECOVERED FLIGHT RECORDERS · {save.cleared}/4
+            VERIFIED STORY ARCHIVE · {narrativeWorld.data?.narrative.length ?? "SYNC"}
           </span>
           <span className="text-muted">{archiveOpen ? "−" : "+"}</span>
         </button>
         {archiveOpen ? (
           <ol className="grid gap-2 px-3 pb-3">
-            {RECOVERED_INTEL.filter((record) => save.cleared >= record.need).length ? (
-              RECOVERED_INTEL.filter((record) => save.cleared >= record.need).map((record) => (
-                <li key={record.from} className="border-t border-bone/10 pt-2">
-                  <p className="font-hud text-xs tracking-widest text-solar">{record.from}</p>
+            {!userId ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Sign in to view your server-verified story archive.
+              </li>
+            ) : narrativeWorld.isPending ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                Connecting to the authenticated campaign archive…
+              </li>
+            ) : narrativeWorld.isError ? (
+              <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
+                The server archive is unavailable. Local progress is not treated as verified story evidence.
+              </li>
+            ) : narrativeWorld.data?.narrative.length ? (
+              narrativeWorld.data.narrative.map((record) => (
+                <li key={record.id} className="border-t border-bone/10 pt-3">
+                  <p className="font-hud text-[10px] tracking-widest text-solar">
+                    {record.chapter} · {record.missionId.toUpperCase()}
+                  </p>
                   <h2 className="mt-1 text-sm font-semibold text-bone">{record.title}</h2>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.text}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{record.synopsis}</p>
+                  <div className="mt-2 border-l border-solar/40 pl-2" aria-label="Recovered story dialogue">
+                    {record.transcript.map((line, index) => (
+                      <p key={`${record.id}-${index}`} className="mt-1 text-xs leading-relaxed text-bone/85">
+                        <span className="font-hud text-[10px] tracking-wider text-solar">{line.speaker}:</span>{" "}
+                        {line.text}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="mt-2 font-hud text-[9px] tracking-widest text-muted">
+                    {record.knowledgeLayer.toUpperCase()} · {record.source}
+                  </p>
                 </li>
               ))
             ) : (
               <li className="border-t border-bone/10 pt-2 text-xs leading-relaxed text-muted">
-                No recordings recovered. Complete the Contact sortie to decode the first signal.
+                No server-verified story records yet. Win the Contact sortie to recover the first Rust Disc archive.
               </li>
             )}
           </ol>
@@ -1032,7 +1888,7 @@ export function WarApp() {
             <button
               key={id}
               type="button"
-                onClick={() => setSave((prev) => ({ ...prev, ship: id }))}
+                onClick={() => void persistLoadout({ faction: save.faction, shipId: id })}
               className={
                 on
                   ? "border border-solar bg-panel px-3 py-2 text-left"
@@ -1150,7 +2006,7 @@ export function WarApp() {
           </button>
           <button
             type="button"
-            disabled={actionBusy || save.refit >= 5 || save.credits < cost}
+            disabled={actionBusy || durable.blocked || save.refit >= 5 || save.credits < cost}
             className="h-11 border border-solar px-3 font-hud tracking-widest text-solar disabled:border-bone/20 disabled:text-muted"
             onClick={() => void performRefit()}
           >

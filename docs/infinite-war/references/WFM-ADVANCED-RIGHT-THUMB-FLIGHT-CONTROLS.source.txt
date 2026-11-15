@@ -1,0 +1,458 @@
+# WFM — Advanced right-thumb flight controls and aerial maneuvering
+
+
+
+Existing 3D flight foundation confirmed
+
+Advanced controls not yet implemented
+
+
+
+I investigated the updated `niakofa-cmyk/WFM` repository, particularly the Orbital flight simulation, mobile joystick implementation, maneuver recognition, combat physics, and multiplayer control boundaries.
+
+My conclusion is that we should substantially upgrade the right-thumb controller and make it a second, fully capable flight-maneuvering surface.
+
+Your proposed design is a good direction. I would go beyond simply adding four directional buttons. We should develop a responsive, analog, multidirectional maneuver controller that allows pilots to move their spacecraft in three-dimensional space while maintaining combat control.
+
+There is already enough foundation in the Orbital engine to implement this without creating a separate flight engine.
+
+## 1. What the current controls actually do
+
+I found the relevant implementation in these files:
+
+- [PilotFlightStick.tsx](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/PilotFlightStick.tsx?utm_source=chatgpt.com)
+- [input.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/input.ts?utm_source=chatgpt.com)
+- [pilot-stick-gestures.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/pilot-stick-gestures.ts?utm_source=chatgpt.com)
+- [flight.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/lib/orbital-sim/src/flight.ts?utm_source=chatgpt.com)
+- [pilot-controls.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/lib/orbital-sim/src/pilot-controls.ts?utm_source=chatgpt.com)
+
+Here is the important distinction.
+
+| Capability                                     | Current implementation         |
+| ---------------------------------------------- | ------------------------------ |
+| Left-stick forward/reverse                     | Implemented                    |
+| Left-stick horizontal steering                 | Implemented                    |
+| Left-stick double-tap vector thrust            | Implemented                    |
+| Right-stick pitch and aim                      | Implemented                    |
+| Right-stick horizontal yaw/aim                 | Implemented                    |
+| Right-stick circular barrel roll               | Implemented in offline Orbital |
+| Right-stick sustained lateral translation      | Not implemented                |
+| Right-stick sustained vertical translation     | Not implemented                |
+| Right-stick directional boost gestures         | Not implemented                |
+| Diagonal directional boost                     | Not implemented                |
+| Online server-authoritative tactical maneuvers | Not fully implemented          |
+
+An especially important finding: the right stick already has circular gesture recognition, but its double-tap directional maneuver callback is not connected in the Arena implementation.
+
+So we have an existing gesture system that we can extend rather than replace.
+
+## 2. The new two-thumb control architecture
+
+I recommend retaining the two-thumb layout, but giving the right thumb substantially more capability.
+
+[Sky Combat 2: Air Combat PvP - Apps on Indus Appstore](https://images.openai.com/static-rsc-4/5Ik39FyJiFkMqyA1LK5XyQm7HTQrzXJmoMfGqizWReUfLZf56eDg_5wvYXymfxnNPG3nT7wtxoJlCzUCRZQHJguiJPCTFWA8QSSemAp9d9nhYUp9I90H1S8yF7s0PaUlBL5Qrvjn_HrWsp7PWdhsBicZDbuPra5rDRaTwQGUMec?purpose=inline)
+
+[indusappstore.com](https://www.indusappstore.com/apps/action/sky-combat-2/com.azurgames.skycombat/?id=com.azurgames.skycombat\&page=details\&utm_source=chatgpt.com)
+
+The revised responsibilities:
+
+- Left thumb: primary propulsion, forward/reverse throttle and coordinated flight steering.
+- Right thumb: pitch, aim, lateral movement, vertical movement and directional evasive maneuvers.
+- Dedicated combat actions: fire, missiles, target lock and countermeasures.
+- Boost: directional boost gesture, with its own energy and cooldown rules.
+
+The most important enhancement is that right-thumb movement should affect the spacecraft itself, not just the camera or aiming direction.
+
+### Proposed right-thumb movement mapping
+
+## Right-thumb combat maneuver controller
+
+Conceptual control mapping — not a screenshot of the current implementation.
+
+CLIMB
+
+Vertical thrust up
+
+DIAGONAL
+
+Combined movement
+
+CLIMB
+
+Rapid ascent
+
+LEFT
+
+Lateral thrust
+
+CENTER
+
+Neutral
+
+RIGHT
+
+Lateral thrust
+
+DIVE
+
+Vertical thrust down
+
+DIAGONAL
+
+Combined movement
+
+DIVE
+
+Rapid descent
+
+Analog movement
+
+- Push up: climb.
+- Pull down: descend.
+- Push left: translate left.
+- Push right: translate right.
+- Push diagonally: combine both movement axes.
+- Release: return to neutral input while preserving the ship's physical momentum according to its flight-assist setting.
+
+There is one important physics distinction here: the spacecraft should not simply snap upward or sideways. It should accelerate in the requested direction, retain appropriate momentum, and respond to counter-thrust and stabilization.
+
+That will make movement feel like piloting a powerful spacecraft rather than moving a character around a screen.
+
+## 3. Double-tap directional boosting
+
+This is where I would introduce the most significant new capability.
+
+The current gesture recognizer supports four directional sectors and uses:
+
+- 285 ms double-tap window.
+- 55 ms minimum interval.
+- 420 ms maneuver cooldown.
+- 180 ms vector-thrust pulse.
+
+Those are existing gesture parameters, not the proposed boost balance.
+
+I would extend this to an eight-direction maneuver system.
+
+## Directional boost system
+
+[Everspace 2 is close to being the new gold standard for space shooters | PC Gamer](https://images.openai.com/static-rsc-4/XRwPjcgQtYKUDxNrGNWr-BNPutpORXfgoLS5A7TVyxzH5LaggeurlaisynCJlO6pyz-ZIkWsecOlHp9VQpxE0hTnl_shWD4ZFEviwNOzv5CL3mp4DgfWR7IIK85_5ufsw1PcD95-pyU1V9o68FGpo5UK8Di10C3fJAbZqWrQYDY?purpose=inline)
+
+Double-tap up
+
+Vertical boost
+
+Rapid upward acceleration.
+
+[Star Citizen Alpha 4.9 PTU Early Patch Breakdown | Elyxir](https://images.openai.com/static-rsc-4/7-onSj7LI4qom03d5ysNlsazxWrOJWPgUwAm0PZJ_GcsbooDpdZ0XdJlzaGj5JNCif81tZsTL5p6SUnqT1Mb3qnn581g_9pHabHUQB20pmDmab6wFJXrIQU4yKM2jJX7oN3Abox1ckOhB5k45xINSbuchtLeu4V6Vbtuf2w4rP8?purpose=inline)
+
+Double-tap down
+
+Dive boost
+
+Rapid downward acceleration.
+
+[Rebel Galaxy Outlaw Shoots To Switch Later This Month | Nintendo Life](https://images.openai.com/static-rsc-4/CuixeicMKiELTjyn-Zszxhe7cCH57FrjlmuYWzXVajK7vQT0zAibzVh_ViWEQkW6cOVpSTm1I7RdHk4VP9VMa6mVA_Z4Y3lrXN1b9g29XL6WYHjCRzkW-P3baWskXLPF4oIhL-ayo37Gld7I50ksPvrFLK2KkUPrJjUrXXWXKKE?purpose=inline)
+
+Double-tap left
+
+Left boost
+
+Fast lateral displacement.
+
+[Rebel Galaxy Outlaw review | PC Gamer](https://images.openai.com/static-rsc-4/vHfq5-NGW0PAzKOY_Kj6mWI0giLWC4XlFp86OKBMiY1-EBOkt9qFNIEJuldk6xVrIiX8JbBP8xDWlzZioVXMJ9r_6SelBnlK8e2MCbzFt16sMLEC_pBAQy3kTN7jWAmGUVrBRoZMkT7NSU4BEhKwjbF6BN8bdKlVc7utyieCqrg?purpose=inline)
+
+Double-tap right
+
+Right boost
+
+Fast lateral displacement.
+
+Diagonal combinations
+
+Double-tap upper-left, upper-right, lower-left or lower-right to execute combined vector boosts.
+
+The diagonal boost must be normalized so it cannot deliver more total acceleration than a cardinal boost simply because two axes are active.
+
+### How the boost should work
+
+I would not implement this as an ordinary button press that temporarily increases forward speed.
+
+Instead, introduce a dedicated directional maneuver intent.
+
+For example:
+
+1. The pilot double-taps right.
+2. The gesture recognizer identifies the right-direction burst.
+3. The input system sends a versioned maneuver request.
+4. The Orbital simulation checks energy, cooldown and ship eligibility.
+5. The simulation applies a short directional acceleration burst.
+6. The ship physically moves right with an appropriate thruster animation.
+7. The maneuver enters cooldown.
+
+This should also work for diagonals.
+
+Important: A directional boost should not make a ship invulnerable. Missiles must still be capable of tracking it, and bullets must still be capable of hitting it.
+
+We want skilled pilots to evade attacks through timing and positioning, not become impossible to damage.
+
+## 4. Additional aerial evasive maneuvers
+
+I recommend adding three new maneuver capabilities, but not adding a dozen different buttons.
+
+Some capabilities already exist and should be enhanced rather than duplicated.
+
+[Blitz Evasion | playscape](https://images.openai.com/static-rsc-4/bl1nf8u7-fpFKR-I0Ibgg4zoHxRClbA651zSyJ4DwYt3LvTRepcKNFhzrFYf-yuPjXbBS3MUQ-goeq4OZ4nIrq6lNN0-aIo5lRecm90XoC8o1CpwDcp63J_TKUSbIpp2FmQGb6JcvUYNHJq4q5H_XQ2R1zk9eGETXfXouGnHVgg?purpose=inline)
+
+1\. Advanced barrel roll
+
+Existing foundation
+
+Improve the existing circular right-stick gesture with better response, maneuver feedback and ship-specific handling.
+
+Preserve the existing energy cost and cooldown as the starting balance.
+
+[Invictus Launch Week 2952 Details - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/XyOjWNhHcY78Ng5RtDrrJl0WCtQDNKFa-8ZqxF1fhVLpvK74Wj_kh1ddcVjhUIkvTQragl5vHpGh_xrKP7SNihzHQe0XBiEW2ZF091iRPquidaHwP_dLHOJfCJPqdRNSRrZBB9acLLAq_BslatXSzFUY199u03hmRWW4ocDUP-E?purpose=inline)
+
+2\. Vector dodge
+
+New capability
+
+Rapid lateral or diagonal movement without requiring a full change of heading.
+
+Particularly useful when missiles approach from the rear or side.
+
+[Juno: New Origins  | Baidi White Emperor](https://images.openai.com/static-rsc-4/Csczt9X-ANbC9hDoOGdxrDKWdWY7i8u3Cmnx0CdJ5EUTiLp-LMXHrmdhCG1TaOxq0VSM02BDsPqLHMO8-9IM8zqHEYd_sOt9unFSQP3HqhXknMYHKUK0tyJfSuZsEGfWt1TouHm11k22iz6hpUKyYiaZUVHvYrgqfxzTUsHc3RU?purpose=inline)
+
+3\. Vertical break
+
+New capability
+
+Rapid ascent or descent, including diagonal climb and dive maneuvers.
+
+Allows pilots to break an enemy's firing alignment and exploit vertical separation.
+
+[Everspace 2 Photo Mode Review](https://images.openai.com/static-rsc-4/x8CTTWhBgPOqk4LLXOHIN7pNOw1RZ7eHHMF5yk-76I4S4SBHGkkDfp5TIr4fBb0tV7HgbZxv8h-PU3zgMi3q37_hJfHjgt6LDvgU4SuqjT-2G8-n-uNO1IHfeRyadiP16NaPiQ_83NQe2DuXYmCejTrYwWgTqMudZAj-Ki-fNy8?purpose=inline)
+
+4\. Inertial drift and recovery
+
+Existing physics foundation
+
+Improve the ability to slide, rotate and redirect the ship while retaining momentum.
+
+This creates opportunities for experienced pilots to evade while keeping their weapons pointed toward a target.
+
+I would retain countermeasures as a separate tactical capability. A directional dodge and a missile countermeasure should not be treated as the same thing.
+
+A skilled pilot should be able to combine:
+
+- A lateral boost.
+- A barrel roll.
+- Countermeasures.
+- A subsequent climb or dive.
+
+However, each should have its own appropriate energy, timing and availability constraints.
+
+## 5. The most important engineering change: upgrade the shared Orbital simulation
+
+The good news is that the underlying physics already supports the majority of the movement we need.
+
+In `lib/orbital-sim/src/flight.ts`, `integrateSpatialFlight()` already calculates:
+
+- Quaternion orientation.
+- Pitch, yaw and roll.
+- Forward propulsion.
+- Lateral thrust.
+- Vertical thrust.
+- Three-dimensional velocity.
+- Momentum and stabilization.
+- Boost acceleration.
+- Energy consumption.
+- Speed limits.
+- Obstacle and boundary collisions.
+
+This means we should not create a second movement system inside `Arena.tsx`.
+
+We should extend the shared engine's existing input and simulation contracts.
+
+### Proposed new control mapping
+
+| Right-thumb input | Orientation          | Translation              |
+| ----------------- | -------------------- | ------------------------ |
+| Up                | Pitch upward         | Vertical thrust upward   |
+| Down              | Pitch downward       | Vertical thrust downward |
+| Left              | Turn left            | Lateral thrust left      |
+| Right             | Turn right           | Lateral thrust right     |
+| Upper-left        | Combined orientation | Up and left              |
+| Upper-right       | Combined orientation | Up and right             |
+| Lower-left        | Combined orientation | Down and left            |
+| Lower-right       | Combined orientation | Down and right           |
+
+This is the hybrid approach I recommend: the right thumb controls both the aircraft's attitude and its vector movement, with separately adjustable gains.
+
+That preserves manual aiming while adding physical movement. It also gives us a more expressive flight model than simply converting the right stick into a second movement joystick.
+
+We should introduce a control-profile setting so pilots can retain the existing aim-only behavior if they prefer it.
+
+### Implementation architecture
+
+\#chatgpt-mermaid-\_r_b1\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_b1\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_b1\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_b1\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_b1\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_b1\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_b1\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_b1\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_b1\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_b1\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_b1\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_b1\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_b1\_ p{margin:0;}#chatgpt-mermaid-\_r_b1\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .cluster-label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .cluster-label span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_b1\_ .label text,#chatgpt-mermaid-\_r_b1\_ span{fill:rgb(13, 13, 13);color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .node rect,#chatgpt-mermaid-\_r_b1\_ .node circle,#chatgpt-mermaid-\_r_b1\_ .node ellipse,#chatgpt-mermaid-\_r_b1\_ .node polygon,#chatgpt-mermaid-\_r_b1\_ .node path{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .rough-node .label text,#chatgpt-mermaid-\_r_b1\_ .node .label text,#chatgpt-mermaid-\_r_b1\_ .image-shape .label,#chatgpt-mermaid-\_r_b1\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_b1\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .rough-node .label,#chatgpt-mermaid-\_r_b1\_ .node .label,#chatgpt-mermaid-\_r_b1\_ .image-shape .label,#chatgpt-mermaid-\_r_b1\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_b1\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_b1\_ .root .anchor path{fill:rgb(143, 143, 143)!important;stroke-width:0;stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_b1\_ .arrowheadPath{fill:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_b1\_ .edgePath .path{stroke:rgb(143, 143, 143);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .flowchart-link{stroke:rgb(143, 143, 143);fill:none;}#chatgpt-mermaid-\_r_b1\_ .edgeLabel{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_b1\_ .edgeLabel p{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_b1\_ .edgeLabel rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_b1\_ .labelBkg{background-color:rgba(252, 252, 252, 0.5);}#chatgpt-mermaid-\_r_b1\_ .cluster rect{fill:rgb(243, 243, 243);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .cluster text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ .cluster span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(243, 243, 243);border:1px solid rgba(0, 0, 0, 0.1);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_b1\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_b1\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_b1\_ .icon-shape,#chatgpt-mermaid-\_r_b1\_ .image-shape{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_b1\_ .icon-shape p,#chatgpt-mermaid-\_r_b1\_ .image-shape p{background-color:rgb(252, 252, 252);padding:2px;}#chatgpt-mermaid-\_r_b1\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_b1\_ .image-shape .label rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_b1\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_b1\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_b1\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_b1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_b1\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_b1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_b1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_b1\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_b1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_b1\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_b1\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_b1\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_b1\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_b1\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .node rect,#chatgpt-mermaid-\_r_b1\_ .node circle,#chatgpt-mermaid-\_r_b1\_ .node ellipse,#chatgpt-mermaid-\_r_b1\_ .node polygon,#chatgpt-mermaid-\_r_b1\_ .node path{fill:rgb(229, 243, 255);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_b1\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_b1\_ .mermaid-decision .label-container{fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_b1\_ .edgePaths .flowchart-link{stroke:rgb(143, 143, 143);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_b1\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_b1\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}Right Thumb Touch InputAnalog Axis NormalizationHybrid Attitude + VectorMappingPitch / YawVertical / Lateral ThrustEight-Way Gesture RecognitionDirectional Boost IntentShared OrbitalFlightControlFrameDeterministic OrbitalSimulationVelocity / Orientation / Energy3D Ship and Thruster RenderingVersioned Server InputContractServer-Authoritative Simulation
+
+The critical requirement is that browser simulation, server simulation and replay processing all understand the same control intent.
+
+We should not use client-side timers to determine the duration or success of an online boost. The server must own maneuver activation, duration, cooldown and energy consumption.
+
+The existing local `pulseVectorManeuver()` uses browser timers. That is acceptable as a starting point for offline input experimentation, but it should not become the authority for competitive or persistent multiplayer maneuvers.
+
+## 6. How we should test the maneuvers during actual combat
+
+I would establish a dedicated Orbital Aerial Maneuver Combat Lab before enabling these controls in multiplayer.
+
+We need to test whether each maneuver actually helps pilots survive combat, not merely whether the joystick animation works.
+
+[Everspace Stellar Edition PS4 - Cadê Meu Jogo](https://images.openai.com/static-rsc-4/qKL7bg11fbsqLnIKl8Z3Vwxeaw8iIzqqAhao--2vHuZbbynhX7MqfpKcaK3ghXcOKiB7GZknQuWfRbxl9p6V5L7hsZBenKggy8qWRpa4LF_sN7Gk1zi2updxQ-5MvFFzMuJNRX1bkDzIUi1Orom4nHwcLZrG3tpRAlzc2x0c808?purpose=inline)
+
+[cademeujogo.com.br](https://www.cademeujogo.com.br/everspace-stellar-edition-ps4?srsltid=AfmBOorhu3XVF3NV8EIVQjGcgyJPXSbCYBI36Chl1-5znb6-ieNMKp3f\&utm_source=chatgpt.com)
+
+### Battle test scenarios
+
+| Test | Enemy attack                   | Pilot response                        |
+| ---- | ------------------------------ | ------------------------------------- |
+| 1    | Straight missile pursuit       | Left/right vector boost               |
+| 2    | Missile approaching from above | Rapid dive                            |
+| 3    | Missile approaching from below | Rapid climb                           |
+| 4    | Multiple incoming missiles     | Diagonal boost and countermeasures    |
+| 5    | Sustained fighter gunfire      | Lateral strafing                      |
+| 6    | Enemy firing alignment         | Barrel roll and vertical break        |
+| 7    | Two-enemy interception         | Inertial drift and directional boost  |
+| 8    | Capital-ship weapons           | Combined vertical and lateral evasion |
+
+### What we should measure
+
+- Percentage of incoming missiles avoided.
+- Percentage of incoming bullets avoided.
+- Time required to complete each maneuver.
+- Energy consumed per maneuver.
+- Cooldown and recovery time.
+- Accuracy while maneuvering.
+- Ship handling differences between fighter classes.
+- Whether two thumbs can operate simultaneously without interference.
+
+We should test against different ship types.
+
+An interceptor should have excellent directional responsiveness. A heavy fighter should have more resistance to displacement. A capital-class ship should not maneuver like a lightweight fighter.
+
+This gives each spacecraft a meaningful flight personality.
+
+## 7. Multiplayer and Orbital integration safeguards
+
+There is an important limitation in the repository that we must address before promoting these controls.
+
+The shared `pilot-controls.ts` contract already understands the flight axes, but the current sector adapter deliberately strips local tactical maneuver intents.
+
+The existing barrel-roll gesture is also restricted to the offline Orbital pilot path.
+
+Therefore, the new directional boost must be integrated into the server-authoritative simulation rather than simply made visible in the client.
+
+I recommend:
+
+1. Extend the versioned tactical maneuver contract with directional vector boosts.
+2. Introduce server-owned energy, cooldown and maneuver duration.
+3. Update deterministic browser/server simulation parity.
+4. Increment the Orbital rules version from its current version 5.
+5. Preserve existing historical replay compatibility.
+6. Keep old control profiles functional.
+7. Introduce the new profile in an isolated test environment.
+8. Verify multiplayer synchronization before competitive deployment.
+
+Do not enable the new maneuver protocol in existing live matches until both clients and servers negotiate the same simulation version.
+
+## 8. Implementation roadmap
+
+## Right-thumb maneuver evolution
+
+1. Phase 1 — Right-stick analog movement
+
+   Implement simultaneous pitch/yaw and vertical/lateral vector thrust. Support all four cardinal directions and diagonals.
+
+   Existing physics foundation
+2. Phase 2 — Directional boost gestures
+
+   Connect double-tap recognition to the right stick. Add eight-way recognition, boost impulses, energy costs and cooldowns.
+3. Phase 3 — Advanced evasive mechanics
+
+   Enhance barrel rolls, directional dodging, rapid ascent/descent and inertial recovery.
+4. Phase 4 — Ship-specific flight characteristics
+
+   Establish individual handling, acceleration, maneuverability, boost capacity and recovery parameters.
+5. Phase 5 — Combat laboratory
+
+   Test missiles, projectiles, multiple enemies, capital-ship engagements and simultaneous weapon operation.
+6. Phase 6 — Server-authoritative multiplayer
+
+   Integrate versioned maneuver inputs, server-side validation, deterministic replay and synchronized movement.
+7. Phase 7 — Physical-device certification
+
+   Test on Android and iOS in landscape, including simultaneous two-thumb operation, release, rotation, interruption and reconnection.
+
+### Acceptance requirements
+
+The new controller must demonstrate:
+
+- Smooth analog response in all eight directions.
+- Independent and simultaneous left/right thumb input.
+- No accidental boost during ordinary aiming.
+- Immediate neutral input on release or interruption.
+- No duplicate boost activation from one gesture.
+- Diagonal boost normalization.
+- Energy and cooldown enforcement.
+- No guaranteed missile immunity.
+- Identical deterministic movement between supported client and server simulations.
+
+## 9. Repository status and implementation target
+
+The source I inspected is the November 8 `integration/master-engine-consolidation` branch, currently at `abee40e`.
+
+Relevant implementation targets
+
+| File                      | Work required                          |
+| ------------------------- | -------------------------------------- |
+| `PilotFlightStick.tsx`    | Right-stick directional gesture wiring |
+| `pilot-stick-gestures.ts` | Eight-way gesture recognition          |
+| `input.ts`                | Hybrid analog movement mapping         |
+| `pilot-controls.ts`       | Shared versioned maneuver contract     |
+| `flight.ts`               | Directional boost physics              |
+| `Arena.tsx`               | Right-thumb HUD integration            |
+| Flight tests              | Movement and maneuver regression       |
+| API server                | Authoritative maneuver validation      |
+
+Important: `main` remains at `3ecff671` from October 22. The November integration work has not been promoted to Production.
+
+Useful existing specifications:
+
+- [Orbital Tactical Maneuver Roadmap](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/ORBITAL-TACTICAL-MANEUVER-ROADMAP.md?utm_source=chatgpt.com)
+- [Mobile Control Specification](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/engine/MOBILE-CONTROL-SPECIFICATION.md?utm_source=chatgpt.com)
+- [Flight Physics and Controls](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/engine/FLIGHT-PHYSICS-AND-CONTROLS.md?utm_source=chatgpt.com)
+
+I have inspected and evaluated the implementation, but have not modified gameplay code in this review.
+
+## My final design recommendation
+
+I would make this a defining characteristic of the WFM flight experience.
+
+We should not settle for a conventional mobile flight joystick with a few additional buttons.
+
+We should create a Dual-Thumb Dynamic Flight and Combat Maneuver System.
+
+The left thumb controls propulsion and coordinated steering. The right thumb controls attitude and multidirectional movement, including rapid evasive maneuvers and directional boosting.
+
+The spacecraft should respond physically, retain momentum, bank and rotate convincingly, and remain controllable while the pilot fires weapons and evades enemy attacks.
+
+Most importantly, the controls should be consistent across the Orbital Combat Lab, training, campaign operations and eventually the persistent Infinite War universe.
+
+I recommend implementing Phase 1 through Phase 3 together as the first isolated development package, then testing it in the Combat Lab before migrating it into authenticated multiplayer.
+
+That gives us a meaningful improvement in flight capability without destabilizing the existing engine or competitive combat.
+
+Would you like me to implement this complete right-thumb maneuver upgrade on an isolated integration branch, including the physics, gesture recognition, combat tests and multiplayer protocol groundwork?
+
+🎮Track WFM maneuver-control implementationTap to set up

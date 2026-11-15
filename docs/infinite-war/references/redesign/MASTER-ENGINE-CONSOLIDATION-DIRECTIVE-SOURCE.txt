@@ -1,0 +1,800 @@
+# MASTER DEVELOPMENT DIRECTIVE
+## WAR FOR MARS: INFINITE WAR
+### Orbital Combat Lab — Unified Main Engine Reconstruction, Feature Extraction & Infinite Universe Evolution
+
+**PROJECT:** War for Mars: Infinite War  
+**REPOSITORY:** https://github.com/niakofa-cmyk/WFM  
+**PRIMARY ENGINE:** Orbital Combat Lab  
+**DEVELOPMENT OBJECTIVE:** Consolidate, extract, upgrade, and integrate the strongest gameplay systems, mechanics, controls, physics, flight dynamics, environments, and operational capabilities from all existing War for Mars builds into one unified main game engine.
+
+---
+
+# 1. THE PRIMARY MISSION
+
+We are evolving War for Mars into a fully integrated, immersive, competitive, multiplayer, infinite open-universe space combat game.
+
+The newly established **Orbital Combat Lab is to become the foundation of the primary War for Mars game engine.**
+
+We have previously developed multiple game builds, simulations, prototypes, operational environments, and open-world experiences. These contain valuable features, mechanics, technology, and gameplay systems that must not be abandoned simply because we have established a newer engine.
+
+Your mission is to investigate those builds, understand what each one accomplished, identify the strongest and most useful capabilities, and systematically extract and integrate those capabilities into Orbital Combat Lab.
+
+We are not building another independent Three.js universe.
+
+We are not creating another disconnected flight simulator.
+
+We are not simply combining visual assets.
+
+We are consolidating the actual gameplay capabilities and underlying systems into the primary game engine.
+
+**The objective is ONE MAIN ENGINE, ONE CONNECTED GAME, ONE EXPANDING UNIVERSE, AND MULTIPLE CONNECTED GAMEPLAY EXPERIENCES.**
+
+The result must be substantially more advanced than any individual previous build.
+
+---
+
+# 2. ESTABLISH THE PRIMARY ENGINE
+
+Orbital Combat Lab must become the primary simulation and gameplay foundation.
+
+First, perform a comprehensive technical investigation of the current implementation.
+
+Understand:
+
+- Orbital simulation architecture.
+- Six-axis spacecraft movement.
+- Pitch, yaw, and roll.
+- Translation and directional thrust.
+- Acceleration, deceleration, and momentum.
+- Spacecraft velocity and inertia.
+- Rotational dynamics.
+- Target acquisition.
+- Missile guidance and interception.
+- Projectile simulation.
+- Weapons and firing systems.
+- Collision detection.
+- Damage and destruction.
+- Ship state and combat state.
+- Camera and flight perspectives.
+- Input handling.
+- Mobile input architecture.
+- Simulation update loops.
+- Rendering and effects.
+- Server-authoritative combat boundaries.
+- Existing AI and training functionality.
+- Performance and device compatibility.
+
+Determine which systems are already implemented, which are partially implemented, which are only prototypes, and which are missing.
+
+Do not mistake a simulation test harness for a functioning multiplayer game.
+
+Do not mistake visual demonstrations for fully implemented gameplay.
+
+The main engine must be engineered to support the full game, not merely demonstrate isolated combat mechanics.
+
+---
+
+# 3. EXTRACT AND CONSOLIDATE ALL PREVIOUS GAME BUILDS
+
+Investigate every available War for Mars build, branch, archived implementation, prototype, and development artifact.
+
+Prioritize the following sources.
+
+## A. Orbital Combat Lab
+
+This is the primary destination for all engine consolidation.
+
+Extract and improve its existing simulation, combat, weapons, spacecraft, and testing capabilities.
+
+## B. Rust Disc — Local Flight Simulation
+
+Investigate the original local flight simulation and preserve its valuable capabilities.
+
+Extract:
+
+- Complete flight-control system.
+- Flight handling.
+- Six-axis movement.
+- Directional thrust.
+- Acceleration and deceleration.
+- Momentum and inertia.
+- Flight stabilization.
+- Rotational control.
+- Camera controls.
+- Ship maneuverability.
+- Flight assistance systems.
+- Navigation mechanics.
+- Targeting and tracking.
+- Weapons handling.
+- Flight HUD.
+- Cockpit and external camera systems.
+- Mobile joystick and touch controls.
+- Flight tutorials and training mechanics.
+- Environmental interaction.
+- Existing spacecraft behavior.
+
+The original Rust Disc flight experience must remain independently accessible as a distinct gameplay experience where appropriate.
+
+Its underlying technology should be consolidated into the main engine through reusable systems and adapters.
+
+Do not confuse the original local flight trainer with the server-authoritative cooperative Rust Disc operation if these are separate implementations.
+
+## C. Operation Iron Eclipse / Ironcliff and Other Open-World Builds
+
+Investigate the open-world and operational environments previously developed for these experiences.
+
+Extract every useful feature and capability, including:
+
+- Open-world navigation.
+- Large-scale environmental rendering.
+- Spacecraft movement across large environments.
+- Sector transitions.
+- Operational boundaries.
+- Mission environments.
+- Dynamic objectives.
+- Enemy encounters.
+- Friendly units.
+- AI spacecraft.
+- Multiplayer interactions.
+- Cooperative operations.
+- Combat encounters.
+- Environmental hazards.
+- Mission progression.
+- Exploration.
+- Discovery.
+- Navigation systems.
+- World interaction.
+- Spatial positioning.
+- Tactical interfaces.
+- HUD elements.
+- Radar and sensor systems.
+- Target identification.
+- Mission tracking.
+- Mobile flight controls.
+- Flight physics.
+- Environmental effects.
+- Combat feedback.
+- Mission completion and extraction.
+
+Identify the strongest implementation from each source and determine how to improve it within the main engine.
+
+Do not assume that a feature exists merely because a previous development document describes it. Verify the actual implementation.
+
+## D. Route to Mars and Other Sector/Operational Builds
+
+Investigate all existing Route to Mars builds and sector operations.
+
+Extract useful systems relating to:
+
+- Space navigation.
+- Mars approach and arrival.
+- Sector exploration.
+- Operational routing.
+- Sector boundaries.
+- Environmental transitions.
+- Mission objectives.
+- Combat encounters.
+- Spacecraft handling.
+- Flight simulation.
+- World traversal.
+- Mission states.
+- Sector events.
+- Tactical navigation.
+- Environmental presentation.
+- Player progression.
+
+Integrate these capabilities into a coherent universe and operational framework.
+
+---
+
+# 4. BUILD A COMPLETE FEATURE EXTRACTION INVENTORY
+
+Before implementing changes, create a forensic inventory of every source build.
+
+For each source, identify:
+
+1. Existing feature.
+2. Actual source implementation.
+3. Current technical condition.
+4. Dependencies.
+5. Existing controls.
+6. Physics and simulation behavior.
+7. Multiplayer compatibility.
+8. Performance characteristics.
+9. Reusable components.
+10. Missing capabilities.
+11. Recommended improvements.
+12. Integration destination within Orbital Combat Lab.
+
+Classify every feature:
+
+- PRESERVE — already strong and should remain.
+- EXTRACT — useful implementation should be transferred.
+- REBUILD — concept is valuable, but implementation needs improvement.
+- ENHANCE — existing implementation needs substantial improvement.
+- ADAPT — useful functionality needs a different architecture.
+- RETIRE — redundant, obsolete, or unnecessary implementation.
+
+Create a complete Feature Extraction and Integration Matrix.
+
+Do not start deleting previous implementations before their functionality has been identified, transferred, and verified.
+
+---
+
+# 5. REBUILD THE FLIGHT AND AEROSPACE SIMULATION
+
+One of the most important objectives is to bring the full capabilities of the previous flight systems into the new Orbital Combat Lab engine.
+
+The new engine must support advanced spacecraft handling and immersive six-degree-of-freedom flight.
+
+Investigate and implement:
+
+## Flight dynamics
+
+- Six degrees of freedom.
+- Pitch.
+- Yaw.
+- Roll.
+- Longitudinal movement.
+- Lateral movement.
+- Vertical movement.
+- Thrust and counter-thrust.
+- Acceleration.
+- Deceleration.
+- Momentum.
+- Inertia.
+- Rotational inertia.
+- Angular velocity.
+- Angular acceleration.
+- Velocity-based maneuvering.
+- Drift and directional correction.
+- Flight stabilization.
+- Advanced maneuvering.
+- Controlled braking.
+- Boost and propulsion systems.
+
+## Aerospace and spacecraft behavior
+
+Implement a coherent physics model appropriate to the environment.
+
+Support:
+
+- Newtonian movement in space.
+- Spacecraft mass and inertia.
+- Thruster positioning and torque.
+- Rotational damping and stabilization.
+- Propulsion limitations.
+- Weapon recoil where appropriate.
+- Collision and impact physics.
+- Atmospheric flight where a mission actually requires it.
+- Aerodynamic lift, drag, and control surfaces for atmospheric vehicles.
+- Transition between atmospheric and space-flight models where supported.
+
+Do not apply atmospheric aerodynamic forces indiscriminately in vacuum.
+
+Develop a configurable physics architecture that allows different spacecraft to have different flight characteristics.
+
+## Spacecraft differentiation
+
+Each spacecraft should have distinct characteristics:
+
+- Mass.
+- Acceleration.
+- Maximum velocity.
+- Rotational response.
+- Maneuverability.
+- Propulsion.
+- Shielding.
+- Armor.
+- Weapon capacity.
+- Energy capacity.
+- Special abilities.
+
+The result should make different spacecraft feel genuinely different to fly and fight with.
+
+---
+
+# 6. CONSOLIDATE AND ADVANCE THE MOBILE CONTROL SYSTEM
+
+Extract all mobile controls and control mechanics from the previous builds.
+
+Do not discard the existing controls merely because the new engine has a different implementation.
+
+Develop one configurable control framework that supports:
+
+- Dual virtual joysticks.
+- Directional flight controls.
+- Pitch, yaw, and roll.
+- Throttle.
+- Acceleration.
+- Braking.
+- Boost.
+- Weapon firing.
+- Missile launching.
+- Target locking.
+- Target switching.
+- Camera rotation.
+- Camera perspective switching.
+- Flight stabilization.
+- Tactical interface interaction.
+- Radar and navigation interaction.
+
+Support customizable control layouts.
+
+Support adjustable joystick sensitivity.
+
+Support configurable dead zones.
+
+Support separate sensitivity settings for flight, aiming, and camera movement.
+
+Support touch gestures where useful.
+
+Support optional gyroscope aiming where the device supports it.
+
+Support controller and keyboard input without compromising mobile controls.
+
+## Mobile experience requirements
+
+The game must be designed for mobile-first interaction.
+
+Ensure:
+
+- Responsive HUD.
+- Proper touch target sizes.
+- No conflicting touch zones.
+- No accidental firing while maneuvering.
+- Smooth camera movement.
+- Consistent input response.
+- Device performance adaptation.
+- Configurable control placement.
+- Landscape gameplay.
+- Reliable input handling during multiplayer sessions.
+
+All control systems must operate through the same main engine input architecture.
+
+Do not create separate incompatible control systems for every game mode.
+
+---
+
+# 7. ADVANCE THE COMBAT SYSTEM
+
+Bring the existing combat capabilities into a unified combat framework.
+
+Implement and improve:
+
+- Primary weapons.
+- Secondary weapons.
+- Missiles.
+- Guided missiles.
+- Interception systems.
+- Target tracking.
+- Target locking.
+- Countermeasures.
+- Shields.
+- Armor.
+- Damage models.
+- Critical damage.
+- Ship destruction.
+- Weapon cooldowns.
+- Energy consumption.
+- Ammunition.
+- Combat feedback.
+- Hit confirmation.
+- Combat effects.
+- Explosion effects.
+- Damage visualization.
+
+Combat must operate consistently across the different gameplay experiences.
+
+The authoritative server must validate multiplayer damage, ammunition, combat results, and rewards.
+
+Clients may predict movement and provide immediate visual feedback, but cannot authoritatively determine competitive outcomes.
+
+---
+
+# 8. BUILD THE INFINITE OPEN UNIVERSE INSIDE THE MAIN GAME
+
+We are not asking you to reproduce the unnecessary Three.js library universe as another standalone application.
+
+We want its useful universe capabilities extracted and reconstructed as part of the War for Mars game architecture.
+
+The main engine should support:
+
+- Galaxy exploration.
+- Star systems.
+- Planetary destinations.
+- Mars.
+- Asteroid fields.
+- Space stations.
+- Combat sectors.
+- Operational locations.
+- Navigation routes.
+- Dynamic points of interest.
+- Discovery.
+- Player presence.
+- Faction territories.
+- Multiplayer destinations.
+- Live operational events.
+
+The universe should feel continuous and explorable.
+
+Use appropriate spatial techniques, procedural generation, level streaming, instancing, and optimized rendering.
+
+Do not require the entire universe to exist in memory simultaneously.
+
+Do not confuse a visually large map with an infinite universe.
+
+Build scalable systems for expanding the world without requiring a complete engine rebuild.
+
+The universe should be an extension of the main game, not a separate game that merely links to it.
+
+---
+
+# 9. INTEGRATE THE ASTEROID COMPETITIVE OPERATIONS HUB
+
+The asteroid destination should become a central competitive location within the universe.
+
+It must support the arcade combat experiences and competitive multiplayer operations.
+
+The asteroid should provide:
+
+- Arcade Skirmishes.
+- Competitive 5v5 combat.
+- USSF versus Accord battles.
+- Multiplayer matchmaking.
+- Active competition discovery.
+- Live battle visibility.
+- Spectator access.
+- Match entry.
+- Competitive events.
+- Tournament operations.
+- Player queues.
+- Faction-based competition.
+
+Players approaching an asteroid must be able to discover real active competitions.
+
+A player should be able to observe a competition, inspect its status, and enter an eligible operation.
+
+The system must distinguish between:
+
+1. The outer universe representation.
+2. The actual authoritative combat instance.
+3. An authorized spectator session.
+
+The outer universe should receive a sanitized, bandwidth-efficient representation of active battles.
+
+The detailed combat simulation must remain inside the authoritative operation instance.
+
+Do not fake live competitions with decorative spacecraft animations.
+
+Live battle visibility must be driven by actual server-side operation state.
+
+---
+
+# 10. ONE ENGINE, MULTIPLE GAMEPLAY EXPERIENCES
+
+The main engine must support multiple experiences without creating independent, incompatible gameplay architectures.
+
+Develop a reusable gameplay framework for:
+
+- Original local flight simulation.
+- Arcade Skirmishes.
+- Rust Disc operations.
+- Mars Approach.
+- Pale Beacons.
+- Operation Iron Eclipse.
+- Cooperative combat.
+- Wing 5v5.
+- Asteroid competitive operations.
+- Open-world exploration.
+- Future sector operations.
+
+Each mode should use the shared systems wherever appropriate.
+
+These include:
+
+- Flight.
+- Input.
+- Camera.
+- Physics.
+- Weapons.
+- Targeting.
+- Damage.
+- Audio.
+- HUD.
+- Navigation.
+- AI.
+- Multiplayer interfaces.
+- Player identity.
+- Progression.
+- Mission state.
+
+Different experiences may have different rules, objectives, environments, and specialized mechanics.
+
+Do not force every experience into an identical simulation.
+
+Use modular gameplay configurations and adapters to preserve distinctive mechanics.
+
+---
+
+# 11. MULTIPLAYER AND SERVER AUTHORITY
+
+The final engine must support real multiplayer operations.
+
+Investigate and preserve the existing authentication, socket infrastructure, database ownership, and server-authoritative protections.
+
+Support:
+
+- Authenticated player sessions.
+- Multiplayer matchmaking.
+- 5v5 team assignment.
+- Multiplayer flight synchronization.
+- Server-authoritative combat.
+- Server-authoritative damage.
+- Operation lifecycle.
+- Reconnection.
+- Disconnect handling.
+- Match completion.
+- Results.
+- Progression.
+- Rewards.
+- Spectating.
+- Concurrent operation instances.
+
+Do not create duplicate identity systems, duplicate reward ledgers, or unnecessary database infrastructure.
+
+Do not bypass existing authentication.
+
+Do not expose hidden competitive information through spectator or universe-level events.
+
+Do not claim ten-human multiplayer based on synthetic test clients.
+
+Test actual authenticated participants before declaring real multiplayer certification.
+
+---
+
+# 12. PERFORMANCE AND MOBILE OPTIMIZATION
+
+The unified engine must be designed for practical deployment on supported mobile devices.
+
+Investigate:
+
+- Rendering performance.
+- Simulation performance.
+- Memory consumption.
+- GPU workload.
+- Network bandwidth.
+- Input latency.
+- Physics update frequency.
+- Entity counts.
+- Effects.
+- Level streaming.
+- Asset loading.
+- Shader performance.
+- Device thermal behavior.
+- Battery consumption.
+
+Use profiling to determine actual bottlenecks.
+
+Implement adaptive rendering and scalable quality settings.
+
+Avoid unnecessary engine duplication, excessive rendering work, and unbounded entity simulation.
+
+The goal is responsive gameplay, stable multiplayer synchronization, and consistent flight controls.
+
+---
+
+# 13. IMPLEMENTATION STRATEGY
+
+Do not attempt a reckless full rewrite.
+
+Implement this as a controlled engine consolidation.
+
+## PHASE 1 — FORENSIC SOURCE AUDIT
+
+Investigate every available build, source directory, branch, and implementation.
+
+Deliver:
+
+- Complete source inventory.
+- Feature extraction matrix.
+- Engine architecture assessment.
+- Dependency map.
+- Physics and control assessment.
+- Multiplayer compatibility assessment.
+- Performance assessment.
+- Integration roadmap.
+
+## PHASE 2 — MAIN ENGINE CONSOLIDATION
+
+Establish Orbital Combat Lab as the primary engine.
+
+Integrate shared:
+
+- Flight physics.
+- Mobile controls.
+- Camera systems.
+- Targeting.
+- Weapons.
+- Damage.
+- HUD.
+- Audio.
+- AI interfaces.
+
+Preserve existing gameplay experiences through adapters.
+
+## PHASE 3 — FLIGHT SYSTEM INTEGRATION
+
+Extract and consolidate the Rust Disc flight mechanics.
+
+Bring the full flight-control and spacecraft handling capabilities into Orbital Combat Lab.
+
+Verify that the original flight experience remains playable.
+
+## PHASE 4 — OPEN-WORLD AND SECTOR INTEGRATION
+
+Extract and integrate the useful capabilities from Operation Iron Eclipse, other open-world builds, Route to Mars, and sector operations.
+
+Build the unified navigation and operational framework.
+
+## PHASE 5 — COMBAT AND MULTIPLAYER INTEGRATION
+
+Integrate the competitive combat framework and server-authoritative operation architecture.
+
+Build the first real multiplayer asteroid competition.
+
+## PHASE 6 — INFINITE UNIVERSE INTEGRATION
+
+Bring the universe exploration and destination systems into the main game.
+
+Connect asteroid arenas, Mars, sectors, and other destinations.
+
+## PHASE 7 — GAMEPLAY MIGRATION
+
+Migrate the remaining Arcade, Campaign, Cooperative, and Wing experiences.
+
+Preserve each mode's distinctive mechanics and validate it against the unified engine.
+
+## PHASE 8 — PERFORMANCE AND CERTIFICATION
+
+Run:
+
+- Automated tests.
+- Physics tests.
+- Flight-control tests.
+- Mobile input tests.
+- Combat tests.
+- Multiplayer integration tests.
+- Reconnection tests.
+- Performance tests.
+- Regression tests.
+- Device compatibility tests.
+- Production-readiness checks.
+
+Do not promote to production without explicit approval.
+
+---
+
+# 14. REQUIRED ENGINE ARCHITECTURE DELIVERABLES
+
+Create and maintain the following architecture documentation:
+
+1. MASTER-ENGINE-ARCHITECTURE.md
+2. FEATURE-EXTRACTION-MATRIX.md
+3. FLIGHT-PHYSICS-AND-CONTROLS.md
+4. MOBILE-CONTROL-SPECIFICATION.md
+5. COMBAT-SYSTEM-ARCHITECTURE.md
+6. UNIFIED-UNIVERSE-ARCHITECTURE.md
+7. MULTIPLAYER-OPERATION-ARCHITECTURE.md
+8. GAME-MODE-MIGRATION-MATRIX.md
+9. PERFORMANCE-AND-DEVICE-VALIDATION.md
+10. ENGINE-REGRESSION-REPORT.md
+
+Documentation must describe the actual implementation, not aspirational features presented as completed work.
+
+---
+
+# 15. DEVELOPMENT RULES
+
+These rules are mandatory.
+
+- Work from the latest verified WFM staging state.
+- Inspect the existing repository before modifying anything.
+- Preserve existing working systems.
+- Do not remove a feature before verifying its replacement.
+- Do not duplicate working systems unnecessarily.
+- Do not create another independent universe application.
+- Do not treat Three.js as the main combat engine.
+- Do not replace the Orbital Combat Lab foundation with an unrelated simulation.
+- Do not force incompatible physics models into one universal physics configuration.
+- Use modular systems and adapters.
+- Maintain server authority.
+- Maintain existing authentication and progression protections.
+- Do not fabricate test results.
+- Do not label incomplete features as finished.
+- Keep implementation changes isolated and reviewable.
+- Run relevant tests after each integration.
+- Preserve the ability to roll back individual migrations.
+- Work in staging and use pull requests.
+- Do not merge to main or deploy to production without authorization.
+
+If a previous build is unavailable, document the missing source and continue only with verified accessible implementations. Never invent its capabilities.
+
+---
+
+# 16. THE FIRST IMPLEMENTATION ASSIGNMENT
+
+Do not begin by redesigning the universe's appearance.
+
+Begin by understanding and consolidating the actual engine.
+
+Your first assignment is:
+
+**Build the unified Orbital Combat Lab engine foundation with the strongest verified capabilities extracted from the previous War for Mars builds.**
+
+Prioritize:
+
+1. Orbital Combat Lab simulation.
+2. Rust Disc flight mechanics.
+3. Mobile flight controls.
+4. Advanced spacecraft dynamics.
+5. Weapons and targeting.
+6. Camera and HUD systems.
+7. Operation Iron Eclipse open-world capabilities.
+8. Route to Mars and sector navigation.
+9. Existing multiplayer operation architecture.
+10. Asteroid competitive operation support.
+
+First demonstrate one spacecraft operating in the consolidated engine with the improved flight mechanics, complete mobile controls, combat functionality, and an operational environment.
+
+Then demonstrate that the same engine foundation can support a separate arcade combat experience without duplicating its underlying systems.
+
+Finally, demonstrate a server-authoritative multiplayer asteroid operation using the consolidated combat engine.
+
+This is the first meaningful vertical slice of the new game.
+
+---
+
+# 17. FINAL SUCCESS CRITERIA
+
+The development is successful only when the following are demonstrably true:
+
+- Orbital Combat Lab is the primary game simulation foundation.
+- The strongest verified Rust Disc flight mechanics have been integrated.
+- The previous mobile control capabilities have been consolidated and improved.
+- Spacecraft dynamics and handling have been substantially enhanced.
+- Weapons, targeting, and combat operate through the unified engine.
+- Useful open-world capabilities have been extracted and integrated.
+- Sector navigation and operational environments work within the main game.
+- Existing gameplay modes can operate through shared engine systems.
+- The asteroid supports actual competitive multiplayer operations.
+- Players can discover and observe real active battles.
+- Multiplayer matches are server-authoritative.
+- Multiple operations can run independently.
+- The original flight simulation remains available.
+- Existing security, progression, and reward protections remain intact.
+- The game performs reliably on supported mobile hardware.
+
+**Do not deliver a collection of disconnected prototypes. Deliver a consolidated, functioning game engine.**
+
+# THE VISION
+
+WAR FOR MARS: INFINITE WAR
+
+ONE MAIN ENGINE.
+
+ONE CONNECTED INFINITE UNIVERSE.
+
+ADVANCED SPACECRAFT FLIGHT AND COMBAT.
+
+MULTIPLE DISTINCT GAMEPLAY EXPERIENCES.
+
+LIVE COMPETITIVE MULTIPLAYER OPERATIONS.
+
+A UNIVERSE THAT PLAYERS CAN EXPLORE, ENTER, COMPETE IN, AND EXPAND.
+
+The purpose of this development is not to preserve the limitations of our earlier builds.
+
+It is to extract everything valuable from those builds, improve it, and use it to create a substantially more capable game.
+
+**Build the game we have been developing toward — not another prototype of the game.**

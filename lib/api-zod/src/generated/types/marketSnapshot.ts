@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EconomyRejection } from './economyRejection';
 import type { InventoryHolding } from './inventoryHolding';
 import type { MarketListing } from './marketListing';
 import type { MarketTransaction } from './marketTransaction';
@@ -13,6 +14,11 @@ import type { WorldEvent } from './worldEvent';
 export interface MarketSnapshot {
   /** @minimum 0 */
   credits: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  rejections: EconomyRejection[];
   inventory: InventoryHolding[];
   listings: MarketListing[];
   transactions: MarketTransaction[];

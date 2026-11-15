@@ -1,0 +1,556 @@
+WFM repository review — current implementation and Stage B
+My assessment: the project has made meaningful technical progress, but the unified game experience has not yet been implemented. I agree that Stage B should now focus on transforming the command center into a proper 3D hangar and connected player journey.
+
+I checked the latest GitHub state, including PR #11, its changed files, the integration branch, its workflow result, and the actual application and combat source.
+1. Current repository status
+PR #11 — Infinite War orbital integration
+Open draft
+
+9 commits
+Integration branch compared with current staging
+Check	Current result
+Branch	integration/infinite-war-orbital-combat
+Head	bebb860e
+Staging base	6671d369
+Ahead / behind	9 / 0
+Changed files	78
+Workspace workflow	Passed
+PR merged	No
+Production deployment	Not performed
+
+[Review PR #11](https://github.com/niakofa-cmyk/WFM/pull/11?utm_source=chatgpt.com) · [View integration branch](https://github.com/niakofa-cmyk/WFM/tree/integration/infinite-war-orbital-combat?utm_source=chatgpt.com)
+
+The workflow attached to the current PR head completed successfully. The PR reports:
+- 53 script tests.
+- 143 API tests.
+- 136 WFM tests.
+- Typecheck and workspace build passing.
+- Two Combat Lab static-build checks.
+- Six deterministic Node/Chromium replays matching frame-for-frame.
+That is good evidence for the code in this PR. It is not proof of production readiness, real multiplayer orbital combat, or physical-device performance.
+
+One repository discrepancy: the Stage A report you supplied says the four new docs/infinite-war/ references are local and uncommitted. They are not in the current PR #11 file list. I can therefore assess the published code, but cannot independently verify those new local audit documents from GitHub yet.
+2. How well have the recommendations been implemented?
+A. Orbital combat foundation
+Substantial progress
+The PR has done several things correctly:
+- Added lib/orbital-sim as a shared rules package.
+- Added quaternion-based spatial flight, thrust, inertial movement and braking.
+- Added target-specific missile acquisition and guided missiles.
+- Added armor absorption and spatial projectile collision.
+- Added a separate offline Combat Lab.
+- Added a server-side orbital authority harness.
+- Preserved the existing live socket and authentication protocol.
+The strongest decision is that the new simulation is shared between the client and the server-side test harness. This reduces the risk of the client and server gradually implementing different combat rules.
+
+The deterministic math work is also valuable. The six replay comparisons passing is a good regression signal.
+B. The new server authority
+Foundation only — not live multiplayer
+The new orbital-authority.ts is a useful simulation harness. It owns ten synthetic pilot seats, fixed ticks, input validation, ammunition, cooldowns, projectiles, damage and destruction.
+
+But the source explicitly says it is not registered with the existing socket service.
+
+That means:
+- The ten seats are test fixtures, not ten authenticated humans.
+- There is no live orbital matchmaking.
+- The orbital snapshots are not being distributed to connected players.
+- There is no live orbital reconnect or match settlement.
+- There are no validated competitive orbital rewards.
+This is the correct way to begin the authority implementation. It would be unsafe to describe it as completed 5v5 multiplayer.
+C. The actual game flow
+Stage B not implemented yet
+This is where I see the biggest remaining problem.
+
+I inspected HomeScreen.tsx. The signed-in player still encounters the same underlying structure visible in your screenshot:
+- Rust Disc 3D Flight
+- Orbital Combat Lab
+- Sector Expedition
+- Campaign Deploy
+- Arcade Skirmish
+- Persistent Galaxy
+- Armory and Upgrades
+- Settings
+- Wing Leaderboard
+- 5v5 Online Wing
+The PR makes some refinements, but it does not replace this command-oriented layout with the unified player journey.
+
+The public landing page in App.tsx also continues to expose separate destinations for solo flight, Rust Disc and the offline Combat Lab.
+
+That is not necessarily wrong during development, but it is not the final product experience.
+D. The Stage A audit
+The reported Stage A work is the right process. The four documents you describe are exactly the kind of deliverables needed before consolidating systems.
+
+However, there is an important distinction:
+- The GitHub PR contains the earlier architecture and feature evaluation references.
+- Your newly reported forensic inventory, architecture assessment and feature integration matrix are still local.
+- The remote PR therefore does not yet contain the complete Stage A deliverable.
+I recommend committing those documents separately, or adding them to the next reviewed integration update, before the next major code migration.
+3. Errors and risks I would address
+I did not find evidence of a failing workspace workflow in the current PR. I did find several issues that need attention before this becomes the canonical runtime.
+Finding	Why it matters	Recommendation
+Combat Lab remains offline	New combat is not yet part of real operations	Keep it as a training entry temporarily, then connect through a coordinated server integration
+Old command menu remains	Player journey is fragmented	Replace the command list with Hangar, Universe and Operations navigation
+3D flight is not the same as complete 6DoF combat	New spatial simulation is still isolated from live Wing	Integrate flight, collision, damage and targeting as one versioned combat contract
+Authority harness has synthetic seats	Not evidence of real ten-player play	Bind authenticated sessions and test real staging players
+Orbital balance is provisional	The Lab uses stronger pilot damage tuning and provisional missile damage	Establish a separate competitive balance profile before ranked play
+Mobile performance is unverified	Successful builds do not establish sustained 60 FPS	Test frame time, memory, thermal behavior and touch response on real Android and iOS devices
+
+A specific technical issue to investigate
+The shared orbital flight rules currently use a simplified boundary and collision model. The flight integrator constrains craft to a radius of 78 simulation units and resolves obstacle contacts using spherical rock collision.
+
+That is acceptable for an initial bounded combat sector, but it is not yet a complete universe-flight model. We need sector boundaries, travel transitions, collision behavior and environmental forces to become explicit simulation rules.
+
+I would also add tests for:
+- Zero-distance and near-zero-distance target geometry.
+- Two or more simultaneous missile impacts.
+- Dead or destroyed target handling.
+- Stale input and target changes during acquisition.
+- Repeated or delayed input packets.
+- Simultaneous ship destruction and match resolution.
+- Snapshot size and simulation cost at maximum sector population.
+These are recommendations for additional coverage, not claims that the existing tests have failed.
+4. Yes: build the hangar around a live 3D ship-selection experience
+I strongly recommend this. In fact, I think it should become the visual and functional centerpiece of Stage B.
+
+Your reference to MetalStorm is a good direction: the player should feel that they are inside a real aircraft hangar, looking at their actual selected spacecraft—not selecting a little ship icon from a list.
+
+I interpret your description as wanting the entire 3D ship hull to be visible, animated and interchangeable in the hangar. I don't have a separate MetalStorm reference image in this message, so the following is the design recommendation rather than an exact visual comparison.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Visual inspiration only. These are not WFM screenshots or existing game assets.
+
+The WFM hangar should work like this
+INFINITE WAR — HANGAR DECK
+Proposed Stage B centerpiece
+
+
+
+
+
+
+
+scinexic.com
+
+
+USSF · PHOBOS YARD
+
+PILOT HANGAR
+
+SELECT YOUR HULL
+A live 3D spacecraft fills the central viewing area.
+
+Live ship presentation
+- Slowly rotating fighter.
+- Engine and propulsion animation.
+- Animated lighting and hull reflections.
+- Camera orbit and zoom.
+- Visible weapon mounts and ship details.
+- Hangar machinery and background activity.
+
+Ship selection
+
+
+
+
+
+
+
+
+
+USSF Interceptor
+
+Fast · Agile · Precision
+Selected hull
+
+
+
+
+
+
+
+
+
+
+
+Heavy Fighter
+
+Armor · Firepower · Endurance
+
+
+
+
+
+
+
+
+
+
+
+Accord Fighter
+
+Energy · Stealth · Advanced systems
+
+
+
+Hangar functions
+- Hull selection
+- Weapon configuration
+- Engine and shield systems
+- Technology upgrades
+- Faction identity
+- Pilot and squadron information
+- Launch operation
+
+The images above are visual references, not approved WFM ship designs. The actual hangar should use the WFM ship roster, faction identities and approved assets.
+The live switching mechanic is especially important
+When the player selects another ship, the actual 3D model in the hangar should change.
+
+It should not simply change the displayed ship name.
+
+The selection should:
+1. Transition the currently displayed hull out of the presentation position.
+2. Load or activate the selected ship's actual 3D model.
+3. Animate it into the display position.
+4. Update its faction markings, propulsion, weapon mounts and lighting.
+5. Update its real ship statistics and available loadout.
+6. Allow the player to rotate and inspect the model.
+7. Save the selected ship through the existing account/loadout system when confirmed.
+The model and its gameplay identity must come from the same canonical ship definition. This prevents the hangar from showing a ship with statistics or equipment that do not match the actual combat simulation.
+
+We should reuse and improve the existing SHIPS, ROSTER and procedural ship-visual systems rather than invent a separate hangar roster.
+5. How sign-in should work
+I recommend a persistent pilot account, but not forcing players to sign in before they can even see the game.
+
+The current App.tsx already distinguishes signed-in players from guests:
+- Signed-in users enter WarApp.
+- Unsigned users see PublicLanding.
+- Sign-in and sign-up use Clerk.
+- The offline Combat Lab and some flight experiences remain accessible independently.
+That is a reasonable security foundation. The next step is to make the experience more intentional.
+Recommended account journey
+WAR FOR MARS: THE INFINITE WAR
+
+Cinematic introduction
+
+
+New pilot
+
+Create account / sign up
+
+
+Returning pilot
+
+Sign in / resume
+
+
+
+
+PERSONAL HANGAR
+
+Saved faction · ship · loadout · progression
+
+
+OPERATIONS / UNIVERSE
+
+Select the next mission and deploy
+
+
+Guest players may preview the world and use clearly identified offline training. However, persistent ship ownership, saved loadouts, campaign progress and competitive participation should require an authenticated account.
+
+When a guest signs in, return them to the same intended experience rather than dropping them back at an unrelated landing page.
+6. How I would implement Stage B
+I would divide Stage B into five development deliverables.
+Stage	Implementation	Acceptance proof
+B1	Unified onboarding and account entry	New and returning players reach the correct hangar
+B2	3D hangar environment	Live 3D ship displayed in the hangar
+B3	Interactive hull selection	Switching ships changes actual model and stats
+B4	Hangar operations interface	Loadout, upgrades, faction and mission selection work
+B5	Connected deployment loop	Hangar → briefing → sector → combat → debrief → hangar
+
+B1 — Build the unified entry experience
+Replace the existing collection of command cards with a proper entry and onboarding flow.
+
+Preserve Clerk and existing account services. Do not create another authentication mechanism.
+B2 — Build the actual 3D hangar
+Create a reusable Three.js hangar scene.
+
+Use:
+- A central ship display platform.
+- A large hangar interior with open space and depth.
+- Animated hangar lighting.
+- Visible repair and maintenance activity.
+- A view of Mars or the surrounding orbital environment.
+- A controlled camera system.
+- Performance-aware lighting, shadows and model detail.
+The hangar should work on mobile as well as desktop. It must not require a high-end desktop GPU just to open the main game screen.
+B3 — Connect ship selection
+Use the existing ship roster and gameplay statistics.
+
+Every selectable ship should have:
+- A real 3D model.
+- Faction and ship-class identity.
+- Correct movement characteristics.
+- Shield, armor and hull statistics.
+- Weapon compatibility.
+- Upgrade availability.
+- Actual selection and persistence behavior.
+B4 — Make the hangar the central operations hub
+The player should access the rest of the game through contextual interfaces:
+- Hangar: ships, loadouts and technology.
+- Operations: campaign and cooperative missions.
+- Universe: star systems, sectors and travel.
+- Warfront: competitive faction warfare.
+- Squadron: friends, team and multiplayer activities.
+- Pilot Profile: achievements, records and progression.
+The player should not need to return to the old command menu to move between these systems.
+B5 — Prove the entire loop
+The first complete Stage B demonstration should be:
+
+Sign in → Hangar → Select USSF fighter → Change weapon loadout → Select Rust Disc operation → Launch into orbital combat → Destroy target → Complete objective → Debrief → Return to hangar.
+
+The same player identity and saved loadout must survive the journey.
+
+This is the point where we can say the player is entering a cohesive game rather than opening separate prototypes.
+
+7. The next development assignment
+I would give the development AI this specific instruction now, after attaching your master directive and the new Stage A audit documents.
+WFM STAGE B — UNIFIED 3D HANGAR AND PLAYER JOURNEY
+You are continuing development of WAR FOR MARS: THE INFINITE WAR.
+
+Use the current staging-based integration branch, PR #11, the Infinite War master directive, and the Stage A forensic inventory as your authoritative implementation references.
+OBJECTIVE
+Replace the current signed-in command-center experience with a unified, cinematic, interactive 3D spacecraft hangar that becomes the central player environment.
+
+The hangar must be a real, functioning part of the existing WFM game runtime, not a standalone mockup or separate application.
+1. AUTHENTICATION AND PLAYER ENTRY
+Preserve existing Clerk authentication, account ownership, saved progression, loadout persistence and current authorization boundaries.
+
+Implement a coherent new-pilot and returning-pilot journey.
+- New players can create an account and enter onboarding.
+- Returning players sign in and resume their saved experience.
+- Signed-in players enter their personal hangar.
+- Guests may access clearly labeled offline training and limited previews.
+- Guests cannot claim persistent progression, rewards or competitive results.
+- Restore the intended route after authentication.
+Do not create a duplicate account system or bypass existing security.
+2. BUILD THE 3D HANGAR
+Use the existing Three.js/Vite runtime.
+
+Create a reusable hangar scene with:
+- Large futuristic military spacecraft hangar.
+- Central 3D ship display platform.
+- Real-time ship rendering.
+- Detailed lighting and metallic materials.
+- Animated propulsion and engine glow.
+- Hangar machinery and background activity.
+- Camera orbit, zoom and inspection controls.
+- Mars/orbital environment visible beyond the hangar.
+- USSF and Accord visual identities.
+- Responsive mobile layout and touch controls.
+The player must see the actual selected spacecraft in the hangar.
+
+Do not substitute static illustrations, cards or screenshots for the live 3D ship.
+
+Do not introduce a second engine or duplicate Three.js scene framework.
+3. IMPLEMENT LIVE SHIP SELECTION
+Integrate the existing canonical SHIPS and ROSTER definitions.
+
+Each selectable ship must display its actual model and correct faction, statistics, role, weapons and capabilities.
+
+When a player switches ships:
+- The central 3D ship must change.
+- The new model must load correctly.
+- Ship-specific visual details must update.
+- Faction identity must update.
+- Ship statistics must update.
+- Compatible loadouts must update.
+- The selected ship must save through existing authenticated persistence when confirmed.
+Create a polished animated transition between hull selections.
+
+No fake selections. No ship cards that change the label but leave the same model visible.
+4. HANGAR INTERFACE
+The hangar must provide:
+- Ship selection.
+- Faction identity.
+- Weapon loadout.
+- Engine and shield configuration.
+- Armor and subsystem inspection.
+- Technology and upgrade access.
+- Player callsign and progression.
+- Squadron entry.
+- Mission launch.
+Use WFM's established solar, bone, spectral and void visual identity.
+5. UNIFY THE GAME JOURNEY
+Replace the current wall of unrelated command links with a coherent structure.
+
+Primary destinations:
+- HANGAR
+- OPERATIONS
+- UNIVERSE
+- WARFRONT
+- SQUADRON
+- PILOT PROFILE
+Existing campaign, Rust Disc, Combat Lab, cooperative expedition, Iron Eclipse, 5v5 Wing, armory, market and galaxy capabilities must be assessed and routed into these destinations.
+
+Do not delete functional systems before their replacement is proven.
+
+Keep the Combat Lab visibly identified as offline training until it is integrated with authoritative orbital multiplayer.
+6. CONNECT THE FIRST MISSION LOOP
+Implement the first working sequence:
+
+Sign in → Hangar → Select ship → Configure loadout → Select campaign operation → Mission briefing → Launch → Combat → Objective completion → Debrief → Return to hangar.
+
+Use existing mission, combat, account and progression contracts.
+
+Do not fabricate mission completion, rewards or saved state.
+7. PERFORMANCE AND TESTING
+Preserve current builds and automated tests.
+
+Add tests for:
+- Authentication routing.
+- Guest versus signed-in access.
+- Ship model switching.
+- Correct model-to-roster mapping.
+- Faction and loadout changes.
+- Persistence of selected ship.
+- Hangar resource cleanup.
+- Route continuity from hangar to operation and back.
+- Mobile layout and touch interaction.
+Measure scene loading, frame timing, GPU resource disposal and memory.
+
+Verify the scene on actual supported mobile devices before claiming mobile performance targets.
+8. REQUIRED DELIVERY
+First inspect the current repository and Stage A audit.
+
+Then implement the first working Stage B slice.
+
+Deliver:
+1. Updated architecture and player-journey documentation.
+2. Working 3D hangar.
+3. Actual live ship selection.
+4. Connected account and loadout behavior.
+5. Unified Hangar / Operations / Universe navigation.
+6. A working first mission launch and return flow.
+7. Automated tests and build evidence.
+8. Screenshots or recordings of the actual running hangar.
+9. A detailed list of implemented, incomplete and blocked features.
+Work on a staging-based review branch.
+
+Do not merge to main or deploy Production.
+
+The objective is to make the hangar the player's home inside one continuous game universe—not to create another separate command screen.
+
+
+
+
+8. Final recommendation
+I would make the hangar the first major visual milestone of Infinite War.
+
+The orbital combat work is giving us a stronger combat foundation. Stage A has established the audit and architectural direction. Stage B should now give the player a reason to feel that they have entered a real universe.
+
+The hangar is where the player identifies with their faction, sees their ship, makes meaningful decisions, prepares for the next operation and returns after battle.
+
+My recommended order is: Stage B hangar and player journey first, then the connected mission loop, then the live multiplayer orbital integration.
+
+I would keep PR #11 open as the technical foundation, get the reported Stage A documents into the repository, and implement Stage B as a separate, reviewable continuation. No production deployment or destructive restructuring is needed to start this work.

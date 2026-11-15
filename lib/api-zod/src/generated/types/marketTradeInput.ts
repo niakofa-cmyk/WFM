@@ -17,4 +17,6 @@ export interface MarketTradeInput {
      * @maximum 50
      */
   quantity: number;
+  /** @minimum 1 */
+  totalLimit?: number;
 }

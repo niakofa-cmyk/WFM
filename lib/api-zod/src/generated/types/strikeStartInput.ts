@@ -20,4 +20,5 @@ export interface StrikeStartInput {
   mission: StrikeStartInputMission;
   /** @nullable */
   tech: StrikeStartInputTech;
+  supportsOrbitalReplay?: boolean;
 }

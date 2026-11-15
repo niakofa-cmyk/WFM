@@ -1,5 +1,8 @@
 import type { PresetId, Scheme } from "./ships";
 import type { StepInput } from "./sim";
+import { toOrbitalPilotStepInput, toOrbitalStepInput } from "./flight-control";
+import { COORDINATED_BANK, mapFlightStickAxes, type ManeuverPulse } from "./pilot-stick-gestures";
+import { rightThumbFlightAxes, type RightThumbProfile, newVectorBoost, startVectorBoost, stepVectorBoost, type VectorBoostState, type VectorBoostDirection } from "@workspace/orbital-sim";
 
 export type Bus = {
   keys: Set<string>;
@@ -9,10 +12,22 @@ export type Bus = {
   leftY: number;
   rightX: number;
   rightY: number;
+  rightThumbProfile?: RightThumbProfile;
+  rightBoost?: VectorBoostState;
+  rightBoostSampleAt?: number;
+  flightEnergy?: number;
   fireCanvas: boolean;
   fireButton: boolean;
+  firePulse: boolean;
   ultPulse: boolean;
   lockPulse: boolean;
+  missilePulse: boolean;
+  countermeasurePulse: boolean;
+  circularRoll: number;
+  circularRollStartedAt: number;
+  circularRollUntil: number;
+  inertialPulse: boolean;
+  aimAssistPulse: boolean;
   evadePulse: number;
   presetPulse: PresetId | null;
   gyroYaw: number;
@@ -22,6 +37,15 @@ export type Bus = {
   eWas: boolean;
   fWas: boolean;
   rWas: boolean;
+  orbital?: boolean;
+  /** The offline Orbital Combat Lab touch mapping; live Wing retains its proven input contract. */
+  leftStickFlight?: boolean;
+  /** Countermeasures are enabled only where the active runtime contract supports them. */
+  countermeasureEnabled?: boolean;
+  verticalPulse: number;
+  strafePulse: number;
+  pulseTimers: { vertical: ReturnType<typeof setTimeout> | null; strafe: ReturnType<typeof setTimeout> | null };
+  lastKeys?: Set<string>;
 };
 
 export function createBus(scheme: Scheme): Bus {
@@ -35,8 +59,16 @@ export function createBus(scheme: Scheme): Bus {
     rightY: 0,
     fireCanvas: false,
     fireButton: false,
+    firePulse: false,
     ultPulse: false,
     lockPulse: false,
+    missilePulse: false,
+    countermeasurePulse: false,
+    circularRoll: 0,
+    circularRollStartedAt: 0,
+    circularRollUntil: 0,
+    inertialPulse: false,
+    aimAssistPulse: false,
     evadePulse: 0,
     presetPulse: null,
     gyroYaw: 0,
@@ -46,10 +78,21 @@ export function createBus(scheme: Scheme): Bus {
     eWas: false,
     fWas: false,
     rWas: false,
+    verticalPulse: 0,
+    strafePulse: 0,
+    pulseTimers: { vertical: null, strafe: null },
   };
 }
 
 export function clearInput(bus: Bus) {
+  if (bus.rightBoost) bus.rightBoost.remaining = 0;
+  bus.rightBoostSampleAt = undefined;
+  if (bus.pulseTimers.vertical) clearTimeout(bus.pulseTimers.vertical);
+  if (bus.pulseTimers.strafe) clearTimeout(bus.pulseTimers.strafe);
+  bus.pulseTimers.vertical = null;
+  bus.pulseTimers.strafe = null;
+  bus.verticalPulse = 0;
+  bus.strafePulse = 0;
   bus.keys.clear();
   bus.override = null;
   bus.steerOverride = null;
@@ -59,8 +102,16 @@ export function clearInput(bus: Bus) {
   bus.rightY = 0;
   bus.fireCanvas = false;
   bus.fireButton = false;
+  bus.firePulse = false;
   bus.ultPulse = false;
   bus.lockPulse = false;
+  bus.missilePulse = false;
+  bus.countermeasurePulse = false;
+  bus.circularRoll = 0;
+  bus.circularRollStartedAt = 0;
+  bus.circularRollUntil = 0;
+  bus.inertialPulse = false;
+  bus.aimAssistPulse = false;
   bus.evadePulse = 0;
   bus.presetPulse = null;
   bus.gyroYaw = 0;
@@ -69,26 +120,115 @@ export function clearInput(bus: Bus) {
   bus.eWas = false;
   bus.fWas = false;
   bus.rWas = false;
+  bus.lastKeys?.clear();
+}
+
+/** Offline input projects the burst into legacy replayable axes; shared flight requests it separately. */
+export function requestRightVectorBoost(bus: Bus, direction: VectorBoostDirection, at = Date.now(), disabled = false) {
+  if (disabled || !bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim" ||
+      !Number.isFinite(at) || at < 0) return false;
+  bus.rightBoost ??= newVectorBoost();
+  const accepted = startVectorBoost(bus.rightBoost, direction, bus.flightEnergy ?? 100);
+  if (accepted) bus.rightBoostSampleAt = at;
+  return accepted;
+}
+
+export function pulseVectorManeuver(bus: Bus, pulse: ManeuverPulse, durationMs = 180) {
+  const timer = bus.pulseTimers[pulse.axis];
+  if (timer) clearTimeout(timer);
+  if (pulse.axis === "vertical") bus.verticalPulse = pulse.direction;
+  else bus.strafePulse = pulse.direction;
+  bus.pulseTimers[pulse.axis] = setTimeout(() => {
+    if (pulse.axis === "vertical") bus.verticalPulse = 0;
+    else bus.strafePulse = 0;
+    bus.pulseTimers[pulse.axis] = null;
+  }, Math.max(1, durationMs));
+}
+
+/** Continuous roll is buffered by the Orbital adapter and forwarded only when the server advertises support. */
+export const MAX_CIRCULAR_ROLL_HOLD_MS = 120;
+
+export function setCircularRollControl(bus: Bus, input: number, at = Date.now(), holdMs = MAX_CIRCULAR_ROLL_HOLD_MS) {
+  if (
+    !bus.orbital || !bus.leftStickFlight ||
+    !Number.isFinite(input) || Math.abs(input) < 0.01 ||
+    !Number.isFinite(at) || at < 0 ||
+    !Number.isFinite(holdMs) || holdMs <= 0
+  ) {
+    bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
+    bus.circularRollUntil = 0;
+    return;
+  }
+  bus.circularRoll = Math.max(-1, Math.min(1, input));
+  bus.circularRollStartedAt = at;
+  bus.circularRollUntil = at + Math.min(MAX_CIRCULAR_ROLL_HOLD_MS, Math.max(1, holdMs));
 }
 
 function clamp(n: number): number {
   return Math.max(-1, Math.min(1, n));
 }
 
-export function readInput(bus: Bus): StepInput {
+const STICK_DEAD_ZONE = 0.08;
+
+export function stickAxesFromDelta(dx: number, dy: number, maxDistance: number) {
+  if (
+    !Number.isFinite(dx) ||
+    !Number.isFinite(dy) ||
+    !Number.isFinite(maxDistance) ||
+    maxDistance <= 0
+  ) {
+    return { x: 0, y: 0 };
+  }
+
+  const distance = Math.hypot(dx, dy);
+  if (distance <= maxDistance * STICK_DEAD_ZONE) return { x: 0, y: 0 };
+
+  const magnitude =
+    (Math.min(distance, maxDistance) / maxDistance - STICK_DEAD_ZONE) /
+    (1 - STICK_DEAD_ZONE);
+  return {
+    x: clamp((dx / distance) * magnitude),
+    y: clamp((dy / distance) * magnitude),
+  };
+}
+
+export function readThrottle(bus: Bus): number {
+  const keys = bus.override ?? bus.keys;
+  const keyThr =
+    (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
+    (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+  const stickThr = -bus.leftY;
+  return clamp(bus.orbital
+    ? keyThr + (bus.leftStickFlight ? stickThr : 0)
+    : keyThr + stickThr);
+}
+
+export function readInput(bus: Bus, at = Date.now()): StepInput {
+  if (bus.rightBoost && (!bus.orbital || !bus.leftStickFlight || bus.rightThumbProfile?.mode === "aim")) {
+    bus.rightBoost.remaining = 0;
+  }
   const keys = bus.override ?? bus.keys;
   const keyLeft = keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0;
   const keyRight = keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0;
   const keyYaw = keyLeft - keyRight;
-  const keyThr =
-    (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
-    (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
-  const stickYaw = -bus.leftX;
-  const stickThr = -bus.leftY;
-  const aimYaw = -bus.rightX;
+  const keyFlightYaw = keyRight - keyLeft;
+  const orbitalFlightStick = bus.orbital && bus.leftStickFlight
+    ? mapFlightStickAxes(bus.leftX, 0)
+    : null;
+  const stickYaw = orbitalFlightStick?.yaw ?? -bus.leftX;
+  const rightAxes = bus.orbital && bus.leftStickFlight && bus.rightThumbProfile
+    ? rightThumbFlightAxes(bus.rightX, bus.rightY, bus.rightThumbProfile) : null;
+  const orbitalAim = rightAxes ?? (bus.orbital ? mapFlightStickAxes(bus.rightX, bus.rightY) : null);
+  const aimYaw = orbitalAim?.yaw ?? -bus.rightX;
+  const flightYaw = bus.leftStickFlight
+    ? clamp((bus.orbital ? keyFlightYaw : keyYaw) + (orbitalFlightStick?.yaw ?? stickYaw))
+    : 0;
   let yaw = 0;
   let strafe = 0;
-  if (bus.scheme === "arc") {
+  if (bus.orbital && bus.leftStickFlight) {
+    yaw = clamp(aimYaw + bus.gyroYaw + flightYaw);
+  } else if (bus.scheme === "arc") {
     yaw = clamp(keyYaw + stickYaw + aimYaw * 0.75 + bus.gyroYaw);
     strafe = 0;
   } else {
@@ -96,9 +236,25 @@ export function readInput(bus: Bus): StepInput {
     strafe = clamp(keyYaw + stickYaw);
   }
   if (bus.steerOverride != null) yaw = clamp(bus.steerOverride);
-  const throttle = clamp(keyThr + stickThr);
-  const pitch = clamp(-bus.rightY + bus.gyroPitch);
-  const fire = bus.fireCanvas || bus.fireButton || keys.has("Space");
+  const throttle = readThrottle(bus);
+  const flightPitch = orbitalFlightStick?.pitch ?? 0;
+  const aimPitch = orbitalAim?.pitch ?? -bus.rightY;
+  const pitch = clamp(aimPitch + bus.gyroPitch + flightPitch);
+  const fire = bus.fireCanvas || bus.fireButton || bus.firePulse || keys.has("Space");
+  bus.firePulse = false;
+  const circularRoll = bus.orbital && bus.leftStickFlight &&
+    Number.isFinite(at) && at >= 0 &&
+    Number.isFinite(bus.circularRoll) && Number.isFinite(bus.circularRollUntil) &&
+    Number.isFinite(bus.circularRollStartedAt) &&
+    at >= bus.circularRollStartedAt && at < bus.circularRollUntil &&
+    bus.circularRollUntil - bus.circularRollStartedAt <= MAX_CIRCULAR_ROLL_HOLD_MS
+    ? clamp(bus.circularRoll)
+    : 0;
+  if (circularRoll === 0) {
+    bus.circularRoll = 0;
+    bus.circularRollStartedAt = 0;
+    bus.circularRollUntil = 0;
+  }
   const fDown = keys.has("KeyF");
   const ult = bus.ultPulse || (fDown && !bus.fWas);
   bus.ultPulse = false;
@@ -120,5 +276,45 @@ export function readInput(bus: Bus): StepInput {
   bus.eWas = e;
   const preset = bus.presetPulse;
   bus.presetPulse = null;
+  if (bus.orbital) {
+    const axis = (positive: string, negative: string) => Number(keys.has(positive)) - Number(keys.has(negative));
+    const pulse = (key: string) => keys.has(key) && !bus.lastKeys?.has(key);
+    const inertial = bus.inertialPulse || pulse("KeyG");
+    const missile = bus.missilePulse || pulse("KeyM");
+    const countermeasure = bus.countermeasurePulse;
+    const aimAssist = bus.aimAssistPulse || pulse("KeyH");
+    bus.inertialPulse = false;
+    bus.missilePulse = false;
+    bus.countermeasurePulse = false;
+    bus.aimAssistPulse = false;
+    const controls = {
+      throttle, yaw,
+      strafe: clamp(axis("KeyZ", "KeyX") + (bus.leftStickFlight ? bus.strafePulse : -bus.leftX) + (rightAxes?.strafe ?? 0)),
+      pitch: clamp(pitch + axis("KeyI", "KeyK")),
+      roll: clamp((bus.orbital && bus.leftStickFlight ? axis("KeyE", "KeyQ") : axis("KeyQ", "KeyE")) + flightYaw * COORDINATED_BANK),
+      vertical: clamp(axis("KeyC", "KeyV") + (bus.leftStickFlight ? bus.verticalPulse : -bus.leftY) + (rightAxes?.vertical ?? 0)),
+      fire, lock,
+      boost: keys.has("ShiftLeft") || keys.has("ShiftRight"), brake: keys.has("KeyB"),
+      drift: keys.has("KeyT"), inertial, missile, countermeasure, aimAssist,
+      ...(bus.leftStickFlight && circularRoll !== 0
+        ? { maneuver: { version: 1 as const, kind: "barrel-roll-control" as const, input: circularRoll } }
+        : {}),
+    };
+    const result = bus.leftStickFlight
+      ? toOrbitalPilotStepInput(controls)
+      : toOrbitalStepInput(controls);
+    if (!bus.countermeasureEnabled) delete result.countermeasure;
+    bus.lastKeys = new Set(keys);
+    if (bus.rightBoost) {
+      if (!Number.isFinite(at) || at < 0) throw new RangeError("Invalid vector boost sample time");
+      const elapsed = at - (bus.rightBoostSampleAt ?? at);
+      // A wall-clock correction cannot extend an active maneuver.
+      if (elapsed < 0) bus.rightBoost.remaining = 0;
+      const dt = Math.max(0, Math.min(.1, elapsed / 1000));
+      bus.rightBoostSampleAt = at;
+      return { ...result, ...stepVectorBoost(bus.rightBoost, result, dt) };
+    }
+    return result;
+  }
   return { throttle, yaw, strafe, pitch, fire, ult, lock, evade, preset };
 }

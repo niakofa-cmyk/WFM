@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
+  playerInventoryTable,
   playerQuestsTable,
   playerWorldStateTable,
   progressionEventsTable,
@@ -16,12 +17,28 @@ import type {
   WorldTravelResult,
 } from "@workspace/api-zod";
 import { ensureCurrentWorldEvent, type DbTransaction } from "./market";
+import { buildActivities } from "./world-activities";
+import { clampStanding, gateReason, requirements, routeFare, returnLane } from "./world-rules";
+import { adjustedFare, cargoCapacity, cargoUsed, installedUpgrades } from "./economy-rules";
+import { recentRejections } from "./economy-audit";
+import { worldEventRules } from "./world-event-rules";
+import { narrativeArchiveForDiscoveries } from "./campaign-narrative";
 
 type LocationDefinition = WorldState["locations"][number];
 type QuestDefinition = Omit<WorldState["quests"][number], "status">;
 type RouteDefinition = { destinationId: string; costCredits: number };
 
 const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
+  {
+    id: "outer-fringe", name: "Outer Fringe Anchorage", kind: "station", x: 28, y: 12, unlockAfter: 1,
+    description: "A frontier salvage exchange beyond the old convoy lanes. Better surveyed wrecks supply the faction fleets.",
+    services: ["Market", "Salvage", "Faction contracts"],
+  },
+  {
+    id: "deep-nebula", name: "Deep Nebula Observatory", kind: "station", x: 10, y: 84, unlockAfter: 3,
+    description: "A restricted research port. Trusted pilots can study the signal or trade contraband at a lasting diplomatic cost.",
+    services: ["Research", "Black market", "Faction contracts"],
+  },
   {
     id: "phobos-yard",
     name: "Phobos Yard",
@@ -30,7 +47,7 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
     y: 52,
     unlockAfter: 0,
     description: "A crowded repair yard built into Phobos's shadow. The market and dispatch boards are always open.",
-    services: ["Market", "Armory", "Contracts"],
+    services: ["Market", "Refinery", "Material refits", "Hyperdrive", "Contracts"],
   },
   {
     id: "rust-disc",
@@ -41,6 +58,16 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
     unlockAfter: 0,
     description: "A dead communications relay, still carrying a faint recording from the first Mars convoy.",
     services: ["Discovery", "Salvage"],
+  },
+  {
+    id: "cinder-asteroid",
+    name: "Cinder Ring",
+    kind: "asteroid",
+    x: 44,
+    y: 74,
+    unlockAfter: 0,
+    description: "A navigable asteroid field off the Rust Disc relay. Its local flight circuit is a separate no-reward specialist operation; no live match is currently hosted here.",
+    services: ["Flight circuit", "Operation directory"],
   },
   {
     id: "pale-beacons",
@@ -84,11 +111,21 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
   },
 ];
 
+/** Public chart coordinates reused by the server's bounded patrol scene projection. */
+export const WORLD_LOCATION_COORDINATES: Readonly<Record<string, { x: number; y: number }>> =
+  Object.freeze(Object.fromEntries(LOCATIONS.map(({ id, x, y }) => [id, { x, y }])));
+
 const ROUTES: Record<string, RouteDefinition[]> = {
-  "phobos-yard": [{ destinationId: "rust-disc", costCredits: 8 }],
+  "phobos-yard": [{ destinationId: "rust-disc", costCredits: 8 }, { destinationId: "outer-fringe", costCredits: 20 }],
+  "outer-fringe": [{ destinationId: "phobos-yard", costCredits: 20 }, { destinationId: "deep-nebula", costCredits: 35 }],
+  "deep-nebula": [{ destinationId: "outer-fringe", costCredits: 35 }],
   "rust-disc": [
     { destinationId: "phobos-yard", costCredits: 8 },
     { destinationId: "pale-beacons", costCredits: 12 },
+    { destinationId: "cinder-asteroid", costCredits: 10 },
+  ],
+  "cinder-asteroid": [
+    { destinationId: "rust-disc", costCredits: 10 },
   ],
   "pale-beacons": [
     { destinationId: "rust-disc", costCredits: 12 },
@@ -104,6 +141,19 @@ const ROUTES: Record<string, RouteDefinition[]> = {
   ],
   "mars-signal": [{ destinationId: "dust-lane", costCredits: 26 }],
 };
+
+/**
+ * Strategic patrol routes mirror the server-owned travel graph. Keeping this
+ * derived from ROUTES prevents patrol AI from routing through unreachable
+ * locations or maintaining a second navigation map.
+ */
+export const WORLD_PATROL_SECTOR_NETWORK: Readonly<Record<string, readonly string[]>> =
+  Object.fromEntries(
+    Object.entries(ROUTES).map(([locationId, routes]) => [
+      locationId,
+      routes.map((route) => route.destinationId),
+    ]),
+  );
 
 const QUESTS: QuestDefinition[] = [
   {
@@ -160,7 +210,7 @@ function eventResponse(event: Awaited<ReturnType<typeof ensureCurrentWorldEvent>
   return {
     eventId: event.eventId,
     title: event.title,
-    description: event.description,
+    description: `${event.description} ${worldEventRules(event.eventId).summary}`,
     cycleDate: new Date(`${event.cycleDate}T00:00:00.000Z`),
     startsAt: event.startsAt,
     endsAt: event.endsAt,
@@ -190,7 +240,9 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
   const questRows = new Map(playerQuests.map((item) => [item.questId, item]));
   const locations: LocationDefinition[] = LOCATIONS.map((location) => ({
     ...location,
-    unlocked: profile.cleared >= location.unlockAfter,
+    ...requirements(location.id),
+    lockReason: gateReason(location, profile.cleared, world.hyperdriveTier, profile.faction === "ussf" ? world.ussfReputation : world.accordReputation),
+    unlocked: !gateReason(location, profile.cleared, world.hyperdriveTier, profile.faction === "ussf" ? world.ussfReputation : world.accordReputation),
     explored: discoveredIds.has(location.id),
   }));
   if (!LOCATIONS.some((location) => location.id === world.currentLocation)) {
@@ -201,7 +253,8 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     if (!destination) throw new Error(`World route points to unknown location ${route.destinationId}.`);
     return {
       ...route,
-      available: profile.cleared >= destination.unlockAfter,
+      costCredits: adjustedFare(routeFare(destination.id, route.costCredits, event.eventId), profile.driveEfficiency),
+      available: !gateReason(destination, profile.cleared, world.hyperdriveTier, returnLane(world.currentLocation, destination.id) ? 100 : profile.faction === "ussf" ? world.ussfReputation : world.accordReputation),
     };
   });
   const quests = QUESTS.map((quest) => {
@@ -217,7 +270,28 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
         : unlocked ? "available" : "locked";
     return { ...quest, status };
   });
+  const inventory = await tx.select().from(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
+  const completedRows = await tx.select().from(progressionEventsTable).where(and(
+    eq(progressionEventsTable.userId, userId), eq(progressionEventsTable.kind, "world_service"),
+    sql`${progressionEventsTable.result}->>'cycleDate' = ${event.cycleDate}`,
+    sql`${progressionEventsTable.result}->>'locationId' = ${world.currentLocation}`,
+  ));
+  const history = await tx.select().from(progressionEventsTable)
+    .where(and(eq(progressionEventsTable.userId, userId), eq(progressionEventsTable.kind, "world_service")))
+    .orderBy(desc(progressionEventsTable.createdAt)).limit(20);
   return {
+    hyperdriveTier: world.hyperdriveTier,
+    cargoUsed: cargoUsed(inventory), cargoCapacity: cargoCapacity(profile), installedUpgrades: installedUpgrades(profile),
+    rejections: await recentRejections(tx, userId),
+    inventory: inventory.map(({ goodId, quantity }) => ({ goodId: goodId as "salt" | "iron" | "dust" | "resin", quantity })),
+    activities: buildActivities({
+      locationId: world.currentLocation, eventId: event.eventId, refit: profile.refit, tier: world.hyperdriveTier,
+      standing: profile.faction === "ussf" ? world.ussfReputation : world.accordReputation, credits: profile.credits,
+      inventory, completed: new Set(completedRows.map((row) => String(row.result.serviceId))),
+      explored: discoveredIds.has(world.currentLocation),
+      upgrades: profile, cleared: profile.cleared,
+    }),
+    history: history.map((row) => ({ id: row.id, title: String(row.result.title ?? "World activity"), creditsDelta: row.amount, createdAt: row.createdAt })),
     event: eventResponse(event),
     reputation: {
       accord: world.accordReputation,
@@ -227,6 +301,7 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     routes,
     locations,
     discoveries: [...discoveredIds],
+    narrative: narrativeArchiveForDiscoveries(discoveries),
     quests,
   };
 }
@@ -235,7 +310,7 @@ export async function getWorldSnapshot(userId: string) {
   return db.transaction((tx) => worldSnapshotInTransaction(tx, userId));
 }
 
-async function lockedPlayerRows(tx: DbTransaction, userId: string) {
+export async function lockedPlayerRows(tx: DbTransaction, userId: string) {
   await ensurePlayerRows(tx, userId);
   const [profile] = await tx
     .select()
@@ -251,7 +326,7 @@ async function lockedPlayerRows(tx: DbTransaction, userId: string) {
   return { profile, world };
 }
 
-async function findActionEvent(tx: DbTransaction, userId: string, key: string, action: string, targetId: string) {
+export async function findActionEvent(tx: DbTransaction, userId: string, key: string, action: string, targetId: string) {
   const [event] = await tx
     .select()
     .from(progressionEventsTable)
@@ -271,6 +346,7 @@ export async function travelToWorldLocation(
   userId: string,
   destinationId: string,
   idempotencyKey: string,
+  maxCost?: number,
 ): Promise<WorldTravelResult> {
   const destination = LOCATIONS.find((location) => location.id === destinationId);
   if (!destination) throw new WorldError("That location does not exist.", 404);
@@ -289,14 +365,16 @@ export async function travelToWorldLocation(
       (candidate) => candidate.destinationId === destinationId,
     );
     if (!route) throw new WorldError("That location is not connected to your current route.", 400);
-    if (profile.cleared < destination.unlockAfter) {
-      throw new WorldError("Complete more campaign missions to unlock that route.", 400);
-    }
-    if (profile.credits < route.costCredits) {
+    const event = await ensureCurrentWorldEvent(tx);
+    const reason = gateReason(destination, profile.cleared, world.hyperdriveTier, returnLane(world.currentLocation, destination.id) ? 100 : profile.faction === "ussf" ? world.ussfReputation : world.accordReputation);
+    if (reason) throw new WorldError(reason, 400);
+    const fare = adjustedFare(routeFare(destinationId, route.costCredits, event.eventId), profile.driveEfficiency);
+    if (maxCost !== undefined && fare > maxCost) throw new WorldError("The route fare changed. Review the current fare before travelling.", 409);
+    if (profile.credits < fare) {
       throw new WorldError("You do not have enough credits to pay the route fare.", 400);
     }
 
-    const creditsAfter = profile.credits - route.costCredits;
+    const creditsAfter = profile.credits - fare;
     await tx
       .update(playerProgressTable)
       .set({
@@ -317,7 +395,7 @@ export async function travelToWorldLocation(
       userId,
       idempotencyKey,
       kind: "world_travel",
-      amount: -route.costCredits,
+      amount: -fare,
       balanceBefore: profile.credits,
       balanceAfter: creditsAfter,
       result: {
@@ -330,7 +408,7 @@ export async function travelToWorldLocation(
     return {
       world: await worldSnapshotInTransaction(tx, userId),
       credits: creditsAfter,
-      travelCost: route.costCredits,
+      travelCost: fare,
       replayed: false,
     };
   });
@@ -353,9 +431,8 @@ export async function exploreWorldLocation(
         reputationGain: 0,
       };
     }
-    if (profile.cleared < location.unlockAfter) {
-      throw new WorldError("Complete more campaign missions to unlock that location.", 400);
-    }
+    const reason = gateReason(location, profile.cleared, world.hyperdriveTier, profile.faction === "ussf" ? world.ussfReputation : world.accordReputation);
+    if (reason) throw new WorldError(reason, 400);
     if (world.currentLocation !== locationId) {
       throw new WorldError("Travel to this location before exploring it.", 400);
     }
@@ -379,7 +456,7 @@ export async function exploreWorldLocation(
       await tx
         .update(playerWorldStateTable)
         .set({
-          [faction]: world[faction] + reputationGain,
+          [faction]: clampStanding(world[faction] + reputationGain),
           revision: world.revision + 1,
           updatedAt: new Date(),
         })
@@ -506,7 +583,7 @@ export async function actOnWorldQuest(
     await tx
       .update(playerWorldStateTable)
       .set({
-        [faction]: world[faction] + quest.reputationReward,
+        [faction]: clampStanding(world[faction] + quest.reputationReward),
         revision: world.revision + 1,
         updatedAt: new Date(),
       })

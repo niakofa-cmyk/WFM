@@ -1,0 +1,791 @@
+# WAR FOR MARS: INFINITE WAR
+## MASTER AI GAME DEVELOPMENT DIRECTIVE
+### Project: Orbital Combat Lab — Infinite Extended Open Universe
+
+You are acting as the lead game architect, principal gameplay engineer, senior simulation engineer, multiplayer network engineer, AI systems developer, technical artist, and game director for **War for Mars: Infinite War**.
+
+Your responsibility is to study the existing WFM repository, understand the Orbital Combat Lab engine and its existing capabilities, and design and implement the next complete evolution of the game: a persistent, multiplayer, procedurally expandable, infinite extended open universe.
+
+This is not a request to create another isolated prototype, flight demo, arena, or disconnected game mode.
+
+You are building the complete game around one canonical gameplay architecture: **Orbital Combat Lab**.
+
+The ultimate experience must allow players to choose a faction, enter the universe, pilot their spacecraft freely, discover locations, encounter opposing fleets, explore unknown cosmic phenomena, participate in multiplayer activities, and experience a living universe that evolves around their decisions.
+
+---
+
+# 1. THE CORE GAME VISION
+
+The player begins by selecting one of two major opposing factions:
+
+- United States Space Force (USSF)
+- Accord
+
+Each faction has its own identity, installations, fleets, spacecraft, territory, objectives, command structures, and strategic interests.
+
+After selecting a faction, the player enters the game through a fully integrated player experience:
+
+1. Opening cinematic and game presentation.
+2. Account authentication and player identity.
+3. Faction selection and onboarding.
+4. Personal spacecraft hangar.
+5. Ship selection and configuration.
+6. Launch into the extended open universe.
+7. Exploration, encounters, missions, activities and multiplayer.
+
+The player's primary destination is not a conventional level-selection screen.
+
+**The primary destination is the living universe itself.**
+
+Players should be able to launch and fly without being forced into a predetermined mission. They should discover activities naturally through exploration, proximity, signals, installations, fleet movements, faction intelligence, and multiplayer activity.
+
+The game should provide meaningful freedom without sacrificing progression, objectives, competitive balance, or multiplayer structure.
+
+# 2. CANONICAL ENGINE REQUIREMENT
+
+Orbital Combat Lab must become the single canonical gameplay engine and simulation authority used throughout Infinite War.
+
+Do not build a second game engine alongside Orbital.
+
+Do not embed Rust Disc as a separate game.
+
+Do not use the old Rust Disc Three.js flight scene as the final gameplay scene.
+
+Do not create separate player-facing flight runtimes for exploration, arena combat, or sector co-op.
+
+Study Rust Disc local flight, Rust Disc Three.js rendering and movement behavior, Sector Co-op, Iron Eclipse, and the existing Orbital Combat Lab implementation as source systems.
+
+Extract their useful capabilities, controls, mechanics, algorithms, architecture patterns, and lessons.
+
+Integrate those capabilities into Orbital through documented, typed, tested, maintainable interfaces.
+
+Three.js may be evaluated as a low-level rendering technology if technically justified, but Orbital must own the complete rendering lifecycle, scene integration, simulation, camera, flight loop, and gameplay state. A legacy scene or independent runtime must not remain the actual destination of gameplay.
+
+Every player-facing activity must be launched, controlled, and managed through the canonical Orbital architecture.
+
+Existing secure authentication, persistence, matchmaking, server authority, economy and account services should remain authoritative services connected to Orbital. Do not incorrectly move credentials, financial transactions, or authoritative player progression into a client-side simulation.
+
+# 3. THE INFINITE OPEN UNIVERSE
+
+Design and implement a large-scale, procedurally expandable universe.
+
+The universe should contain:
+
+- Star systems.
+- Planets and moons.
+- Planetary orbital environments.
+- Asteroid belts and asteroid fields.
+- Space stations.
+- Military installations.
+- Research facilities.
+- Shipyards.
+- Mining colonies.
+- Refueling and repair stations.
+- Abandoned installations.
+- Derelict spacecraft.
+- Capital ships and mobile fleet formations.
+- Uncharted deep-space regions.
+- Nebulae and cosmic environments.
+- Black holes.
+- Wormholes.
+- Dimensional anomalies.
+- Unknown celestial structures.
+- Multiplayer installations and combat destinations.
+
+Create a universe coordinate and navigation system that supports travel between nearby locations and extremely distant destinations.
+
+The universe must support:
+
+- Stable procedural generation using deterministic seeds.
+- Expandable sector and system generation.
+- Persistent discovered locations.
+- Consistent locations across players and sessions.
+- Dynamic region and sector streaming.
+- Efficient loading and unloading.
+- Long-distance navigation.
+- Navigation markers and route planning.
+- Discovery records.
+- Unknown-location exploration.
+- Server-authoritative persistence of important world state.
+
+Do not generate a collection of disconnected scenes and call it an open universe.
+
+The locations must belong to one coherent navigable world.
+
+Design sector transitions, long-distance travel, streaming boundaries, and coordinate precision before implementing large-scale content.
+
+# 4. THE LIVING FACTION SYSTEM
+
+Create two independent but interacting faction ecosystems.
+
+## USSF
+
+Develop:
+
+- USSF bases and stations.
+- USSF patrol routes.
+- USSF reconnaissance spacecraft.
+- USSF fighter squadrons.
+- USSF capital ships.
+- USSF fleets.
+- USSF command and mission structures.
+- USSF territory and strategic objectives.
+- USSF AI behavior and tactical responses.
+
+## Accord
+
+Develop corresponding Accord systems:
+
+- Accord bases and stations.
+- Accord patrol routes.
+- Accord reconnaissance spacecraft.
+- Accord fighters and squadrons.
+- Accord capital ships.
+- Accord fleets.
+- Accord command structures.
+- Accord territory and strategic objectives.
+- Accord AI behavior and tactical responses.
+
+Both factions must exist in the universe simultaneously.
+
+A player's selected faction determines their allegiance, identity, home installations, friendly encounters, opposing encounters, available faction activities, and relevant progression.
+
+Neither faction should feel like a cosmetic selection of the same experience.
+
+Create distinct spacecraft characteristics, fleet behavior, visual identity, objectives, and strategic personalities.
+
+# 5. DYNAMIC ENCOUNTER DIRECTOR
+
+Build a dedicated, reusable Dynamic Encounter Director within Orbital.
+
+This is one of the most important systems in the entire game.
+
+The universe should organically create encounters between players, NPC spacecraft, squadrons, patrols, fleets, stations, and other world actors.
+
+Examples:
+
+- A USSF player encounters one Accord fighter.
+- A USSF player approaches two Accord reconnaissance spacecraft.
+- A USSF player enters an Accord patrol route.
+- A USSF player discovers an Accord squadron escorting a capital ship.
+- A USSF player discovers a large Accord fleet traveling between sectors.
+- An Accord player experiences equivalent encounters with USSF forces.
+- Two opposing patrols meet and engage even when no player is present.
+- A player discovers a station under attack.
+- A player flies into an already-active battle.
+- A nearby enemy fleet launches reinforcements.
+- A hostile ship detects and follows a player.
+- An enemy patrol investigates an unidentified spacecraft.
+
+The encounter director must consider:
+
+1. Player faction.
+2. Sector ownership and political status.
+3. Fleet locations and objectives.
+4. Player proximity.
+5. Detection range.
+6. Sensor capabilities.
+7. Player velocity and direction.
+8. Weapons and targeting state.
+9. Identification and communication.
+10. Threat and reputation.
+11. Patrol and restricted-zone rules.
+12. Current world events.
+13. Available server simulation capacity.
+14. Existing encounters and encounter cooldowns.
+
+Implement a configurable encounter lifecycle:
+
+DETECTION → INVESTIGATION → IDENTIFICATION → INTERCEPTION → WARNING → HOSTILITY → REINFORCEMENT → COMBAT → RESOLUTION.
+
+Not every encounter must follow every stage.
+
+A neutral or unidentified spacecraft may investigate rather than attack. A patrol may issue a warning. An enemy fighter may attempt interception. A capital ship may launch fighters when threatened.
+
+The player must be able to influence the encounter through their actions.
+
+Provide faction-specific AI personalities, tactical decisions, and communication behavior.
+
+Implement safeguards against repetitive spawning, excessive encounters, exploitative farming, and unreasonable difficulty spikes.
+
+Use deterministic or server-controlled encounter decisions where necessary for multiplayer fairness.
+
+# 6. FLEET INTELLIGENCE AND AUTONOMOUS WORLD ACTIVITY
+
+The universe must not depend on enemies appearing only when a player enters a particular location.
+
+Develop a fleet intelligence system that gives NPC fleets their own world objectives.
+
+Fleet objectives may include:
+
+- Patrol a route.
+- Escort a capital ship.
+- Protect a station.
+- Attack an installation.
+- Reinforce a battle.
+- Investigate a distress signal.
+- Search an asteroid field.
+- Reconnoiter a sector.
+- Intercept opposing forces.
+- Withdraw and regroup.
+- Transport supplies.
+- Establish a temporary blockade.
+- Respond to a faction emergency.
+
+Use different simulation detail levels:
+
+- High-detail simulation for nearby active combat.
+- Intermediate simulation for nearby but inactive fleets.
+- Strategic or lower-frequency simulation for distant fleets.
+- Background state transitions for unoccupied regions.
+
+Avoid requiring every distant NPC spacecraft to run full real-time physics.
+
+Preserve logical continuity when players travel away and later return.
+
+# 7. SPACECRAFT FLIGHT AND PILOTING
+
+Extract and integrate the best pilot controls and flight dynamics from Rust Disc local flight into Orbital.
+
+The player must receive a sophisticated, immersive spacecraft flight experience.
+
+Required features:
+
+- Six-axis movement.
+- Pitch.
+- Yaw.
+- Roll.
+- Forward thrust.
+- Reverse thrust.
+- Lateral thrust.
+- Vertical thrust.
+- Acceleration and inertia.
+- Velocity management.
+- Braking.
+- Boost.
+- Vector thrust.
+- Drift and directional momentum.
+- Coordinated banking.
+- Responsive rotation.
+- Camera control.
+- Target tracking.
+- Collision response.
+- Flight assistance options.
+- Keyboard, controller and touch support.
+
+Preserve the successful Rust Disc two-thumb landscape mobile pilot control arrangement and the useful control behavior established by the local-flight engine.
+
+Create a coherent control architecture that supports mobile landscape play, gamepads, and keyboard/mouse.
+
+Mobile controls must be designed for actual physical screens, safe areas, touch responsiveness, and simultaneous thumb interactions.
+
+Do not create a simplified exploration flight system separate from the combat flight system.
+
+The same pilot controls must work throughout exploration, encounters, arena activities, and multiplayer combat.
+
+# 8. COSMIC ANOMALIES AND DIMENSIONAL EXPLORATION
+
+Create a dedicated anomaly simulation system.
+
+Anomalies must be meaningful interactive environments rather than decorative objects.
+
+Include:
+
+## Black holes
+
+- Gravitational influence.
+- Orbital trajectories.
+- Accretion disks.
+- Navigation hazards.
+- Visual distortion.
+- Energy and sensor interference.
+- Dangerous approach distances.
+- Special exploration opportunities.
+
+## Wormholes
+
+- Discoverable entrances.
+- Stable and unstable passages.
+- Sector-to-sector transportation.
+- Destination discovery.
+- Multiplayer traversal.
+- Travel risks.
+- Persistent or event-dependent routes.
+
+## Dimensional rifts
+
+- Unusual spatial behavior.
+- Unknown environments.
+- Distorted navigation.
+- Unique enemies or encounters.
+- Exploration objectives.
+- Rare resources and discoveries.
+
+## Other phenomena
+
+- Solar and energy storms.
+- Nebula interference.
+- Gravity anomalies.
+- Ancient structures.
+- Alien transmissions.
+- Unknown signals.
+- Abandoned megastructures.
+- Unidentified celestial objects.
+
+Create anomaly-specific gameplay, physics, visual effects, audio, environmental behavior, and rewards.
+
+Ensure anomaly simulation remains performant and integrates with the canonical flight system.
+
+# 9. MULTIPLAYER ACTIVITIES INSIDE THE UNIVERSE
+
+Preserve and expand the existing multiplayer experiences.
+
+The open universe must provide natural access to multiplayer activities.
+
+Do not remove or replace the existing asteroid arcade skirmish.
+
+## Competitive 5v5
+
+Create an integrated competitive 5v5 experience accessible through asteroid installations, military stations, combat zones, or other designated universe locations.
+
+Players should be able to discover an active match while exploring.
+
+Support:
+
+- Matchmaking.
+- Team formation.
+- Faction or competitive team rules.
+- Spectator access.
+- Match entry.
+- Competitive maps.
+- Spawn and respawn systems.
+- Objectives.
+- Scoring.
+- Match completion.
+- Results and progression.
+
+## Expanded 5v5+ combat
+
+Develop larger competitive and cooperative engagements beyond the standard 5v5 format.
+
+Support configurable team sizes, squadron coordination, and appropriate server capacity.
+
+## Battle Royale
+
+Develop a multiplayer Battle Royale mode that exists as a designated activity within the universe.
+
+The entry point should connect to a properly isolated match instance while maintaining the player's identity, ship configuration, progression, and return journey.
+
+## Asteroid Arcade Skirmish
+
+Preserve the existing asteroid multiplayer game.
+
+Improve the asteroid environment, combat experience, multiplayer integration, presentation, and match entry.
+
+The asteroid activity must remain a recognizable, fully playable mode.
+
+## Sector Co-op
+
+Integrate Sector Co-op capabilities into Orbital.
+
+Support cooperative missions, shared sector sessions, AI wingmen, squadron commands, shared objectives, persistence, reconnects, and server-authoritative player and NPC state.
+
+## Additional universe activities
+
+Create a modular activity gateway architecture capable of supporting:
+
+- Fleet defense.
+- Escort operations.
+- Station assaults.
+- Exploration expeditions.
+- Search and rescue.
+- Bounty operations.
+- Anomaly expeditions.
+- Squadron challenges.
+- Resource recovery.
+- Faction campaigns.
+
+Activities should be discoverable through the world, not only through menus.
+
+# 10. LIVE MULTIPLAYER DISCOVERY AND SPECTATING
+
+A defining feature of this game should be the ability to discover multiplayer activity while freely exploring.
+
+For example:
+
+A player approaches a large asteroid installation.
+
+They see spacecraft fighting around the structure.
+
+They can:
+
+- Observe the battle from their current flight position.
+- Receive an activity notification.
+- Identify the type of match.
+- See whether a match is in progress.
+- Access a spectator viewpoint if permitted.
+- Join through the appropriate matchmaking or late-entry rules.
+- Return to the open universe afterward.
+
+Build a real-time activity discovery system.
+
+The universe should advertise eligible activities based on actual server state, not fabricated player counts or simulated match results.
+
+Spectator views must respect server authorization and competitive information restrictions.
+
+Do not expose hidden opponent positions or restricted match data to unauthorized observers.
+
+# 11. THE ACTIVITY GATEWAY ARCHITECTURE
+
+Build one standardized Orbital Activity Gateway.
+
+All activities must use a consistent contract for:
+
+- Discovery.
+- Availability.
+- Eligibility.
+- Entry requirements.
+- Matchmaking.
+- Session creation.
+- Player transfer.
+- Loading.
+- Return to the universe.
+- Results.
+- Rewards.
+- Persistence.
+
+An asteroid arena, Battle Royale, fleet battle, or anomaly expedition may use a specialized simulation configuration, but must not become an unrelated player-facing game or duplicate engine.
+
+The player should feel as if they are participating in different activities within the same universe.
+
+# 12. UNIVERSE NAVIGATION AND PLAYER INTERFACE
+
+Completely rethink the interface around exploration.
+
+The player should have access to:
+
+- A diegetic spacecraft navigation display.
+- Radar and sensor information.
+- Sector maps.
+- Star system maps.
+- Navigation markers.
+- Nearby station discovery.
+- Fleet tracking where authorized.
+- Faction intelligence.
+- Distress signals.
+- Activity discovery.
+- Squadron communications.
+- Mission and objective tracking.
+- Anomaly detection.
+- Travel planning.
+
+Build an intuitive navigation interface that does not overwhelm the actual flight experience.
+
+Players must be able to switch between navigation, combat, communications, objectives, and universe information without losing control of their spacecraft.
+
+# 13. FULL PLAYER EXPERIENCE REDESIGN
+
+Redesign the complete game experience around the new universe.
+
+This includes:
+
+- Opening presentation.
+- Sign-in and account experience.
+- Player onboarding.
+- Faction selection.
+- Personal identity and profile.
+- Main command center.
+- Hangar.
+- Fleet management.
+- Ship selection.
+- Ship inspection.
+- Loadouts.
+- Weapons.
+- Upgrades.
+- Navigation.
+- Universe entry.
+- Missions.
+- Multiplayer.
+- Squadron management.
+- Settings and preferences.
+- Progression.
+- Rewards.
+
+Maintain existing identity, session, account, saved ship, and progression contracts.
+
+Do not create duplicate authentication or progression systems.
+
+Settings must include flight control customization, mobile layout, graphics, performance, audio, accessibility, interface preferences, camera behavior, and network preferences.
+
+# 14. PERSISTENT WORLD AND PLAYER PROGRESSION
+
+Create a world persistence model that distinguishes:
+
+- Procedurally generated world data.
+- Persistent discovered locations.
+- Faction-owned installations.
+- Dynamic fleet state.
+- Temporary encounters.
+- Active multiplayer matches.
+- Persistent player discoveries.
+- Player progression.
+- Player inventory and ship configurations.
+- Mission and operation outcomes.
+- World events.
+
+Not every random encounter needs permanent database storage.
+
+Define which state is transient, which is cached, and which must be durable.
+
+Protect against duplicated rewards, client-side reward manipulation, unauthorized faction changes, and conflicting multiplayer state.
+
+Players should be able to leave the universe and return without losing legitimate progress.
+
+# 15. PERFORMANCE AND SCALABILITY
+
+Build for the realities of mobile and multiplayer performance.
+
+Prioritize:
+
+- Landscape mobile play.
+- Stable frame pacing.
+- Adaptive rendering quality.
+- Efficient object instancing.
+- Level-of-detail systems.
+- Spatial partitioning.
+- Visibility and occlusion management.
+- Sector streaming.
+- Network interest management.
+- Interpolation and prediction.
+- Server-authoritative combat outcomes.
+- Background simulation.
+- Efficient AI updates.
+- Memory budgets.
+- Reconnection handling.
+
+Do not make the entire universe load at once.
+
+Do not simulate every NPC at full detail.
+
+Do not sacrifice flight responsiveness to accommodate unnecessary background effects.
+
+Measure performance rather than declaring success based on implementation alone.
+
+# 16. TECHNICAL IMPLEMENTATION REQUIREMENTS
+
+Before making architectural changes, conduct a full repository and engine audit.
+
+Inspect:
+
+- Current Orbital Combat Lab engine.
+- Rust Disc local flight.
+- Rust Disc Three.js rendering and movement.
+- Sector Co-op.
+- Iron Eclipse.
+- Existing flight controls.
+- Existing mobile controls.
+- Current game modes.
+- Multiplayer services.
+- Database and persistence.
+- Authentication.
+- Frontend architecture.
+- Deployment configuration.
+- Tests and build pipelines.
+
+Produce a source-to-destination capability extraction matrix.
+
+For every reused capability, identify:
+
+1. Original source.
+2. What the capability does.
+3. Its current dependencies.
+4. Whether it is suitable for extraction.
+5. Its new Orbital destination.
+6. Required interface changes.
+7. Tests required.
+8. Existing code to retire after successful migration.
+
+Establish typed, versioned contracts between:
+
+- Orbital simulation.
+- Flight control.
+- Universe generation.
+- Sector streaming.
+- Encounter director.
+- Faction intelligence.
+- Multiplayer orchestration.
+- Activity gateways.
+- Persistence services.
+- User interface.
+
+Avoid circular dependencies and duplicate sources of truth.
+
+Write architecture decision records for important technical choices.
+
+# 17. REQUIRED DEVELOPMENT PHASES
+
+Implement the project through controlled, testable phases.
+
+## Phase A — Forensic discovery and architecture
+
+Audit the entire repository and establish the real current capabilities.
+
+Produce the architecture map, source extraction matrix, subsystem inventory, risk register, and implementation plan.
+
+Do not assume the written documentation accurately represents the current code.
+
+## Phase B — Orbital engine consolidation
+
+Establish Orbital as the canonical owner of flight, simulation, rendering, combat, camera, and gameplay state.
+
+Integrate the Rust Disc flight control capabilities and Sector Co-op systems.
+
+Remove duplicate gameplay ownership only after parity tests prove the replacement works.
+
+## Phase C — Universe foundation
+
+Implement coordinate systems, deterministic sector generation, navigation, streaming, discovery, and persistence.
+
+Demonstrate travel across multiple interconnected sectors.
+
+## Phase D — Living faction simulation
+
+Implement USSF and Accord bases, patrols, fleets, strategic objectives, autonomous movements, and faction interactions.
+
+## Phase E — Dynamic encounter system
+
+Implement the encounter lifecycle, proximity detection, identification, investigation, interception, combat, reinforcement, and resolution.
+
+Demonstrate encounters involving single ships, pairs, squadrons, patrols, and capital fleets.
+
+## Phase F — Anomalies and exploration
+
+Implement black holes, wormholes, dimensional rifts, and additional celestial events with actual gameplay consequences.
+
+## Phase G — Multiplayer universe integration
+
+Integrate competitive 5v5, expanded 5v5+, Battle Royale, Sector Co-op, and the existing asteroid arcade skirmish through the Orbital Activity Gateway.
+
+## Phase H — Complete frontend redesign
+
+Implement the new opening experience, authentication presentation, onboarding, faction selection, hangar, fleet, universe navigation, activities, settings, and player profile.
+
+## Phase I — Persistence, optimization and security
+
+Validate world persistence, progression, server authority, performance, multiplayer synchronization, reconnection, and mobile control behavior.
+
+## Phase J — Full-game validation and release
+
+Run complete builds and tests.
+
+Validate the player journey from opening the game through faction selection, launch, exploration, encounters, multiplayer entry, activity completion, return to the universe, and saved progression.
+
+Perform physical-device testing on supported mobile platforms before claiming mobile certification.
+
+Do not claim production readiness based solely on a successful compilation.
+
+# 18. REQUIRED DEMONSTRATION SCENARIOS
+
+The finished implementation must demonstrate these actual playable scenarios.
+
+**Scenario 1 — USSF exploration**
+
+A player selects USSF, launches from a USSF installation, navigates away from Mars, discovers an asteroid field, locates a station, and continues exploring.
+
+**Scenario 2 — Random enemy encounter**
+
+A USSF player encounters an Accord reconnaissance ship. The ship detects the player, investigates, identifies the player as hostile, and initiates an interception.
+
+**Scenario 3 — Fleet encounter**
+
+A USSF player discovers an Accord fleet with multiple fighters and a capital ship. The player can engage, evade, observe, or call for assistance.
+
+**Scenario 4 — Autonomous battle**
+
+Two opposing NPC fleets encounter each other and engage without requiring a player to trigger the battle.
+
+**Scenario 5 — Active multiplayer discovery**
+
+A player approaches an asteroid installation, sees an active 5v5 multiplayer battle, observes it through an authorized spectator experience, and enters the activity through the appropriate matchmaking rules.
+
+**Scenario 6 — Asteroid arcade**
+
+A player enters the existing asteroid arcade skirmish, completes a match, receives legitimate results and rewards, and returns to the universe.
+
+**Scenario 7 — Anomaly discovery**
+
+A player discovers an unknown wormhole, investigates it, enters it, and arrives in a different sector with appropriate navigation and persistence.
+
+**Scenario 8 — Cooperative exploration**
+
+Multiple players form a squadron, travel together, discover an anomaly, encounter an opposing patrol, and complete a cooperative operation.
+
+**Scenario 9 — Session persistence**
+
+A player leaves and reconnects. Their identity, legitimate progression, ship configuration, discoveries, and eligible world state are preserved.
+
+**Scenario 10 — Opposing faction journey**
+
+Repeat relevant encounters and exploration activities as an Accord player. Confirm that faction selection produces a genuinely different world experience.
+
+# 19. ACCEPTANCE CRITERIA
+
+Do not declare the project complete merely because new files, interfaces, or demonstrations exist.
+
+The following must be independently verified:
+
+- One canonical Orbital gameplay engine.
+- One coherent extended open universe.
+- Working flight and navigation across multiple sectors.
+- Deterministic procedural locations.
+- Actual persistent discoveries.
+- Working USSF and Accord faction ecosystems.
+- Dynamic proximity-based encounters.
+- Single-ship, multi-ship, squadron and fleet encounters.
+- Autonomous NPC fleet activity.
+- Functional anomaly interactions.
+- Unified mobile flight controls.
+- Multiplayer activity discovery.
+- Existing asteroid arcade multiplayer preserved and integrated.
+- Competitive multiplayer connected through real session infrastructure.
+- Sector Co-op integrated into Orbital.
+- Unified frontend and player journey.
+- Persistent player progression.
+- Secure server-authoritative outcomes.
+- Automated tests and successful builds.
+- Deployment evidence.
+- Physical-device evidence for mobile claims.
+
+Mark each requirement as:
+
+- IMPLEMENTED AND VERIFIED.
+- IMPLEMENTED BUT NOT FULLY VERIFIED.
+- PARTIALLY IMPLEMENTED.
+- NOT IMPLEMENTED.
+- BLOCKED.
+
+Provide evidence for every status.
+
+# 20. FINAL INSTRUCTION
+
+Think beyond the limitations of a traditional space-combat game.
+
+Do not settle for a collection of arenas, disconnected missions, or an impressive-looking flight demo.
+
+Build a world in which the player can launch from Mars, fly into unknown space, discover installations, encounter opposing factions, participate in battles, explore anomalies, find multiplayer activities, join squadrons, and continue traveling through an ever-expanding universe.
+
+The USSF and Accord must exist as living opposing civilizations.
+
+The spacecraft must feel responsive and rewarding to pilot.
+
+The universe must create meaningful surprises.
+
+The multiplayer must feel like a natural part of the world.
+
+The player should always have somewhere interesting to travel, something meaningful to discover, or an unexpected encounter waiting beyond the next horizon.
+
+**The ultimate objective is not to build a game with an open-world mode. It is to build War for Mars: Infinite War as a living multiplayer universe, with Orbital Combat Lab powering every part of the experience.**
+
+Study the existing project. Make the architecture decisions. Build the systems. Connect them. Test them. Demonstrate them. Iterate until the entire game—not just individual features—works as one coherent experience.
+
+Do not silently substitute a smaller vision for this one. If a technical limitation requires a change, explain the tradeoff, propose the strongest alternative, and preserve the intended player experience.

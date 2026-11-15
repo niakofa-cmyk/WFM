@@ -1,0 +1,924 @@
+
+### WFM — Advanced right-thumb flight controls and aerial maneuvering
+
+I investigated the updated `niakofa-cmyk/WFM` repository, particularly the Orbital flight simulation, mobile joystick implementation, maneuver recognition, combat physics, and multiplayer control boundaries.
+
+My conclusion is that we should substantially upgrade the right-thumb controller and make it a second, fully capable flight-maneuvering surface.
+
+Your proposed design is a good direction. I would go beyond simply adding four directional buttons. We should develop a responsive, analog, multidirectional maneuver controller that allows pilots to move their spacecraft in three-dimensional space while maintaining combat control.
+
+There is already enough foundation in the Orbital engine to implement this without creating a separate flight engine.
+
+### 1\. What the current controls actually do
+
+I found the relevant implementation in these files:
+
+* [PilotFlightStick.tsx](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/PilotFlightStick.tsx?utm_source=chatgpt.com)
+
+* [input.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/input.ts?utm_source=chatgpt.com)
+
+* [pilot-stick-gestures.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/artifacts/war-for-mars/src/game/pilot-stick-gestures.ts?utm_source=chatgpt.com)
+
+* [flight.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/lib/orbital-sim/src/flight.ts?utm_source=chatgpt.com)
+
+* [pilot-controls.ts](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/lib/orbital-sim/src/pilot-controls.ts?utm_source=chatgpt.com)
+
+Here is the important distinction.
+
+| Capability                                     | Current implementation         |
+| ---------------------------------------------- | ------------------------------ |
+| Left-stick forward/reverse                     | Implemented                    |
+| Left-stick horizontal steering                 | Implemented                    |
+| Left-stick double-tap vector thrust            | Implemented                    |
+| Right-stick pitch and aim                      | Implemented                    |
+| Right-stick horizontal yaw/aim                 | Implemented                    |
+| Right-stick circular barrel roll               | Implemented in offline Orbital |
+| Right-stick sustained lateral translation      | Not implemented                |
+| Right-stick sustained vertical translation     | Not implemented                |
+| Right-stick directional boost gestures         | Not implemented                |
+| Diagonal directional boost                     | Not implemented                |
+| Online server-authoritative tactical maneuvers | Not fully implemented          |
+
+An especially important finding: the right stick already has circular gesture recognition, but its double-tap directional maneuver callback is not connected in the Arena implementation.
+
+So we have an existing gesture system that we can extend rather than replace.
+
+### 2\. The new two-thumb control architecture
+
+I recommend retaining the two-thumb layout, but giving the right thumb substantially more capability.
+
+![Sky Combat 2: Air Combat PvP - Apps on Indus Appstore](https://images.openai.com/static-rsc-4/Hh4emX9wK7sGGoieaOYzwsnQ_cUkrHSsVQlN9hNk4hCt9NsaQi3HnoUkqPAHUpOBZ3IEHTe-lSHGyZC59qLmrrBsGUMPOHOxVejtw4Vok5224AynQBmgH6DOG8QDJ2r2uPtZOj2nae_bdldmX577_88aaWkvGu_umGsJhRo4t9ovxUFZKqANEmS1VViypu5u?purpose=fullsize)
+
+The revised responsibilities:
+
+* Left thumb: primary propulsion, forward/reverse throttle and coordinated flight steering.
+
+* Right thumb: pitch, aim, lateral movement, vertical movement and directional evasive maneuvers.
+
+* Dedicated combat actions: fire, missiles, target lock and countermeasures.
+
+* Boost: directional boost gesture, with its own energy and cooldown rules.
+
+The most important enhancement is that right-thumb movement should affect the spacecraft itself, not just the camera or aiming direction.
+
+### Proposed right-thumb movement mapping
+
+### Right-thumb combat maneuver controller
+
+Conceptual control mapping — not a screenshot of the current implementation.
+
+CLIMB
+
+Vertical thrust up
+
+DIAGONAL
+
+Combined movement
+
+CLIMB
+
+Rapid ascent
+
+LEFT
+
+Lateral thrust
+
+CENTER
+
+Neutral
+
+RIGHT
+
+Lateral thrust
+
+DIVE
+
+Vertical thrust down
+
+DIAGONAL
+
+Combined movement
+
+DIVE
+
+Rapid descent
+
+Analog movement
+
+* Push up: climb.
+
+* Pull down: descend.
+
+* Push left: translate left.
+
+* Push right: translate right.
+
+* Push diagonally: combine both movement axes.
+
+* Release: return to neutral input while preserving the ship's physical momentum according to its flight-assist setting.
+
+There is one important physics distinction here: the spacecraft should not simply snap upward or sideways. It should accelerate in the requested direction, retain appropriate momentum, and respond to counter-thrust and stabilization.
+
+That will make movement feel like piloting a powerful spacecraft rather than moving a character around a screen.
+
+### 3\. Double-tap directional boosting
+
+This is where I would introduce the most significant new capability.
+
+The current gesture recognizer supports four directional sectors and uses:
+
+* 285 ms double-tap window.
+
+* 55 ms minimum interval.
+
+* 420 ms maneuver cooldown.
+
+* 180 ms vector-thrust pulse.
+
+Those are existing gesture parameters, not the proposed boost balance.
+
+I would extend this to an eight-direction maneuver system.
+
+### Directional boost system
+
+![Everspace 2 is close to being the new gold standard for space shooters | PC Gamer](https://images.openai.com/static-rsc-4/oh43xI8fNoxlTuWXikZhf6Yke58_1lIz42faphY1lkFzcb5oyWILsoOCwvOGxWcG3QC_53YSloMMPcOkQrGeEMMZ-Vtdt9nUxDdNfIpG4QNZPz55t1tkL2sFfpk3uIP9sD9BxqRkHz9S5wxlQga1jzubnlmRXIECc18uuK_pbEi_s5lEnrC3NTs-DHg1U3xb?purpose=fullsize)
+
+Double-tap up
+
+Vertical boost
+
+Rapid upward acceleration.
+
+![Star Citizen Alpha 4.9 PTU Early Patch Breakdown | Elyxir](https://images.openai.com/static-rsc-4/yeDXFsac2r0-eGGXG_WYSN7B3-bJBDe7dqqbF0CIqZ0yjl5P4xwyMjNs0phEgLxEQlFfrY8TMzxP-ikCDfNGuXiC6KXRJiZT2n4yrsk_vPqdE9s1TEOdpQ0sqX7RxWaPzXBxYMGR7biNrY9_r-O74tzKDv9HLpoSy49YC5nQlw1urHojEZy99DrdJhCVZgIh?purpose=fullsize)
+
+Double-tap down
+
+Dive boost
+
+Rapid downward acceleration.
+
+![Rebel Galaxy Outlaw Shoots To Switch Later This Month | Nintendo Life](https://images.openai.com/static-rsc-4/HotsJ1Svc6vz4cC7QU-yBNLgxqFRxumDHQjBHgH4lYERo4PYBlDT6e4W4Te3L12ZH3K6h_T5COuBKcNFjpOO6LyNWYLz5UkCVfJbVMQmtKgkTWQGCJfksHCHL1_bnoLHOuCwJFB84C6fo1-SbUmw89SoUqOAkDNg1ctBMDB7vlVM2XvUV6XBlea-2V43X7l5?purpose=fullsize)
+
+Double-tap left
+
+Left boost
+
+Fast lateral displacement.
+
+![Rebel Galaxy Outlaw review | PC Gamer](https://images.openai.com/static-rsc-4/EzB15hQTUbuWecN13gz_87rzWw32kjJMiyNwOb_NG5kLJGvW67otxNuK2PXOUpWuDQ5w6fLPxlmYXlpPjXc6JXd1WBz2jK4VAv1ZzCqPQ7EVkt4UYQQfJ91WKfx-fFxzsMC-Hr2oMDPG7-xR_IhEgixCdFpTkx4dZ-GTXfS4paHnVXrGdHyp6jm8iAwaShDI?purpose=fullsize)
+
+Double-tap right
+
+Right boost
+
+Fast lateral displacement.
+
+Diagonal combinations
+
+Double-tap upper-left, upper-right, lower-left or lower-right to execute combined vector boosts.
+
+The diagonal boost must be normalized so it cannot deliver more total acceleration than a cardinal boost simply because two axes are active.
+
+### How the boost should work
+
+I would not implement this as an ordinary button press that temporarily increases forward speed.
+
+Instead, introduce a dedicated directional maneuver intent.
+
+For example:
+
+* The pilot double-taps right.
+
+* The gesture recognizer identifies the right-direction burst.
+
+* The input system sends a versioned maneuver request.
+
+* The Orbital simulation checks energy, cooldown and ship eligibility.
+
+* The simulation applies a short directional acceleration burst.
+
+* The ship physically moves right with an appropriate thruster animation.
+
+* The maneuver enters cooldown.
+
+This should also work for diagonals.
+
+Important: A directional boost should not make a ship invulnerable. Missiles must still be capable of tracking it, and bullets must still be capable of hitting it.
+
+We want skilled pilots to evade attacks through timing and positioning, not become impossible to damage.
+
+### 4\. Additional aerial evasive maneuvers
+
+I recommend adding three new maneuver capabilities, but not adding a dozen different buttons.
+
+Some capabilities already exist and should be enhanced rather than duplicated.
+
+![Blitz Evasion | playscape](https://images.openai.com/static-rsc-4/FdEb_p1mGK7eBvpCofE6tFAjtmpGin0O7GYxpQpAPcob3OPSr8JjVT8KoXS5QjX8s-rNPswucvM1Zcf2mh4BRPjjO0j69oBq3yr-n0rBHP_uqwhzcSVbGiUkenuihQfu0sG8gQlSDBFRRz_TfJW4BPGbyOz335ekbN9lks1cF49WvklBqt4K4b_M171Ovg3S?purpose=fullsize)
+
+1\. Advanced barrel roll
+
+Existing foundation
+
+Improve the existing circular right-stick gesture with better response, maneuver feedback and ship-specific handling.
+
+Preserve the existing energy cost and cooldown as the starting balance.
+
+![Invictus Launch Week 2952 Details - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/OyG7QoFi9hxx7MSVp5tKsxDD9utaNe7xiQ7wHoz4RBxsrA_wMQTOHtRzbD3ha_A6LgEo330JNRKnrToblkg_KgT1xb0IZ40a9ooZn3khfuyOSt3_3dBhYGnegILx38O3H8Yd4awqBngSWJRcYbn6I1VBlWwBtxkGbSsBYxBBlVw-rDPRbvCM4XyGhk191kft?purpose=fullsize)
+
+2\. Vector dodge
+
+New capability
+
+Rapid lateral or diagonal movement without requiring a full change of heading.
+
+Particularly useful when missiles approach from the rear or side.
+
+![Juno: New Origins  | Baidi White Emperor](https://images.openai.com/static-rsc-4/X1s5mNiTqV4j0ywd5k0BCbOlBBtl2AtSUb_n6-hcWTM0ihMTXZ3XN399z2ckYeFNYgXlQbHx_WL3-H1rPPfbU9h0ay-puM946IRui7ZPRcJ655TdVWvZh96nAbfIxxIBfVaYhKLn2Il93cVjkXit85_wuihfzaBoYgfduhsLfAwYLrrqxaiH1UvT_MpD4pJK?purpose=fullsize)
+
+3\. Vertical break
+
+New capability
+
+Rapid ascent or descent, including diagonal climb and dive maneuvers.
+
+Allows pilots to break an enemy's firing alignment and exploit vertical separation.
+
+![Everspace 2 Photo Mode Review](https://images.openai.com/static-rsc-4/s74PGu4qltVOqxR8giehIOP8iSNhoKVxWryX7eJfQk6Ugcofeblexw2Dgb_SBeJ0U-mq6Pw-OkI5sn3akwB3tyy1ucj0ZjzyZtbQR58I_4kbsfdkgyGQC11Vhm2yC2OVIZCVSSuIOigqsjQVOBs3oq4zxZFj0UzmUN7A9jGUKWRjciDhbLfDWhnqpjqPgcIi?purpose=fullsize)
+
+4\. Inertial drift and recovery
+
+Existing physics foundation
+
+Improve the ability to slide, rotate and redirect the ship while retaining momentum.
+
+This creates opportunities for experienced pilots to evade while keeping their weapons pointed toward a target.
+
+I would retain countermeasures as a separate tactical capability. A directional dodge and a missile countermeasure should not be treated as the same thing.
+
+A skilled pilot should be able to combine:
+
+* A lateral boost.
+
+* A barrel roll.
+
+* Countermeasures.
+
+* A subsequent climb or dive.
+
+However, each should have its own appropriate energy, timing and availability constraints.
+
+### 5\. The most important engineering change: upgrade the shared Orbital simulation
+
+The good news is that the underlying physics already supports the majority of the movement we need.
+
+In `lib/orbital-sim/src/flight.ts`, `integrateSpatialFlight()` already calculates:
+
+* Quaternion orientation.
+
+* Pitch, yaw and roll.
+
+* Forward propulsion.
+
+* Lateral thrust.
+
+* Vertical thrust.
+
+* Three-dimensional velocity.
+
+* Momentum and stabilization.
+
+* Boost acceleration.
+
+* Energy consumption.
+
+* Speed limits.
+
+* Obstacle and boundary collisions.
+
+This means we should not create a second movement system inside `Arena.tsx`.
+
+We should extend the shared engine's existing input and simulation contracts.
+
+### Proposed new control mapping
+
+| Right-thumb input | Orientation          | Translation              |
+| ----------------- | -------------------- | ------------------------ |
+| Up                | Pitch upward         | Vertical thrust upward   |
+| Down              | Pitch downward       | Vertical thrust downward |
+| Left              | Turn left            | Lateral thrust left      |
+| Right             | Turn right           | Lateral thrust right     |
+| Upper-left        | Combined orientation | Up and left              |
+| Upper-right       | Combined orientation | Up and right             |
+| Lower-left        | Combined orientation | Down and left            |
+| Lower-right       | Combined orientation | Down and right           |
+
+This is the hybrid approach I recommend: the right thumb controls both the aircraft's attitude and its vector movement, with separately adjustable gains.
+
+That preserves manual aiming while adding physical movement. It also gives us a more expressive flight model than simply converting the right stick into a second movement joystick.
+
+We should introduce a control-profile setting so pilots can retain the existing aim-only behavior if they prefer it.
+
+### Implementation architecture
+
+```mermaid
+
+flowchart TD
+ A["Right Thumb Touch Input"] --> B["Analog Axis Normalization"]
+ B --> C["Hybrid Attitude + Vector Mapping"]
+ C --> D["Pitch / Yaw"]
+ C --> E["Vertical / Lateral Thrust"]
+ A --> F["Eight-Way Gesture Recognition"]
+ F --> G["Directional Boost Intent"]
+ D --> H["Shared Orbital FlightControlFrame"]
+ E --> H
+ G --> H
+ H --> I["Deterministic Orbital Simulation"]
+ I --> J["Velocity / Orientation / Energy"]
+ J --> K["3D Ship and Thruster Rendering"]
+ H --> L["Versioned Server Input Contract"]
+ L --> M["Server-Authoritative Simulation"]
+```
+
+The critical requirement is that browser simulation, server simulation and replay processing all understand the same control intent.
+
+We should not use client-side timers to determine the duration or success of an online boost. The server must own maneuver activation, duration, cooldown and energy consumption.
+
+The existing local `pulseVectorManeuver()` uses browser timers. That is acceptable as a starting point for offline input experimentation, but it should not become the authority for competitive or persistent multiplayer maneuvers.
+
+### 6\. How we should test the maneuvers during actual combat
+
+I would establish a dedicated Orbital Aerial Maneuver Combat Lab before enabling these controls in multiplayer.
+
+We need to test whether each maneuver actually helps pilots survive combat, not merely whether the joystick animation works.
+
+![Everspace Stellar Edition PS4 - Cadê Meu Jogo](https://images.openai.com/static-rsc-4/X6wmjgSfvLIdwQrmYKdqO7tFqCfFcd8nhrOgG5twZQfQwH97nG5-wrVUbx0tvtTlnhUZw6Uv-uP5NTJFqdQgiVpAZHwBKnCjCKJRHqKmSnKwQ3WOjXKRwGdoBj-ZQvxGigKQNO_fTq4bXq7n5N6Di2RkZoeOye-jjaem1ULqpqob1SRUwrUgt3Bq0Fv5s4T4?purpose=fullsize)
+
+### Battle test scenarios
+
+| Test | Enemy attack                   | Pilot response                        |
+| ---- | ------------------------------ | ------------------------------------- |
+| 1    | Straight missile pursuit       | Left/right vector boost               |
+| 2    | Missile approaching from above | Rapid dive                            |
+| 3    | Missile approaching from below | Rapid climb                           |
+| 4    | Multiple incoming missiles     | Diagonal boost and countermeasures    |
+| 5    | Sustained fighter gunfire      | Lateral strafing                      |
+| 6    | Enemy firing alignment         | Barrel roll and vertical break        |
+| 7    | Two-enemy interception         | Inertial drift and directional boost  |
+| 8    | Capital-ship weapons           | Combined vertical and lateral evasion |
+
+### What we should measure
+
+* Percentage of incoming missiles avoided.
+
+* Percentage of incoming bullets avoided.
+
+* Time required to complete each maneuver.
+
+* Energy consumed per maneuver.
+
+* Cooldown and recovery time.
+
+* Accuracy while maneuvering.
+
+* Ship handling differences between fighter classes.
+
+* Whether two thumbs can operate simultaneously without interference.
+
+We should test against different ship types.
+
+An interceptor should have excellent directional responsiveness. A heavy fighter should have more resistance to displacement. A capital-class ship should not maneuver like a lightweight fighter.
+
+This gives each spacecraft a meaningful flight personality.
+
+### 7\. Multiplayer and Orbital integration safeguards
+
+There is an important limitation in the repository that we must address before promoting these controls.
+
+The shared `pilot-controls.ts` contract already understands the flight axes, but the current sector adapter deliberately strips local tactical maneuver intents.
+
+The existing barrel-roll gesture is also restricted to the offline Orbital pilot path.
+
+Therefore, the new directional boost must be integrated into the server-authoritative simulation rather than simply made visible in the client.
+
+I recommend:
+
+* Extend the versioned tactical maneuver contract with directional vector boosts.
+
+* Introduce server-owned energy, cooldown and maneuver duration.
+
+* Update deterministic browser/server simulation parity.
+
+* Increment the Orbital rules version from its current version 5.
+
+* Preserve existing historical replay compatibility.
+
+* Keep old control profiles functional.
+
+* Introduce the new profile in an isolated test environment.
+
+* Verify multiplayer synchronization before competitive deployment.
+
+Do not enable the new maneuver protocol in existing live matches until both clients and servers negotiate the same simulation version.
+
+### 8\. Implementation roadmap
+
+### Right-thumb maneuver evolution
+
+* Phase 1 — Right-stick analog movement
+
+    Implement simultaneous pitch/yaw and vertical/lateral vector thrust. Support all four cardinal directions and diagonals.
+
+    Existing physics foundation
+
+* Phase 2 — Directional boost gestures
+
+    Connect double-tap recognition to the right stick. Add eight-way recognition, boost impulses, energy costs and cooldowns.
+
+* Phase 3 — Advanced evasive mechanics
+
+    Enhance barrel rolls, directional dodging, rapid ascent/descent and inertial recovery.
+
+* Phase 4 — Ship-specific flight characteristics
+
+    Establish individual handling, acceleration, maneuverability, boost capacity and recovery parameters.
+
+* Phase 5 — Combat laboratory
+
+    Test missiles, projectiles, multiple enemies, capital-ship engagements and simultaneous weapon operation.
+
+* Phase 6 — Server-authoritative multiplayer
+
+    Integrate versioned maneuver inputs, server-side validation, deterministic replay and synchronized movement.
+
+* Phase 7 — Physical-device certification
+
+    Test on Android and iOS in landscape, including simultaneous two-thumb operation, release, rotation, interruption and reconnection.
+
+### Acceptance requirements
+
+The new controller must demonstrate:
+
+* Smooth analog response in all eight directions.
+
+* Independent and simultaneous left/right thumb input.
+
+* No accidental boost during ordinary aiming.
+
+* Immediate neutral input on release or interruption.
+
+* No duplicate boost activation from one gesture.
+
+* Diagonal boost normalization.
+
+* Energy and cooldown enforcement.
+
+* No guaranteed missile immunity.
+
+* Identical deterministic movement between supported client and server simulations.
+
+### 9\. Repository status and implementation target
+
+The source I inspected is the November 8 `integration/master-engine-consolidation` branch, currently at `abee40e`.
+
+Relevant implementation targets
+
+| File                    | Work required                          |
+| ----------------------- | -------------------------------------- |
+| PilotFlightStick.tsx    | Right-stick directional gesture wiring |
+| pilot-stick-gestures.ts | Eight-way gesture recognition          |
+| input.ts                | Hybrid analog movement mapping         |
+| pilot-controls.ts       | Shared versioned maneuver contract     |
+| flight.ts               | Directional boost physics              |
+| Arena.tsx               | Right-thumb HUD integration            |
+| Flight tests            | Movement and maneuver regression       |
+| API server              | Authoritative maneuver validation      |
+
+Important: `main` remains at `3ecff671` from October 22. The November integration work has not been promoted to Production.
+
+Useful existing specifications:
+
+* [Orbital Tactical Maneuver Roadmap](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/ORBITAL-TACTICAL-MANEUVER-ROADMAP.md?utm_source=chatgpt.com)
+
+* [Mobile Control Specification](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/engine/MOBILE-CONTROL-SPECIFICATION.md?utm_source=chatgpt.com)
+
+* [Flight Physics and Controls](https://github.com/niakofa-cmyk/WFM/blob/integration/master-engine-consolidation/docs/infinite-war/engine/FLIGHT-PHYSICS-AND-CONTROLS.md?utm_source=chatgpt.com)
+
+I have inspected and evaluated the implementation, but have not modified gameplay code in this review.
+
+### My final design recommendation
+
+I would make this a defining characteristic of the WFM flight experience.
+
+We should not settle for a conventional mobile flight joystick with a few additional buttons.
+
+We should create a Dual-Thumb Dynamic Flight and Combat Maneuver System.
+
+The left thumb controls propulsion and coordinated steering. The right thumb controls attitude and multidirectional movement, including rapid evasive maneuvers and directional boosting.
+
+The spacecraft should respond physically, retain momentum, bank and rotate convincingly, and remain controllable while the pilot fires weapons and evades enemy attacks.
+
+Most importantly, the controls should be consistent across the Orbital Combat Lab, training, campaign operations and eventually the persistent Infinite War universe.
+
+I recommend implementing Phase 1 through Phase 3 together as the first isolated development package, then testing it in the Combat Lab before migrating it into authenticated multiplayer.
+
+That gives us a meaningful improvement in flight capability without destabilizing the existing engine or competitive combat.
+
+Worked for 1m 19s
+
+### Decision: Provision a dedicated Railway Redis service for WFM staging.
+
+I checked the live Railway staging environment and the updated WFM integration branch. I recommend Railway Redis in the existing `wfm-staging` project, rather than reusing another project's broker.
+
+### 1\. What I found
+
+Railway project: `wfm-staging`
+
+Environment
+
+staging
+
+Region
+
+us-east4
+
+Running services
+
+4
+
+Pending changes
+
+None
+
+| Service            | Replicas | Status |
+| ------------------ | -------- | ------ |
+| wfm-socket-staging | 1        |        |
+| wfm-api-staging    | 1        |        |
+| wfm-app-staging    | 1        |        |
+| Postgres           | 1        |        |
+
+All four services report successful deployments and no active issues.
+
+I also found an existing Railway Redis service, but it belongs to the separate `precious-abundance` production project.
+
+I would not connect WFM staging to that service. It creates unnecessary cross-project dependencies and mixes unrelated environments.
+
+There is currently no dedicated Redis broker in WFM staging.
+
+### 2\. The architecture I recommend
+
+We should use Redis for live multiplayer coordination and PostgreSQL for durable universe recovery.
+
+### WFM persistent universe architecture
+
+WFM AUTHENTICATED PILOTS
+
+Shared spatial sessions and flight input
+
+Socket instance A
+
+Pilot and fleet simulation
+
+Socket instance B
+
+Pilot and fleet simulation
+
+RAILWAY REDIS
+
+Shared real-time transport
+
+Cross-instance messaging, presence, session coordination and snapshot distribution
+
+POSTGRESQL
+
+Durable universe persistence
+
+Periodic checkpoints, recovery records, encounter state and progression
+
+An important distinction: Redis Pub/Sub should distribute live updates, not serve as the permanent record of the universe.
+
+PostgreSQL must preserve the state needed to reconstruct the universe after a restart.
+
+### 3\. What Redis needs to enable
+
+I recommend implementing these capabilities together:
+
+| System              | Required behavior                                           |
+| ------------------- | ----------------------------------------------------------- |
+| Spatial sessions    | Pilots in the same canonical location join the same session |
+| Live pilot presence | Nearby authenticated ships appear across instances          |
+| Enemy fleets        | AI patrol positions and movement remain synchronized        |
+| Projectiles         | Active combat projectiles synchronize                       |
+| Target locks        | Target acquisition and loss synchronize                     |
+| Encounters          | Active encounter state survives instance changes            |
+| Session ownership   | One authoritative simulation owner per spatial session      |
+| Recovery            | Reconnect restores the latest valid checkpoint              |
+
+We must also implement ownership leases and fencing tokens. Two socket instances must never independently simulate and settle the same encounter.
+
+### 4\. The implementation sequence
+
+* Provision Railway Redis
+
+    Create a Redis service exclusively in `wfm-staging`, in the existing staging environment and region.
+
+    Keep its endpoint private. Do not create a public TCP proxy.
+
+* Connect the socket runtime
+
+    Introduce a shared transport adapter rather than embedding Redis-specific code throughout the flight engine.
+
+    Keep local in-memory transport available for isolated tests.
+
+* Implement persistent spatial sessions
+
+    Replace process-local ownership with shared session coordination and authoritative simulation leases.
+
+* Implement durable checkpoints
+
+    Persist pilot poses, velocity, orientation, energy, ship health, projectiles, locks and encounter state, with versioned schemas.
+
+* Run multi-instance tests
+
+    Connect two socket instances and verify that pilots see each other and the same enemy fleets.
+
+* Run restart and recovery tests
+
+    Restart the socket owner and prove that the universe resumes without duplicating pilots, encounters, projectiles or rewards.
+
+### 5\. The acceptance test that matters most
+
+Required staging certification
+
+| Scenario                 | Expected result                              |
+| ------------------------ | -------------------------------------------- |
+| Pilot A joins instance A | Ship appears in shared universe              |
+| Pilot B joins instance B | Pilot A sees Pilot B                         |
+| A fires weapons          | B receives authoritative projectile state    |
+| Enemy patrol moves       | Both pilots see the same position            |
+| A disconnects            | Presence transitions correctly               |
+| Socket instance restarts | Universe reconstructs from checkpoints       |
+| A reconnects             | Pilot recovers valid ship state              |
+| Encounter continues      | No duplicated combat or settlement           |
+| One instance fails       | Another can safely acquire session ownership |
+
+We should also test spatial boundaries: pilots in different canonical spatial sessions must not accidentally see one another's exact positions.
+
+### 6\. My implementation decision
+
+I would authorize this architecture:
+
+* Transport: Railway Redis, dedicated to WFM staging.
+
+* Durability: Existing WFM staging PostgreSQL.
+
+* Runtime: Multiple socket instances using shared session coordination.
+
+* Authority: Server-owned flight and combat simulation.
+
+* Recovery: Versioned durable checkpoints.
+
+* Production: No changes.
+
+* Deployment: Staging only, after implementation and review.
+
+One repository qualification: the currently deployed staging services are following `design/orbital-universe-entry`, commit `6227312`. I could not locate the referenced `PERSISTENT-UNIVERSE-VERIFICATION.md` in that branch snapshot, so that document should be reconciled into the active source branch before treating it as the committed implementation specification.
+
+My recommendation is unambiguous: do not reuse the unrelated production Redis. Provision the dedicated staging broker.
+
+I have completed the infrastructure inspection and architecture selection, but have not provisioned Redis or changed Railway resources.
+Worked for 1m 36s
+
+### Yes. We should build both systems together.
+
+I recommend adding two major capabilities to WFM's Orbital combat architecture:
+
+* Adaptive Enemy Pilot AI: enemy pilots actively maneuver, evade, pursue, flank and position themselves behind the player's spacecraft to establish firing solutions.
+
+* Combat Rewards and Kill Progression: destroying enemy targets restores energy and contributes to kill streaks, milestones, upgrades and faction progression.
+
+These are important because we want enemy pilots to feel like actual military pilots rather than flying targets that simply approach and shoot.
+
+The objective is to create battles where the player has to outmaneuver an intelligent opponent, while also being rewarded for successfully destroying enemy ships.
+
+### 1\. Repository findings: what we have and what is missing
+
+I inspected the newer combat integration branch, including the server-side flight runtime, Orbital flight adapter, reward settlement and progression policies.
+
+The latest relevant integration commit I verified is:
+
+`abee40eb6a602bfef04953f794b074dd3372e392`
+
+There are already several useful foundations.
+
+| Existing capability                   | Finding                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Server-owned flight simulation        | Present in sector runtime                                                                  |
+| Enemy projectiles                     | Existing projectile simulation                                                             |
+| Shared enemy objectives               | Present in cooperative operations                                                          |
+| Friendly AI assistance                | Previously added and automated-test verified, according to the supplied development report |
+| Kill-based campaign scoring           | Present in the older replay-based reward system                                            |
+| Persistent progression ledger         | Present                                                                                    |
+| Idempotent reward transactions        | Present for Online Wing match rewards                                                      |
+| Adaptive enemy pursuit and flanking   | Not verified in the shared-flight runtime                                                  |
+| Enemy missile-evasion decision-making | Not verified                                                                               |
+| Per-kill energy restoration           | Not implemented in the inspected reward paths                                              |
+| Persistent kill streak milestones     | Not established in the inspected shared-flight path                                        |
+
+The most important distinction is that the current `sector-runtime.ts` advances player flight and shared objectives. It does not yet establish the complete autonomous enemy-pilot combat behavior you are describing.
+
+Likewise, existing rewards are not proof that an authenticated player receives an energy refill every time they destroy an enemy in persistent free flight.
+
+Relevant source files:
+
+* [Sector runtime](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/socket/sector-runtime.ts?utm_source=chatgpt.com)
+
+* [Flight-sector adapter](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/flight-sector.ts?utm_source=chatgpt.com)
+
+* [Wing reward policy](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/wing-reward-policy.ts?utm_source=chatgpt.com)
+
+* [Campaign reward adjudication](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/rewards.ts?utm_source=chatgpt.com)
+
+My assessment: these should be new integrated combat systems, not isolated additions to the existing AI or reward code.
+
+### 2\. Build an adaptive enemy pilot intelligence system
+
+Strong recommendation
+
+The enemy AI should understand that it is fighting another pilot.
+
+It should not simply fly toward the player's position, fire when within range and repeat.
+
+I recommend creating an Orbital Tactical Flight Intelligence System with six behavioral capabilities.
+
+1\. Pursuit and rear positioning
+
+Enemy pilots calculate the player's velocity and heading, predict where the ship will be and attempt to reach a firing position behind it.
+
+![StarShipDealers — Premium Star Citizen Marketplace](https://images.openai.com/static-rsc-4/b1Rk9EYWbjMkmVBdKVk7o95N6PDPfF53nib7VWVmIHOrTUL6yHrhgSASxCAjhoVfdRV4dB-yuJuEUGpPIrR-n1F5oCFsqZ-BoWsknQx4u17TC25-tiAvYKpol1NZ-BD0XzIKu_dCZ4hK7bCvtDND0UX6beUUW8hJ8gCb1Nf9IaKDlcorEMgELaY9InockbmZ?purpose=fullsize)
+
+2\. Tactical flanking
+
+Multiple enemies coordinate instead of following one another. One pursues while another attempts to intercept from the side.
+
+![Blitz Evasion | playscape](https://images.openai.com/static-rsc-4/FdEb_p1mGK7eBvpCofE6tFAjtmpGin0O7GYxpQpAPcob3OPSr8JjVT8KoXS5QjX8s-rNPswucvM1Zcf2mh4BRPjjO0j69oBq3yr-n0rBHP_uqwhzcSVbGiUkenuihQfu0sG8gQlSDBFRRz_TfJW4BPGbyOz335ekbN9lks1cF49WvklBqt4K4b_M171Ovg3S?purpose=fullsize)
+
+3\. Missile and projectile evasion
+
+Enemy pilots detect incoming threats, estimate impact time and attempt lateral, vertical or diagonal evasive maneuvers.
+
+![This Week in Star Citizen - August 25, 2025 - Roberts Space Industries - RSI SERVER](https://images.openai.com/static-rsc-4/k9VWrITRI8hDhHyLI5meaEDireM9F2VfoyN9Ut5RkG5pmFz49B3QA30JbAB7D4Zu7e9J_0LLLfPLT0BzwnX1JlhKEKJznN6SFGkU71m6R4w5ZPaQWzJb2_vbH95Ot0RsXvZ_ZKwbQhH5U5eSEum1k19ySNeoWDx99grR-vqyfbCoy9Mh7uUmyg2YdicVKha-?purpose=fullsize)
+
+4\. Defensive maneuvering
+
+Enemy pilots perform barrel rolls, vector dodges, climbs and dives when threatened.
+
+![Star Citizen Alpha 4.1.1 Update News - Evocati, Citizen Con 2025, Fleet Week 2955 (2025), Reset and Referrals Drama, CIG Financials & More - MMOPIXEL](https://images.openai.com/static-rsc-4/ULEOgxh-RgUeeYCOUyJ9BeYDGizsUBzsZrmA58d70SQp_MSMZrt0mpp3jnIMkKTJw4Vjh1ieCewmhtyXtDNBJyU4GINsG_Dc20EannUNgM4y1XzOntl8b_gW0bGtEc_OXAnyp1on2-ekF1T935xAwsUO_BpD44TZxUHq57_Z-zU6JHQIzok6NTLLg_4vF9t5?purpose=fullsize)
+
+5\. Intelligent weapons employment
+
+AI pilots evaluate range, target heading, firing angle, weapon cooldown and missile lock quality before firing.
+
+![Actualités | Star-SEAH-Tizen](https://images.openai.com/static-rsc-4/Gyvg2uCeE2RBomfDF50YemkHaA56DdWDp6l7_ssGN76AGD_qR_2G4zc4frRPpyzF7CIWqBiCwVrHFWsFsp0GeLSTPzO-c-OY6QUobE8Iszk0RLw8zefFJPasGUEygIA-LbEMxnyMbdC9Gf_IutKe7_6oWuwbRIJekusRPchiNKD0q5TqW3FjyNbCj-GSjTsZ?purpose=fullsize)
+
+6\. Squad coordination
+
+Enemy pilots communicate tactical intentions, divide targets, retreat when damaged and regroup with their fleet.
+
+### How the rear-positioning AI should work
+
+This is particularly important.
+
+The AI should not simply aim at the player's current position. It should attempt to establish a position from which it can attack effectively.
+
+For example:
+
+![Pursuit Tradition / Ritual in STBC | World Anvil](https://images.openai.com/static-rsc-4/zJeqACyoxgBjBO4ITkaTgn0JDc-kO71JDywDKjQ407n-bjR_Tb-0SI5RyopdFtq3AKPpem62rlcMigXYoViaNsdea6fiZH16sVYDkLvjB2CMvl0k839JaW1ErmGYEWk7QUEmGtN7hwHqMWAG5le71MvuJxmZ6yrs8JJzhsLBHDDiC_4tU02Svw9MKuaTWRSk?purpose=fullsize)
+
+Imagine the player is flying forward.
+
+The enemy AI should:
+
+* Estimate the player's current forward vector.
+
+* Predict the player's future position.
+
+* Select a rear-quarter interception point.
+
+* Calculate the velocity needed to reach that point.
+
+* Adjust its heading and lateral thrust.
+
+* Match the player's speed where appropriate.
+
+* Acquire a firing solution.
+
+* Fire guns or launch a missile.
+
+* Reposition if the player performs an evasive maneuver.
+
+It should continually recalculate instead of following a fixed waypoint.
+
+A useful tactical calculation is:
+
+P_{\\text{intercept}} =
+P_{\\text{player}} +
+V_{\\text{player}}t +
+D_{\\text{rear}}
+
+Where:
+
+* is the player's position.
+
+* is the player's velocity.
+
+* is the estimated interception time.
+
+* is the desired rear-quarter offset.
+
+We should use a dynamically selected offset rather than always placing the enemy directly behind the player's ship. Otherwise, the AI becomes predictable.
+
+### Enemy AI behavioral states
+
+I recommend a state machine:
+
+```mermaid
+
+stateDiagram-v2
+    [*] --> Patrol
+    Patrol --> Detect: Player detected
+    Detect --> Intercept: Threat confirmed
+    Intercept --> Pursue: Close distance
+    Pursue --> RearPosition: Seek firing angle
+    RearPosition --> Attack: Firing solution
+    Attack --> Pursue: Target changes heading
+    Attack --> Evade: Incoming threat
+    Pursue --> Evade: Missile warning
+    RearPosition --> Flank: Wingman available
+    Flank --> Attack: Coordinated firing solution
+    Evade --> Reposition: Threat avoided
+    Reposition --> Pursue: Reacquire target
+    Attack --> Retreat: Hull critical
+    Retreat --> Regroup: Safe distance
+    Regroup --> Pursue: Re-engagement
+```
+
+The AI must also understand when it is losing a fight. A badly damaged fighter should not behave like a fully equipped interceptor.
+
+### 3\. Make enemy AI genuinely capable of evading the player's attacks
+
+We should give enemy pilots the same fundamental flight capabilities that we give human pilots.
+
+That means using the shared Orbital flight simulation, not creating an artificial movement animation.
+
+For example, if the player fires a missile:
+
+* AI detects the incoming missile.
+
+* AI evaluates its estimated time to impact.
+
+* AI calculates whether a lateral dodge, vertical climb, dive or barrel roll is appropriate.
+
+* AI checks its maneuver energy and cooldown.
+
+* AI executes the maneuver through the actual flight physics.
+
+* AI attempts to reacquire its offensive position.
+
+The AI should not dodge every attack perfectly.
+
+We need varying intelligence levels:
+
+| Enemy class | Behavior                                                       |
+| ----------- | -------------------------------------------------------------- |
+| Rookie      | Basic pursuit, occasional evasion                              |
+| Regular     | Attempts rear positioning and missile dodging                  |
+| Veteran     | Flanking, predictive interception and coordinated attacks      |
+| Elite       | Combines maneuvers, countermeasures and intelligent weapons    |
+| Ace         | Adapts to repeated player tactics and coordinates with wingmen |
+
+An Ace should be challenging because it makes better tactical decisions, not because it receives unfair speed or damage bonuses.
+
+### 4\. Introduce energy restoration for every confirmed kill
+
+I recommend implementing this
+
+I particularly like your idea of restoring energy when a player destroys an enemy.
+
+It creates an important combat loop:
+
+Attack → maneuver → expend energy → destroy target → recover energy → continue fighting.
+
+It also encourages skilled pilots to stay engaged rather than constantly retreating to recharge.
+
+However, I would introduce a controlled reward system rather than automatically restoring every energy resource to 100%.
+
+### Proposed kill-energy rewards
+
+These are initial balancing recommendations, not existing game settings.
+
+| Combat achievement               | Proposed energy restoration |
+| -------------------------------- | --------------------------- |
+| Standard fighter destroyed       | 20%                         |
+| Veteran fighter destroyed        | 25%                         |
+| Elite fighter destroyed          | 35%                         |
+| Enemy interceptor destroyed      | 25%                         

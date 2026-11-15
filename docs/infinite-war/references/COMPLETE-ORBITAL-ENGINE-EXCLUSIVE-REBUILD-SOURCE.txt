@@ -1,0 +1,688 @@
+# WAR FOR MARS: INFINITE WAR
+## COMPLETE ORBITAL ENGINE EXCLUSIVE REBUILD
+### Mars Living Planetary World • Infinite Open Universe • Live Multiplayer Exploration • Real-Time Combat
+
+**Repository:** `niakofa-cmyk/WFM`  
+**Implementation target:** `staging`  
+**Primary architecture:** Orbital Combat Engine exclusively  
+**Mission:** Reimagine, redesign, reconstruct, and integrate the complete WAR FOR MARS game inside the Orbital Combat Engine.
+
+---
+
+# 1. ABSOLUTE ENGINE DECISION — ORBITAL EXCLUSIVELY
+
+The Orbital Combat Engine is the sole engine for the main WAR FOR MARS game.
+
+This is an explicit architectural requirement.
+
+Do not use Three.js as:
+- The main game engine.
+- A secondary rendering engine.
+- A planetary rendering engine.
+- A separate universe application.
+- A parallel simulation or physics runtime.
+- A second world-state owner.
+- A fallback gameplay runtime.
+
+Do not build a Three.js universe and connect it to Orbital.
+
+Do not retain Three.js as a rendering layer in the main game.
+
+Do not create a hybrid Orbital/Three.js architecture.
+
+**All main game functionality must operate through the Orbital engine.**
+
+The Orbital engine must own or internally provide the complete capabilities necessary to run the game:
+
+1. Game runtime and lifecycle.
+2. World and universe management.
+3. 3D rendering and visual presentation.
+4. Planetary rendering and environmental systems.
+5. Terrain, orbital environments, and celestial bodies.
+6. Flight physics and spacecraft movement.
+7. Combat, weapons, targeting, and damage.
+8. AI, fleets, and encounters.
+9. Coordinate systems and world navigation.
+10. Streaming, LOD, and origin rebasing.
+11. Camera, effects, animation, and scene management.
+12. Multiplayer simulation integration.
+13. World events, operations, and adventure systems.
+
+React may remain the application and interface framework for menus, account screens, hangar interfaces, HUD interfaces, and other application-level components. It must not become another 3D game engine.
+
+Existing server services may continue to provide authenticated identity, authoritative multiplayer validation, persistence, progression, and rewards. They must integrate with the Orbital runtime through explicit, versioned contracts.
+
+### Three.js retirement and knowledge extraction
+
+Treat the existing Three.js universe implementation as a research and extraction source only.
+
+Conduct a complete inventory of its:
+- Planet generation and planetary visualization.
+- Sphere and surface geometry.
+- Terrain and procedural detail.
+- Atmosphere and lighting.
+- Day/night transitions.
+- Orbital paths and celestial motion.
+- Camera behavior.
+- Navigation and coordinate calculations.
+- Ship graphics and environmental assets.
+- Level of detail and rendering optimizations.
+- Streaming and resource management.
+- Effects and visual techniques.
+
+Determine which concepts, algorithms, assets, and techniques are valuable.
+
+Reimplement or adapt the useful capabilities into Orbital-native systems.
+
+Remove the Three.js dependency from the main game only after the Orbital-native replacements are implemented, tested, and proven.
+
+Do not preserve Three.js merely because the current Arena imports it. The purpose of this project is to replace that dependency with the Orbital engine's own complete implementation.
+
+Do not delete useful reference code or assets before documenting and migrating the required capabilities.
+
+---
+
+# 2. FIRST MISSION: FORENSIC ENGINE AUDIT
+
+Refresh the latest repository state before implementation.
+
+Inspect:
+- `staging` and `main`.
+- All open pull requests.
+- Orbital Combat Lab entry and lifecycle.
+- `Arena.tsx` and every direct Three.js import.
+- `lib/orbital-sim`.
+- Orbital flight, weapons, damage, targeting, and simulation modules.
+- Orbital server authority.
+- Existing game renderers and scene creation.
+- Existing Three.js universe and planetary systems.
+- Build manifests, dependencies, bundling, and deployment configuration.
+- Existing game tests, simulation tests, and device verification.
+
+Establish exactly what the Orbital engine currently contains.
+
+Do not assume that a deterministic flight simulation package is a complete game engine.
+
+Determine whether Orbital already provides:
+- Its own rendering pipeline.
+- A scene graph or world representation.
+- Geometry and material management.
+- Shader and lighting systems.
+- Camera and projection systems.
+- GPU resource lifecycle management.
+- Texture and asset loading.
+- Terrain and planetary rendering.
+- LOD and streaming.
+- Physics and collision.
+- Input and camera control.
+- Effects and animation.
+
+For every missing capability, specify the Orbital-native implementation required.
+
+Produce an engine capability matrix:
+
+| Capability | Existing Orbital implementation | Missing work | Migration or rebuild | Acceptance test |
+|---|---|---|---|---|
+| 3D renderer | Verify | Verify | Orbital-native | Render test |
+| Planetary globe | Verify | Verify | Orbital-native | Planet rendering |
+| Terrain | Verify | Verify | Orbital-native | Terrain traversal |
+| Atmosphere | Verify | Verify | Orbital-native | Atmospheric transition |
+| Day/night | Verify | Verify | Orbital-native | Mars rotation test |
+| Flight physics | Verify | Verify | Consolidate | Flight replay |
+| Weapons/combat | Verify | Verify | Consolidate | Combat replay |
+| Streaming | Verify | Verify | Build if absent | Sector handoff |
+| Multiplayer | Verify | Verify | Integrate authority | Two-pilot test |
+| Universe navigation | Verify | Verify | Build if absent | Travel test |
+
+Do not mark a capability complete because a placeholder, static visual, isolated demo, or test mock exists.
+
+---
+
+# 3. REBUILD THE ORBITAL ENGINE AS THE COMPLETE GAME RUNTIME
+
+The objective is not simply to make the current Orbital Combat Lab arena larger.
+
+The objective is to transform the Orbital engine into a complete, expandable universe runtime.
+
+The engine must support:
+
+### A. World simulation
+- Stable universe and celestial-body identities.
+- Hierarchical coordinate systems.
+- Local high-fidelity simulation sectors.
+- Planetary and orbital movement.
+- Deterministic simulation.
+- Collision and spatial queries.
+- World-time and environmental simulation.
+
+### B. Native 3D presentation
+- Orbital-native rendering architecture.
+- Ship and fleet models.
+- Planetary surfaces and atmospheric effects.
+- Terrain, rocks, debris, stations, and structures.
+- Lighting, shadows, day/night, and space environments.
+- Camera and cockpit presentation.
+- Particle effects and combat effects.
+- Efficient GPU resource management.
+
+### C. Gameplay
+- Six-axis spacecraft flight.
+- Momentum, thrust, boost, braking, and inertia.
+- Target acquisition and lock.
+- Guns, missiles, energy weapons, countermeasures.
+- Shields, armor, hull, and subsystem damage.
+- AI opponents and wing behavior.
+- Capital ships and fleet combat.
+- Missions, objectives, extraction, and recovery.
+
+### D. Expandable world architecture
+- Sector creation and destruction.
+- Streaming and asset loading.
+- Level of detail.
+- Floating-origin/origin rebasing.
+- Interest management.
+- Server-authoritative multiplayer.
+- Reconnection and state recovery.
+- Persistent discoveries and world consequences.
+
+Keep the engine modular. Do not create one enormous monolithic simulation or rendering loop.
+
+---
+
+# 4. REIMAGINE MARS AS ONE CONTINUOUS PLAYABLE PLANET
+
+Mars is the first complete planetary theater and the central starting point of the Infinite War universe.
+
+It must become a real navigable world, not a sphere placed in the background of a combat arena.
+
+The player must be able to fly around Mars, cross the daylight hemisphere, enter the dark side, continue around the planet, and return to daylight without a map change or artificial level transition.
+
+### Mars world layers
+
+Build the world as connected systems:
+
+1. Planetary body and curvature.
+2. Planet-fixed geographic coordinates.
+3. Body-centered inertial/orbital coordinates.
+4. Surface and terrain regions.
+5. Atmospheric flight envelope.
+6. Low, medium, and high orbital regions.
+7. Phobos and Deimos destinations.
+8. Stations, shipyards, relays, and defense platforms.
+9. Debris fields, wrecks, and asteroid regions.
+10. Bases, installations, landing sites, and hidden locations.
+11. Dynamic encounters and faction activity.
+12. Persistent discoveries and world events.
+
+A rendered globe does not count as a playable planet.
+
+Clearly distinguish:
+- Visually represented locations.
+- Flyover-enabled locations.
+- Collision-enabled locations.
+- Landing-enabled locations.
+- Fully interactive destinations.
+
+Do not claim full planetary exploration until the actual world systems support it.
+
+---
+
+# 5. MARS CIRCUMNAVIGATION AND DARK-SIDE FLIGHT
+
+Build a single shared Mars world clock.
+
+Mars rotation must determine:
+- Solar direction.
+- Day/night boundaries.
+- Planetary lighting.
+- Surface illumination.
+- Orbital lighting.
+- Station and beacon visibility.
+- Time-dependent world events.
+
+The player's position must remain continuous through the entire journey.
+
+Implement:
+- Mars rotation.
+- Sun direction and lighting calculations.
+- Coordinate transformations.
+- Planetary curvature and horizon.
+- Orbital trajectories.
+- Longitude wrap.
+- Sector handoff.
+- Local simulation origin rebasing.
+- Environmental streaming.
+- Night-side sensor and visibility behavior.
+
+The dark side must be a real part of the same Mars.
+
+It must contain meaningful gameplay:
+- Unlit installations.
+- Hidden stations.
+- Distress signals.
+- Power failures.
+- Communication shadows.
+- Beacon searches.
+- Sensor anomalies.
+- Night-side patrols.
+- Rescue and recovery operations.
+- Fleet movements concealed by planetary occlusion.
+
+Do not implement a separate dark-side level.
+
+### First major technical milestone
+
+Demonstrate:
+
+1. A pilot launches into the Mars theater.
+2. The pilot flies around the planet.
+3. The sunlit hemisphere transitions naturally into darkness.
+4. The pilot discovers a physical point of interest on the dark side.
+5. A live event can occur there.
+6. The pilot continues around Mars.
+7. The pilot returns to daylight.
+8. The player, ship, orientation, velocity, and world state remain continuous.
+
+This is the first planetary-world acceptance milestone.
+
+---
+
+# 6. REBUILD THE MARS ROUTE SYSTEM
+
+Do not preserve the old routes as disconnected levels.
+
+Reimagine them as geographic regions, navigable corridors, destinations, and live adventure systems within the Orbital world.
+
+Routes must be data-driven and authored through an Orbital-native route and world-authoring system.
+
+A route is a suggested journey, not an invisible rail.
+
+Players can leave a suggested route, explore, discover alternate locations, encounter other players, and continue their journey.
+
+### Rust Disc — Frontier Debris Corridor
+
+Transform Rust Disc into a substantial frontier exploration region.
+
+Live activities:
+- Wreckage exploration.
+- Convoy black-box recovery.
+- Relay repair and restoration.
+- Salvage and resource recovery.
+- Distress calls.
+- Escort missions.
+- AI patrol encounters.
+- USSF and Accord reconnaissance.
+- Player expeditions.
+- Hidden wreck discoveries.
+- Sentinel encounters.
+- Dynamic relay defense operations.
+
+Preserve the original Rust Disc identity while expanding its geography and gameplay.
+
+### Mars Approach — Live Planetary Arrival Corridor
+
+Transform Mars Approach into the actual approach to Mars.
+
+Live activities:
+- High-orbit arrival.
+- Traffic monitoring.
+- Debris navigation.
+- Defense-grid encounters.
+- Reconnaissance.
+- Orbital patrols.
+- Station approaches.
+- Fleet arrivals.
+- Low-orbit navigation.
+- Atmospheric entry when that capability is implemented.
+
+Mars Approach must not remain a fixed sphere and a scripted arena.
+
+### Pale Beacons — Signal and Anomaly Region
+
+Transform Pale Beacons into an exploration and investigation region.
+
+Live activities:
+- Triangulate unknown signals.
+- Investigate damaged beacon arrays.
+- Repair communications infrastructure.
+- Investigate sensor shadows.
+- Discover false signals.
+- Encounter unidentified spacecraft.
+- Recover research data.
+- Defend research operations.
+- Trigger persistent discoveries.
+
+### Night-side Station — Dark Hemisphere Exploration
+
+Create a physical station on Mars's dark side.
+
+Live activities:
+- Locate the station.
+- Navigate communication blackouts.
+- Restore power.
+- Recover personnel.
+- Defend station infrastructure.
+- Investigate unknown signals.
+- Establish a persistent operating base.
+
+### Dust Lane — Debris and Stealth Region
+
+Create a hazardous corridor featuring:
+- Asteroid and debris navigation.
+- Sensor interference.
+- Stealth approaches.
+- Interception operations.
+- Escort and ambush events.
+- Salvage opportunities.
+- Dynamic patrols.
+
+### Below the Signal — Mystery and Discovery Network
+
+Connect orbital investigations with surface and subterranean locations only when those physical locations have been implemented.
+
+Activities:
+- Signal investigations.
+- Anomaly research.
+- Surface discovery.
+- Underground facilities.
+- Ancient structures.
+- Hidden technology.
+- Multi-stage narrative discoveries.
+
+### Phobos Yard — Orbital Industrial Hub
+
+Build Phobos Yard as a meaningful physical destination.
+
+Capabilities:
+- Docking.
+- Ship refitting.
+- Repairs.
+- Markets.
+- Refinery.
+- Cargo.
+- Logistics.
+- Supply contracts.
+- Faction operations.
+- Fleet staging.
+- Multiplayer social presence.
+
+### Outer Fringe Anchorage — Frontier Expansion
+
+Create a frontier logistics and salvage region with:
+- Remote stations.
+- Resource collection.
+- Wreckage.
+- Convoys.
+- Exploration.
+- Faction expansion.
+- Frontier combat.
+
+### Deep Nebula Observatory — Later Universe Expansion
+
+Build this as a later destination in the wider universe, not an immediate substitute for completing Mars.
+
+Capabilities:
+- Deep-space anomaly investigation.
+- Sensor research.
+- Unknown celestial phenomena.
+- Navigation hazards.
+- Research stations.
+- Cooperative exploration.
+
+### Iron Eclipse — Live Fleet Operation
+
+Transform Iron Eclipse into a discoverable and playable fleet operation in the Mars orbital theater.
+
+Preserve and expand:
+- Capital-ship engagements.
+- AI wing orders.
+- Escort and defense.
+- Subsystem targeting.
+- Fleet perimeter defense.
+- Multi-stage objectives.
+- Extraction.
+- Human and AI coordination.
+
+The operation must exist inside the same Orbital universe and use its canonical combat simulation.
+
+---
+
+# 7. BUILD A NEW ORBITAL-NATIVE ROUTE DESIGNER
+
+Create a new route-authoring and adventure-definition architecture.
+
+Separate:
+
+1. Physical geography.
+2. Navigation corridors.
+3. Points of interest.
+4. Environmental conditions.
+5. Dynamic events.
+6. Mission objectives.
+7. Faction ownership and interests.
+8. Multiplayer policies.
+9. Persistence and rewards.
+
+Each route must have:
+- Stable ID and version.
+- Geographic start and destination.
+- Coordinate frame.
+- Waypoints and optional corridors.
+- Alternate approaches.
+- Points of interest.
+- Hazards and encounter regions.
+- Environmental and lighting conditions.
+- Event spawn rules.
+- Mission objective graph.
+- Optional discoveries.
+- Failure and recovery rules.
+- Solo/co-op/public/private/competitive policies.
+- Player limits.
+- Server-authority rules.
+- Persistence and reward policy.
+- Performance and streaming budgets.
+
+Route data must be independent of scene objects.
+
+Create developer tools that allow the team to author, inspect, test, and validate routes within the Orbital engine environment.
+
+---
+
+# 8. MULTIPLAYER: ONE SHARED WORLD, AUTHORITATIVE OPERATIONS
+
+The game must support real multiplayer exploration, not merely AI opponents or visual representations of other players.
+
+Build:
+- Authenticated player presence.
+- Shared sector state.
+- Nearby-player visibility.
+- Parties and wing formation.
+- Operation discovery and joining.
+- Server-authoritative movement and combat validation.
+- AI fleet participation.
+- Dynamic event synchronization.
+- Reconnection and recovery.
+- Persistent discovery and mission results.
+
+The first multiplayer planetary proof requires two authenticated pilots in the same authoritative Mars region.
+
+Both must observe consistent:
+- Positions and movement.
+- Orientation.
+- World time.
+- Environmental conditions.
+- Points of interest.
+- Dynamic events.
+- Combat and damage outcomes.
+
+Preserve existing identity, account, campaign, Wing, co-op, economy, and reward contracts. Integrate them incrementally. Do not create duplicate player or progression systems.
+
+Do not allow a local renderer or client prediction to determine competitive outcomes or rewards.
+
+---
+
+# 9. MIGRATE THE COMPLETE GAME INTO ORBITAL
+
+Orbital must become the runtime through which the entire game is experienced.
+
+Migrate and integrate:
+
+- Hangar and ship selection.
+- Saved ship/loadout.
+- Rust Disc flight behavior.
+- Orbital combat.
+- Mars navigation.
+- Campaign missions.
+- Sector co-op.
+- Iron Eclipse.
+- Competitive Wing.
+- Galaxy and world navigation.
+- Stations and economy.
+- Faction conflict.
+- Discoveries and progression.
+- Dynamic universe events.
+
+One game. One primary engine. One connected universe.
+
+Do not preserve multiple independent gameplay runtimes as the final architecture.
+
+Preserve existing systems until their Orbital-native replacements pass parity, authority, account, persistence, performance, and rollback checks.
+
+---
+
+# 10. IMPLEMENTATION ORDER
+
+Do not attempt to build the entire universe in one unverified change.
+
+### Phase 0 — Repository and engine forensic audit
+Establish actual engine capabilities, missing systems, dependencies, and migration risks.
+
+### Phase 1 — Orbital-native engine foundation
+Establish the complete engine runtime, native rendering, world representation, resource lifecycle, and application integration.
+
+### Phase 2 — Migrate combat and flight
+Move the complete six-axis flight, ship, weapon, damage, targeting, and AI experience into Orbital.
+
+### Phase 3 — Replace Three.js runtime dependencies
+Recreate required visual and environmental capabilities natively within Orbital. Remove Three.js from the main runtime after parity is demonstrated.
+
+### Phase 4 — Build the Mars planetary world
+Implement coordinate systems, planetary body, rotation, lighting, terrain layers, orbit, atmosphere, and streaming.
+
+### Phase 5 — Mars circumnavigation
+Prove continuous daylight-to-night-side-to-daylight flight.
+
+### Phase 6 — Live Mars route network
+Implement Rust Disc, Mars Approach, Pale Beacons, Night-side, Dust Lane, and the other Mars destinations as real world regions and adventures.
+
+### Phase 7 — Multiplayer planetary world
+Demonstrate synchronized authenticated pilots and shared dynamic events.
+
+### Phase 8 — Migrate operations and persistence
+Integrate campaign, co-op, Iron Eclipse, Wing, hangar, economy, faction state, and progression.
+
+### Phase 9 — Expand the universe
+Introduce additional moons, planets, star systems, galaxies, anomalies, dimensions, and other universes.
+
+### Phase 10 — Scale and certify
+Test sustained performance, mobile compatibility, multiplayer capacity, recovery, and persistent-world integrity.
+
+---
+
+# 11. REQUIRED TESTING AND ACCEPTANCE GATES
+
+The developer must provide evidence, not claims.
+
+### Engine exclusivity gate
+- No Three.js imports in the main game runtime.
+- No Three.js rendering dependency in the production game bundle.
+- No separate Three.js universe application.
+- Orbital owns the game world and simulation lifecycle.
+- All primary gameplay functions run through Orbital.
+
+### Rendering gate
+- Ships and environments render through Orbital.
+- Planetary globe and atmosphere render through Orbital.
+- Lighting and day/night operate through Orbital.
+- Camera and effects operate through Orbital.
+- Resource disposal and scene teardown pass.
+- No duplicate rendering or simulation ownership.
+
+### Planet gate
+- Mars rotation is continuous.
+- Day/night is synchronized.
+- Circumnavigation works.
+- Sector transitions preserve player state.
+- The dark-side destination is physically navigable.
+- No artificial map transition interrupts flight.
+
+### Multiplayer gate
+- Two authenticated pilots share an authoritative sector.
+- Both receive consistent world and event state.
+- Reconnection restores valid state.
+- Combat and mission results are server-validated.
+
+### Performance gate
+Measure on defined supported devices:
+- Frame-time consistency.
+- CPU and GPU utilization.
+- Peak memory.
+- Thermal behavior.
+- Startup time.
+- Streaming stalls.
+- Terrain and asset-loading behavior.
+- Sustained combat and flight.
+
+Do not claim 60 FPS or mobile certification without physical-device evidence.
+
+### Regression gate
+- Existing account and authentication contracts remain valid.
+- Existing reward protections remain valid.
+- Existing campaign and co-op behavior remains accounted for.
+- No duplicate inventory or progression systems.
+- Rollback is documented and tested.
+
+---
+
+# 12. DEFINITION OF DONE
+
+The project is not complete when a new menu, globe, route map, or demonstration scene has been created.
+
+The project is complete when the main WAR FOR MARS game operates through the Orbital Combat Engine exclusively, with:
+
+1. Orbital-native rendering and simulation.
+2. Six-axis playable spacecraft.
+3. Integrated weapons and combat.
+4. A continuous Mars planetary world.
+5. Day-side and night-side travel.
+6. Actual navigable destinations and points of interest.
+7. Live routes and adventure activities.
+8. Shared authenticated multiplayer exploration.
+9. Integrated campaign, operations, and persistence.
+10. A documented and tested expansion architecture for the wider universe.
+
+**The final product must not depend on a separate Three.js universe or a hybrid engine arrangement.**
+
+---
+
+# 13. DEVELOPER EXECUTION INSTRUCTIONS
+
+Start by correcting the architecture documentation and producing the forensic capability matrix.
+
+Then propose the first bounded implementation PR.
+
+For every PR:
+- State the exact files changed.
+- State the Orbital-native capabilities added.
+- Identify removed or replaced Three.js dependencies.
+- Provide tests and results.
+- Provide build evidence.
+- Provide performance measurements where relevant.
+- Identify remaining gaps.
+- Document rollback.
+
+Work on staging first.
+
+Do not merge to main, deploy Production, delete existing production systems, or alter production data without explicit owner authorization.
+
+**The mission is to build WAR FOR MARS: INFINITE WAR as one complete, expandable game through the Orbital Combat Engine exclusively.**

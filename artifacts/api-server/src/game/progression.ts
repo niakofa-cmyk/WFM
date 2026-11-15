@@ -1,24 +1,30 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
+  playerWorldStateTable,
   progressionEventsTable,
   strikeRunsTable,
+  worldDiscoveriesTable,
   type MarketPrices,
   type PlayerProgress,
 } from "@workspace/db";
+import { normalizeLeaderboardProfileUpdate } from "./public-leaderboard";
 import {
   adjudicateStrike,
   IncompleteStrikeReplay,
   InvalidStrikeReplay,
   validateStrikeReplayInputs,
+  type FlightModel,
   type GoodId,
   type MissionId,
   type ReplayClaim,
 } from "./rewards";
 import type { Disc, Goal, Pace, StepInput } from "./sim";
 import { ROSTER, type Faction, type ShipId } from "./ships";
+import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { narrativeAwardsForClaim, narrativeDiscoveryId } from "./campaign-narrative";
 
 type StrikeStartInput = {
   shipId: ShipId;
@@ -27,6 +33,7 @@ type StrikeStartInput = {
   pace: Pace;
   mission: MissionId;
   tech: "stick" | "barrels" | "mark" | null;
+  supportsOrbitalReplay?: boolean;
 };
 type StrikeClaimInputs = StepInput[];
 
@@ -36,6 +43,7 @@ export type GameProfile = {
   shipId: ShipId;
   scheme: "arc" | "strafe";
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   hold: GoodId | null;
   paid: number;
@@ -44,12 +52,15 @@ export type GameProfile = {
   cleared: number;
   tech: "stick" | "barrels" | "mark" | null;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  publicLeaderboardCallsign: string | null;
   revision: number;
 };
 
 type StrikeConfig = Omit<ReplayClaim, "inputs"> & { profileRevision: number };
 
 type MissionConfig = {
+  flightModel: FlightModel;
   pace: Pace;
   goal: Goal;
   disc: Disc;
@@ -66,11 +77,11 @@ const MISSION_ORDER: Record<MissionId, number> = {
   cage: 3,
 };
 const MISSION_CONFIG: Record<MissionId, MissionConfig> = {
-  skirmish: { pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
-  contact: { pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
-  beacon: { pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
-  warden: { pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
-  cage: { pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
+  skirmish: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 5 },
+  contact: { flightModel: ORBITAL_RUNTIME_ID, pace: "practice", goal: "disc", disc: "rust", allyCount: 4, foeCount: 4 },
+  beacon: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "beacons", disc: "beacon", allyCount: 2, foeCount: 3 },
+  warden: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "strike", goal: "ace", disc: "night", allyCount: 4, foeCount: 5 },
+  cage: { flightModel: LEGACY_SURFACE_RUNTIME_ID, pace: "practice", goal: "extract", disc: "dust", allyCount: 3, foeCount: 4 },
 };
 const TECH_UNLOCK: Record<NonNullable<GameProfile["tech"]>, number> = {
   stick: 1,
@@ -95,6 +106,7 @@ function toProfile(row: PlayerProgress): GameProfile {
     shipId: row.shipId as ShipId,
     scheme: row.scheme as GameProfile["scheme"],
     refit: row.refit,
+    shieldMk2: row.shieldMk2,
     prices: row.prices,
     hold: row.hold as GoodId | null,
     paid: row.paid,
@@ -103,6 +115,8 @@ function toProfile(row: PlayerProgress): GameProfile {
     cleared: row.cleared,
     tech: row.tech as GameProfile["tech"],
     drilled: row.drilled,
+    publicLeaderboardOptIn: row.publicLeaderboardOptIn,
+    publicLeaderboardCallsign: row.publicLeaderboardCallsign,
     revision: row.revision,
   };
 }
@@ -131,8 +145,85 @@ export async function getPlayerProfile(userId: string): Promise<GameProfile> {
   return toProfile(profile);
 }
 
+export async function updatePlayerLoadout(
+  userId: string,
+  input: { faction: Faction; shipId: ShipId },
+): Promise<GameProfile> {
+  if (!ROSTER[input.faction]?.includes(input.shipId)) {
+    throw new ProgressionError("This hull does not belong to the selected faction.", 400);
+  }
+  return db.transaction(async (tx) => {
+    const current = await lockOrCreateProfile(tx, userId);
+    if (current.faction === input.faction && current.shipId === input.shipId) return toProfile(current);
+    const [updated] = await tx.update(playerProgressTable)
+      // Selection is a preference, not progression. Never invalidate an issued run.
+      .set({ faction: input.faction, shipId: input.shipId, updatedAt: new Date() })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player hull selection could not be saved.");
+    return toProfile(updated);
+  });
+}
+
+export async function updatePlayerControlScheme(
+  userId: string,
+  scheme: GameProfile["scheme"],
+): Promise<GameProfile> {
+  return db.transaction(async (tx) => {
+    const current = await lockOrCreateProfile(tx, userId);
+    if (current.scheme === scheme) return toProfile(current);
+
+    const [updated] = await tx
+      .update(playerProgressTable)
+      // Control preferences must not advance progression revision: issued runs
+      // use that revision to bind their server-authoritative reward claim.
+      .set({ scheme, updatedAt: new Date() })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player control preference could not be saved.");
+    return toProfile(updated);
+  });
+}
+
+export async function updatePlayerLeaderboardProfile(
+  userId: string,
+  input: { enabled: boolean; callsign?: string },
+): Promise<GameProfile> {
+  let setting: ReturnType<typeof normalizeLeaderboardProfileUpdate>;
+  try {
+    setting = normalizeLeaderboardProfileUpdate(input);
+  } catch {
+    throw new ProgressionError("Choose a 3–16 character public callsign.", 400);
+  }
+
+  return db.transaction(async (tx) => {
+    await lockOrCreateProfile(tx, userId);
+    const [updated] = await tx
+      .update(playerProgressTable)
+      .set({
+        publicLeaderboardOptIn: setting.enabled,
+        publicLeaderboardCallsign: setting.callsign,
+        updatedAt: new Date(),
+      })
+      .where(eq(playerProgressTable.userId, userId))
+      .returning();
+    if (!updated) throw new Error("Player leaderboard preference could not be saved.");
+    return toProfile(updated);
+  });
+}
+
 function missionAvailable(mission: MissionId, cleared: number): boolean {
   return mission === "skirmish" || MISSION_ORDER[mission] <= cleared;
+}
+
+export function flightModelForStart(
+  mission: MissionId,
+  supportsOrbitalReplay: boolean | undefined,
+): FlightModel {
+  const serverModel = MISSION_CONFIG[mission].flightModel;
+  return serverModel === ORBITAL_RUNTIME_ID && supportsOrbitalReplay
+    ? serverModel
+    : LEGACY_SURFACE_RUNTIME_ID;
 }
 
 export async function startPlayerStrike(userId: string, input: StrikeStartInput) {
@@ -173,7 +264,9 @@ export async function startPlayerStrike(userId: string, input: StrikeStartInput)
       shipId: input.shipId,
       faction: input.faction,
       refit: current.refit,
+      shieldMk2: current.shieldMk2,
       ...missionConfig,
+      flightModel: flightModelForStart(mission, input.supportsOrbitalReplay),
       pace,
       tech: input.tech,
       mission,
@@ -231,6 +324,9 @@ export async function applyPlayerAction(
       };
     }
 
+    await tx.insert(playerWorldStateTable).values({ userId }).onConflictDoNothing();
+    const [world] = await tx.select().from(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
+    if (world?.currentLocation !== "phobos-yard") throw new ProgressionError("Return to Phobos Yard for a ship refit.", 400);
     let refit = profile.refit;
     if (refit >= 5) throw new ProgressionError("The ship is already fully refitted.", 400);
     const amount = -120 * (refit + 1);
@@ -274,7 +370,7 @@ export async function claimPlayerStrike(
   inputs: StrikeClaimInputs,
 ) {
   try {
-    validateStrikeReplayInputs(inputs, "strike");
+    validateStrikeReplayInputs(inputs, "strike", "any");
   } catch (error) {
     if (error instanceof InvalidStrikeReplay) throw new ProgressionError(error.message, 400);
     throw error;
@@ -334,6 +430,46 @@ export async function claimPlayerStrike(
       .where(eq(playerProgressTable.userId, userId))
       .returning();
     if (!updated) throw new Error("Player profile could not be updated.");
+
+    const existingNarrativeDiscoveries = await tx
+      .select({ locationId: worldDiscoveriesTable.locationId })
+      .from(worldDiscoveriesTable)
+      .where(and(
+        eq(worldDiscoveriesTable.userId, userId),
+        like(worldDiscoveriesTable.locationId, "story:v1:%"),
+      ));
+    const existingNarrativeIds = existingNarrativeDiscoveries.map(({ locationId }) => locationId);
+    const narrativeAwards = narrativeAwardsForClaim(
+      config.mission,
+      config.faction,
+      grant.outcome,
+      existingNarrativeIds,
+    );
+    for (const evidenceId of narrativeAwards) {
+      const locationId = narrativeDiscoveryId(evidenceId);
+      const [discovery] = await tx.insert(worldDiscoveriesTable).values({
+        id: randomUUID(),
+        userId,
+        locationId,
+      }).onConflictDoNothing().returning({ locationId: worldDiscoveriesTable.locationId });
+      if (!discovery) continue;
+      await tx.insert(progressionEventsTable).values({
+        userId,
+        idempotencyKey: `narrative-evidence:${evidenceId}`,
+        kind: "world_exploration",
+        amount: 0,
+        balanceBefore: profile.credits,
+        balanceAfter: profile.credits,
+        result: {
+          action: "verified_narrative_evidence",
+          version: "wfm-campaign-evidence-v1",
+          evidenceId,
+          missionId: config.mission,
+          faction: config.faction,
+          outcome: grant.outcome,
+        },
+      }).onConflictDoNothing();
+    }
 
     await tx.insert(progressionEventsTable).values({
       userId,

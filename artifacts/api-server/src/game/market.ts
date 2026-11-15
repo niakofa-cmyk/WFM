@@ -6,6 +6,7 @@ import {
   marketTransactionsTable,
   playerInventoryTable,
   playerProgressTable,
+  playerWorldStateTable,
   universeEventsTable,
   type MarketGood,
   type MarketTransaction,
@@ -13,6 +14,10 @@ import {
   type UniverseEvent,
 } from "@workspace/db";
 import type { MarketListing, MarketSnapshot, MarketTradeInput } from "@workspace/api-zod";
+import { orderUnitPrice } from "./market-pricing";
+import { worldEventRules } from "./world-event-rules";
+import { cargoCapacity, cargoUsed, cargoFits } from "./economy-rules";
+import { recentRejections, recordRejection } from "./economy-audit";
 
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -81,14 +86,28 @@ export async function ensureMarketSeed(tx: DbTransaction) {
     .onConflictDoNothing();
 }
 
-export async function ensureCurrentWorldEvent(tx: DbTransaction): Promise<UniverseEvent> {
-  const { cycleDate, startsAt, endsAt } = utcCycle();
+export async function ensureCurrentWorldEvent(tx: DbTransaction, now = new Date()): Promise<UniverseEvent> {
+  await ensureMarketSeed(tx);
+  const { cycleDate, startsAt, endsAt } = utcCycle(now);
   const cycleNumber = Math.floor(startsAt.getTime() / 86_400_000);
   const event = DAILY_EVENTS[((cycleNumber % DAILY_EVENTS.length) + DAILY_EVENTS.length) % DAILY_EVENTS.length];
   await tx
     .insert(universeEventsTable)
     .values({ cycleDate, ...event, startsAt, endsAt })
     .onConflictDoNothing();
+  const activated = await tx.update(universeEventsTable).set({ supplyApplied: true })
+    .where(and(eq(universeEventsTable.cycleDate, cycleDate), eq(universeEventsTable.supplyApplied, false))).returning();
+  if (activated.length) {
+    const changes = worldEventRules(event.eventId).stockDelta;
+    for (const goodId of [...GOOD_IDS].sort()) {
+      const delta = changes[goodId] ?? 0;
+      if (!delta) continue;
+      const [good] = await tx.select().from(marketGoodsTable).where(eq(marketGoodsTable.goodId, goodId)).for("update");
+      if (good) await tx.update(marketGoodsTable).set({
+        stock: clamp(good.stock + delta, 0, MAX_STOCK), revision: good.revision + 1, updatedAt: new Date(),
+      }).where(eq(marketGoodsTable.goodId, goodId));
+    }
+  }
   const [stored] = await tx
     .select()
     .from(universeEventsTable)
@@ -97,7 +116,7 @@ export async function ensureCurrentWorldEvent(tx: DbTransaction): Promise<Univer
   return stored;
 }
 
-async function migrateLegacyCargo(tx: DbTransaction, profile: typeof playerProgressTable.$inferSelect) {
+export async function migrateLegacyCargo(tx: DbTransaction, profile: typeof playerProgressTable.$inferSelect) {
   if (profile.inventoryMigrated) return profile;
   const legacyGood = profile.hold as TradeGoodId | null;
   if (legacyGood && GOOD_IDS.includes(legacyGood)) {
@@ -144,17 +163,6 @@ async function migrateLegacyCargo(tx: DbTransaction, profile: typeof playerProgr
   return migrated;
 }
 
-function quote(good: MarketGood, modifierBps: number) {
-  const supplyPressure = clamp((good.targetStock - good.stock) / good.targetStock, -0.5, 1);
-  const demandPressure = good.demandScore / 100;
-  const multiplier = clamp(1 + supplyPressure * 0.45 + demandPressure * 0.25, 0.5, 2);
-  return clamp(
-    Math.round(good.basePrice * multiplier * (modifierBps / 10_000)),
-    Math.ceil(good.basePrice * 0.5),
-    Math.floor(good.basePrice * 2),
-  );
-}
-
 function toListing(good: MarketGood, event: UniverseEvent): MarketListing {
   const modifiers = event.marketModifiersBps ?? {};
   const modifierBps = modifiers[good.goodId as TradeGoodId] ?? 10_000;
@@ -162,7 +170,18 @@ function toListing(good: MarketGood, event: UniverseEvent): MarketListing {
     goodId: good.goodId as TradeGoodId,
     name: GOOD_INFO[good.goodId as TradeGoodId].name,
     basePrice: good.basePrice,
-    price: quote(good, modifierBps),
+    price: orderUnitPrice(good, modifierBps, "buy", 1),
+    sellPrice: orderUnitPrice(good, modifierBps, "sell", 1),
+    buyTotals: Array.from({ length: 50 }, (_, i) => orderUnitPrice(good, modifierBps, "buy", i + 1) * (i + 1)),
+    sellTotals: Array.from({ length: 50 }, (_, i) => orderUnitPrice(good, modifierBps, "sell", i + 1) * (i + 1)),
+    purpose: {
+      salt: "Beacon fuel, refinery catalyst, hyperdrive coils and material refits.",
+      iron: "Refinery feedstock, structural refits and hyperdrive components.",
+      dust: "Research, hyperdrive calibration and restricted contracts.",
+      resin: "Medical contracts, material refits and synthesis research.",
+    }[good.goodId as TradeGoodId],
+    restricted: worldEventRules(event.eventId).restrictedGoods.includes(good.goodId as TradeGoodId),
+    restrictionReason: worldEventRules(event.eventId).restrictedGoods.includes(good.goodId as TradeGoodId) ? "Relic dust trading is suspended during the dust-lane embargo. Crafting and authorized dispatches remain available." : null,
     stock: good.stock,
     targetStock: good.targetStock,
     demandScore: good.demandScore,
@@ -215,6 +234,8 @@ export async function marketSnapshotInTransaction(
     .limit(12);
   return {
     credits: player.credits,
+    cargoUsed: cargoUsed(holdings), cargoCapacity: cargoCapacity(player),
+    rejections: await recentRejections(tx, userId),
     inventory: GOOD_IDS.map((goodId) => ({
       goodId,
       quantity: holdings.find((row) => row.goodId === goodId)?.quantity ?? 0,
@@ -224,7 +245,7 @@ export async function marketSnapshotInTransaction(
     event: {
       eventId: event.eventId,
       title: event.title,
-      description: event.description,
+      description: `${event.description} ${worldEventRules(event.eventId).summary}`,
       cycleDate: new Date(`${event.cycleDate}T00:00:00.000Z`),
       startsAt: event.startsAt,
       endsAt: event.endsAt,
@@ -247,6 +268,17 @@ export async function getMarketSnapshot(userId: string): Promise<MarketSnapshot>
 }
 
 export async function tradeMarket(userId: string, input: MarketTradeInput) {
+  try { return await tradeMarketTransaction(userId, input); }
+  catch (error) {
+    if (error instanceof MarketError) await recordRejection(userId, input.idempotencyKey, "trade", `${input.side}:${input.goodId}`, error.message);
+    throw error;
+  }
+}
+async function tradeMarketTransaction(userId: string, input: MarketTradeInput) {
+  if (!GOOD_IDS.includes(input.goodId) || !["buy", "sell"].includes(input.side)) throw new MarketError("Unknown trade good or transaction side.", 400);
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 50) {
+    throw new MarketError("Order quantities must be whole numbers from 1 to 50.", 400);
+  }
   return db.transaction(async (tx) => {
     await tx.insert(playerProgressTable).values({ userId }).onConflictDoNothing();
     const [lockedProfile] = await tx
@@ -280,6 +312,15 @@ export async function tradeMarket(userId: string, input: MarketTradeInput) {
       };
     }
 
+    await tx.insert(playerWorldStateTable).values({ userId }).onConflictDoNothing();
+    const [world] = await tx.select().from(playerWorldStateTable).where(eq(playerWorldStateTable.userId, userId));
+    if (!world || !["phobos-yard", "outer-fringe"].includes(world.currentLocation)) {
+      throw new MarketError("Travel to Phobos Yard or Outer Fringe to trade.", 400);
+    }
+    const standing = profile.faction === "ussf" ? world.ussfReputation : world.accordReputation;
+    if (standing <= -50 || (world.currentLocation === "outer-fringe" && (standing < 10 || world.hyperdriveTier < 2))) {
+      throw new MarketError("This exchange requires restored faction standing and the route's hyperdrive clearance.", 403);
+    }
     await ensureMarketSeed(tx);
     const event = await ensureCurrentWorldEvent(tx);
     const [good] = await tx
@@ -301,14 +342,21 @@ export async function tradeMarket(userId: string, input: MarketTradeInput) {
     const inventoryBefore = holding?.quantity ?? 0;
     const stockBefore = good.stock;
     const modifierBps = event.marketModifiersBps?.[input.goodId] ?? 10_000;
-    const unitPrice = quote(good, modifierBps);
+    if (worldEventRules(event.eventId).restrictedGoods.includes(input.goodId)) throw new MarketError("Relic dust trading is suspended during this world event. Crafting and authorized dispatches remain available.", 403);
+    const unitPrice = orderUnitPrice(good, modifierBps, input.side, input.quantity);
     const total = unitPrice * input.quantity;
+    if (input.totalLimit !== undefined && (input.side === "buy" ? total > input.totalLimit : total < input.totalLimit)) {
+      throw new MarketError("The quote moved beyond your accepted total. Review the fresh price before placing another order.", 409);
+    }
     let inventoryAfter = inventoryBefore;
     let stockAfter = stockBefore;
     let creditsAfter = profile.credits;
     let demandAfter = good.demandScore;
 
     if (input.side === "buy") {
+      const contents = await tx.select().from(playerInventoryTable).where(eq(playerInventoryTable.userId, userId));
+      const used = cargoUsed(contents);
+      if (!cargoFits(used, used + input.quantity, cargoCapacity(profile))) throw new MarketError("Cargo hold capacity exceeded. Sell or consume goods, or install cargo expansion at Phobos.", 400);
       if (stockBefore < input.quantity) throw new MarketError("The station does not have enough stock.", 409);
       if (profile.credits < total) throw new MarketError("Not enough credits for that order.", 400);
       inventoryAfter += input.quantity;

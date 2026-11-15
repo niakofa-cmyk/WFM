@@ -4,6 +4,12 @@ export const TICK_RATE = 30;
 export const TICK_DT = 1 / TICK_RATE;
 export const MAX_PLAYERS = 10;
 export const DISCONNECT_GRACE_MS = 5000;
+export const WING_BATTLEFIELDS = ["rust", "beacon", "night", "dust"] as const;
+
+export function wingBattlefieldForSeed(seed: number) {
+  const normalized = Math.abs(Math.trunc(seed));
+  return WING_BATTLEFIELDS[normalized % WING_BATTLEFIELDS.length];
+}
 
 const IDLE: StepInput = {
   throttle: 0,
@@ -19,9 +25,23 @@ const IDLE: StepInput = {
 
 export type WingInput = StepInput & { seq: number };
 
+export function isMeaningfulWingInput(input: WingInput) {
+  const axisThreshold = 0.08;
+  return (
+    Math.abs(input.throttle) >= axisThreshold ||
+    Math.abs(input.yaw) >= axisThreshold ||
+    Math.abs(input.strafe) >= axisThreshold ||
+    Math.abs(input.pitch) >= axisThreshold ||
+    Math.abs(input.evade) >= axisThreshold ||
+    input.fire ||
+    input.ult ||
+    input.lock
+  );
+}
+
 export type JoinResult =
   | { ok: true; slotId: number; team: 0 | 1; reconnectToken: string }
-  | { ok: false; reason: "full" };
+  | { ok: false; reason: "full" | "session_lost" };
 
 export type SlotSnapshot = {
   slotId: number;
@@ -60,7 +80,7 @@ export function createWing(seed = 1) {
     allyCount: 4,
     foeCount: 5,
     goal: "disc",
-    disc: "rust",
+    disc: wingBattlefieldForSeed(seed),
   });
   const slots: Slot[] = Array.from({ length: MAX_PLAYERS }, (_, slotId) => ({
     slotId,
@@ -125,12 +145,15 @@ export function createWing(seed = 1) {
       if (reconnectToken) {
         const existing = slots.find((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
         if (existing) {
+          if (existing.playerId !== playerId) return { ok: false, reason: "session_lost" };
           existing.isConnected = true;
           existing.lastPacketTime = now;
           existing.name = name;
           return { ok: true, slotId: existing.slotId, team: existing.team, reconnectToken: existing.reconnectToken ?? reconnectToken };
         }
       }
+      const occupiedByPlayer = slots.find((slot) => slot.playerId === playerId);
+      if (occupiedByPlayer) return { ok: false, reason: "session_lost" };
       const teamCounts = ([0, 1] as const).map(
         (team) => slots.filter((slot) => slot.team === team && slot.playerId !== null).length,
       );
@@ -145,6 +168,11 @@ export function createWing(seed = 1) {
     },
     canReconnect(reconnectToken: string) {
       return slots.some((slot) => slot.reconnectToken === reconnectToken && slot.playerId !== null);
+    },
+    participants() {
+      return slots
+        .filter((slot) => slot.playerId !== null)
+        .map((slot) => ({ userId: slot.playerId as string, team: slot.team, slotId: slot.slotId, connected: slot.isConnected }));
     },
     lastSeq(slotId: number) {
       return slots[slotId]?.lastSeq ?? 0;
@@ -161,8 +189,8 @@ export function createWing(seed = 1) {
     },
     input(slotId: number, packet: WingInput, now = Date.now()) {
       const slot = slots[slotId];
-      if (!slot?.isConnected) return;
-      if (!Number.isFinite(packet.seq) || packet.seq <= slot.lastSeq) return;
+      if (!slot?.isConnected) return false;
+      if (!Number.isFinite(packet.seq) || packet.seq <= slot.lastSeq) return false;
       slot.lastPacketTime = now;
       slot.lastSeq = packet.seq;
       slot.buffered = {
@@ -176,6 +204,7 @@ export function createWing(seed = 1) {
         evade: clamp(packet.evade),
         preset: packet.preset === 0 || packet.preset === 1 || packet.preset === 2 || packet.preset === 3 ? packet.preset : null,
       };
+      return true;
     },
     tick(now = Date.now()) {
       tickCount += 1;

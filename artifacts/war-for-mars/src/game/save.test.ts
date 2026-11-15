@@ -22,7 +22,7 @@ test("browser storage can restore device preferences but cannot restore credits 
     );
     storage.set(
       "wfm-device-v1",
-      JSON.stringify({ gyro: true, drilled: true, credits: 9_999_999, cleared: 4 }),
+      JSON.stringify({ gyro: true, drilled: true, audioMuted: true, credits: 9_999_999, cleared: 4 }),
     );
     const profile: GameProfile = {
       credits: 50,
@@ -43,11 +43,36 @@ test("browser storage can restore device preferences but cannot restore credits 
 
     const preferences = loadDevicePreferences();
     const save = saveFromProfile(profile, preferences);
-    assert.deepEqual(preferences, { gyro: true, drilled: true });
+    assert.deepEqual(preferences, { gyro: true, drilled: true, audioMuted: true, pilotControlLayout: "fixed" });
+    assert.equal("audioMuted" in save, false);
     assert.equal(save.credits, 50);
     assert.equal(save.cleared, 0);
     assert.equal(save.refit, 0);
     assert.equal(save.mission, "contact");
+  } finally {
+    if (original) Object.defineProperty(globalThis, "localStorage", original);
+    else Reflect.deleteProperty(globalThis, "localStorage");
+  }
+});
+
+test("device control layout restores touch-anywhere while old settings default to fixed sticks", () => {
+  const storage = new Map<string, string>();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    },
+  });
+  try {
+    storage.set("wfm-device-v1", JSON.stringify({ gyro: false, drilled: false }));
+    assert.equal(loadDevicePreferences().pilotControlLayout, "fixed");
+    storage.set("wfm-device-v1", JSON.stringify({ gyro: false, drilled: false, pilotControlLayout: "touch-anywhere" }));
+    assert.equal(loadDevicePreferences().pilotControlLayout, "touch-anywhere");
+    storage.set("wfm-device-v1", JSON.stringify({ gyro: false, drilled: false, pilotControlLayout: "unexpected" }));
+    assert.equal(loadDevicePreferences().pilotControlLayout, "fixed");
   } finally {
     if (original) Object.defineProperty(globalThis, "localStorage", original);
     else Reflect.deleteProperty(globalThis, "localStorage");

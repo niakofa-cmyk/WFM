@@ -8,6 +8,208 @@
 import * as zod from 'zod';
 
 
+export const GetEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const fitEquipmentBodyShipIdMax = 32;
+
+export const fitEquipmentBodyHardpointIdMax = 32;
+
+export const fitEquipmentBodyExpectedRevisionMin = 0;
+
+
+
+export const FitEquipmentBody = zod.object({
+  "shipId": zod.string().max(fitEquipmentBodyShipIdMax),
+  "hardpointId": zod.string().max(fitEquipmentBodyHardpointIdMax),
+  "itemId": zod.string().uuid().nullable(),
+  "expectedRevision": zod.number().int().min(fitEquipmentBodyExpectedRevisionMin)
+})
+
+export const FitEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const recoverEquipmentBodyActorIdMax = 160;
+
+
+
+export const RecoverEquipmentBody = zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string().min(1).max(recoverEquipmentBodyActorIdMax)
+})
+
+export const RecoverEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const getGlobalCampaignResponseCompletedOperationsMin = 0;
+
+
+export const getGlobalCampaignResponseProgressPercentMin = 0;
+export const getGlobalCampaignResponseProgressPercentMax = 100;
+
+
+
+export const GetGlobalCampaignResponse = zod.object({
+  "enabled": zod.boolean(),
+  "campaignId": zod.string(),
+  "completedOperations": zod.number().int().min(getGlobalCampaignResponseCompletedOperationsMin),
+  "targetOperations": zod.number().int().min(1),
+  "progressPercent": zod.number().min(getGlobalCampaignResponseProgressPercentMin).max(getGlobalCampaignResponseProgressPercentMax),
+  "phase": zod.enum(['INITIAL_CONTACT', 'BEACON_RECON', 'WARDEN_INTERCEPT', 'CAGE_CLIMAX', 'SYSTEM_VICTORY']),
+  "concluded": zod.boolean(),
+  "finaleEligible": zod.boolean(),
+  "finaleClaimed": zod.boolean()
+})
+
+
+export const ClaimGlobalCampaignFinaleResponse = zod.object({
+  "campaignId": zod.string(),
+  "credits": zod.number().int(),
+  "campaignXp": zod.number().int(),
+  "badge": zod.string(),
+  "shieldMk2": zod.boolean(),
+  "replayed": zod.boolean()
+})
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -43,6 +245,11 @@ export const getGameProfileResponsePaidMin = 0;
 export const getGameProfileResponseClearedMin = 0;
 export const getGameProfileResponseClearedMax = 4;
 
+export const getGameProfileResponsePublicLeaderboardCallsignMin = 3;
+export const getGameProfileResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const getGameProfileResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const getGameProfileResponseRevisionMin = 0;
 
 
@@ -50,9 +257,10 @@ export const getGameProfileResponseRevisionMin = 0;
 export const GetGameProfileResponse = zod.object({
   "credits": zod.number().int().min(getGameProfileResponseCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(getGameProfileResponseRefitMin).max(getGameProfileResponseRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -66,7 +274,209 @@ export const GetGameProfileResponse = zod.object({
   "cleared": zod.number().int().min(getGameProfileResponseClearedMin).max(getGameProfileResponseClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(getGameProfileResponsePublicLeaderboardCallsignMin).max(getGameProfileResponsePublicLeaderboardCallsignMax).regex(getGameProfileResponsePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(getGameProfileResponseRevisionMin)
+})
+
+
+/**
+ * Returns only callsigns and aggregate server-verified Wing reward credits.
+ * @summary Get the public opt-in Wing credit leaderboard
+ */
+
+export const getPublicWingLeaderboardResponseEntriesItemCallsignMin = 3;
+export const getPublicWingLeaderboardResponseEntriesItemCallsignMax = 16;
+
+export const getPublicWingLeaderboardResponseEntriesItemScoreMin = 0;
+
+export const getPublicWingLeaderboardResponseEntriesMax = 25;
+
+
+
+export const GetPublicWingLeaderboardResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "rank": zod.number().int().min(1),
+  "callsign": zod.string().min(getPublicWingLeaderboardResponseEntriesItemCallsignMin).max(getPublicWingLeaderboardResponseEntriesItemCallsignMax),
+  "score": zod.number().int().min(getPublicWingLeaderboardResponseEntriesItemScoreMin)
+})).max(getPublicWingLeaderboardResponseEntriesMax)
+})
+
+
+/**
+ * @summary Set the authenticated player's public leaderboard preference
+ */
+export const updateLeaderboardProfileBodyCallsignMin = 3;
+export const updateLeaderboardProfileBodyCallsignMax = 16;
+
+
+export const updateLeaderboardProfileBodyCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+
+
+export const UpdateLeaderboardProfileBody = zod.object({
+  "enabled": zod.boolean(),
+  "callsign": zod.string().min(updateLeaderboardProfileBodyCallsignMin).max(updateLeaderboardProfileBodyCallsignMax).regex(updateLeaderboardProfileBodyCallsignRegExp).optional()
+})
+
+export const updateLeaderboardProfileResponseCreditsMin = 0;
+
+export const updateLeaderboardProfileResponseRefitMin = 0;
+export const updateLeaderboardProfileResponseRefitMax = 5;
+
+
+
+
+
+export const updateLeaderboardProfileResponsePaidMin = 0;
+
+export const updateLeaderboardProfileResponseClearedMin = 0;
+export const updateLeaderboardProfileResponseClearedMax = 4;
+
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignMin = 3;
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateLeaderboardProfileResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+export const updateLeaderboardProfileResponseRevisionMin = 0;
+
+
+
+export const UpdateLeaderboardProfileResponse = zod.object({
+  "credits": zod.number().int().min(updateLeaderboardProfileResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateLeaderboardProfileResponseRefitMin).max(updateLeaderboardProfileResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateLeaderboardProfileResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateLeaderboardProfileResponseClearedMin).max(updateLeaderboardProfileResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateLeaderboardProfileResponsePublicLeaderboardCallsignMin).max(updateLeaderboardProfileResponsePublicLeaderboardCallsignMax).regex(updateLeaderboardProfileResponsePublicLeaderboardCallsignRegExp).nullable(),
+  "revision": zod.number().int().min(updateLeaderboardProfileResponseRevisionMin)
+})
+
+
+/**
+ * @summary Save the authenticated player's selected faction and hull
+ */
+export const UpdateLoadoutBody = zod.object({
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra'])
+})
+
+export const updateLoadoutResponseCreditsMin = 0;
+
+export const updateLoadoutResponseRefitMin = 0;
+export const updateLoadoutResponseRefitMax = 5;
+
+
+
+
+
+export const updateLoadoutResponsePaidMin = 0;
+
+export const updateLoadoutResponseClearedMin = 0;
+export const updateLoadoutResponseClearedMax = 4;
+
+export const updateLoadoutResponsePublicLeaderboardCallsignMin = 3;
+export const updateLoadoutResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateLoadoutResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+export const updateLoadoutResponseRevisionMin = 0;
+
+
+
+export const UpdateLoadoutResponse = zod.object({
+  "credits": zod.number().int().min(updateLoadoutResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateLoadoutResponseRefitMin).max(updateLoadoutResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateLoadoutResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateLoadoutResponseClearedMin).max(updateLoadoutResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateLoadoutResponsePublicLeaderboardCallsignMin).max(updateLoadoutResponsePublicLeaderboardCallsignMax).regex(updateLoadoutResponsePublicLeaderboardCallsignRegExp).nullable(),
+  "revision": zod.number().int().min(updateLoadoutResponseRevisionMin)
+})
+
+
+/**
+ * @summary Save the authenticated player's control scheme
+ */
+export const UpdateControlSchemeBody = zod.object({
+  "scheme": zod.enum(['arc', 'strafe'])
+})
+
+export const updateControlSchemeResponseCreditsMin = 0;
+
+export const updateControlSchemeResponseRefitMin = 0;
+export const updateControlSchemeResponseRefitMax = 5;
+
+
+
+
+
+export const updateControlSchemeResponsePaidMin = 0;
+
+export const updateControlSchemeResponseClearedMin = 0;
+export const updateControlSchemeResponseClearedMax = 4;
+
+export const updateControlSchemeResponsePublicLeaderboardCallsignMin = 3;
+export const updateControlSchemeResponsePublicLeaderboardCallsignMax = 16;
+
+
+export const updateControlSchemeResponsePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
+export const updateControlSchemeResponseRevisionMin = 0;
+
+
+
+export const UpdateControlSchemeResponse = zod.object({
+  "credits": zod.number().int().min(updateControlSchemeResponseCreditsMin),
+  "faction": zod.enum(['accord', 'ussf']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
+  "scheme": zod.enum(['arc', 'strafe']),
+  "refit": zod.number().int().min(updateControlSchemeResponseRefitMin).max(updateControlSchemeResponseRefitMax),
+  "shieldMk2": zod.boolean(),
+  "prices": zod.object({
+  "salt": zod.number().int().min(1),
+  "iron": zod.number().int().min(1),
+  "dust": zod.number().int().min(1),
+  "resin": zod.number().int().min(1)
+}),
+  "hold": zod.union([zod.literal('salt'),zod.literal('iron'),zod.literal('dust'),zod.literal('resin'),zod.literal(null)]).nullable(),
+  "paid": zod.number().int().min(updateControlSchemeResponsePaidMin),
+  "pace": zod.enum(['practice', 'strike']),
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "cleared": zod.number().int().min(updateControlSchemeResponseClearedMin).max(updateControlSchemeResponseClearedMax),
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(updateControlSchemeResponsePublicLeaderboardCallsignMin).max(updateControlSchemeResponsePublicLeaderboardCallsignMax).regex(updateControlSchemeResponsePublicLeaderboardCallsignRegExp).nullable(),
+  "revision": zod.number().int().min(updateControlSchemeResponseRevisionMin)
 })
 
 
@@ -92,6 +502,11 @@ export const applyProgressionActionResponseProfilePaidMin = 0;
 export const applyProgressionActionResponseProfileClearedMin = 0;
 export const applyProgressionActionResponseProfileClearedMax = 4;
 
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignMin = 3;
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const applyProgressionActionResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const applyProgressionActionResponseProfileRevisionMin = 0;
 
 
@@ -100,9 +515,10 @@ export const ApplyProgressionActionResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(applyProgressionActionResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(applyProgressionActionResponseProfileRefitMin).max(applyProgressionActionResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -116,6 +532,8 @@ export const ApplyProgressionActionResponse = zod.object({
   "cleared": zod.number().int().min(applyProgressionActionResponseProfileClearedMin).max(applyProgressionActionResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(applyProgressionActionResponseProfilePublicLeaderboardCallsignMin).max(applyProgressionActionResponseProfilePublicLeaderboardCallsignMax).regex(applyProgressionActionResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(applyProgressionActionResponseProfileRevisionMin)
 }),
   "transaction": zod.object({
@@ -132,12 +550,13 @@ export const ApplyProgressionActionResponse = zod.object({
  * @summary Start a server-issued single-player sortie
  */
 export const StartStrikeBody = zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "scheme": zod.enum(['arc', 'strafe']),
   "pace": zod.enum(['practice', 'strike']),
   "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
-  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable()
+  "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
+  "supportsOrbitalReplay": zod.boolean().optional()
 })
 
 
@@ -155,6 +574,11 @@ export const startStrikeResponseProfilePaidMin = 0;
 export const startStrikeResponseProfileClearedMin = 0;
 export const startStrikeResponseProfileClearedMax = 4;
 
+export const startStrikeResponseProfilePublicLeaderboardCallsignMin = 3;
+export const startStrikeResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const startStrikeResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const startStrikeResponseProfileRevisionMin = 0;
 
 export const startStrikeResponseConfigRefitMin = 0;
@@ -172,9 +596,10 @@ export const StartStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(startStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(startStrikeResponseProfileRefitMin).max(startStrikeResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -188,19 +613,23 @@ export const StartStrikeResponse = zod.object({
   "cleared": zod.number().int().min(startStrikeResponseProfileClearedMin).max(startStrikeResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(startStrikeResponseProfilePublicLeaderboardCallsignMin).max(startStrikeResponseProfilePublicLeaderboardCallsignMax).regex(startStrikeResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(startStrikeResponseProfileRevisionMin)
 }),
   "config": zod.object({
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "faction": zod.enum(['accord', 'ussf']),
   "refit": zod.number().int().min(startStrikeResponseConfigRefitMin).max(startStrikeResponseConfigRefitMax),
+  "shieldMk2": zod.boolean().optional(),
   "pace": zod.enum(['practice', 'strike']),
   "goal": zod.enum(['disc', 'beacons', 'ace', 'extract']),
   "disc": zod.enum(['rust', 'beacon', 'night', 'dust']),
   "allyCount": zod.number().int().min(1).max(startStrikeResponseConfigAllyCountMax),
   "foeCount": zod.number().int().min(1).max(startStrikeResponseConfigFoeCountMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
-  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage'])
+  "mission": zod.enum(['skirmish', 'contact', 'beacon', 'warden', 'cage']),
+  "flightModel": zod.enum(['surface-v1', 'orbital-v1', 'orbital-v2', 'orbital-v3', 'orbital-v4', 'orbital-v5']).optional()
 })
 })
 
@@ -227,6 +656,12 @@ export const claimStrikeBodyInputsItemPitchMax = 1;
 export const claimStrikeBodyInputsItemEvadeMin = -1;
 export const claimStrikeBodyInputsItemEvadeMax = 1;
 
+export const claimStrikeBodyInputsItemVerticalMin = -1;
+export const claimStrikeBodyInputsItemVerticalMax = 1;
+
+export const claimStrikeBodyInputsItemRollMin = -1;
+export const claimStrikeBodyInputsItemRollMax = 1;
+
 export const claimStrikeBodyInputsMax = 21600;
 
 
@@ -241,7 +676,14 @@ export const ClaimStrikeBody = zod.object({
   "ult": zod.boolean(),
   "lock": zod.boolean(),
   "evade": zod.number().min(claimStrikeBodyInputsItemEvadeMin).max(claimStrikeBodyInputsItemEvadeMax),
-  "preset": zod.union([zod.literal(0),zod.literal(1),zod.literal(2),zod.literal(3),zod.literal(null)]).nullable()
+  "preset": zod.union([zod.literal(0),zod.literal(1),zod.literal(2),zod.literal(3),zod.literal(null)]).nullable(),
+  "vertical": zod.number().min(claimStrikeBodyInputsItemVerticalMin).max(claimStrikeBodyInputsItemVerticalMax).optional(),
+  "roll": zod.number().min(claimStrikeBodyInputsItemRollMin).max(claimStrikeBodyInputsItemRollMax).optional(),
+  "boost": zod.boolean().optional(),
+  "brake": zod.boolean().optional(),
+  "inertial": zod.boolean().optional(),
+  "missile": zod.boolean().optional(),
+  "aimAssist": zod.boolean().optional()
 })).max(claimStrikeBodyInputsMax)
 })
 
@@ -277,6 +719,11 @@ export const claimStrikeResponseProfilePaidMin = 0;
 export const claimStrikeResponseProfileClearedMin = 0;
 export const claimStrikeResponseProfileClearedMax = 4;
 
+export const claimStrikeResponseProfilePublicLeaderboardCallsignMin = 3;
+export const claimStrikeResponseProfilePublicLeaderboardCallsignMax = 16;
+
+
+export const claimStrikeResponseProfilePublicLeaderboardCallsignRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$');
 export const claimStrikeResponseProfileRevisionMin = 0;
 
 
@@ -300,9 +747,10 @@ export const ClaimStrikeResponse = zod.object({
   "profile": zod.object({
   "credits": zod.number().int().min(claimStrikeResponseProfileCreditsMin),
   "faction": zod.enum(['accord', 'ussf']),
-  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "shipId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide', 'wasp', 'valiant', 'aegis', 'bastion', 'apep', 'sekhmet', 'garuda', 'vajra']),
   "scheme": zod.enum(['arc', 'strafe']),
   "refit": zod.number().int().min(claimStrikeResponseProfileRefitMin).max(claimStrikeResponseProfileRefitMax),
+  "shieldMk2": zod.boolean(),
   "prices": zod.object({
   "salt": zod.number().int().min(1),
   "iron": zod.number().int().min(1),
@@ -316,6 +764,8 @@ export const ClaimStrikeResponse = zod.object({
   "cleared": zod.number().int().min(claimStrikeResponseProfileClearedMin).max(claimStrikeResponseProfileClearedMax),
   "tech": zod.union([zod.literal('stick'),zod.literal('barrels'),zod.literal('mark'),zod.literal(null)]).nullable(),
   "drilled": zod.boolean(),
+  "publicLeaderboardOptIn": zod.boolean(),
+  "publicLeaderboardCallsign": zod.string().min(claimStrikeResponseProfilePublicLeaderboardCallsignMin).max(claimStrikeResponseProfilePublicLeaderboardCallsignMax).regex(claimStrikeResponseProfilePublicLeaderboardCallsignRegExp).nullable(),
   "revision": zod.number().int().min(claimStrikeResponseProfileRevisionMin)
 }),
   "replayed": zod.boolean()
@@ -327,9 +777,21 @@ export const ClaimStrikeResponse = zod.object({
  */
 export const getMarketResponseCreditsMin = 0;
 
+export const getMarketResponseCargoUsedMin = 0;
+
+
 export const getMarketResponseInventoryItemQuantityMin = 0;
 
 
+
+
+
+export const getMarketResponseListingsItemBuyTotalsMin = 50;
+export const getMarketResponseListingsItemBuyTotalsMax = 50;
+
+
+export const getMarketResponseListingsItemSellTotalsMin = 50;
+export const getMarketResponseListingsItemSellTotalsMax = 50;
 
 export const getMarketResponseListingsItemStockMin = 0;
 
@@ -364,6 +826,15 @@ export const getMarketResponseTransactionsItemMarketRevisionMin = 0;
 
 export const GetMarketResponse = zod.object({
   "credits": zod.number().int().min(getMarketResponseCreditsMin),
+  "cargoUsed": zod.number().int().min(getMarketResponseCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(getMarketResponseInventoryItemQuantityMin)
@@ -373,6 +844,12 @@ export const GetMarketResponse = zod.object({
   "name": zod.string(),
   "basePrice": zod.number().int().min(1),
   "price": zod.number().int().min(1),
+  "sellPrice": zod.number().int().min(1),
+  "purpose": zod.string(),
+  "restricted": zod.boolean().optional(),
+  "restrictionReason": zod.string().nullish(),
+  "buyTotals": zod.array(zod.number().int().min(1)).min(getMarketResponseListingsItemBuyTotalsMin).max(getMarketResponseListingsItemBuyTotalsMax),
+  "sellTotals": zod.array(zod.number().int().min(1)).min(getMarketResponseListingsItemSellTotalsMin).max(getMarketResponseListingsItemSellTotalsMax),
   "stock": zod.number().int().min(getMarketResponseListingsItemStockMin),
   "targetStock": zod.number().int().min(1),
   "demandScore": zod.number().int().min(getMarketResponseListingsItemDemandScoreMin).max(getMarketResponseListingsItemDemandScoreMax),
@@ -414,18 +891,32 @@ export const tradeMarketBodyQuantityMax = 50;
 
 
 
+
 export const TradeMarketBody = zod.object({
   "idempotencyKey": zod.string().uuid(),
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "side": zod.enum(['buy', 'sell']),
-  "quantity": zod.number().int().min(1).max(tradeMarketBodyQuantityMax)
+  "quantity": zod.number().int().min(1).max(tradeMarketBodyQuantityMax),
+  "totalLimit": zod.number().int().min(1).optional()
 })
 
 export const tradeMarketResponseMarketCreditsMin = 0;
 
+export const tradeMarketResponseMarketCargoUsedMin = 0;
+
+
 export const tradeMarketResponseMarketInventoryItemQuantityMin = 0;
 
 
+
+
+
+export const tradeMarketResponseMarketListingsItemBuyTotalsMin = 50;
+export const tradeMarketResponseMarketListingsItemBuyTotalsMax = 50;
+
+
+export const tradeMarketResponseMarketListingsItemSellTotalsMin = 50;
+export const tradeMarketResponseMarketListingsItemSellTotalsMax = 50;
 
 export const tradeMarketResponseMarketListingsItemStockMin = 0;
 
@@ -479,6 +970,15 @@ export const tradeMarketResponseTransactionMarketRevisionMin = 0;
 export const TradeMarketResponse = zod.object({
   "market": zod.object({
   "credits": zod.number().int().min(tradeMarketResponseMarketCreditsMin),
+  "cargoUsed": zod.number().int().min(tradeMarketResponseMarketCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
   "inventory": zod.array(zod.object({
   "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
   "quantity": zod.number().int().min(tradeMarketResponseMarketInventoryItemQuantityMin)
@@ -488,6 +988,12 @@ export const TradeMarketResponse = zod.object({
   "name": zod.string(),
   "basePrice": zod.number().int().min(1),
   "price": zod.number().int().min(1),
+  "sellPrice": zod.number().int().min(1),
+  "purpose": zod.string(),
+  "restricted": zod.boolean().optional(),
+  "restrictionReason": zod.string().nullish(),
+  "buyTotals": zod.array(zod.number().int().min(1)).min(tradeMarketResponseMarketListingsItemBuyTotalsMin).max(tradeMarketResponseMarketListingsItemBuyTotalsMax),
+  "sellTotals": zod.array(zod.number().int().min(1)).min(tradeMarketResponseMarketListingsItemSellTotalsMin).max(tradeMarketResponseMarketListingsItemSellTotalsMax),
   "stock": zod.number().int().min(tradeMarketResponseMarketListingsItemStockMin),
   "targetStock": zod.number().int().min(1),
   "demandScore": zod.number().int().min(tradeMarketResponseMarketListingsItemDemandScoreMin).max(tradeMarketResponseMarketListingsItemDemandScoreMax),
@@ -540,12 +1046,213 @@ export const TradeMarketResponse = zod.object({
 })
 
 
+export const executeWorldServiceBodyCreditLimitMin = 0;
+
+export const executeWorldServiceBodyCycleDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const ExecuteWorldServiceBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "serviceId": zod.string(),
+  "creditLimit": zod.number().int().min(executeWorldServiceBodyCreditLimitMin).optional(),
+  "locationId": zod.string(),
+  "cycleDate": zod.string().regex(executeWorldServiceBodyCycleDateRegExp)
+})
+
+export const executeWorldServiceResponseWorldHyperdriveTierMax = 3;
+
+export const executeWorldServiceResponseWorldCargoUsedMin = 0;
+
+
+export const executeWorldServiceResponseWorldInventoryItemQuantityMin = 0;
+
+export const executeWorldServiceResponseWorldActivitiesItemCreditCostMin = 0;
+
+export const executeWorldServiceResponseWorldActivitiesItemRewardCreditsMin = 0;
+
+export const executeWorldServiceResponseWorldActivitiesItemCostsItemQuantityMin = 0;
+
+export const executeWorldServiceResponseWorldActivitiesItemRewardsItemQuantityMin = 0;
+
+export const executeWorldServiceResponseWorldReputationAccordMin = -100;
+export const executeWorldServiceResponseWorldReputationAccordMax = 100;
+
+export const executeWorldServiceResponseWorldReputationUssfMin = -100;
+export const executeWorldServiceResponseWorldReputationUssfMax = 100;
+
+export const executeWorldServiceResponseWorldRoutesItemCostCreditsMin = 0;
+
+export const executeWorldServiceResponseWorldLocationsItemXMin = 0;
+export const executeWorldServiceResponseWorldLocationsItemXMax = 100;
+
+export const executeWorldServiceResponseWorldLocationsItemYMin = 0;
+export const executeWorldServiceResponseWorldLocationsItemYMax = 100;
+
+export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMin = 0;
+export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const executeWorldServiceResponseWorldNarrativeItemIdMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemChapterMax = 120;
+
+export const executeWorldServiceResponseWorldNarrativeItemTitleMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSourceMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax = 800;
+
+export const executeWorldServiceResponseWorldQuestsItemRequiredClearMin = 0;
+export const executeWorldServiceResponseWorldQuestsItemRequiredClearMax = 4;
+
+export const executeWorldServiceResponseWorldQuestsItemRewardCreditsMin = 0;
+
+export const executeWorldServiceResponseWorldQuestsItemReputationRewardMin = 0;
+
+export const executeWorldServiceResponseCreditsMin = 0;
+
+export const executeWorldServiceResponseRefitMin = 0;
+export const executeWorldServiceResponseRefitMax = 5;
+
+
+
+export const ExecuteWorldServiceResponse = zod.object({
+  "world": zod.object({
+  "hyperdriveTier": zod.number().int().min(1).max(executeWorldServiceResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(executeWorldServiceResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(executeWorldServiceResponseWorldInventoryItemQuantityMin)
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "risk": zod.string(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "daily": zod.boolean(),
+  "creditCost": zod.number().int().min(executeWorldServiceResponseWorldActivitiesItemCreditCostMin),
+  "rewardCredits": zod.number().int().min(executeWorldServiceResponseWorldActivitiesItemRewardCreditsMin),
+  "costs": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(executeWorldServiceResponseWorldActivitiesItemCostsItemQuantityMin)
+})),
+  "rewards": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(executeWorldServiceResponseWorldActivitiesItemRewardsItemQuantityMin)
+})),
+  "reputationDelta": zod.number().int(),
+  "rivalReputationDelta": zod.number().int()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "creditsDelta": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})),
+  "event": zod.object({
+  "eventId": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "cycleDate": zod.coerce.date(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+}),
+  "reputation": zod.object({
+  "accord": zod.number().int().min(executeWorldServiceResponseWorldReputationAccordMin).max(executeWorldServiceResponseWorldReputationAccordMax),
+  "ussf": zod.number().int().min(executeWorldServiceResponseWorldReputationUssfMin).max(executeWorldServiceResponseWorldReputationUssfMax)
+}),
+  "currentLocation": zod.string(),
+  "routes": zod.array(zod.object({
+  "destinationId": zod.string(),
+  "costCredits": zod.number().int().min(executeWorldServiceResponseWorldRoutesItemCostCreditsMin),
+  "available": zod.boolean()
+})),
+  "locations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
+  "x": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemXMin).max(executeWorldServiceResponseWorldLocationsItemXMax),
+  "y": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemYMin).max(executeWorldServiceResponseWorldLocationsItemYMax),
+  "unlockAfter": zod.number().int().min(executeWorldServiceResponseWorldLocationsItemUnlockAfterMin).max(executeWorldServiceResponseWorldLocationsItemUnlockAfterMax),
+  "unlocked": zod.boolean(),
+  "explored": zod.boolean(),
+  "sector": zod.string().optional(),
+  "requiredTechTier": zod.number().int().optional(),
+  "requiredRep": zod.number().int().optional(),
+  "lockReason": zod.string().nullish(),
+  "description": zod.string(),
+  "services": zod.array(zod.string())
+})),
+  "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
+  "quests": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "requiredClear": zod.number().int().min(executeWorldServiceResponseWorldQuestsItemRequiredClearMin).max(executeWorldServiceResponseWorldQuestsItemRequiredClearMax),
+  "requiredLocation": zod.string(),
+  "status": zod.enum(['locked', 'available', 'accepted', 'ready', 'claimed']),
+  "rewardCredits": zod.number().int().min(executeWorldServiceResponseWorldQuestsItemRewardCreditsMin),
+  "reputationReward": zod.number().int().min(executeWorldServiceResponseWorldQuestsItemReputationRewardMin)
+}))
+}),
+  "credits": zod.number().int().min(executeWorldServiceResponseCreditsMin),
+  "refit": zod.number().int().min(executeWorldServiceResponseRefitMin).max(executeWorldServiceResponseRefitMax),
+  "message": zod.string(),
+  "replayed": zod.boolean()
+})
+
+
 /**
  * @summary Get persistent map, discoveries, reputation, quests, and world event
  */
-export const getWorldResponseReputationAccordMin = 0;
+export const getWorldResponseHyperdriveTierMax = 3;
 
-export const getWorldResponseReputationUssfMin = 0;
+export const getWorldResponseCargoUsedMin = 0;
+
+
+export const getWorldResponseInventoryItemQuantityMin = 0;
+
+export const getWorldResponseActivitiesItemCreditCostMin = 0;
+
+export const getWorldResponseActivitiesItemRewardCreditsMin = 0;
+
+export const getWorldResponseActivitiesItemCostsItemQuantityMin = 0;
+
+export const getWorldResponseActivitiesItemRewardsItemQuantityMin = 0;
+
+export const getWorldResponseReputationAccordMin = -100;
+export const getWorldResponseReputationAccordMax = 100;
+
+export const getWorldResponseReputationUssfMin = -100;
+export const getWorldResponseReputationUssfMax = 100;
 
 export const getWorldResponseRoutesItemCostCreditsMin = 0;
 
@@ -558,6 +1265,20 @@ export const getWorldResponseLocationsItemYMax = 100;
 export const getWorldResponseLocationsItemUnlockAfterMin = 0;
 export const getWorldResponseLocationsItemUnlockAfterMax = 4;
 
+export const getWorldResponseNarrativeItemIdMax = 80;
+
+export const getWorldResponseNarrativeItemChapterMax = 120;
+
+export const getWorldResponseNarrativeItemTitleMax = 160;
+
+export const getWorldResponseNarrativeItemSourceMax = 160;
+
+export const getWorldResponseNarrativeItemSynopsisMax = 1200;
+
+export const getWorldResponseNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const getWorldResponseNarrativeItemTranscriptItemTextMax = 800;
+
 export const getWorldResponseQuestsItemRequiredClearMin = 0;
 export const getWorldResponseQuestsItemRequiredClearMax = 4;
 
@@ -568,6 +1289,48 @@ export const getWorldResponseQuestsItemReputationRewardMin = 0;
 
 
 export const GetWorldResponse = zod.object({
+  "hyperdriveTier": zod.number().int().min(1).max(getWorldResponseHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(getWorldResponseCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(getWorldResponseInventoryItemQuantityMin)
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "risk": zod.string(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "daily": zod.boolean(),
+  "creditCost": zod.number().int().min(getWorldResponseActivitiesItemCreditCostMin),
+  "rewardCredits": zod.number().int().min(getWorldResponseActivitiesItemRewardCreditsMin),
+  "costs": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(getWorldResponseActivitiesItemCostsItemQuantityMin)
+})),
+  "rewards": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(getWorldResponseActivitiesItemRewardsItemQuantityMin)
+})),
+  "reputationDelta": zod.number().int(),
+  "rivalReputationDelta": zod.number().int()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "creditsDelta": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})),
   "event": zod.object({
   "eventId": zod.string(),
   "title": zod.string(),
@@ -577,8 +1340,8 @@ export const GetWorldResponse = zod.object({
   "endsAt": zod.coerce.date()
 }),
   "reputation": zod.object({
-  "accord": zod.number().int().min(getWorldResponseReputationAccordMin),
-  "ussf": zod.number().int().min(getWorldResponseReputationUssfMin)
+  "accord": zod.number().int().min(getWorldResponseReputationAccordMin).max(getWorldResponseReputationAccordMax),
+  "ussf": zod.number().int().min(getWorldResponseReputationUssfMin).max(getWorldResponseReputationUssfMax)
 }),
   "currentLocation": zod.string(),
   "routes": zod.array(zod.object({
@@ -589,16 +1352,34 @@ export const GetWorldResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(getWorldResponseLocationsItemXMin).max(getWorldResponseLocationsItemXMax),
   "y": zod.number().int().min(getWorldResponseLocationsItemYMin).max(getWorldResponseLocationsItemYMax),
   "unlockAfter": zod.number().int().min(getWorldResponseLocationsItemUnlockAfterMin).max(getWorldResponseLocationsItemUnlockAfterMax),
   "unlocked": zod.boolean(),
   "explored": zod.boolean(),
+  "sector": zod.string().optional(),
+  "requiredTechTier": zod.number().int().optional(),
+  "requiredRep": zod.number().int().optional(),
+  "lockReason": zod.string().nullish(),
   "description": zod.string(),
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldResponseNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(getWorldResponseNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(getWorldResponseNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(getWorldResponseNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(getWorldResponseNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -613,16 +1394,414 @@ export const GetWorldResponse = zod.object({
 
 
 /**
- * @summary Move to an adjacent unlocked location and pay the route fare
+ * Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
  */
-export const TravelWorldBody = zod.object({
-  "idempotencyKey": zod.string().uuid(),
-  "destinationId": zod.string()
+export const getWorldPatrolsResponseCurrentLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemIdMax = 180;
+
+export const getWorldPatrolsResponsePatrolsItemCallsignMax = 40;
+
+export const getWorldPatrolsResponsePatrolsItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteItemMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteMin = 2;
+export const getWorldPatrolsResponsePatrolsItemRouteMax = 3;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemIdMax = 160;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemNameMax = 80;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax = 16;
+
+export const getWorldPatrolsResponsePatrolsItemShipsMin = 2;
+export const getWorldPatrolsResponsePatrolsItemShipsMax = 4;
+
+export const getWorldPatrolsResponsePatrolsMax = 128;
+
+export const getWorldPatrolsResponseTrafficItemContactIdMax = 220;
+
+export const getWorldPatrolsResponseTrafficItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponseTrafficItemPositionXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemYawMin = -6.284;
+export const getWorldPatrolsResponseTrafficItemYawMax = 6.284;
+
+export const getWorldPatrolsResponseTrafficMax = 512;
+
+
+
+export const GetWorldPatrolsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "currentLocationId": zod.string().min(1).max(getWorldPatrolsResponseCurrentLocationIdMax),
+  "simulationLayer": zod.enum(['strategic']),
+  "patrols": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemIdMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemCallsignMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "objective": zod.enum(['recon', 'route-security', 'escort', 'supply-screen']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemLocationIdMax),
+  "route": zod.array(zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemRouteItemMax)).min(getWorldPatrolsResponsePatrolsItemRouteMin).max(getWorldPatrolsResponsePatrolsItemRouteMax),
+  "ships": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemIdMax),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "name": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemNameMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax)
+})).min(getWorldPatrolsResponsePatrolsItemShipsMin).max(getWorldPatrolsResponsePatrolsItemShipsMax),
+  "lastMovedAt": zod.coerce.date()
+})).max(getWorldPatrolsResponsePatrolsMax),
+  "traffic": zod.array(zod.object({
+  "contactId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemContactIdMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemLocationIdMax),
+  "position": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemPositionXMin).max(getWorldPatrolsResponseTrafficItemPositionXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemPositionYMin).max(getWorldPatrolsResponseTrafficItemPositionYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemPositionZMin).max(getWorldPatrolsResponseTrafficItemPositionZMax)
+}),
+  "velocity": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityXMin).max(getWorldPatrolsResponseTrafficItemVelocityXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityYMin).max(getWorldPatrolsResponseTrafficItemVelocityYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityZMin).max(getWorldPatrolsResponseTrafficItemVelocityZMax)
+}),
+  "yaw": zod.number().min(getWorldPatrolsResponseTrafficItemYawMin).max(getWorldPatrolsResponseTrafficItemYawMax)
+})).max(getWorldPatrolsResponseTrafficMax)
 })
 
-export const travelWorldResponseWorldReputationAccordMin = 0;
 
-export const travelWorldResponseWorldReputationUssfMin = 0;
+/**
+ * Returns public operation definitions and only server-confirmed, unexpired public instances. An empty instance list means no public operation is currently hosted.
+ * @summary Discover public operations in the universe
+ */
+export const getWorldOperationsResponseLocationsItemIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemWorldLocationIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemNameMax = 120;
+
+export const getWorldOperationsResponseLocationsItemSectorIdMax = 80;
+
+export const getWorldOperationsResponseLocationsItemPositionXMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionXMax = 100000;
+
+export const getWorldOperationsResponseLocationsItemPositionYMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionYMax = 100000;
+
+export const getWorldOperationsResponseLocationsItemPositionZMin = -100000;
+export const getWorldOperationsResponseLocationsItemPositionZMax = 100000;
+
+export const getWorldOperationsResponseOperationsItemIdMax = 100;
+
+export const getWorldOperationsResponseOperationsItemTitleMax = 160;
+
+export const getWorldOperationsResponseOperationsItemDescriptionMax = 1000;
+
+export const getWorldOperationsResponseOperationsItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseOperationsItemRuntimeIdMax = 80;
+
+export const getWorldOperationsResponseOperationsItemRulesetIdMax = 100;
+
+export const getWorldOperationsResponseOperationsItemTeamSizeMax = 100;
+
+export const getWorldOperationsResponseOperationsItemCapacityMax = 200;
+
+export const getWorldOperationsResponseInstancesItemIdMax = 100;
+
+export const getWorldOperationsResponseInstancesItemOperationIdMax = 100;
+
+export const getWorldOperationsResponseInstancesItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseInstancesItemCurrentPlayersMin = 0;
+export const getWorldOperationsResponseInstancesItemCurrentPlayersMax = 200;
+
+export const getWorldOperationsResponseInstancesItemCapacityMax = 200;
+
+export const getWorldOperationsResponseInstancesItemRuntimeIdMax = 80;
+
+export const getWorldOperationsResponseInstancesItemRulesetIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemLocationIdMax = 80;
+
+export const getWorldOperationsResponseEventsItemOperationInstanceIdMax = 100;
+
+export const getWorldOperationsResponseEventsItemTitleMax = 160;
+
+export const getWorldOperationsResponsePresenceItemLocationIdMax = 80;
+
+export const getWorldOperationsResponsePresenceItemActivePilotsMin = 0;
+export const getWorldOperationsResponsePresenceItemActivePilotsMax = 100000;
+
+
+
+export const GetWorldOperationsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseLocationsItemIdMax),
+  "worldLocationId": zod.string().min(1).max(getWorldOperationsResponseLocationsItemWorldLocationIdMax),
+  "name": zod.string().min(1).max(getWorldOperationsResponseLocationsItemNameMax),
+  "kind": zod.enum(['asteroid', 'station', 'orbital-sector']),
+  "sectorId": zod.string().min(1).max(getWorldOperationsResponseLocationsItemSectorIdMax),
+  "position": zod.object({
+  "x": zod.number().min(getWorldOperationsResponseLocationsItemPositionXMin).max(getWorldOperationsResponseLocationsItemPositionXMax),
+  "y": zod.number().min(getWorldOperationsResponseLocationsItemPositionYMin).max(getWorldOperationsResponseLocationsItemPositionYMax),
+  "z": zod.number().min(getWorldOperationsResponseLocationsItemPositionZMin).max(getWorldOperationsResponseLocationsItemPositionZMax)
+})
+})),
+  "operations": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseOperationsItemIdMax),
+  "title": zod.string().min(1).max(getWorldOperationsResponseOperationsItemTitleMax),
+  "description": zod.string().max(getWorldOperationsResponseOperationsItemDescriptionMax),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemLocationIdMax),
+  "experience": zod.enum(['flight-simulation', 'orbital-combat', 'cooperative', 'competitive', 'campaign', 'arcade']),
+  "runtimeId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(getWorldOperationsResponseOperationsItemRulesetIdMax),
+  "teamSize": zod.number().int().min(1).max(getWorldOperationsResponseOperationsItemTeamSizeMax),
+  "capacity": zod.number().int().min(1).max(getWorldOperationsResponseOperationsItemCapacityMax),
+  "visibility": zod.enum(['public', 'unlisted', 'private']),
+  "lifecycle": zod.enum(['on-demand', 'queued', 'scheduled', 'persistent']),
+  "access": zod.enum(['local-training', 'matchmaking', 'invitation', 'direct']),
+  "rewardPolicy": zod.enum(['none', 'existing-authority'])
+})),
+  "instances": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseInstancesItemIdMax),
+  "operationId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemOperationIdMax),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemLocationIdMax),
+  "phase": zod.enum(['assembling', 'ready', 'active', 'complete', 'closed']),
+  "currentPlayers": zod.number().int().min(getWorldOperationsResponseInstancesItemCurrentPlayersMin).max(getWorldOperationsResponseInstancesItemCurrentPlayersMax),
+  "capacity": zod.number().int().min(1).max(getWorldOperationsResponseInstancesItemCapacityMax),
+  "runtimeId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(getWorldOperationsResponseInstancesItemRulesetIdMax),
+  "visibility": zod.enum(['public', 'unlisted']),
+  "registeredAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldOperationsResponseEventsItemIdMax),
+  "kind": zod.enum(['operation-opened', 'match-started', 'match-completed', 'faction-event']),
+  "locationId": zod.string().min(1).max(getWorldOperationsResponseEventsItemLocationIdMax),
+  "operationInstanceId": zod.string().max(getWorldOperationsResponseEventsItemOperationInstanceIdMax).nullish(),
+  "status": zod.enum(['active', 'completed']),
+  "title": zod.string().min(1).max(getWorldOperationsResponseEventsItemTitleMax)
+})),
+  "presence": zod.array(zod.object({
+  "locationId": zod.string().min(1).max(getWorldOperationsResponsePresenceItemLocationIdMax),
+  "activePilots": zod.number().int().min(getWorldOperationsResponsePresenceItemActivePilotsMin).max(getWorldOperationsResponsePresenceItemActivePilotsMax)
+})).optional(),
+  "presenceStatus": zod.enum(['available', 'unavailable']).optional()
+})
+
+
+/**
+ * Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+export const getWorldExplorationResultsResponseResultsItemSectorIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRuntimeMax = 64;
+
+export const getWorldExplorationResultsResponseResultsItemPolicyIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemFinalTickMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemAssistsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemCreditsAwardedMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemPatrolIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemFingerprintRegExp = new RegExp('^[0-9a-f]{64}$');
+export const getWorldExplorationResultsResponseResultsMax = 10;
+
+
+
+export const GetWorldExplorationResultsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "encounterId": zod.string().uuid(),
+  "missionId": zod.enum(['pale-beacons', 'universe-patrol']),
+  "sectorId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemSectorIdMax),
+  "runtime": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemRuntimeMax),
+  "policyId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPolicyIdMax),
+  "outcome": zod.enum(['completed', 'aborted']),
+  "finalTick": zod.number().int().min(getWorldExplorationResultsResponseResultsItemFinalTickMin),
+  "objectiveCompleted": zod.boolean(),
+  "kills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemKillsMin),
+  "assists": zod.number().int().min(getWorldExplorationResultsResponseResultsItemAssistsMin),
+  "destroyedActorIds": zod.array(zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax)).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax),
+  "rewardableNpcKills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin),
+  "creditsAwarded": zod.number().int().min(getWorldExplorationResultsResponseResultsItemCreditsAwardedMin),
+  "patrolId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolIdMax).optional(),
+  "patrolLocationId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax).optional(),
+  "opposingFaction": zod.enum(['ussf', 'accord']).optional(),
+  "fingerprint": zod.string().regex(getWorldExplorationResultsResponseResultsItemFingerprintRegExp),
+  "recordedAt": zod.coerce.date()
+})).max(getWorldExplorationResultsResponseResultsMax)
+})
+
+
+/**
+ * The server derives the destination from persistent world state. Clients cannot submit a location or precise position. Presence expires automatically and is published only as anonymous per-destination counts.
+ * @summary Refresh the signed-in pilot's universe presence
+ */
+export const HeartbeatWorldPresenceResponse = zod.void()
+
+
+/**
+ * Server-sent events stream. Each `operations.snapshot` event carries a public OperationDirectoryResponse snapshot with no account identifiers. The stream is read-only; clients cannot publish status through it.
+ * @summary Subscribe to read-only universe operation status
+ */
+export const SubscribeWorldOperationEventsResponse = zod.unknown()
+
+
+/**
+ * Registers only supported on-demand operations at their server-verified world location. Admission is single-seat, server-issued, expires automatically, and cannot grant rewards.
+ * @summary Authenticated player registers and enters an operation
+ */
+export const registerWorldOperationInstancePathOperationIdMax = 100;
+
+
+
+export const RegisterWorldOperationInstanceParams = zod.object({
+  "operationId": zod.coerce.string().min(1).max(registerWorldOperationInstancePathOperationIdMax)
+})
+
+export const RegisterWorldOperationInstanceBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "visibility": zod.enum(['public', 'unlisted'])
+})
+
+export const registerWorldOperationInstanceResponseInstanceIdMax = 100;
+
+export const registerWorldOperationInstanceResponseInstanceOperationIdMax = 100;
+
+export const registerWorldOperationInstanceResponseInstanceLocationIdMax = 80;
+
+export const registerWorldOperationInstanceResponseInstanceCurrentPlayersMin = 0;
+export const registerWorldOperationInstanceResponseInstanceCurrentPlayersMax = 200;
+
+export const registerWorldOperationInstanceResponseInstanceCapacityMax = 200;
+
+export const registerWorldOperationInstanceResponseInstanceRuntimeIdMax = 80;
+
+export const registerWorldOperationInstanceResponseInstanceRulesetIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneAssignmentIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneOperationInstanceIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneRuntimeIdMax = 80;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneRulesetIdMax = 100;
+
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMin = 0;
+export const registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMax = 199;
+
+
+
+export const RegisterWorldOperationInstanceResponse = zod.object({
+  "instance": zod.object({
+  "id": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceIdMax),
+  "operationId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceOperationIdMax),
+  "locationId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceLocationIdMax),
+  "phase": zod.enum(['assembling', 'ready', 'active', 'complete', 'closed']),
+  "currentPlayers": zod.number().int().min(registerWorldOperationInstanceResponseInstanceCurrentPlayersMin).max(registerWorldOperationInstanceResponseInstanceCurrentPlayersMax),
+  "capacity": zod.number().int().min(1).max(registerWorldOperationInstanceResponseInstanceCapacityMax),
+  "runtimeId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(registerWorldOperationInstanceResponseInstanceRulesetIdMax),
+  "visibility": zod.enum(['public', 'unlisted']),
+  "registeredAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+}),
+  "authorization": zod.object({
+  "allowed": zod.boolean(),
+  "reason": zod.enum(['authorized', 'authentication-required', 'operation-closed', 'full', 'ineligible', 'version-mismatch', 'not-at-location', 'unsupported-operation']),
+  "assignment": zod.union([zod.object({
+  "assignmentId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneAssignmentIdMax),
+  "operationInstanceId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneOperationInstanceIdMax),
+  "runtimeId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneRuntimeIdMax),
+  "rulesetId": zod.string().min(1).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneRulesetIdMax),
+  "seat": zod.number().int().min(registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMin).max(registerWorldOperationInstanceResponseAuthorizationAssignmentOneSeatMax),
+  "expiresAt": zod.coerce.date()
+}),zod.null()])
+})
+})
+
+
+/**
+ * @summary End the authenticated player's operation seat
+ */
+export const LeaveWorldOperationInstanceParams = zod.object({
+  "instanceId": zod.coerce.string().uuid()
+})
+
+export const LeaveWorldOperationInstanceResponse = zod.unknown()
+
+
+/**
+ * @summary Move to an adjacent unlocked location and pay the route fare
+ */
+export const travelWorldBodyMaxCostMin = 0;
+
+
+
+export const TravelWorldBody = zod.object({
+  "idempotencyKey": zod.string().uuid(),
+  "destinationId": zod.string(),
+  "maxCost": zod.number().int().min(travelWorldBodyMaxCostMin).optional()
+})
+
+export const travelWorldResponseWorldHyperdriveTierMax = 3;
+
+export const travelWorldResponseWorldCargoUsedMin = 0;
+
+
+export const travelWorldResponseWorldInventoryItemQuantityMin = 0;
+
+export const travelWorldResponseWorldActivitiesItemCreditCostMin = 0;
+
+export const travelWorldResponseWorldActivitiesItemRewardCreditsMin = 0;
+
+export const travelWorldResponseWorldActivitiesItemCostsItemQuantityMin = 0;
+
+export const travelWorldResponseWorldActivitiesItemRewardsItemQuantityMin = 0;
+
+export const travelWorldResponseWorldReputationAccordMin = -100;
+export const travelWorldResponseWorldReputationAccordMax = 100;
+
+export const travelWorldResponseWorldReputationUssfMin = -100;
+export const travelWorldResponseWorldReputationUssfMax = 100;
 
 export const travelWorldResponseWorldRoutesItemCostCreditsMin = 0;
 
@@ -634,6 +1813,20 @@ export const travelWorldResponseWorldLocationsItemYMax = 100;
 
 export const travelWorldResponseWorldLocationsItemUnlockAfterMin = 0;
 export const travelWorldResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const travelWorldResponseWorldNarrativeItemIdMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemChapterMax = 120;
+
+export const travelWorldResponseWorldNarrativeItemTitleMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSourceMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const travelWorldResponseWorldQuestsItemRequiredClearMin = 0;
 export const travelWorldResponseWorldQuestsItemRequiredClearMax = 4;
@@ -650,6 +1843,48 @@ export const travelWorldResponseTravelCostMin = 0;
 
 export const TravelWorldResponse = zod.object({
   "world": zod.object({
+  "hyperdriveTier": zod.number().int().min(1).max(travelWorldResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(travelWorldResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(travelWorldResponseWorldInventoryItemQuantityMin)
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "risk": zod.string(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "daily": zod.boolean(),
+  "creditCost": zod.number().int().min(travelWorldResponseWorldActivitiesItemCreditCostMin),
+  "rewardCredits": zod.number().int().min(travelWorldResponseWorldActivitiesItemRewardCreditsMin),
+  "costs": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(travelWorldResponseWorldActivitiesItemCostsItemQuantityMin)
+})),
+  "rewards": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(travelWorldResponseWorldActivitiesItemRewardsItemQuantityMin)
+})),
+  "reputationDelta": zod.number().int(),
+  "rivalReputationDelta": zod.number().int()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "creditsDelta": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})),
   "event": zod.object({
   "eventId": zod.string(),
   "title": zod.string(),
@@ -659,8 +1894,8 @@ export const TravelWorldResponse = zod.object({
   "endsAt": zod.coerce.date()
 }),
   "reputation": zod.object({
-  "accord": zod.number().int().min(travelWorldResponseWorldReputationAccordMin),
-  "ussf": zod.number().int().min(travelWorldResponseWorldReputationUssfMin)
+  "accord": zod.number().int().min(travelWorldResponseWorldReputationAccordMin).max(travelWorldResponseWorldReputationAccordMax),
+  "ussf": zod.number().int().min(travelWorldResponseWorldReputationUssfMin).max(travelWorldResponseWorldReputationUssfMax)
 }),
   "currentLocation": zod.string(),
   "routes": zod.array(zod.object({
@@ -671,16 +1906,34 @@ export const TravelWorldResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(travelWorldResponseWorldLocationsItemXMin).max(travelWorldResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(travelWorldResponseWorldLocationsItemYMin).max(travelWorldResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(travelWorldResponseWorldLocationsItemUnlockAfterMin).max(travelWorldResponseWorldLocationsItemUnlockAfterMax),
   "unlocked": zod.boolean(),
   "explored": zod.boolean(),
+  "sector": zod.string().optional(),
+  "requiredTechTier": zod.number().int().optional(),
+  "requiredRep": zod.number().int().optional(),
+  "lockReason": zod.string().nullish(),
   "description": zod.string(),
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -709,9 +1962,26 @@ export const ExploreLocationBody = zod.object({
   "idempotencyKey": zod.string().uuid()
 })
 
-export const exploreLocationResponseWorldReputationAccordMin = 0;
+export const exploreLocationResponseWorldHyperdriveTierMax = 3;
 
-export const exploreLocationResponseWorldReputationUssfMin = 0;
+export const exploreLocationResponseWorldCargoUsedMin = 0;
+
+
+export const exploreLocationResponseWorldInventoryItemQuantityMin = 0;
+
+export const exploreLocationResponseWorldActivitiesItemCreditCostMin = 0;
+
+export const exploreLocationResponseWorldActivitiesItemRewardCreditsMin = 0;
+
+export const exploreLocationResponseWorldActivitiesItemCostsItemQuantityMin = 0;
+
+export const exploreLocationResponseWorldActivitiesItemRewardsItemQuantityMin = 0;
+
+export const exploreLocationResponseWorldReputationAccordMin = -100;
+export const exploreLocationResponseWorldReputationAccordMax = 100;
+
+export const exploreLocationResponseWorldReputationUssfMin = -100;
+export const exploreLocationResponseWorldReputationUssfMax = 100;
 
 export const exploreLocationResponseWorldRoutesItemCostCreditsMin = 0;
 
@@ -723,6 +1993,20 @@ export const exploreLocationResponseWorldLocationsItemYMax = 100;
 
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMin = 0;
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const exploreLocationResponseWorldNarrativeItemIdMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemChapterMax = 120;
+
+export const exploreLocationResponseWorldNarrativeItemTitleMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSourceMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const exploreLocationResponseWorldQuestsItemRequiredClearMin = 0;
 export const exploreLocationResponseWorldQuestsItemRequiredClearMax = 4;
@@ -737,6 +2021,48 @@ export const exploreLocationResponseReputationGainMin = 0;
 
 export const ExploreLocationResponse = zod.object({
   "world": zod.object({
+  "hyperdriveTier": zod.number().int().min(1).max(exploreLocationResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(exploreLocationResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(exploreLocationResponseWorldInventoryItemQuantityMin)
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "risk": zod.string(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "daily": zod.boolean(),
+  "creditCost": zod.number().int().min(exploreLocationResponseWorldActivitiesItemCreditCostMin),
+  "rewardCredits": zod.number().int().min(exploreLocationResponseWorldActivitiesItemRewardCreditsMin),
+  "costs": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(exploreLocationResponseWorldActivitiesItemCostsItemQuantityMin)
+})),
+  "rewards": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(exploreLocationResponseWorldActivitiesItemRewardsItemQuantityMin)
+})),
+  "reputationDelta": zod.number().int(),
+  "rivalReputationDelta": zod.number().int()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "creditsDelta": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})),
   "event": zod.object({
   "eventId": zod.string(),
   "title": zod.string(),
@@ -746,8 +2072,8 @@ export const ExploreLocationResponse = zod.object({
   "endsAt": zod.coerce.date()
 }),
   "reputation": zod.object({
-  "accord": zod.number().int().min(exploreLocationResponseWorldReputationAccordMin),
-  "ussf": zod.number().int().min(exploreLocationResponseWorldReputationUssfMin)
+  "accord": zod.number().int().min(exploreLocationResponseWorldReputationAccordMin).max(exploreLocationResponseWorldReputationAccordMax),
+  "ussf": zod.number().int().min(exploreLocationResponseWorldReputationUssfMin).max(exploreLocationResponseWorldReputationUssfMax)
 }),
   "currentLocation": zod.string(),
   "routes": zod.array(zod.object({
@@ -758,16 +2084,34 @@ export const ExploreLocationResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(exploreLocationResponseWorldLocationsItemXMin).max(exploreLocationResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(exploreLocationResponseWorldLocationsItemYMin).max(exploreLocationResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(exploreLocationResponseWorldLocationsItemUnlockAfterMin).max(exploreLocationResponseWorldLocationsItemUnlockAfterMax),
   "unlocked": zod.boolean(),
   "explored": zod.boolean(),
+  "sector": zod.string().optional(),
+  "requiredTechTier": zod.number().int().optional(),
+  "requiredRep": zod.number().int().optional(),
+  "lockReason": zod.string().nullish(),
   "description": zod.string(),
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -796,9 +2140,26 @@ export const ActOnWorldQuestBody = zod.object({
   "action": zod.enum(['accept', 'claim'])
 })
 
-export const actOnWorldQuestResponseWorldReputationAccordMin = 0;
+export const actOnWorldQuestResponseWorldHyperdriveTierMax = 3;
 
-export const actOnWorldQuestResponseWorldReputationUssfMin = 0;
+export const actOnWorldQuestResponseWorldCargoUsedMin = 0;
+
+
+export const actOnWorldQuestResponseWorldInventoryItemQuantityMin = 0;
+
+export const actOnWorldQuestResponseWorldActivitiesItemCreditCostMin = 0;
+
+export const actOnWorldQuestResponseWorldActivitiesItemRewardCreditsMin = 0;
+
+export const actOnWorldQuestResponseWorldActivitiesItemCostsItemQuantityMin = 0;
+
+export const actOnWorldQuestResponseWorldActivitiesItemRewardsItemQuantityMin = 0;
+
+export const actOnWorldQuestResponseWorldReputationAccordMin = -100;
+export const actOnWorldQuestResponseWorldReputationAccordMax = 100;
+
+export const actOnWorldQuestResponseWorldReputationUssfMin = -100;
+export const actOnWorldQuestResponseWorldReputationUssfMax = 100;
 
 export const actOnWorldQuestResponseWorldRoutesItemCostCreditsMin = 0;
 
@@ -810,6 +2171,20 @@ export const actOnWorldQuestResponseWorldLocationsItemYMax = 100;
 
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin = 0;
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const actOnWorldQuestResponseWorldNarrativeItemIdMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemChapterMax = 120;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTitleMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSourceMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMin = 0;
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMax = 4;
@@ -826,6 +2201,48 @@ export const actOnWorldQuestResponseRewardCreditsMin = 0;
 
 export const ActOnWorldQuestResponse = zod.object({
   "world": zod.object({
+  "hyperdriveTier": zod.number().int().min(1).max(actOnWorldQuestResponseWorldHyperdriveTierMax),
+  "cargoUsed": zod.number().int().min(actOnWorldQuestResponseWorldCargoUsedMin),
+  "cargoCapacity": zod.number().int().min(1),
+  "installedUpgrades": zod.array(zod.enum(['shield-mk2', 'cargo-expansion', 'drive-efficiency'])),
+  "rejections": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "action": zod.enum(['trade', 'service']),
+  "targetId": zod.string(),
+  "reason": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "inventory": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(actOnWorldQuestResponseWorldInventoryItemQuantityMin)
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "risk": zod.string(),
+  "available": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "daily": zod.boolean(),
+  "creditCost": zod.number().int().min(actOnWorldQuestResponseWorldActivitiesItemCreditCostMin),
+  "rewardCredits": zod.number().int().min(actOnWorldQuestResponseWorldActivitiesItemRewardCreditsMin),
+  "costs": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(actOnWorldQuestResponseWorldActivitiesItemCostsItemQuantityMin)
+})),
+  "rewards": zod.array(zod.object({
+  "goodId": zod.enum(['salt', 'iron', 'dust', 'resin']),
+  "quantity": zod.number().int().min(actOnWorldQuestResponseWorldActivitiesItemRewardsItemQuantityMin)
+})),
+  "reputationDelta": zod.number().int(),
+  "rivalReputationDelta": zod.number().int()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "creditsDelta": zod.number().int(),
+  "createdAt": zod.coerce.date()
+})),
   "event": zod.object({
   "eventId": zod.string(),
   "title": zod.string(),
@@ -835,8 +2252,8 @@ export const ActOnWorldQuestResponse = zod.object({
   "endsAt": zod.coerce.date()
 }),
   "reputation": zod.object({
-  "accord": zod.number().int().min(actOnWorldQuestResponseWorldReputationAccordMin),
-  "ussf": zod.number().int().min(actOnWorldQuestResponseWorldReputationUssfMin)
+  "accord": zod.number().int().min(actOnWorldQuestResponseWorldReputationAccordMin).max(actOnWorldQuestResponseWorldReputationAccordMax),
+  "ussf": zod.number().int().min(actOnWorldQuestResponseWorldReputationUssfMin).max(actOnWorldQuestResponseWorldReputationUssfMax)
 }),
   "currentLocation": zod.string(),
   "routes": zod.array(zod.object({
@@ -847,16 +2264,34 @@ export const ActOnWorldQuestResponse = zod.object({
   "locations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "kind": zod.enum(['station', 'relay', 'moon', 'ruins']),
+  "kind": zod.enum(['station', 'relay', 'moon', 'ruins', 'asteroid']),
   "x": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemXMin).max(actOnWorldQuestResponseWorldLocationsItemXMax),
   "y": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemYMin).max(actOnWorldQuestResponseWorldLocationsItemYMax),
   "unlockAfter": zod.number().int().min(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin).max(actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax),
   "unlocked": zod.boolean(),
   "explored": zod.boolean(),
+  "sector": zod.string().optional(),
+  "requiredTechTier": zod.number().int().optional(),
+  "requiredRep": zod.number().int().optional(),
+  "lockReason": zod.string().nullish(),
   "description": zod.string(),
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),

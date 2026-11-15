@@ -1,5 +1,63 @@
-- [Online and universe scope](online-multiplayer-scope.md) — isolated 10-seat rooms; alpha matches end on server restart; matchmaking/shared real-time galaxy are out of scope.
+- [Master development directive](master-development-directive.md) — run the playable universe inside Orbital, not beside a training link; preserve authority and verified migration.
+- [Structural rebuild roadmap](structural-rebuild-roadmap.md) — unify WFM into one staged player journey without replacing verified systems or introducing a parallel runtime.
+- [Unified hangar entry](unified-hangar-entry.md) — landscape-first hangar, saved USSF/Accord choice, one universe gateway, and Orbital-native ship inspection.
+- [Infinite War blueprint](infinite-war-blueprint.md) — Story connects exploration, routes, combat, and validated consequences; the universe remains the battlefield.
+- [WFM storyline foundation](storyline-foundation.md) — Dusk’s Mars seizure, Accord capture, Earth’s response, and the slowly revealed First Witness ground the connected narrative.
+- [One shared campaign timeline](global-campaign-direction.md) — newcomers join current world progress; absence does not pause it; 100% ends one shared campaign.
+- [Stage B hangar and player journey](wfm-stage-b-hangar.md) — Connect saved hull, hangar, briefing, Rust Disc objective, and debrief into one playable loop.
+- [Online and universe scope](online-multiplayer-scope.md) — private and AI-fill rooms remain no-reward; user reports a two-device private-room flight smoke test passed.
 - [Ship balance certification](ship-balance-certification.md) — lock-capable ships need fair lock/lead behavior; treat scripted 1v1 results as diagnostics, not 5v5 proof.
 - [Player journey direction](player-journey-direction.md) — connect onboarding, ship selection, combat, validated progression, upgrades, and exploration into one coherent loop.
 - [API test concurrency](api-test-concurrency.md) — keep the API test files serial; parallel runner contention intermittently timed out the ten-client join test.
 - [GitHub push authentication](github-git-auth.md) — if Git rejects a push while GitHub CLI is authenticated, configure Git with `gh auth setup-git`.
+- [Staging and promotion policy](staging-promotion-policy.md) — staging uses a separate Repl, database, and auth; promote only with passing staging evidence, not as proof of production readiness.
+- [Socket shutdown checks](replit-socket-shutdown.md) — local shutdown passed; raw Railway clients closed 1006, while one browser pilot showed the restart notice.
+- [Offline progression](offline-progression-policy.md) — cached worlds are read-only; action identities persist for server validation; online rooms are separate from Strike reward claims.
+- [Economy concurrency evidence](economy-verification.md) — force accepted and rejected writes; all-rejected orders do not certify atomicity.
+- [Online Wing rewards](online-wing-rewards.md) — 10-human queue and reward enablement are separately gated; reward amounts, participation, daily cap, and ledger idempotency remain server-owned.
+- [Railway package manager](railway-package-manager.md) — lockfile v9 does not imply pnpm 9; keep the explicit root pin consistent with CI.
+- [Railway service-scoped preflight](railway-service-scoped-preflight.md) — distinguish Railway metadata, API-service shells, and PostgreSQL access; Replit SQL cannot query Railway Postgres.
+- [Development schema push mismatch](development-schema-push-mismatch.md) — if Drizzle push fails introspection on an existing enum/text mismatch, avoid force-pushing unrelated schema changes.
+- [Nested checkout package-manager isolation](nested-workspace-pnpm-cache.md) — keep Corepack and pnpm cache homes outside WFM when checking a separate repo under `.local`.
+- [Graphics verification](graphics-verification.md) — a visible HUD is not proof of WebGL simulation; headless graphics may be unavailable.
+- [WFM Clerk E2E account isolation](clerk-e2e-account-isolation.md) — use only an existing WFM Development test account; verify the Clerk instance before provisioning users.
+- [Managed Clerk hosting boundary](replit-managed-clerk-railway.md) — WFM targets Niakofa public entry + Railway backend; this requires authorized external Clerk, not Replit-managed tokens.
+- [Preview API isolation](preview-api-isolation.md) — Replit Development uses its same-origin API; do not route preview sessions to a Railway Production backend.
+- [HTTP hostname security tests](http-host-security-tests.md) — assert the server received the intended Host; fetch may replace a supplied header.
+- [Staging browser verification](staging-browser-verification.md) — keep secrets inside a long-lived local driver; explicit HTTP Origin tests do not prove browser form behavior.
+- [Clerk host-derived keys](clerk-host-derived-keys.md) — external Railway hosting must honor configured keys, not derive a Clerk instance from the HTTP hostname.
+- [Replay runtime determinism](replay-runtime-determinism.md) — native Math trig/exp differ Node vs Chromium; sim must use detmath ports and pass the Chromium gate.
+- [Progression sync boundary](progression-sync-boundary.md) — hull/faction and ARC/STRAFE are account-scoped; preserve Armory drafts and immutable flight snapshots; gyro stays device-local.
+- [Async browser-owner IPC](async-browser-owner-ipc.md) — keep private command sockets half-open for awaited replies; verify IPC and bound Playwright waits before using auth codes.
+- [Mobile page scrolling](mobile-page-scrolling.md) — keep content screens touch-scrollable across phones while preserving locked gameplay controls.
+- [Mobile stick touch origin](mobile-stick-touch-origin.md) — virtual sticks should start neutral on touch-down, respond to drag, and recenter on release.
+- [Pilot maneuver and performance goals](pilot-maneuver-goals.md) — Phases 1–3 together; physical evasion, heading-stable control, measured performance and guarded multiplayer rollout.
+- [Practice reward boundary](practice-reward-boundary.md) — authenticated Practice may submit a server reward; use local Solo Flight for no-reward device checks.
+- [WFM improvement record](wfm-improvement-record.md) — resume from the dated game record and staging evidence; keep Android-only scope and Production gates separate.
+- [Competitive battlefield direction](competitive-battlefield.md) — ten-human competitive and resettable 30-second AI-fill are separate; private and AI-fill matches never reward.
+- [Android runtime verification](android-runtime-verification.md) — require installed-APK startup with Chrome; JVM package-manager shadows can miss real component-registration failures.
+- [WFM visual direction](lovart-visual-direction.md) — Lovart imagery and the retained forensic audit guide the opening experience; art and proposals do not certify gameplay or Production.
+- [Spacecraft visual foundation](spacecraft-visual-foundation.md) — preserve eight original hull identities and add distinct faction silhouettes before fleet expansion.
+- [Pilot experience](pilot-experience.md) — Two-thumb combat HUD with offline direct-circle rolls; preserve server authority and live Wing's proven mapping.
+- [Open-universe direction](open-universe-direction.md) — server-owned enemy fleets and nearby authenticated pilots must appear as live 3D ships in shared free flight.
+- [Shared-universe cooperation](cooperative-sector-missions.md) — allies assist inside the same live fleet battle; retain legacy sector compatibility until continuous-world objectives are verified.
+- [Faction ratios and AI escorts](faction-population-direction.md) — adjustable faction mix now has staging-gated census and additive epochs; live rollout and escorts remain unverified.
+- [Combat evolution roadmap](combat-evolution-roadmap.md) — preserve deterministic server flight; profile real Android frame timing before claiming multiplayer lag is fixed.
+- [Three.js mobile loading](threejs-mobile-loading.md) — keep the Three.js renderer lazy and tree-shaken on mobile; never pass its full namespace through UI state.
+- [Engine selection](wfm-engine-selection.md) — one Orbital universe; Three.js is the main renderer and native WebGL2 is a supported companion path.
+- [Infinite War combat integration](infinite-war-combat-integration.md) — Combat Lab stays no-reward; Contact is the first versioned orbital campaign replay, with old runs and other modes preserved.
+- [Canonical engine strategy](orbital-canonical-gameplay.md) — shared Orbital gameplay/world state may use both Three.js and native WebGL2 renderers.
+- [Orbital-native traffic boundary](orbital-native-spectator-boundary.md) — public presence stays aggregate; nearby authorized pilots render as server-owned 3D ships in shared flight.
+- [Cinder Ring competition](asteroid-competitive-hub.md) — asteroid 5v5 is the sole alternate gameplay; no separate docking simulator, private dock, or training launches.
+- [Sector protocol rollout](sector-protocol-rollout.md) — keep Orbital co-op V2 opt-in across frontend and socket until paired staging multi-pilot checks pass.
+- [Anomaly gravity contract](anomaly-gravity-contract.md) — negotiate versioned server fields before applying shared movement forces; visuals remain non-authoritative.
+- [Orbital scaling and wire protocol](orbital-scaling-and-wire-protocol.md) — keep multiplayer contracts until chunking, binary transport, and recovery pass compatibility checks.
+- [Shared-flight combat recovery](shared-flight-combat-recovery.md) — reconnect restores server battle state; secondary request failures must not hide active controls or bypass fleet claims.
+- [Shared target-lock handoff](shared-target-lock-handoff.md) — preserve the previous native lock identity until simulation observes a target switch, so stale missile charge is cleared.
+- [Shared-flight targeting and wing calls](shared-flight-targeting-assist.md) — show the selected ship at its projected position; calls invite nearby same-faction pilots into the same authoritative battle.
+- [Shared celestial reference](shared-celestial-reference.md) — Moon-relative agreement requires one authoritative spatial frame, not just shared session membership.
+- [Combat intelligence and recovery](combat-intelligence-and-recovery.md) — physical rear-positioning and evasion; confirmed kills restore bounded maneuver energy without permanent damage inflation.
+- [Shared combat visual authority](shared-combat-visual-authority.md) — server contacts drive bounded damage/explosion feedback independent of ship removal and floating-origin changes.
+- [Modular military equipment](modular-equipment-direction.md) — hull-compatible physical equipment and verified recovery preserve military character, not generic weapon replacement.
+- [Component-based combat](ship-subsystem-direction.md) — crippled systems alter live ship capabilities; component disables are not hull kills or reward claims.
+- [Living enemy formations](living-enemy-formations.md) — patrol fleets coordinate existing hulls, preserve casualties and use bounded observed contact; never fabricate reinforcements.

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package wfm.universe.v1;
+
+// Server-to-client presentation snapshot only. Client inputs and combat results
+// remain on their existing authenticated, versioned server-authoritative APIs.
+enum Faction {
+  FACTION_UNSPECIFIED = 0;
+  USSF = 1;
+  ACCORD = 2;
+}
+
+enum TrafficKind {
+  TRAFFIC_KIND_UNSPECIFIED = 0;
+  AI_PATROL = 1;
+  HUMAN_PILOT = 2;
+}
+
+message SectorAddress {
+  sint64 x = 1;
+  sint64 y = 2;
+  sint64 z = 3;
+}
+
+message Vector3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message TrafficEntity {
+  // Ephemeral server-issued actor identity; never an account ID or auth token.
+  string actor_id = 1;
+  string ship_id = 2;
+  Faction faction = 3;
+  TrafficKind kind = 4;
+  // Position is relative to the frame's sector anchor and bounded to one cell.
+  Vector3 local_position = 5;
+  Vector3 velocity = 6;
+  float yaw_radians = 7;
+  float hull_fraction = 8;
+}
+
+message UniverseFrameSnapshot {
+  uint32 protocol_version = 1;
+  uint64 server_tick = 2;
+  SectorAddress sector = 3;
+  repeated TrafficEntity traffic = 4;
+}

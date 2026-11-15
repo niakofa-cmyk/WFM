@@ -5,6 +5,135 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type EquipmentDefinitionKind = typeof EquipmentDefinitionKind[keyof typeof EquipmentDefinitionKind];
+
+
+export const EquipmentDefinitionKind = {
+  primary: 'primary',
+  secondary: 'secondary',
+  special: 'special',
+  defensive: 'defensive',
+  utility: 'utility',
+} as const;
+
+export interface EquipmentDefinition {
+  id: string;
+  name: string;
+  kind: EquipmentDefinitionKind;
+  effect: string;
+  description: string;
+  size: number;
+  mass: number;
+  power: number;
+  damage: number;
+  ammunition: number;
+  magazine: number;
+  roundsPerMinute: number;
+  range: number;
+  projectileVelocity: number;
+  tracking: number;
+  lockSeconds: number;
+  reloadSeconds: number;
+  heat: number;
+  durability: number;
+  energy: number;
+}
+
+export interface EquipmentItem {
+  id: string;
+  equipmentId: string;
+  condition: number;
+  /** @nullable */
+  shipId: string | null;
+  /** @nullable */
+  hardpointId: string | null;
+}
+
+export interface EquipmentHardpoint {
+  id: string;
+  kind: string;
+  size: number;
+}
+
+export interface EquipmentHull {
+  shipId: string;
+  massLimit: number;
+  powerLimit: number;
+  hardpoints: EquipmentHardpoint[];
+}
+
+export interface EquipmentSalvage {
+  eventId: string;
+  actorId: string;
+  equipmentId: string;
+}
+
+export interface EquipmentLocker {
+  revision: number;
+  catalog: EquipmentDefinition[];
+  hulls: EquipmentHull[];
+  items: EquipmentItem[];
+  salvage: EquipmentSalvage[];
+}
+
+export interface EquipmentFitInput {
+  /** @maxLength 32 */
+  shipId: string;
+  /** @maxLength 32 */
+  hardpointId: string;
+  /** @nullable */
+  itemId: string | null;
+  /** @minimum 0 */
+  expectedRevision: number;
+}
+
+export interface EquipmentRecoveryInput {
+  eventId: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  actorId: string;
+}
+
+export type GlobalCampaignPhase = typeof GlobalCampaignPhase[keyof typeof GlobalCampaignPhase];
+
+
+export const GlobalCampaignPhase = {
+  INITIAL_CONTACT: 'INITIAL_CONTACT',
+  BEACON_RECON: 'BEACON_RECON',
+  WARDEN_INTERCEPT: 'WARDEN_INTERCEPT',
+  CAGE_CLIMAX: 'CAGE_CLIMAX',
+  SYSTEM_VICTORY: 'SYSTEM_VICTORY',
+} as const;
+
+export interface GlobalCampaign {
+  enabled: boolean;
+  campaignId: string;
+  /** @minimum 0 */
+  completedOperations: number;
+  /** @minimum 1 */
+  targetOperations: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progressPercent: number;
+  phase: GlobalCampaignPhase;
+  concluded: boolean;
+  finaleEligible: boolean;
+  finaleClaimed: boolean;
+}
+
+export interface GlobalCampaignFinale {
+  campaignId: string;
+  credits: number;
+  campaignXp: number;
+  badge: string;
+  shieldMk2: boolean;
+  replayed: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -42,6 +171,14 @@ export const GameProfileShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type GameProfileScheme = typeof GameProfileScheme[keyof typeof GameProfileScheme];
@@ -118,6 +255,7 @@ export interface GameProfile {
      * @maximum 5
      */
   refit: number;
+  shieldMk2: boolean;
   prices: MarketPrices;
   /** @nullable */
   hold: GameProfileHold;
@@ -133,8 +271,43 @@ export interface GameProfile {
   /** @nullable */
   tech: GameProfileTech;
   drilled: boolean;
+  publicLeaderboardOptIn: boolean;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     * @nullable
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$
+     */
+  publicLeaderboardCallsign: string | null;
   /** @minimum 0 */
   revision: number;
+}
+
+export interface LeaderboardProfileUpdateInput {
+  enabled: boolean;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$
+     */
+  callsign?: string;
+}
+
+export interface PublicWingLeaderboardEntry {
+  /** @minimum 1 */
+  rank: number;
+  /**
+     * @minLength 3
+     * @maxLength 16
+     */
+  callsign: string;
+  /** @minimum 0 */
+  score: number;
+}
+
+export interface PublicWingLeaderboardResponse {
+  /** @maxItems 25 */
+  entries: PublicWingLeaderboardEntry[];
 }
 
 export type ProgressionActionInputAction = typeof ProgressionActionInputAction[keyof typeof ProgressionActionInputAction];
@@ -147,6 +320,53 @@ export const ProgressionActionInputAction = {
 export interface ProgressionActionInput {
   idempotencyKey: string;
   action: ProgressionActionInputAction;
+}
+
+export type LoadoutInputFaction = typeof LoadoutInputFaction[keyof typeof LoadoutInputFaction];
+
+
+export const LoadoutInputFaction = {
+  accord: 'accord',
+  ussf: 'ussf',
+} as const;
+
+export type LoadoutInputShipId = typeof LoadoutInputShipId[keyof typeof LoadoutInputShipId];
+
+
+export const LoadoutInputShipId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
+} as const;
+
+export interface LoadoutInput {
+  faction: LoadoutInputFaction;
+  shipId: LoadoutInputShipId;
+}
+
+export type ControlSchemeInputScheme = typeof ControlSchemeInputScheme[keyof typeof ControlSchemeInputScheme];
+
+
+export const ControlSchemeInputScheme = {
+  arc: 'arc',
+  strafe: 'strafe',
+} as const;
+
+export interface ControlSchemeInput {
+  scheme: ControlSchemeInputScheme;
 }
 
 export type ProgressionActionResultTransactionKind = typeof ProgressionActionResultTransactionKind[keyof typeof ProgressionActionResultTransactionKind];
@@ -181,6 +401,14 @@ export const StrikeStartInputShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type StrikeStartInputFaction = typeof StrikeStartInputFaction[keyof typeof StrikeStartInputFaction];
@@ -238,6 +466,7 @@ export interface StrikeStartInput {
   mission: StrikeStartInputMission;
   /** @nullable */
   tech: StrikeStartInputTech;
+  supportsOrbitalReplay?: boolean;
 }
 
 export type StrikeRunConfigShipId = typeof StrikeRunConfigShipId[keyof typeof StrikeRunConfigShipId];
@@ -252,6 +481,14 @@ export const StrikeRunConfigShipId = {
   sentinel: 'sentinel',
   splitter: 'splitter',
   glide: 'glide',
+  wasp: 'wasp',
+  valiant: 'valiant',
+  aegis: 'aegis',
+  bastion: 'bastion',
+  apep: 'apep',
+  sekhmet: 'sekhmet',
+  garuda: 'garuda',
+  vajra: 'vajra',
 } as const;
 
 export type StrikeRunConfigFaction = typeof StrikeRunConfigFaction[keyof typeof StrikeRunConfigFaction];
@@ -313,6 +550,18 @@ export const StrikeRunConfigMission = {
   cage: 'cage',
 } as const;
 
+export type StrikeRunConfigFlightModel = typeof StrikeRunConfigFlightModel[keyof typeof StrikeRunConfigFlightModel];
+
+
+export const StrikeRunConfigFlightModel = {
+  'surface-v1': 'surface-v1',
+  'orbital-v1': 'orbital-v1',
+  'orbital-v2': 'orbital-v2',
+  'orbital-v3': 'orbital-v3',
+  'orbital-v4': 'orbital-v4',
+  'orbital-v5': 'orbital-v5',
+} as const;
+
 export type StrikeRunConfig = {
   shipId: StrikeRunConfigShipId;
   faction: StrikeRunConfigFaction;
@@ -321,6 +570,7 @@ export type StrikeRunConfig = {
      * @maximum 5
      */
   refit: number;
+  shieldMk2?: boolean;
   pace: StrikeRunConfigPace;
   goal: StrikeRunConfigGoal;
   disc: StrikeRunConfigDisc;
@@ -337,6 +587,7 @@ export type StrikeRunConfig = {
   /** @nullable */
   tech: StrikeRunConfigTech;
   mission: StrikeRunConfigMission;
+  flightModel?: StrikeRunConfigFlightModel;
 };
 
 export interface StrikeRun {
@@ -391,6 +642,21 @@ export interface StrikeStepInput {
   evade: number;
   /** @nullable */
   preset: StrikeStepInputPreset;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  vertical?: number;
+  /**
+     * @minimum -1
+     * @maximum 1
+     */
+  roll?: number;
+  boost?: boolean;
+  brake?: boolean;
+  inertial?: boolean;
+  missile?: boolean;
+  aimAssist?: boolean;
 }
 
 export interface StrikeClaimInput {
@@ -461,6 +727,8 @@ export interface MarketTradeInput {
      * @maximum 50
      */
   quantity: number;
+  /** @minimum 1 */
+  totalLimit?: number;
 }
 
 export interface MarketListing {
@@ -470,6 +738,24 @@ export interface MarketListing {
   basePrice: number;
   /** @minimum 1 */
   price: number;
+  /** @minimum 1 */
+  sellPrice: number;
+  purpose: string;
+  restricted?: boolean;
+  /** @nullable */
+  restrictionReason?: string | null;
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  buyTotals: number[];
+  /**
+     * @minItems 50
+     * @maxItems 50
+     * @items.minimum 1
+     */
+  sellTotals: number[];
   /** @minimum 0 */
   stock: number;
   /** @minimum 1 */
@@ -542,9 +828,30 @@ export interface WorldEvent {
   endsAt: string;
 }
 
+export type EconomyRejectionAction = typeof EconomyRejectionAction[keyof typeof EconomyRejectionAction];
+
+
+export const EconomyRejectionAction = {
+  trade: 'trade',
+  service: 'service',
+} as const;
+
+export interface EconomyRejection {
+  id: string;
+  action: EconomyRejectionAction;
+  targetId: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface MarketSnapshot {
   /** @minimum 0 */
   credits: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  rejections: EconomyRejection[];
   inventory: InventoryHolding[];
   listings: MarketListing[];
   transactions: MarketTransaction[];
@@ -557,6 +864,592 @@ export interface MarketTradeResult {
   replayed: boolean;
 }
 
+export interface UniverseVector3 {
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  x: number;
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  y: number;
+  /**
+     * @minimum -100000
+     * @maximum 100000
+     */
+  z: number;
+}
+
+export type UniverseLocationKind = typeof UniverseLocationKind[keyof typeof UniverseLocationKind];
+
+
+export const UniverseLocationKind = {
+  asteroid: 'asteroid',
+  station: 'station',
+  'orbital-sector': 'orbital-sector',
+} as const;
+
+export interface UniverseLocation {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  worldLocationId: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  kind: UniverseLocationKind;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  sectorId: string;
+  position: UniverseVector3;
+}
+
+export interface UniversePresenceSummary {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  activePilots: number;
+}
+
+export type UniverseEventKind = typeof UniverseEventKind[keyof typeof UniverseEventKind];
+
+
+export const UniverseEventKind = {
+  'operation-opened': 'operation-opened',
+  'match-started': 'match-started',
+  'match-completed': 'match-completed',
+  'faction-event': 'faction-event',
+} as const;
+
+export type UniverseEventStatus = typeof UniverseEventStatus[keyof typeof UniverseEventStatus];
+
+
+export const UniverseEventStatus = {
+  active: 'active',
+  completed: 'completed',
+} as const;
+
+export interface UniverseEvent {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  kind: UniverseEventKind;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  operationInstanceId?: string | null;
+  status: UniverseEventStatus;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+}
+
+export type OperationDefinitionExperience = typeof OperationDefinitionExperience[keyof typeof OperationDefinitionExperience];
+
+
+export const OperationDefinitionExperience = {
+  'flight-simulation': 'flight-simulation',
+  'orbital-combat': 'orbital-combat',
+  cooperative: 'cooperative',
+  competitive: 'competitive',
+  campaign: 'campaign',
+  arcade: 'arcade',
+} as const;
+
+export type OperationDefinitionVisibility = typeof OperationDefinitionVisibility[keyof typeof OperationDefinitionVisibility];
+
+
+export const OperationDefinitionVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+  private: 'private',
+} as const;
+
+export type OperationDefinitionLifecycle = typeof OperationDefinitionLifecycle[keyof typeof OperationDefinitionLifecycle];
+
+
+export const OperationDefinitionLifecycle = {
+  'on-demand': 'on-demand',
+  queued: 'queued',
+  scheduled: 'scheduled',
+  persistent: 'persistent',
+} as const;
+
+export type OperationDefinitionAccess = typeof OperationDefinitionAccess[keyof typeof OperationDefinitionAccess];
+
+
+export const OperationDefinitionAccess = {
+  'local-training': 'local-training',
+  matchmaking: 'matchmaking',
+  invitation: 'invitation',
+  direct: 'direct',
+} as const;
+
+export type OperationDefinitionRewardPolicy = typeof OperationDefinitionRewardPolicy[keyof typeof OperationDefinitionRewardPolicy];
+
+
+export const OperationDefinitionRewardPolicy = {
+  none: 'none',
+  'existing-authority': 'existing-authority',
+} as const;
+
+export interface OperationDefinition {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /** @maxLength 1000 */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  experience: OperationDefinitionExperience;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  teamSize: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  capacity: number;
+  visibility: OperationDefinitionVisibility;
+  lifecycle: OperationDefinitionLifecycle;
+  access: OperationDefinitionAccess;
+  rewardPolicy: OperationDefinitionRewardPolicy;
+}
+
+export type OperationInstancePhase = typeof OperationInstancePhase[keyof typeof OperationInstancePhase];
+
+
+export const OperationInstancePhase = {
+  assembling: 'assembling',
+  ready: 'ready',
+  active: 'active',
+  complete: 'complete',
+  closed: 'closed',
+} as const;
+
+export type OperationInstanceVisibility = typeof OperationInstanceVisibility[keyof typeof OperationInstanceVisibility];
+
+
+export const OperationInstanceVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+} as const;
+
+export interface OperationInstance {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  locationId: string;
+  phase: OperationInstancePhase;
+  /**
+     * @minimum 0
+     * @maximum 200
+     */
+  currentPlayers: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  capacity: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  visibility: OperationInstanceVisibility;
+  registeredAt: string;
+  expiresAt: string;
+}
+
+export type OperationRegistrationBodyVisibility = typeof OperationRegistrationBodyVisibility[keyof typeof OperationRegistrationBodyVisibility];
+
+
+export const OperationRegistrationBodyVisibility = {
+  public: 'public',
+  unlisted: 'unlisted',
+} as const;
+
+export interface OperationRegistrationBody {
+  idempotencyKey: string;
+  visibility: OperationRegistrationBodyVisibility;
+}
+
+export type JoinAuthorizationReason = typeof JoinAuthorizationReason[keyof typeof JoinAuthorizationReason];
+
+
+export const JoinAuthorizationReason = {
+  authorized: 'authorized',
+  'authentication-required': 'authentication-required',
+  'operation-closed': 'operation-closed',
+  full: 'full',
+  ineligible: 'ineligible',
+  'version-mismatch': 'version-mismatch',
+  'not-at-location': 'not-at-location',
+  'unsupported-operation': 'unsupported-operation',
+} as const;
+
+export interface MatchAssignment {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  assignmentId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  /**
+     * @minimum 0
+     * @maximum 199
+     */
+  seat: number;
+  expiresAt: string;
+}
+
+export interface JoinAuthorization {
+  allowed: boolean;
+  reason: JoinAuthorizationReason;
+  assignment: MatchAssignment | null;
+}
+
+export interface OperationRegistrationResponse {
+  instance: OperationInstance;
+  authorization: JoinAuthorization;
+}
+
+/**
+ * @nullable
+ */
+export type PlayerPresenceTeam = typeof PlayerPresenceTeam[keyof typeof PlayerPresenceTeam] | null;
+
+
+export const PlayerPresenceTeam = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface PlayerPresence {
+  /**
+     * @maxLength 32
+     * @nullable
+     */
+  publicCallsign: string | null;
+  /** @nullable */
+  team: PlayerPresenceTeam;
+  position: UniverseVector3 | null;
+  connected: boolean;
+}
+
+export type SpectatorSessionCameraModesItem = typeof SpectatorSessionCameraModesItem[keyof typeof SpectatorSessionCameraModesItem];
+
+
+export const SpectatorSessionCameraModesItem = {
+  overview: 'overview',
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface SpectatorSession {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  sessionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  readOnly: true;
+  cameraModes: SpectatorSessionCameraModesItem[];
+  expiresAt: string;
+}
+
+export type OperationResultOutcome = typeof OperationResultOutcome[keyof typeof OperationResultOutcome];
+
+
+export const OperationResultOutcome = {
+  victory: 'victory',
+  defeat: 'defeat',
+  draw: 'draw',
+  abandoned: 'abandoned',
+} as const;
+
+export type OperationResultObjectivesItem = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  completed: boolean;
+};
+
+export interface OperationResult {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  operationInstanceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  runtimeId: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  rulesetId: string;
+  outcome: OperationResultOutcome;
+  objectives: OperationResultObjectivesItem[];
+  completedAt: string;
+  serverVerified: boolean;
+}
+
+export type OperationDirectoryResponsePresenceStatus = typeof OperationDirectoryResponsePresenceStatus[keyof typeof OperationDirectoryResponsePresenceStatus];
+
+
+export const OperationDirectoryResponsePresenceStatus = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export interface OperationDirectoryResponse {
+  generatedAt: string;
+  locations: UniverseLocation[];
+  operations: OperationDefinition[];
+  instances: OperationInstance[];
+  events: UniverseEvent[];
+  presence?: UniversePresenceSummary[];
+  presenceStatus?: OperationDirectoryResponsePresenceStatus;
+}
+
+export type WorldPatrolShipHullId = typeof WorldPatrolShipHullId[keyof typeof WorldPatrolShipHullId];
+
+
+export const WorldPatrolShipHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolShip {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  id: string;
+  hullId: WorldPatrolShipHullId;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 16
+     */
+  callsign: string;
+}
+
+export type WorldPatrolFleetFaction = typeof WorldPatrolFleetFaction[keyof typeof WorldPatrolFleetFaction];
+
+
+export const WorldPatrolFleetFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolFleetObjective = typeof WorldPatrolFleetObjective[keyof typeof WorldPatrolFleetObjective];
+
+
+export const WorldPatrolFleetObjective = {
+  recon: 'recon',
+  'route-security': 'route-security',
+  escort: 'escort',
+  'supply-screen': 'supply-screen',
+} as const;
+
+export interface WorldPatrolFleet {
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  callsign: string;
+  faction: WorldPatrolFleetFaction;
+  objective: WorldPatrolFleetObjective;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  /**
+     * @minItems 2
+     * @maxItems 3
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  route: string[];
+  /**
+     * @minItems 2
+     * @maxItems 4
+     */
+  ships: WorldPatrolShip[];
+  lastMovedAt: string;
+}
+
+export type WorldPatrolTrafficContactFaction = typeof WorldPatrolTrafficContactFaction[keyof typeof WorldPatrolTrafficContactFaction];
+
+
+export const WorldPatrolTrafficContactFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export type WorldPatrolTrafficContactHullId = typeof WorldPatrolTrafficContactHullId[keyof typeof WorldPatrolTrafficContactHullId];
+
+
+export const WorldPatrolTrafficContactHullId = {
+  mandjet: 'mandjet',
+  shakuna: 'shakuna',
+  sundara: 'sundara',
+  tripura: 'tripura',
+  duskbreaker: 'duskbreaker',
+  sentinel: 'sentinel',
+  splitter: 'splitter',
+  glide: 'glide',
+} as const;
+
+export interface WorldPatrolTrafficContact {
+  /**
+     * @minLength 1
+     * @maxLength 220
+     */
+  contactId: string;
+  faction: WorldPatrolTrafficContactFaction;
+  hullId: WorldPatrolTrafficContactHullId;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  locationId: string;
+  position: UniverseVector3;
+  velocity: UniverseVector3;
+  /**
+     * @minimum -6.284
+     * @maximum 6.284
+     */
+  yaw: number;
+}
+
+export type WorldPatrolDirectorySimulationLayer = typeof WorldPatrolDirectorySimulationLayer[keyof typeof WorldPatrolDirectorySimulationLayer];
+
+
+export const WorldPatrolDirectorySimulationLayer = {
+  strategic: 'strategic',
+} as const;
+
+export interface WorldPatrolDirectory {
+  generatedAt: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  currentLocationId: string;
+  simulationLayer: WorldPatrolDirectorySimulationLayer;
+  /** @maxItems 128 */
+  patrols: WorldPatrolFleet[];
+  /** @maxItems 512 */
+  traffic: WorldPatrolTrafficContact[];
+}
+
 export type WorldLocationKind = typeof WorldLocationKind[keyof typeof WorldLocationKind];
 
 
@@ -565,6 +1458,7 @@ export const WorldLocationKind = {
   relay: 'relay',
   moon: 'moon',
   ruins: 'ruins',
+  asteroid: 'asteroid',
 } as const;
 
 export interface WorldLocation {
@@ -588,6 +1482,11 @@ export interface WorldLocation {
   unlockAfter: number;
   unlocked: boolean;
   explored: boolean;
+  sector?: string;
+  requiredTechTier?: number;
+  requiredRep?: number;
+  /** @nullable */
+  lockReason?: string | null;
   description: string;
   services: string[];
 }
@@ -620,12 +1519,53 @@ export interface WorldQuest {
   reputationReward: number;
 }
 
+export type WorldStateInstalledUpgradesItem = typeof WorldStateInstalledUpgradesItem[keyof typeof WorldStateInstalledUpgradesItem];
+
+
+export const WorldStateInstalledUpgradesItem = {
+  'shield-mk2': 'shield-mk2',
+  'cargo-expansion': 'cargo-expansion',
+  'drive-efficiency': 'drive-efficiency',
+} as const;
+
 export type WorldStateReputation = {
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   accord: number;
-  /** @minimum 0 */
+  /**
+     * @minimum -100
+     * @maximum 100
+     */
   ussf: number;
 };
+
+export interface WorldActivity {
+  id: string;
+  title: string;
+  description: string;
+  risk: string;
+  available: boolean;
+  /** @nullable */
+  reason: string | null;
+  daily: boolean;
+  /** @minimum 0 */
+  creditCost: number;
+  /** @minimum 0 */
+  rewardCredits: number;
+  costs: InventoryHolding[];
+  rewards: InventoryHolding[];
+  reputationDelta: number;
+  rivalReputationDelta: number;
+}
+
+export interface WorldActivityRecord {
+  id: string;
+  title: string;
+  creditsDelta: number;
+  createdAt: string;
+}
 
 export interface WorldRoute {
   destinationId: string;
@@ -634,19 +1574,103 @@ export interface WorldRoute {
   available: boolean;
 }
 
+export type CampaignNarrativeRecordMissionId = typeof CampaignNarrativeRecordMissionId[keyof typeof CampaignNarrativeRecordMissionId];
+
+
+export const CampaignNarrativeRecordMissionId = {
+  contact: 'contact',
+  beacon: 'beacon',
+  warden: 'warden',
+  cage: 'cage',
+  'rust-disc': 'rust-disc',
+} as const;
+
+export type CampaignNarrativeRecordKnowledgeLayer = typeof CampaignNarrativeRecordKnowledgeLayer[keyof typeof CampaignNarrativeRecordKnowledgeLayer];
+
+
+export const CampaignNarrativeRecordKnowledgeLayer = {
+  public: 'public',
+  restricted: 'restricted',
+  classified: 'classified',
+  unresolved: 'unresolved',
+} as const;
+
+export interface CampaignNarrativeDialogueLine {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  speaker: string;
+  /**
+     * @minLength 1
+     * @maxLength 800
+     */
+  text: string;
+}
+
+export interface CampaignNarrativeRecord {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  chapter: string;
+  missionId: CampaignNarrativeRecordMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  source: string;
+  knowledgeLayer: CampaignNarrativeRecordKnowledgeLayer;
+  /**
+     * @minLength 1
+     * @maxLength 1200
+     */
+  synopsis: string;
+  transcript: CampaignNarrativeDialogueLine[];
+  discoveredAt: string;
+}
+
 export interface WorldState {
+  /**
+     * @minimum 1
+     * @maximum 3
+     */
+  hyperdriveTier: number;
+  /** @minimum 0 */
+  cargoUsed: number;
+  /** @minimum 1 */
+  cargoCapacity: number;
+  installedUpgrades: WorldStateInstalledUpgradesItem[];
+  rejections: EconomyRejection[];
+  inventory: InventoryHolding[];
+  activities: WorldActivity[];
+  history: WorldActivityRecord[];
   event: WorldEvent;
   reputation: WorldStateReputation;
   currentLocation: string;
   routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
+  /** Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes. */
+  narrative: CampaignNarrativeRecord[];
   quests: WorldQuest[];
 }
 
 export interface WorldTravelInput {
   idempotencyKey: string;
   destinationId: string;
+  /** @minimum 0 */
+  maxCost?: number;
 }
 
 export interface WorldTravelResult {
@@ -688,6 +1712,110 @@ export interface WorldQuestActionResult {
   credits: number;
   /** @minimum 0 */
   rewardCredits: number;
+  replayed: boolean;
+}
+
+export type WorldScoutEncounterResultMissionId = typeof WorldScoutEncounterResultMissionId[keyof typeof WorldScoutEncounterResultMissionId];
+
+
+export const WorldScoutEncounterResultMissionId = {
+  'pale-beacons': 'pale-beacons',
+  'universe-patrol': 'universe-patrol',
+} as const;
+
+export type WorldScoutEncounterResultOutcome = typeof WorldScoutEncounterResultOutcome[keyof typeof WorldScoutEncounterResultOutcome];
+
+
+export const WorldScoutEncounterResultOutcome = {
+  completed: 'completed',
+  aborted: 'aborted',
+} as const;
+
+export type WorldScoutEncounterResultOpposingFaction = typeof WorldScoutEncounterResultOpposingFaction[keyof typeof WorldScoutEncounterResultOpposingFaction];
+
+
+export const WorldScoutEncounterResultOpposingFaction = {
+  ussf: 'ussf',
+  accord: 'accord',
+} as const;
+
+export interface WorldScoutEncounterResult {
+  encounterId: string;
+  missionId: WorldScoutEncounterResultMissionId;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  sectorId: string;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  runtime: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  policyId: string;
+  outcome: WorldScoutEncounterResultOutcome;
+  /** @minimum 0 */
+  finalTick: number;
+  objectiveCompleted: boolean;
+  /** @minimum 0 */
+  kills: number;
+  /** @minimum 0 */
+  assists: number;
+  /**
+     * @maxItems 128
+     * @items.minLength 1
+     * @items.maxLength 128
+     */
+  destroyedActorIds: string[];
+  /** @minimum 0 */
+  rewardableNpcKills: number;
+  /** @minimum 0 */
+  creditsAwarded: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  patrolLocationId?: string;
+  opposingFaction?: WorldScoutEncounterResultOpposingFaction;
+  /** @pattern ^[0-9a-f]{64}$ */
+  fingerprint: string;
+  recordedAt: string;
+}
+
+export interface WorldExplorationResults {
+  /** @maxItems 10 */
+  results: WorldScoutEncounterResult[];
+}
+
+export interface WorldServiceInput {
+  idempotencyKey: string;
+  serviceId: string;
+  /** @minimum 0 */
+  creditLimit?: number;
+  locationId: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  cycleDate: string;
+}
+
+export interface WorldServiceResult {
+  world: WorldState;
+  /** @minimum 0 */
+  credits: number;
+  /**
+     * @minimum 0
+     * @maximum 5
+     */
+  refit: number;
+  message: string;
   replayed: boolean;
 }
 

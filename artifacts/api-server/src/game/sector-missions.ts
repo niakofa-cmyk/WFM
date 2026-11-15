@@ -1,0 +1,237 @@
+import {
+  ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  SECTOR_COMPAT_PROTOCOL_VERSION,
+  SECTOR_ORBITAL_PROTOCOL_VERSION,
+  type SectorProtocolVersion,
+  type SectorSimulationContract,
+} from "@workspace/orbital-sim";
+import {
+  CINDER_ASTEROID_SECTOR,
+  RUST_DISC_SECTOR,
+  type FlightSector,
+  type FlightState,
+  type FlightInput,
+  type Vector3,
+} from "./flight-sector";
+import type { ShipId } from "./ships";
+
+export {
+  ORBITAL_SECTOR_SIMULATION_CONTRACT,
+  SECTOR_COMPAT_PROTOCOL_VERSION,
+  SECTOR_ORBITAL_PROTOCOL_VERSION,
+};
+export type { SectorProtocolVersion, SectorSimulationContract } from "@workspace/orbital-sim";
+export const SECTOR_PROTOCOL_VERSION = SECTOR_COMPAT_PROTOCOL_VERSION;
+export const SECTOR_STEP = 1 / 60;
+export const UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS = 180;
+export const SECTOR_MARS = { position: { x: 0, y: -700, z: -1800 }, radius: 600 };
+export type SectorMissionId = "rust-disc" | "mars-approach" | "pale-beacons" | "iron-eclipse" | "universe-patrol";
+export type IronEclipseSubsystemId = "point-defense" | "shield-array" | "reactor";
+export type IronEclipseOrder = "attack" | "defend" | "escort" | "regroup";
+export type IronEclipsePhase = "engage" | "capital" | "extract" | "complete" | "failed";
+export type IronEclipseSubsystem = {
+  id: IronEclipseSubsystemId; label: string; position: Vector3;
+  hull: number; maxHull: number; disabled: boolean;
+};
+export type IronEclipseWingUnit = {
+  id: string; shipId: ShipId; position: Vector3;
+  hull: number; maxHull: number; connected: boolean;
+};
+export type IronEclipseSnapshot = {
+  phase: IronEclipsePhase;
+  target: IronEclipseSubsystemId | null;
+  order: IronEclipseOrder;
+  capitalPosition: Vector3;
+  subsystems: IronEclipseSubsystem[];
+  wing: IronEclipseWingUnit[];
+  objectives: {
+    primary: "pending" | "complete" | "missed";
+    shieldArray: "pending" | "complete" | "missed";
+    wingSurvival: "pending" | "complete" | "missed";
+  };
+};
+export type SectorMission = {
+  id: SectorMissionId; title: string; description: string; prerequisite: SectorMissionId | null;
+  sector: FlightSector;
+};
+/** Read-only pilot projection of a server-finalized exploratory scout encounter. */
+export type SectorScoutResult = {
+  encounterId: string;
+  missionId: "pale-beacons" | "universe-patrol";
+  sectorId: string;
+  runtime: string;
+  policyId: string;
+  outcome: "completed" | "aborted";
+  finalTick: number;
+  objectiveCompleted: boolean;
+  kills: number;
+  assists: number;
+  destroyedActorIds: string[];
+  rewardableNpcKills: number;
+  creditsAwarded: number;
+  patrolId?: string;
+  patrolLocationId?: string;
+  opposingFaction?: "ussf" | "accord";
+  fingerprint: string;
+};
+export type SectorHostileFleetShip = {
+  actorId: string;
+  shipId: ShipId;
+  callsign: string;
+  position: Vector3;
+  hull: number;
+  maxHull: number;
+  destroyed: boolean;
+};
+export type SectorHostileFleetSnapshot = {
+  patrolId: string;
+  callsign: string;
+  locationId: string;
+  faction: "ussf" | "accord";
+  ships: SectorHostileFleetShip[];
+};
+export type SectorPatrolApproach = {
+  distanceMeters: number | null;
+  engagementRangeMeters: typeof UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS;
+  combatAuthorized: boolean;
+};
+export type SectorFactionContact = {
+  actorFaction: "ussf" | "accord";
+  stage: "unaware" | "investigating" | "shadowing" | "challenging" | "warning" | "intercepting" | "reinforcements";
+  action: "none" | "scan" | "shadow" | "challenge" | "warn" | "intercept" | "request_reinforcements";
+  reason: "no_sensor_contact" | "passive_contact" | "transponder_silent" | "restricted_territory" |
+    "high_speed" | "targeting" | "weapons_hot" | "warning_ignored" | "hostile_damage" | "close_approach";
+  territory: "ussf" | "accord" | "neutral" | "contested";
+  transponder: "broadcast" | "silent";
+  distanceMeters: number;
+  sensorRangeMeters: number;
+  speedMetersPerSecond: number;
+  lineOfSight: boolean;
+  weaponsHot: boolean;
+  targeting: boolean;
+  enteredAtTick: number;
+};
+export type SectorEvidencePickup = {
+  id: string;
+  title: string;
+  position: Vector3;
+  state: "available" | "recovering" | "recovered" | "unavailable";
+};
+export const IRON_ECLIPSE_SUBSYSTEMS = [
+  { id: "point-defense", label: "POINT DEFENSE", maxHull: 120, offset: { x: -26, y: 9, z: 12 } },
+  { id: "shield-array", label: "SHIELD ARRAY", maxHull: 140, offset: { x: 20, y: 13, z: -4 } },
+  { id: "reactor", label: "REACTOR", maxHull: 180, offset: { x: 0, y: -8, z: -15 } },
+] as const;
+export const IRON_ECLIPSE_WING = [
+  { id: "sable-one", shipId: "glide", offset: { x: -20, y: 8, z: 64 } },
+  { id: "sable-two", shipId: "shakuna", offset: { x: 0, y: 12, z: 78 } },
+  { id: "sable-three", shipId: "sentinel", offset: { x: 20, y: 8, z: 64 } },
+] as const satisfies readonly { id: string; shipId: ShipId; offset: { x: number; y: number; z: number } }[];
+export const SECTOR_MISSIONS: readonly SectorMission[] = [
+  {
+    id: "rust-disc", title: "Rust Disc · Relay Recovery", prerequisite: null,
+    description: "Recover the damaged relay, neutralize its sentinel together, then extract. Opens the route to Mars.",
+    sector: { ...RUST_DISC_SECTOR, id: "rust-disc-expedition-v1", radius: 3000, planet: SECTOR_MARS },
+  },
+  {
+    id: "mars-approach", title: "Mars Approach · Orbital Survey", prerequisite: "rust-disc",
+    description: "Fly beyond the debris belt to scan the physical Mars globe and recover its orbital navigation beacon. Surface landing is not part of this flight.",
+    sector: {
+      ...RUST_DISC_SECTOR, id: "mars-approach-v1", radius: 3000, planet: SECTOR_MARS,
+      relay: { x: 0, y: 100, z: -1100 }, extraction: { x: 250, y: 160, z: -1350 },
+      drone: { x: 0, y: 140, z: -1250 }, droneHull: 0,
+    },
+  },
+  {
+    id: "pale-beacons", title: "Pale Beacons · Unknown Signal", prerequisite: "mars-approach",
+    description: "Track a server-run opposing patrol along a changing route. Search for two optional physical signal records, then destroy the patrol and extract.",
+    sector: {
+      ...RUST_DISC_SECTOR, id: "pale-beacons-v1", radius: 3000, planet: SECTOR_MARS,
+      relay: { x: 850, y: 270, z: -900 }, extraction: { x: 1050, y: 350, z: -1350 },
+      drone: { x: 950, y: 300, z: -1150 }, droneHull: 96,
+    },
+  },
+  {
+    id: "iron-eclipse", title: "Operation Iron Eclipse", prerequisite: null,
+    description: "Hold vector through orbital fire, direct a three-ship AI wing, disable the capital ship’s point defense, and strike its reactor before extraction.",
+    sector: {
+      ...RUST_DISC_SECTOR, id: "iron-eclipse-v1", radius: 3000, planet: SECTOR_MARS,
+      relay: { x: 0, y: 30, z: 80 }, extraction: { x: 180, y: 110, z: -980 },
+      drone: { x: 0, y: 70, z: -460 }, droneHull: 120,
+    },
+  },
+  {
+    id: "universe-patrol", title: "Opposing Patrol · Intercept",
+    prerequisite: null,
+    description: "Approach the server-owned opposing fleet, pass its 180 m proximity check under Orbital simulation, then engage and extract.",
+    sector: {
+      ...CINDER_ASTEROID_SECTOR,
+      id: "universe-patrol-contact-v1",
+      radius: 3000,
+      planet: SECTOR_MARS,
+      relay: { x: 250, y: 120, z: -400 },
+      extraction: { x: -260, y: 120, z: -860 },
+    },
+  },
+];
+export function sectorMission(id: unknown): SectorMission | undefined {
+  return SECTOR_MISSIONS.find(mission => mission.id === id);
+}
+export type SectorProgress = {
+  completed: SectorMissionId[];
+  persistenceAvailable: boolean;
+};
+export type SectorSettlement = {
+  status: "not_started" | "pending" | "recorded" | "unavailable" | "not_eligible";
+  reason: string; replayed?: boolean;
+};
+export type SectorPilotSnapshot = {
+  slot: number; shipId: ShipId; connected: boolean; ready: boolean; flight: FlightState;
+};
+export type SectorCommandRequest =
+  | { type: "sector_command"; order: "attack" }
+  | { type: "sector_command"; order: "defend" | "escort"; targetSlot: number }
+  | { type: "sector_command"; order: "regroup" };
+export type SectorTransponderRequest = { type: "sector_transponder"; mode: "broadcast" | "silent" };
+export type SectorEvidenceRecoveryRequest = { type: "sector_recover_evidence" };
+export type IronEclipseCommandRequest =
+  | { type: "iron_eclipse_order"; order: IronEclipseOrder }
+  | { type: "iron_eclipse_target"; target: IronEclipseSubsystemId };
+export type SectorTacticalCommand =
+  | { order: "attack"; target: "drone"; targetSlot: null; issuedBySlot: number; issuedAtTick: number }
+  | { order: "defend" | "escort" | "regroup"; target: "pilot"; targetSlot: number; issuedBySlot: number; issuedAtTick: number };
+export type SectorSnapshot = {
+  type: "sector_snapshot"; version: SectorProtocolVersion; roomCode: string; missionId: SectorMissionId;
+  phase: "lobby" | "active" | "complete" | "interrupted" | "failed"; tick: number;
+  ownSlot: number; hostSlot: number; pilots: SectorPilotSnapshot[];
+  progress: SectorProgress; settlement: SectorSettlement;
+  /** This pilot's own result only; no other account IDs or private room data. */
+  scoutResult?: SectorScoutResult;
+  scoutResultStatus?: "pending" | "recorded" | "unavailable";
+  /** Private server-derived contact state for this pilot; never a public event listing. */
+  factionContact?: SectorFactionContact;
+  /** Server-positioned story evidence; recovery state is private to this account. */
+  evidence?: SectorEvidencePickup[];
+  /** Server-authoritative hostile formation for the current universe patrol instance. */
+  hostileFleet?: SectorHostileFleetSnapshot;
+  /** Server-computed approach telemetry; no client position is accepted. */
+  patrolApproach?: SectorPatrolApproach;
+  simulation?: SectorSimulationContract;
+  capabilities?: { vectorDrift: boolean; tacticalCommands?: boolean; ironEclipse?: boolean };
+  command?: SectorTacticalCommand | null;
+  operation?: IronEclipseSnapshot;
+};
+export type SectorClientPacket =
+  | {
+      type: "sector_join"; version: SectorProtocolVersion; shipId: ShipId; publicListing?: boolean;
+      simulation?: SectorSimulationContract;
+    }
+  | { type: "sector_ready"; ready: boolean }
+  | { type: "sector_launch" }
+  | { type: "sector_input"; seq: number; input: FlightInput }
+  | { type: "sector_ping"; nonce: number }
+  | SectorTransponderRequest
+  | SectorEvidenceRecoveryRequest
+  | SectorCommandRequest
+  | IronEclipseCommandRequest
+  | { type: "sector_retry" };

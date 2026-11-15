@@ -1,0 +1,11 @@
+[build]
+builder = "RAILPACK"
+buildCommand = "pnpm --filter @workspace/api-server run build"
+watchPatterns = ["/package.json", "/pnpm-lock.yaml", "/pnpm-workspace.yaml", "/deploy/railway/api-server.toml", "/artifacts/api-server/**", "/lib/**"]
+
+[deploy]
+startCommand = "pnpm --filter @workspace/api-server run start"
+healthcheckPath = "/api/readyz"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

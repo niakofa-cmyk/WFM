@@ -10,6 +10,18 @@ The campaign world now has a server-backed travel loop, and the large combat dep
 
 ## Mobile bundle profile
 
+### Current local measurement (2026-11-03)
+
+A fresh WFM production build reports a 370.00 kB raw / 113.16 kB gzip initial
+entry chunk and a 518.89 kB raw / 131.06 kB gzip Three.js engine chunk. Vite
+emits its large-chunk advisory for the engine. This is a local bundle measurement,
+not a frame-rate, memory, thermal, physical-device, or Production measurement.
+The prior October figures below are historical and do not describe this newer
+build. Use the reproducible module-level report from
+`pnpm --filter @workspace/war-for-mars run bundle:audit` before optimizing; it
+lists rendered module contributions and whether Three.js is in the initial
+static import closure.
+
 The prior game build had one 922,526-byte JavaScript entry (253,466 bytes gzip). In the tested build, the initial JavaScript entry is 293.62 kB (87.61 kB gzip), a 68% raw / 65% gzip reduction. Vite loads the game modules when their screens are opened:
 
 | Chunk | Raw | Gzip | Loaded when |

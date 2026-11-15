@@ -14,4 +14,5 @@ export const WorldLocationKind = {
   relay: 'relay',
   moon: 'moon',
   ruins: 'ruins',
+  asteroid: 'asteroid',
 } as const;

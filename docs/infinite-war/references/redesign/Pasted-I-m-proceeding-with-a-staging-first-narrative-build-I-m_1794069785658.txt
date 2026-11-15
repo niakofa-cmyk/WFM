@@ -1,0 +1,72 @@
+I’m proceeding with a staging-first narrative build. I’m preserving your original premise as the historical canon: Eon Dusk’s rise through scandalous wealth and political influence, his concealed Mars takeover attempt, the destruction of his expedition, his capture, and the transmission that triggers Earth’s response. The First Witness mystery will grow out of those events—not replace them.
+
+One important design choice: the player should experience some events directly and reconstruct others through recovered recordings, witness testimony, intelligence briefings, and playable historical simulations. That lets us tell Dusk’s full history without pretending the player was physically present for every event, and it gives the open universe reasons to revisit locations as new evidence becomes available.
+
+## Implementation created in WFM
+
+Draft pull request #16
+
+Awaiting review
+
+# 1,260 additions
+
+9 commits · 6 files · based on staging
+
+[Open WFM narrative implementation PR #16](https://github.com/niakofa-cmyk/WFM/pull/16?utm_source=chatgpt.com)
+
+Branch: `agent/infinite-war-narrative-canon-2026-11-07`
+
+Base: `staging` at `3663e14`
+
+### What I added
+
+| File                                   | Purpose                                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `MASTER-CHRONOLOGY-AND-STORY-CANON.md` | Establishes the complete historical storyline                                                 |
+| `narrative-playable-campaign.md`       | Connects chapters to operations and world consequences                                        |
+| `cinematic-and-dialogue-script.md`     | Provides cinematic sequences, character dialogue, and mission communications                  |
+| `narrative-campaign.ts`                | Typed narrative content registry for chapters, operations, evidence, scenes, and consequences |
+| `narrative-campaign.test.ts`           | Tests narrative references, evidence dependencies, and Cage continuity                        |
+| `campaign.ts`                          | Corrects existing campaign briefings and recovered intelligence                               |
+
+### The resulting campaign structure
+
+1. The Making of Eon Dusk — his wealth, scandals, political influence, and ambition.
+2. The Quiet Mandate — the powerful inner circle that knows about the secret takeover.
+3. The Unlisted Expedition — Dusk assembles his special force and launches for Mars.
+4. Mars Is Not Empty — the expedition encounters the established Accord.
+5. The Last Fleet — the expedition is destroyed, Dusk survives, and the emergency transmission escapes.
+6. The Prisoner and Earth's Response — Dusk's custody, public disclosure, classified mobilization, and the signal mystery.
+7. The First Martian Campaign — Cage, Iron Eclipse, and the expanding USSF–Accord conflict.
+8. The First Witness — the buried Martian discovery and the opening toward the wider universe.
+
+### Three important continuity improvements
+
+Cage: Dusk is already an Accord prisoner before the mission begins. The transport is a later transfer. The new content defines three possible outcomes—USSF secures the transport, Accord completes the transfer, or the transport escapes in a contested state—without rewriting the historical capture.
+
+Earth's response: The narrative distinguishes what the public learns, what a limited classified inner circle knows, and what remains unknown. This prevents the story from treating the entire United States government as a single conspiratorial organization.
+
+First Witness: The evidence chain now connects the expedition flight recorder, emergency transmission, Pale Beacons, WARDEN-0's erasure order, Cage's custody manifest, and the buried Martian archive.
+
+## What is not yet complete
+
+I want to be precise about implementation status. The PR establishes the narrative content and technical contracts, but it does not yet make the entire storyline playable.
+
+The next engineering phase must implement:
+
+1. PostgreSQL persistence for individual discoveries, operation outcomes, custody state, and faction intelligence.
+2. Authenticated server-side evidence verification and campaign progression.
+3. Mission-specific Orbital interactions for scanning, salvage, boarding, and investigation.
+4. Cinematic and dialogue playback inside the actual game.
+5. Persistent world consequences that change patrols, routes, contracts, and station access.
+6. Faction-wide discovery thresholds and multiplayer synchronization.
+
+The narrative catalog is deliberately not exposed through a public endpoint yet: classified story information must not be leaked to players before their progression authorizes it.
+
+Verification pending
+
+The new tests have been added, but I have not executed the repository build or test suite. GitHub has not yet reported a CI result. The PR remains a draft, unmerged, and staging-only. No database migration, Railway change, or Production deployment was performed.
+
+The next implementation milestone should be the persistent narrative system and its first fully connected playable sequence: Phobos Yard → Rust Disc → Pale Beacons → Night-side → Cage → Iron Eclipse. That is where we turn this storyline from authored content into a living, persistent part of the game universe.
+
+The entire implementation must preserve the Orbital Combat Engine as the exclusive game runtime, rather than introduce a competing renderer or second gameplay engine.&#x20;

@@ -1,0 +1,674 @@
+# WAR FOR MARS: INFINITE WAR
+## ORBITAL COMBAT LAB — ADVANCED TACTICAL FLIGHT CONTROL AND GESTURE MANEUVER SYSTEM
+### Master AI Game Developer Implementation Directive
+
+**Repository:** https://github.com/niakofa-cmyk/WFM
+
+**Primary gameplay engine:** Orbital Combat Lab
+
+**Primary target:** Landscape mobile spacecraft flight and combat.
+
+**Mission:** Upgrade the existing two-thumb mobile pilot control architecture into an advanced gesture-driven tactical flight and combat system.
+
+You are acting as the principal spacecraft simulation engineer, senior mobile game-control engineer, gameplay physics developer, input-architecture engineer, and multiplayer simulation engineer.
+
+Your responsibility is to inspect the actual WFM repository, understand the current Orbital Combat Lab flight controls, and implement an advanced tactical maneuver system that allows players to perform realistic, responsive and strategically useful spacecraft maneuvers through intuitive thumb gestures.
+
+This is not a request to add decorative buttons or animations.
+
+The gestures must produce real spacecraft movement through the Orbital Combat Lab physics and simulation systems.
+
+The objective is to make the spacecraft feel exceptionally responsive, maneuverable, immersive and competitive on mobile.
+
+---
+
+# 1. PRESERVE AND AUDIT THE CURRENT CONTROL FOUNDATION
+
+Before modifying code, inspect the latest repository and identify the actual current implementations of:
+
+- `PilotFlightStick.tsx`
+- `PilotActionButton.tsx`
+- `pilot-stick-gestures.ts`
+- `input.ts`
+- `flight-control.ts`
+- `Arena.tsx`
+- `RustDiscFlight.tsx`
+- `SoloFlight.tsx`
+- `flight-sector.ts`
+- `orbital-flight.ts`
+- `orbital-sim.ts`
+- `lib/orbital-sim/src/flight.ts`
+- `lib/orbital-sim/src/runtime.ts`
+- Corresponding API-server simulation and input contracts.
+- Existing gesture tests.
+- Existing mobile-control tests.
+- Existing deterministic replay tests.
+- Existing multiplayer flight-control tests.
+
+The file list is a starting point, not an assumption that every path remains unchanged.
+
+Verify the current branch, actual source revision, existing control layout, and all relevant consumers before implementation.
+
+Produce a control inventory showing:
+
+1. What each thumb currently controls.
+2. How each axis maps into the simulation.
+3. Which gestures are currently recognized.
+4. Which maneuver functions already exist.
+5. Which functions are only represented by UI icons.
+6. Which functions are implemented but unavailable in the current player interface.
+7. Which modes use Orbital flight.
+8. Which modes still use separate legacy simulation contracts.
+9. Which controls must remain unchanged during migration.
+
+Do not replace working flight mechanics without understanding their current behavior.
+
+# 2. THE NEW TWO-THUMB CONTROL PHILOSOPHY
+
+Preserve the clean, minimal, two-thumb mobile arrangement.
+
+Do not introduce three primary joysticks.
+
+Do not rebuild the old cluttered flight screen.
+
+The player must be able to pilot, aim, fire, and execute tactical maneuvers without leaving the flight experience.
+
+## LEFT THUMB — PRIMARY FLIGHT CONTROL
+
+The left control surface remains responsible for:
+
+- Pitch.
+- Yaw.
+- Coordinated banking.
+- Ordinary flight direction.
+- Climb and dive control.
+- Lateral vector thrust.
+- Vertical vector thrust.
+- Precision maneuvering.
+- Directional evasive movement.
+
+Preserve the current analog flight behavior.
+
+Extend the existing gesture recognizer to support additional maneuvers without breaking its existing double-tap functionality.
+
+## RIGHT THUMB — AIMING AND TACTICAL ROTATION
+
+The right control surface remains the primary aiming and orientation control.
+
+Expand it into an intelligent tactical gesture surface.
+
+It must support:
+
+- Normal aiming.
+- Target alignment.
+- Smooth orientation control.
+- Intentional circular maneuver gestures.
+- Clockwise roll commands.
+- Counterclockwise roll commands.
+- Quick directional evasive gestures.
+- Optional advanced maneuver combinations.
+
+Normal aiming must remain predictable and responsive.
+
+A player must not accidentally execute a barrel roll while simply tracking an enemy spacecraft.
+
+Implement gesture recognition that can distinguish normal aiming from deliberate maneuver input.
+
+# 3. IMPLEMENT THE 360-DEGREE CIRCULAR GESTURE
+
+This is the signature new feature.
+
+The player should be able to draw a deliberate circle with the right thumb and execute a spacecraft roll.
+
+## Clockwise gesture
+
+A recognized clockwise circular movement triggers:
+
+RIGHT BARREL ROLL.
+
+## Counterclockwise gesture
+
+A recognized counterclockwise circular movement triggers:
+
+LEFT BARREL ROLL.
+
+## Recognition requirements
+
+Create a dedicated circular gesture recognizer.
+
+It must evaluate:
+
+- Pointer trajectory.
+- Angular progression.
+- Total angular sweep.
+- Circle direction.
+- Gesture duration.
+- Gesture radius.
+- Distance from the intended gesture center.
+- Movement smoothness.
+- Minimum gesture size.
+- Maximum permitted gesture duration.
+- Touch interruption.
+- Gesture completion.
+- Input cooldown.
+
+Initially evaluate a full circular sweep of approximately 300–360 degrees, with configurable tolerance.
+
+Do not require an unrealistically perfect geometric circle.
+
+Use accumulated angular movement and radial consistency rather than a simplistic test that only checks whether the finger returned near its starting point.
+
+The recognition system should:
+
+1. Detect an intentional gesture candidate.
+2. Track pointer movement.
+3. Calculate angular change around the control's defined center.
+4. Determine clockwise or counterclockwise direction.
+5. Reject incomplete or accidental gestures.
+6. Recognize a valid completed rotation.
+7. Emit one maneuver command.
+8. Prevent repeated activation from the same pointer movement.
+9. Reset correctly on release, cancellation, interruption and timeout.
+
+A recognized circular gesture should not generate uncontrolled aim movement while being evaluated.
+
+Design a reliable input-arbitration strategy. Consider a short gesture-capture phase or a clearly discoverable hold-and-circle interaction, while leaving ordinary aiming immediately responsive.
+
+The player should receive subtle visual feedback when a maneuver gesture is recognized.
+
+Provide a directional roll indicator and a short maneuver confirmation effect.
+
+# 4. EXECUTE REAL BARREL-ROLL PHYSICS
+
+A barrel roll must be implemented in the actual spacecraft simulation.
+
+Do not merely rotate the visual model.
+
+Use the existing quaternion-based flight representation and roll input wherever appropriate.
+
+The maneuver must affect:
+
+- Spacecraft orientation.
+- Angular velocity.
+- Rotational acceleration.
+- Flight camera.
+- Ship model orientation.
+- Engine and maneuver effects.
+- Flight trajectory where applicable.
+- Combat interaction.
+
+Evaluate the distinction between:
+
+- Pure axial roll.
+- A controlled barrel-roll maneuver.
+- A rolling evasive turn.
+
+A pure axial roll rotates the spacecraft around its longitudinal axis.
+
+A tactical barrel roll should combine controlled axial rotation with a calculated lateral or vertical trajectory change.
+
+The spacecraft should complete a controlled maneuver rather than instantly snapping to a new orientation.
+
+The maneuver should have a defined beginning, execution phase, completion, and recovery.
+
+Allow the player to interrupt a maneuver with normal pilot input where safe and technically appropriate.
+
+# 5. CREATE A FULL TACTICAL MANEUVER LIBRARY
+
+Build a reusable maneuver system inside Orbital Combat Lab.
+
+Each maneuver must have a typed definition and a clear execution contract.
+
+## ROTATIONAL MANEUVERS
+
+Implement:
+
+- Left barrel roll.
+- Right barrel roll.
+- 360-degree axial roll.
+- Controlled rolling turn.
+- Combined roll and pitch.
+- Maneuver recovery and stabilization.
+
+## EVASIVE MANEUVERS
+
+Implement:
+
+- Left lateral break.
+- Right lateral break.
+- Vertical break upward.
+- Vertical break downward.
+- Corkscrew evasion.
+- Boost-assisted dodge.
+- Inertial drift escape.
+- Counter-thrust reversal.
+- High-speed evasive turn.
+
+## ADVANCED FLIGHT MANEUVERS
+
+Evaluate:
+
+- Split-S-style orientation and trajectory change.
+- Immelmann-inspired reversal.
+- High-G pursuit break.
+- Boost-assisted rolling turn.
+- Rapid vector reversal.
+- Precision stabilization.
+- Controlled drift recovery.
+
+Adapt maneuver names and physics to the actual spaceflight model. Do not blindly apply atmospheric aerodynamic assumptions to vacuum flight.
+
+Do not implement a canned maneuver as a teleport or animation that bypasses physics.
+
+Use bounded, deterministic maneuver profiles that apply actual rotational and translational control inputs.
+
+# 6. IMPLEMENT A DEDICATED MANEUVER EXECUTION SYSTEM
+
+Create a reusable tactical maneuver controller.
+
+A maneuver definition should specify:
+
+- Stable maneuver identifier.
+- Maneuver category.
+- Required gesture.
+- Rotation axis.
+- Rotation direction.
+- Target angular displacement.
+- Angular acceleration.
+- Angular speed limit.
+- Translational impulse or thrust profile.
+- Energy cost.
+- Heat cost where applicable.
+- Cooldown.
+- Recovery behavior.
+- Interruption rules.
+- Ship compatibility.
+- Competitive eligibility.
+
+Maneuvers must be parameterized and configurable.
+
+Do not hardcode different versions of the same maneuver in individual UI components.
+
+The UI should submit a typed maneuver intent to the canonical flight input pipeline.
+
+The simulation decides how the spacecraft executes that intent.
+
+# 7. MAKE EVASION ACTUALLY EVADE
+
+A visual roll alone is not sufficient to dodge incoming fire.
+
+Build real trajectory-changing evasive mechanics.
+
+The maneuver system should consider:
+
+- Current velocity.
+- Current orientation.
+- Incoming projectile direction.
+- Incoming missile tracking state.
+- Nearby obstacles.
+- Spacecraft mass and handling.
+- Available energy.
+- Boost reserves.
+- Current damage state.
+- Active maneuver state.
+
+When an evasive maneuver is executed, apply a controlled vector change that creates a meaningful difference in the spacecraft's trajectory.
+
+Support lateral and vertical impulse profiles, controlled thrust, and optional boost assistance.
+
+The player should be able to evade projectiles through skillful timing and movement.
+
+Do not create automatic invulnerability, invisible hitbox manipulation, guaranteed missile immunity, or client-side damage cancellation.
+
+A maneuver may improve survival probability, but the actual result must come from the authoritative collision and combat simulation.
+
+# 8. IMPLEMENT DEFENSIVE COUNTERMEASURES
+
+Create a separate defensive countermeasure system.
+
+Evaluate:
+
+- Missile flares.
+- Chaff.
+- Sensor decoys.
+- Target-lock disruption.
+- Electronic countermeasures.
+- Emergency boost.
+- Defensive shield activation where supported.
+
+Countermeasures must be actual gameplay mechanics.
+
+They must have:
+
+- Available inventory or charges.
+- Cooldown.
+- Activation state.
+- Appropriate effects.
+- Server-side validation in competitive modes.
+- Clear visual and audio feedback.
+
+Do not confuse a barrel roll with a missile countermeasure.
+
+The player should be able to combine an evasive maneuver with a properly timed defensive countermeasure.
+
+# 9. SHIP-SPECIFIC MANEUVER CHARACTERISTICS
+
+Different spacecraft must not perform identical maneuvers.
+
+Create handling profiles based on the existing ship configuration system.
+
+Evaluate:
+
+- Rotational agility.
+- Roll acceleration.
+- Angular momentum.
+- Translational thrust.
+- Boost capacity.
+- Energy reserves.
+- Maneuver recovery.
+- Heat tolerance.
+- Mass and inertia.
+- Defensive equipment.
+
+Light interceptors should be highly maneuverable.
+
+Heavy assault spacecraft should have slower rotational response but may possess stronger thrust and defensive capabilities.
+
+Do not allow upgrades to create unlimited maneuver speed or unfair competitive advantages.
+
+All maneuver characteristics must remain within server-enforced limits.
+
+# 10. TACTICAL HUD AND VISUAL FEEDBACK
+
+Maintain the current minimal flight HUD.
+
+Do not add a permanent row of maneuver buttons.
+
+The gesture itself should trigger the maneuver.
+
+Provide compact visual feedback for:
+
+- Roll direction.
+- Maneuver recognition.
+- Maneuver execution.
+- Maneuver completion.
+- Cooldown.
+- Insufficient energy.
+- Countermeasure availability.
+- Incoming missile warning.
+- Evasive opportunity where appropriate.
+
+Use a subtle circular trajectory indicator around the right-thumb stick when the player begins a potential roll gesture.
+
+The indicator should communicate gesture progress without obscuring the spacecraft or combat view.
+
+Provide optional accessibility hints in onboarding and flight settings.
+
+# 11. CONTROL SETTINGS AND CUSTOMIZATION
+
+Add a unified tactical control settings section.
+
+Allow players to configure:
+
+- Gesture recognition sensitivity.
+- Circular gesture size.
+- Gesture completion tolerance.
+- Roll direction.
+- Gesture capture behavior.
+- Maneuver assistance.
+- Maneuver feedback.
+- Haptic feedback where supported.
+- Joystick sensitivity.
+- Dead zones.
+- Touch surface size.
+- Left/right control placement.
+- Gyroscope assistance.
+- Camera response.
+- Flight stabilization.
+
+Provide a default control profile that works immediately.
+
+Allow advanced pilots to customize the gesture system.
+
+Persist account-level preferences where appropriate and retain device-specific settings where necessary.
+
+Do not make customization a prerequisite for ordinary flight.
+
+# 12. INPUT AND SIMULATION ARCHITECTURE
+
+Use the existing shared flight-control architecture.
+
+The new system should integrate through:
+
+PilotFlightStick → Gesture Recognition → Maneuver Intent → FlightControlFrame → Orbital Simulation.
+
+Do not create a parallel simulation loop.
+
+Do not put physics directly inside React components.
+
+Do not make UI animation the authority for maneuver completion.
+
+Keep the maneuver controller independent from the rendering framework.
+
+Use typed, versioned maneuver input contracts.
+
+Normalize and validate all inputs.
+
+Ensure that all numeric values are finite and bounded.
+
+Handle stale input, duplicate commands, invalid sequences, pointer cancellation and interrupted sessions.
+
+Preserve deterministic simulation where required.
+
+# 13. MULTIPLAYER AND COMPETITIVE SAFEGUARDS
+
+The new maneuver system must not silently change the existing competitive Wing input contract.
+
+Audit all game modes separately.
+
+Distinguish:
+
+- Offline Orbital Combat Lab.
+- Rust Disc local flight.
+- Server-authoritative sector co-op.
+- Live Wing competitive combat.
+- Other connected universe activities.
+
+Use the existing mode-specific adapters.
+
+Do not assume all modes use identical flight physics.
+
+For online modes:
+
+- Send bounded maneuver intent through the authorized input protocol.
+- Validate maneuver eligibility on the server.
+- Validate energy and cooldown on the server.
+- Validate ship-specific maneuver limits on the server.
+- Let the authoritative simulation execute the maneuver.
+- Return authoritative state to the client.
+- Prevent duplicate or replayed maneuver commands.
+- Preserve deterministic replay where required.
+
+Before introducing the new roll and evasive controls into live Wing, establish a versioned client/server control contract.
+
+Do not silently reinterpret existing yaw, pitch, strafe, evade, or aim inputs.
+
+Do not change matchmaking, authentication, reward settlement, or progression rules as part of this task.
+
+Keep existing live competitive controls unchanged until the full migration gate passes.
+
+# 14. MOBILE ENGINEERING REQUIREMENTS
+
+Test the gesture system on realistic landscape mobile screens.
+
+Support:
+
+- Independent thumb input.
+- Simultaneous aiming and flight.
+- Simultaneous gesture and combat action.
+- Reliable pointer capture.
+- Touch cancellation.
+- Lost pointer capture.
+- Orientation changes.
+- Browser interruption.
+- App backgrounding.
+- Immediate neutral input on interruption.
+- Safe-area-aware layout.
+- Small-screen controls.
+- Responsive hit targets.
+
+A maneuver gesture must never leave a control stuck.
+
+A circular roll gesture must not accidentally fire weapons or trigger a target lock.
+
+Normal aiming must remain usable.
+
+Avoid excessive gesture latency.
+
+# 15. REQUIRED AUTOMATED TESTS
+
+Add focused unit and integration tests.
+
+## Gesture tests
+
+- Clockwise circular gesture.
+- Counterclockwise circular gesture.
+- Incomplete circle rejection.
+- Small-circle rejection.
+- Excessive gesture-duration rejection.
+- Accidental circular movement rejection.
+- Direction detection.
+- Angular sweep calculation.
+- Radius tolerance.
+- Gesture timeout.
+- Duplicate activation prevention.
+- Pointer cancellation.
+- Lost pointer capture.
+- Gesture interruption.
+- Ordinary aiming while not gesturing.
+
+## Maneuver physics tests
+
+- Correct roll direction.
+- Correct angular displacement.
+- Angular acceleration limits.
+- Quaternion normalization.
+- Maneuver interruption.
+- Maneuver recovery.
+- Lateral trajectory change.
+- Vertical trajectory change.
+- Energy consumption.
+- Cooldown.
+- Ship-specific handling.
+- Collision interaction.
+- Projectile interaction.
+- Missile interaction.
+
+## Combined combat tests
+
+- Aim while maneuvering.
+- Fire while rolling.
+- Target lock while maneuvering.
+- Missile avoidance.
+- Countermeasure deployment.
+- Evasive movement around obstacles.
+- Simultaneous left and right thumb control.
+
+## Multiplayer tests
+
+- Valid maneuver input.
+- Invalid maneuver input rejection.
+- Duplicate maneuver rejection.
+- Cooldown enforcement.
+- Server/client simulation parity.
+- Replay determinism.
+- Reconnection behavior.
+- Input interruption.
+- No unauthorized damage or reward outcomes.
+
+# 16. REQUIRED IMPLEMENTATION PHASES
+
+Phase A — Audit current controls and source architecture.
+
+Phase B — Design and test circular gesture recognition independently.
+
+Phase C — Integrate the gesture into the right-thumb control surface.
+
+Phase D — Implement real quaternion-based rotational maneuver execution.
+
+Phase E — Implement coordinated evasive trajectory changes.
+
+Phase F — Add the tactical maneuver library.
+
+Phase G — Integrate countermeasures and defensive actions.
+
+Phase H — Implement ship-specific handling and maneuver settings.
+
+Phase I — Integrate through approved simulation adapters.
+
+Phase J — Perform mobile browser and physical-device testing.
+
+Phase K — Complete multiplayer parity testing and produce the implementation report.
+
+Implement one phase at a time. Keep each change reviewable and reversible.
+
+# 17. REQUIRED PLAYABLE DEMONSTRATIONS
+
+Demonstrate the following actual gameplay:
+
+1. Player performs a clockwise 360-degree right-thumb gesture and the spacecraft completes a right roll.
+2. Player performs a counterclockwise gesture and completes a left roll.
+3. Player performs an ordinary aiming motion without triggering a roll.
+4. Player performs a lateral evasive gesture and the ship changes trajectory.
+5. Player performs a vertical evasive maneuver.
+6. Player combines a barrel roll with a lateral vector change.
+7. Player dodges incoming projectile fire.
+8. Player deploys a countermeasure against an incoming missile.
+9. Player aims and fires while simultaneously executing a maneuver.
+10. Player interrupts a maneuver and regains normal control.
+11. Different spacecraft execute the same maneuver with appropriate handling differences.
+12. All inputs release correctly after interruption or orientation change.
+
+Show the actual gameplay and simulation state, not just a UI animation.
+
+# 18. ACCEPTANCE CRITERIA
+
+The implementation is complete only when:
+
+- The two-thumb control arrangement is preserved.
+- The left stick retains its established flight behavior.
+- The right stick recognizes deliberate circular gestures.
+- Clockwise and counterclockwise gestures execute distinct rolls.
+- Rolls are actual simulation movements.
+- Evasive maneuvers change actual flight trajectories.
+- Countermeasures work independently of roll gestures.
+- Normal aiming remains responsive.
+- Simultaneous flight and combat work.
+- Different ships have appropriate handling.
+- All inputs are bounded and validated.
+- Competitive authority remains server-owned.
+- Existing live Wing controls are preserved until separately certified.
+- Automated tests pass.
+- Mobile landscape tests pass.
+- Physical-device testing is reported separately.
+- The complete implementation is demonstrated.
+
+Report every requirement as IMPLEMENTED AND VERIFIED, IMPLEMENTED BUT NOT VERIFIED, PARTIALLY IMPLEMENTED, NOT IMPLEMENTED, or BLOCKED.
+
+Provide actual commit references, file paths, tests, screenshots or video evidence, and remaining limitations.
+
+# FINAL DIRECTIVE
+
+Do not merely add a barrel-roll button.
+
+Transform the existing two-thumb pilot interface into a sophisticated tactical flight-control system.
+
+The player should be able to use their left thumb to fly and maneuver, their right thumb to aim and execute deliberate rotational maneuvers, and their combat actions to engage, evade, defend, and survive.
+
+The spacecraft must physically respond to the pilot's decisions.
+
+The player should feel that they are controlling a highly advanced combat spacecraft, not moving an icon around a screen.
+
+Make the maneuvers responsive, visually impressive, mechanically meaningful, technically sound, multiplayer-safe, and genuinely enjoyable to master.
+
+**BUILD THE TACTICAL FLIGHT SYSTEM DIRECTLY INTO ORBITAL COMBAT LAB. ONE FLIGHT ENGINE. TWO THUMBS. A FULL RANGE OF COMBAT MANEUVERS.**
