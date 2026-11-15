@@ -81,6 +81,35 @@ immediately before execution. Afterward verify columns/permissions and then
 authenticated profile loading and website reload. Do not silently promote a
 new API build as part of the database-only repair.
 
+## Approved production initialization applied — 2026-11-15
+
+The user explicitly approved **Apply schema and verify** after reviewing the
+fresh-production scope. The approved file committed at
+**2026-11-15T21:28:30.883Z**, through the verified production API service.
+Its SHA-256 was
+`e67c850a6e9445d259e4e24c4652305ae32ec1e8c8d2ac9db7f6fd4669992de0`.
+Target identifiers, private database host, database name and the file hash were
+checked before execution; the transaction's empty-database guard also passed.
+
+Post-commit verification through the running API's own database role confirmed:
+
+- All 22 expected tables existed, with an exact table-name-set match.
+- Seven enum types existed.
+- All 22 profile columns resolved with `LIMIT 0`.
+- Schema USAGE, per-column SELECT and per-column INSERT privileges passed.
+- Public API liveness and readiness returned HTTP 200.
+- The production website returned HTML with its app root, and its entry bundle
+  referenced the verified production API host.
+- An unauthenticated API profile request returned HTTP 401, not a fabricated
+  profile or a server error.
+
+The profile-table schema blocker is repaired. These checks do **not** certify an
+authenticated production profile request or browser reload/hangar entry. No
+sign-in challenge, test pilot record, reward claim, authentication configuration
+change, application deployment or service restart was performed by this repair.
+The live API still serves its older connectivity-only readiness response; the
+new detailed readiness code requires a separately reviewed release.
+
 ## Read-only check before any repair
 
 An authorized operator must select this exact production API service's database,
@@ -128,7 +157,8 @@ codes. Schema names and the query's booleans are sufficient for diagnosis.
   explicit approval before any production write, migration, connection change or
   deployment. Never initialize an empty replacement merely to remove an error.
 - The initial speculative table-creation candidate was removed before execution.
-  There is no production repair SQL approved or applied at this point.
+  At that initial inspection, no production repair SQL was approved or applied.
+  The later explicit fresh-production approval and result are recorded above.
 
 ## Prevention and release order
 
