@@ -1,4 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { readSalvageContacts, type SalvageContact } from "@workspace/orbital-sim";
+import { createSalvageVisuals } from "./shared-salvage-visuals";
+import { createMountedArmamentVisuals, ARMAMENT_DETAIL_DISTANCE } from "./mounted-armament-visuals";
+import { createMountedFireQueue } from "./mounted-armament-fire-events";
+import { readArmamentSnapshot, type VisibleArmamentActor, type ArmamentSnapshot } from "@workspace/orbital-sim";
+import {
+  createSharedProjectileMotion, clipProjectileTrail, MAX_PROJECTILE_TRAIL_POINTS, MAX_PROJECTILE_VISUALS,
+} from "./shared-projectile-motion";
 import { SUBSYSTEM_LABELS, SUBSYSTEM_OFFSETS, SHIP_SUBSYSTEMS, rotate as rotateSubsystemOffset } from "@workspace/orbital-sim";
 import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
 import { requestRightVectorBoost } from "./input";
@@ -160,6 +169,8 @@ type SharedFlightWeaponEffect = {
   lifetimeSeconds: number;
   receivedAt: number;
   impact?: { to: { x: number; y: number; z: number }; receivedAt: number };
+  authoritativeMotion?: boolean;
+  missile?: boolean;
 };
 
 function isFlightVector(value: unknown): value is { x: number; y: number; z: number } {
@@ -728,6 +739,12 @@ export function Arena({
   const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
   const sharedPatrolContactRef = useRef<UniversePatrolEncounterNotice | null>(null);
   const [sharedTacticalSnapshot, setSharedTacticalSnapshot] = useState<FreeFlightTacticalSnapshotV1 | null>(null);
+  const salvageQueryClient = useQueryClient();
+  const salvageContactsRef = useRef<SalvageContact[]>([]);
+  const [salvageContacts, setSalvageContacts] = useState<SalvageContact[]>([]);
+  const [salvageNotice, setSalvageNotice] = useState("");
+  const [salvagePending, setSalvagePending] = useState(false);
+  const pendingSalvageIdRef = useRef<string | null>(null);
   const sharedTacticalSnapshotRef = useRef<FreeFlightTacticalSnapshotV1 | null>(null);
   const tacticalRoleByActorRef = useRef(new Map<string, string>());
   const lastEncounterFleetIdRef = useRef<string | null>(null);
@@ -789,6 +806,11 @@ export function Arena({
   }>({ previous: null, current: null });
   const freeFlightCombatActiveRef = useRef(false);
   const freeFlightWeaponEffectsRef = useRef<SharedFlightWeaponEffect[]>([]);
+  const freeFlightMountFiresRef = useRef(createMountedFireQueue());
+  const freeFlightArmamentRef = useRef<{
+    snapshot: ArmamentSnapshot; receivedAt: number; actors: Map<string, VisibleArmamentActor>;
+  } | null>(null);
+  const freeFlightProjectileMotionRef = useRef(createSharedProjectileMotion());
   const freeFlightImpactQueueRef = useRef(createSharedFlightImpactQueue());
   const localUniverseActive = Boolean(localUniverse);
   const freeFlightEnabled = localUniverseActive &&
@@ -845,6 +867,8 @@ export function Arena({
           if (previous && previous.snapshot.sessionInstanceId !== frame.snapshot.sessionInstanceId) {
             freeFlightImpactQueueRef.current.clear();
             freeFlightWeaponEffectsRef.current = [];
+            freeFlightArmamentRef.current = null;
+            freeFlightProjectileMotionRef.current.clear();
           }
           freeFlightFramesRef.current = { previous, current: frame };
           const vitals = freeFlightPilotVitals(frame.snapshot);
@@ -879,6 +903,14 @@ export function Arena({
           if (state === "joined") setRetainedFlightHint(null);
           setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
           if (state !== "joined") {
+            freeFlightArmamentRef.current = null;
+            freeFlightProjectileMotionRef.current.clear();
+            freeFlightWeaponEffectsRef.current = [];
+            salvageContactsRef.current = [];
+            setSalvageContacts([]);
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice("");
             setPresenceFresh(false);
             setSharedFlightReference(null);
             lastSharedReferenceAt.current = -Infinity;
@@ -907,6 +939,69 @@ export function Arena({
           }
         },
         onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_armament_snapshot") {
+            const appearance = readArmamentSnapshot(packet.snapshot,
+              freeFlightFramesRef.current.current?.snapshot.sessionInstanceId ?? null,
+              freeFlightArmamentRef.current?.snapshot.tick ?? -1);
+            if (appearance) freeFlightArmamentRef.current = {
+              snapshot: appearance, receivedAt: performance.now(),
+              actors: new Map(appearance.actors.map(actor => [actor.actorId, actor])),
+            };
+            return;
+          }
+          if (packet.type === "freeflight_projectile_motion") {
+            const now = performance.now();
+            const report = freeFlightProjectileMotionRef.current.accept(packet.snapshot,
+              freeFlightFramesRef.current.current?.snapshot.sessionInstanceId ?? null, now);
+            if (!report) return;
+            for (const sample of report.projectiles) {
+              if (freeFlightProjectileMotionRef.current.hasEnded(sample.eventId)) continue;
+              const existing = freeFlightWeaponEffectsRef.current.find(e => e.eventId === sample.eventId);
+              if (existing) {
+                existing.authoritativeMotion = true;
+                existing.missile = sample.missile;
+              } else {
+                freeFlightWeaponEffectsRef.current.push({
+                  eventId: sample.eventId, sourceFaction: sample.sourceFaction, visualEffect: sample.visualEffect,
+                  from: sample.position, velocity: sample.velocity, lifetimeSeconds: sample.remainingSeconds,
+                  receivedAt: now, authoritativeMotion: true, missile: sample.missile,
+                });
+              }
+            }
+            if (freeFlightWeaponEffectsRef.current.length > MAX_PROJECTILE_VISUALS)
+              freeFlightWeaponEffectsRef.current.splice(0, freeFlightWeaponEffectsRef.current.length - MAX_PROJECTILE_VISUALS);
+            return;
+          }
+          if (packet.type === "freeflight_salvage") {
+            const contacts = packet.protocol === 1 &&
+              packet.sessionInstanceId === freeFlightFramesRef.current.current?.snapshot.sessionInstanceId
+              ? readSalvageContacts(packet.packages) : null;
+            if (contacts) {
+              salvageContactsRef.current = contacts;
+              setSalvageContacts(previous => previous.length === contacts.length && previous.every((p, i) =>
+                p.id === contacts[i]!.id && p.recoverable === contacts[i]!.recoverable &&
+                Math.round(p.distanceMeters) === Math.round(contacts[i]!.distanceMeters))
+                ? previous : contacts);
+            }
+            return;
+          }
+          if (packet.type === "freeflight_salvage_recovered" && packet.protocol === 1 &&
+              typeof packet.packageId === "string" && typeof packet.equipmentId === "string") {
+            salvageContactsRef.current = salvageContactsRef.current.filter(p => p.id !== packet.packageId);
+            setSalvageContacts(salvageContactsRef.current);
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice(`Recovered ${packet.equipmentId} · available in your hangar equipment locker`);
+            void salvageQueryClient.invalidateQueries({ queryKey: ["/api/game/equipment"] });
+            return;
+          }
+          if (packet.type === "freeflight_error" && typeof packet.reason === "string" &&
+              (packet.reason.includes("salvage") || pendingSalvageIdRef.current !== null &&
+                ["freeflight_rate_limited", "freeflight_service_unavailable"].includes(packet.reason))) {
+            setSalvagePending(false);
+            pendingSalvageIdRef.current = null;
+            setSalvageNotice("Recovery unavailable. Stay within 60 m of your settled wreck package and retry.");
+          }
           if (packet.type === "freeflight_tactical_snapshot") {
             const report = readFreeFlightTacticalSnapshot(packet.snapshot);
             const currentSession = freeFlightFramesRef.current.current?.snapshot.sessionInstanceId;
@@ -986,12 +1081,17 @@ export function Arena({
             localUniverseRef.current?.onExit();
           } else if (packet.type === "freeflight_weapon_fired" &&
               typeof packet.eventId === "string" &&
+              packet.eventId.startsWith(`${freeFlightFramesRef.current.current?.snapshot.sessionInstanceId}:`) &&
               (packet.sourceFaction === "ussf" || packet.sourceFaction === "accord") &&
               typeof packet.visualEffect === "string" &&
               Object.hasOwn(WEAPON_EFFECT_COLORS, packet.visualEffect) &&
               isFlightVector(packet.from) && isFlightVector(packet.velocity) &&
               typeof packet.lifetimeSeconds === "number" &&
               Number.isFinite(packet.lifetimeSeconds)) {
+            if (freeFlightProjectileMotionRef.current.hasEnded(packet.eventId)) return;
+            freeFlightMountFiresRef.current.accept(packet,
+              freeFlightFramesRef.current.current?.snapshot.sessionInstanceId ?? null, performance.now());
+            if (freeFlightWeaponEffectsRef.current.some(e => e.eventId === packet.eventId)) return;
             freeFlightWeaponEffectsRef.current.push({
               eventId: packet.eventId,
               sourceFaction: packet.sourceFaction,
@@ -1000,11 +1100,12 @@ export function Arena({
               velocity: packet.velocity,
               lifetimeSeconds: Math.max(0, Math.min(5, packet.lifetimeSeconds)),
               receivedAt: performance.now(),
+              authoritativeMotion: packet.motionProtocol === 1,
             });
-            if (freeFlightWeaponEffectsRef.current.length > 160) {
+            if (freeFlightWeaponEffectsRef.current.length > MAX_PROJECTILE_VISUALS) {
               freeFlightWeaponEffectsRef.current.splice(
                 0,
-                freeFlightWeaponEffectsRef.current.length - 160,
+                freeFlightWeaponEffectsRef.current.length - MAX_PROJECTILE_VISUALS,
               );
             }
           } else if (packet.type === "freeflight_countermeasure_state" &&
@@ -1014,12 +1115,14 @@ export function Arena({
               ? `COUNTERMEASURE · ${packet.decoyed} decoyed · ${packet.disrupted} disrupted`
               : "COUNTERMEASURE · No incoming seeker or defense recharging");
           } else if ((packet.type === "freeflight_weapon_event" || packet.type === "freeflight_world_impact") &&
-              typeof packet.eventId === "string" && isFlightVector(packet.to)) {
+              typeof packet.eventId === "string" && isFlightVector(packet.to) &&
+              packet.eventId.startsWith(`${freeFlightFramesRef.current.current?.snapshot.sessionInstanceId}:`)) {
+            if (!freeFlightImpactQueueRef.current.push(packet, performance.now())) return;
+            freeFlightProjectileMotionRef.current.contact(packet.eventId, packet.to, performance.now());
             const effect = freeFlightWeaponEffectsRef.current.find(
               (candidate) => candidate.eventId === packet.eventId,
             );
             if (effect) effect.impact = { to: packet.to, receivedAt: performance.now() };
-            freeFlightImpactQueueRef.current.push(packet, performance.now());
           } else if (packet.type === "freeflight_engagement_started") {
             setIncomingAssistCall(null);
             setRespondingToAssistCallId(null);
@@ -1786,6 +1889,7 @@ export function Arena({
 
     const scenePilot = pilotCraft(match, slotIdRef.current);
     const playerGroup = makeShip(scenePilot.ship);
+    const playerArmament = createMountedArmamentVisuals(playerGroup, scenePilot.ship);
     const marker = new THREE.Mesh(
       new THREE.RingGeometry(1.35, 1.52, 24),
       new THREE.MeshBasicMaterial({ color: 0xe0a15a, side: THREE.DoubleSide }),
@@ -1812,8 +1916,10 @@ export function Arena({
       group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite;
       designationRole?: string;
       damage: ReturnType<typeof createOrbitalDamageController>;
+      armament: ReturnType<typeof createMountedArmamentVisuals>;
     }>();
     const sharedImpactEffects = createSharedFlightImpactEffects(scene);
+    const salvageVisuals = createSalvageVisuals(scene);
     let lastSharedBoomAt = -Infinity;
     let sharedVisualSessionId: string | null = null;
     const sharedFlightEffects = new Map<string, {
@@ -1822,12 +1928,14 @@ export function Arena({
     }>();
     const removeSharedFlightGroups = () => {
       for (const entry of sharedFlightGroups.values()) {
+        entry.armament.dispose();
         entry.damage.dispose();
         disposePatrolShipGroup(entry.group, entry.designation);
       }
       sharedFlightGroups.clear();
     };
     const removeSharedFlightEffects = () => {
+      salvageVisuals.clear();
       for (const { line, material } of sharedFlightEffects.values()) {
         scene.remove(line);
         line.geometry.dispose();
@@ -1835,6 +1943,8 @@ export function Arena({
       }
       sharedFlightEffects.clear();
       freeFlightWeaponEffectsRef.current = [];
+      freeFlightMountFiresRef.current.clear();
+      freeFlightProjectileMotionRef.current.clear();
       freeFlightImpactQueueRef.current.clear();
       sharedImpactEffects.clear();
     };
@@ -1863,7 +1973,9 @@ export function Arena({
         const impactAge = effect.impact
           ? Math.max(0, (now - effect.impact.receivedAt) / 1_000)
           : null;
-        if (effect.impact ? impactAge! > 0.28 : age > effect.lifetimeSeconds) {
+        const motionPath = effect.authoritativeMotion
+          ? freeFlightProjectileMotionRef.current.path(effect.eventId, now) : null;
+        if (effect.impact ? impactAge! > 0.28 : effect.authoritativeMotion ? !motionPath : age > effect.lifetimeSeconds) {
           effects.splice(index, 1);
           const entry = sharedFlightEffects.get(effect.eventId);
           if (entry) {
@@ -1883,10 +1995,8 @@ export function Arena({
             opacity: 1,
             depthWrite: false,
           });
-          const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(),
-            new THREE.Vector3(),
-          ]);
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MAX_PROJECTILE_TRAIL_POINTS * 3), 3));
           const line = new THREE.Line(geometry, material);
           line.frustumCulled = false;
           line.renderOrder = 6;
@@ -1920,13 +2030,16 @@ export function Arena({
                 z: tip.z - velocity.z / speed * 5,
               }
             : effect.from;
-        const start = sharedPointInLocalFrame(tail, address);
-        const end = sharedPointInLocalFrame(tip, address);
-        entry.line.visible = Boolean(start && end);
-        if (!start || !end) continue;
+        const confirmedPoints = motionPath
+          ? clipProjectileTrail(motionPath, effect.missile ? 60 : 8) : [tail, tip];
+        const projected = confirmedPoints.map(point => sharedPointInLocalFrame(point, address));
+        entry.line.visible = projected.length >= 2 && projected.every(Boolean);
+        if (!entry.line.visible) continue;
         const position = entry.line.geometry.getAttribute("position") as THREE.BufferAttribute;
-        position.setXYZ(0, start.x, UNIVERSE_RENDER_Y_OFFSET + start.y, start.z);
-        position.setXYZ(1, end.x, UNIVERSE_RENDER_Y_OFFSET + end.y, end.z);
+        projected.forEach((point, index) => {
+          position.setXYZ(index, point!.x, UNIVERSE_RENDER_Y_OFFSET + point!.y, point!.z);
+        });
+        entry.line.geometry.setDrawRange(0, projected.length);
         position.needsUpdate = true;
         entry.line.geometry.computeBoundingSphere();
         entry.material.opacity = effect.impact
@@ -1945,6 +2058,7 @@ export function Arena({
       const frames = freeFlightFramesRef.current;
       const current = frames.current;
       if (!current || now - current.receivedAt > 1_500) {
+        playerArmament.clear();
         removeSharedFlightGroups();
         removeSharedFlightEffects();
         return false;
@@ -1952,10 +2066,13 @@ export function Arena({
       const snapshot = current.snapshot;
       if (sharedVisualSessionId !== snapshot.sessionInstanceId) {
         sharedImpactEffects.clear();
+        playerArmament.clear();
+        for (const entry of sharedFlightGroups.values()) entry.armament.clear();
         sharedVisualSessionId = snapshot.sessionInstanceId;
       }
       const own = snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId);
       if (!own) {
+        playerArmament.clear();
         removeSharedFlightGroups();
         removeSharedFlightEffects();
         return false;
@@ -1975,11 +2092,17 @@ export function Arena({
       const lerp = (from: number, to: number) => from + (to - from) * alpha;
       const address = universeRef.current?.sectorAddress;
       if (!address) {
+        playerArmament.clear();
         removeSharedFlightGroups();
         removeSharedFlightEffects();
         return false;
       }
       const visibleIds = new Set<string>();
+      const armamentFrame = freeFlightArmamentRef.current;
+      const armament = armamentFrame && now - armamentFrame.receivedAt <= 1_500 &&
+        armamentFrame.snapshot.sessionInstanceId === snapshot.sessionInstanceId ? armamentFrame.snapshot : null;
+      const visibleArmament = armament && armamentFrame ? armamentFrame.actors : null;
+      playerArmament.update(visibleArmament?.get(snapshot.ownActorId) ?? null, own.alive);
       for (const actor of snapshot.actors) {
         if (actor.own || actor.actorId === snapshot.ownActorId ||
             !Object.hasOwn(SHIPS, actor.shipId)) continue;
@@ -1990,6 +2113,7 @@ export function Arena({
         let entry = sharedFlightGroups.get(actor.actorId);
         if (!entry || entry.shipId !== actor.shipId) {
           if (entry) {
+            entry.armament.dispose();
             entry.damage.dispose();
             disposePatrolShipGroup(entry.group, entry.designation);
           }
@@ -1999,6 +2123,7 @@ export function Arena({
           const designation = createPatrolDesignationSprite(actor.callsign, actor.faction, actor.kind, tacticalRole) ?? undefined;
           if (designation) scene.add(designation);
           entry = { group, shipId: actor.shipId as ShipId, designation, designationRole: tacticalRole,
+            armament: createMountedArmamentVisuals(group, actor.shipId),
             damage: createOrbitalDamageController(group) };
           sharedFlightGroups.set(actor.actorId, entry);
         } else if (entry.designationRole !== tacticalRole) {
@@ -2025,6 +2150,10 @@ export function Arena({
         }
         const scenePosition = { ...localPosition, y: UNIVERSE_RENDER_Y_OFFSET + localPosition.y };
         entry.group.visible = actor.alive;
+        const detailed = actor.alive && (sharedFlightDistance(own.position, actor.position) ?? Infinity) <= ARMAMENT_DETAIL_DISTANCE;
+        if (detailed) entry.armament.update(visibleArmament?.get(actor.actorId) ?? null);
+        else if (!armament) entry.armament.clear();
+        else entry.armament.hide();
         entry.damage.update(actor.hull, actor.hullMax);
         entry.group.position.set(scenePosition.x, scenePosition.y, scenePosition.z);
         if (entry.designation) {
@@ -2040,11 +2169,23 @@ export function Arena({
       }
       for (const [actorId, entry] of sharedFlightGroups) {
         if (visibleIds.has(actorId)) continue;
+        entry.armament.dispose();
         entry.damage.dispose();
         disposePatrolShipGroup(entry.group, entry.designation);
         sharedFlightGroups.delete(actorId);
       }
+      freeFlightMountFiresRef.current.process(now, snapshot.sessionInstanceId, event => {
+        const armament = event.actorId === snapshot.ownActorId
+          ? playerArmament : sharedFlightGroups.get(event.actorId)?.armament;
+        return armament?.fire(event.weaponId, event.receivedAt) ?? false;
+      });
+      playerArmament.animate(now);
+      for (const entry of sharedFlightGroups.values()) entry.armament.animate(now);
       renderSharedFlightEffects(now, address);
+      salvageVisuals.update(salvageContactsRef.current, point => {
+        const local = sharedPointInLocalFrame(point, address);
+        return local ? { ...local, y: UNIVERSE_RENDER_Y_OFFSET + local.y } : null;
+      });
       return true;
     };
     const universePatrolOrigin = localUniverse ? {
@@ -3573,6 +3714,7 @@ export function Arena({
       }
       patrolGroups.clear();
       removeSharedFlightGroups();
+      playerArmament.dispose();
       sharedImpactEffects.dispose();
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
@@ -3746,6 +3888,26 @@ export function Arena({
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      {localUniverse && sharedFreeFlightJoined && (salvageContacts.some(p => p.recoverable) || salvageNotice) ? (
+        <div className="absolute left-1/2 top-16 z-20 -translate-x-1/2 text-center">
+          {salvageContacts.filter(p => p.recoverable).sort((a, b) => a.distanceMeters - b.distanceMeters).slice(0, 1).map(p => (
+            <button key={p.id} type="button" data-testid="button-recover-wreck" disabled={salvagePending}
+              className="border border-cyan-300/60 bg-black/80 px-3 py-2 font-hud text-xs text-cyan-200 disabled:opacity-50"
+              onClick={() => {
+                setSalvageNotice("");
+                if (freeFlightClientRef.current?.recoverSalvage(p.id)) {
+                  pendingSalvageIdRef.current = p.id;
+                  setSalvagePending(true);
+                }
+                else setSalvageNotice("Shared flight disconnected. Reconnect to recover.");
+              }}>
+              {salvagePending ? "RECOVERING…" : `RECOVER WRECK PACKAGE · ${Math.round(p.distanceMeters)} M`}
+            </button>
+          ))}
+          {salvageNotice ? <button type="button" className="block max-w-xs bg-black/80 p-2 text-xs text-cyan-100"
+            onClick={() => setSalvageNotice("")} aria-label="Dismiss salvage notice">{salvageNotice}</button> : null}
+        </div>
       ) : null}
       {localUniverse ? (
         <UniversePatrolEncounterPrompt

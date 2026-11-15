@@ -200,3 +200,18 @@ and vertical evasion could survive without changing ship or damage stats.
 before entry. Separate destruction from survival, verify the authoritative
 settlement against the frozen balance, and measure actual movement after the
 result. An idle second pilot is not evidence of assistance.
+
+Confirm successful verification-code preparation before asking for a new code;
+a visible code box is not delivery evidence.
+
+**Why:** the staging Development Clerk UI showed a client-trust code form while
+the preparation request returned `dev_monthly_email_limit_exceeded`. Resending
+or replacing stored codes cannot resolve that provider-side capacity limit.
+The owner subsequently confirmed a trusted phone loaded the game across reloads,
+corroborated by current profile HTTP 200 responses; delivery capacity and saved
+session/profile readiness are separate checks.
+
+**How to apply:** retain only safe provider error codes and statuses. Stop
+attempts on this limit; use a normally trusted approved session or wait for
+email delivery to be restored. Do not bypass trust checks, create replacement
+accounts, or claim authenticated profile verification from a displayed code box.

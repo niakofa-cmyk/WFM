@@ -3,6 +3,10 @@ import { isShipSubsystemTelemetry, type ShipSubsystemTelemetry } from "@workspac
 import { isCombatRecoveryState } from "./combat-recovery-state";
 import {
   ORBITAL_RULES_VERSION,
+  ARMAMENT_PRESENTATION_PROTOCOL,
+  readArmamentSnapshot,
+  PROJECTILE_MOTION_PROTOCOL,
+  isProjectileMotionSnapshot,
   FREE_FLIGHT_TARGETING_V1,
   FREE_FLIGHT_ASSIST_V1,
   BARREL_ROLL_CONTROL_PROTOCOL_V1,
@@ -62,6 +66,10 @@ export class FreeFlightClient {
   private assistanceAvailable = false;
   private countermeasuresAvailable = false;
   private barrelRollAvailable = false;
+  private projectileMotionAvailable = false;
+  private lastProjectileMotionTick = -1;
+  private armamentAvailable = false;
+  private lastArmamentTick = -1;
   private countermeasureSeq = 1;
   private countermeasureReadyAt = 0;
   get canDeployCountermeasure() { return this.joined && this.countermeasuresAvailable; }
@@ -86,6 +94,13 @@ export class FreeFlightClient {
   }
   get canSelectTarget() { return this.joined && this.targetingAvailable; }
   get canSelectNearestTarget() { return this.canSelectTarget && this.nearestTargetingAvailable; }
+
+  recoverSalvage(packageId: string) {
+    if (!this.joined || this.socket?.readyState !== WebSocket.OPEN ||
+        !packageId || packageId.length > 400) return false;
+    this.socket.send(JSON.stringify({ type: "freeflight_salvage_recover", protocol: 1, packageId }));
+    return true;
+  }
 
   selectNearestTarget() {
     if (!this.canSelectNearestTarget || this.socket?.readyState !== WebSocket.OPEN) return false;
@@ -147,6 +162,10 @@ export class FreeFlightClient {
     this.subsystemsAvailable = false;
     this.vectorBoostAvailable = false;
     this.barrelRollAvailable = false;
+    this.projectileMotionAvailable = false;
+    this.lastProjectileMotionTick = -1;
+    this.armamentAvailable = false;
+    this.lastArmamentTick = -1;
     this.stopped = true;
     this.generation += 1;
     this.joined = false;
@@ -308,12 +327,44 @@ export class FreeFlightClient {
         this.options.onState?.("joined");
         this.acceptSnapshot(packet.snapshot);
         this.acceptEnvironment(packet.environment);
+        const armament = packet.armamentPresentation as { protocol?: unknown } | undefined;
+        this.armamentAvailable = armament?.protocol === ARMAMENT_PRESENTATION_PROTOCOL;
+        this.lastArmamentTick = -1;
+        if (this.armamentAvailable) socket.send(JSON.stringify({
+          type: "freeflight_armament_subscribe", protocol: ARMAMENT_PRESENTATION_PROTOCOL,
+        }));
+        const projectileMotion = packet.projectileMotion as { protocol?: unknown } | undefined;
+        this.projectileMotionAvailable = projectileMotion?.protocol === PROJECTILE_MOTION_PROTOCOL;
+        this.lastProjectileMotionTick = -1;
+        if (this.projectileMotionAvailable) {
+          socket.send(JSON.stringify({
+            type: "freeflight_projectile_motion_subscribe", protocol: PROJECTILE_MOTION_PROTOCOL,
+          }));
+        }
         if (packet.openingEncounter) this.options.onCombatPacket?.({
           type: "freeflight_opening", status: packet.openingEncounter,
         });
         // Capability negotiation keeps older server/client pairs on their
         // existing movement rules during a rolling deployment.
         socket.send(JSON.stringify({ type: "freeflight_environment_request" }));
+        return;
+      }
+      if (packet.type === "freeflight_armament_snapshot") {
+        const appearance = this.joined && this.armamentAvailable
+          ? readArmamentSnapshot(packet.snapshot, this.sessionInstanceId, this.lastArmamentTick) : null;
+        if (appearance) {
+          this.lastArmamentTick = appearance.tick;
+          this.options.onCombatPacket?.(packet);
+        }
+        return;
+      }
+      if (packet.type === "freeflight_projectile_motion") {
+        if (this.joined && this.projectileMotionAvailable && isProjectileMotionSnapshot(packet.snapshot) &&
+            packet.snapshot.sessionInstanceId === this.sessionInstanceId &&
+            packet.snapshot.tick > this.lastProjectileMotionTick) {
+          this.lastProjectileMotionTick = packet.snapshot.tick;
+          this.options.onCombatPacket?.(packet);
+        }
         return;
       }
       if (packet.type === "freeflight_combat_progress") {
@@ -363,6 +414,8 @@ export class FreeFlightClient {
         return;
       }
       if (packet.type === "freeflight_world_impact" ||
+          packet.type === "freeflight_salvage" ||
+          packet.type === "freeflight_salvage_recovered" ||
           packet.type === "freeflight_vector_boost_state" ||
           packet.type === "freeflight_recovered" ||
           packet.type === "freeflight_assist_request" ||
@@ -441,6 +494,10 @@ export class FreeFlightClient {
   private scheduleReconnect(reason: string) {
     if (this.stopped || this.reconnectTimer !== null) return;
     this.joined = false;
+    this.projectileMotionAvailable = false;
+    this.lastProjectileMotionTick = -1;
+    this.armamentAvailable = false;
+    this.lastArmamentTick = -1;
     this.sessionInstanceId = null;
     this.inputScheduler.reset();
     this.options.onState?.("reconnecting", reason);

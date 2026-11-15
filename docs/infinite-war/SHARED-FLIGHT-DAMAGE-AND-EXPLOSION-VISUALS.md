@@ -45,9 +45,78 @@ volumes stop rounds. A world contact does not destroy a planet, asteroid or
 station; decorative meshes without registered collision are not thereby made
 physical or destructible.
 
-Primary projectile visuals extrapolate launch velocity. Contact flashes and
-tracer endpoints use the authoritative impact point. This change does not
-introduce a continuous server trajectory feed for homing missiles.
+## Authoritative projectile motion
+
+The optional `projectileMotion: { protocol: 1 }` capability on
+`freeflight_joined` advertises a presentation-only stream. A new client opts in
+with `freeflight_projectile_motion_subscribe`; the baseline join shape is
+unchanged. Old clients receive their existing launch/contact packets, while
+new clients on an old server retain the existing straight-tracer fallback.
+
+Negotiated `freeflight_projectile_motion` packets carry a validated snapshot:
+protocol, session instance, monotonic tick and at most **96** projectiles.
+Each entry contains an opaque stable event ID, faction/effect, missile flag,
+previous/current confirmed position, velocity and bounded remaining life.
+No target identity, target position, reward, kill claim or client collision
+result is accepted. The feed does not change guidance or hit calculations.
+
+The admitted viewer must be connected to the same authoritative session.
+Both the projectile position and its source's visibility must pass the
+existing nearby-interest rules. An out-of-interest previous point is replaced
+with the current point. Guided missiles take priority when the 96-sample
+budget fills; remaining samples are sorted by distance and stable ID.
+Packets are sent at most once per three simulation ticks (at most 10 Hz);
+repeated subscription packets do not trigger extra snapshots.
+
+Launch and contact IDs now derive from session instance and the durable,
+monotonically assigned projectile number, **not the current tick**. They
+therefore remain identical during turning, impact and checkpoint recovery.
+Old checkpoints need no new mandatory schema. Presentation subscriptions are
+not persisted and must be negotiated again on reconnect.
+
+Three.js draws a short polyline through confirmed positions, interpolating
+behind the latest sample rather than extrapolating a straight guided missile.
+The first motion sample includes the previous confirmed simulation point.
+Subsequent samples use a 100 ms presentation buffer. A delayed stream holds
+the last confirmed point and hides after 350 ms; it never invents continued
+flight or a hit. An authoritative contact terminates the trail at that exact
+point and fades it over 280 ms, independently of the ship mesh.
+
+Budgets: at most **160** rendered projectiles, **8** points per line, up to
+**60 m** of missile trail / **8 m** of primary trail, and **1024** terminal
+identities for late-packet deduplication. Empty interest snapshots retire
+missing tracks; session changes, reconnects and disposal clear the buffers.
+All points use the existing absolute-to-sector projection, so floating-origin
+rebasing does not move the authoritative contact. Existing impact/explosion
+pools and their separate limits remain intact.
+
+With a mixed-version deployment, a projectile launched by an older server may
+have the old tick-based visual ID. New motion uses the stable identity; the
+old transient tracer expires normally. No combat state or reward is replayed
+to compensate for that presentation-only rolling-upgrade boundary.
+
+See [Einhänder's translation into WFM](EINHANDER-ORBITAL-DESIGN-TRANSLATION.md)
+for the preserved creator reference and the rules that must not be imported.
+
+### Motion verification
+
+- `free-flight-projectile-motion.test.ts` runs actual server guidance and
+  world collision in an isolated checkpoint fixture. Two admitted viewers
+  receive one turning missile and the identical Mars contact, including an
+  owner-runtime restart mid-flight. A distant viewer and a different canonical
+  session receive no trajectory data; legacy clients receive no new stream.
+- The saturation fixture injects 201 server projectiles to verify the cap,
+  missile priority, source visibility, subscription validation and output rate.
+- The existing real-input Mars firing regression now requires every surface
+  event to match an actual launch's stable identity.
+- `shared-projectile-motion.test.ts` checks identical terminal points despite
+  receive delay, curved samples, no forward prediction, rebasing, stale expiry,
+  duplicate/foreign/malformed/over-budget packets, late-event suppression and
+  bounded trail history/length.
+
+These are protocol and simulation fixtures, not authenticated staging or
+pixel-level Android certification. No sign-in challenge, deployment, account
+or production setting was changed for this work.
 
 ## Verification boundaries
 
@@ -71,3 +140,43 @@ Consequently this pass has no pixel-level or authenticated live-battle visual
 certification. No authentication challenge or account data was changed.
 The native WebGL companion's impact presentation is not redesigned by this
 Three.js visual change. Production is untouched.
+
+## Physical two-phone acceptance gate
+
+**Status: not certified.** The available automated-browser evidence cannot
+substitute for two GPU-capable physical devices. The public entry-page capture
+does not show a signed-in battle. Do not infer a new success from historical
+verification challenges or scene-graph tests. No new authentication challenge,
+account, deployment or secret access is required to record this status.
+
+Use two existing, authorized **Development** accounts in the main Three.js
+universe through the hangar. Record build revision/test time, both device/OS/
+browser versions and quality settings. Do not use Production or create accounts.
+If fresh authentication is needed, codes belong exclusively in Secrets.
+
+Required evidence from one continuous shared encounter:
+
+1. Confirm both pilots share a celestial reference and see the same live target;
+   retain the same identifiable fleet/target through both recordings.
+2. Show shield absorption contacts and later hull contacts. Do not mistake a
+   subsystem's small electrical disable effect for a hull kill.
+3. Fire against registered solid cover and show a contact spark at its surface,
+   rather than a line continuing through it. Decorative scenery is not proof
+   of a registered collider.
+4. Destroy a ship through actual accepted player fire. Both views must show the
+   same contact and destruction location, allowing ordinary network delay.
+   A single core/ring/debris burst should persist after the ship mesh is gone;
+   its configured maximum duration is 1.25 seconds, not an instantaneous hide
+   or repeated explosions on each snapshot.
+5. Continue flying after destruction, vary viewpoint, and cross a floating-origin
+   boundary where practical. The blast and remaining ships must stay spatially
+   consistent. There must be no new game launch or replacement universe.
+6. Capture comparable quiet-flight and busy-combat frame timing, plus recovery
+   after the burst. Report frame intervals/p95, sustained stalls, resolution and
+   quality changes; a video alone is not a numerical frame-time measurement.
+   Predeclare the supported-device/quality budget before reporting a pass.
+
+Retain recordings and performance traces outside Git as generated evidence.
+Redact sign-in details and never record verification codes or credentials.
+If either view, build identity or frame-timing evidence is missing, record the
+specific missing criterion instead of marking this gate complete.

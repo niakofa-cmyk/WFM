@@ -1,0 +1,1694 @@
+Worked for 44s
+
+### EINHÄNDER — Complete Forensic Game Architecture & Development Analysis
+
+![Steam Workshop::Einhänder Ship Select (All Ships, 4:3 Ratio)\[Einhander\]](https://images.openai.com/static-rsc-4/pIk6RMACCflZtbKCBRV8-ZeAZSl_Sa3tFhtySMXnGGCxaRpXTSBR7WD_p3vaIdIAQwYXWFPg6YLofK230tUH1Q-WoTEnuAjGnb2DpaaKJn90Vfi1kOO9u_emWZmb1lt23yElk0MaA_f8vWLFpQop80ePWlXrJQ1ZDAZnIqfZd2gkHTB3GJp0vyRmh5Rg2J9d?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+Einhänder (1997), developed by Square, is an especially important game to study when designing a modern space-combat experience. Its significance goes beyond being a particularly good side-scrolling shooter. It demonstrates how a developer can combine a constrained movement system, fully modeled 3D environments, cinematic camera work, modular weapon systems, enemy behaviors, carefully orchestrated encounters, and a strong visual identity into one cohesive experience.
+
+I want to examine it from the perspective of a game director, gameplay engineer, technical artist, systems architect, combat designer, and level designer.
+
+There is one important distinction throughout this investigation:
+
+* Established facts: Features and behavior documented in the game and its available development history.
+
+* Technical reconstruction: How the underlying systems most plausibly work based on observable behavior and PS1-era engineering.
+
+* Modern implementation lessons: How to reproduce the underlying design principles using contemporary game architecture without simply copying its presentation.
+
+The goal is to understand not just what Einhänder does, but how its systems depend on one another, why its design works, and what can be learned from its construction.
+
+### 1\. Understanding what Square actually built
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![アインハンダー | SQUARE ENIX](https://images.openai.com/static-rsc-4/tDG9S6QHC44yxlqxr71sJry9GIvUwGAvfAe46i6RR71WHfuBadZskQpgSMsSvbiFxwiqGpWb-dw2blJCvpI1skJWofG_ClTcZbb3LXIuopz6niG86gO1uuYBfuz3Mq9303uuLUNxwOWej-r35637_oQepbmlaUi6fgQUmtLqqH92XpC9DjRRfgUomRT1bZH5?purpose=fullsize)
+
+![【評価：AA】『アインハンダー』死んでも死んでも上手くなりたいこの気持ち｜のびのびおじさんのゲームべや](https://images.openai.com/static-rsc-4/7-y1ehLronWLFEPFGGynZAxCEO_PSDB18Ppa2NyisWIz2FXbkThahscwEFAj2ZwVcYAv3YbXFBlNnd5w8gdCxnbWBcirrI9Q4SBEeAedjyYenC2yQzt0YP96oyP4AezH1nXMQgzL3nof4XstG6wffWaSQ_z9sFiw62WMR-9SBuXAN59Jm3vU0O15G-7lHDZk?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+![RTTP: Einhänder | NeoGAF](https://images.openai.com/static-rsc-4/ELXDvAeUBYkCYTxyDid7O8GPhjXnVc226jtAg-GxuxtINKBo4KDgTF-vaGs7Olz3KjaSKpM826zjWVt2bDKCv5Woam9WJ7Y0Xz6lrBTnhlwYCQdp-YvNAAtTUiJa7C6jZtkxm2wc-kZydzbIiTBEEe19QLg6zNvNjK41IdH2GNoesUHVq0jR7D9N2O4viz_x?purpose=fullsize)
+
+![アインハンダー - 鋼鉄の国の人だもの](https://images.openai.com/static-rsc-4/jG_o-RKrpYdv5mFVftjwaileSqSX1OhIjDfFeNeISQ-K1m3lz2bJ1AjItw4c8lzbbbRIlnRUnsTgUkBKuRv2GoZXW3u42tgx7hmq-NUgpyP1f-J7m-6FCfS2WCjBgYxY9CHSVwOn8jVwId8v-ZpUFF-fwHHu127PI8hAWTOqFDxS1-h3OsIF0fcIY8TeoDtJ?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/ouw1M9AqWTQO5PhMruIXLQWG-ZaTMBIkJLgM0gBqpTwSBo_bved_v5HHO2uI2FmdD0OU-_tuLODgHgYFewETXcGaS3vxtuEj2F49lV-IW2dJADzcBhL99jKwMtcI2zxgGOZti0m-aEO9bdKIUaznOkmJ21_BIf79g-6ecyY8POUEdOyl5cBBmLUwnrW_FDk1?purpose=fullsize)
+
+![Einhander - A Shooter Universally Adored but Cruelly Ignored | Lost Nostalgia](https://images.openai.com/static-rsc-4/-AsAgkH_RkIi1GGF7yLkl1U_VcJysollXBwjdMUqV4wzw8E31-vaBdZEzvNcYj7Y_G9QFE5PwisC2xoitz-_grCsQNvsSwqfse_c7k4dVk2i_2Zp4tdxA-H2MQ3P4FhEaDrwH8oJHkzod-AFMOH-wmXS3alpFyg6u1dZsgv_peOzOZu3OoThdtYTXVfSv_Mz?purpose=fullsize)
+
+The first major architectural decision was separating the game's movement dimension from its rendering dimension.
+
+Einhänder is not a conventional 3D flight simulator. Nor is it simply a 2D sprite shooter with a 3D background.
+
+It is a 3D-rendered world with a constrained 2D combat coordinate system.
+
+That distinction is fundamental.
+
+Imagine three coordinate axes:
+
+* X: Horizontal movement across the screen.
+
+* Y: Vertical movement up and down the screen.
+
+* Z: Depth into and out of the screen.
+
+The player primarily operates on the X/Y combat plane. The Z axis is controlled by the game rather than freely controlled by the player.
+
+Meanwhile, the environment, enemy models, machinery, buildings, vehicles, and bosses can occupy and move through the full 3D world.
+
+This produces a useful illusion: the player feels like they are flying through an enormous three-dimensional battlefield, even though the fundamental combat rules remain predictable and tightly controlled.
+
+The critical engineering insight: Square did not need unrestricted three-dimensional player movement to create the visual impression of three-dimensional flight.
+
+It could control the battlefield, camera, enemy depth, and environmental geometry independently.
+
+That separation made it possible to build dramatic environments without sacrificing the precision demanded by a difficult shoot-'em-up.
+
+### 2\. The actual development organization and production structure
+
+An important discovery is that Einhänder was not simply a small side project assembled by a few Square programmers.
+
+Its Japanese PlayStation credits identify a dedicated development organization:
+
+### Square Osaka — Department 1
+
+Original 1997 production credits
+
+Direction
+
+Tatsuo Fujii
+
+Main programming
+
+Akira Suzuki, Tomoaki Yoshinobu
+
+System programming
+
+Kenro Tsujimoto
+
+Game programming
+
+Atsushi Okada, Keiji Kikuchi, Mitsuru Nakashima, Noboru Taniguchi
+
+Main design
+
+Yuji Asano
+
+Planning
+
+Kenichi Iwao, Yoji Fujito
+
+Music
+
+Kenichiro Fukui
+
+Production
+
+Yusuke Hirata
+
+External cinematic production
+
+Omnibus Japan handled the credited CG production, including CG direction, modeling/design work, animation, and painting.
+
+Staff Credits +1
+
+This separation is revealing.
+
+The project had dedicated people responsible for:
+
+* The game engine and main programming.
+
+* System-level programming.
+
+* Gameplay programming.
+
+* Game and environment design.
+
+* Mechanical and visual illustration.
+
+* Music and sound programming.
+
+* Cinematic production.
+
+This is a useful production model because the game has multiple disciplines working together without making the game itself feel like disconnected systems.
+
+### A particularly interesting development connection
+
+Yoji Fujito later discussed his career in an official Square Enix retrospective interview. He explained that he joined Square in 1995 and that Einhänder was his first project there.
+
+He had previously worked at Konami, including in arcade game development and PlayStation development. He discussed learning C and the use of trigonometric calculations for simulating complex movement.
+
+That background is particularly relevant to Einhänder's moving machinery, articulated enemies, mechanical animations, and boss behavior.
+
+It is evidence of the importance of mathematical animation and movement programming in the era, although it does not establish which specific algorithms Einhänder used. SQUARE ENIX +1
+
+### 3\. The technical foundation: how the game world works
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![【評価：AA】『アインハンダー』死んでも死んでも上手くなりたいこの気持ち｜のびのびおじさんのゲームべや](https://images.openai.com/static-rsc-4/7-y1ehLronWLFEPFGGynZAxCEO_PSDB18Ppa2NyisWIz2FXbkThahscwEFAj2ZwVcYAv3YbXFBlNnd5w8gdCxnbWBcirrI9Q4SBEeAedjyYenC2yQzt0YP96oyP4AezH1nXMQgzL3nof4XstG6wffWaSQ_z9sFiw62WMR-9SBuXAN59Jm3vU0O15G-7lHDZk?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/ouw1M9AqWTQO5PhMruIXLQWG-ZaTMBIkJLgM0gBqpTwSBo_bved_v5HHO2uI2FmdD0OU-_tuLODgHgYFewETXcGaS3vxtuEj2F49lV-IW2dJADzcBhL99jKwMtcI2zxgGOZti0m-aEO9bdKIUaznOkmJ21_BIf79g-6ecyY8POUEdOyl5cBBmLUwnrW_FDk1?purpose=fullsize)
+
+![Einhander - A Shooter Universally Adored but Cruelly Ignored | Lost Nostalgia](https://images.openai.com/static-rsc-4/-AsAgkH_RkIi1GGF7yLkl1U_VcJysollXBwjdMUqV4wzw8E31-vaBdZEzvNcYj7Y_G9QFE5PwisC2xoitz-_grCsQNvsSwqfse_c7k4dVk2i_2Zp4tdxA-H2MQ3P4FhEaDrwH8oJHkzod-AFMOH-wmXS3alpFyg6u1dZsgv_peOzOZu3OoThdtYTXVfSv_Mz?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![Xsolla Mall - Einhander](https://images.openai.com/static-rsc-4/sMralLiXpmQxhnPAR3q-bZ6qxIvWQ63VvrloXulPnfkLOGqcwi2vy-GrgCmgPbr8-mCNjYHdb171VyHYtxe61JqEI_g048McfUZk3_gGP3YNDvQbZJMV_28q-68XZxAOm2AD2M9MuNqlOxK9UoMCSsAvhaE8yTCPqraTQqC4ctRd9-NpLSoxND4D522Qdeao?purpose=fullsize)
+
+To understand the game, it helps to separate its architecture into six layers.
+
+### Reconstructed Einhänder runtime architecture
+
+1\. Game progression controller
+
+Stage sequence · checkpoints · boss transitions · scoring
+
+2\. Player simulation
+
+Movement · speed · weapons · collisions
+
+3\. Enemy simulation
+
+AI patterns · attacks · damageable parts
+
+4\. Weapon systems
+
+Gunpods · ammunition · collection · firing
+
+5\. World simulation
+
+Scrolling · scripted events · geometry · hazards
+
+6\. Presentation and audio
+
+3D rendering · camera · effects · interface · music · sound
+
+Conceptual reconstruction of the systems implied by gameplay and credits, not a recovered original source-code diagram.
+
+The architecture is valuable because each layer has a relatively clear responsibility.
+
+For example, the enemy system can decide to launch a missile without needing to know how the missile is rendered. The weapon system can calculate ammunition without controlling the camera. The stage controller can introduce a boss without having to rewrite the player's movement system.
+
+This is the type of separation that allows a game to expand without becoming unmanageable.
+
+### 3.1 Player movement and coordinate mathematics
+
+The player ship operates within a restricted combat plane.
+
+A conceptual movement calculation would look like this:
+
+```text
+player.velocity.x = input.horizontal * speed
+player.velocity.y = input.vertical * speed
+
+player.position.x += player.velocity.x * delta_time
+player.position.y += player.velocity.y * delta_time
+
+player.position.x = clamp(player.position.x, left, right)
+player.position.y = clamp(player.position.y, bottom, top)
+```
+
+The actual game likely uses hardware-conscious fixed-point or integer arithmetic in some of its simulation and rendering calculations; the precise implementation is not established by the credits or gameplay documentation.
+
+There are several important design decisions here:
+
+* The ship has controllable movement speed.
+
+* The player can select different movement-speed settings.
+
+* Movement is limited by the combat area.
+
+* Terrain can become a collision hazard.
+
+* Enemies can occupy different apparent depth positions.
+
+* The camera can rotate while preserving the basic player-control plane.
+
+The speed selector is particularly clever. It creates two different movement behaviors without requiring separate control schemes.
+
+At lower speed, the pilot can carefully position the ship around hazards and incoming projectiles. At higher speed, the pilot can rapidly cross the battlefield.
+
+This means movement itself becomes a combat resource.
+
+### 3.2 The camera and 2.5D rendering system
+
+The most important visual technique is the separation between:
+
+* The camera's orientation.
+
+* The player's movement plane.
+
+* The three-dimensional environment.
+
+* The enemy's world-space position.
+
+The camera can rotate or shift its viewing angle while the player remains constrained to the gameplay plane.
+
+A modern reconstruction would represent the player with a world-space plane and a camera transform that can change independently.
+
+For example:
+
+```text
+CombatPlane:
+    horizontal_axis = X
+    vertical_axis   = Y
+    depth_axis      = Z
+
+Player:
+    position = (x, y, fixed_depth)
+
+Camera:
+    position = scripted_position
+    rotation = scripted_rotation
+    projection = perspective
+
+World:
+    geometry = fully_3D
+    movement = scripted_or_simulated
+```
+
+The important result is that the environment can move around the player visually without allowing the player to escape the intended combat space.
+
+This is why the camera rotation does not necessarily mean that the game has transitioned into free-flight mode.
+
+The environment is three-dimensional; the combat contract remains two-dimensional.
+
+### 3.3 Environmental choreography
+
+The game does not rely on a single static background.
+
+Its environments are staged sequences:
+
+* Buildings and city structures pass through the camera.
+
+* Large mechanical structures move and animate.
+
+* Ground vehicles participate in encounters.
+
+* Trains become moving combat environments.
+
+* Industrial equipment becomes part of the battlefield.
+
+* Underwater facilities and reactors create different visual spaces.
+
+* Space encounters introduce different environmental silhouettes.
+
+This is important because the level is not just decoration.
+
+The environment is part of the gameplay.
+
+A train, for example, can be a moving collection of enemy platforms, weapon mounts, destructible components, and combat opportunities.
+
+The player is not simply flying past a train. The train is effectively a temporary encounter system.
+
+### 4\. How Square engineered the Gunpod system
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![RTTP: Einhänder | NeoGAF](https://images.openai.com/static-rsc-4/ELXDvAeUBYkCYTxyDid7O8GPhjXnVc226jtAg-GxuxtINKBo4KDgTF-vaGs7Olz3KjaSKpM826zjWVt2bDKCv5Woam9WJ7Y0Xz6lrBTnhlwYCQdp-YvNAAtTUiJa7C6jZtkxm2wc-kZydzbIiTBEEe19QLg6zNvNjK41IdH2GNoesUHVq0jR7D9N2O4viz_x?purpose=fullsize)
+
+![アインハンダー | SQUARE ENIX](https://images.openai.com/static-rsc-4/tDG9S6QHC44yxlqxr71sJry9GIvUwGAvfAe46i6RR71WHfuBadZskQpgSMsSvbiFxwiqGpWb-dw2blJCvpI1skJWofG_ClTcZbb3LXIuopz6niG86gO1uuYBfuz3Mq9303uuLUNxwOWej-r35637_oQepbmlaUi6fgQUmtLqqH92XpC9DjRRfgUomRT1bZH5?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![\[Café dos Colonos\] – Einhänder – O kamikaze contra uma frota |](https://images.openai.com/static-rsc-4/NcwWMWcUTnpJo_Q6RTzD5l6OQEEg1hskvh_K2r1NITUjxyj8sDDOTcPk5VjBW397HpbG2bp-EMn4Z-kaWYXQAhQuTBTmSIj4zoANAVslrA8RVZY_hM6XVtIrBvJZWfa0PQCYwINXGpvSQ1GFBWwgVyYiP1ZMelVrMB_ZG6h6s0_N8Qq9acs3uAzKFvbJj2Xp?purpose=fullsize)
+
+![アインハンダー - 鋼鉄の国の人だもの](https://images.openai.com/static-rsc-4/jG_o-RKrpYdv5mFVftjwaileSqSX1OhIjDfFeNeISQ-K1m3lz2bJ1AjItw4c8lzbbbRIlnRUnsTgUkBKuRv2GoZXW3u42tgx7hmq-NUgpyP1f-J7m-6FCfS2WCjBgYxY9CHSVwOn8jVwId8v-ZpUFF-fwHHu127PI8hAWTOqFDxS1-h3OsIF0fcIY8TeoDtJ?purpose=fullsize)
+
+![Xsolla Mall - Einhander](https://images.openai.com/static-rsc-4/sMralLiXpmQxhnPAR3q-bZ6qxIvWQ63VvrloXulPnfkLOGqcwi2vy-GrgCmgPbr8-mCNjYHdb171VyHYtxe61JqEI_g048McfUZk3_gGP3YNDvQbZJMV_28q-68XZxAOm2AD2M9MuNqlOxK9UoMCSsAvhaE8yTCPqraTQqC4ctRd9-NpLSoxND4D522Qdeao?purpose=fullsize)
+
+![【評価：AA】『アインハンダー』死んでも死んでも上手くなりたいこの気持ち｜のびのびおじさんのゲームべや](https://images.openai.com/static-rsc-4/7-y1ehLronWLFEPFGGynZAxCEO_PSDB18Ppa2NyisWIz2FXbkThahscwEFAj2ZwVcYAv3YbXFBlNnd5w8gdCxnbWBcirrI9Q4SBEeAedjyYenC2yQzt0YP96oyP4AezH1nXMQgzL3nof4XstG6wffWaSQ_z9sFiw62WMR-9SBuXAN59Jm3vU0O15G-7lHDZk?purpose=fullsize)
+
+This is arguably the most important part of Einhänder.
+
+The Gunpod system transforms the relationship between the player and the enemy.
+
+In an ordinary shoot-'em-up, the player has a predefined arsenal. Enemies are obstacles that must be destroyed.
+
+In Einhänder, enemies are also potential sources of equipment.
+
+That creates a combat economy.
+
+### 4.1 The Gunpod lifecycle
+
+* Enemy weapon carrier enters the battlefield
+
+    The enemy arrives equipped with a particular weapon.
+
+* Player attacks the carrier
+
+    The carrier can be damaged and destroyed.
+
+* Gunpod becomes available
+
+    A collectible weapon is released.
+
+* Manipulator captures the weapon
+
+    The player's ship physically attaches the Gunpod.
+
+* Weapon enters the loadout
+
+    Its firing behavior, ammunition, position, and condition become relevant.
+
+* Weapon is used in combat
+
+    The player fires it, switches it, or combines it with another weapon where the ship permits.
+
+* Weapon is depleted or destroyed
+
+    The player must acquire another weapon or rely on the default machine gun.
+
+This creates a loop:
+
+Destroy enemies → acquire equipment → gain combat advantage → face stronger enemies → acquire more equipment.
+
+It also creates an interesting strategic choice: the player may want to preserve ammunition rather than immediately fire every available weapon.
+
+### 4.2 Gunpods are not just different projectiles
+
+A Gunpod is effectively a modular combat subsystem.
+
+It has several characteristics:
+
+| Property            | Gameplay purpose                      |
+| ------------------- | ------------------------------------- |
+| Weapon type         | Defines firing behavior               |
+| Ammunition          | Limits usage                          |
+| Damage              | Determines destructive power          |
+| Firing direction    | Changes attack coverage               |
+| Weapon position     | Can affect firing behavior            |
+| Durability          | Allows the weapon to absorb damage    |
+| Collection behavior | Determines how the player acquires it |
+| Visual model        | Changes the ship's appearance         |
+
+Some Gunpods change their attack behavior depending on whether they are mounted above or below the ship.
+
+This is particularly important for the Astraea, which can use two weapons simultaneously.
+
+The result is that weapon placement becomes a combat decision rather than merely an inventory decision.
+
+### 4.3 Why the manipulator arm is so important
+
+The manipulator arm gives the game's central mechanic a physical identity.
+
+It is not just a user-interface button that changes the weapon variable.
+
+The player sees a mechanical arm move and capture the weapon.
+
+That makes the system readable in the middle of combat.
+
+A player can understand what has happened by watching the ship.
+
+This is a valuable example of diegetic game design: the interface and game mechanics are represented through objects that exist within the fictional world.
+
+### 4.4 The three starting ships are three different loadout architectures
+
+![SHMUPS!](https://images.openai.com/static-rsc-4/aqjz0aaiZsr562Mv_is5wmmJyLbkIfMaREkNxosnBIa3NMCmugfrbid7-JrW5RRAA4RuQ43GVEDZw6LsvxXeokTXV1TQuXAMwWNlnqtD1QoN1vwN3f7QNMRhthtHpMLDP6UbAB9-WCRhOpA2JrR_QvLQW7iXYgSKyYhkCrrKFSGPORYTz62uNn6nLq2on7XI?purpose=fullsize)
+
+Endymion FRS Mk. III
+
+Accessible
+
+* Two machine guns
+
+* One Gunpod
+
+* Automatic machine-gun fire when using the Gunpod
+
+![Steam Workshop::Endymion FRS Mk. II](https://images.openai.com/static-rsc-4/iaLWPh5n4OGORf8xThqQhmpxG0oIHU-E6fw6mifyezDqq-QrtOP8HwHC2L6y_qR_tJumJsSxdlHcsoe-FKdJpNwMmHZDIN0Nwf17J3iVFvXX-WLmw_irFLgfKsxBhuLnEtmI2EHEeyERMLp2_nFG9sRj6CH5KQZphDPn9WU_VoDBtnpPUAJ4TCuN3S4tK9m4?purpose=fullsize)
+
+Endymion FRS Mk. II
+
+Flexible
+
+* One machine gun
+
+* Three Gunpod storage positions
+
+* One active Gunpod at a time
+
+* Switchable reserves
+
+![Steam Workshop::Einhänder Ship Select (All Ships, 4:3 Ratio)\[Einhander\]](https://images.openai.com/static-rsc-4/pIk6RMACCflZtbKCBRV8-ZeAZSl_Sa3tFhtySMXnGGCxaRpXTSBR7WD_p3vaIdIAQwYXWFPg6YLofK230tUH1Q-WoTEnuAjGnb2DpaaKJn90Vfi1kOO9u_emWZmb1lt23yElk0MaA_f8vWLFpQop80ePWlXrJQ1ZDAZnIqfZd2gkHTB3GJp0vyRmh5Rg2J9d?purpose=fullsize)
+
+Astraea FGA Mk. I
+
+High firepower
+
+* One machine gun
+
+* Two Gunpod positions
+
+* Both Gunpods can be used simultaneously
+
+* Position and weapon combinations matter
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+Unknown Fighters
+
+Unlockable
+
+* Type I transforms collected weapons into gun upgrades
+
+* Type II has two weapon positions and exceptionally large ammunition reserves
+
+The important lesson is that Square did not simply create three cosmetic ship variations.
+
+It created three different ways of interacting with the same weapon ecosystem.
+
+The Endymion III emphasizes simplicity. The Endymion II emphasizes inventory management and adaptability. The Astraea emphasizes weapon combinations and simultaneous firepower.
+
+That is a much stronger form of ship differentiation than simply changing health, speed, or damage numbers.
+
+The ship and weapon descriptions are supported by the original manual-derived documentation and game references. GameFAQs +2
+
+### 5\. Enemy design: the secret behind Einhänder's combat depth
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/NcwWMWcUTnpJo_Q6RTzD5l6OQEEg1hskvh_K2r1NITUjxyj8sDDOTcPk5VjBW397HpbG2bp-EMn4Z-kaWYXQAhQuTBTmSIj4zoANAVslrA8RVZY_hM6XVtIrBvJZWfa0PQCYwINXGpvSQ1GFBWwgVyYiP1ZMelVrMB_ZG6h6s0_N8Qq9acs3uAzKFvbJj2Xp?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![【評価：AA】『アインハンダー』死んでも死んでも上手くなりたいこの気持ち｜のびのびおじさんのゲームべや](https://images.openai.com/static-rsc-4/7-y1ehLronWLFEPFGGynZAxCEO_PSDB18Ppa2NyisWIz2FXbkThahscwEFAj2ZwVcYAv3YbXFBlNnd5w8gdCxnbWBcirrI9Q4SBEeAedjyYenC2yQzt0YP96oyP4AezH1nXMQgzL3nof4XstG6wffWaSQ_z9sFiw62WMR-9SBuXAN59Jm3vU0O15G-7lHDZk?purpose=fullsize)
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+![アインハンダー - 鋼鉄の国の人だもの](https://images.openai.com/static-rsc-4/ztUZZ9sZAYCCNOVKu5Gp0oVMaoT4hNAoa14sBTEtYPMy6dyntaeOz6SPqBf7HHgOL3Gsponj-31Dv4_NlZvzWP85wwfPSa40_M-Qq_lQbgkH4cWgm6NFMz0d1na5b5Ckn0VY1jHQAz5xbLDPJdZoULFoznIjDdj3XBhguighrSwTK8HOurWZWB0-02mH5pgO?purpose=fullsize)
+
+![Xsolla Mall - Einhander](https://images.openai.com/static-rsc-4/sMralLiXpmQxhnPAR3q-bZ6qxIvWQ63VvrloXulPnfkLOGqcwi2vy-GrgCmgPbr8-mCNjYHdb171VyHYtxe61JqEI_g048McfUZk3_gGP3YNDvQbZJMV_28q-68XZxAOm2AD2M9MuNqlOxK9UoMCSsAvhaE8yTCPqraTQqC4ctRd9-NpLSoxND4D522Qdeao?purpose=fullsize)
+
+This is another area where Einhänder is considerably more sophisticated than a basic shooter.
+
+Enemies are not all treated as objects with one health value.
+
+The original manual describes enemies with different destructible components:
+
+* Core unit.
+
+* Gunpod unit.
+
+* Armor unit.
+
+* Engine unit.
+
+These components have different purposes and destruction consequences. gamesurge.com
+
+### 5.1 Component-based enemy construction
+
+Consider an enemy fighter.
+
+Instead of implementing it as:
+
+```text
+Enemy:
+    health = 100
+    weapon = machine_gun
+    destroy_when_health_zero = true
+```
+
+A more sophisticated representation is:
+
+```text
+Enemy:
+    Core:
+        health
+        operational_state
+
+    Weapon:
+        health
+        firing_state
+        weapon_type
+
+    Armor:
+        health
+        protection_value
+
+    Engine:
+        health
+        movement_state
+```
+
+This produces multiple possible outcomes.
+
+| Component destroyed     | Consequence                        |
+| ----------------------- | ---------------------------------- |
+| Weapon                  | Enemy loses its attack capability  |
+| Core                    | Enemy becomes disabled             |
+| Armor                   | Enemy becomes more vulnerable      |
+| Engine                  | Enemy loses movement and may crash |
+| All critical components | Enemy is destroyed                 |
+
+The exact destruction rules vary by enemy, but the principle is clear.
+
+The player can strategically disable an enemy instead of immediately destroying it.
+
+This is particularly important for acquiring Gunpods.
+
+The player may want to destroy the enemy's core while preserving the weapon it carries.
+
+That creates a small tactical puzzle during an otherwise fast-paced battle.
+
+### 5.2 Enemies have different combat roles
+
+A strong shooter needs more than a large number of enemy models.
+
+It needs different threats that require different player responses.
+
+Einhänder demonstrates several categories:
+
+| Enemy role             | Purpose                                     |
+| ---------------------- | ------------------------------------------- |
+| Basic fighters         | Establish baseline combat                   |
+| Weapon carriers        | Introduce Gunpod acquisition                |
+| Armored fighters       | Require more deliberate targeting           |
+| Ground vehicles        | Change firing angles and encounter geometry |
+| Turrets                | Control portions of the screen              |
+| Missile units          | Create tracking threats                     |
+| Large mechanical units | Introduce component-based combat            |
+| Midbosses              | Test learned mechanics                      |
+| Stage bosses           | Deliver major encounter challenges          |
+
+These roles create combat variation without requiring a completely new game mechanic for every encounter.
+
+The same player controls, weapons, collision rules, and projectile systems can be recombined into different situations.
+
+### 5.3 Enemy AI is best understood as encounter choreography
+
+There is an important distinction between an intelligent enemy and a convincing enemy.
+
+Einhänder's enemies do not need to behave like unrestricted autonomous agents.
+
+Their movement and attack sequences are largely designed around the player's position, the camera, the level, and the timing of the encounter.
+
+A modern reconstruction could use a state machine:
+
+### Example enemy combat state machine
+
+Spawn / Enter battlefield
+
+Establish formation
+
+Select attack pattern
+
+Attack
+
+Fire, launch missiles, maneuver
+
+Defend
+
+Reposition, evade, protect core
+
+Damage evaluation
+
+Disabled / Destroyed / Retreat
+
+A scripted encounter can have several attack phases while still reacting to the player.
+
+For example:
+
+* An enemy enters from the right.
+
+* It moves into a firing position.
+
+* It launches a spread of projectiles.
+
+* It changes elevation.
+
+* It exposes its weapon carrier.
+
+* The player disables the core.
+
+* The Gunpod becomes available.
+
+* The enemy crashes or retreats.
+
+The result is an encounter that feels purposeful rather than random.
+
+### 6\. Boss encounters: how Einhänder creates large-scale battles
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/W1pdZo_6n0Zarb6ygnyTjGbqnzp1OZjAjQfVn45NDDWMvBFiuP5YlVM1I6B-1HEQG9tfCEh_6ZamHZaIZChFXwV9QV4p0DPBDomuF91Mkop_A_xwpyVpx88fqEvqkri3mBKFkaAhW6MYPkPwWIFmasLRk0srDSifFtwlg6au2gK692QwhQcVprtjjtjDDdpk?purpose=fullsize)
+
+![アインハンダー | SQUARE ENIX](https://images.openai.com/static-rsc-4/tDG9S6QHC44yxlqxr71sJry9GIvUwGAvfAe46i6RR71WHfuBadZskQpgSMsSvbiFxwiqGpWb-dw2blJCvpI1skJWofG_ClTcZbb3LXIuopz6niG86gO1uuYBfuz3Mq9303uuLUNxwOWej-r35637_oQepbmlaUi6fgQUmtLqqH92XpC9DjRRfgUomRT1bZH5?purpose=fullsize)
+
+![Einhander - A Shooter Universally Adored but Cruelly Ignored | Lost Nostalgia](https://images.openai.com/static-rsc-4/-AsAgkH_RkIi1GGF7yLkl1U_VcJysollXBwjdMUqV4wzw8E31-vaBdZEzvNcYj7Y_G9QFE5PwisC2xoitz-_grCsQNvsSwqfse_c7k4dVk2i_2Zp4tdxA-H2MQ3P4FhEaDrwH8oJHkzod-AFMOH-wmXS3alpFyg6u1dZsgv_peOzOZu3OoThdtYTXVfSv_Mz?purpose=fullsize)
+
+![RTTP: Einhänder | NeoGAF](https://images.openai.com/static-rsc-4/ELXDvAeUBYkCYTxyDid7O8GPhjXnVc226jtAg-GxuxtINKBo4KDgTF-vaGs7Olz3KjaSKpM826zjWVt2bDKCv5Woam9WJ7Y0Xz6lrBTnhlwYCQdp-YvNAAtTUiJa7C6jZtkxm2wc-kZydzbIiTBEEe19QLg6zNvNjK41IdH2GNoesUHVq0jR7D9N2O4viz_x?purpose=fullsize)
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+Bosses are among the strongest demonstrations of the game's encounter architecture.
+
+The player is a relatively small fighter. The bosses are enormous machines with multiple components, different firing systems, and attack phases.
+
+The important design principle is that the boss is not just a large enemy with more health.
+
+It is a collection of interconnected combat objectives.
+
+A boss may contain:
+
+* Armor sections.
+
+* Weapons.
+
+* Moving mechanical assemblies.
+
+* Exposed weak points.
+
+* A central body or core.
+
+* Separate attack phases.
+
+The player must learn which components are dangerous, which are vulnerable, and when it is safe to attack.
+
+### Boss phases
+
+A modern implementation could represent a boss using a phase controller:
+
+```text
+BossEncounter
+    Phase_01_Introduction
+    Phase_02_Defensive_Weapons
+    Phase_03_Armor_Destruction
+    Phase_04_Exposed_Core
+    Phase_05_Final_Attack
+    Phase_06_Destruction
+```
+
+Each phase can control:
+
+* Which components are active.
+
+* Which weapons can fire.
+
+* Which animations play.
+
+* Which movement pattern is selected.
+
+* Which weak points are exposed.
+
+* Which projectiles are spawned.
+
+* Whether the camera changes.
+
+* Whether the boss can transition to another phase.
+
+This is an efficient way to build complicated bosses without creating a completely independent AI system for each one.
+
+### 6.1 The environment can become part of the boss encounter
+
+One particularly important idea is that the battlefield can participate in the encounter.
+
+A boss may occupy the center or one side of the screen while the player must navigate around environmental hazards and secondary attacks.
+
+The encounter can therefore be designed as a complete composition:
+
+* Player position.
+
+* Boss position.
+
+* Camera angle.
+
+* Projectile patterns.
+
+* Environmental collision.
+
+* Available weapon opportunities.
+
+* Timing.
+
+This is more than designing a powerful enemy.
+
+It is designing a controlled combat environment.
+
+### 7\. Level design: seven stages as seven different combat experiences
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/KlViQdGvuCFCbMMOcguMRjvarbVNSanpIqugd2qoivaTt3NkNE4TphP1m-QL0gYZ8yjr7d3WDcx3DYvpqB-TwoLYaJBGsL5TpR0xUUET2xKXvrOIiHRaEQFXDg6bna7W7jcdV1pFPcf-Od1vMIMn4d6XiJrvPohWpdLltyQPM_1qPHZmXz9FfpuxaTAVilKH?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/W1pdZo_6n0Zarb6ygnyTjGbqnzp1OZjAjQfVn45NDDWMvBFiuP5YlVM1I6B-1HEQG9tfCEh_6ZamHZaIZChFXwV9QV4p0DPBDomuF91Mkop_A_xwpyVpx88fqEvqkri3mBKFkaAhW6MYPkPwWIFmasLRk0srDSifFtwlg6au2gK692QwhQcVprtjjtjDDdpk?purpose=fullsize)
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![Einhander - A Shooter Universally Adored but Cruelly Ignored | Lost Nostalgia](https://images.openai.com/static-rsc-4/-AsAgkH_RkIi1GGF7yLkl1U_VcJysollXBwjdMUqV4wzw8E31-vaBdZEzvNcYj7Y_G9QFE5PwisC2xoitz-_grCsQNvsSwqfse_c7k4dVk2i_2Zp4tdxA-H2MQ3P4FhEaDrwH8oJHkzod-AFMOH-wmXS3alpFyg6u1dZsgv_peOzOZu3OoThdtYTXVfSv_Mz?purpose=fullsize)
+
+![アインハンダー | SQUARE ENIX](https://images.openai.com/static-rsc-4/tDG9S6QHC44yxlqxr71sJry9GIvUwGAvfAe46i6RR71WHfuBadZskQpgSMsSvbiFxwiqGpWb-dw2blJCvpI1skJWofG_ClTcZbb3LXIuopz6niG86gO1uuYBfuz3Mq9303uuLUNxwOWej-r35637_oQepbmlaUi6fgQUmtLqqH92XpC9DjRRfgUomRT1bZH5?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![アインハンダー - 鋼鉄の国の人だもの](https://images.openai.com/static-rsc-4/jG_o-RKrpYdv5mFVftjwaileSqSX1OhIjDfFeNeISQ-K1m3lz2bJ1AjItw4c8lzbbbRIlnRUnsTgUkBKuRv2GoZXW3u42tgx7hmq-NUgpyP1f-J7m-6FCfS2WCjBgYxY9CHSVwOn8jVwId8v-ZpUFF-fwHHu127PI8hAWTOqFDxS1-h3OsIF0fcIY8TeoDtJ?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+The game has seven stages, and each stage has a different environmental identity.
+
+More importantly, the stages change the way the player encounters enemies.
+
+| Stage | Environmental identity                 | Gameplay emphasis                            |
+| ----- | -------------------------------------- | -------------------------------------------- |
+| 1     | Gesetz metropolis                      | Urban combat, signs, alternate routes        |
+| 2     | Badlands and train                     | Pursuit and destructible train components    |
+| 3     | Industrial facilities                  | Mechanical encounters and elevator sequences |
+| 4     | Underwater reactor                     | Submarine, reactor, alternate route          |
+| 5     | Military territory                     | More complicated multi-directional combat    |
+| 6     | Space and launch infrastructure        | Large-scale mechanical encounter             |
+| 7     | Final military and space confrontation | Final campaign and boss sequence             |
+
+The important lesson is that the level designer is not merely changing the background image.
+
+Each environment supplies different combat opportunities.
+
+### 7.1 Stage scripting
+
+Think of every stage as a sequence of encounter segments.
+
+```text
+STAGE_01
+    LoadEnvironment
+    SpawnInitialFormation
+    TriggerEnvironmentalEvent
+    SpawnWeaponCarrier
+    TriggerMidboss
+    EvaluateSecretObjectives
+    BranchToAlternateSection
+    TriggerFinalBoss
+    CalculateStageScore
+    SaveProgress
+    TransitionToNextStage
+```
+
+This is a useful architecture because it makes the stage repeatable and controllable.
+
+The designer can decide exactly when an enemy appears, how long the player has to respond, what happens when a particular structure is destroyed, and when the next encounter begins.
+
+### 7.2 The S Bonus system: hidden objectives inside the environment
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/s2H9bMsb6RrsFT7AJ-fmyIu6mb_b7UhxhpGNMvnF5Ot93gwm51BFi1pjuUrU0hA-FFNtmlM42gjzmT6Z19Z1a--2X6CAi6aaVTKWA5jkU5SkXJrplBqBGFK5_mV-b_0Sz3hahXWY4v9vLeijFe0txBENosaW_q1ClnlZcrkpfZFns2Pw5L8itTUR8tACATdD?purpose=fullsize)
+
+There are 21 S Bonuses across the seven stages.
+
+These are not simply hidden collectibles placed in corners.
+
+Many require the player to perform a specific action:
+
+* Destroy environmental objects.
+
+* Eliminate enemies within a time window.
+
+* Destroy particular mechanical components.
+
+* Preserve certain targets.
+
+* Follow an alternative route.
+
+* Complete a particular sequence during a boss encounter.
+
+Some can change the route or affect subsequent encounters, reveal special weapons, or change the appearance of a boss.
+
+For example, the first stage can open an alternate undercity sequence. Stage 4 has a secret objective that damages the upcoming boss. Fandom +1
+
+This is excellent level design because the game rewards players who understand the environment rather than merely surviving it.
+
+### The underlying implementation
+
+A modern version could use objective triggers:
+
+```text
+SecretObjective:
+    objective_id
+    stage_id
+    trigger_conditions[]
+    time_limit
+    completion_state
+    score_reward
+    world_consequence
+    unlock_reward
+```
+
+For example:
+
+```text
+OBJECTIVE_STAGE_01_03
+
+Condition:
+    Destroy_midboss_lower_component
+
+Consequences:
+    Unlock_alternate_route
+    Change_boss_variant
+    Award_S_bonus
+```
+
+The level does not have to be entirely linear.
+
+It can contain controlled branches based on player performance.
+
+### 8\. The scoring system: rewarding skill rather than survival alone
+
+This is one of the most interesting systems in the game.
+
+Einhänder rewards players for attacking effectively, maintaining offensive pressure, collecting weapons, and destroying enemy components.
+
+The manual documents a Hit Gauge and multiplier system. gamesurge.com
+
+### 8.1 Hit Gauge
+
+The gauge increases through successful destruction of enemy components.
+
+Destroying enemy cores and the individual components of larger enemies contributes to the gauge.
+
+Using Gunpods can award additional gauge progress.
+
+This creates an incentive to use the weapons acquired from enemies rather than relying exclusively on the basic machine gun.
+
+### 8.2 Multipliers
+
+As the gauge fills, the player's score multiplier increases.
+
+The multiplier can reach 16x.
+
+If the player maintains a sufficiently aggressive attack sequence, the multiplier remains valuable. If the player stops destroying targets, it begins to fall.
+
+At maximum, the game provides a special scoring opportunity.
+
+This means that the player is rewarded for maintaining momentum.
+
+It is an elegant way to make offensive performance a resource.
+
+### 8.3 Stage-end score evaluation
+
+The game also evaluates:
+
+* Number of enemies destroyed.
+
+* Gunpods collected.
+
+* Boss completion time.
+
+* Remaining fighters.
+
+The manual documents 500 points per fighter shot down, 500 points per Gunpod acquired, and a boss-time bonus that rewards rapid completion. gamesurge.com
+
+The result is a game with two simultaneous objectives:
+
+* Complete the stage.
+
+* Complete the stage exceptionally well.
+
+That distinction creates replayability.
+
+### 9\. Difficulty, failure, persistence, and progression
+
+Einhänder is designed around repeated attempts.
+
+Its difficulty is not just about enemies having large health pools.
+
+It is about learning:
+
+* Enemy attack patterns.
+
+* Projectile timing.
+
+* Boss weaknesses.
+
+* Environmental hazards.
+
+* Weapon positioning.
+
+* Which Gunpods are best for specific encounters.
+
+* Which secret objectives are worth pursuing.
+
+The player can lose a life and resume from a checkpoint rather than restarting the entire stage.
+
+The game also tracks collected weapons and player results through its save system.
+
+The manual confirms Memory Card data for configuration, battle results, and collected Gunpods. gamesurge.com
+
+### Why the weapon persistence matters
+
+This creates a progression system without a conventional experience-point economy.
+
+The player develops a collection of available weapons through play.
+
+Their future starting options expand as they discover more of the weapon ecosystem.
+
+That is an important alternative to conventional RPG progression.
+
+The player becomes more capable because they understand the game and have accumulated equipment, not simply because they have increased a character level.
+
+### 10\. Aesthetic architecture: why Einhänder looks and feels so distinctive
+
+![Einhänder (1998) | Grouvee](https://images.openai.com/static-rsc-4/EdERvJzzaWLVXCSwCWReqV0T3CxFj3sNuboRwGoVYyBSDtEBo1x3vyuZSpCFDSBeM3JN8OC54-S4nVoDJ7SYKCydhTS7vWox26bisBD5LdDamst-KFxjV6ZUheGdpTZqqkr1fVo5d9uZXLmnoqlWp0qDgUckcswJIJjlMFIlVaYYuUuKKna5FGoZOD_tybYx?purpose=fullsize)
+
+![Einhander - A Shooter Universally Adored but Cruelly Ignored | Lost Nostalgia](https://images.openai.com/static-rsc-4/-AsAgkH_RkIi1GGF7yLkl1U_VcJysollXBwjdMUqV4wzw8E31-vaBdZEzvNcYj7Y_G9QFE5PwisC2xoitz-_grCsQNvsSwqfse_c7k4dVk2i_2Zp4tdxA-H2MQ3P4FhEaDrwH8oJHkzod-AFMOH-wmXS3alpFyg6u1dZsgv_peOzOZu3OoThdtYTXVfSv_Mz?purpose=fullsize)
+
+![アインハンダー（ゲーム）のネタバレ解説・考察まとめ (4/7) - RENOTE \[リノート\]](https://images.openai.com/static-rsc-4/TPNTlLwgzo2PC0P49zdy2eQ0aNuecft2pm2ewbbHoPHrZ_4l9-7PONbsNZJPgwelhahnJAKeHnDnIFXjbS-NUjT9Ipvsjfh7Mgihyog5eXkquXXRmtCXUgDpO9VLEj-l4ART12vqLEK9eAV0kzBL_EtZvIHnWRxBPHyCSzZuyUql9BAQ7RlCL87Dx_qJCulw?purpose=fullsize)
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![25 Best PS1 Games of All Time | GamesRadar+](https://images.openai.com/static-rsc-4/0H0Qg6uNNRTVfzUdwupMPkUpd-FykRe1rce4bGoP2AxgIGz32AAG-tADyNcjVfNehIojVsWMASSLhpFqXx7lfF3qHvP2agY6QVzB_Is7l-mFiJUHSOZWn2OoyRRVuqQchQhKKkUajAwYQmfQ2_2SfmW1_mIpR-hk0-73l3JAHEBH7ZhTpTkz_BttwEFyGQoY?purpose=fullsize)
+
+![RTTP: Einhänder | NeoGAF](https://images.openai.com/static-rsc-4/ELXDvAeUBYkCYTxyDid7O8GPhjXnVc226jtAg-GxuxtINKBo4KDgTF-vaGs7Olz3KjaSKpM826zjWVt2bDKCv5Woam9WJ7Y0Xz6lrBTnhlwYCQdp-YvNAAtTUiJa7C6jZtkxm2wc-kZydzbIiTBEEe19QLg6zNvNjK41IdH2GNoesUHVq0jR7D9N2O4viz_x?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/rH-LtW-8gvGMPKY3r4hD-UpjvkKCnenlwb1wID-Y7WSogMZP7nwd8l6Kn8FgPwmN9UOZRTz4BEEa_tRnObU07xLOx-Zt2RKf6pwtku9EeH_m24SVzaZJhniEdkHeYpC2KQRqS2Jn07r0TF5AbGuyhcfBpiBqMejZMBePeXeRShJUOSIT_xltWFL0h0PUqg60?purpose=fullsize)
+
+![【評価：AA】『アインハンダー』死んでも死んでも上手くなりたいこの気持ち｜のびのびおじさんのゲームべや](https://images.openai.com/static-rsc-4/7-y1ehLronWLFEPFGGynZAxCEO_PSDB18Ppa2NyisWIz2FXbkThahscwEFAj2ZwVcYAv3YbXFBlNnd5w8gdCxnbWBcirrI9Q4SBEeAedjyYenC2yQzt0YP96oyP4AezH1nXMQgzL3nof4XstG6wffWaSQ_z9sFiw62WMR-9SBuXAN59Jm3vU0O15G-7lHDZk?purpose=fullsize)
+
+![Retro Review: Einhänder – The Longform Vault](https://images.openai.com/static-rsc-4/ouw1M9AqWTQO5PhMruIXLQWG-ZaTMBIkJLgM0gBqpTwSBo_bved_v5HHO2uI2FmdD0OU-_tuLODgHgYFewETXcGaS3vxtuEj2F49lV-IW2dJADzcBhL99jKwMtcI2zxgGOZti0m-aEO9bdKIUaznOkmJ21_BIf79g-6ecyY8POUEdOyl5cBBmLUwnrW_FDk1?purpose=fullsize)
+
+The game's visual identity is not generic futuristic science fiction.
+
+It is industrial military science fiction.
+
+There is a consistent visual language:
+
+* Heavy machinery.
+
+* Dense mechanical assemblies.
+
+* Large industrial structures.
+
+* Military aircraft.
+
+* Armored vehicles.
+
+* Weapon platforms.
+
+* Exposed engines.
+
+* Complex mechanical silhouettes.
+
+* A dark, heavily industrialized atmosphere.
+
+### 10.1 Mechanical silhouette design
+
+A ship should be identifiable from its outline before the player sees its smaller details.
+
+Einhänder's ships and enemies benefit from distinct proportions and mechanical profiles.
+
+For example:
+
+* A heavy enemy looks heavy.
+
+* A fast fighter has a different silhouette.
+
+* A weapon carrier has a recognizable weapon assembly.
+
+* A boss looks like a major mechanical structure, not merely an enlarged fighter.
+
+This is essential for readability.
+
+At high speed, the player cannot inspect every model.
+
+The silhouette must communicate its role almost immediately.
+
+### 10.2 Materials and environmental design
+
+The industrial identity comes from the combination of:
+
+* Metallic surfaces.
+
+* Hard mechanical edges.
+
+* Mechanical articulation.
+
+* Large structural forms.
+
+* Repeated industrial geometry.
+
+* Contrasting environmental lighting.
+
+It also creates a believable relationship between the player, the enemies, and the surrounding world.
+
+The spacecraft look like products of the same military-industrial ecosystem as the factories and weapons facilities they inhabit.
+
+### 10.3 Cinematic presentation
+
+Einhänder uses real-time gameplay alongside prerendered cinematic sequences.
+
+The distinction matters.
+
+Real-time 3D rendering handles the actual combat experience, while prerendered sequences deliver particular narrative moments.
+
+The credits explicitly distinguish the game team from Omnibus Japan's CG production personnel. Staff Credits
+
+This allowed Square to pursue cinematic visual complexity without requiring every cinematic scene to be rendered by the same real-time pipeline.
+
+### 10.4 Audio architecture
+
+Kenichiro Fukui composed the music, with Yohei Kishimoto credited for sound programming.
+
+The game combines:
+
+* Stage-specific music.
+
+* Boss themes.
+
+* Mechanical sound effects.
+
+* Weapon firing sounds.
+
+* Explosion effects.
+
+* Radio-style mission communication.
+
+* Character voice performances.
+
+The sound design is also part of the combat feedback.
+
+A weapon should sound different from another weapon. A mechanical component should sound different when damaged. A boss attack should communicate its threat.
+
+The player should not have to depend entirely on the visual display to understand what is happening.
+
+### 11\. How the original PlayStation hardware influenced the design
+
+To understand how Square put the game together, we have to appreciate the limitations of the original PlayStation.
+
+The console had a very different development environment from modern gaming hardware.
+
+Developers had to manage:
+
+* A relatively small working memory.
+
+* Limited texture memory.
+
+* Fixed-function graphics hardware.
+
+* Polygon processing and rendering budgets.
+
+* CD-ROM loading constraints.
+
+* Limited audio memory and streaming resources.
+
+* CPU time shared between gameplay, animation, collision, and rendering.
+
+Square's developers could not simply render an unlimited number of detailed objects.
+
+They had to decide which objects deserved processing time and which objects could be simplified.
+
+### 11.1 Likely rendering pipeline
+
+The following is a reconstruction of a conventional PlayStation-era rendering architecture, not a verified diagram of Einhänder's original source code.
+
+### PlayStation-era rendering pipeline
+
+Game simulation
+
+Player, enemies, weapons, collisions, stage events
+
+Transformation and geometry
+
+Object positions, rotations, camera transforms
+
+Polygon and texture preparation
+
+Geometry, materials, texture coordinates, depth ordering
+
+GPU rendering
+
+Polygons, textured surfaces, sprites, effects
+
+Frame presentation
+
+Display, HUD, animation and visual feedback
+
+A particularly important technique from this era was ordering rendered primitives so that overlapping geometry appeared correctly.
+
+The PlayStation's graphics architecture also encouraged careful use of sprites, polygons, textures, and effects.
+
+This helps explain why Einhänder can combine three-dimensional mechanical models with sprite-based visual elements.
+
+The developers did not have to make every visual effect a fully modeled object.
+
+The takeaway: Einhänder's visual sophistication came from a coordinated rendering strategy, not simply from having 3D models.
+
+We should not assume that the original game used a particular modern rendering technique, shader, physics engine, or middleware package. Its complete original source code and engine implementation are not established by the public documentation examined here.
+
+### 12\. What makes Einhänder different from other shoot-'em-ups?
+
+I would identify seven particularly important design decisions.
+
+| Design decision                   | Why it matters                                 |
+| --------------------------------- | ---------------------------------------------- |
+| Constrained 2D combat in 3D space | Preserves precision while creating depth       |
+| Physical weapon acquisition       | Makes enemy destruction strategically valuable |
+| Modular weapons                   | Creates meaningful combat variety              |
+| Component-based enemies           | Introduces tactical targeting                  |
+| Scripted environmental encounters | Makes every level memorable                    |
+| Hidden objectives                 | Rewards mastery and exploration                |
+| Performance-based scoring         | Encourages replay and skill development        |
+
+There is a common thread connecting all seven.
+
+The systems reinforce each other.
+
+The weapon system encourages targeting enemy components. Component destruction creates opportunities for weapon collection. Weapon collection changes combat capabilities. Combat performance affects scoring and hidden objectives. Hidden objectives can alter the level and unlock more opportunities.
+
+This is why Einhänder feels like a complete game rather than a collection of independent mechanics.
+
+### 13\. The most important part: what we should take from Einhänder for WFM
+
+Now I want to separate inspiration from actual implementation.
+
+Your WFM project has a fundamentally different ambition.
+
+Einhänder is a seven-stage, side-scrolling shooter with controlled progression.
+
+WFM is intended to be a persistent, multiplayer, three-dimensional orbital universe with free-flight exploration, military fleets, player cooperation, large-scale battles, and a continuous world.
+
+We should not turn WFM into a side-scrolling shooter.
+
+We should study Einhänder's underlying systems and evolve their principles into a much larger architecture.
+
+And importantly, this should happen inside the existing Orbital Combat Lab/Orbital Engine runtime, which is the designated main game runtime for WFM.
+
+We should not introduce Three.js as a replacement game runtime.
+
+### 13.1 The first major opportunity: an advanced modular weapon ecosystem
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+Einhänder's Gunpod system is one of the strongest systems we could evolve.
+
+Imagine translating it into WFM.
+
+Instead of simply collecting a weapon and replacing another weapon, pilots could interact with an actual military equipment ecosystem.
+
+Ships would have different hardpoints.
+
+Each hardpoint would support compatible equipment.
+
+Equipment would have its own:
+
+* Damage output.
+
+* Ammunition.
+
+* Firing rate.
+
+* Range.
+
+* Projectile velocity.
+
+* Tracking capabilities.
+
+* Lock-on behavior.
+
+* Reload time.
+
+* Heat generation.
+
+* Durability.
+
+* Energy consumption.
+
+* Mounting restrictions.
+
+### Proposed WFM weapon architecture
+
+### Modular military weapon architecture
+
+![Killswitch Concept Combat Aircraft Part 6 :: Behance](https://images.openai.com/static-rsc-4/MMRqMZfNTnOFMNyK8s1NWl0WMI6eGhPwoxLc4JMeSf1AfSHwBt6IoMdaOHUtyz4ChhuM6kaMPMIyu-d3VWL4kIIZL5feDKnU-F1IHfog0vSfuuE8CpLlZyH6j0EwPEDDJULH7u7w90NTJVoZ7YkcTq5_spsxyYDyHxGR7YCNPHoUPsUKyAArzHlzH9BV994S?purpose=fullsize)
+
+Primary hardpoints
+
+Cannons, machine guns, railguns, autocannons
+
+Secondary hardpoints
+
+Missiles, torpedoes, guided rockets
+
+Special hardpoints
+
+Energy weapons, EMP, heavy ordnance
+
+Defensive hardpoints
+
+Flare launchers, countermeasures, defensive systems
+
+Additional equipment
+
+* Sensor and targeting packages.
+
+* Electronic warfare equipment.
+
+* Shield generators.
+
+* Armor modules.
+
+* Auxiliary power systems.
+
+* Fleet communication systems.
+
+A pilot could destroy an enemy weapons platform, recover an equipment package, and use it to improve their own ship.
+
+However, there should be compatibility rules.
+
+A small fighter cannot automatically equip a capital-class cannon.
+
+A heavy cruiser should not use the same equipment limits as a reconnaissance fighter.
+
+This is how we preserve the military character of the universe.
+
+### 13.2 The second opportunity: component-based ship destruction
+
+Einhänder demonstrates why component destruction is more interesting than a single health bar.
+
+WFM should expand this into full ship subsystem simulation.
+
+![STAR CONFLICT — MMO SPACE ACTION - Game guide](https://images.openai.com/static-rsc-4/3YSJp4O6NOaeVyWMHkW0hadgI7B8ny_42q9UgZVFixF3k-IBczUpfd-Pghro--MtQvbYpBxsCzSDI8T74PuiBLQXSX_qL8uB7cXLmy5ZubDEdWBu3c-BQlA9uzlMWGrkGgTSom6o-7XJWt4lMcVe2a95XiU-C6Fxdz_uM70-d0GUzGQUwpzIZCgbagLXBmO_?purpose=fullsize)
+
+Consider an Accord destroyer.
+
+Instead of simply reducing its health from 100% to zero, the battle could involve:
+
+| Subsystem         | Battlefield consequence         |
+| ----------------- | ------------------------------- |
+| Engines           | Reduced maneuverability         |
+| Main weapons      | Reduced offensive capability    |
+| Missile launchers | Loss of missile attacks         |
+| Shields           | Reduced defensive protection    |
+| Sensors           | Reduced detection and targeting |
+| Communications    | Reduced fleet coordination      |
+| Reactor           | Reduced available power         |
+| Command bridge    | Loss of command capability      |
+
+Now consider what this does to multiplayer.
+
+A player could attack the enemy's engines to prevent its escape.
+
+Another pilot could target its missile launchers.
+
+A third could attack its shields.
+
+An allied AI wing could concentrate fire on the exposed reactor.
+
+The result is a coordinated military engagement rather than several players shooting at one giant health bar.
+
+There should also be a distinction between subsystem damage and complete ship destruction.
+
+A damaged enemy might:
+
+* Retreat.
+
+* Lose propulsion.
+
+* Surrender.
+
+* Attempt an emergency jump.
+
+* Request assistance.
+
+* Continue fighting with reduced capabilities.
+
+* Be boarded or captured if the game supports that gameplay.
+
+These become new gameplay opportunities.
+
+### 13.3 The third opportunity: living enemy formations
+
+![THE LAST EMBER | Devpost](https://images.openai.com/static-rsc-4/kRlVO1QIAcvSGoJQ-40imJTk3-Xe0IMg2UYxzhQQDV_NDQA0RT_2JMdwcwJT04q32A3nNXPbBGrdBvjFnZ7P_m6Opnw-pGRExQNgC1lWtBYmBDp0MjLXIHXeeHr6yKTzi3SxuS1ykL5PoAEKQcDPxOh9-Wsfzx7nr_1HPdgSZ4BuP5KO6agAF_3pGD0XQIu0?purpose=fullsize)
+
+![Strike Suit Zero - MacGameStore](https://images.openai.com/static-rsc-4/o_vj2MciqrwAZDjqG9E8eltNbO-Nq22iGknmqgJx_GJTXgd7N8WBpphOwtGjsyDt10juGEXqrDZumR3wmiEvH8kPAomZT6Ln4rvnv5fUeR2Ov00nudXMewja88pf1Dda8Ten3WDhVUuBST_xLoedY0gjRRXHH4ZLWLUm_ssXrkgKTXMswpb3VIIR5TYM5MzL?purpose=fullsize)
+
+![宇宙戦略モバイルゲーム「インフィニット ラグランジュ」が発表！事前登録受付が開始 | Gamer](https://images.openai.com/static-rsc-4/-dlaG4WYcLhm9ueXNF22-1uPbiutUQe4Z4hhtRakBwkFQvttT-KWiQDaHcHKivQMLEogH9wARubVMyYY9z3-0ZW_oIDHjMbH4YR4IZNPbhgq6dMDp68PHfZPOu9tmlvHzIC7cAIqOuz7RXZlMJ9dljikbOdJpfgsvQRNq00uTmApRrTU34YosfaWtshlLgxI?purpose=fullsize)
+
+![Wave Management in Unity Game Development: Managing Enemy Waves | by Brian David | Medium](https://images.openai.com/static-rsc-4/Cj3aQUFPdus1fRpUzKR6Oj2p7r5rWgr1VbPPS73xNvA6mLiEbwS_S0Na_nZKBo_dNE3E5v4WgD0crlogLuKaeV_l2irrEdVKnVQt0LEdx9J2C193SzzJPVz4hg-qPw8tGWy5PnkL2-XXjz4N-cJWi_17fxlcTqX_dwbfAbubJtcwPo5bz6RCBPOHcCyzOvvW?purpose=fullsize)
+
+![XenoThreat Returns - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/3phGzFVnPCCC5UoAaZsXtkUxzigAPvI0qdNYs0lLlpwlSNEpSXNROfuexSOfPqcu9-c_SaG6cRGNhfKJM9zr2xoJrjsCn9P44JVpO9szZmrF2GT35tujT9znhYyKotI8lG6yNssMGwTuriMGHiP9Q5A3bJ4sJbyrHGo4_IYX4y63BRDGqOmyarZUDnudIQXn?purpose=fullsize)
+
+![Nova: Space Armada on Steam](https://images.openai.com/static-rsc-4/NJIE-8COM9vHeVG-OK4TxiRsbjwAEmg89jBKWTQRJdCpKrfK5gQOKCIJD9qrWP_Jf8MJGDNPKTJkat3pZMOZDOEd4KRWHfAEfh2KqBikfhWsfPXoKjBlrgM_R_c9Pty7m8KxyxM2bNhhUtKXGNwFvEAaNtbPEEN8RjwSnlZKgBLRhwkO7YXRxHySnFYTDPuv?purpose=fullsize)
+
+![10 лучших игр про космос на Android — Respawn Media](https://images.openai.com/static-rsc-4/YB2O2Ubhz27XO9zvQb3dbYIkzIKLD6epCs_Y9aH6JhzalFY6ZjchzXru1uXfqC_bcFa_e7Yy_zPH7FsPbmH6Fes2yxYvqXb-j4sTMEn6qgmbb6atHcf9_BXaieMpqchXGIb_hyn5i_xtEIaUTXNslnZpe7lnEuNqC8asae3nxNQCrV2eKzVxBCRozfmvDJ16?purpose=fullsize)
+
+![Void Crew](https://images.openai.com/static-rsc-4/lPzeCR7GpJTzr1l_-WvFjnp3aXkNr4U9RhE62MF8xMVWe2UZkVUDc2-AFJ5G9vZrxnfc9M5t-w0vqozNYxWSDVnjHHMdFAqHtZ0K28RxdosC_GTwU1aY66jipAkyTebIq9rTIy4_RWSJqOUNbNcWyQyNUOSZsFzdSwxMwTAdmXmy5R850AmqlBssWZZaGHeO?purpose=fullsize)
+
+![EVE Fleet Doctrines: Logi/DPS/Tackle Compositions | Guild Order](https://images.openai.com/static-rsc-4/3FHgMshCSiJdm_ZECos3bg2c6vbJLg_PclBjtujmYciuu0GvmwUlZnXzOfnZ8MI06_s-IezWMLU8kYVg_lR0nyoBkNHchddzs-QX-rOKdh5kVWg9pNZrWjnsONb7xOttOanCm61aYhItfbbK8utr3N3XYZjHq_UCiEM2cIMAlO6OOZwfj5ObivnPYyeW_yCC?purpose=fullsize)
+
+![Deep Blue Firefight image - Operation: HOMEFRONT mod for Homeworld: Remastered - ModDB](https://images.openai.com/static-rsc-4/E6e0mtK8sujllEZ35aXarDEB0OEQ4DMXrebeEZn7swreClEOitPFN-wpGnFtJXYHbw9UR3_omo2w7m7yuSWwaHPda4cbvhFkQPXXytX6PjlvxHIGlsypYA6ojk4Q6_0aGt0ZElAb0rOHDF6Yuc6GTc4nmG5EmNBEC4dN4fMLHvMCsLAUUGLzefXEb5m6qS6h?purpose=fullsize)
+
+Einhänder's scripted formations are an excellent starting point for understanding how to compose an encounter.
+
+But WFM should take that concept further.
+
+Instead of a formation existing only for one scripted stage sequence, fleets should exist as persistent world entities.
+
+Consider an Accord patrol fleet.
+
+It has:
+
+* A fleet commander.
+
+* A command vessel.
+
+* Escort ships.
+
+* Interceptor squadrons.
+
+* Missile platforms.
+
+* Reconnaissance units.
+
+* Patrol objectives.
+
+* A defined territory.
+
+* An active mission.
+
+The fleet should have its own operational state.
+
+```text
+Fleet
+    faction
+    fleet_id
+    commander_id
+    territory_id
+
+    ships[]
+    formations[]
+    patrol_route
+
+    current_mission
+    threat_level
+
+    detection_state
+    combat_state
+
+    reinforcements
+    retreat_conditions
+```
+
+This would allow the universe to produce encounters organically.
+
+A pilot could encounter an enemy patrol, engage it, and receive support from other nearby authenticated pilots.
+
+Allied AI units could join the engagement based on fleet assignments, threat levels, and available resources.
+
+That is the difference between a static enemy spawn and a living military universe.
+
+### 13.4 The fourth opportunity: Einhänder-style encounter design inside a 3D universe
+
+The most valuable thing to borrow from Einhänder is not its scrolling.
+
+It is its encounter composition.
+
+A WFM encounter could have:
+
+* A distant enemy formation detected by sensors.
+
+* A reconnaissance unit approaching the pilot.
+
+* An escort formation moving into defensive positions.
+
+* A heavy enemy vessel entering the engagement.
+
+* Enemy weapons targeting the pilot.
+
+* Allied pilots arriving to assist.
+
+* Allied AI units joining the fight.
+
+* Enemy reinforcements arriving.
+
+* The command vessel becoming exposed.
+
+* The surviving enemy fleet retreating or being destroyed.
+
+Every battle would have a beginning, middle, and conclusion.
+
+But unlike Einhänder, the pilot would have freedom to move throughout the three-dimensional battlefield.
+
+This is how we preserve the strengths of the original design while expanding the experience.
+
+### 14\. The architectural translation: Einhänder versus WFM
+
+This is the comparison I would use to guide the development team.
+
+| Einhänder system        | WFM evolution                             |
+| ----------------------- | ----------------------------------------- |
+| 2D combat plane         | Full 3D six-degree-of-freedom flight      |
+| Scripted scrolling      | Persistent spatial universe               |
+| Fixed camera            | Independent orbital camera                |
+| Gunpod attachment       | Modular weapon hardpoints                 |
+| Limited weapon storage  | Ship loadout and equipment inventory      |
+| Component-based enemies | Persistent ship subsystem damage          |
+| Scripted formations     | Server-authoritative fleet formations     |
+| Midboss encounters      | Dynamic fleet engagements                 |
+| Seven fixed stages      | Continuous exploration and operations     |
+| S Bonuses               | Hidden missions and world discoveries     |
+| Score multiplier        | Combat performance and mission rewards    |
+| Checkpoints             | Persistent player and mission progression |
+| Stage-end results       | Persistent campaign consequences          |
+
+This should not be interpreted as a requirement to reproduce all the original mechanics literally.
+
+It is a design translation.
+
+### 15\. How I would organize the modern implementation
+
+I would organize the systems into eight major development domains.
+
+### Proposed WFM Orbital combat architecture
+
+Orbital Combat Runtime
+
+Single authoritative player-facing game runtime
+
+Flight System
+
+Physics, thrust, orientation, movement, collision
+
+Combat System
+
+Weapons, projectiles, targeting, damage
+
+Ship System
+
+Hardpoints, modules, subsystems, durability
+
+AI System
+
+Behavior, formations, patrols, tactical decisions
+
+Fleet System
+
+Fleet commands, reinforcement, territory, operations
+
+Encounter System
+
+Battle orchestration, boss phases, objectives
+
+Universe System
+
+Streaming, persistence, locations, world events
+
+Progression System
+
+Rewards, unlocks, records, mission outcomes
+
+Shared Multiplayer Authority
+
+Server validation, synchronized state, persistent world records, fleet and pilot presence
+
+Proposed target architecture, not a claim that all these modules currently exist in WFM.
+
+One critical rule: the client should not be allowed to independently declare authoritative combat results.
+
+For example:
+
+* The client requests a weapon firing action.
+
+* The server validates the weapon, ammunition, cooldown, and firing state.
+
+* The combat simulation determines valid damage.
+
+* The server distributes the resulting state.
+
+* Persistent records capture the outcome.
+
+That becomes particularly important when multiple players and AI units engage the same fleet.
+
+We must also distinguish between visual simulation and authoritative simulation.
+
+A distant fleet might be represented by simplified movement and tactical state. Once pilots approach, the encounter can transition into detailed simulation.
+
+This preserves the possibility of a large universe without requiring every ship to run full combat physics at all times.
+
+### 16\. What we should not copy from Einhänder
+
+There are limitations that become important when designing WFM.
+
+| Original limitation            | Why WFM should differ                         |
+| ------------------------------ | --------------------------------------------- |
+| Fixed horizontal movement      | WFM requires full 3D flight                   |
+| Mostly scripted encounters     | WFM needs persistent and dynamic encounters   |
+| Limited player interaction     | WFM requires multiplayer coordination         |
+| Finite stages                  | WFM needs a continuous universe               |
+| Limited weapon inventory       | WFM needs broader military customization      |
+| Single-player enemy logic      | WFM needs synchronized AI and player behavior |
+| Predetermined enemy appearance | WFM needs persistent fleet operations         |
+
+We should also resist copying the visual limitations of 1997.
+
+WFM can retain the industrial military art direction, powerful silhouettes, readable weapon behavior, and cinematic boss composition while using modern 3D models, lighting, animation, effects, and rendering.
+
+### 17\. My forensic conclusions
+
+Strong design reference
+
+Einhänder is worth studying because it solves several difficult game-design problems elegantly.
+
+First: it makes weapons part of the world.
+
+Weapons are not merely menu selections. They are physical objects carried by enemies, acquired through combat, and attached to the player's spacecraft.
+
+Second: it makes enemies mechanically interesting.
+
+The enemy's components have individual purposes. The player can make tactical decisions about what to destroy.
+
+Third: it makes the environment participate in combat.
+
+The train, factory, city, reactor, and other environments are not just backgrounds.
+
+Fourth: it creates memorable encounters through controlled orchestration.
+
+The game uses formation behavior, environmental timing, enemy placement, and boss phases to create dramatic battles.
+
+Fifth: it rewards understanding.
+
+Players become better by learning the relationships between movement, weapons, enemies, environments, and objectives.
+
+Sixth: it maintains a coherent aesthetic.
+
+The ships, enemies, environments, weapons, sound effects, and music belong to the same industrial military science-fiction world.
+
+### 18\. What I would actually build from this research
+
+I would establish an internal development initiative called:
+
+### EINHÄNDER → ORBITAL COMBAT SYSTEMS
+
+Proposed WFM design initiative
+
+![Sins of a Solar Empire 2 gets a massive diplomacy overhaul that makes wars 'economically ruinous'](https://images.openai.com/static-rsc-4/UZ5ScjLmywVpLZZxU0UavkPrKhaVEginuiGUSdj5XcafOCSZCjpYdDjibtQIJEkY165AMzHywH0WRD-wiIGHJjrjFT4_yuIn6QDVDncX3KUIrxZ2AiyvyFS8ijaUhSi3af0fBxOlEvzs5VTXB0badKCdDgXQLNhiRtUjOgRMF1sVKqeXa_-_OuHtRQ-qk_9S?purpose=fullsize)
+
+Objective
+
+Extract and modernize the best combat, weapons, enemy, encounter, and environmental design principles from Einhänder into WFM's Orbital Engine.
+
+Five major deliverables
+
+* Modular Armament: Interchangeable weapon hardpoints, ammunition, damage, and weapon behavior.
+
+* Destructible Military Vessels: Independently simulated ship subsystems and tactical destruction.
+
+* Living Enemy Fleets: Persistent faction formations, patrol routes, commanders, and reinforcements.
+
+* Dynamic Combat Encounters: Multi-phase battles, tactical objectives, bosses, and environmental interactions.
+
+* Cinematic Battlefield Presentation: High-quality mechanical animation, readable combat effects, camera choreography, and audio.
+
+### Recommended implementation order
+
+I would not attempt to build all five systems simultaneously.
+
+| Priority | Development phase                 | Verification requirement                                           |
+| -------- | --------------------------------- | ------------------------------------------------------------------ |
+| 1        | Weapon and hardpoint foundation   | Weapons mount, fire, consume ammunition, and deal validated damage |
+| 2        | Ship subsystem destruction        | Individual components produce correct functional consequences      |
+| 3        | Enemy combat behavior             | Enemies make meaningful tactical decisions                         |
+| 4        | Fleet formations and coordination | Ships operate as coherent military units                           |
+| 5        | Multiplayer battle orchestration  | Players and allied AI can join the same engagement                 |
+| 6        | Persistent encounters             | Battle outcomes survive disconnects and server restarts            |
+| 7        | Cinematic presentation            | Battles remain readable and visually convincing                    |
+
+One additional requirement is particularly important: performance must be measured with multiple simultaneous fleets, not just one enemy and one player.
+
+The original game was designed around a tightly controlled encounter. WFM must prove that the same level of combat readability and tactical depth survives at multiplayer-universe scale.
+
+### Final perspective
+
+I would describe Einhänder as a masterclass in combat-system composition.
+
+Its greatest achievement isn't simply its 3D graphics, its ships, or its weapons.
+
+It is the way its systems work together.
+
+The weapon system influences enemy targeting. Enemy targeting influences encounter design. Encounter design influences level progression. Level progression influences scoring and unlocks. And the entire experience is supported by a consistent visual and audio identity.
+
+That is the architectural lesson worth carrying forward.
+
+For WFM, I would take that foundation and evolve it into something much larger: a persistent military space universe where every ship has a purpose, every weapon has tactical meaning, every fleet has an operational identity, and every engagement can develop into a multiplayer battle with lasting consequences.
+
+Einhänder gives us an excellent reference for designing the individual battle. WFM's challenge is to make those battles part of one continuously living universe.
+
+### Research references
+
+These are the most useful primary and supporting references for further investigation:
+
+* [Square Enix retrospective interview with Yoji Fujito](https://we-are-vanadiel.finalfantasyxi.com/post/?id=445&lang=en&utm_source=chatgpt.com) — development background and his experience working on Einhänder.
+
+* [Einhänder original manual transcription](https://www.gamesurge.com/playstation/strategy/psx_man/Ein.shtml?utm_source=chatgpt.com) — controls, ships, Gunpods, enemy components, scoring, and progression.
+
+* [Original Japanese PlayStation production credits](https://raido.moe/staff/ps1/ps1_einhander.html?utm_source=chatgpt.com) — staff and external CG production.
+
+* [GameFAQs Einhänder gameplay and ship guide](https://gamefaqs.gamespot.com/ps/197217-einhander/faqs/3839?utm_source=chatgpt.com) — weapon and ship mechanics.
+
+* [Einhänder S Bonus reference](https://einhander.fandom.com/wiki/S._Bonuses?utm_source=chatgpt.com) — hidden objectives and their consequences.
+
+* [MobyGames original game and production credits](https://www.mobygames.com/game/3656/einhander/?utm_source=chatgpt.com) — historical production information.
+
+Research qualification: This is a forensic design and technical reconstruction, not a source-code audit of Square's original executable. Claims about exact original engine internals would require executable analysis, debug symbols, or original development documentation.
+
+11
+
+11
+
+11
+
+11

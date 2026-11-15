@@ -90,7 +90,7 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
+      description: Process liveness only. Remains healthy when database connectivity or profile readiness fails.
       responses:
         "200":
           description: Healthy
@@ -102,16 +102,17 @@ paths:
     get:
       operationId: getReadiness
       tags: [health]
-      summary: Check database readiness
+      summary: Check connectivity and profile readiness separately
+      description: Read-only probes; null diagnostic values were not attempted after a prerequisite failure. Overall readiness requires all checks to pass. Missing diagnostics on older servers are not evidence of profile readiness.
       responses:
         "200":
-          description: API and database are ready
+          description: Database connectivity, intended profile schema and initialization privileges passed
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessCheckResponse"
         "503":
-          description: API is running but the database is unavailable
+          description: API is running but connectivity, profile schema or initialization privileges are not ready
           content:
             application/json:
               schema:
@@ -736,7 +737,22 @@ components:
           enum: [ready, unavailable]
         database:
           type: boolean
+          description: Whether the database connectivity probe passed, not whether profiles are ready
+        checks:
+          $ref: "#/components/schemas/ReadinessDiagnostics"
       required: [status, database]
+    ReadinessDiagnostics:
+      type: object
+      required: [databaseConnectivity, profileSchema, profileInitializationPrivileges]
+      properties:
+        databaseConnectivity:
+          type: [boolean, "null"]
+        profileSchema:
+          type: [boolean, "null"]
+          description: The intended relation resolves and all Drizzle profile columns can be selected with LIMIT 0
+        profileInitializationPrivileges:
+          type: [boolean, "null"]
+          description: Schema USAGE and INSERT privileges on every column used by profile initialization; not proof of a successful authenticated write
     GameProfile:
       type: object
       required: [credits, faction, shipId, scheme, refit, shieldMk2, prices, hold, paid, pace, mission, cleared, tech, drilled, publicLeaderboardOptIn, publicLeaderboardCallsign, revision]

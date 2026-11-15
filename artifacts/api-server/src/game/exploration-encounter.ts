@@ -1,5 +1,8 @@
 import { FREE_FLIGHT_MAX_ENCOUNTER_PILOTS } from "@workspace/orbital-sim";
 import { createHash } from "node:crypto";
+import { evaluateEnemyEquipment, validEnemyEquipment, validEnemyOutcome,
+  type EnemyEquipmentManifest, type EnemyEquipmentOutcome, type EquipmentSalvageLedger,
+  type ShipSubsystemState } from "@workspace/orbital-sim";
 import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 
 export const EXPLORATION_CONTRACT = "orbital-exploration-v1" as const;
@@ -118,6 +121,7 @@ export type ExplorationActor = {
   rewardEligible?: boolean;
   /** Persistent patrol provenance for a friendly, non-rewardable AI supporter. */
   patrolId?: string;
+  equipmentManifest?: EnemyEquipmentManifest;
 };
 export type AlliedPatrolCasualties = Readonly<{
   patrolId: string;
@@ -182,6 +186,7 @@ export type ExplorationResult = {
   patrolDestroyedActorIds?: readonly string[];
   /** Friendly AI patrol losses are durable but never count as player kills or rewards. */
   alliedPatrolCasualties?: readonly AlliedPatrolCasualties[];
+  equipmentSalvage?: EquipmentSalvageLedger;
 };
 declare const receiptBrand: unique symbol;
 export type ExplorationReceipt = Readonly<{
@@ -196,6 +201,7 @@ export type ExplorationEncounterSnapshotV1 = {
   kills: Array<[string, string[]]>;
   assists: Array<[string, number]>;
   events: Array<[string, string]>;
+  equipmentOutcomes?: EnemyEquipmentOutcome[];
   /** Actual damage state, distinct from the initial immutable roster. */
   actorHulls?: Array<[string, number]>;
   chain: string;
@@ -211,6 +217,13 @@ export type ExplorationEncounterSnapshotV1 = {
 // A serialized browser result, spread copy, or object with a matching shape
 // cannot become an authority receipt. No route accepts these objects.
 const receipts = new WeakMap<object, Readonly<ExplorationResult>>();
+function freezeEquipment<T>(value: T): T {
+  if (value && typeof value === "object") {
+    Object.freeze(value);
+    for (const child of Object.values(value)) freezeEquipment(child);
+  }
+  return value;
+}
 // PostgreSQL jsonb may reorder object properties when recovering a pinned spec.
 // Hash values, not insertion order, so a legitimate replay stays idempotent.
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value, (_key, entry) =>
@@ -251,6 +264,7 @@ export class ExplorationEncounter {
   private tick = 0;
   private receipt?: ExplorationReceipt;
   private finalization?: ExplorationEncounterSnapshotV1["finalization"];
+  private equipmentOutcomes = new Map<string, EnemyEquipmentOutcome>();
 
   constructor(spec: ExplorationEncounterSpec) {
     id(spec.encounterId); id(spec.sectorId); id(spec.rewardPolicy.id);
@@ -276,6 +290,9 @@ export class ExplorationEncounter {
     const players = new Set<string>();
     for (const actor of spec.actors) {
       id(actor.id);
+      if (actor.equipmentManifest !== undefined && (actor.playerId !== undefined || !actor.rewardEligible ||
+          !validEnemyEquipment(actor.equipmentManifest) || actor.equipmentManifest.fleetId !== spec.patrol?.patrolId))
+        throw new Error("Invalid enemy equipment authority.");
       if (this.actors.has(actor.id) || !["ussf", "accord"].includes(actor.faction) || !Number.isFinite(actor.hull) || actor.hull <= 0 || actor.hull > 1_000_000) {
         throw new Error("Invalid exploration actor.");
       }
@@ -286,7 +303,7 @@ export class ExplorationEncounter {
         this.kills.set(actor.playerId, []);
         this.assists.set(actor.playerId, 0);
       }
-      this.actors.set(actor.id, { ...actor });
+      this.actors.set(actor.id, structuredClone(actor));
     }
     if (players.size < 1 || players.size > 32) throw new Error("Invalid exploration pilot roster.");
     this.spec = structuredClone(spec);
@@ -365,6 +382,17 @@ export class ExplorationEncounter {
     }
     contract.chain = snapshot.chain;
     contract.tick = snapshot.tick;
+    if (snapshot.equipmentOutcomes !== undefined) {
+      if (!Array.isArray(snapshot.equipmentOutcomes) || snapshot.equipmentOutcomes.length > 128)
+        throw new Error("Invalid enemy equipment outcomes.");
+      for (const outcome of snapshot.equipmentOutcomes) {
+        if (!validEnemyOutcome(outcome) || contract.equipmentOutcomes.has(outcome.actorId))
+          throw new Error("Invalid enemy equipment outcome checkpoint.");
+        contract.recordEnemyEquipment(outcome.actorId, outcome.systems);
+        if (hash(contract.equipmentOutcomes.get(outcome.actorId)) !== hash(outcome))
+          throw new Error("Conflicting enemy equipment outcome.");
+      }
+    }
     if (snapshot.finalization) {
       contract.finalize(
         snapshot.finalization.finalTick,
@@ -390,6 +418,7 @@ export class ExplorationEncounter {
       kills: [...this.kills].map(([playerId, destroyed]) => [playerId, [...destroyed]]),
       assists: [...this.assists],
       events: [...this.events],
+      ...(this.equipmentOutcomes.size ? { equipmentOutcomes: structuredClone([...this.equipmentOutcomes.values()]) } : {}),
       actorHulls: [...this.actors].sort(([a], [b]) => a.localeCompare(b))
         .map(([actorId, actor]) => [actorId, actor.hull]),
       chain: this.chain,
@@ -501,6 +530,17 @@ export class ExplorationEncounter {
     return true;
   }
 
+  recordEnemyEquipment(actorId: string, systems?: ShipSubsystemState) {
+    const actor = this.actors.get(actorId);
+    if (this.receipt || !actor || actor.playerId !== undefined || actor.rewardEligible !== true ||
+        actor.hull > 0 || !actor.equipmentManifest)
+      throw new Error("Destroyed server-issued enemy required.");
+    const evidence = evaluateEnemyEquipment(actorId, actor.equipmentManifest, systems);
+    const previous = this.equipmentOutcomes.get(actorId);
+    if (previous && hash(previous) !== hash(evidence)) throw new Error("Conflicting enemy equipment destruction.");
+    this.equipmentOutcomes.set(actorId, evidence);
+  }
+
   finalize(finalTick: number, outcome: "completed" | "aborted", objectiveCompleted: boolean): ExplorationReceipt {
     integer(finalTick);
     if (this.receipt) {
@@ -522,11 +562,20 @@ export class ExplorationEncounter {
       integer(credits);
       return Object.freeze({ playerId, kills: destroyed.length, assists: this.assists.get(playerId) ?? 0, destroyedActorIds, rewardableNpcKills: npcKills, credits });
     });
+    if ([...this.actors.values()].some(actor => actor.hull <= 0 && actor.equipmentManifest &&
+        !this.equipmentOutcomes.has(actor.id))) throw new Error("Enemy equipment destruction evidence missing.");
     const content = {
       version: EXPLORATION_CONTRACT, encounterId: this.spec.encounterId,
       missionId: this.spec.missionId ?? "pale-beacons",
       sectorId: this.spec.sectorId, runtime: this.spec.runtime, policyId: policy.id,
       rewardPolicy: Object.freeze({ ...policy }),
+      ...(this.spec.actors.some(actor => actor.equipmentManifest) ? {
+        equipmentSalvage: freezeEquipment({
+          version: 2 as const,
+          actors: structuredClone([...this.equipmentOutcomes.values()].sort((a, b) => a.actorId.localeCompare(b.actorId))),
+          legacyActorIds: this.spec.actors.filter(actor => actor.rewardEligible && !actor.equipmentManifest).map(actor => actor.id).sort(),
+        }),
+      } : {}),
       ...(this.spec.patrol ? { patrol: Object.freeze({ ...this.spec.patrol }) } : {}),
       ...(this.spec.patrol ? {
         patrolDestroyedActorIds: Object.freeze([...this.actors.values()]

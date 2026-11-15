@@ -17,9 +17,43 @@ For a read-only preflight that needs a Railway service's variable presence or pu
 
 Railway SSH is service-scoped: an API service shell is not a PostgreSQL session. Verify the exact service name from read-only environment metadata before opening a shell. SQL statements pasted directly at a Linux shell prompt are treated as shell commands; use an authorized SQL client connected to the intended staging database, and keep reward-ledger checks read-only.
 
+An account-profile CLI command can fail while an explicitly service-scoped SSH
+command succeeds with the same authorized credential.
+
+**Why:** account introspection and access to a selected service are different
+checks; treating the former as definitive can incorrectly block a permitted audit.
+
+**How to apply:** after authorization, test the exact project/environment/service
+with a harmless command. Pass compound remote commands as one shell-quoted
+argument, keep credentials inside their existing environment, and never print
+connection strings or raw authentication errors.
+
 The Railway MCP toolset provides project, service, deployment, status, and log inspection, but no SQL execution path. Replit's `executeSql` callback targets Replit-managed databases, not an external Railway PostgreSQL database. If an audit needs Railway Postgres rows and no authorized read-only SQL connection is available, do not substitute another database or retrieve credentials; stop and have an authorized operator run bounded read-only queries and share sanitized aggregates.
 
 When diagnosing a specific Railway release, request logs by deployment ID. Broad service/environment log queries can include older build or healthcheck failures and make them look current; correlate timestamps and deployment IDs before assigning a warning or error to the active release.
+
+Do not treat a missing player-progress relation as permission to initialize new
+empty saves. Confirm the intended database and search path before any repair.
+
+**Why:** the same error can mean an uninitialized database, the wrong connection,
+or existing progress in another schema. Creating a second empty table can mask
+recoverable saved progress and make an incomplete repair look successful.
+
+**How to apply:** inspect relation metadata read-only first and compare it to the
+repository schema before proposing a migration. Require explicit approval before
+any production write. The user confirmed that liveness, connectivity and profile
+readiness must remain separate; schema failure must not trigger process restarts.
+A healthy connectivity probe alone does not establish authenticated profile loading.
+
+The user confirmed the production game database is fresh, with no earlier pilot
+saves to recover.
+
+**Why:** fresh initialization is appropriate only after that distinction is
+explicit; missing tables alone never established it.
+
+**How to apply:** a reviewed fresh-schema candidate may be prepared for this
+initialization. Still obtain explicit approval before executing production SQL;
+do not treat this statement as permission to reset a database after it has saves.
 
 Structured JSON stdout can appear in Railway logs as an empty `message` with
 the event and fields stored in `attributes`, not as searchable message text.

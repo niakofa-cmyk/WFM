@@ -211,7 +211,7 @@ export const ClaimGlobalCampaignFinaleResponse = zod.object({
 
 
 /**
- * Returns server health status
+ * Process liveness only. Remains healthy when database connectivity or profile readiness fails.
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -220,11 +220,17 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Check database readiness
+ * Read-only probes; null diagnostic values were not attempted after a prerequisite failure. Overall readiness requires all checks to pass. Missing diagnostics on older servers are not evidence of profile readiness.
+ * @summary Check connectivity and profile readiness separately
  */
 export const GetReadinessResponse = zod.object({
   "status": zod.enum(['ready', 'unavailable']),
-  "database": zod.boolean()
+  "database": zod.boolean().describe('Whether the database connectivity probe passed, not whether profiles are ready'),
+  "checks": zod.object({
+  "databaseConnectivity": zod.boolean().nullable(),
+  "profileSchema": zod.boolean().nullable().describe('The intended relation resolves and all Drizzle profile columns can be selected with LIMIT 0'),
+  "profileInitializationPrivileges": zod.boolean().nullable().describe('Schema USAGE and INSERT privileges on every column used by profile initialization; not proof of a successful authenticated write')
+}).optional()
 })
 
 

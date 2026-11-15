@@ -467,7 +467,7 @@ export const getHealthCheckUrl = () => {
 }
 
 /**
- * Returns server health status
+ * Process liveness only. Remains healthy when database connectivity or profile readiness fails.
  * @summary Health check
  */
 export const healthCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<HealthStatus> => {
@@ -545,7 +545,8 @@ export const getGetReadinessUrl = () => {
 }
 
 /**
- * @summary Check database readiness
+ * Read-only probes; null diagnostic values were not attempted after a prerequisite failure. Overall readiness requires all checks to pass. Missing diagnostics on older servers are not evidence of profile readiness.
+ * @summary Check connectivity and profile readiness separately
  */
 export const getReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<ReadinessCheckResponse> => {
 
@@ -592,7 +593,7 @@ export type GetReadinessQueryError = ErrorType<ReadinessCheckResponse>
 
 
 /**
- * @summary Check database readiness
+ * @summary Check connectivity and profile readiness separately
  */
 
 export function useGetReadiness<TData = Awaited<ReturnType<typeof getReadiness>>, TError = ErrorType<ReadinessCheckResponse>>(

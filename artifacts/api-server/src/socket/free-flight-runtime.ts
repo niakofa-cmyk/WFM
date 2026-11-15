@@ -1,4 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { issueEnemyEquipment, validEnemyEquipment, survivingEquipment, evaluateEnemyEquipment,
+  type EnemyEquipmentManifest } from "@workspace/orbital-sim";
+import { ARMAMENT_PRESENTATION_PROTOCOL, ARMAMENT_PRESENTATION_INTERVAL_TICKS,
+  type ArmamentSnapshot } from "@workspace/orbital-sim";
+import {
+  MAX_PROJECTILE_MOTION_SAMPLES, PROJECTILE_MOTION_INTERVAL_TICKS, PROJECTILE_MOTION_PROTOCOL,
+  type ProjectileMotionSnapshot,
+} from "@workspace/orbital-sim";
+import { MAX_WRECK_PACKAGES, SALVAGE_RECOVERY_METERS, salvageInReach, validWreckPackages, type WreckPackage } from "@workspace/orbital-sim";
 import { admissionFailureDiagnostic, type AdmissionPhase } from "./free-flight-admission-diagnostic";
 import { scoutDestination, updateScoutMemory, type ScoutMemory } from "./patrol-awareness";
 import { advanceLivingFleet, formationOffset, newLivingFleet, validLivingFleet, type FleetRole } from "./living-fleet";
@@ -185,8 +194,16 @@ type Actor = {
   selectedSubsystem?: ShipSubsystem;
   subsystemCycleSeq?: number;
   lastTacticalReportAt?: number;
+  projectileMotionV1?: boolean;
+  lastProjectileMotionTick?: number;
+  armamentPresentationV1?: boolean;
+  enemyEquipmentManifest?: EnemyEquipmentManifest;
+  lastArmamentPresentationTick?: number;
+  salvagePending?: boolean;
+  lastSalvageAt?: number;
 };
 type FreeFlightProjectile = SpatialBullet & {
+  previousVisualPosition?: { x: number; y: number; z: number };
   id: number;
   sourceActorId: string;
   faction: Faction;
@@ -250,6 +267,7 @@ type Session = {
   nextPatrolRefreshAt: number;
   patrolRefreshPending: boolean;
   checkpointSequence: number;
+  wreckPackages: WreckPackage[];
 };
 type Seat = { session: Session; actor: Actor; userId: string };
 
@@ -279,6 +297,7 @@ export type FreeFlightSessionCheckpointV1 = {
   nextNumericId: number;
   tick: number;
   checkpointSequence: number;
+  wreckPackages?: WreckPackage[];
 };
 
 export type StoredFreeFlightCheckpoint = {
@@ -350,7 +369,7 @@ function createPatrols(session: Session, radius = 360) {
   }
 }
 
-function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, radius = 360) {
+function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, radius = 360, modular = false) {
   if (session.persistentPatrols.has(patrol.patrolId)) return;
   const knownShips = patrol.ships.filter((ship) => Object.hasOwn(SHIPS, ship.hullId));
   const newShips = knownShips.filter((ship) => !session.actors.has(patrolShipActorId(ship.id)));
@@ -380,6 +399,7 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       detCos(angle) * (fleetRadius + index * 12), 0,
       detSin(angle) * (fleetRadius + index * 12), angle + Math.PI / 2,
     );
+    const manifest = modular ? issueEnemyEquipment(patrol.patrolId, ship.id, shipId) : undefined;
     session.actors.set(actorId, {
       actorId, numericId, kind: "patrol", faction: patrol.faction, shipId, craft,
       shield: SHIPS[shipId].shield, shieldMax: SHIPS[shipId].shield,
@@ -390,6 +410,11 @@ function addPersistentPatrol(session: Session, patrol: UniversePatrolEncounter, 
       persistentShipId: ship.id, primaryCooldown: 0, lastDamageTick: -1,
       kills: 0, assists: 0, creditsAwarded: 0,
       gravityEnvironmentV1: false,
+      ...(manifest ? {
+        enemyEquipmentManifest: manifest,
+        equipment: structuredClone(manifest.modules),
+        equipmentWeapons: equipmentWeaponsState(manifest.modules),
+      } : {}),
     });
   });
   session.persistentPatrols.set(patrol.patrolId, patrol);
@@ -615,7 +640,7 @@ function encounterActorId(actor: Actor) {
 }
 
 function weaponEventId(session: Session, projectileId: number) {
-  return `${session.instanceId}:${session.tick}:${projectileId}`;
+  return `${session.instanceId}:projectile:${projectileId}`;
 }
 
 export function recoverFreeFlightShield(
@@ -639,6 +664,7 @@ export function createFreeFlightRuntime(options: {
   campaignState?: () => Promise<{ concluded: boolean }>;
   onCampaignJoin?: (userId: string) => Promise<void>;
   enableFriendlyAiSupport?: boolean;
+  enableEnemyEquipment?: boolean;
   /** Emits anonymous per-owner aggregates; never includes user, region or pose data. */
   enablePopulationTelemetry?: boolean;
   resolveAdmission: (userId: string) => Promise<FreeFlightAdmission | null>;
@@ -661,10 +687,14 @@ export function createFreeFlightRuntime(options: {
     encounterId: string,
   ) => Promise<UniversePatrolEncounter | null>;
   settleScoutEncounter?: (receipt: ExplorationReceipt) => Promise<ExplorationSettlement>;
+  recoverSalvage?: (userId: string, input: {
+    sessionKey: string; fencingToken: number; packageId: string;
+  }) => Promise<{ equipmentId: string; revision: number }>;
   releaseUniversePatrol?: (patrolId: string, encounterId: string) => Promise<void>;
   /** Trusted test seam for deterministic approach/weapon integration tests. */
   patrolSpawnDistanceMeters?: number;
 }) {
+  const salvageEnabled = Boolean(options.recoverSalvage && options.saveCheckpoint);
   const sessions = new Map<string, Session>();
   const sessionInitializations = new Map<string, Promise<Session | null>>();
   const seats = new Map<WebSocketLike, Seat>();
@@ -736,6 +766,18 @@ export function createFreeFlightRuntime(options: {
           !validEquipmentWeapons(actor.equipment, actor.equipmentWeapons))) {
         throw new Error("Invalid equipment checkpoint.");
       }
+      if (actor.enemyEquipmentManifest !== undefined) {
+        const manifest = actor.enemyEquipmentManifest;
+        if (actor.kind !== "patrol" || !validEnemyEquipment(manifest) ||
+            manifest.fleetId !== actor.persistentPatrolId || manifest.shipId !== actor.persistentShipId ||
+            manifest.hullId !== actor.shipId || actor.actorId !== patrolShipActorId(manifest.shipId) ||
+            actor.equipment?.length !== manifest.modules.length ||
+            !manifest.modules.every((item, i) => {
+              const actual = actor.equipment![i]!;
+              return actual.instanceId === item.instanceId && actual.equipmentId === item.equipmentId &&
+                actual.hardpointId === item.hardpointId && actual.condition === item.condition;
+            })) throw new Error("Invalid AI equipment provenance checkpoint.");
+      }
       actor.socket = null;
       actor.input = { ...IDLE };
       actor.lastInputAt = now;
@@ -743,6 +785,10 @@ export function createFreeFlightRuntime(options: {
       actor.inputCount = 0;
       actor.disconnectedAt = now;
       actor.gravityEnvironmentV1 = false;
+      actor.projectileMotionV1 = false;
+      actor.lastProjectileMotionTick = undefined;
+      actor.armamentPresentationV1 = false;
+      actor.lastArmamentPresentationTick = undefined;
       if (actor.combatProgress && !validCombatKillProgress(actor.combatProgress))
         throw new Error("Invalid combat progress checkpoint.");
       if (actor.tactics && (![actor.tactics.evadeUntil, actor.tactics.readyAt].every(n => Number.isSafeInteger(n) && n >= 0) ||
@@ -840,6 +886,7 @@ export function createFreeFlightRuntime(options: {
       }
       autoEngagementCooldowns.set(id, until);
     }
+    if (!validWreckPackages(snapshot.wreckPackages ?? [])) throw new Error("Invalid wreck checkpoint.");
     return {
       key,
       instanceId: snapshot.instanceId,
@@ -865,6 +912,7 @@ export function createFreeFlightRuntime(options: {
       nextPatrolRefreshAt: now,
       patrolRefreshPending: false,
       checkpointSequence: stored.checkpointSequence,
+      wreckPackages: structuredClone(snapshot.wreckPackages ?? []),
     };
   }
 
@@ -873,7 +921,9 @@ export function createFreeFlightRuntime(options: {
       version: 1,
       key: session.key,
       instanceId: session.instanceId,
-      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, ...actor }) =>
+      actors: [...session.actors.values()].map(({ socket: _socket, lastTacticalReportAt: _reportAt, salvagePending: _pending,
+        projectileMotionV1: _motion, lastProjectileMotionTick: _motionTick,
+        armamentPresentationV1: _armament, lastArmamentPresentationTick: _armamentTick, ...actor }) =>
         structuredClone(actor)),
       anomalyGravityWells: structuredClone(session.anomalyGravityWells),
       gravityEnvironmentEnabled: session.gravityEnvironmentEnabled,
@@ -907,6 +957,7 @@ export function createFreeFlightRuntime(options: {
       nextNumericId: session.nextNumericId,
       tick: session.tick,
       checkpointSequence: session.checkpointSequence,
+      wreckPackages: structuredClone(session.wreckPackages),
     };
   }
 
@@ -919,7 +970,7 @@ export function createFreeFlightRuntime(options: {
     let session = sessions.get(key);
     if (session) {
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
       return session;
     }
@@ -928,7 +979,7 @@ export function createFreeFlightRuntime(options: {
       session = restoreSession(key, now, checkpoint);
       sessions.set(key, session);
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
       return session;
     }
@@ -945,11 +996,12 @@ export function createFreeFlightRuntime(options: {
       lastAdvanceAt: now, lastSnapshotAt: now, emptySince: null,
       nextPatrolRefreshAt: now + PATROL_REFRESH_INTERVAL_MS, patrolRefreshPending: false,
       checkpointSequence: 0,
+      wreckPackages: [],
     };
     sessions.set(key, session);
     if (patrols.length) {
       for (const patrol of patrols) addPersistentPatrol(
-        session, patrol, options.patrolSpawnDistanceMeters,
+        session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment,
       );
     } else if (!options.resolveUniversePatrols && !options.resolveUniversePatrol) {
       // Compatibility-only traffic must never stand in for an empty or
@@ -1126,6 +1178,13 @@ export function createFreeFlightRuntime(options: {
     for (const actor of session.actors.values()) {
       if (actor.kind === "pilot" && actor.socket?.readyState === OPEN) {
         send(actor.socket, { type: "freeflight_snapshot", snapshot: snapshotFor(session, actor) });
+        if (actor.armamentPresentationV1 &&
+            session.tick - (actor.lastArmamentPresentationTick ?? -ARMAMENT_PRESENTATION_INTERVAL_TICKS) >= ARMAMENT_PRESENTATION_INTERVAL_TICKS)
+          sendArmamentPresentation(session, actor);
+        if (actor.projectileMotionV1 &&
+            session.tick - (actor.lastProjectileMotionTick ?? -PROJECTILE_MOTION_INTERVAL_TICKS) >= PROJECTILE_MOTION_INTERVAL_TICKS) {
+          sendProjectileMotion(session, actor);
+        }
         const now = Date.now();
         if (!actor.lastTacticalReportAt || now - actor.lastTacticalReportAt >= 500) {
           actor.lastTacticalReportAt = now;
@@ -1133,11 +1192,73 @@ export function createFreeFlightRuntime(options: {
             type: "freeflight_tactical_snapshot",
             snapshot: tacticalSnapshotFor(session, actor),
           });
+          if (salvageEnabled) sendSalvage(session, actor);
         }
         sendTargetState(session, actor);
         sendCombatProgress(session, actor);
       }
     }
+  }
+
+  function sendArmamentPresentation(session: Session, viewer: Actor) {
+    const snapshot: ArmamentSnapshot = {
+      protocol: ARMAMENT_PRESENTATION_PROTOCOL, sessionInstanceId: session.instanceId, tick: session.tick,
+      actors: snapshotFor(session, viewer).actors.map(visible => {
+        const actor = session.actors.get(visible.actorId)!;
+        return {
+          actorId: actor.actorId, shipId: actor.shipId,
+          mounts: (actor.equipment ?? []).map(item => ({
+            hardpointId: item.hardpointId, equipmentId: item.equipmentId,
+          })),
+        };
+      }),
+    };
+    viewer.lastArmamentPresentationTick = session.tick;
+    send(viewer.socket, { type: "freeflight_armament_snapshot", snapshot });
+  }
+
+  function sendProjectileMotion(session: Session, viewer: Actor) {
+    // Match the authenticated actor interest set. No home/lock target, remote
+    // user identity, unseen source or exact out-of-interest projectile leaks.
+    const authorizedSources = new Set(snapshotFor(session, viewer).actors.map(a => a.actorId));
+    const position = { x: viewer.craft.x, y: viewer.craft.space!.y, z: viewer.craft.z };
+    const distance = (p: FreeFlightProjectile) =>
+      Math.hypot(p.x - position.x, (p.y ?? 0) - position.y, p.z - position.z);
+    const previousPoint = (p: FreeFlightProjectile) => {
+      const point = p.previousVisualPosition;
+      return point && Math.hypot(point.x - position.x, point.y - position.y, point.z - position.z) <= NEARBY_RADIUS
+        ? point : { x: p.x, y: p.y ?? 0, z: p.z };
+    };
+    const snapshot: ProjectileMotionSnapshot = {
+      protocol: PROJECTILE_MOTION_PROTOCOL, sessionInstanceId: session.instanceId, tick: session.tick,
+      projectiles: session.projectiles.filter(p => p.life > 0 && authorizedSources.has(p.sourceActorId) &&
+        distance(p) <= NEARBY_RADIUS)
+        .sort((a, b) => Number(Boolean(b.missile)) - Number(Boolean(a.missile)) || distance(a) - distance(b) || a.id - b.id)
+        .slice(0, MAX_PROJECTILE_MOTION_SAMPLES).map(p => ({
+          eventId: weaponEventId(session, p.id), sourceFaction: p.faction,
+          visualEffect: p.visualEffect ?? (p.missile ? "swarm" : "pulse"), missile: Boolean(p.missile),
+          position: { x: p.x, y: p.y ?? 0, z: p.z },
+          previousPosition: previousPoint(p),
+          velocity: { x: p.vx, y: p.vy ?? 0, z: p.vz }, remainingSeconds: Math.min(60, p.life),
+        })),
+    };
+    viewer.lastProjectileMotionTick = session.tick;
+    send(viewer.socket, { type: "freeflight_projectile_motion", snapshot });
+  }
+
+  function sendSalvage(session: Session, viewer: Actor) {
+    const position = { x: viewer.craft.x, y: viewer.craft.space!.y, z: viewer.craft.z };
+    send(viewer.socket, {
+      type: "freeflight_salvage", protocol: 1, sessionInstanceId: session.instanceId,
+      packages: session.wreckPackages.filter(p => p.status !== "recovered").flatMap(p => {
+        const distanceMeters = Math.hypot(position.x - p.position.x, position.y - p.position.y, position.z - p.position.z);
+        return distanceMeters > NEARBY_RADIUS ? [] : [{
+          id: p.id, position: p.position, distanceMeters,
+          recoverable: p.status === "available" && p.ownerUserId === viewer.ownerUserId &&
+            viewer.craft.alive && distanceMeters <= SALVAGE_RECOVERY_METERS,
+        }];
+      }),
+    });
   }
 
   function sendCombatProgress(session: Session, actor: Actor, recovery?: { restored: number; milestone: number | null }) {
@@ -1417,6 +1538,7 @@ export function createFreeFlightRuntime(options: {
       const projectile = session.projectiles[session.projectiles.length - 1]!;
       broadcast(session, {
         type: "freeflight_weapon_fired",
+        motionProtocol: PROJECTILE_MOTION_PROTOCOL,
         eventId: weaponEventId(session, projectile.id),
         sourceActorId: actor.actorId,
         sourceFaction: actor.faction,
@@ -1594,6 +1716,28 @@ export function createFreeFlightRuntime(options: {
       subsystemDisabled,
       destroyed: !target.craft.alive,
     });
+    const equipmentOutcome = !target.craft.alive && target.kind === "patrol" && target.enemyEquipmentManifest
+      ? evaluateEnemyEquipment(encounterActorId(target), target.enemyEquipmentManifest, target.subsystems) : null;
+    if (equipmentOutcome && damageContext.kind === "patrol" &&
+        target.faction === damageContext.combat.patrol.faction)
+      damageContext.combat.contract.recordEnemyEquipment(encounterActorId(target), target.subsystems);
+    if (!target.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
+        damageContext.kind === "patrol" && salvageEnabled &&
+        (!equipmentOutcome || survivingEquipment(equipmentOutcome))) {
+      const actorId = encounterActorId(target);
+      const id = `${damageContext.combat.id}:${actorId}`;
+      session.wreckPackages = session.wreckPackages.filter(p => p.status !== "recovered");
+      if (session.wreckPackages.length >= MAX_WRECK_PACKAGES) {
+        const oldestSettled = session.wreckPackages.findIndex(p => p.status === "available");
+        if (oldestSettled >= 0) session.wreckPackages.splice(oldestSettled, 1);
+      }
+      if (!session.wreckPackages.some(p => p.id === id) && session.wreckPackages.length < MAX_WRECK_PACKAGES) {
+        session.wreckPackages.push({
+          id, encounterId: damageContext.combat.id, actorId, ownerUserId: null, status: "pending",
+          position: { x: target.craft.x, y: target.craft.space!.y, z: target.craft.z },
+        });
+      }
+    }
     if (!target.craft.alive && attacker.kind === "pilot" && attacker.ownerUserId &&
         attacker.craft.alive && target.kind === "patrol" && target.persistentPatrolId &&
         target.faction !== attacker.faction) {
@@ -1664,6 +1808,7 @@ export function createFreeFlightRuntime(options: {
             candidate.craft.id === projectile.homeId && candidate.craft.alive);
       if (projectile.missile) guideMissile(projectile, intended?.craft, ORBITAL_DT, source.craft);
       const from = { x: projectile.x, y: projectile.y ?? 0, z: projectile.z };
+      projectile.previousVisualPosition = from;
       projectile.x += projectile.vx * ORBITAL_DT;
       projectile.y = (projectile.y ?? 0) + (projectile.vy ?? 0) * ORBITAL_DT;
       projectile.z += projectile.vz * ORBITAL_DT;
@@ -1715,6 +1860,13 @@ export function createFreeFlightRuntime(options: {
           throw new Error("freeflight_patrol_reward_not_settled");
         }
         const result = readExplorationReceipt(combat.receipt!);
+        for (const wreck of session.wreckPackages) {
+          if (wreck.encounterId !== combat.id || wreck.status !== "pending") continue;
+          const owner = settlement.awards.find(award =>
+            award.rewardableNpcKills > 0 && award.destroyedActorIds.includes(wreck.actorId));
+          if (owner) { wreck.ownerUserId = owner.playerId; wreck.status = "available"; }
+          else wreck.status = "recovered"; // AI/support kills grant no equipment.
+        }
         for (const pilotResult of result.pilots) {
           const actor = [...combat.participantActorIds]
             .map((actorId) => session.actors.get(actorId))
@@ -1804,7 +1956,7 @@ export function createFreeFlightRuntime(options: {
       for (const patrol of current) {
         if (!session.persistentPatrols.has(patrol.patrolId) &&
             session.actors.size + patrol.ships.length <= MAX_ACTORS_PER_SESSION) {
-          addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+          addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment);
         }
       }
       publish(session);
@@ -2177,14 +2329,17 @@ export function createFreeFlightRuntime(options: {
         ...participants.map((candidate) => ({
           id: encounterActorId(candidate),
           faction: candidate.faction,
-          hull: candidate.craft.hullMax,
+          hull: candidate.craft.hull,
           playerId: candidate.ownerUserId!,
         })),
         ...reserved.ships.map((ship) => ({
           id: patrolShipActorId(ship.id),
           faction: reserved!.faction,
-          hull: SHIPS[ship.hullId as ShipId].hull,
+          hull: session.actors.get(patrolShipActorId(ship.id))?.craft.hull ?? SHIPS[ship.hullId as ShipId].hull,
           rewardEligible: true,
+          ...(session.actors.get(patrolShipActorId(ship.id))?.enemyEquipmentManifest ? {
+            equipmentManifest: structuredClone(session.actors.get(patrolShipActorId(ship.id))!.enemyEquipmentManifest!),
+          } : {}),
         })),
       ],
       rewardPolicy: {
@@ -2709,6 +2864,10 @@ export function createFreeFlightRuntime(options: {
         if (previousSeat) seats.delete(previousSeat.actor.socket!);
         actor.socket = socket;
         actor.gravityEnvironmentV1 = false;
+        actor.projectileMotionV1 = false;
+        actor.lastProjectileMotionTick = undefined;
+        actor.armamentPresentationV1 = false;
+        actor.lastArmamentPresentationTick = undefined;
         actor.disconnectedAt = null;
         actor.lastInputAt = now;
         actor.input = { ...IDLE };
@@ -2719,6 +2878,8 @@ export function createFreeFlightRuntime(options: {
         const environmentChanged = refreshGravityEnvironment(session);
         send(socket, {
           type: "freeflight_joined",
+          projectileMotion: { protocol: PROJECTILE_MOTION_PROTOCOL },
+          armamentPresentation: { protocol: ARMAMENT_PRESENTATION_PROTOCOL },
           nextInputSeq: actor.lastSeq + 1,
           snapshot: snapshotFor(session, actor),
           environment: environmentFor(session),
@@ -2758,6 +2919,68 @@ export function createFreeFlightRuntime(options: {
 
     const seat = seats.get(socket);
     if (!seat || seat.userId !== userId) { error("freeflight_join_required"); return; }
+    if (packet.type === "freeflight_armament_subscribe") {
+      if (Object.keys(packet).length !== 2 || packet.protocol !== ARMAMENT_PRESENTATION_PROTOCOL) {
+        error("invalid_freeflight_armament"); return;
+      }
+      if (!seat.actor.armamentPresentationV1) {
+        seat.actor.armamentPresentationV1 = true;
+        sendArmamentPresentation(seat.session, seat.actor);
+      }
+      return;
+    }
+    if (packet.type === "freeflight_projectile_motion_subscribe") {
+      if (Object.keys(packet).length !== 2 || packet.protocol !== PROJECTILE_MOTION_PROTOCOL) {
+        error("invalid_freeflight_projectile_motion"); return;
+      }
+      if (!seat.actor.projectileMotionV1) {
+        seat.actor.projectileMotionV1 = true;
+        sendProjectileMotion(seat.session, seat.actor);
+      }
+      return;
+    }
+    if (packet.type === "freeflight_salvage_recover") {
+      if (Object.keys(packet).length !== 3 || packet.protocol !== 1 ||
+          typeof packet.packageId !== "string" || packet.packageId.length > 400) {
+        error("invalid_freeflight_salvage"); return;
+      }
+      const { actor, session } = seat;
+      const wreck = session.wreckPackages.find(p => p.id === packet.packageId);
+      if (!options.recoverSalvage || !options.saveCheckpoint || !wreck ||
+          wreck.ownerUserId !== userId || wreck.status === "pending" || !actor.craft.alive ||
+          !salvageInReach({ x: actor.craft.x, y: actor.craft.space!.y, z: actor.craft.z }, wreck)) {
+        error("freeflight_salvage_out_of_reach"); return;
+      }
+      if (actor.salvagePending || Date.now() - (actor.lastSalvageAt ?? 0) < 500) {
+        error("freeflight_rate_limited"); return;
+      }
+      actor.salvagePending = true;
+      actor.lastSalvageAt = Date.now();
+      const fence = fencingTokens.get(session.key) ?? 1;
+      const currentOwner = () => !closed && sessions.get(session.key) === session &&
+        seats.get(socket) === seat && actor.socket === socket && (fencingTokens.get(session.key) ?? 1) === fence;
+      try {
+        if (!await persistSessionFresh(session)) {
+          if (currentOwner()) error("freeflight_salvage_unavailable");
+          return;
+        }
+        if (!currentOwner()) return;
+        const recovered = await options.recoverSalvage(userId, {
+          sessionKey: session.key, fencingToken: fence, packageId: wreck.id,
+        });
+        if (!currentOwner()) return;
+        wreck.status = "recovered";
+        await persistSessionFresh(session);
+        send(socket, { type: "freeflight_salvage_recovered", protocol: 1, packageId: wreck.id, ...recovered });
+        for (const pilot of session.pilotByUser.values()) {
+          if (pilot.socket?.readyState === OPEN) sendSalvage(session, pilot);
+        }
+        publish(session);
+      } catch {
+        if (currentOwner()) error("freeflight_salvage_unavailable");
+      } finally { actor.salvagePending = false; }
+      return;
+    }
     if (packet.type === "freeflight_recover") {
       if (Object.keys(packet).length !== 1) {
         error("invalid_freeflight_recovery");
@@ -3055,7 +3278,7 @@ export function createFreeFlightRuntime(options: {
             session.combats.get(patrol.patrolId)?.phase === "complete" &&
               ![...session.actors.values()].some((actor) =>
                 actor.persistentPatrolId === patrol.patrolId && actor.craft.alive)) continue;
-        addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters);
+        addPersistentPatrol(session, patrol, options.patrolSpawnDistanceMeters, options.enableEnemyEquipment);
       }
       publish(session);
     } catch {

@@ -315,6 +315,7 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
     close: () => {},
   }));
   const runtime = createFreeFlightRuntime({
+    recoverSalvage: async () => ({ equipmentId: "autocannon", revision: 1 }),
     saveCheckpoint: async (_key, snapshot, fencingToken, checkpointSequence) => {
       stored = { stateVersion: 1, snapshot, fencingToken, checkpointSequence };
       return true;
@@ -433,11 +434,22 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
     assert.equal(recoveryCount, 1, "continued flight cannot repeat a destruction reward");
     await runtime.close();
     assert.ok(stored, "combat progress is part of the durable session checkpoint");
+    const wrecks = stored!.snapshot.wreckPackages as import("@workspace/orbital-sim").WreckPackage[];
+    assert.equal(wrecks.length, 1, "one actual hostile hull destruction creates one physical crate");
+    const wreck = wrecks[0]!;
+    assert.equal(wreck.status, "available");
+    const killer = packets.findIndex(received => received.some(p =>
+      p.type === "freeflight_combat_result" && p.kills === 1));
+    assert.equal(wreck.ownerUserId, killer === 0 ? "shared-lead" : "shared-ally");
+    const destructionPoint = lethal[0]!.to as { x: number; y: number; z: number };
+    assert.ok(Math.hypot(wreck.position.x - destructionPoint.x, wreck.position.y - destructionPoint.y,
+      wreck.position.z - destructionPoint.z) < 20, "the crate remains at the confirmed destruction, not the moving pilot or spawn anchor");
     const killerIndex = packets.findIndex(received => received.some(p =>
       p.type === "freeflight_combat_progress" && p.reason === "kill"));
     const resumedPackets: Packet[] = [];
     const diagnostics: unknown[] = [];
     const resumed = createFreeFlightRuntime({
+      recoverSalvage: async () => ({ equipmentId: "autocannon", revision: 1 }),
       onAdmissionFailure: diagnostic => diagnostics.push(diagnostic),
       resolveAdmission: async () => ({ sessionKey: "mars:phobos-yard", faction: "accord", shipId: "mandjet" }),
       loadCheckpoint: async () => stored,
@@ -456,6 +468,11 @@ test("two nearby pilots damage one target and settle one kill plus an assist", a
       assert.equal(state.reason, "sync");
       assert.equal(state.restored, 0, "restore returns the saved resource, not another kill reward");
       assert.equal(resumedPackets.some(p => p.reason === "kill"), false);
+      const salvage = resumedPackets.find(p => p.type === "freeflight_salvage");
+      assert.ok(salvage, "a replacement owner streams the same wrecks");
+      const contacts = salvage.packages as Array<{ id: string; position: unknown }>;
+      assert.deepEqual(contacts.find(p => p.id === wreck.id)?.position, wreck.position,
+        "the real battle's crate preserves its celestial location across owners");
     } finally { await resumed.close(); }
   } finally { await runtime.close(); }
 });

@@ -42,3 +42,17 @@ mtime_ms = 1794603851139
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/cae22a9d-9503-4601-a6a0-3ceda08cc36a/05ad2268-e2b4-446b-b033-74d21fa3a418"
 storage_version_token = "1794603977705174"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "81dOIb2q_FYH7mwacVR-j"
+uri = "file://docs/infinite-war/WEAPON-ACQUISITION-AND-EXPLORATION-DIRECTIVE.md"
+type = "text"
+title = "Physical weapons, salvage and exploration foundation"
+description = "Updated implementation, survival rules, verification results and remaining limits."
+logical_id = "d36e342e-ac52-44ca-ad32-c68bb663978b"
+content_hash = "sha256:245c197ff1bee71da038a1150734d75990e137cba20a5e106efae9ca1d16c74b"
+size = 17231
+mtime_ms = 1794688640616
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:63f046dc-2fbd-4715-b368-ed1848c1edbf/d36e342e-ac52-44ca-ad32-c68bb663978b/e7f5b586-00a4-48cd-98f9-e0be2753adf3"
+storage_version_token = "1794688646788259"
+content_type = "text/markdown"

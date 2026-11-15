@@ -10,6 +10,48 @@ function pilot(equipment: EquippedModule[]): ModularPilot {
   return { shipId: "mandjet", equipment, equipmentWeapons: equipmentWeaponsState(equipment),
     craft: { alive: true, root: 0, space: newFlight(0) } as SpatialCraft };
 }
+test("a fitted hardpoint fails closed without issued weapon resources; only empty mounts retain stock rules", () => {
+  for (const [kind, equipmentId] of [["primary", "railgun"], ["secondary", "seeker"]] as const) {
+    const actor = pilot([fit(equipmentId, kind)]);
+    actor.equipmentWeapons![kind] = null;
+    assert.equal(canFireEquipment(actor, kind), false);
+    assert.equal(validEquipmentWeapons(actor.equipment!, actor.equipmentWeapons), false);
+    const energy = actor.craft.space!.energy;
+    consumeEquipmentShot(actor, kind);
+    assert.equal(actor.craft.space!.energy, energy);
+    actor.equipmentWeapons = undefined;
+    assert.equal(canFireEquipment(actor, kind), false);
+    assert.equal(canFireEquipment(pilot([]), kind), true);
+  }
+});
+test("blocked fire cannot spend ammunition or power and repeated consumption cannot make negative rounds", () => {
+  for (const [kind, equipmentId] of [["primary", "railgun"], ["secondary", "seeker"]] as const) {
+    const create = () => pilot([fit(equipmentId, kind)]);
+    const blocked: Array<(actor: ModularPilot) => void> = [
+      actor => { actor.equipmentWeapons![kind]!.rounds = 0; },
+      actor => { actor.equipmentWeapons![kind]!.reload = 1; },
+      actor => { actor.equipmentWeapons![kind]!.overheated = true; },
+      actor => { actor.craft.space!.energy = 0; },
+      actor => { actor.craft.alive = false; },
+      actor => { actor.craft.root = 1; },
+    ];
+    for (const block of blocked) {
+      const actor = create();
+      block(actor);
+      const before = structuredClone(actor);
+      assert.equal(canFireEquipment(actor, kind), false);
+      consumeEquipmentShot(actor, kind);
+      assert.deepEqual(actor, before);
+    }
+    const actor = create();
+    actor.equipmentWeapons![kind]!.rounds = 1;
+    consumeEquipmentShot(actor, kind);
+    assert.equal(actor.equipmentWeapons![kind]!.rounds, 0);
+    const after = structuredClone(actor);
+    consumeEquipmentShot(actor, kind);
+    assert.deepEqual(actor, after);
+  }
+});
 test("modular primary fire uses condition, energy, finite rounds, heat and a bounded reload", () => {
   const actor = pilot([fit("railgun", "primary"), fit("plasma", "special")]);
   const resource = actor.equipmentWeapons!.primary!;
