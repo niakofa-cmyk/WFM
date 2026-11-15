@@ -4,3 +4,12 @@ export function configuredClerkPublishableKey(value: string | undefined): string
   if (!key) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY.");
   return key;
 }
+
+/** Keep completed authentication inside this game's mounted entry route. */
+export function gameAuthReturnUrl(basePath: string): string {
+  const base = basePath.trim().replace(/\/+$/, "");
+  if (base && (!base.startsWith("/") || base.startsWith("//") || /[?#\\]/.test(base))) {
+    throw new Error("Invalid game base path.");
+  }
+  return `${base}/`;
+}

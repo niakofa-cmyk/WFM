@@ -110,6 +110,51 @@ change, application deployment or service restart was performed by this repair.
 The live API still serves its older connectivity-only readiness response; the
 new detailed readiness code requires a separately reviewed release.
 
+## Production browser verification — initial challenge
+
+The approved existing-account browser check found a separate direct-host issue:
+the deployed Railway-address frontend requested Clerk from
+`clerk.workspacewar-for-mars-production.up.railway.app`, which failed browser
+TLS with `ERR_CERT_COMMON_NAME_INVALID`. No credentials were submitted there.
+The certificate check was not bypassed. A reachable fallback Clerk endpoint
+in a static bundle did not prove which host the browser actually selected.
+
+The canonical `https://niakofa.com/kids/wfm/sign-in` loaded Clerk without browser
+errors. The existing production test account advanced to `needs_client_trust`;
+Clerk accepted second-factor preparation with HTTP 200 and displayed a fresh
+code challenge. That does not prove email delivery, an active session or profile
+success. No old code was submitted or automatically reused.
+
+The browser owner blocks non-GET game API requests. Authenticated profile HTTP
+200, session retention on reload and hangar visibility remain pending the fresh
+secure code handoff. The direct Railway-host issue remains unresolved in the
+deployed frontend and must not be described as fixed by the database migration.
+
+### Code handoff result and local redirect fix
+
+The user supplied a fresh production code securely. It was submitted exactly
+once to the waiting browser. Clerk returned HTTP 200 for the second-factor
+attempt and client update; the browser then navigated to the host site's
+`/login` page. At that page the game Clerk runtime was not loaded. No successful
+authenticated game profile request, session-retaining reload, or hangar entry
+was observed. An accepted factor HTTP response is not certification of those
+remaining steps.
+
+The browser owner was closed without code retries, gameplay or reward requests.
+The local game now explicitly sets both sign-in and registration return
+destinations to its own mounted game entry. This avoids relying on host-site
+authentication return defaults. Six focused auth configuration/redirect tests,
+the frontend type check, both WFM build modes and four build-resource checks
+passed. The Development workflow restarted cleanly and the public landing page
+rendered correctly.
+
+This redirect change is **local and not deployed**. The existing explicit
+Clerk-instance selection also needs to be included in a reviewed frontend
+release before claiming the direct Railway host is repaired. Release through
+staging review first; repeat only the failed authenticated return/profile/reload
+flow after the corrected build is actually serving. Do not request another code
+for the unchanged production build or describe website sign-in as certified.
+
 ## Read-only check before any repair
 
 An authorized operator must select this exact production API service's database,
