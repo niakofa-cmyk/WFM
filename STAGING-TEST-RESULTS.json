@@ -1,5 +1,54 @@
 {
   "overallStatus": "PENDING",
+  "orbitalReleaseCandidate": {
+    "sourceCommit": "9f4ac3db5da379a39e388855892facd033c62de2",
+    "verifiedAt": "2026-11-15T22:30:50.371Z",
+    "stagingDeployments": {
+      "frontend": "9a6bb0bd-d176-4b0d-94e2-bc7e515898bb",
+      "api": "fb62b60c-3fd0-48a4-8af3-b8aba19c1d58",
+      "socket": "8d47dbfc-478a-498e-89eb-ac892159ce75"
+    },
+    "allThreeDeploymentsSuccessfulAndMatched": true,
+    "localValidation": {
+      "typecheck": "PASS",
+      "testsPassed": 945,
+      "testsSkipped": 1,
+      "skippedTestScope": "guarded disposable-local population database integration",
+      "buildsAndBundleAudits": "PASS",
+      "previewBuildTestsPassed": 4,
+      "gitHubWorkspaceCheck": "SUCCESS"
+    },
+    "readOnlyStagingSchema": {
+      "expectedTables": 22,
+      "missingTablesOrColumns": 0,
+      "zeroRowSelectChecks": "PASS"
+    },
+    "gatewayChecks": {
+      "healthStatus": 200,
+      "lockedWebsiteStatus": 401,
+      "lockedApiStatus": 401,
+      "lockedWebSocketStatus": 401,
+      "normalAccessFormStatus": 303,
+      "gameHtmlStatus": 200,
+      "entryJavaScriptStatus": 200,
+      "entryCssStatus": 200,
+      "profileWithoutClerkStatus": 401,
+      "temporaryGatewaySessionClosed": true
+    },
+    "apiReadiness": {
+      "httpStatus": 200,
+      "databaseConnectivity": true,
+      "profileSchema": true,
+      "profileInitializationPrivileges": true
+    },
+    "freshClerkChallengeForThisCandidate": "NOT_RUN",
+    "authenticatedGameJourneyForThisCandidate": "NOT_YET_VERIFIED",
+    "freshCodeRequestsOrSubmissions": false,
+    "playerProgressOrRewardWritesByTheseChecks": false,
+    "productionChangedByThisRollout": false,
+    "promotion": "BLOCKED_PENDING_FRESH_EVIDENCE_AND_PRODUCTION_INFRASTRUCTURE",
+    "evidence": "STAGING-TEST-REPORT.md"
+  },
   "continuousFlightLocalFollowup": {
     "status": "FIRST_FLEET_VICTORY_REWARDS_AND_CONTINUED_FLIGHT_VERIFIED_SECOND_HOSTILE_PENDING",
     "stagingRevision": "3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4",
