@@ -17,6 +17,17 @@ For a read-only preflight that needs a Railway service's variable presence or pu
 
 Railway SSH is service-scoped: an API service shell is not a PostgreSQL session. Verify the exact service name from read-only environment metadata before opening a shell. SQL statements pasted directly at a Linux shell prompt are treated as shell commands; use an authorized SQL client connected to the intended staging database, and keep reward-ledger checks read-only.
 
+An account-profile CLI command can fail while an explicitly service-scoped SSH
+command succeeds with the same authorized credential.
+
+**Why:** account introspection and access to a selected service are different
+checks; treating the former as definitive can incorrectly block a permitted audit.
+
+**How to apply:** after authorization, test the exact project/environment/service
+with a harmless command. Pass compound remote commands as one shell-quoted
+argument, keep credentials inside their existing environment, and never print
+connection strings or raw authentication errors.
+
 The Railway MCP toolset provides project, service, deployment, status, and log inspection, but no SQL execution path. Replit's `executeSql` callback targets Replit-managed databases, not an external Railway PostgreSQL database. If an audit needs Railway Postgres rows and no authorized read-only SQL connection is available, do not substitute another database or retrieve credentials; stop and have an authorized operator run bounded read-only queries and share sanitized aggregates.
 
 When diagnosing a specific Railway release, request logs by deployment ID. Broad service/environment log queries can include older build or healthcheck failures and make them look current; correlate timestamps and deployment IDs before assigning a warning or error to the active release.

@@ -21,6 +21,35 @@ fabricated successful profile. The initial profile insert/read needs its actual
 persistent table. Do not certify website sign-in/profile loading until a real
 authenticated production profile request succeeds and remains valid on reload.
 
+## Authorized read-only catalog inspection — 2026-11-15
+
+After explicit authorization to use the saved account credential, service-scoped
+SSH succeeded. The account-profile CLI command's failure did not establish that
+service access was unavailable.
+
+- The running API's project, environment and service identifiers matched the
+  intended production targets.
+- Its configured database host was `postgres.railway.internal`, database
+  `railway`. The production Postgres service's private endpoint was `postgres`.
+- The active schema was `public`, with search path `"$user", public`.
+- The API database role was a superuser; this was not a catalog-visibility or
+  missing SELECT grant problem.
+- Neither unqualified nor `public.player_progress` resolved. Catalog queries
+  found no matching relation, columns, indexes or constraints.
+- The connected `railway` database contained **no application tables**. The only
+  other non-template database, `postgres`, also contained no application tables.
+- The requested zero-row profile query failed with SQLSTATE `42P01`.
+- Catalog queries ran inside read-only transactions and were rolled back.
+  No player records were read; no production writes, migrations, connection
+  changes or deployments were performed.
+
+This confirms the immediate cause but does not establish whether this cluster
+was intended to be fresh or whether previous saves exist in another cluster or
+backup. Do not create only a replacement profile table: the rest of the game
+schema is absent too. Resolve the saved-data history first, then propose either
+a recovery/reconnection plan or a reviewed fresh-database migration. Obtain
+explicit approval before applying either production repair.
+
 ## Read-only check before any repair
 
 An authorized operator must select this exact production API service's database,
