@@ -1,7 +1,7 @@
 import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
 import { setBaseUrl } from "@workspace/api-client-react";
 import { GameApiSession } from "./game/GameApiSession";
-import { publishableKeyFromHost } from "@clerk/react/internal";
+import { configuredClerkPublishableKey, gameAuthReturnUrl } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense } from "react";
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
@@ -10,10 +10,8 @@ import { AuthInitialization } from "./components/auth-initialization";
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+const clerkPubKey = configuredClerkPublishableKey(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const gameEntryUrl = gameAuthReturnUrl(basePath);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
 
@@ -76,7 +74,7 @@ const appearance = {
 function SignInPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} forceRedirectUrl={gameEntryUrl} />
     </main>
   );
 }
@@ -84,7 +82,7 @@ function SignInPage() {
 function SignUpPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} forceRedirectUrl={gameEntryUrl} />
     </main>
   );
 }
