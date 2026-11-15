@@ -35,11 +35,40 @@ and interrupted-match reward-denial evidence is incomplete. Its tested source
 also predates the current redesign. These fields must not be changed to PASS
 without fresh, corresponding evidence.
 
-This workspace has no approved staging access-code or staging-account secrets.
-The saved WFM Production browser state and Production test credentials must
-not be reused against the isolated Development-auth staging environment.
-Approved staging access and accounts are prerequisites for authenticated
-release verification.
+Approved staging access and existing staging-account secrets are configured.
+The owner confirmed the narrow authentication hotfix worked on a trusted staging
+phone across reloads, corroborated by current profile HTTP 200 responses.
+That check exercised the older isolated frontend hotfix, not the full redesigned
+universe candidate.
+
+New automated staging client-trust email preparation is blocked by Clerk's
+`dev_monthly_email_limit_exceeded`. Do not request additional codes, substitute
+Production credentials, bypass verification, or turn historical passes into
+current-candidate certification. Existing trusted staging browsers may be used
+normally, with their evidence and limitations recorded separately.
+
+## Full-universe release preparation — 2026-11-15
+
+The owner explicitly requested the new redesigned Orbital universe on the live
+website rather than extending the narrow sign-in-only hotfix exception.
+The release candidate reconciles the current redesign with the existing staging
+branch by an ordinary merge, retaining the newer account-session isolation
+fix. No history was rewritten.
+
+Live production still serves the earlier frontend and older API/socket
+deployments. Updating the frontend alone would not establish the shared Orbital
+universe. Frontend, API and socket must be validated together on one candidate,
+with matching schema and feature configuration.
+
+The shared-flight configuration currently permits distributed persistence only
+in explicit staging. Production has no dedicated Redis service in the inspected
+Railway project. Production activation therefore requires a separately reviewed
+infrastructure/configuration rollout as well as passing promotion evidence.
+Do not point production at staging Redis or disguise production as staging.
+
+The existing staging-to-main evidence gate remains unchanged. The narrow auth
+draft remains separate; its exception must not be expanded to admit the entire
+universe release.
 
 ## Production boundary
 
