@@ -203,11 +203,37 @@ API writes. After identifying the limit, no further sign-in/email retries,
 authentication bypass, account/security-setting changes, production deployment
 or database migration were performed.
 
-**Not certified:** completed fresh challenge, authenticated profile HTTP 200,
-post-auth return to the game, reload retention, and production sign-in.
-The staging delivery limit must be resolved, or an already trusted normal
-staging session used, before those remaining checks can be completed. Never
-substitute a historical challenge record or an unrelated account for this result.
+At the end of the automated run, a completed fresh challenge, authenticated
+profile HTTP 200, post-auth return, reload retention and production sign-in
+were not certified. The owner then selected the trusted-device path below.
+Never substitute a historical challenge record or an unrelated account for
+either result.
+
+### Trusted-phone follow-up — 2026-11-15
+
+The owner used the normal trusted staging browser and reported: **“Game loads
+and survives reload”** in response to the instructed sign-in/game return,
+saved-profile and reload check.
+
+Railway's staging gateway HTTP logs for the deployed hotfix independently
+recorded successful `/api/game/profile` responses:
+
+| UTC timestamp | HTTP status |
+| --- | --- |
+| 2026-11-15T21:58:16.126443358Z | 200 |
+| 2026-11-15T21:58:55.502460174Z | 200 |
+| 2026-11-15T21:58:58.670468339Z | 200 |
+
+These are current staging responses, not the earlier unauthenticated HTTP 401
+or historical challenge records. They corroborate the reported working profile
+and reload behavior. No per-device/account identifiers were inspected or
+retained, so the log entries are not independently tied to a particular phone.
+
+**Verified scope:** owner-confirmed trusted-device game/profile loading and
+reload retention, with corroborating staging profile HTTP 200 responses.
+**Still not certified:** a fresh email-code challenge and production
+authentication after a frontend release. The provider email limit remains;
+no production frontend was deployed during this check.
 
 ## Read-only check before any repair
 
