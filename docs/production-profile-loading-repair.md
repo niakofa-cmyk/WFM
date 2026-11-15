@@ -148,12 +148,66 @@ the frontend type check, both WFM build modes and four build-resource checks
 passed. The Development workflow restarted cleanly and the public landing page
 rendered correctly.
 
-This redirect change is **local and not deployed**. The existing explicit
+This redirect change is **not deployed to production**. The existing explicit
 Clerk-instance selection also needs to be included in a reviewed frontend
 release before claiming the direct Railway host is repaired. Release through
 staging review first; repeat only the failed authenticated return/profile/reload
 flow after the corrected build is actually serving. Do not request another code
 for the unchanged production build or describe website sign-in as certified.
+
+## Focused staging release — 2026-11-15
+
+The owner approved deploying and verifying the sign-in fixes in staging. Live
+metadata showed the protected staging frontend pinned to
+`f6783de197e2e9a032223feac0fabbea9bead8cd`, rather than the broader Development
+branch. A separate hotfix was therefore based on that exact deployed source.
+It preserves the private gateway, API session bridge, dependency lockfile and all
+gameplay code.
+
+- Repository branch: `fix/wfm-staging-signin-return`.
+- Hotfix revision: `84706e6c91ec9e4c0490033fc357d263ad6061a3`.
+- Changes: only the frontend auth wiring and a configuration helper with six
+  passing regression tests.
+- Staging deployment: `70afe82b-ffa9-4858-a0dd-8942acb9c25c`.
+- Target: the existing `wfm-app-staging` service in `wfm-staging` / `staging`.
+- Reviewed Railway patch: only the frontend source branch and commit pin changed;
+  no shared variables, destructive changes, or other service changes.
+- Production and both databases were untouched by this staging release.
+
+Deployment was triggered after reviewing the pending patch. Completion and
+authenticated browser results must be recorded separately below; merely pushing
+the branch or starting its build does not certify sign-in or profile loading.
+
+### Staging deployment and verification result
+
+Railway reported deployment `70afe82b-ffa9-4858-a0dd-8942acb9c25c` successful
+at revision `84706e6c91ec9e4c0490033fc357d263ad6061a3`. Its private-gateway
+health check succeeded at `2026-11-15T21:49:28.965759630Z`.
+
+Post-deployment checks:
+
+- Health endpoint: HTTP 200.
+- Unauthenticated root, sign-in and game profile requests: HTTP 401.
+- Unauthenticated WebSocket upgrade: HTTP 401.
+- Normal browser submission of the existing private staging access form worked.
+- The configured Clerk Development instance loaded, without the previous
+  hostname-derived certificate failure.
+- The approved existing staging account reached `needs_client_trust`.
+- Clerk's email-challenge preparation returned HTTP 400 with the machine error
+  `dev_monthly_email_limit_exceeded`. A diagnostic retry confirmed the same
+  provider limit. This is not evidence that a fresh email was sent.
+
+No verification code was requested through the secure handoff or submitted.
+Both browser owners were closed; their observers recorded zero attempted game
+API writes. After identifying the limit, no further sign-in/email retries,
+authentication bypass, account/security-setting changes, production deployment
+or database migration were performed.
+
+**Not certified:** completed fresh challenge, authenticated profile HTTP 200,
+post-auth return to the game, reload retention, and production sign-in.
+The staging delivery limit must be resolved, or an already trusted normal
+staging session used, before those remaining checks can be completed. Never
+substitute a historical challenge record or an unrelated account for this result.
 
 ## Read-only check before any repair
 
