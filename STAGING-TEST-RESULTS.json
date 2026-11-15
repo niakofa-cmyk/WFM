@@ -42,7 +42,15 @@
       "profileInitializationPrivileges": true
     },
     "freshClerkChallengeForThisCandidate": "NOT_RUN",
-    "authenticatedGameJourneyForThisCandidate": "NOT_YET_VERIFIED",
+    "authenticatedGameJourneyForThisCandidate": "OWNER_CONFIRMED_HANGAR_AND_UNIVERSE_LOAD",
+    "trustedPhoneConfirmation": {
+      "reportedOn": "2026-11-15",
+      "source": "OWNER_REPORT",
+      "reportedOutcome": "Hangar and universe load",
+      "onDeviceRevisionIndependentlyCaptured": false,
+      "freshChallengeCompletionReported": false,
+      "multiplayerCombatOrRewardSettlementReported": false
+    },
     "freshCodeRequestsOrSubmissions": false,
     "playerProgressOrRewardWritesByTheseChecks": false,
     "productionChangedByThisRollout": false,
