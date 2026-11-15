@@ -141,12 +141,12 @@ function SignedInGame() {
   return (
     <GameApiSession>
       <>
-      <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
-        <WarApp />
-      </Suspense>
-      <div className="fixed right-3 top-3 z-[100]">
-        <UserButton />
-      </div>
+        <Suspense fallback={<main role="status" className="flex min-h-dvh items-center justify-center bg-void text-bone">Loading flight systems…</main>}>
+          <WarApp />
+        </Suspense>
+        <div className="fixed right-3 top-3 z-[100]">
+          <UserButton />
+        </div>
       </>
     </GameApiSession>
   );

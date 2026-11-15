@@ -3,6 +3,10 @@ type RegisterTokenGetter = (getter: TokenGetter | null) => void;
 
 let activeBinding: symbol | null = null;
 
+function rejectDisposedSession(): never {
+  throw new Error("Your game session changed. Please sign in again.");
+}
+
 /**
  * Bind a fresh Clerk bearer token for each API request. Never persist tokens,
  * and reject a token if the account signs out or changes while it resolves.
@@ -32,7 +36,8 @@ export function installGameApiSession(
     // Cleanup from an older account must not clear a newer account's provider.
     if (activeBinding === binding) {
       activeBinding = null;
-      register(null);
+      // Keep late game callbacks fail-closed instead of reverting to cookies.
+      register(rejectDisposedSession);
     }
   };
 }

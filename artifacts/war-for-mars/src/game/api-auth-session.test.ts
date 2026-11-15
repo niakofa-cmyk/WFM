@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { customFetch, setAuthTokenGetter } from "../../../../lib/api-client-react/src/custom-fetch";
+import { customFetch, setAuthTokenGetter, setBaseUrl } from "../../../../lib/api-client-react/src/custom-fetch";
 import { installGameApiSession } from "./api-auth-session";
 
 test("profile requests include a fresh Clerk bearer token", async () => {
@@ -87,6 +87,73 @@ test("cleanup from a prior account cannot clear the current account token getter
   } finally {
     releaseOld();
     releaseNew();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("requests started after sign-out reject instead of falling back to cookies", async () => {
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return new Response("{}");
+  };
+  const release = installGameApiSession(() => "signed-in-token", setAuthTokenGetter);
+  try {
+    release();
+    await assert.rejects(customFetch("/api/game/profile"), /session changed/);
+    assert.equal(requests, 0);
+  } finally {
+    release();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("account replacement invalidates the prior account's unresolved token", async () => {
+  const originalFetch = globalThis.fetch;
+  let resolveOld!: (token: string) => void;
+  const headers: Array<string | null> = [];
+  globalThis.fetch = async (_input, options) => {
+    headers.push(new Headers(options?.headers).get("authorization"));
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  const releaseOld = installGameApiSession(
+    () => new Promise<string>((resolve) => { resolveOld = resolve; }),
+    setAuthTokenGetter,
+  );
+  let releaseNew = () => {};
+  try {
+    const rejected = assert.rejects(customFetch("/api/game/profile"), /session changed/);
+    releaseNew = installGameApiSession(() => "new-pilot-token", setAuthTokenGetter);
+    resolveOld("old-pilot-token");
+    await rejected;
+    await customFetch("/api/game/profile");
+    assert.deepEqual(headers, ["Bearer new-pilot-token"]);
+  } finally {
+    releaseOld();
+    releaseNew();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("configured API origins receive authenticated profile requests", async () => {
+  const originalFetch = globalThis.fetch;
+  let destination = "";
+  let authorization: string | null = null;
+  globalThis.fetch = async (input, options) => {
+    destination = String(input);
+    authorization = new Headers(options?.headers).get("authorization");
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  const release = installGameApiSession(() => "pilot-token", setAuthTokenGetter);
+  setBaseUrl("https://api.example.test/");
+  try {
+    await customFetch("/api/game/profile");
+    assert.equal(destination, "https://api.example.test/api/game/profile");
+    assert.equal(authorization, "Bearer pilot-token");
+  } finally {
+    release();
+    setBaseUrl(null);
     globalThis.fetch = originalFetch;
   }
 });
