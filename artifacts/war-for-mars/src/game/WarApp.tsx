@@ -1236,7 +1236,7 @@ export function WarApp({ initialUniverseOpen = false, initialOrbitalOpen = false
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-void px-6 text-center">
         <p className="font-hud text-sm tracking-widest text-alert">PLAYER PROFILE UNAVAILABLE</p>
-        <h1 className="font-hud text-4xl text-bone">No progress is stored on this device.</h1>
+        <h1 className="font-hud text-4xl text-bone">Your pilot profile could not be loaded.</h1>
         <p className="max-w-lg text-sm leading-relaxed text-muted">{profileError}</p>
         <button
           type="button"

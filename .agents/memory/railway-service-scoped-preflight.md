@@ -21,6 +21,19 @@ The Railway MCP toolset provides project, service, deployment, status, and log i
 
 When diagnosing a specific Railway release, request logs by deployment ID. Broad service/environment log queries can include older build or healthcheck failures and make them look current; correlate timestamps and deployment IDs before assigning a warning or error to the active release.
 
+Do not treat a missing player-progress relation as permission to initialize new
+empty saves. Confirm the intended database and search path before any repair.
+
+**Why:** the same error can mean an uninitialized database, the wrong connection,
+or existing progress in another schema. Creating a second empty table can mask
+recoverable saved progress and make an incomplete repair look successful.
+
+**How to apply:** inspect relation metadata read-only first and compare it to the
+repository schema before proposing a migration. Require explicit approval before
+any production write. The user confirmed that liveness, connectivity and profile
+readiness must remain separate; schema failure must not trigger process restarts.
+A healthy connectivity probe alone does not establish authenticated profile loading.
+
 Structured JSON stdout can appear in Railway logs as an empty `message` with
 the event and fields stored in `attributes`, not as searchable message text.
 
