@@ -1,7 +1,50 @@
 # WAR FOR MARS staging verification report
 
-- **Status:** PARTIAL / PROMOTION PENDING — first paired fleet victory, rewards, and continued flight verified; a second hostile interception and simultaneous hostile fleets remain unverified.
-- **Latest staging rollout:** `3ee35c7641dd57b0ebf56fb4bf5b567f6b38e4a4` successfully deployed across app, API and socket, with matching deployment commit metadata. Each current challenge received one matching secure-code submission; both retained sessions are active, both challenges are cleared, and both authenticated profiles returned HTTP 200 before flight. Production and the database schema are unchanged.
+- **Status:** PARTIAL / PROMOTION PENDING — candidate sign-in, preference isolation, rendered universe entry, and negative claim checks passed; complete inventory/history, positive reward/duplicate, and interrupted-match evidence remains incomplete.
+- **Current candidate:** `81ad603a5a0d300714bee024d58342c8115312df`, previously verified deployed across staging app, API, and socket. Later branch changes contain evidence only. The rollout and battle records below retain their historical source identifiers.
+
+## Test-identity release checks — 2026-11-15 UTC
+
+The owner reported creating two distinct Development test accounts on the exact
+staging site. Separate browser contexts then directly verified both accounts'
+active Clerk sessions and authenticated profile HTTP **200** responses using
+Clerk's documented no-email test verification. Signup is **owner-reported**;
+the automated signup remained blocked by the provider's verification screen.
+`signupAndSignin` is now PASS on this combined evidence, not on an automated
+signup claim.
+
+| Check | Observed result |
+| --- | --- |
+| Saved control-preference isolation | PASS — the first account's change survived reload; the second account's entire profile stayed unchanged |
+| Owner-field spoofing on preference update | Rejected HTTP 400; other account unchanged |
+| Preference restoration | Both profiles matched original baselines before gameplay |
+| Profile read without cookies or Bearer | HTTP 401 |
+| Authenticated universe entry | Rendered two canvases and the arena stage; live server join and 79 snapshots observed |
+| Normal keyboard input | Forward held 1,200 ms and released; authoritative distance was not measured |
+| Live session diagnostics | 131 accepted-input packets, 50 weapon-fired packets, zero uncaught page errors; weapon ownership was not evaluated |
+| Return to hangar/root | Authenticated profile HTTP 200 |
+| Claim against another account's genuine run | HTTP 404 |
+| Incomplete replay claim | HTTP 400 |
+| Claim after a newer server-issued run advanced the revision | HTTP 409 `profile_changed` |
+| Repeat claim on that now-expired record | HTTP 409 `expired` |
+
+The rendered universe screenshot was inspected. The negative API tests issued
+two real staging-owned runs and advanced the first account's profile revision
+by two; its credits and all other returned profile fields stayed unchanged.
+The second account's complete profile stayed unchanged. No purchase, refit,
+positive reward, database schema/configuration change, or Production change
+was performed.
+
+These checks do not certify inventory/mission-history isolation, successful
+reward settlement with accepted-duplicate protection, or denial after a
+genuinely socket-interrupted or wall-clock-expired match. Revision invalidation
+must not be substituted for the interrupted-match release criterion. Those
+test statuses and overall promotion remain incomplete; branch protection and
+Play Now remain unchanged.
+
+Sanitized detailed observations and the inspected screenshot are retained in
+the ignored `generated-artifacts/` directory; no raw session, credential, or
+replay data is included in this report.
 
 ## Follow-on assistance foundation — local verification only
 

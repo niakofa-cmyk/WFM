@@ -2282,7 +2282,7 @@
     "scope": "The owner reported both phones stopped and showed an error that the match had been interrupted after the second staging socket restart. After the first restart, the owner reported return to a fresh lobby and unchanged balances. Railway status afterward showed the staging socket online with no service issues or pending work. This supports the restart/notification gate only; it does not prove reward-ledger immutability or the result of the second restart's balance check."
   },
   "tests": {
-    "signupAndSignin": "PARTIAL",
+    "signupAndSignin": "PASS",
     "profilePersistsAcrossSessions": "PASS",
     "profileSyncsAcrossDevices": "PASS",
     "accountProgressInventoryAndHistoryAreIsolated": "PARTIAL",
@@ -2680,6 +2680,53 @@
       "Does not verify Production"
     ],
     "productionSettingsOrDeploymentChanged": false
+  },
+  "latestTestIdentityReleaseChecks": {
+    "recordedAtUtc": "2026-11-15T02:44:32.872Z",
+    "candidateSourceCommit": "81ad603a5a0d300714bee024d58342c8115312df",
+    "signup": "OWNER_REPORTED_TWO_NEW_STAGING_TEST_ACCOUNTS",
+    "signin": "BOTH_VERIFIED_ACTIVE_WITH_AUTHENTICATED_PROFILE_200",
+    "authenticationMethod": "Clerk Development test aliases and documented test verification code; no real email delivery",
+    "distinctAuthenticatedIdentities": true,
+    "controlPreferenceIsolation": "PASS_INCLUDING_RELOAD",
+    "forgedOwnerPreferenceWrite": "REJECTED_400_OTHER_ACCOUNT_UNCHANGED",
+    "preferencesRestoredBeforeGameplay": true,
+    "unauthenticatedProfileWithoutCookiesOrBearer": 401,
+    "universeEntry": {
+      "accountCount": 1,
+      "activeSession": true,
+      "renderedCanvasCount": 2,
+      "arenaStageVisible": true,
+      "serverJoinedPackets": 1,
+      "serverSnapshots": 79,
+      "serverAcceptedInputs": 131,
+      "observedWeaponFiredPackets": 50,
+      "weaponPacketAttribution": "NOT_EVALUATED",
+      "normalKeyboardInput": "Forward key held 1200 ms and released",
+      "authoritativeMovementDistance": "NOT_MEASURED",
+      "uncaughtPageErrors": 0,
+      "returnToRootProfileStatus": 200,
+      "screenshotVisuallyInspected": true
+    },
+    "negativeClaimChecks": {
+      "genuineServerIssuedRunCount": 2,
+      "crossAccountRunClaimStatus": 404,
+      "incompleteReplayStatus": 400,
+      "supersededRunStatus": 409,
+      "supersededRunReason": "profile_changed",
+      "repeatedExpiredRunStatus": 409,
+      "repeatedExpiredRunReason": "expired",
+      "accountAProfileRevisionAdvancedBy": 2,
+      "accountACreditsAndOtherProfileFieldsUnchanged": true,
+      "accountBProfileUnchanged": true,
+      "noRewardGranted": true
+    },
+    "inventoryAndMissionHistoryIsolation": "NOT_CERTIFIED",
+    "positiveRewardAndAcceptedDuplicate": "NOT_TESTED",
+    "genuineSocketInterruptedOrWallClockExpiredMatchClaim": "NOT_TESTED",
+    "purchasesOrRefits": false,
+    "productionSettingsOrDeploymentChanged": false,
+    "scope": "Signup is owner-reported, not an automated signup pass. Separate browser sessions directly verified sign-in, preference isolation and restoration, authenticated rendered universe entry, and negative claims on server-issued runs. Revision-invalidated expiry does not certify genuine socket interruption or wall-clock expiry. Incomplete release tests and overallStatus remain pending."
   },
   "latestCandidateStagingSigninCheck": {
     "date": "2026-11-14",
