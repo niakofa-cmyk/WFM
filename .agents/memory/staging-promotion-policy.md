@@ -46,6 +46,20 @@ Keep the game frontend, API, and Wing Socket services on Railway, using the owne
 
 **How to apply:** do not create another Clerk application or migrate back to managed Replit authentication. Validate staging with separate authentication and data before promotion. Review instance pairing, exact origin allowlists, schema, and endpoint routing without revealing credentials.
 
+The approved WFM production shared-flight broker is a dedicated authenticated
+Redis service with durable volume in the production Railway project. Provisioning
+does not authorize connecting the live socket or relaxing the staging-only
+runtime guard.
+
+**Why:** distributed universe state must not depend on the staging broker, but
+the user authorized isolated resource provisioning—not an unverified gameplay
+release or production runtime switch.
+
+**How to apply:** keep the production Redis private, verify its deployment and
+absence of public TCP/domain exposure, and separately review database schema,
+socket configuration, runtime guards, migrations and rollback before connecting
+the production application.
+
 ## Distribution goals
 
 Single-player and real-time multiplayer are two modes of the same game. Use the browser version for discovery and try-now access; downloadable Android and iOS applications are the long-term product. Share gameplay and multiplayer infrastructure where practical rather than maintaining three games.

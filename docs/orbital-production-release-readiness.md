@@ -61,10 +61,14 @@ universe. Frontend, API and socket must be validated together on one candidate,
 with matching schema and feature configuration.
 
 The shared-flight configuration currently permits distributed persistence only
-in explicit staging. Production has no dedicated Redis service in the inspected
-Railway project. Production activation therefore requires a separately reviewed
-infrastructure/configuration rollout as well as passing promotion evidence.
-Do not point production at staging Redis or disguise production as staging.
+in explicit staging. After the owner approved it, a dedicated authenticated Redis
+service and persistent volume were provisioned in the WFM production Railway
+project on 2026-11-16. The service is private, has no public domain or TCP proxy,
+and is not connected to the production socket. No application service was
+redeployed or reconfigured by provisioning it. Production activation still
+requires a separately reviewed configuration/guard rollout and passing
+promotion evidence. Do not point production at staging Redis or disguise
+production as staging.
 
 The existing staging-to-main evidence gate remains unchanged. The narrow auth
 draft remains separate; its exception must not be expanded to admit the entire
