@@ -2189,12 +2189,14 @@ promotion verifier directly still blocked promotion because overall evidence
 was PENDING, account-isolation/reward-denial checks were incomplete, and the
 recorded tested source predates this candidate. The gate was not weakened.
 
-Production also lacks a dedicated Redis service in the inspected WFM production
-project. Current distributed-flight configuration explicitly restricts shared
-persistence to staging until separately approved. A live full-universe release
+After owner approval, a dedicated authenticated Redis service with a 5 GB
+persistent volume was provisioned in the WFM production Railway project on
+2026-11-16. The service is private, has no public domain or TCP proxy, and is not
+connected to the production API or socket. Provisioning did not reconfigure or
+redeploy any production application service. A live full-universe release still
 needs a reviewed production transport/configuration rollout as well as fresh
-candidate evidence. Do not reuse staging Redis, label production as staging,
-or deploy only the frontend against the older production servers.
+candidate evidence. Do not reuse staging Redis, label production as staging, or
+deploy only the frontend against the older production servers.
 
 ### Trusted-phone confirmation — 2026-11-15
 
