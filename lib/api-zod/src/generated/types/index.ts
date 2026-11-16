@@ -80,6 +80,7 @@ export * from './publicWingLeaderboardEntry';
 export * from './publicWingLeaderboardResponse';
 export * from './readinessCheckResponse';
 export * from './readinessCheckResponseStatus';
+export * from './readinessDiagnostics';
 export * from './spectatorSession';
 export * from './spectatorSessionCameraModesItem';
 export * from './strikeClaimInput';

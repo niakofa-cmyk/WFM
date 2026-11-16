@@ -16,3 +16,15 @@ the observed browser then failed TLS before loading sign-in.
 API. A change in hosting hostname is not permission to select a different
 Clerk instance. Verify actual loaded Clerk host metadata without printing or
 decoding configured keys.
+
+Embedded WFM authentication must return to the game's own mounted entry, not
+inherit the parent website's generic account destination.
+
+**Why:** an accepted production second-factor request was followed by the parent
+site's `/login` page, with no authenticated game profile observed. Identity-factor
+acceptance and successful game entry are separate facts.
+
+**How to apply:** make sign-in and registration destinations game-scoped, preserve
+the configured external Clerk instance, and verify the actual browser return plus
+an authenticated profile response before claiming the flow works. A static bundle
+fallback key is not proof of the runtime's selected Clerk hostname.

@@ -1,7 +1,7 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { GlobalCampaignStatus } from "./game/GlobalCampaignStatus";
-import { configuredClerkPublishableKey } from "./auth/clerk-config";
 import { AuthInitialization } from "./components/auth-initialization";
+import { configuredClerkPublishableKey, gameAuthReturnUrl } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { SORTIES } from "./game/campaign";
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const gameEntryUrl = gameAuthReturnUrl(basePath);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
 
@@ -80,7 +81,12 @@ function SignInPage() {
   return (
     <AuthInitialization returnHref={`${basePath}/about`}>
       <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-        <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+          forceRedirectUrl={gameEntryUrl}
+        />
       </main>
     </AuthInitialization>
   );
@@ -90,7 +96,12 @@ function SignUpPage() {
   return (
     <AuthInitialization returnHref={`${basePath}/about`}>
       <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-        <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+          forceRedirectUrl={gameEntryUrl}
+        />
       </main>
     </AuthInitialization>
   );

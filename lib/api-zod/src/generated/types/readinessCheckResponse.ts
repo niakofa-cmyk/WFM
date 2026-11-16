@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ReadinessCheckResponseStatus } from './readinessCheckResponseStatus';
+import type { ReadinessDiagnostics } from './readinessDiagnostics';
 
 export interface ReadinessCheckResponse {
   status: ReadinessCheckResponseStatus;
+  /** Whether the database connectivity probe passed, not whether profiles are ready */
   database: boolean;
+  checks?: ReadinessDiagnostics;
 }

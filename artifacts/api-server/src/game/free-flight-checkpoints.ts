@@ -93,7 +93,19 @@ export async function saveFreeFlightCheckpoint(
       stateVersion: 1,
       fencingToken,
       checkpointSequence,
-      snapshot,
+      // An inventory transaction may mark a wreck recovered while a newer
+      // simulation snapshot is already queued. Never resurrect that crate.
+      snapshot: sql`CASE WHEN jsonb_typeof(excluded.snapshot->'wreckPackages') = 'array'
+        THEN jsonb_set(excluded.snapshot, '{wreckPackages}', COALESCE((
+          SELECT jsonb_agg(CASE WHEN EXISTS (
+            SELECT 1 FROM jsonb_array_elements(
+              COALESCE(${freeFlightCheckpointsTable.snapshot}->'wreckPackages', '[]'::jsonb)
+            ) old WHERE old->>'id' = fresh->>'id'
+              AND old->>'ownerUserId' = fresh->>'ownerUserId'
+              AND old->>'status' = 'recovered'
+          ) THEN jsonb_set(fresh, '{status}', '"recovered"'::jsonb) ELSE fresh END)
+          FROM jsonb_array_elements(excluded.snapshot->'wreckPackages') fresh
+        ), '[]'::jsonb)) ELSE excluded.snapshot END`,
       updatedAt: now,
     },
     setWhere: sql`

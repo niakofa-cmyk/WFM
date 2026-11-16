@@ -116,8 +116,8 @@ test("the live renderer uses the shared frame for position, beams, gravity and t
   const arena = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
   assert.match(arena, /reconcileSharedFlightPosition\(pilot, sharedFrame.snapshot/);
   assert.match(arena, /sharedPointInLocalFrame\(position, address\)/);
-  assert.match(arena, /sharedPointInLocalFrame\(tail, address\)/);
-  assert.match(arena, /sharedPointInLocalFrame\(tip, address\)/);
+  assert.match(arena, /clipProjectileTrail\(motionPath, effect.missile \? 60 : 8\) : \[tail, tip\]/);
+  assert.match(arena, /confirmedPoints.map\(point => sharedPointInLocalFrame\(point, address\)\)/);
   assert.match(arena, /sharedPointInLocalFrame\(well.center, address\)/);
   assert.match(arena, /sharedLockedGroup\?\.visible \? sharedLockedGroup.position/);
   assert.match(arena, /bracket.position.copy\(sharedLockedPosition\)/);

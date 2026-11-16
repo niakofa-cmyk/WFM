@@ -134,13 +134,31 @@ test("two socket instances share one authoritative shard and restore it after ow
       return true;
     },
   };
+  // Seed a durable wreck in the existing celestial frame, then consume it
+  // through a different ingress process, not directly through its owner.
+  const seed = createFreeFlightRuntime({ resolveAdmission: admission,
+    saveCheckpoint: checkpointCallbacks.save });
+  await seed.handle(socketHarness().socket, "shared-pilot-b", { type: "freeflight_join" });
+  await seed.close();
+  const seeded = stored.get("mars:phobos-yard")!.snapshot as unknown as FreeFlightSessionCheckpointV1;
+  const seededPilot = seeded.actors.find(a => a.ownerUserId === "shared-pilot-b")!;
+  const packageId = "mesh-encounter:patrol-ship:mesh-wreck";
+  seeded.wreckPackages = [{
+    id: packageId, encounterId: "mesh-encounter", actorId: "patrol-ship:mesh-wreck",
+    ownerUserId: "shared-pilot-b", status: "available",
+    position: { x: seededPilot.craft.x, y: seededPilot.craft.space!.y, z: seededPilot.craft.z },
+  }];
+  let issued = 0;
+  const recoverSalvage = async () => { issued++; return { equipmentId: "seeker", revision: 1 }; };
   const ownerLocal = createFreeFlightRuntime({
+    recoverSalvage,
     resolveAdmission: admission,
     loadCheckpoint: checkpointCallbacks.load,
     saveCheckpoint: checkpointCallbacks.save,
     retainEncounterReservationsOnClose: true,
   });
   const proxyLocal = createFreeFlightRuntime({
+    recoverSalvage,
     resolveAdmission: admission,
     loadCheckpoint: checkpointCallbacks.load,
     saveCheckpoint: checkpointCallbacks.save,
@@ -175,6 +193,16 @@ test("two socket instances share one authoritative shard and restore it after ow
     assert.notEqual(routeA.ingressInstanceId, routeB.ingressInstanceId);
     assert.equal(routeA.ownerInstanceId, routeB.ownerInstanceId);
     assert.equal(routeA.fencingToken, routeB.fencingToken);
+    await waitFor(() => pilotB.packets.some(p => p.type === "freeflight_salvage"));
+    assert.equal(pilotB.packets.find(p => p.type === "freeflight_salvage")!.packages[0].id, packageId);
+    await proxy.handle(pilotB.socket, "shared-pilot-b", {
+      type: "freeflight_salvage_recover", protocol: 1, packageId,
+    });
+    await waitFor(() => pilotB.packets.some(p => p.type === "freeflight_salvage_recovered"));
+    assert.equal(issued, 1, "the proxy routes recovery to the sole owner");
+    await waitFor(() => pilotA.packets.some(p => p.type === "freeflight_salvage" && p.packages.length === 0));
+    assert.equal((stored.get("mars:phobos-yard")!.snapshot as unknown as FreeFlightSessionCheckpointV1)
+      .wreckPackages![0]!.status, "recovered");
 
     await owner.close();
     await waitFor(() => pilotB.socket.readyState !== 1);
@@ -189,6 +217,8 @@ test("two socket instances share one authoritative shard and restore it after ow
     const recoveredRoute = recovered.packets.find((packet) => packet.type === "freeflight_routing")!;
     assert.notEqual(recoveredRoute.ownerInstanceId, routeA.ownerInstanceId);
     assert.ok(recoveredRoute.fencingToken > routeA.fencingToken);
+    assert.deepEqual(recovered.packets.find(p => p.type === "freeflight_salvage")?.packages, [],
+      "a replacement owner must not respawn a proxy-recovered package");
   } finally {
     await Promise.all([owner.close(), proxy.close()]);
   }

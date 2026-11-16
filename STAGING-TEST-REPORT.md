@@ -2127,3 +2127,100 @@ written, and no interrupted-flight claim was submitted. Production was not
 changed. The full staging results remain **PENDING**: this preflight does not
 replace the required sign-up, cross-account progress/inventory/history,
 server-owned reward and duplicate-claim, or interrupted-claim-denial evidence.
+
+## Full redesigned Orbital universe candidate — 2026-11-15
+
+This is a full-game candidate, not an extension of the narrow authentication
+hotfix exception. The current redesign was merged normally with the existing
+staging history, preserving the newer session-token handoff and account
+isolation fixes. Staging was advanced without rewriting history.
+
+### Exact deployment and source
+
+All three services successfully deployed the same source commit,
+`9f4ac3db5da379a39e388855892facd033c62de2`:
+
+| Service | Deployment | Successful update |
+| --- | --- | --- |
+| Frontend/private gateway | `9a6bb0bd-d176-4b0d-94e2-bc7e515898bb` | 2026-11-15T22:28:12.997Z |
+| API | `fb62b60c-3fd0-48a4-8af3-b8aba19c1d58` | 2026-11-15T22:28:16.986Z |
+| Multiplayer socket | `8d47dbfc-478a-498e-89eb-ac892159ce75` | 2026-11-15T22:28:26.317Z |
+
+Only the three source branches/commit pins changed. Existing staging credentials,
+database settings, gateway protection, and socket replica count were preserved.
+Production was not changed by this rollout.
+
+### Completed checks
+
+- The full local workspace-quality workflow passed type checks, 945 tests and
+  every build/bundle audit. One guarded disposable-local population database
+  integration test was skipped. The four preview-build checks also passed.
+- GitHub's **Verify workspace** check passed for this source commit.
+- Read-only inspection through the exact staging API service found all 22
+  expected application tables and columns in `public`; zero-row selections
+  against every expected table succeeded. No schema repair was applied.
+- At 2026-11-15T22:30:36.146Z, gateway liveness returned 200; locked website and
+  API requests returned 401. A real unauthenticated WebSocket upgrade returned
+  401 at 2026-11-15T22:30:50.371Z.
+- The normal private-access form returned 303. With only its temporary gateway
+  cookie, the game HTML, entry JavaScript and CSS returned 200.
+- The new API readiness endpoint returned 200 and independently reported
+  database connectivity, profile schema and profile-initialization privileges
+  as true. A profile request without Clerk authentication still returned 401.
+- The temporary gateway session was closed. These checks did not start Clerk
+  sign-in, request or submit verification codes, initialize a player profile,
+  or write gameplay progress or rewards.
+
+### Limits and production hold
+
+The earlier trusted-phone report that the game loaded and survived reloads
+covered the isolated frontend sign-in hotfix, not this full candidate. Neither
+that report nor historical completed challenges certify this candidate's
+authenticated universe entry, shared battle, account isolation, duplicate
+settlement denial, or interrupted-match reward denial.
+
+The previously observed Clerk `dev_monthly_email_limit_exceeded` remains a
+limitation for new automated client-trust email preparation. No new challenge
+was attempted in this rollout. A trusted staging phone can retain its existing
+Clerk session, but may need to unlock the private gateway again after its restart.
+
+The GitHub staging-evidence job was **SKIPPED**, not passed. Running the existing
+promotion verifier directly still blocked promotion because overall evidence
+was PENDING, account-isolation/reward-denial checks were incomplete, and the
+recorded tested source predates this candidate. The gate was not weakened.
+
+After owner approval, a dedicated authenticated Redis service with a 5 GB
+persistent volume was provisioned in the WFM production Railway project on
+2026-11-16. The service is private, has no public domain or TCP proxy, and is not
+connected to the production API or socket. Provisioning did not reconfigure or
+redeploy any production application service. A live full-universe release still
+needs a reviewed production transport/configuration rollout as well as fresh
+candidate evidence. Do not reuse staging Redis, label production as staging, or
+deploy only the frontend against the older production servers.
+
+### Trusted-phone confirmation — 2026-11-15
+
+In response to the current candidate verification prompt, the owner reported:
+**“Hangar and universe load.”** This confirms the reported hangar-to-universe
+entry journey on the trusted staging phone.
+
+This is owner-reported evidence; the on-device revision, authenticated network
+responses, shared combat and reward settlement were not independently captured
+in that reply. It does not record a newly completed Clerk verification challenge,
+two-pilot presence, account isolation, duplicate-claim denial or interrupted
+ reward denial. Overall promotion status remains PENDING, and production has
+ not been changed.
+
+### Two-phone shared-battle confirmation — 2026-11-16
+
+The owner then reported the outcome of testing the current staging build on two
+phones: **“Both pilots share one battle.”** The owner subsequently confirmed
+both phones observed **“Same damage and rewards.”** This is owner-reported
+confirmation of a shared encounter with matching damage and rewards in this
+candidate.
+
+No device trace or independently captured build ID accompanied the report.
+The report does not identify exact award amounts or provide independent ledger
+evidence. Duplicate-claim and interrupted-match denial were not reported as
+tested. The finding is recorded without changing overall promotion status from
+PENDING.

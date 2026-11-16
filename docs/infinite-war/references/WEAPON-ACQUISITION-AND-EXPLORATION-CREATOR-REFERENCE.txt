@@ -1,0 +1,463 @@
+I strongly recommend that we build a complete weapon acquisition, salvage, exploration, and visible-mount system for WFM—not a system where players only receive weapons by destroying enemy ships.
+
+Your idea of finding weapons, energy, and useful resources throughout the universe is exactly the direction I would take. It gives players a reason to explore, fight, investigate derelict locations, and search dangerous regions rather than repeatedly fighting enemies just to obtain better equipment.
+
+I would combine the weapon acquisition philosophy of Einhänder with a much deeper persistent-universe economy.
+
+### 1\. Three ways to acquire weapons
+
+![Nightmares Never Fade! (Ronin) - 118Wiki | StarBase 118 Star Trek RPG](https://images.openai.com/static-rsc-4/zXGwHKzxYNlueISF9z6Y0jvZYajpxIWn-9WOa6-wna-8vlw4E7JAtERqoDugyiVxurN2u8CGEmgbJf2FDpGX7Cwh6vLyIrWnZi6LYutirqLPAmo-e3PyPD12P7pCvrN4Og9sCD07IHA64kR6ZI6W9lPWj70Rv81h_NJl2qs3qOEQvvZa0wZmdz3ACheVPkpK?purpose=fullsize)
+
+1\. Enemy ship salvage
+
+Core acquisition method
+
+Destroyed enemy ships can leave behind surviving weapons, ammunition systems, power cores, and other components.
+
+Players can recover weapons that were actually installed on the destroyed ship.
+
+![Celestial Crystal Mining — 4K Ultra HD Wallpaper by QuantumCurator | 4608x2592 | Wallpaper Abyss](https://images.openai.com/static-rsc-4/XkJSN9uyZ4qdjwsC_UTMLdSmsANCr6VtsKMm1pdTn4WWAs4DDGP9fg92soSWJFjzseBpvUwmuVRmEjEMOqkxP_A8_mLWknhU5mJm1ooFwqX686RW3_liUNhkr0rjEaPPaJ3IsQjKE0RctPVYbx6TsRNZx_7AqXVNEvg-J-HEBOb_htol5_TtVIWnEp-Ov5BY?purpose=fullsize)
+
+2\. Asteroid and planetary discoveries
+
+Discover abandoned weapon caches, buried technology, rare energy crystals, ancient weapons, experimental components, and forgotten installations.
+
+Some discoveries should require exploration, scanning, or special equipment.
+
+![Hardspace: Shipbreaker - Digital Artbook on Steam](https://images.openai.com/static-rsc-4/uUfmfBb3Pjw4qO4DHuCFdDea1JWvvCECOTPtiCfAhyqsVxFJ8pXeacLrqSRkxkbI7Z26akocndg5xIB-yIhOArM9ElC4ThmkDR1TCZmsEATkzQsj9uPI6B0yH-ON_i87zFC-kT8GMADxFQKzGgJy2trWXLnLsdUiJ5EkisULYJj96mHoS6FqpCTm8G58gFz6?purpose=fullsize)
+
+3\. Derelict ships, stations, and ancient installations
+
+Find abandoned military vessels, destroyed outposts, forgotten research facilities, and hidden storage chambers.
+
+These locations can contain weapons that cannot normally be obtained from ordinary enemies.
+
+I would also add mission rewards, elite commanders, boss encounters, faction research, and weapon manufacturing as additional acquisition methods.
+
+The principle: combat earns salvage, exploration discovers technology, and progression unlocks specialization.
+
+### 2\. What happens when we destroy an enemy ship?
+
+This should be one of the defining features of the WFM universe.
+
+Imagine encountering an Accord cruiser.
+
+It has:
+
+* Two visible forward-mounted energy cannons.
+
+* Four missile launchers.
+
+* Two defensive turrets.
+
+* An experimental energy weapon.
+
+* A specialized power core.
+
+When you destroy it, its weapons should not all magically appear in your inventory.
+
+Instead, the destruction system evaluates what survived.
+
+![Redeemer - Star Citizen Wiki](https://images.openai.com/static-rsc-4/Appscu7VhNHbwjChdIZMcjLXxN4xGqjcZoB3Cw09pZe3hb5SePRjLBLfo_k1WXagKeYPt6ER0JtrIBJjSw8FO8FE6lwrdkZUSqAMC4IIGgXZNOtbeaVaAJUmQcYRjDtNl-C0UCxoQ7r4vQU--S0K-knwZPz-mzh-p-yGGHQvJv0rJuAZVxwzwUTX8JD6Mn6-?purpose=fullsize)
+
+![Nightmares Never Fade! (Ronin) - 118Wiki | StarBase 118 Star Trek RPG](https://images.openai.com/static-rsc-4/zXGwHKzxYNlueISF9z6Y0jvZYajpxIWn-9WOa6-wna-8vlw4E7JAtERqoDugyiVxurN2u8CGEmgbJf2FDpGX7Cwh6vLyIrWnZi6LYutirqLPAmo-e3PyPD12P7pCvrN4Og9sCD07IHA64kR6ZI6W9lPWj70Rv81h_NJl2qs3qOEQvvZa0wZmdz3ACheVPkpK?purpose=fullsize)
+
+![PvE mission «Processing rig» - Star Conflict Wiki](https://images.openai.com/static-rsc-4/KFKYpu_mwIIFn-c3RAVkYQaG-sVwBOiKivg8PeDSniNyrKeXolQruSpOHNWbX2gFPBwhCD2njkkLriYKIe-BoZV_9bmdd-YifAehxVYvyFBoTiNXcMx2BWQWP8xNwO0CwggCKeZyi5A9_qRQdOQVcwhAgJQr-pd1cU5JN663_i_YfozfJqe8bTlVhaF5w-Ee?purpose=fullsize)
+
+![Turret - Satelitte Railgun (Size 4) - Skymods](https://images.openai.com/static-rsc-4/8LuU3dD7o6drBsPqyrbG3IQIniVJq3bbgX6CcLzorOrn77Y9ktVaSkpTbeAB7beSFqVDFI7DXC_ZCpycchxG1fqeuFk4iluoTg83-m6D4EqF8cDYqXBfqrIHpQAEkgyIvvyIBrAwr1OGUk7wjA9eyNxFaYDhUukT3SCz8kxSOlVq60d6hnhr6Xakq2IVuQvX?purpose=fullsize)
+
+![Science Fiction and the Strategist 3.0](https://images.openai.com/static-rsc-4/Iohu7dz21QkYxU08JpwTLGOuTC2-bSKeruk1pKgcwPVm5BWAM2Dyod0xkF_qRu8bFoF24DNdfXCl3yKaiw1vEJIu-SQFQc0M_4m6uLZydWyII9d4bBsWtfkO-aLgRjsPcxQIL6v-MQyPRv6i3qbV1Qkd5uUNMA3wbGmje9J_s0IJQdnTcjAoGhNSFo0Gh6Y8?purpose=fullsize)
+
+![Galacticare on Steam](https://images.openai.com/static-rsc-4/KKYhKiwjW9CGf_9NGxjXAhvwt2hDEa8wkL2TN4GhVZNSeHK5a9RIXwshmiRikJwPlz3lu0ksHiHZNyMpGWXCJFwYUregGDA_3Ia4vcOG-D3laGwRvqXSj7DOFtPZuZ0jh-Spuo6iNz845jzMo80nMDA84_Uyi9s5o3zaRwpCE03hYSI03fsCLbGJHl6ft35V?purpose=fullsize)
+
+![](https://images.openai.com/static-rsc-4/rlW4zcjC1Ls6AIpS0xrZFUd4oN2KSA6A40cV3SNHe8ZqN7__wrVNELnOGNEEpWcn4DowQj-nnWv8pbGaxlT8BpHPyjTUME1u3hJZyw7emuqvPFipsIQYhPz6ES6NN8Vsw3W6MoouSMJDfB56xuWbP0YdshkG75QTCl9yMWc3B27TDoXTJuXB1CKU6wrl69P3?purpose=fullsize)
+
+![Space Pirate Trainer on Steam](https://images.openai.com/static-rsc-4/wfZsV7EfkG9MtFS0JlAJrhWF3dU_8916_aAl8c1w45aD3JxZfoTPT3nS42DI1jcUqcR8oIY2rYzeIQwawuhBmR7RYUFCewsIAKvsj2-jQkg210BqhnZkuspxMYmVxmNPozNrcxSCEm5mpiJPcKuFw_nyQ9CwcXB030Rur4DVq3ECxhEtNBuHCnR3R25ii6Zq?purpose=fullsize)
+
+![Steam Community :: Star Wrath](https://images.openai.com/static-rsc-4/aTKeV0kh_vw7pH84Ds3xWQ57YDlohRWTxL80_XX0-qx9mEm3t921QpJbRNN-9F8CH9qzy_BwhoOismt2QjLqsyVvU4Y_QYhVaFblvTfTo_QXl963bOVeul0dlN-8QH8UliZcZdNlmDs-EBKLnhM2YpzqA9-JpDOUens89WLmOUL7xfoqwKM9i7bZx-WY8jyb?purpose=fullsize)
+
+![Star Wars Jedi: Fallen Order: All Planets RANKED!](https://images.openai.com/static-rsc-4/x2uk-q3pm8mi795nm--INkpi2zHR3SrXBVhln311EwpWo2F5MieHy3aNcB_ffBVQ-R7frVwsBMNyLjg_JLv6Bg__HH5c8f5LaEzHSAeF5LNKNYxKITqZCp-6ZofnTEpRooApsTUXexvk8RigOvIuLBe9OZORdvv116o-2M51goDO8KZy31V9xrwzR1-WCpPy?purpose=fullsize)
+
+The salvage system should consider:
+
+| Component           | Possible result                         |
+| ------------------- | --------------------------------------- |
+| Main cannons        | Recoverable weapon or damaged component |
+| Missile launchers   | Launcher module or ammunition           |
+| Defensive turrets   | Salvageable turret                      |
+| Energy core         | Power source or crafting material       |
+| Armor               | Alloy and reinforcement materials       |
+| Experimental weapon | Rare technology, if it survives         |
+| Hull                | Structural materials                    |
+
+There should be several possible outcomes:
+
+* Intact: weapon can be recovered and equipped.
+
+* Damaged: requires repair before use.
+
+* Destroyed: only components or materials remain.
+
+* Volatile: dangerous energy or ammunition may explode if approached carelessly.
+
+This creates an interesting tactical decision: do you destroy an enemy immediately, or disable its weapon systems and attempt to preserve valuable equipment?
+
+### 3\. Build a weapon-mount system that players can actually see
+
+This is particularly important because of your Einhänder inspiration.
+
+Your weapons should not exist only as inventory icons or menu selections.
+
+They should physically appear on the player's ship.
+
+![HDリマスターが望まれるスクウェアの傑作STG『アインハンダー』―「STGの氷河期」90年代後半に産まれた革新作の魅力を伝えたい【年末年始特集】 | Game*Spark - 国内・海外ゲーム情報サイト](https://images.openai.com/static-rsc-4/GBVP7nhaw4-9-BpZMiZ0TtzV0eLxE3cYrvd89b37-2WGyxJljDR3grPBYUbjL53VLdFaAZfoaIjHWR77gyneDM_cbRfZ0A2SgKiVGbBZQKhOhPFzjxId7b8BZprRI4szvkZvZ54bHqXk04yT0L3G9NqlM8kRdGUFBV8wtS5lik0ZyTCQqYliNfL0r8jjrz8t?purpose=fullsize)
+
+![SF Tiger Fighter](https://images.openai.com/static-rsc-4/B55TCLTUQNIwtdt2lhNgZsP-BgUTgxvzJzifPvpRAJenkp4u_J7RN5BmqJM_5FoAmd2mfvjYdDThPcQY0mHIaU09k3UZLPa8mzRxtX0YTrEl0Ag0P6TGUlNmpAw3BrXpB3kaZNZF368sBg3nvkj_POgvHLuLUxwLuBY7tBo4AAFnOHetQLs8K_UnM9LUIByR?purpose=fullsize)
+
+![Approved Starship - Breshig War Forge Consolidated SMF-04 Kyr'galaar-class Stealth Multi-role Fighter | Star Wars Roleplay: Chaos](https://images.openai.com/static-rsc-4/bneEkU-Kl-BzzyGkn54KtmcCNdeHKsQOV53P1FuoIkmsAjYvmwwIlVrO8k2DDkzvkqbKH8L9fEgj-GyfEjrDJ9wANfAD2-Qs3P5qC6uq8-ip_1dQ1fUdyJ_88_YjVAh4UrQDb-igys-T1aUQJuznAslY8RyNmf4-CK7gGRfy257bGWBB7bE7tP7hRXuepvEt?purpose=fullsize)
+
+![Scifi Fighter Piranha - Buy Royalty Free 3D model by MSGDI \[c984a72\] - Sketchfab Store](https://images.openai.com/static-rsc-4/anEMJXiidPwFalKHJGeSo11Jo2-zcklByXNWvQJLd3KJluJQlINTH4tSbzZgFnYWca1ASctu4dbIu-Ao13v8SlqHWV17BjwPGIX-cyEUCpQoFIu0UuXpeZiV4lQh4ZGmabin-87L1jzDh-2zGN8zSbniu28zUr4tSE7dswGqiuWRPg4zIE7Z9tGiE1I2dnLS?purpose=fullsize)
+
+![Space Fighter - Finished Projects - Blender Artists Community](https://images.openai.com/static-rsc-4/2XW8la7hpgq_wsFZOt86j4ThfsRcp-Q0v6wp3rGWmnEqg7dKJ5zw2ujtwXXsncZzdgV1BFWDxtwiPbRyBD9GiVsrGpw3Y0HjPhAXhjQx6rHFFyunWiUviWcNB-ZwRPJoTdv3IjpuMJS7KrpthpskCHfnc5R_iN19GFgAWcILrmL82hdnZM6513X24Wtbkn4G?purpose=fullsize)
+
+![Scorpius Antares - Roberts Space Industries | Roberts Space Industries](https://images.openai.com/static-rsc-4/CGVb79M-dNIuOQKJXjNpZJgirpxjkcoRcJfsrS093WXCbI-FwHilXdVhFRxB9riEUwFRakZPlz2soWH2dwMLsIGfdoCFpNbWt-Ok5uNXTC4xVEIWOepbteni0poIUMcM3IBAEp_sIseDD9CBArY2Qt0UTJ5FXPbVDAhOE1HndxK0aF6bLuSx13TJOFGAm6om?purpose=fullsize)
+
+![Gunship Concept Art](https://images.openai.com/static-rsc-4/Y9dx4m6JiMvMrOd-EZbX_s73KGbbkyQaKU0hH8nuyn0MQO5seIuai2c8KkXxjeiGPaB-cT_8gpyA-aLX5udZrdSTmHmUJl8oAHkK07CuigW4UsZ1vR5A8_ZJn4xslnvYFBrJBQQzhTh5aLcUfn5Ap7NbRZtNPim7CPvKuQJmaNNKkAxdenOMbQPNCzG-oSv6?purpose=fullsize)
+
+![Heavy Frigate Spaceship Model - TurboSquid 2217763](https://images.openai.com/static-rsc-4/OjR9ddy-FDmQv-0WAzxb7YUDjXAkY73l_MW__mfzNhTJaH0sn8-NtdBxdiHUfWbrM49jsFuFhrQ0X6DnkbZuGsxRg1_xW1QDAAKsR5o1SS0DDZd6FqXKHLzfotK8TLhqdjhLKfAVbr_ImX8JUoIOkF7P1xhaCdvwxgKQyOSwf9tYwgYXAotNc2RCSI__iBVh?purpose=fullsize)
+
+I would create a system called Dynamic Weapon Mount Architecture.
+
+Each ship has predefined hardpoints.
+
+For example:
+
+Illustrative ship weapon configuration
+
+![Everspace 2 — Tobias Frank](https://images.openai.com/static-rsc-4/YjAKyGJC6SnhXI5PllN_Cue5iV5V7n2zAvOIPNlQYwBlH2MHirMcKw6cNyTP-mRv35Ab7yK9XeFoYfETfd68qQLmNcQBBJOxfZ6fW2sMPphgmeZUwB2MurvxUzjPoDT40HBOWqenEYFzD7HUMxCtfWmnl8Vxe1AKh--nVexJjOlNyhu0BE0gcXLtWSA8YSl9?purpose=fullsize)
+
+Mounted
+
+Forward left
+
+Heavy energy cannon
+
+Mounted
+
+Forward right
+
+Heavy energy cannon
+
+Mounted
+
+Upper hardpoint
+
+Guided missile launcher
+
+Mounted
+
+Rear hardpoint
+
+Defensive turret
+
+Illustrative configuration, not an existing verified WFM ship loadout.
+
+Every weapon should have a physical model, attachment position, orientation, firing animation, muzzle effect, recoil, projectile origin, and damage behavior.
+
+When a player changes weapons in the hangar:
+
+* The old weapon physically detaches.
+
+* The new weapon moves into the appropriate hardpoint.
+
+* The weapon locks into place.
+
+* Power and connection effects activate.
+
+* The ship's appearance updates.
+
+* The server confirms the new loadout.
+
+The visual system must use the server-confirmed loadout, never an unsaved selection from the menu.
+
+### Hull compatibility is essential
+
+Not every weapon should fit every ship.
+
+Each ship should define:
+
+* Hardpoint positions.
+
+* Hardpoint size.
+
+* Weapon categories allowed.
+
+* Maximum weapon mass.
+
+* Power capacity.
+
+* Heat capacity.
+
+* Weapon firing arc.
+
+* Mount restrictions.
+
+That gives different ships meaningful equipment identities. A small interceptor should not carry the same weapon configuration as a heavy assault ship.
+
+### 4\. Build an actual universe exploration economy
+
+This is where I would expand the system beyond traditional space combat.
+
+![Космическое ДТП: NASA случайно «сдвинуло» астероид с орбиты — впервые в истории! - PRESS.LV](https://images.openai.com/static-rsc-4/naTmNODIFSODmPzOuNEziJmc_AjuFw_uptflEGsYVFQPwqoFSfnYodZQdNSXIsMw7_OtV2MpyOyNkZggHic_-Oiw7OmgtWmY3mXmxf-ScrrrzUur1JW5I2CirZ1a6eKTLY8RAgeibd_noaMd9mu9uiilgoL7XW-luxiSQeD5CIBhBPBXa5HM6WXe4sh3dkcQ?purpose=fullsize)
+
+![Starfield | Genişletmeler](https://images.openai.com/static-rsc-4/_VtJf1d7ysVDZdwl4XrDlZvAwCb6tcAQrNE16Fcv8zmVnRUekW9_V78OmO-lFVpA9TS6Ti0MW3JyShgVBocbQ3p_G5_HyL20aBy5wIriNxMjJo6i8mP7B4a-TsSxN7t_-fQm9tAlQHkUc4e_81U-1R8pTOLr16RBhQnIkPcl99FeZJaFvHpAnJb6xRqQNOdN?purpose=fullsize)
+
+![Guía de max level y ascensión en ARK ASA de 105 a 195 - Layeh's Market](https://images.openai.com/static-rsc-4/xLikwoMJajLxG_9dfvpf82KoRq6Y7eKRYp8FDPO-eq7Cy9z4N1cKNVOQF4rKXp8ScIguELVFVCXY-y6uV7MGB16JOz4IlB5Yz1OKqccaNntpGkxgcV5rwVXNIuZvbLa8zEh0VeKR_MLdz0499cPE88aE785mTmWH6-0dP8BW1tHLs2hFqFnP3F7jtFkug_2i?purpose=fullsize)
+
+![The Ancient Rifts Update Is Out | Changelog 0.10.30110 · EVERSPACE™ 2 update for 23 November 2022 · SteamDB](https://images.openai.com/static-rsc-4/GnDvClmfm9LCORZ5VfP7sl8JKj8DpAh0q8JnFg_RJh_r8XfTz0eSTiQy6jDz5FWgzYPs7wWIE29wJ7n97piQG962wSr_0JLoHQMSlTrRYz7esaa74-tOEhgE2eBUCag2-UocJuFm5wpz6skGGF4IitwVyOWJqlEjPuqyIgbWSDraHUM173NXbWp-uKs1u730?purpose=fullsize)
+
+![Infinite Lagrange - Official Worldwide Website](https://images.openai.com/static-rsc-4/GyK0J7NaJpU9naQk5AQZ5Vyp-dq7QUcF-468JmGMNvsjJajrj5GCsi7sYkUP5-VQbWWGq-CO6eN6Mt0Jn_jqLz_8gj7Nxcov8L-sYV8lyMlJL1jJGZ7UBrQXPyrQ4DZcD5g_T_Fi_j7QRGnHyxvLG-yploWk6sIGrRf927E8l94Ev0O6-x9qkxyU8WveC08v?purpose=fullsize)
+
+![Ixion Is A City-Builder In The Cold, Dark Depths Of Space - Kotaku](https://images.openai.com/static-rsc-4/6yK1aI2vu0ohtd2BU2uCXIaa_oGuk02QwXhZ1XNIgCaO2fvI5F8kiLyqY7RCgzVGxWJV6TUJlIxV_ih5I6MK56ALW-RZWN1uD2YRHcb7xNmG_nt7IN9MO_OfG5vzwCHj3pkZ_8CGWx_ll0IJNTsBfpg6WtUYhbXCNd-qohKgL0_d2PobHfEa1tJrkR0kj_M4?purpose=fullsize)
+
+![Echoes of the Eternal Light | Futurism](https://images.openai.com/static-rsc-4/BVx55MVaUDAbCSjyLXAHWlA8JlxpXjuFF-bM7XAvlEYfmHb2I0CISBTnTF8yEabSsGgbw4xvuNicHt9llIQsMZt7TblWpJgIn8t4TJ3RlSEgCM7QFzSU3TLKkDrl-ZJ1ruJ3M-4EHaWu3qxagGNNb-HlyFz-9EG1dZnxh8suh-L4G9rspxeQq10ICucSU1CG?purpose=fullsize)
+
+![Uranium Caves - ΔV: Wiki](https://images.openai.com/static-rsc-4/xOBD50utX7Gn5Lw0L1b42XQmmvI9SIwnw5gdHrpx9MP222j1BigkfvYaujT_RNEOWm7x3Y86r6xbWMF1tazWOjW6HjLj-xKzHqzo09bfO1vqjDi37ciQcqZTdp47vZeRnNnfnIkK_9HFRskVKWDkbmcRHyWTKSyIh4TFqL8pVCMs0xk1SMiiW1BC8onEhXmT?purpose=fullsize)
+
+![Fractures Bring Both Profits and Unrest to New Eden | EVE Universe](https://images.openai.com/static-rsc-4/U78yeemFWkb5H0hUf4qipHKBJ_4fr7YA8aFci30W81X9R2O5hTB_2ApjlQmV-NJRC8Qezswz9JtxjyEY034bECL0FuTVc-DHUF5f-zjFJeAF2-uSJ7uMjmtZsMLOicAK-XZv-nffvgCVe2JJeKXVdBInfJbZK9h0_TIoWPUpkqh6AdzJaECk3oIZqFY9p_Dg?purpose=fullsize)
+
+![Space Mining: Is It the Future of Resource Extraction?](https://images.openai.com/static-rsc-4/D4haqdCmHQLnBZVK8uCCEMbnPrg3ArGaUjKbNYsxoCY3HJoQ9K0y3QWWPRIozRhXBLqz2WgHDXwmZl9iQgS-IPfQsNvJxE4tsE9kvKfF-5uLE-ii2WG7MzRvqGB4JY8KyUKXCOtKsduFReO69gCY1O0kbfc3dDGTdfSMPAECZzEIoQxUMAkHh3nqOCfr2UZ9?purpose=fullsize)
+
+![Astronauts In A Damaged Space Station With A Glowing Core Hd Wallpaper | Rare Gallery](https://images.openai.com/static-rsc-4/uJzoJkBafrEYJhZSKqPeb1W8kVzFlvwCe8Jg789aQkBb5q9uKJcOxEi-iXqVnmUdpN-7jnLsdc8T6PGBQBgZZYK0ycwjtU-DglJ4oPACmb58ozY8zOk_42gcAon7NtFQ1qUZzO8NZ4GlnUhLAF6XjWPnrvVD6b4lej_QuZKPLdQxZwC_F_JUu2S2X_pk-RvM?purpose=fullsize)
+
+![File:True Creations Pool of Radiance Research Lab.jpg - EVE University Wiki](https://images.openai.com/static-rsc-4/sjf5aibWiK5j2OrT_Khsb41SCcCi9rnt8A3Yi9ZqOn7rLgKLynrcaAYThlayZpa_7ueRCJsQ9yHD0ZQTPdkILlfWJ08OWBkdoeCSC-c9wAFAFGaY9WdfraIbnJUUipF-TQsgC4G-FQVe3rTpfgcvGg8vky5JCdiJqBm9fW6y5rcoqPFMPoSLpML9wONKVAkI?purpose=fullsize)
+
+I recommend six discovery categories:
+
+| Discovery             | What players can obtain                              |
+| --------------------- | ---------------------------------------------------- |
+| Asteroids             | Minerals, alloys, rare crystals                      |
+| Abandoned wrecks      | Weapons, ammunition, armor, components               |
+| Research stations     | Blueprints, experimental technology                  |
+| Energy anomalies      | Unusual energy sources and upgrade materials         |
+| Ancient installations | Rare technology and unique weapons                   |
+| Enemy supply depots   | Ammunition, weapons, power cells, military equipment |
+
+Importantly, not every asteroid should contain a weapon.
+
+Some should contain ordinary materials. Others may contain rare deposits. A few should conceal extraordinary discoveries.
+
+This makes scanning and exploration worthwhile without making every location feel like a loot container.
+
+### 5\. Introduce energy and resource management
+
+I would separate equipment from resources.
+
+Weapons are equipment. Energy, minerals, ammunition, and crafting components are resources.
+
+Proposed universe resource categories
+
+![AI Game Icon Generator - Item & Ability Icons | Ludo.ai](https://images.openai.com/static-rsc-4/Cm1gbhyeEZMjbuutxNPC8N0kuKs2xrSkE932tzOvDntU1Cn0nOT4E_XxR12Y31o1oB0XvTfcIBOR6aCkNwn4sD9-Dp9A20EU3kKS293yC-ARTb2h6_ndEYORRHpv8PoPKqiY-lAjoNjukaCoWkZLMFuBIyh_Hk2Au9ZHgs1uJKX9UtG35fhAYv7jxcv6AdtQ?purpose=fullsize)
+
+Energy cells
+
+Power weapons, shields, and special abilities.
+
+![Smaller Points Of Interest](https://images.openai.com/static-rsc-4/rSMzOkgHrJMhvCZmkcgldiKNcbWs_yr1DQAINM7hVnLC78aYAvvzeFGHlD6Bz8kvRMA3xa0SmlrsxQAYttiwBaBY6KoEpUdhu4vqTmOo7aSJ4rS4QtYTScs3DkCqKUfWbJSPZBTbzGmDVCPMPqfD3UD4Dwc4nwe00sG1X_ChnNA48152YJYYFCdcR2CkODex?purpose=fullsize)
+
+Rare crystals
+
+Manufacture advanced energy weapons and experimental equipment.
+
+![](https://images.openai.com/static-rsc-4/7Y2x5W_7D_bldDZ13ollBegVeke6fTW3jruEPjRToEjjiTffHsaXVvRxtWfEa_f7L39LBjWu-vlPzIjkRU01BoyF_ioqnl6tDijkuqKF6Bpc9-umIDbv8PAmMG--Rma-Jk7VNkoAWOng7b7G5Cs052vOLHQJ4n6ZrbQi7vHguyauJ_DZFTu0I-fufYomlCHp?purpose=fullsize)
+
+Advanced alloys
+
+Repair hulls, reinforce armor, and construct weapon mounts.
+
+![Development Progress – Phew! ARTICLE news - Endless Sky: A Galaxy Far Far Away (AGFFA) mod for Endless Sky - ModDB](https://images.openai.com/static-rsc-4/2n2V0ARJMtG4ovfi1CFKHobs9JjN3dCDio_rSDC3SLHykWHy4wDuxZbmcpQOA2-fBSkT078d-8150sD-zaebKQtTFtDK8L5bRXPesrxyVnJgY1TtBq0Cs3lbSZP5DauyViJI6yL_w3rJlaJqzIKemaBWI2TCo2YNSCa_BaAjUcqrYFy7vIOiTQNtL4jg1r9x?purpose=fullsize)
+
+Ammunition and components
+
+Replenish missiles, repair launchers, and manufacture weapon parts.
+
+![Élite Dangereuse - Rare commodities](https://images.openai.com/static-rsc-4/RvCazDjDugkqxhX4LnuYn49hDwYpEKGxv_QyLRC8ohuBkQsRuRkD5OsIqsb1qpqojEEWAcR99zyMt2TebalIQcidbbAfM51CzCoYhVdhDZkQ15KKoLXPG5aiFHjfpkILYsiHOdcmiiBh9K33qDdY5jTlwKe7B_GTWJf_aDKvuC-nVN6_gmYh6w4qedum2WSV?purpose=fullsize)
+
+Ancient technology
+
+Unlock unique weapons, specialized abilities, and advanced ship systems.
+
+We should make resource types meaningful rather than creating dozens of interchangeable currencies.
+
+### 6\. Give weapons distinct identities
+
+The weapon system should offer much more than stronger and weaker versions of the same cannon.
+
+![RRR 5.2.2 - Outdated file - RRR mod for Sins of a Solar Empire II - ModDB](https://images.openai.com/static-rsc-4/HMqohtBBgszVCRPLzlnkt7j9EOy7AustUP_IDWf8j41QudQbvtyqNg5W-dyjElzmRyDmYKnDrQ9_fthgvrl-8WfTFQOriX22BgM0Qun82Axl7UjcoJWk1jQolfBAqPd4YntTKffy4vM8s31Squnj2CTTujDd_oNv_A1K209Y8_xVVl4rvfipX8R-VYuSoIzy?purpose=fullsize)
+
+Rapid-fire cannons
+
+Sustained damage and enemy interception.
+
+![Let's talk Shock Cannons . . . | Frontier Forums](https://images.openai.com/static-rsc-4/aM63nU_HmCCTC_zenqIHw6Rj-pn0AuS18wNjf962_9lPXs9xihaYWOAtVt36y2jh5PBlX8RrqSIvlXbO0R4QozGWIb6aO02FScUIqkvIvw4Z_phRGpvqCc-gRw21MpspwEuAWq4FVkf6v4Z4hH8yLJB7vLBwbQnuvugPZS1oBg6tddcdnL1-XNTT9YEBBaZw?purpose=fullsize)
+
+Heavy plasma cannons
+
+High damage against armored targets.
+
+![Gear Up! - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/AYtjQ2uCUwG_nBw66LTesrh5RMz2DOAWFnSzcrXemqMEJS0CmX63sr5tFVnxxgLufXSlvBfMkLEI2zjp3Ob5wqhF2jghe_l-nuABG2kAweVHZ6XLIgOcxKWQNqHDNGdJbDABQojfzuNRkpDr9M0N2pJmeeF4o-76uhCt_6ZgDL0PxGO-LMyMvLDk0cVIQbMR?purpose=fullsize)
+
+Guided missile systems
+
+Target tracking and pursuit.
+
+![Orbital Railgun | 3D Space | Unity Asset Store | Star citizen, Spaceship design, Spaceship concept](https://images.openai.com/static-rsc-4/CwC34ebLYA6_6sIlIieTPblNY0HpA5fFEhJKfPo5dCW4Lk3-tYflRWIQvnt5gxxBkwxR1-VEC5hGamBkYhIlO69hSFwElKogjSKRLJrOf51-HG3iG8H2J7AkpBck2CYaF0pSHETQTTgh85HmcPZikLF2GyEqx_O0kJhnxJFOslRHysYGl4piAZ3CY8kLVL4-?purpose=fullsize)
+
+Rail weapons
+
+Long-range precision and armor penetration.
+
+![Observation Log: Turnur - Intergalactic Summit - EVE Online Forums](https://images.openai.com/static-rsc-4/6Oaeh-El6jBgn7b4ZRCTMBna1OzrMGsA3Eb1AWz5HBhv9lh412htXbjnWOa1leUEdrf-B9iaJoXiqbql0tASDq5Sd7FuRrtG3PuexUbCdOgxRuibAsInsIpa_pewMCsr9uOJQWhSYuCnsi2h-xkhytgFXc1vYUva2DKtlyOqfFmEwx69c3gVQE-kIcrdHcL5?purpose=fullsize)
+
+Beam weapons
+
+Sustained energy attacks.
+
+![Infinity: Battlescape by I-Novae Studios - Indiegogo](https://images.openai.com/static-rsc-4/yxhZP4Ka2P2dVrpe8SMm0CfW5Jwl7RqxIz22Ar7QflX29ZKGst-_B9zDclu_s51WENf8ctrCWiUCN8JWVLwJG8Aah-It-Nnlna1FOFNgqrPwwJmqpH07YxlQ-9DArr0VrjNQG9SMSV8tDJILXpCSSYUZhAG9b3OLJkvzudAESLT2vhLV2icHZk9PxcBeViqW?purpose=fullsize)
+
+Defensive modules
+
+Shields, countermeasures, and defensive support.
+
+Some weapons should have alternative firing modes, charged attacks, heat limitations, ammunition restrictions, and unique effects.
+
+This is how we make weapon selection a real gameplay decision.
+
+### 7\. How to connect the entire system technically
+
+I would build this around a server-authoritative architecture.
+
+One important distinction for WFM: the existing project direction establishes Orbital Combat Lab as the canonical runtime. If Three.js is being used for the current universe's visual rendering or a legacy scene, we should integrate the visible mounts there without creating a second authoritative game runtime.
+
+The architecture should look like this:
+
+```mermaid
+
+flowchart TD
+    A[Enemy Destruction Event] --> B[Server Salvage Evaluator]
+    C[Asteroid or Wreck Discovery] --> D[Exploration Reward Evaluator]
+    E[Mission or Boss Completion] --> F[Mission Reward Evaluator]
+
+    B --> G[Authoritative Inventory]
+    D --> G
+    F --> G
+
+    G --> H[Weapon Compatibility Validator]
+    H --> I[Server-Issued Loadout]
+    I --> J[Ship Hardpoint Resolver]
+    J --> K[Visible Weapon Mounts]
+    J --> L[Combat Weapon Runtime]
+
+    G --> M[Resource and Crafting System]
+    M --> N[Repair and Upgrade]
+```
+
+The key components should be:
+
+| System                      | Responsibility                                     |
+| --------------------------- | -------------------------------------------------- |
+| WeaponCatalog               | Defines every weapon and its attributes            |
+| ShipHardpointDefinitions    | Defines physical mount positions and compatibility |
+| LoadoutService              | Validates and persists equipped weapons            |
+| SalvageService              | Determines what survives enemy destruction         |
+| ExplorationDiscoveryService | Handles asteroid, wreck, and anomaly discoveries   |
+| ResourceInventoryService    | Stores energy, minerals, and components            |
+| WeaponMountRenderer         | Displays actual weapons on the ship                |
+| WeaponCombatService         | Handles authoritative firing and damage            |
+| CraftingAndRepairService    | Repairs and manufactures equipment                 |
+
+The system must preserve provenance. If a weapon came from a particular enemy ship, asteroid cache, or research facility, its origin should remain recorded.
+
+It should also prevent duplicate collection, repeated reward claims, and farming exploits.
+
+### 8\. My recommended acquisition balance
+
+I would not make all three acquisition methods equally rewarding. They should encourage different play styles.
+
+These are starting design targets, not fixed drop probabilities. The actual balance should be tested against playtime, weapon rarity, player progression, and faction economy.
+
+My reasoning:
+
+* Combat-focused players can earn equipment through battles.
+
+* Explorers can find unusual and rare equipment.
+
+* Mission-focused players can pursue specific rewards.
+
+* Dedicated builders can manufacture and customize their preferred loadouts.
+
+No player should be forced to spend all their time fighting the same enemy types just to improve their ship.
+
+### 9\. The most important addition: enemy loadout provenance
+
+I would make this a non-negotiable requirement.
+
+When an enemy appears in the universe, its weapons should be generated from an actual loadout.
+
+When that enemy is destroyed, the salvage evaluator should inspect that loadout and the destruction results.
+
+For example:
+
+Enemy: Accord Heavy Interceptor
+
+Illustrative encounter
+
+![STAR CONFLICT — MMO SPACE ACTION - Блог разработчиков](https://images.openai.com/static-rsc-4/Vf8YeVcFAZQ1ioV-anKZY196t6KQmJY3hQ-y8G0OMcVezpKCrwXLNvbOkEXFzfRjo0HrEuoe_PyHFNqtVnBhkfmeQZb7a00lZYtxBnrzRXhLclzukPYoNa-bLpWyvwwfCeVGsN1by6kmYf483Df9UZafTUhTcs_BJVIuZGlNhLPwdDs6kSFeAbiIbHewr5Sm?purpose=fullsize)
+
+| Original equipment  | Battle outcome |
+| ------------------- | -------------- |
+| Twin energy cannons | One survives   |
+| Missile launcher    | Destroyed      |
+| Shield generator    | Damaged        |
+| Power core          | Intact         |
+| Armor plating       | Salvageable    |
+
+Recovered equipment
+
+* One Accord energy cannon.
+
+* One damaged shield generator.
+
+* Power-core materials.
+
+* Armor alloy.
+
+The recovered items must be based on the actual generated loadout and validated destruction state—not random weapons unrelated to the enemy.
+
+This creates a much stronger gameplay connection between the world, the enemies, and the equipment players collect.
+
+### 10\. The implementation order I would choose
+
+I would build these in this order:
+
+* Server-issued weapon catalog and ship-compatible hardpoints.
+
+* Visible physical weapon mounts on every supported ship.
+
+* Enemy-generated loadouts with weapon-to-hull provenance.
+
+* Destruction-based salvage and recovery.
+
+* Asteroid, wreck, and station discovery.
+
+* Energy, ammunition, minerals, and crafting resources.
+
+* Repair, manufacturing, upgrades, and weapon progression.
+
+* Multiplayer synchronization and persistence across the universe.
+
+One critical distinction: do not build the exploration loot system first and leave the visible-mount gap unresolved. Players need to see the weapons they own, and those weapons must be the exact weapons the server says they have equipped.
+
+My final recommendation is to make WFM's weapon ecosystem a combination of Einhänder-style physical weapon attachment, enemy weapon recovery, and open-universe exploration. That would give the game a meaningful gameplay loop: discover, fight, disable, salvage, recover, equip, customize, and return to battle.
+
+The next step I can take is to turn this into a file-specific WFM implementation directive, with acceptance tests proving that a weapon recovered from a real enemy or discovered in the universe becomes a persistent, compatible, visibly mounted, server-authorized weapon.

@@ -146,9 +146,26 @@ export const ReadinessCheckResponseStatus = {
   unavailable: 'unavailable',
 } as const;
 
+export interface ReadinessDiagnostics {
+  /** @nullable */
+  databaseConnectivity: boolean | null;
+  /**
+     * The intended relation resolves and all Drizzle profile columns can be selected with LIMIT 0
+     * @nullable
+     */
+  profileSchema: boolean | null;
+  /**
+     * Schema USAGE and INSERT privileges on every column used by profile initialization; not proof of a successful authenticated write
+     * @nullable
+     */
+  profileInitializationPrivileges: boolean | null;
+}
+
 export interface ReadinessCheckResponse {
   status: ReadinessCheckResponseStatus;
+  /** Whether the database connectivity probe passed, not whether profiles are ready */
   database: boolean;
+  checks?: ReadinessDiagnostics;
 }
 
 export type GameProfileFaction = typeof GameProfileFaction[keyof typeof GameProfileFaction];

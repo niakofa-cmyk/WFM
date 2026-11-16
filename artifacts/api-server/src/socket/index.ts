@@ -1,4 +1,5 @@
 import { startWingSocketServer } from "./server";
+import { equipmentEnabled } from "../game/equipment-rollout";
 import { connectFreeFlightRedis } from "./free-flight-redis";
 import {
   freeFlightPersistenceConfig,
@@ -199,6 +200,7 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
   } : {}),
   requireFreeFlightPersistence: freeFlightPersistence.persistenceRequired,
   enableFreeFlightFriendlyAi: process.env.ORBITAL_FREE_FLIGHT_FRIENDLY_AI === "true",
+  enableFreeFlightEnemyEquipment: equipmentEnabled(),
   enableFreeFlightPopulationTelemetry: enableFreeFlight,
   onFreeFlightPopulationCensus: async (census) => {
     if (!freeFlightPopulationBalancer) {
@@ -232,6 +234,8 @@ const runtime = await startWingSocketServer(port, "0.0.0.0", {
     reserveUniversePatrol: reserveUniversePatrolEncounter,
     releaseUniversePatrol: releaseUniversePatrolEncounter,
     settleScoutEncounter: (receipt) => explorationRewards.settleCompletedExploration(receipt, true),
+    recoverSalvage: equipmentEnabled() && freeFlightCheckpoints ? async (userId, input) =>
+      (await import("../game/equipment")).recoverSpatialEquipment(userId, input) : undefined,
   } : undefined,
   sectorProtocolVersion: sectorWireProtocolVersion,
   loadSectorProgress: sectorProgression?.loadSectorProgress,

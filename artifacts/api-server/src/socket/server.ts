@@ -135,6 +135,7 @@ export async function startWingSocketServer(
     freeFlightCampaignState?: () => Promise<{ concluded: boolean }>;
     onFreeFlightCampaignJoin?: (userId: string) => Promise<void>;
     enableFreeFlightFriendlyAi?: boolean;
+    enableFreeFlightEnemyEquipment?: boolean;
     enableFreeFlightPopulationTelemetry?: boolean;
     onFreeFlightPopulationCensus?: (census: GlobalFlightPopulationCensus) => Promise<void>;
     resolveFreeFlightAdmission?: (userId: string) => Promise<FreeFlightAdmission | null>;
@@ -150,7 +151,8 @@ export async function startWingSocketServer(
     };
     freeFlightCombat?: Required<Pick<Parameters<typeof createFreeFlightRuntime>[0],
       "resolveFreeFlightPatrols" | "reserveUniversePatrol" |
-      "settleScoutEncounter" | "releaseUniversePatrol">>;
+      "settleScoutEncounter" | "releaseUniversePatrol">> &
+      Pick<Parameters<typeof createFreeFlightRuntime>[0], "recoverSalvage">;
     sectorProtocolVersion?: SectorProtocolVersion;
     loadSectorProgress?: (userId: string) => Promise<SectorProgress>;
     settleSectorDiscovery?: (proof: CompletedSectorMission) => Promise<{ progress: SectorProgress; replayed: boolean }>;
@@ -229,6 +231,7 @@ export async function startWingSocketServer(
         campaignState: options.freeFlightCampaignState,
         onCampaignJoin: options.onFreeFlightCampaignJoin,
         enableFriendlyAiSupport: options.enableFreeFlightFriendlyAi,
+        enableEnemyEquipment: options.enableFreeFlightEnemyEquipment,
          enablePopulationTelemetry: options.enableFreeFlightPopulationTelemetry,
         resolveAdmission: options.resolveFreeFlightAdmission,
         loadCheckpoint: options.freeFlightCheckpoints?.load,

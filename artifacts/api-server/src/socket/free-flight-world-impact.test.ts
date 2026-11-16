@@ -48,6 +48,8 @@ test("real free-flight rounds stop at Mars and emit authoritative surface contac
       const radius = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
       assert.ok(radius >= UNIVERSE_MARS_REFERENCE.radius - .01 && radius < UNIVERSE_MARS_REFERENCE.radius + 5);
       assert.equal(typeof impact.eventId, "string");
+      assert.ok(packets.some(launch => launch.type === "freeflight_weapon_fired" &&
+        launch.eventId === impact.eventId), "launch and later contact retain one stable projectile identity");
     }
     assert.equal(packets.some(p => p.type === "freeflight_weapon_event"), false);
     assert.equal(packets.some(p => p.type === "freeflight_combat_result"), false);
