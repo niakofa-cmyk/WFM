@@ -58,7 +58,8 @@
       "currentCandidateWasTheRequestedTestTarget": true,
       "onDeviceRevisionIndependentlyCaptured": false,
       "synchronizedTargetDamageOrDestruction": "NOT_SPECIFIED",
-      "killAssistRewardSettlement": "NOT_SPECIFIED",
+      "killAssistRewardSettlement": "OWNER_REPORTED_SAME_DAMAGE_AND_REWARDS",
+      "ownerReportedBattleOutcome": "Both phones observed the same damage and rewards",
       "duplicateOrInterruptedClaimDenial": "NOT_TESTED"
     },
     "freshCodeRequestsOrSubmissions": false,
