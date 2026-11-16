@@ -51,6 +51,16 @@
       "freshChallengeCompletionReported": false,
       "multiplayerCombatOrRewardSettlementReported": false
     },
+    "twoPhoneSharedBattleConfirmation": {
+      "reportedOn": "2026-11-16",
+      "source": "OWNER_REPORT",
+      "reportedOutcome": "Both pilots share one battle",
+      "currentCandidateWasTheRequestedTestTarget": true,
+      "onDeviceRevisionIndependentlyCaptured": false,
+      "synchronizedTargetDamageOrDestruction": "NOT_SPECIFIED",
+      "killAssistRewardSettlement": "NOT_SPECIFIED",
+      "duplicateOrInterruptedClaimDenial": "NOT_TESTED"
+    },
     "freshCodeRequestsOrSubmissions": false,
     "playerProgressOrRewardWritesByTheseChecks": false,
     "productionChangedByThisRollout": false,

@@ -2206,5 +2206,17 @@ This is owner-reported evidence; the on-device revision, authenticated network
 responses, shared combat and reward settlement were not independently captured
 in that reply. It does not record a newly completed Clerk verification challenge,
 two-pilot presence, account isolation, duplicate-claim denial or interrupted
-reward denial. Overall promotion status remains PENDING, and production has
-not been changed.
+ reward denial. Overall promotion status remains PENDING, and production has
+ not been changed.
+
+### Two-phone shared-battle confirmation — 2026-11-16
+
+The owner then reported the outcome of testing the current staging build on two
+phones: **“Both pilots share one battle.”** This is owner-reported confirmation
+that the two pilots share an encounter in this candidate.
+
+No device trace or independently captured build ID accompanied the report.
+The answer does not specify whether both phones observed the same target's
+damage/destruction or whether kill/assist rewards settled correctly. Duplicate-
+claim and interrupted-match denial were not reported as tested. The finding is
+recorded without changing overall promotion status from PENDING.
