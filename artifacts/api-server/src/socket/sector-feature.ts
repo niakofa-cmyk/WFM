@@ -12,12 +12,13 @@ export function sectorFlightEnabled(environment: Record<string, string | undefin
   return environment.NODE_ENV !== "production" && declaration === undefined;
 }
 
-/** V2 is an explicit paired-deployment opt-in; the v1 contract remains rollback-safe. */
+/** Development pairs V2 by default; production requires explicit paired opt-in. */
 export function sectorProtocolVersion(
   environment: Record<string, string | undefined>,
 ): SectorProtocolVersion {
+  const flag = environment.WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED;
   return sectorFlightEnabled(environment) &&
-      environment.WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true"
+      (flag === "true" || (environment.NODE_ENV !== "production" && flag !== "false"))
     ? SECTOR_ORBITAL_PROTOCOL_VERSION
     : SECTOR_COMPAT_PROTOCOL_VERSION;
 }

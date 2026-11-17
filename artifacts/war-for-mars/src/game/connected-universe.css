@@ -1,0 +1,46 @@
+.uv.uv-connected{min-height:auto;margin-top:20px;border:1px solid #5fd4cf33;overflow:hidden}
+.uv-connected .uvc-grid{grid-template-columns:minmax(0,1.3fr) minmax(280px,400px)}
+.uv-connected .uv-chart{max-height:560px}
+.uv-connected .uv-chart__vector--available{stroke:var(--teal)}
+.uv-connected .uv-chart__vector--locked{stroke:var(--dim);opacity:.6}
+.uv-connected .uv-node--locked .uv-node__mark{border-color:var(--dim);border-style:dashed}
+.uv-connected .uv-node--current .uv-node__mark{border-color:var(--ember);background:#ef7a3c55}
+.uv-connected .uv-node--locked[aria-checked=true] .uv-node__mark{background:var(--dim)}
+.uv-connected .uvc-fix{border-left:2px solid var(--ember);padding-left:10px}
+.uv-connected .uvc-fix small{display:block;font-size:9px;letter-spacing:.18em;color:var(--dim)}
+.uv-connected .uvc-fix b{font:600 18px "Chakra Petch",sans-serif;color:var(--ember);text-transform:uppercase}
+.uv-connected .uvc-banner{position:relative;z-index:1;margin:12px 4vw 0;padding:8px 10px;font-size:11px;border:1px solid #5fd4cf55;color:var(--sand)}
+.uv-connected .uvc-banner--stale{border-color:var(--ember);background:#ef7a3c18}
+.uv-connected .uvc-tag{display:inline-block;font-size:10px;letter-spacing:.16em;padding:5px 8px;font-weight:600;background:var(--teal);color:var(--void)}
+.uv-connected .uvc-tag--current{background:var(--ember)}
+.uv-connected .uvc-tag--locked{background:transparent;color:var(--dim);border:1px dashed var(--dim)}
+.uv-connected .uvc-muted{font-size:12px;line-height:1.6;color:var(--dim);margin:6px 0}
+.uv-connected .uvc-empty{padding:40px 0;text-align:center;color:var(--dim)}
+.uv-connected .uvc-route{border-top:1px solid #ead9bf22;padding-top:10px}
+.uv-connected .uvc-route__row{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;color:var(--dim)}
+.uv-connected .uvc-route__row b{font:700 16px "Chakra Petch",sans-serif;color:var(--sand)}
+.uv-connected .uvc-confirm{margin:16px 0 10px;padding:12px;border:1px solid var(--ember);background:#ef7a3c12}
+.uv-connected .uvc-confirm__row{display:flex;gap:8px;margin-top:10px}
+.uv-connected .uvc-confirm__row>*{flex:1}
+.uv-connected .uvc-btn{min-height:44px;padding:0 14px;background:transparent;color:var(--sand);border:1px solid #ead9bf55;font:600 11px "Chakra Petch",sans-serif;letter-spacing:.16em;cursor:pointer}
+.uv-connected .uvc-btn:hover:not(:disabled){background:#5fd4cf18}
+.uv-connected .uvc-btn--go{background:var(--ember);color:var(--void);border-color:var(--ember)}
+.uv-connected .uvc-btn:disabled{opacity:.35;cursor:not-allowed}
+.uv-connected .uvc-btn:focus-visible,.uv-connected .uvc-link:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+.uv-connected .uvc-ops{margin-top:18px;border-top:1px solid #5fd4cf33;padding-top:12px}
+.uv-connected .uvc-ops__head{display:flex;justify-content:space-between;align-items:center}
+.uv-connected .uvc-ops h4{font-size:10px;letter-spacing:.22em;color:var(--teal);margin:0}
+.uv-connected .uvc-link{min-height:44px;background:none;border:0;color:var(--dim);font:inherit;font-size:10px;letter-spacing:.16em;cursor:pointer;text-decoration:underline}
+.uv-connected .uvc-alert{font-size:12px;line-height:1.5;color:var(--ember);border-left:2px solid var(--ember);padding-left:8px}
+.uv-connected .uvc-skel i{display:block;height:44px;margin:6px 0;background:#ead9bf10;animation:uvc-pulse 1.4s ease-in-out infinite}
+@keyframes uvc-pulse{50%{opacity:.4}}
+.uv-connected .uvc-oplist{list-style:none;margin:0;padding:0}
+.uv-connected .uvc-op{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #ead9bf14}
+.uv-connected .uvc-op b{display:block;font:600 14px "Chakra Petch",sans-serif}
+.uv-connected .uvc-op small{display:block;font-size:9px;letter-spacing:.12em;color:var(--dim);margin-top:2px}
+.uv-connected .uvc-op__st{display:inline-block;margin-top:5px;font-size:9px;letter-spacing:.12em;padding:2px 6px;border:1px dashed #86948f88;color:var(--dim)}
+.uv-connected .uvc-op__st--live{border:1px solid var(--teal);color:var(--teal)}
+.uv-connected .uvc-op__st--solo{border-color:var(--plan);color:var(--plan)}
+.uv-connected .uvc-fine{font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5}
+@media(max-width:820px){.uv-connected .uvc-grid{grid-template-columns:1fr}.uv-connected .uv-chart{aspect-ratio:1}.uv-connected .uvc-op{flex-direction:column;align-items:stretch}}
+@media(prefers-reduced-motion:reduce){.uv-connected *{animation:none!important;transition:none!important}}

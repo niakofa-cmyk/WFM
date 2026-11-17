@@ -30,7 +30,7 @@ test("the mode registry is a complete, unique source-backed launch inventory", (
 
 test("canonical Orbital modes initialize with the pinned simulation rules", () => {
   for (const id of [
-    "orbital-combat-lab", "local-arena-practice", "rust-disc-local",
+    "orbital-combat-lab", "orbital-universe-local", "local-arena-practice", "rust-disc-local",
     "rust-disc-sector-coop", "iron-eclipse", "arcade-skirmish", "solo-flight",
     "campaign-contact",
   ] as const) {

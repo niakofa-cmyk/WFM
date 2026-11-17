@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CampaignNarrativeRecord } from './campaignNarrativeRecord';
 import type { EconomyRejection } from './economyRejection';
 import type { InventoryHolding } from './inventoryHolding';
 import type { WorldActivity } from './worldActivity';
@@ -37,5 +38,7 @@ export interface WorldState {
   routes: WorldRoute[];
   locations: WorldLocation[];
   discoveries: string[];
+  /** Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes. */
+  narrative: CampaignNarrativeRecord[];
   quests: WorldQuest[];
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/react";
 import { Link } from "wouter";
+import { getGetWorldExplorationResultsQueryKey, getGetWorldQueryKey, useGetWorldExplorationResults, type WorldScoutEncounterResult } from "@workspace/api-client-react";
 import { CommandBackdrop, CommandPanel, PanelLabel } from "./CommandArt";
 import { FACTION_PALETTE } from "./faction-palette";
 import { ShipIllustration } from "./ShipIllustration";
@@ -11,7 +13,8 @@ import { RoundTripProbe } from "./flight-performance";
 import type { FlightInput } from "./flight-sector";
 import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION, sectorMission,
-  type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot,
+  type IronEclipseCommandRequest, type SectorClientPacket, type SectorCommandRequest, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTransponderRequest,
+  type SectorEvidenceRecoveryRequest,
 } from "./sector-missions";
 import {
   SECTOR_MAX_PILOTS, SECTOR_RECONNECT_WINDOW_MS, createSeqCounter, expeditionFeatureEnabled, generateRoomCode,
@@ -31,6 +34,7 @@ const ENABLED = expeditionFeatureEnabled({
   VITE_WFM_SECTOR_EXPEDITION_ENABLED: import.meta.env.VITE_WFM_SECTOR_EXPEDITION_ENABLED,
 });
 const PROTOCOL_VERSION = sectorClientProtocolVersion({
+  DEV: import.meta.env.DEV,
   VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: import.meta.env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED,
 });
 const HANDSHAKE_TIMEOUT_MS = 8000;
@@ -38,21 +42,27 @@ const HANDSHAKE_TIMEOUT_MS = 8000;
 type View = "select" | "connecting" | "lobby" | "flight" | "debrief" | "error";
 type Session = { missionId: SectorMissionId; room: string; shipId: ShipId; publicListing: boolean };
 type Connection = ExpeditionTransport["connection"];
+type SectorExpeditionProps = {
+  embedded?: boolean;
+  initialMissionId?: SectorMissionId;
+  initialShipId?: ShipId;
+  onReturnToUniverse?: () => void;
+};
 
-export function SectorExpedition() {
-  if (!ENABLED) return <Gate title="EXPEDITIONS OFFLINE" body="Cooperative sector expeditions are not enabled on this deployment yet. The local Rust Disc trainer is still open." />;
-  return <SignedInGate />;
+export function SectorExpedition(props: SectorExpeditionProps = {}) {
+  if (!ENABLED) return <Gate title="EXPEDITIONS OFFLINE" body="Cooperative sector expeditions are not enabled on this deployment yet. The local Rust Disc trainer is still open." embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  return <SignedInGate {...props} />;
 }
 export default SectorExpedition;
 
-function SignedInGate() {
+function SignedInGate(props: SectorExpeditionProps) {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <Gate title="CHECKING PILOT ID" body="Confirming your sign-in before any expedition link opens." loading />;
-  if (!isSignedIn) return <Gate title="SIGN IN TO FLY TOGETHER" body="Expeditions are server-run and record discoveries to your pilot account, so they need a signed-in pilot. The local trainer needs no account." signIn />;
-  return <ExpeditionClient />;
+  if (!isLoaded) return <Gate title="CHECKING PILOT ID" body="Confirming your sign-in before any expedition link opens." loading embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  if (!isSignedIn) return <Gate title="SIGN IN TO FLY TOGETHER" body="Expeditions are server-run and record discoveries to your pilot account, so they need a signed-in pilot. The local trainer needs no account." signIn embedded={props.embedded} onReturn={props.onReturnToUniverse} />;
+  return <ExpeditionClient {...props} />;
 }
 
-function Gate({ title, body, signIn, loading }: { title: string; body: string; signIn?: boolean; loading?: boolean }) {
+function Gate({ title, body, signIn, loading, embedded, onReturn }: { title: string; body: string; signIn?: boolean; loading?: boolean; embedded?: boolean; onReturn?: () => void }) {
   return (
     <main className="relative flex min-h-[100dvh] items-center justify-center bg-void px-4 text-bone" data-testid="screen-expedition-gate">
       <CommandBackdrop />
@@ -61,9 +71,10 @@ function Gate({ title, body, signIn, loading }: { title: string; body: string; s
         <h1 className="mt-2 font-hud text-4xl leading-none">{title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-bone/85" role={loading ? "status" : undefined}>{body}</p>
         <div className="mt-5 flex flex-col gap-2">
-          {signIn ? <Link href="/sign-in" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">SIGN IN</Link> : null}
-          {!loading ? <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">LOCAL TRAINER · OFFLINE</Link> : null}
-          {!loading ? <Link href="/" className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">COMMAND</Link> : null}
+          {signIn && !embedded ? <Link href="/sign-in" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">SIGN IN</Link> : null}
+          {onReturn ? <button type="button" onClick={onReturn} className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">RETURN TO ORBIT</button> : null}
+          {!loading && !embedded ? <Link href="/flight" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">LOCAL TRAINER · OFFLINE</Link> : null}
+          {!loading && !embedded ? <Link href="/" className="wfm-cmd wfm-cmd-quiet min-h-11 justify-center font-hud text-sm tracking-widest">COMMAND</Link> : null}
         </div>
       </CommandPanel>
     </main>
@@ -72,15 +83,20 @@ function Gate({ title, body, signIn, loading }: { title: string; body: string; s
 
 // ---------------------------------------------------------------------------
 
-function ExpeditionClient() {
+function ExpeditionClient({ embedded = false, initialMissionId, initialShipId, onReturnToUniverse }: SectorExpeditionProps) {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
   const [view, setView] = useState<View>("select");
   const expeditionSearch = typeof window !== "undefined" ? window.location.search : "";
-  const [missionId, setMissionId] = useState<SectorMissionId>(() => parseExpeditionMission(expeditionSearch) ?? "rust-disc");
-  const [shipId, setShipId] = useState<ShipId>("glide");
+  const [missionId, setMissionId] = useState<SectorMissionId>(() => initialMissionId ?? parseExpeditionMission(expeditionSearch) ?? "rust-disc");
+  const [shipId, setShipId] = useState<ShipId>(() => {
+    if (initialShipId) return initialShipId;
+    const requested = new URLSearchParams(expeditionSearch).get("ship");
+    return requested && Object.hasOwn(SHIPS, requested) ? requested as ShipId : "glide";
+  });
   const [codeInput, setCodeInput] = useState("");
   const [publicListing, setPublicListing] = useState(false);
   const [snapshot, setSnapshot] = useState<SectorSnapshot | null>(null);
@@ -88,6 +104,14 @@ function ExpeditionClient() {
   const [connection, setConnection] = useState<Connection>("connected");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const scoutResultsQuery = useGetWorldExplorationResults({
+    query: {
+      enabled: view === "select",
+      queryKey: getGetWorldExplorationResultsQueryKey(),
+      staleTime: 0,
+      refetchInterval: view === "select" ? 30_000 : false,
+    },
+  });
 
   const socketRef = useRef<WebSocket | null>(null);
   const snapshotRef = useRef<SectorSnapshot | null>(null);
@@ -156,6 +180,11 @@ function ExpeditionClient() {
   const handleSnapshot = useCallback((snap: SectorSnapshot) => {
     const prev = snapshotRef.current;
     snapshotRef.current = snap;
+    const newlyRecoveredEvidence = snap.evidence?.some((site) =>
+      site.state === "recovered" && !prev?.evidence?.some((prior) => prior.id === site.id && prior.state === "recovered"));
+    if (newlyRecoveredEvidence) {
+      void queryClient.invalidateQueries({ queryKey: getGetWorldQueryKey() });
+    }
     joinedRef.current = true;
     deadlineRef.current = null;
     setConnection("connected");
@@ -166,7 +195,7 @@ function ExpeditionClient() {
       setProgress(snap.progress);
     }
     setView(snap.phase === "lobby" ? "lobby" : snap.phase === "active" ? "flight" : "debrief");
-  }, []);
+  }, [queryClient]);
 
   const open = useCallback((session: Session) => {
     let url: URL;
@@ -271,6 +300,10 @@ function ExpeditionClient() {
     snapshotRef.current = null; joinedRef.current = false; sessionRef.current = null;
     setSnapshot(null); setView("select"); setConnection("connected"); setNotice("");
   };
+  const returnToUniverse = () => {
+    leave();
+    onReturnToUniverse?.();
+  };
   const newRoom = () => { const keepMission = snapshot?.missionId ?? missionId; setMissionId(keepMission); leave(); setCodeInput(generateRoomCode()); };
 
   const sendInputRef = useRef((input: FlightInput) => {
@@ -286,10 +319,15 @@ function ExpeditionClient() {
   const transport = useMemo<ExpeditionTransport>(() => ({
     snapshotRef, latencyRef, mission: activeMission, connection,
     sendInput: input => sendInputRef.current(input),
-    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest) => {
+    sendCommand: (command: SectorCommandRequest | IronEclipseCommandRequest | SectorTransponderRequest | SectorEvidenceRecoveryRequest) => {
       const current = snapshotRef.current;
       if (current?.phase !== "active") return false;
-      if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
+      if (command.type === "sector_transponder") {
+        if (current.missionId !== "pale-beacons" && current.missionId !== "universe-patrol") return false;
+      } else if (command.type === "sector_recover_evidence") {
+        if ((current.missionId !== "rust-disc" && current.missionId !== "pale-beacons") ||
+            current.version !== SECTOR_ORBITAL_PROTOCOL_VERSION) return false;
+      } else if (command.type === "iron_eclipse_target" || command.type === "iron_eclipse_order") {
         if (current.missionId !== "iron-eclipse" || !current.operation || current.ownSlot !== current.hostSlot) return false;
       } else if (current.capabilities?.tacticalCommands !== true) return false;
       setNotice("");
@@ -309,16 +347,21 @@ function ExpeditionClient() {
       <CommandBackdrop dense />
       <div className="wfm-safe relative mx-auto max-w-6xl px-4 pb-12 pt-6 sm:px-8">
         <header className="flex flex-wrap items-center gap-3 border-b border-bone/10 pb-3 pr-12">
-          <Link href="/" className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">COMMAND</Link>
-          <span className="text-bone/30">/</span>
+          {embedded ? (
+            <button type="button" onClick={returnToUniverse} className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">RETURN TO ORBIT</button>
+          ) : <Link href="/" className="font-hud text-xs tracking-[0.25em] text-muted hover:text-bone">COMMAND</Link>}
+          {!embedded ? <span className="text-bone/30">/</span> : null}
           <p className="font-hud text-xs tracking-[0.25em] text-solar">SECTOR EXPEDITION · CO-OP 1-8 · SERVER-RUN</p>
-          <Link href="/flight" className="ml-auto font-hud text-[11px] tracking-[0.2em] text-muted hover:text-bone">LOCAL TRAINER</Link>
+          {!embedded ? <Link href="/flight" className="ml-auto font-hud text-[11px] tracking-[0.2em] text-muted hover:text-bone">LOCAL TRAINER</Link> : null}
         </header>
 
         {notice ? <p role="alert" className="mt-4 border-l-2 border-[#ff7a5c] bg-[#ff7a5c]/10 px-3 py-2 text-sm">{notice}</p> : null}
 
         {view === "select" ? (
           <Select missionId={missionId} setMissionId={setMissionId} progress={progress} shipId={shipId} setShipId={setShipId}
+            scoutResults={scoutResultsQuery.data?.results ?? []}
+            scoutResultsLoading={scoutResultsQuery.isLoading}
+            scoutResultsUnavailable={scoutResultsQuery.isError}
             code={codeInput} setCode={setCodeInput} publicListing={publicListing} setPublicListing={setPublicListing}
             onCreate={() => start(codeInput && isValidRoomCode(normalizeRoomCode(codeInput)) ? codeInput : generateRoomCode(), true)} onJoin={() => start(codeInput, false)} />
         ) : null}
@@ -363,6 +406,7 @@ const LOCK_LABEL: Record<MissionLock, string> = { open: "OPEN", locked: "LOCKED"
 
 function Select(props: {
   missionId: SectorMissionId; setMissionId: (m: SectorMissionId) => void; progress: SectorProgress | null;
+  scoutResults: WorldScoutEncounterResult[]; scoutResultsLoading: boolean; scoutResultsUnavailable: boolean;
   shipId: ShipId; setShipId: (s: ShipId) => void; code: string; setCode: (c: string) => void;
   publicListing: boolean; setPublicListing: (value: boolean) => void; onCreate: () => void; onJoin: () => void;
 }) {
@@ -385,14 +429,17 @@ function Select(props: {
           {SECTOR_MISSIONS.map(m => {
             const st = missionLockState(m, props.progress);
             const on = m.id === props.missionId;
+            const scoutUnavailable =
+              (m.id === "pale-beacons" || m.id === "universe-patrol") &&
+              PROTOCOL_VERSION !== SECTOR_ORBITAL_PROTOCOL_VERSION;
             return (
               <li key={m.id} className="relative">
                 <span aria-hidden="true" className={`absolute -left-6 top-5 h-[19px] w-[19px] rotate-45 border-2 ${st === "complete" ? "border-solar bg-solar" : st === "locked" ? "border-bone/30 bg-void" : "border-spectral bg-void"}`} />
-                <button type="button" disabled={st === "locked"} onClick={() => props.setMissionId(m.id)} aria-pressed={on} data-testid={`button-mission-${m.id}`}
+                <button type="button" disabled={st === "locked" || scoutUnavailable} onClick={() => props.setMissionId(m.id)} aria-pressed={on} data-testid={`button-mission-${m.id}`}
                   className={`w-full border p-4 text-left transition-transform active:scale-[0.99] disabled:opacity-45 ${on ? "border-solar bg-solar/10" : "border-bone/15 bg-void/60"}`}>
                   <span className="flex items-baseline justify-between gap-2">
                    <span className="font-hud text-xs tracking-[0.25em] text-muted">{m.id === "iron-eclipse" ? "OPERATION" : "SECTOR"} {String(missionNumber(m.id)).padStart(2, "0")}</span>
-                    <span className={`font-hud text-[10px] tracking-[0.2em] ${st === "complete" ? "text-solar" : st === "locked" ? "text-[#ff7a5c]" : "text-spectral"}`}>{LOCK_LABEL[st]}</span>
+                    <span className={`font-hud text-[10px] tracking-[0.2em] ${scoutUnavailable ? "text-muted" : st === "complete" ? "text-solar" : st === "locked" ? "text-[#ff7a5c]" : "text-spectral"}`}>{scoutUnavailable ? "ORBITAL V2 REQUIRED" : LOCK_LABEL[st]}</span>
                   </span>
                   <span className="mt-1 block font-hud text-2xl leading-none">{m.title.toUpperCase()}</span>
                   <span className="mt-1 block text-sm text-bone/75">{m.description}</span>
@@ -443,10 +490,40 @@ function Select(props: {
               <span>For rooms you create at Cinder Ring, list anonymous operation status publicly. Room codes and pilot identities stay private.</span>
             </label>
           ) : null}
-          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. Expeditions award 0 credits; they record discoveries and unlocks only.</p>
+          <p className="mt-2 text-xs text-muted">Create uses the code above if valid, otherwise a fresh one. Share it with up to seven pilots. In Orbital V2, track the roaming patrol and recover the receiver history and Earth relay packet in flight. A completed run pays 12 credits per confirmed hostile hull; interrupted runs pay nothing.</p>
         </div>
+        <ScoutResultHistory results={props.scoutResults} loading={props.scoutResultsLoading} unavailable={props.scoutResultsUnavailable} />
       </CommandPanel>
     </div>
+  );
+}
+
+function ScoutResultHistory({ results, loading, unavailable }: {
+  results: WorldScoutEncounterResult[];
+  loading: boolean;
+  unavailable: boolean;
+}) {
+  return (
+    <aside className="mt-5 border-t border-bone/10 pt-4" data-testid="panel-scout-result-history">
+      <PanelLabel>RECOVERED SCOUT LOGS · PILOT PRIVATE</PanelLabel>
+      <p className="mt-1 text-xs text-muted">Server-confirmed kills, assists, and any settled scout bounty. Interrupted runs never receive credits.</p>
+      {loading ? <p className="mt-3 font-hud text-xs tracking-widest text-muted" role="status">CHECKING ARCHIVE…</p> : null}
+      {unavailable ? <p className="mt-3 text-xs text-[#ff7a5c]" role="status">RESULT ARCHIVE UNAVAILABLE · NOTHING NEW WAS CLAIMED.</p> : null}
+      {!loading && !unavailable && results.length === 0 ? <p className="mt-3 text-xs text-muted">NO CONFIRMED SCOUT ENCOUNTERS YET.</p> : null}
+      {results.length > 0 ? (
+        <ul className="mt-3 divide-y divide-bone/10">
+          {results.slice(0, 5).map((result) => (
+            <li key={result.encounterId} className="flex flex-wrap items-center justify-between gap-2 py-2" data-testid="row-scout-result">
+              <span>
+                <span className="block font-hud text-xs tracking-wider text-bone">{result.outcome === "completed" ? "SCOUT CONTACT · CONFIRMED" : "SCOUT CONTACT · INTERRUPTED"}</span>
+                <time className="block text-[10px] text-muted" dateTime={result.recordedAt}>{new Date(result.recordedAt).toLocaleString()}</time>
+              </span>
+              <span className="font-hud text-xs tracking-wider text-solar">{result.kills} K · {result.assists} A · +{result.creditsAwarded} CR</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </aside>
   );
 }
 
@@ -487,6 +564,23 @@ function Lobby({ snap, connection, onReady, onLaunch, onLeave }: {
               <li><strong className="font-hud text-solar">BREAK THE CAPITAL</strong> · Reactor targeting unlocks when point defense is down; the shield array is optional.</li>
               <li><strong className="font-hud text-solar">EXTRACT</strong> · Reach the beacon for a server-validated, zero-credit discovery record.</li>
             </ol>
+          </div>
+        ) : null}
+        {mission.id === "universe-patrol" && snap.hostileFleet ? (
+          <div className="mt-4 border-l-2 border-[#ff7a5c] bg-[#ff7a5c]/[0.06] px-3 py-2" data-testid="brief-universe-patrol">
+            <p className="font-hud text-[10px] tracking-[0.24em] text-[#ff7a5c]">
+              SERVER-CONFIRMED {snap.hostileFleet.faction.toUpperCase()} CONTACT · {snap.hostileFleet.callsign}
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2 text-xs text-bone/75">
+              {snap.hostileFleet.ships.map((ship) => (
+                <li key={ship.actorId} data-testid={`enemy-ship-${ship.actorId}`}>
+                  {ship.callsign} · {SHIPS[ship.shipId].name} · {Math.round(ship.hull)}/{ship.maxHull} HULL
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[10px] text-muted">
+              All crew must be at the same saved universe location and fly the same faction. Destroyed patrol ships persist as shared fleet losses.
+            </p>
           </div>
         ) : null}
         <button type="button" onClick={copy} data-testid="button-copy-code" className="mt-5 block w-full border border-dashed border-solar/60 bg-solar/5 px-4 py-3 text-left">
@@ -553,9 +647,15 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
     ["WING", `${snap.pilots.length} PILOT${snap.pilots.length === 1 ? "" : "S"}`],
     ["YOUR HULL", own ? `${Math.round(own.flight.hull)}% · ${SHIPS[own.shipId].name.toUpperCase()}` : "-"],
     ["DISCOVERIES", String(own?.flight.discoveries ?? 0)],
-    ["CREDITS", "0 CR"],
+    ["CREDITS", `${snap.scoutResult?.creditsAwarded ?? 0} CR`],
     ["NEXT SECTOR", mission.id === "iron-eclipse" ? "STANDALONE OPERATION"
       : next ? (snap.progress.completed.includes(mission.id) ? `${next.title.toUpperCase()} · OPEN` : `${next.title.toUpperCase()} · LOCKED`) : "ROUTE COMPLETE"],
+    ...(snap.scoutResult ? [
+      [snap.scoutResult.missionId === "universe-patrol" ? "HOSTILE SHIPS DESTROYED" : "CONFIRMED SCOUT KILLS",
+        String(snap.scoutResult.kills)] as [string, ReactNode],
+      [snap.scoutResult.missionId === "universe-patrol" ? "HOSTILE SHIP ASSISTS" : "CONFIRMED SCOUT ASSISTS",
+        String(snap.scoutResult.assists)] as [string, ReactNode],
+    ] : []),
     ...operationRows,
   ];
   const resultTitle = snap.phase === "failed" ? "OPERATION FAILED" : won ? "SECTOR CLEARED" : "INTERRUPTED";
@@ -570,8 +670,17 @@ function Debrief({ snap, onRetry, onNewRoom, onLeave }: { snap: SectorSnapshot; 
         <p className="font-hud text-sm tracking-[0.25em]">RECORD · {label}{snap.settlement.replayed ? " · ALREADY SAVED" : ""}</p>
         <p className="text-sm text-bone/80">{snap.settlement.reason || line}</p>
       </div>
+      {snap.scoutResult ? (
+        <div className={`mt-3 border-l-2 px-3 py-2 ${snap.scoutResultStatus === "recorded" ? "border-solar bg-solar/10" : snap.scoutResultStatus === "unavailable" ? "border-[#ff7a5c] bg-[#ff7a5c]/10" : "border-spectral bg-spectral/10"}`} data-testid="status-scout-result">
+          <p className="font-hud text-sm tracking-[0.2em]">SERVER RESULT · {snap.scoutResultStatus?.toUpperCase() ?? "PENDING"}</p>
+          <p className="text-sm text-bone/80">{snap.scoutResult.outcome === "completed"
+            ? `Confirmed scout tally and ${snap.scoutResult.creditsAwarded} CR bounty saved to your private pilot log.`
+            : "The run was interrupted; its confirmed partial tally is recorded without rewards."}</p>
+        </div>
+      ) : null}
       <div className="mt-5 grid gap-2 sm:grid-cols-3">
-        {snap.settlement.status === "unavailable" || snap.settlement.status === "pending" ? (
+        {snap.settlement.status === "unavailable" || snap.settlement.status === "pending" ||
+          snap.scoutResultStatus === "unavailable" || snap.scoutResultStatus === "pending" ? (
           <button type="button" onClick={onRetry} data-testid="button-settlement-retry" className="wfm-cmd wfm-cmd-primary min-h-12 justify-center font-hud tracking-widest">RETRY RECORD</button>
         ) : null}
         <button type="button" onClick={onNewRoom} data-testid="button-new-room" className="wfm-cmd wfm-cmd-secondary min-h-12 justify-center font-hud tracking-widest">NEW ROOM</button>

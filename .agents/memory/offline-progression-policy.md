@@ -14,3 +14,9 @@ Online wing rooms and server-authorized Strike claims are separate paths. An int
 **Why:** the Strike endpoint requires a separately issued run ID and replay, so a synthetic claim is not evidence about an interrupted online room and can mutate the test account.
 
 **How to apply:** for online restart checks, verify the UI ends the match, shows the no-rewards notice, and makes no claim request. Test rejected Strike claims only with a genuine expired or otherwise invalid Strike run.
+
+Restore authenticated universe travel into Orbital only through explicit physical location anchors. An unmapped server location must fail clearly instead of spawning the pilot at a substitute location; no-reward local training remains available independently of account services.
+
+**Why:** server-owned strategic locations and local Orbital scene anchors are not yet a complete one-to-one map, so silently substituting a spawn would break location continuity while blocking training would couple offline play to account availability.
+
+**How to apply:** maintain an allowlist from verified world location IDs to implemented Orbital flight anchors, refresh server location before entry or post-operation return, and keep guest/local practice on its separate no-reward path.

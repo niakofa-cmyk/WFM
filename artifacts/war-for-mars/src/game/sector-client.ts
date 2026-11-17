@@ -2,9 +2,12 @@ import { NEUTRAL_FLIGHT_INPUT, type FlightInput } from "./flight-sector";
 import {
   ORBITAL_SECTOR_SIMULATION_CONTRACT, SECTOR_MISSIONS, SECTOR_ORBITAL_PROTOCOL_VERSION,
   SECTOR_PROTOCOL_VERSION, sectorMission,
+  UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS,
   type SectorMission, type SectorMissionId, type SectorProgress, type SectorSnapshot, type SectorTacticalCommand,
-  type IronEclipseSnapshot, type SectorProtocolVersion,
+  type IronEclipseSnapshot, type SectorFactionContact, type SectorProtocolVersion, type SectorScoutResult,
+  type SectorEvidencePickup, type SectorPatrolApproach,
 } from "./sector-missions";
+import { ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
 import { SHIPS, type ShipId } from "./ships";
 
 /** Client-only helpers for the cooperative sector expedition. No storage, no logging. */
@@ -20,11 +23,22 @@ export function expeditionFeatureEnabled(env: { DEV?: boolean; VITE_WFM_SECTOR_E
   return env.DEV === true || env.VITE_WFM_SECTOR_EXPEDITION_ENABLED === "true";
 }
 
-/** V2 remains opt-in so the existing authenticated compatibility route is the default. */
-export function sectorClientProtocolVersion(env: { VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string }): SectorProtocolVersion {
-  return env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED === "true"
+/** Development pairs V2 by default; production still requires an explicit opt-in. */
+export function sectorClientProtocolVersion(env: {
+  DEV?: boolean;
+  VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string;
+}): SectorProtocolVersion {
+  const flag = env.VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED;
+  return flag === "true" || (env.DEV === true && flag !== "false")
     ? SECTOR_ORBITAL_PROTOCOL_VERSION
     : SECTOR_PROTOCOL_VERSION;
+}
+
+export function sectorOrbitalV2Enabled(env: {
+  DEV?: boolean;
+  VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED?: string;
+}): boolean {
+  return sectorClientProtocolVersion(env) === SECTOR_ORBITAL_PROTOCOL_VERSION;
 }
 
 export function normalizeRoomCode(raw: string): string {
@@ -103,6 +117,122 @@ function validIronEclipseSnapshot(value: unknown): value is IronEclipseSnapshot 
     ["pending", "complete", "missed"].includes(op.objectives.shieldArray) &&
     ["pending", "complete", "missed"].includes(op.objectives.wingSurvival);
 }
+function validScoutResult(value: unknown): value is SectorScoutResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<SectorScoutResult>;
+  const isUniversePatrol = result.missionId === "universe-patrol";
+  return (result.missionId === "pale-beacons" || isUniversePatrol) &&
+    typeof result.encounterId === "string" && /^[0-9a-f-]{36}$/i.test(result.encounterId) &&
+    typeof result.sectorId === "string" && result.sectorId.length > 0 && result.sectorId.length <= 128 &&
+    result.sectorId === (isUniversePatrol ? "universe-patrol-contact-v1" : "pale-beacons-v1") &&
+    result.runtime === ORBITAL_RUNTIME_ID &&
+    (isUniversePatrol
+      ? result.policyId === "universe-patrol-bounty-v1" &&
+        typeof result.patrolId === "string" && result.patrolId.length > 0 && result.patrolId.length <= 128 &&
+        typeof result.patrolLocationId === "string" && result.patrolLocationId.length > 0 && result.patrolLocationId.length <= 128 &&
+        ["ussf", "accord"].includes(result.opposingFaction ?? "")
+      : ["scout-result-only-v1", "pale-beacon-npc-bounty-v1"].includes(result.policyId ?? "") &&
+        result.patrolId === undefined && result.patrolLocationId === undefined && result.opposingFaction === undefined) &&
+    ["completed", "aborted"].includes(result.outcome as string) &&
+    Number.isSafeInteger(result.finalTick) && (result.finalTick ?? -1) >= 0 &&
+    typeof result.objectiveCompleted === "boolean" &&
+    Number.isSafeInteger(result.kills) && (result.kills ?? -1) >= 0 &&
+    Number.isSafeInteger(result.assists) && (result.assists ?? -1) >= 0 &&
+    Number.isSafeInteger(result.rewardableNpcKills) && (result.rewardableNpcKills ?? -1) >= 0 &&
+    Number.isSafeInteger(result.creditsAwarded) && (result.creditsAwarded ?? -1) >= 0 &&
+    Array.isArray(result.destroyedActorIds) && result.destroyedActorIds.length <= 128 &&
+    result.destroyedActorIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 128) &&
+    result.kills === result.destroyedActorIds.length &&
+    result.rewardableNpcKills! <= result.kills! &&
+    typeof result.fingerprint === "string" && /^[0-9a-f]{64}$/.test(result.fingerprint);
+}
+function validHostileFleet(value: unknown, ownShipId: ShipId): value is NonNullable<SectorSnapshot["hostileFleet"]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const fleet = value as Partial<NonNullable<SectorSnapshot["hostileFleet"]>>;
+  if (Object.keys(fleet).length !== 5 ||
+      !["patrolId", "callsign", "locationId", "faction", "ships"].every(key => Object.hasOwn(fleet, key)) ||
+      typeof fleet.patrolId !== "string" || fleet.patrolId.length < 1 || fleet.patrolId.length > 128 ||
+      typeof fleet.callsign !== "string" || fleet.callsign.length < 1 || fleet.callsign.length > 64 ||
+      typeof fleet.locationId !== "string" || fleet.locationId.length < 1 || fleet.locationId.length > 128 ||
+      !["ussf", "accord"].includes(fleet.faction ?? "") ||
+      fleet.faction === SHIPS[ownShipId].faction ||
+      !Array.isArray(fleet.ships) || fleet.ships.length < 1 || fleet.ships.length > 4) return false;
+  const actorIds = new Set<string>();
+  return fleet.ships.every(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+    const ship = raw as Record<string, unknown>;
+    const position = ship.position as Record<string, unknown> | undefined;
+    const valid = Object.keys(ship).length === 7 &&
+      ["actorId", "shipId", "callsign", "position", "hull", "maxHull", "destroyed"].every(key => Object.hasOwn(ship, key)) &&
+      typeof ship.actorId === "string" && ship.actorId.startsWith("patrol-ship:") &&
+      ship.actorId.length <= 128 && !actorIds.has(ship.actorId) &&
+      isShipId(ship.shipId) && SHIPS[ship.shipId].faction === fleet.faction &&
+      typeof ship.callsign === "string" && ship.callsign.length > 0 && ship.callsign.length <= 64 &&
+      !!position && ["x", "y", "z"].every(key => typeof position[key] === "number" &&
+        Number.isFinite(position[key]) && Math.abs(position[key] as number) <= 10_000) &&
+      typeof ship.hull === "number" && Number.isFinite(ship.hull) && ship.hull >= 0 &&
+      typeof ship.maxHull === "number" && Number.isFinite(ship.maxHull) && ship.maxHull > 0 &&
+      ship.hull <= ship.maxHull && typeof ship.destroyed === "boolean" &&
+      ship.destroyed === (ship.hull === 0);
+    if (valid) actorIds.add(ship.actorId as string);
+    return valid;
+  });
+}
+function validPatrolApproach(value: unknown): value is SectorPatrolApproach {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const approach = value as Partial<SectorPatrolApproach>;
+  if (Object.keys(approach).length !== 3 ||
+      !["distanceMeters", "engagementRangeMeters", "combatAuthorized"].every(key => Object.hasOwn(approach, key)) ||
+      approach.engagementRangeMeters !== UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS ||
+      typeof approach.combatAuthorized !== "boolean") return false;
+  if (approach.distanceMeters === null) return approach.combatAuthorized === false;
+  return typeof approach.distanceMeters === "number" &&
+    Number.isFinite(approach.distanceMeters) && approach.distanceMeters >= 0 &&
+    approach.distanceMeters <= 20_000 &&
+    approach.combatAuthorized === (approach.distanceMeters <= UNIVERSE_PATROL_ENGAGEMENT_RANGE_METERS);
+}
+function validFactionContact(value: unknown): value is SectorFactionContact {
+  if (!value || typeof value !== "object") return false;
+  const contact = value as Partial<SectorFactionContact>;
+  const stages = ["unaware", "investigating", "shadowing", "challenging", "warning", "intercepting", "reinforcements"];
+  const actions = ["none", "scan", "shadow", "challenge", "warn", "intercept", "request_reinforcements"];
+  const reasons = ["no_sensor_contact", "passive_contact", "transponder_silent", "restricted_territory",
+    "high_speed", "targeting", "weapons_hot", "warning_ignored", "hostile_damage", "close_approach"];
+  const keys = ["actorFaction", "stage", "action", "reason", "territory", "transponder",
+    "distanceMeters", "sensorRangeMeters", "speedMetersPerSecond", "lineOfSight",
+    "weaponsHot", "targeting", "enteredAtTick"];
+  return Object.keys(contact).length === keys.length && keys.every(key => Object.hasOwn(contact, key)) &&
+    (contact.actorFaction === "ussf" || contact.actorFaction === "accord") &&
+    stages.includes(contact.stage as string) && actions.includes(contact.action as string) &&
+    reasons.includes(contact.reason as string) &&
+    ["ussf", "accord", "neutral", "contested"].includes(contact.territory as string) &&
+    (contact.transponder === "broadcast" || contact.transponder === "silent") &&
+    Number.isSafeInteger(contact.distanceMeters) && (contact.distanceMeters ?? -1) >= 0 &&
+    Number.isSafeInteger(contact.sensorRangeMeters) && (contact.sensorRangeMeters ?? 0) > 0 &&
+    Number.isSafeInteger(contact.speedMetersPerSecond) && (contact.speedMetersPerSecond ?? -1) >= 0 &&
+    typeof contact.lineOfSight === "boolean" && typeof contact.weaponsHot === "boolean" &&
+    typeof contact.targeting === "boolean" &&
+    Number.isSafeInteger(contact.enteredAtTick) && (contact.enteredAtTick ?? -1) >= 0;
+}
+function validEvidence(value: unknown): value is SectorEvidencePickup[] {
+  if (!Array.isArray(value) || value.length !== 2) return false;
+  const ids = new Set<string>();
+  return value.every((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+    const item = raw as Partial<SectorEvidencePickup>;
+    const keys = ["id", "title", "position", "state"];
+    const position = item.position as Record<string, unknown> | undefined;
+    const valid = Object.keys(item).length === keys.length && keys.every(key => Object.hasOwn(item, key)) &&
+      (item.id === "pale-beacon-record" || item.id === "earth-first-response") &&
+      !ids.has(item.id) &&
+      typeof item.title === "string" && item.title.length > 0 && item.title.length <= 80 &&
+      !!position && ["x", "y", "z"].every(key => typeof position[key] === "number" &&
+        Number.isFinite(position[key]) && Math.abs(position[key] as number) <= 10_000) &&
+      ["available", "recovering", "recovered", "unavailable"].includes(item.state as string);
+    if (valid) ids.add(item.id!);
+    return valid;
+  });
+}
 
 /** Structural validation of the server's typed snapshot. Rejects anything else. */
 export function parseSectorSnapshot(
@@ -122,6 +252,31 @@ export function parseSectorSnapshot(
   if (!sectorMission(p.missionId) || typeof p.roomCode !== "string") return null;
   if (!["lobby", "active", "complete", "interrupted", "failed"].includes(p.phase as string)) return null;
   if (!Array.isArray(p.pilots) || p.pilots.length > SECTOR_MAX_PILOTS) return null;
+  if (p.scoutResult !== undefined &&
+      (!validScoutResult(p.scoutResult) || typeof p.missionId !== "string" ||
+        !["pale-beacons", "universe-patrol"].includes(p.missionId) ||
+       !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus as string))) return null;
+  if (p.scoutResultStatus !== undefined &&
+      (p.scoutResult === undefined || !["pending", "recorded", "unavailable"].includes(p.scoutResultStatus))) return null;
+  if (p.factionContact !== undefined) {
+    const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
+    if (typeof p.missionId !== "string" || !["pale-beacons", "universe-patrol"].includes(p.missionId) ||
+        expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+        !validFactionContact(p.factionContact) || !ownPilot ||
+        p.factionContact.actorFaction === SHIPS[ownPilot.shipId].faction ||
+        p.factionContact.enteredAtTick > (p.tick ?? -1) ||
+        (p.factionContact.stage === "unaware" && p.factionContact.action !== "none") ||
+        (!p.factionContact.lineOfSight && p.factionContact.stage !== "unaware")) return null;
+  }
+  if (p.evidence !== undefined &&
+      (p.missionId !== "pale-beacons" || expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION ||
+       !validEvidence(p.evidence))) return null;
+  if (p.missionId === "universe-patrol") {
+    const ownPilot = p.pilots.find(pilot => pilot.slot === p.ownSlot);
+    if (expectedVersion !== SECTOR_ORBITAL_PROTOCOL_VERSION || !ownPilot ||
+        !validHostileFleet(p.hostileFleet, ownPilot.shipId) ||
+        !validPatrolApproach(p.patrolApproach)) return null;
+  } else if (p.hostileFleet !== undefined || p.patrolApproach !== undefined) return null;
   if (typeof p.ownSlot !== "number" || typeof p.hostSlot !== "number" || typeof p.tick !== "number") return null;
   if (!p.progress || !Array.isArray(p.progress.completed) || !p.settlement) return null;
   if (p.capabilities !== undefined &&

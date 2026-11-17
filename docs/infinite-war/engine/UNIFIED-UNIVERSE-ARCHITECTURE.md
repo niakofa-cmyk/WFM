@@ -14,7 +14,7 @@ page is an offline entry point today, not evidence of an integrated universe.
 | Persistent location, travel, discovery, contracts | World routes/DB and `GalaxyScreen.tsx` | Strategic state, not continuous shared flight |
 | Destinations and operation lifecycle | `operation-network.ts`, operation schema/routes | Directory/authorization, not combat execution |
 | Universe events | Read-only directory/SSE and `UniverseActivityFeed.tsx` | Sanitized events, not detailed nearby ship state |
-| Destination presence | Server-owned world location and expiring lease | Anonymous counts; no exact coordinates |
+| Destination presence | Server-owned world location and expiring lease | Public directory remains anonymous counts; live 3D pilot poses are a separate, not-yet-implemented, authenticated spatial-session feed. See [live 3D free-flight presence](../LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md). |
 | Cinder approach | `CinderRingDockingApproach.tsx` | Local no-reward docking; not server authorization |
 | Mars/sector environments | Sector geometry and mission definitions | Bounded authored worlds, not infinite streaming |
 

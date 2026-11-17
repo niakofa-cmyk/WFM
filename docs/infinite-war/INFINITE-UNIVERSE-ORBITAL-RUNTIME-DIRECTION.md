@@ -47,7 +47,7 @@ already been extracted.
 |---|---|---|
 | Orbital Combat Lab | `Arena` + `@workspace/orbital-sim`, local fixed-step combat; no reward settlement. `Arena` currently constructs the Three.js renderer and owns its scene loop. | Canonical training foundation, but renderer lifecycle is still owned by the Arena UI component rather than an extracted engine presentation module. |
 | Local Arena practice | `WarApp` → `Arena` → `orbital-v5` when no legacy server run is pinned | Canonical local entry. Must preserve no-reward behavior. |
-| Rust Disc local flight | `/flight` → `RustDiscFlight` → dynamically loaded `three-flight-runtime`; that component creates a separate Three.js renderer, scene, camera, and animation loop. It calls `@workspace/orbital-sim` for canonical fixed-step flight/combat rules, while the Rust Disc component owns presentation and operation UI. | Simulation is Orbital and Three.js remains the primary rendering foundation. This is a route-specific lifecycle within the same game, not a separate universe. Preserve it until route entry, controls, camera, objectives, and reward behavior are connected and verified in the shared world. |
+| Rust Disc local flight | `/flight` → `RustDiscFlight` → dynamically loaded `three-flight-runtime`; that component creates a Three.js renderer, scene, camera, and animation loop. It calls `@workspace/orbital-sim` for canonical fixed-step flight/combat rules, while the Rust Disc component owns presentation and operation UI. | This is a feature/reference route inside the same Orbital game, not a second physics engine. Preserve its controls, camera, objectives, and no-reward behavior while integrating it into the main universe. Current renderer strategy retains Three.js and native WebGL2 as presentation backends over shared Orbital state; see `RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`. |
 | Rust Disc co-op / Mars Approach / Pale Beacons | Authenticated sector socket and `sector-motion-v1`; server validates movement, snapshots and objective lifecycle. `RustDiscFlight` renders the snapshots. | Compatibility runtime and presentation. Migrate client, API, socket and mission state together; retain authority, reconnect behavior, and operation results. |
 | Iron Eclipse | Sector runtime plus server-owned squadron commands and capital-ship operation state; currently rendered through `RustDiscFlight`. | Compatibility runtime and presentation. Preserve command permissions, AI, subsystem gating, extraction and result idempotency. |
 | Arcade Skirmish | `WarApp` Offline Strike → `Arena` → `arcade-skirmish` / `orbital-v5` | Canonical local mode with no reward settlement. Server-issued legacy Skirmish runs remain pinned through `campaign-sortie`. |
@@ -55,15 +55,16 @@ already been extracted.
 | Other campaign sorties | `Arena` with pinned `surface-v1` or configured runtime | Compatibility runtime. Preserve run IDs, objective replay, story state and idempotent claims. |
 | Live Wing 5v5 / private / AI-fill | Authenticated Wing socket, matchmaking and `surface-v1` combat; Orbital Arena rejects live rooms | Not migrated. Keep competitive ten-human and reward gates; private and AI-fill remain no-reward. |
 | Universe / Galaxy navigation | `GalaxyScreen`, world-operation directory and operation registration | Navigation and discovery only; not continuous 3D travel or shared flight. |
-| Fleet warfare / persistent universe expansion | No complete runtime path yet | Planned. Do not count future scope as shipped. |
+| Fleet warfare / persistent universe expansion | Offline local Orbital flight now streams deterministic sector neighborhoods. It does not persist or share those sectors. | Account-persistent/shared space, planetary reference frames, distant star systems and fleet warfare remain unimplemented. |
+| Strategic faction patrols | Persistent, deterministically seeded 2–4 ship formations for both factions move through the current named world route graph; authenticated Galaxy contacts and 3D visual projections appear in free flight. | The directory projection is not combat authority. A separate, explicit Orbital V2 patrol operation supports server combat and results, but does not continue the same free-flight position. Seamless shared combat, full faction simulation, and an infinite generated sector network remain future work. See [persistent multi-ship patrols](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md). |
 
-The current local Rust Disc scene shows Mars as a rendered body but also uses a
-bounded training sector (the default radius is 460; Cinder Ring is 900). The
-Orbital simulation can disable its local boundary, but a boundary-free local
-coordinate does not by itself provide a planet reference frame, floating origin,
-streamed systems, persistence or multiplayer universe. This checkout does not
-yet prove continuous surface-to-orbit-to-interstellar travel. Never describe a
-visual planet backdrop, large number, or sector transition as that proof.
+The local Rust Disc compatibility scene remains bounded. The Orbital local
+universe now rebases its small physics coordinates into deterministic
+512-metre sector addresses and streams a 3×3×3 neighborhood. This is still an
+offline session, not server persistence or multiplayer authority. Sector travel
+does not yet provide planetary reference frames, atmosphere/orbit handoffs,
+light-year-scale system transitions or persistent discovery. Never describe a
+visual backdrop or sector transition alone as proof of those systems.
 
 ## Shared mode contract and runtime bootstrap
 
@@ -85,33 +86,33 @@ compatibility, navigation-only and planned modes, so they cannot be labeled as
 already migrated by selecting `orbital-v1`. Server-run Rust Disc co-op and other
 sector operations still use their existing authority and compatibility wrappers.
 
-## Renderer and legacy-scene boundary
+## Renderer and in-world route boundary
 
-The owner clarified on 2026-11-08 that Three.js remains the primary renderer
-and scene-runtime foundation for the main Orbital universe. Native Orbital
-WebGL2 is a supported companion renderer. Orbital owns the shared gameplay,
-simulation, and world state; neither renderer creates a separate game or
-authority. This supersedes older wording that treated Three.js as a low-level
-dependency or a renderer to remove. See
-[`RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md`](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
+The owner clarified on 2026-11-08 that the game will keep and use both Three.js
+and native Orbital WebGL2 rendering, with Three.js as the primary renderer for
+the main Orbital universe. This supersedes earlier wording that Three.js must be
+retired. Orbital remains the single gameplay, simulation, and world-state owner;
+renderer backends are not separate games or universes.
 
-Keep the Rust Disc route as a feature and compatibility reference while its
-controls, camera, HUD, objectives, squad behavior, and server contracts are
-connected to the primary universe. Separate route-specific scenes do not justify
-a second universe, but also do not prove that every mode already shares one
-render lifecycle.
+Treat the Rust Disc flight scene and the attached Mars flight screenshot as
+feature references for in-world route activities. Preserve the proven controls,
+camera behavior, HUD, objectives, squad interactions, and Orbital simulation
+rules while connecting route entry/return to the shared universe. Do not discard
+the experience or fork its physics to force visual uniformity. See the current
+[Rendering Strategy and Universe Owner](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 
 Current source evidence:
 
-- `RustDiscFlight.tsx` loads `three-flight-runtime` dynamically and owns a distinct
-  WebGL renderer and flight animation loop.
+- `RustDiscFlight.tsx` loads `three-flight-runtime` dynamically and owns a
+  Three.js renderer and flight animation loop for its route activity.
 - `Arena.tsx` has a different renderer and simulation path; the current Orbital
   Lab runs through this Arena presentation.
 - `@workspace/orbital-sim` is renderer-independent and owns deterministic rules,
   not WebGL, assets, scene lifetime, or camera lifecycle.
-- Orbital simulation is shared, while `Arena` and `RustDiscFlight` still own
-  separate Three.js presentation lifecycles. The game-mode catalog reports
-  these boundaries separately; Three.js remains the selected primary renderer.
+- These are different render lifecycles within one intended game, not evidence
+  that the underlying physics or user identity should be duplicated. The
+  catalog records the boundaries so later route and renderer integration does
+  not imply full parity prematurely.
 
 Keep three authority patterns distinct:
 

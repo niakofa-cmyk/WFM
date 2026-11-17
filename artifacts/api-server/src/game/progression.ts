@@ -1,11 +1,12 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import {
   db,
   playerProgressTable,
   playerWorldStateTable,
   progressionEventsTable,
   strikeRunsTable,
+  worldDiscoveriesTable,
   type MarketPrices,
   type PlayerProgress,
 } from "@workspace/db";
@@ -23,6 +24,7 @@ import {
 import type { Disc, Goal, Pace, StepInput } from "./sim";
 import { ROSTER, type Faction, type ShipId } from "./ships";
 import { LEGACY_SURFACE_RUNTIME_ID, ORBITAL_RUNTIME_ID } from "@workspace/orbital-sim";
+import { narrativeAwardsForClaim, narrativeDiscoveryId } from "./campaign-narrative";
 
 type StrikeStartInput = {
   shipId: ShipId;
@@ -428,6 +430,46 @@ export async function claimPlayerStrike(
       .where(eq(playerProgressTable.userId, userId))
       .returning();
     if (!updated) throw new Error("Player profile could not be updated.");
+
+    const existingNarrativeDiscoveries = await tx
+      .select({ locationId: worldDiscoveriesTable.locationId })
+      .from(worldDiscoveriesTable)
+      .where(and(
+        eq(worldDiscoveriesTable.userId, userId),
+        like(worldDiscoveriesTable.locationId, "story:v1:%"),
+      ));
+    const existingNarrativeIds = existingNarrativeDiscoveries.map(({ locationId }) => locationId);
+    const narrativeAwards = narrativeAwardsForClaim(
+      config.mission,
+      config.faction,
+      grant.outcome,
+      existingNarrativeIds,
+    );
+    for (const evidenceId of narrativeAwards) {
+      const locationId = narrativeDiscoveryId(evidenceId);
+      const [discovery] = await tx.insert(worldDiscoveriesTable).values({
+        id: randomUUID(),
+        userId,
+        locationId,
+      }).onConflictDoNothing().returning({ locationId: worldDiscoveriesTable.locationId });
+      if (!discovery) continue;
+      await tx.insert(progressionEventsTable).values({
+        userId,
+        idempotencyKey: `narrative-evidence:${evidenceId}`,
+        kind: "world_exploration",
+        amount: 0,
+        balanceBefore: profile.credits,
+        balanceAfter: profile.credits,
+        result: {
+          action: "verified_narrative_evidence",
+          version: "wfm-campaign-evidence-v1",
+          evidenceId,
+          missionId: config.mission,
+          faction: config.faction,
+          outcome: grant.outcome,
+        },
+      }).onConflictDoNothing();
+    }
 
     await tx.insert(progressionEventsTable).values({
       userId,

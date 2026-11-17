@@ -1,4 +1,91 @@
+# Hangar-first entry and disabled recovery
+
+New local implementation: [Lab-style opening encounter](infinite-war/LAB-STYLE-OPENING-ENCOUNTER.md).
+Explicit hangar launch can insert a new pilot facing an existing hostile fleet
+and claim an ordinary live battle without leaving the universe. Retained pilots
+are not repositioned or repaired. This is newer than the staging rollout below;
+no deployment or authenticated gameplay certification is claimed for this change.
+
+Staging app/API/socket now run the owner-approved `128882c` source at matching
+SUCCESS deployments. The Railway Combat Lab audit passed at 127,135 bytes gzip;
+root/profile/WebSocket gateway probes returned 401. Fresh authenticated
+hangar/recovery and two-pilot checks have not started; see the root staging
+report/results. No schema, flags, authentication settings or Production changed.
+
+See [opening history, entry and authoritative recovery](infinite-war/OPENING-HANGAR-AND-RECOVERY.md).
+Four uploaded references are preserved verbatim. Account boot is command-first;
+disabled recovery requires server acknowledgement and resolved results. Total
+wing defeat now records real attribution with zero-credit aborted settlement.
+Three.js remains primary. Restart-durable hull state, a rendered prologue and
+authenticated staging verification are not claimed by this implementation.
+
 # WAR FOR MARS — Game improvement record
+
+## Hangar entry, recovery and training parity — source audit
+
+Reviewed the primary boot, disabled-seat lifecycle and shared-flight combat
+against compatibility training. The default account boot can mount live flight
+without a fresh hangar launch. Shared-flight pause messaging is misleading,
+disabled recovery is indirect, and loadout-change rejoin reconstructs craft
+health without an explicit recovery restriction in that branch. No exploit
+test or runtime modification was performed. Core rendering/flight/weapons are
+shared, but training ability, countermeasure, obstacle and lifecycle parity is
+incomplete. See [audit and implementation order](infinite-war/TRAINING-TO-SHARED-FLIGHT-AUDIT.md).
+Authenticated reward and post-battle flight verification remain blocked.
+
+## Scout pursuit and approach alignment — staging verification pending
+
+Implemented server-owned scout detection, pursuit and bounded last-observation
+search inside continuous shared flight. Added own-seat heading/velocity
+correction, matched shared prediction's collision set to the server, retained
+stable approach contacts, and corrected sampled flight toggles.
+The existing 180 m encounter and reward-authority gates remain intact.
+See [candidate behavior and verification](infinite-war/SCOUT-PURSUIT-AND-FLIGHT-ALIGNMENT.md).
+16 server and 22 client/runtime tests, both typechecks/builds and four static
+checks passed. After explicit approval, commit `26ade0c` deployed successfully
+to the staging app, API and socket with matching source pins. Railway's Lab
+initial bundle audit passed at 127,134 B gzip against the unchanged 143,360 B
+limit; Three.js remains lazy-loaded. Unauthenticated root, profile and WebSocket
+requests returned 401. No schema or flag changes; Production is unchanged.
+Fresh authentication passed for both pilots. An observed reconnect confirmed
+seven moving server fleet models and four hostile ships per context, but both
+pilots were already destroyed in an active encounter before live firing could
+be tested. No kill/assist/settlement or credit change was observed. Pursuit/search
+trajectories, heading alignment, shared battle contributions and continued flight
+remain unverified. Both test browser owners were stopped; see the staging report.
+
+## Authenticated shared-flight verification — approach blocker
+
+Both staging test pilots completed fresh sign-in and returned authenticated
+profile HTTP 200 at the same faction/location. Both received seven moving
+server fleet models and four hostile contacts. A bounded normal-input approach
+stopped short of the 180 m encounter envelope (closest reported 189 m), with
+changing target selection and differing local/server headings. No battle began,
+no reward changed, and assistance, kill/assist attribution, settlement and
+post-battle flight remain unverified. See the staging report for evidence.
+No gameplay code or environment changes were made during verification.
+
+## 2026-11-08 — Native shared-universe allied assistance
+
+Read and preserved both uploaded cooperation/tactical documents verbatim under
+the existing fleet references. Their implementation claims are treated as
+proposals, not rollout evidence. Cooperation uses the same continuous universe,
+not a new co-op world. Nearby late allies can now join an active server-owned
+patrol encounter after admission/location/life/range revalidation, emit actual
+server weapons, and receive only their subsequent verified contributions.
+No duplicate fleet reservation or fabricated observer kills/credits.
+
+Added compact proximity/support cues and clearer compatibility labels; retained
+legacy sector routes and rollback. The implementation assessment and deferred
+fleet-size thresholds, team bonus and full 3D sweep are documented in
+[Shared-universe cooperation](infinite-war/UNIFIED-UNIVERSE-COOPERATION-AND-ASSISTANCE.md).
+22 server tests, 7 frontend tests, both typechecks/builds and 4 static checks
+passed locally. Following explicit approval, candidate `61fd952` reached SUCCESS
+on all three staging services at matching source pins. Startup reported free
+flight/combat enabled; unauthenticated staging page/API/WebSocket requests
+returned 401. Railway's Lab audit passed at 127,135 B gzip. No schema/flag change.
+Authenticated firing, two-pilot assistance and settlement checks remain
+incomplete. Production is unchanged.
 
 ## 2026-11-03 — First campaign-to-orbital combat slice
 
@@ -1103,3 +1190,165 @@ the public landing page; the signed-in universe and WebGL approach were not
 visually verified. The capture browser reported no WebGL adapters, so it cannot
 certify the 3D flight scene. No Android device test, staging rollout, or
 Production deployment was performed.
+
+## 2026-11-08 — Continuous sector flight and staging encounter preflight
+
+Orbital flight now carries the camera through local sector-origin shifts, keeps
+a deployment-point anchor for the mounted session, and presents a compact
+return vector and straight-line range after the pilot travels beyond the local
+area. The existing deterministic flight step and arbitrary-precision sector
+address format remain in use. The two source briefs are preserved verbatim in
+`docs/references/`; the evaluated implementation and authority boundaries are
+in `docs/infinite-war/CONTINUOUS-SPATIAL-FLIGHT-AND-RETURN-NAVIGATION.md`.
+
+The standalone Combat Lab and main app now build Three.js into a single lazy
+vendor chunk. The full workspace typecheck, tests, and builds passed, and the
+bundle audit remains within its existing limits.
+
+The verified source `8c558379602190e1b5ba072555b980c186b6da69` was pushed to
+`design/orbital-universe-entry`. A read-only Railway preflight found the staging
+frontend, API, and socket still pinned to `76e89c469cb2ffabfa7d456f9574cc7feae7c6d0`.
+No fresh sign-in challenge or encounter was started because that deployed
+revision cannot verify the pushed source. The API deployment's pre-deploy
+command runs the staging database schema push; changing service pins and
+deploying the candidate needs explicit staging-deployment approval. No staging
+or Production database/configuration changes were made.
+
+## 2026-11-08 — Shared-flight fleet escalation and authority review
+
+The current saved-location patrol directory supplies multiple persistent fleets
+to the same Orbital 3D scene. Close approach starts a reserved encounter; nearby
+opposing patrols can join an active weapons-hot battle. Encounters are bounded
+to three live patrol contracts and remain inside the same free-flight session,
+with independent casualty/reward receipts and cumulative kill/assist tallies.
+Three.js remains the primary renderer; no new rendered universe was introduced.
+
+Review corrected false reinforcement alerts from an uninitialized damage timer,
+cross-encounter projectile damage, session-wide settlement state, and a delayed
+reservation surviving its initiating pilot's disconnect. Regression checks
+exercise authorized damage, untouched patrol behavior, reservation interruption,
+actual weapons/impacts/rewards and continued combat after one fleet settles.
+
+The earlier full workspace typecheck, tests and builds passed, including the
+unchanged standalone Combat Lab bundle audit. The review's full API run passed
+220 tests; after the final roster guard, all nine focused free-flight checks
+and API typecheck passed. The socket rebuilt and restarted with database-backed
+free flight enabled. A screenshot confirmed the public offline Lab entry loads,
+not an authenticated 3D battle. Current behavior remains scoped to a saved-location
+session, not continuous spatial-shard handoff or physical-device certification.
+The approved staging rollout is recorded in `STAGING-TEST-REPORT.md`; the new
+combat changes have not been deployed or authenticated on staging.
+
+## 2026-11-08 — Approved reviewed-build staging rollout
+
+The owner authorized a staging-only rollout of
+`2982e16f13694c78a490f349dce1767136849978`. App, API and Wing Socket all reached
+Railway SUCCESS on that exact source. The protected gateway health/access checks
+returned HTTP 200; Production remained untouched.
+
+The real browser sign-in reached a new-device verification challenge and is
+retained for a fresh code through Secrets. No code was submitted and no active
+session/profile or gameplay result has been verified. The authenticated
+multi-fleet encounter check is blocked, not passed. Deployment identifiers and
+the evidence boundary are recorded in `STAGING-TEST-REPORT.md`.
+
+## 2026-11-08 — Authenticated staging exposed a protocol-coupling defect
+
+The retained browser completed fresh verification and its authenticated profile
+returned HTTP 200. Shared-flight traffic appeared in the HUD, but proximity
+combat was unavailable. Staging retained co-op V1 as intended; the socket
+incorrectly used the co-op V2 gate for the independent free-flight combat
+adapters, leaving fallback contacts that could not engage.
+
+The correction gives continuous free flight dedicated persistent patrol,
+reservation, settlement and release adapters while preserving all co-op
+protocol gates. A regression exercises weapons, reinforcement, attribution and
+settlement with co-op V1 selected. All 35 focused free-flight/co-op/feature tests
+and the API typecheck passed. The corrected code still needs an approved
+staging rollout; no deployed combat or reward pass is claimed.
+
+## 2026-11-08 — Independent free-flight adapters live; patrol reservation follow-up
+
+Owner-approved commit `70ee4bbe04f4f12c003674052edefc308d974fd2` reached SUCCESS
+on the staging app, API and socket. Runtime metadata confirms free-flight
+combat enabled with co-op V1 unchanged. Gateway health and the retained
+browser's authenticated profile returned HTTP 200.
+
+The focused retry confirmed seven moving persistent patrol actors in server
+snapshots, including four hostile ships, and the normal Engage action within
+range. The directory returned two fleets with seven rostered ships. However,
+reservation failures occurred; Engage stayed visible and the player fire
+control was absent after the click. Hostile weapon packets alone do not prove
+player encounter admission, damage, kills or rewards. Those remain blocked.
+
+The scene's Cinder Ring label and the server directory's `phobos-yard` location
+also differed. Follow-up must trace reservation ownership/location and preserve
+active combat controls when another fleet request is rejected, rather than
+bypassing reservations or changing account flags. The test browser was closed
+after controls were neutralized; no Production or promotion changes occurred.
+
+## 2026-11-08 — Encounter recovery and control-state corrections
+
+Local changes restore the server's existing combat state and tally on rejoin,
+preserve active weapon controls when a secondary request fails, and refresh
+departed/changed idle patrols after a rejected claim without replacing active
+contracts. Claim and refresh work are serialized. Reservation logs now expose
+only safe operational reason codes for the next staging diagnosis; no lease or
+reward authority was bypassed.
+
+Stationary contact updates now retain changed target identity and integrity
+values. The Cinder label is explicitly marked DOCK TARGET rather than implying
+that the account moved sectors. No coordinates or saved locations were edited.
+
+Both typechecks, 36 server checks, 16 frontend checks, four preview-build checks,
+and main/Lab builds passed. The Lab audit remains below its unchanged size
+budget with Three.js lazy. A public entry screenshot and clean workflow startup
+are local-only checks. Staging remains at `70ee4bb`; this recovery candidate
+still needs approved rollout and authenticated encounter verification.
+
+## 2026-11-08 — Staging recovery verification
+
+The approved recovery build `88270151aa79a1b20ae4c7e83e9b28c48b2ba4ec` is live on
+all three staging services. Only source pins changed; co-op V1, secrets/network
+settings and Production were unchanged.
+
+A fresh challenge completed once and authenticated profile returned HTTP 200.
+The bounded shared-flight check confirmed seven persistent moving patrol
+actors, four hostiles, genuine encounter admission near 162 m, incoming enemy
+damage, and same-context reload restoring authoritative active phase, ENGAGED
+and the normal fire control.
+
+Player shot emission was not verified by control clicks or a bounded held-input
+check. Kills, assists, rewards and post-result flight remain unverified. Local
+and server headings differed after reload; the test driver used server heading
+to approach, not a game-pose override. Aiming alignment and the input-to-weapon
+path require investigation before claiming a full combat pass.
+
+Evidence and exact deployment identifiers are recorded in
+`STAGING-TEST-REPORT.md`; scoped JSON remains promotion-PENDING. The test browser
+was closed with inputs neutralized. No Production or account-location changes
+were made.
+
+## 2026-11-08 — Firing investigation: authoritative pilot life
+
+A local regression reproduced a silent failure mode: a living pilot emits
+shots, hostile fire destroys it, and subsequent fire intent was still accepted
+even though dead craft are excluded from simulation. The client HUD also used
+local rather than authoritative own-pilot health. This could explain the
+staging symptom, but the earlier trace did not retain enough life-state data to
+prove that cause.
+
+Destroyed-pilot weapon intent is now explicitly rejected. Rejoin/fatal-hit
+state carries pilot life; the client displays authoritative health and gates
+weapons and engagement on the own pilot being alive. A short primary-button tap
+is latched to the next simulation sample. Accepted intent has diagnostic
+metadata but is not counted as an emitted shot or hit.
+
+Verification: 11 server tests, 21 frontend input/state tests, both type checks,
+both production builds and 4 static build checks passed. Combat Lab initial JS
+is 126,487 B gzip, below the unchanged 143,360 B cap; Three.js stays lazy.
+
+This candidate is local, not deployed. Staging remains on `8827015`; Production,
+database schema, network settings and feature flags were untouched. Fresh
+staging own-shot/reward verification and server/local heading alignment remain
+open; no local repair or respawn was added.

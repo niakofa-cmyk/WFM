@@ -1,6 +1,96 @@
 # Master development directive — WAR FOR MARS: THE INFINITE WAR
 
-## Latest controlling directive — 2026-11-06
+## Living shared-universe foundation
+
+The [living Orbital universe foundation](LIVING-OPEN-ORBITAL-UNIVERSE-FOUNDATION.md)
+records the governing shared-world direction, preserved source reference,
+connection-state meanings, current implementation boundaries and remaining
+multi-fleet verification gates. One logical universe uses spatial partitions;
+do not equate a connecting HUD or strategic patrol records with globally live
+combat certification.
+
+## Latest rebuild direction — Phase 0 before more prototypes
+
+The user's latest controlling rebuild reference is preserved verbatim at
+[`references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt`](references/ORBITAL-LAB-REBUILD-DIRECTION-SOURCE.txt).
+It clarifies that Orbital Combat Lab must be dismantled and reorganized into the
+actual WAR FOR MARS: INFINITE WAR engine—not remain a separate training product
+with a universe added around it.
+
+The required next order begins with the Phase 0 extraction audit, then makes the
+Orbital foundation the primary WFM boot/runtime, migrates Rust Disc while
+preserving its pilot experience, builds the Mars planetary theatre, migrates
+authoritative multiplayer operations, and only then expands to larger
+destinations. The current source-level audit is
+[`ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md`](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md).
+It does not claim that runtime migration, staging proof, or device verification
+has occurred.
+
+The audit found that the Combat Lab still has a separate standalone boot and
+that several modes retain distinct launch, renderer, objective, or authority
+paths. A shared Orbital package or runtime label is not proof of full migration.
+Use the audit's mode-by-mode matrix for the next implementation; do not start
+another isolated universe prototype before rebuilding the primary entry/runtime.
+
+## Dynamic faction encounters and exploration rewards
+
+The [primary Orbital boot and initial encounter contract](PRIMARY-ORBITAL-BOOT-AND-ENCOUNTER-CONTRACT.md)
+now provide the first consolidation slice. Follow that document's explicit
+rollback paths and authority activation gates; this does not certify all-mode
+migration or live roaming rewards.
+
+The user's latest correction establishes that **authenticated multiplayer
+exploration is a reward-capable, server-authoritative game mode**. The no-reward
+rule applies to the offline local Orbital sandbox, private Wing rooms, and
+AI-fill Wing matches—not to all exploration. The current local sector prototype
+must remain no-reward, but its scope is not the target universe policy.
+
+Use
+[`DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md`](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md)
+as the foundation for the encounter director, faction patrols, event discovery,
+spectating, server-confirmed enemy-hull tallies, and separate exploration reward
+policy. Server validation, idempotent settlement, private-room boundaries, and
+the current Wing reward gates remain mandatory.
+
+The owner-provided November 7 patrol references are preserved verbatim in
+[`references/redesign/`](references/redesign/). The current implementation
+slice and remaining gates are tracked in
+[`PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md`](PERSISTENT-MULTI-SHIP-UNIVERSE-PATROLS.md):
+server-persisted, multi-ship USSF/Accord patrols now move through the existing
+world route graph, appear in the Galaxy screen, and project as 3D ship models
+into local free flight. The strategic directory is read-only for flight combat.
+A separate authenticated V2 patrol operation can be explicitly requested,
+fought, tallied, and settled server-side, but it runs in its own sector session
+and does not inherit the visible ship's free-flight position.
+
+The required next state is live 3D enemy fleets and authenticated pilot ships
+patrolling in the same shared Orbital free-flight region, with server-owned
+movement and seamless encounter/resume. The full owner direction, current
+baseline, privacy boundary, and acceptance gates are in
+[`LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md`](LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md).
+The attached server-movement, binary transport, delta-compression, targeting,
+and tracer proposals are preserved and adapted in
+[`SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md`](SHARED-FLIGHT-WIRE-PROTOCOL-AND-WEAPON-TELEMETRY.md).
+
+## Current connected-universe redesign direction — 2026-11-06
+
+The owner has now explicitly authorized starting the visual redesign and
+provided another complete Multiplayer Universe Architecture document plus
+five reference images. The maintained current redesign brief, preserved source,
+reference index and bounded implementation scope are in
+[`REDESIGN-DIRECTION.md`](REDESIGN-DIRECTION.md).
+
+The subsequent Infinite Open Universe source in that brief explicitly restores
+**one canonical Orbital gameplay runtime** as the final architecture. Preserve
+specialist game experiences as distinct configurations; retain existing runtimes
+only as tested migration/rollback paths until their replacements are proven.
+The redesign must not remove working modes or flatten distinctive mechanics. Earlier
+engine-first sequencing below is historical where it would block this newly
+authorized visual slice. It does not mean full migration has been completed.
+No visual representation may be called live multiplayer without actual
+server-backed participants and observer evidence.
+
+## Previous engine-first directive — 2026-11-06
 
 The complete new source is retained unchanged at
 `attached_assets/Pasted--MASTER-DEVELOPMENT-DIRECTIVE-WAR-FOR-MARS-INFINITE-WAR_1793996096249.txt`.
@@ -54,7 +144,12 @@ The player should enter one universe, belong to one faction, command one ship,
 progress through one connected journey, and participate in validated
 operations whose consequences are visible in that universe.
 
-## Controlling full-game runtime direction
+The owner-directed human catalyst and the First Witness mystery are recorded in
+[WAR FOR MARS Storyline Foundation](WAR-FOR-MARS-STORYLINE-FOUNDATION.md).
+Build the campaign and living-world activities as connected ways to encounter
+that story, not as unrelated missions.
+
+## Earlier canonical runtime target — historical
 
 The owner's complete **Master Orbital Engine Consolidation Directive** is
 preserved at
@@ -67,13 +162,16 @@ and controls the current extraction order. Its code-backed companion is
 Its implementation companion is
 [`ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md`](./ORBITAL-ENGINE-CONSOLIDATION-DIRECTIVE.md).
 
-This direction resolves the end state: **all playable modes must ultimately use
-one canonical, versioned Orbital Combat Engine.** Combat Lab remains offline and
-no-reward as its training interface, not a separate production engine. Rust
-Disc, Arcade, every campaign sortie, co-op, Iron Eclipse, all room types, Wing
-and later fleet operations are configurations of the same gameplay runtime.
-Their existing authentication, matchmaking, mission authority, account data,
-progression, reward and idempotency services remain authoritative.
+This direction resolves the gameplay end state: **all playable modes must
+ultimately use one canonical, versioned Orbital simulation and world-state
+foundation.** Three.js is the main 3D renderer and scene-runtime foundation for
+the open-universe Combat Lab game; it is not a temporary dependency to remove.
+Native Orbital WebGL2 remains a supported companion renderer. Combat Lab remains
+the training activity inside the connected game, not a separate production
+engine. Rust Disc, Arcade, campaign sorties, co-op, Iron Eclipse, room types,
+Wing, and later fleet operations are configurations/adapters over shared Orbital
+gameplay contracts. Existing authentication, matchmaking, mission authority,
+account data, progression, rewards, and idempotency services remain authoritative.
 
 This supersedes any interpretation that the legacy planar Wing or other
 mode-specific combat runtime is a permanent destination. It does **not** justify
@@ -85,10 +183,10 @@ parity and acceptance pass.
 
 1. Keep Three.js as the primary 3D renderer and scene runtime for the main
    Orbital universe. Integrate it with the canonical Orbital simulation and
-   shared world state; do not remove it or treat it as a temporary prototype.
-   Native WebGL2 remains a supported companion renderer; neither path may own
-   a duplicate simulation or universe. Needle remains an authoring/research
-   candidate, not an approved replacement.
+   shared world state; do not remove it or treat it as techniques-only. Keep
+   native WebGL2 as a companion renderer where supported and measured. Neither
+   renderer may own a duplicate simulation or universe. See
+   [the current rendering strategy](RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md).
 2. Migrate every mode toward the canonical orbital combat foundation; do not
    assume the existing modes already share one combat protocol.
 3. Retain the server-authoritative 5v5 Wing queue, authenticated session

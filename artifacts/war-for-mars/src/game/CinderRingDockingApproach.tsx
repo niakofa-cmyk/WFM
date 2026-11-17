@@ -1,8 +1,10 @@
-import { integrateSpatialFlight, newFlight, rotate } from "@workspace/orbital-sim";
+import { integrateSpatialFlight, newFlight, normalizeFlightControls, rotate } from "@workspace/orbital-sim";
 import type { FlightControls, Rock, SpatialCraft } from "@workspace/orbital-sim";
 import { useEffect, useRef, useState } from "react";
 import { PilotFlightStick } from "./PilotFlightStick";
+import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl, type Bus } from "./input";
 import { buildOrbitalShip } from "./orbital-visuals";
+import { orbitalCameraPose } from "./orbital-camera";
 import { evaluateCinderRingDockingGate } from "./CinderRingDockingGate";
 import type { Faction, ShipId } from "./ships";
 import { SHIPS } from "./ships";
@@ -65,10 +67,16 @@ function alignmentError(craft: SpatialCraft) {
 
 export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef({ x: 0, y: 0 });
-  const throttleRef = useRef(0);
-  const brakeRef = useRef(false);
-  const keysRef = useRef(new Set<string>());
+  const busRef = useRef<Bus | null>(null);
+  if (!busRef.current) {
+    busRef.current = createBus("arc");
+    busRef.current.orbital = true;
+    busRef.current.leftStickFlight = true;
+    busRef.current.countermeasureEnabled = false;
+  }
+  const bus = busRef.current;
+  const clockResetRef = useRef(false);
+  const throttleUiRef = useRef(0);
   const readoutRef = useRef(INITIAL_READOUT);
   const onDockRef = useRef(onDock);
   const arrivedRef = useRef(false);
@@ -88,6 +96,7 @@ export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: 
     let resizeObserver: ResizeObserver | undefined;
     let previousTime = 0;
     let lastReadoutAt = 0;
+    let rollCameraStabilization = 0;
     const host = viewportRef.current;
 
     if (!host) return;
@@ -288,29 +297,37 @@ export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: 
         const renderFrame = (now: number) => {
           if (cancelled) return;
           frameId = requestAnimationFrame(renderFrame);
+          if (clockResetRef.current) { previousTime = 0; clockResetRef.current = false; }
           const dt = previousTime === 0 ? 1 / 60 : Math.min(.075, Math.max(.001, (now - previousTime) / 1000));
           previousTime = now;
-          const keys = keysRef.current;
-          const yaw = inputRef.current.x + (keys.has("a") || keys.has("ArrowLeft") ? -1 : 0) + (keys.has("d") || keys.has("ArrowRight") ? 1 : 0);
-          const pitch = -inputRef.current.y + (keys.has("ArrowUp") ? -1 : 0) + (keys.has("ArrowDown") ? 1 : 0);
-          const keyThrottle = keys.has("w") ? 1 : keys.has("s") ? -1 : null;
+          // Canonical path: readInput already maps pilot axes to spatial axes; never re-sign here.
+          const step = arrivedRef.current ? null : readInput(bus);
+          const frame = normalizeFlightControls(step ?? {});
           const controls: FlightControls = {
-            throttle: keyThrottle ?? throttleRef.current,
-            yaw: Math.max(-1, Math.min(1, yaw)),
-            pitch: Math.max(-1, Math.min(1, pitch)),
-            strafe: (keys.has("q") ? -1 : 0) + (keys.has("e") ? 1 : 0),
-            brake: brakeRef.current || keys.has(" "),
+            throttle: frame.throttle, yaw: frame.yaw, strafe: frame.strafe, pitch: frame.pitch,
+            roll: frame.roll, vertical: frame.vertical, boost: frame.boost, brake: frame.brake,
+            drift: frame.drift, inertial: frame.inertial,
+            ...(frame.maneuver ? { maneuver: frame.maneuver } : {}),
           };
+          const commanded = arrivedRef.current ? 0 : readThrottle(bus);
+          if (Math.abs(commanded - throttleUiRef.current) > .015) {
+            throttleUiRef.current = commanded;
+            setThrottle(Math.round(commanded * 50) / 50);
+          }
           if (!arrivedRef.current) {
             integrateSpatialFlight(craft, controls, dt, 1, ROCK_FIELD, tuning, { boundaryRadius: 90 });
           }
 
           shipGroup.position.set(craft.x, craft.space!.y, craft.z);
           shipGroup.quaternion.set(craft.space!.q[0], craft.space!.q[1], craft.space!.q[2], craft.space!.q[3]);
-          const followOffset = rotate(craft.space!.q, 0, 4.1, 11.5);
-          camera.position.set(craft.x + followOffset.x, craft.space!.y + followOffset.y, craft.z + followOffset.z);
-          const forward = rotate(craft.space!.q, 0, 0, -1);
-          camera.lookAt(craft.x + forward.x * 5, craft.space!.y + forward.y * 5, craft.z + forward.z * 5);
+          const rollActive = frame.maneuver?.kind === "barrel-roll-control" ||
+            Math.abs(craft.space!.maneuverRollRemaining ?? 0) > 0;
+          rollCameraStabilization = rollActive ? 1 : Math.max(0, rollCameraStabilization - dt * 2.6);
+          const pose = orbitalCameraPose(craft.space!.q, false, rollCameraStabilization);
+          camera.position.set(craft.x + pose.offset.x, craft.space!.y + pose.offset.y, craft.z + pose.offset.z);
+          if (rollCameraStabilization > 0) camera.up.set(pose.up.x, pose.up.y, pose.up.z);
+          else camera.up.set(0, 1, 0);
+          camera.lookAt(craft.x + pose.ahead.x, craft.space!.y + pose.ahead.y, craft.z + pose.ahead.z);
           station.rotation.z = Math.sin(now * .00005) * .006;
           stars.rotation.y = now * .000004;
           gl.render(scene, camera);
@@ -348,49 +365,72 @@ export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: 
   useEffect(() => {
     const ignoredTarget = (target: EventTarget | null) => target instanceof HTMLElement &&
       (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName));
+    const reset = () => {
+      clearInput(bus);
+      clockResetRef.current = true;
+      setBraking(false);
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-      if (ignoredTarget(event.target)) return;
-      if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) event.preventDefault();
-      keysRef.current.add(key);
+      if (ignoredTarget(event.target) || arrivedRef.current) return;
+      if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault();
+      if (event.code === "Space") return; // fire is out of scope for local transit
+      bus.keys.add(event.code);
+      if (event.code === "KeyB") setBraking(true);
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-      keysRef.current.delete(key);
+      bus.keys.delete(event.code);
+      if (event.code === "KeyB") setBraking(false);
     };
-    const clearKeys = () => keysRef.current.clear();
+    const onVisibility = () => { if (document.hidden) reset(); else clockResetRef.current = true; };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", clearKeys);
+    window.addEventListener("blur", reset);
+    window.addEventListener("orientationchange", reset);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", clearKeys);
+      window.removeEventListener("blur", reset);
+      window.removeEventListener("orientationchange", reset);
+      document.removeEventListener("visibilitychange", onVisibility);
+      clearInput(bus);
     };
-  }, []);
+  }, [bus]);
 
   const changeThrottle = (value: number) => {
-    throttleRef.current = value;
+    // Signed slider drives the same canonical leftY axis the stick uses (readThrottle = -leftY).
+    bus.leftY = -Math.max(-1, Math.min(1, value));
+    throttleUiRef.current = readThrottle(bus);
     setThrottle(value);
   };
   const toggleBrake = () => {
-    brakeRef.current = !brakeRef.current;
-    setBraking(brakeRef.current);
+    if (bus.keys.has("KeyB")) { bus.keys.delete("KeyB"); setBraking(false); }
+    else { bus.keys.add("KeyB"); setBraking(true); }
+  };
+  const allStop = () => {
+    clearInput(bus);
+    bus.keys.add("KeyB");
+    throttleUiRef.current = 0;
+    setThrottle(0);
+    setBraking(true);
   };
   const doDock = () => {
     if (arrived || !evaluateCinderRingDockingGate(readoutRef.current).canDock) return;
     arrivedRef.current = true;
+    clearInput(bus);
+    setBraking(false);
+    setThrottle(0);
     setArrived(true);
     onDockRef.current();
   };
   const abortApproach = () => {
-    keysRef.current.clear();
-    inputRef.current = { x: 0, y: 0 };
-    throttleRef.current = 0;
-    brakeRef.current = false;
+    clearInput(bus);
+    setBraking(false);
+    setThrottle(0);
     onAbort();
   };
   const gateMessage = GATE_COPY[readout.gateReason] ?? GATE_COPY["outside-volume"];
+  const throttleActive = Math.abs(throttle) > .01 || readout.speed > .1;
   const dockingStatus = arrived
     ? "LOCAL ARRIVAL RECORDED"
     : readout.canDock
@@ -423,7 +463,7 @@ export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: 
         </div>
         <div>
           <span className="cinder-approach__readout-label">RANGE TO COLLAR</span>
-          <span className="cinder-approach__readout-value" data-testid="status-approach-range">{Math.max(0, Math.hypot(readout.x, readout.y, readout.z)).toFixed(1)} <small>km</small></span>
+          <span className="cinder-approach__readout-value" data-testid="status-approach-range">{Math.max(0, Math.hypot(readout.x, readout.y, readout.z)).toFixed(1)} <small>m</small></span>
         </div>
         <div>
           <span className="cinder-approach__readout-label">AXIS ERROR</span>
@@ -446,50 +486,72 @@ export function CinderRingDockingApproach({ shipId, faction, onDock, onAbort }: 
         {sceneError ? (
           <div role="alert" data-testid="status-approach-error" className="cinder-approach__status-detail">{sceneError}</div>
         ) : null}
-        <div className="cinder-approach__control-deck">
-          <div className="cinder-approach__stick-wrap">
+        <div className="cinder-approach__control-deck" data-throttle-active={throttleActive ? "true" : "false"}>
+          <div className="cinder-approach__stick-wrap cinder-approach__stick-wrap--left">
             <PilotFlightStick
-              label="Approach steering"
-              testId="stick-approach-steering"
+              label="Left thumb flight"
+              testId="stick-approach-flight"
               size="rust-disc"
-              onAxis={(x, y) => { inputRef.current = { x, y }; }}
-              description="Drag to yaw and pitch the ship toward the collar."
-              className="border-cyan-200/45 bg-slate-950/55"
+              className="pilot-rust-disc-stick cinder-approach__stick"
+              disabled={arrived}
+              description="Drag up for forward thrust, down for reverse, and left or right to turn and bank. Double-tap an outer edge for a short vector-thrust pulse."
+              onAxis={(x, y) => { bus.leftX = x; bus.leftY = y; }}
+              onPulse={(pulse) => { pulseVectorManeuver(bus, pulse); }}
             />
-            <span className="cinder-approach__stick-caption"><b>STEER</b>YAW / PITCH</span>
+            <span className="cinder-approach__stick-caption"><b>FLIGHT</b>THRUST / YAW</span>
           </div>
 
-          <label className="cinder-approach__throttle" htmlFor="cinder-approach-throttle">
-            <span className="cinder-approach__throttle-head">
-              <span>THRUST</span>
-              <output data-testid="status-approach-throttle">{Math.round(throttle * 100)}%</output>
-            </span>
-            <input
-              id="cinder-approach-throttle"
-              data-testid="control-approach-throttle"
-              aria-label="Analog forward thrust"
-              type="range"
-              min="0"
-              max="1"
-              step=".02"
-              value={throttle}
-              onChange={(event) => changeThrottle(Number(event.target.value))}
-            />
-          </label>
+          <div className="cinder-approach__center">
+            <label className="cinder-approach__throttle" htmlFor="cinder-approach-throttle" aria-hidden={!throttleActive}>
+              <span className="cinder-approach__throttle-head">
+                <span>{throttle < -.01 ? "REVERSE" : "THRUST"}</span>
+                <output data-testid="status-approach-throttle" aria-live="off">{throttle > 0 ? "+" : ""}{Math.round(throttle * 100)}%</output>
+              </span>
+              <input
+                id="cinder-approach-throttle"
+                data-testid="control-approach-throttle"
+                aria-label="Signed thrust, reverse to forward"
+                aria-valuetext={`${Math.round(throttle * 100)} percent ${throttle < 0 ? "reverse" : "forward"}`}
+                type="range"
+                min="-1"
+                max="1"
+                step=".02"
+                value={throttle}
+                disabled={arrived || !throttleActive}
+                onChange={(event) => changeThrottle(Number(event.target.value))}
+              />
+              <span className="cinder-approach__throttle-scale" aria-hidden="true"><i>REV</i><i>0</i><i>FWD</i></span>
+            </label>
+            <div className="cinder-approach__actions">
+              <button type="button" data-testid="button-approach-brake" aria-pressed={braking} onClick={toggleBrake} disabled={arrived} className="cinder-approach__button">
+                {braking ? "RELEASE BRAKE" : "BRAKE"}
+              </button>
+              <button type="button" data-testid="button-approach-all-stop" onClick={allStop} disabled={arrived} className="cinder-approach__button">
+                ALL STOP
+              </button>
+              <button type="button" data-testid="button-dock-cinder-ring" disabled={!readout.canDock || arrived || Boolean(sceneError)} onClick={doDock} className="cinder-approach__button cinder-approach__button--dock">
+                {arrived ? "ARRIVAL LOGGED" : "DOCK"}
+              </button>
+              <button type="button" data-testid="button-abort-cinder-ring-approach" onClick={abortApproach} className="cinder-approach__button cinder-approach__button--abort">
+                ABORT
+              </button>
+            </div>
+          </div>
 
-          <div className="cinder-approach__actions">
-            <button type="button" data-testid="button-approach-brake" aria-pressed={braking} onClick={toggleBrake} className="cinder-approach__button">
-              {braking ? "RELEASE BRAKE" : "BRAKE"}
-            </button>
-            <button type="button" data-testid="button-dock-cinder-ring" disabled={!readout.canDock || arrived || Boolean(sceneError)} onClick={doDock} className="cinder-approach__button cinder-approach__button--dock">
-              {arrived ? "ARRIVAL LOGGED" : "DOCK"}
-            </button>
-            <button type="button" data-testid="button-abort-cinder-ring-approach" onClick={abortApproach} className="cinder-approach__button cinder-approach__button--abort">
-              ABORT APPROACH
-            </button>
+          <div className="cinder-approach__stick-wrap cinder-approach__stick-wrap--right">
+            <span className="cinder-approach__stick-caption"><b>AIM</b>PITCH / CIRCLE ROLL</span>
+            <PilotFlightStick
+              label="Right thumb aim"
+              testId="stick-approach-aim"
+              size="rust-disc"
+              className="pilot-rust-disc-stick cinder-approach__stick"
+              disabled={arrived}
+              onCircularRollInput={(input) => { setCircularRollControl(bus, input); }}
+              onAxis={(x, y) => { bus.rightX = x; bus.rightY = y; }}
+            />
           </div>
           <p className="cinder-approach__keyboard" data-testid="text-approach-keyboard-hint">
-            KEYBOARD · W/S THRUST · A/D YAW · ARROWS PITCH / YAW · Q/E STRAFE · SPACE BRAKE
+            KEYBOARD · W/S or UP/DOWN THRUST · A/D or LEFT/RIGHT YAW · I/K PITCH · Q/E ROLL · Z/X STRAFE · C/V VERTICAL · SHIFT BOOST · B BRAKE
           </p>
         </div>
       </section>

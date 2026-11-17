@@ -1,0 +1,1 @@
+export const PATROL_INTERCEPT_RANGE_METERS = 180;

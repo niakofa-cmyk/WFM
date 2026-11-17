@@ -1,0 +1,102 @@
+# WFM — UNIFIED MILITARY HANGAR & SINGLE-ENTRY INFINITE UNIVERSE REDESIGN
+
+## Mission
+
+Reimagine and architecturally redesign WAR FOR MARS around one unified military hangar and one exclusive entry point into the Infinite Extended Universe.
+
+This is not a cosmetic menu redesign. It is a complete restructuring of the player's game-entry experience, interface hierarchy, navigation architecture and integration of existing game systems.
+
+## 1. Establish one unified player experience
+
+Replace the fragmented entry experience with:
+
+BOOT → PLAYER AUTHENTICATION → UNIFIED MILITARY HANGAR → ENTER THE UNIVERSE.
+
+The military hangar must become the persistent home environment and central command center.
+
+Do not introduce competing primary game-entry screens or separate home menus for campaign, arcade, multiplayer or exploration.
+
+## 2. Build the military hangar
+
+Create a visually impressive, fully integrated 3D military installation.
+
+Include:
+- The selected player spacecraft displayed prominently.
+- A visible pilot and interactive ship inspection.
+- Additional fleet vessels and military infrastructure.
+- Hangar mechanics, maintenance systems and environmental activity.
+- Live faction intelligence and war status.
+- Fleet selection and shipyard.
+- Weapon and equipment loadouts.
+- Campaign and operational briefing systems.
+- Multiplayer wing management.
+- Technology and research.
+- Trade, resources and station services.
+- Commander profile and settings.
+
+## 3. Establish a vertical-first interface
+
+Design the interface for portrait mobile devices using a clear vertical hierarchy.
+
+Provide a responsive landscape layout for flight and combat.
+
+Use cinematic environmental presentation, refined military typography, layered HUD elements and restrained faction-specific lighting.
+
+The ship and hangar must remain the dominant visual experience.
+
+## 4. Establish one exclusive universe gateway
+
+Create one clearly identifiable ENTER THE UNIVERSE action.
+
+This is the exclusive primary gateway from the hangar into the Infinite Extended Universe.
+
+Do not create independent entry buttons for separate universe destinations.
+
+Once inside, the player navigates the actual universe to discover and access its locations, operations, stations, battles, fleets and exploration systems.
+
+## 5. Integrate existing systems
+
+Audit and preserve the existing:
+- Campaign and narrative progression.
+- Ship definitions and faction identity.
+- Combat simulation.
+- Multiplayer 5v5.
+- Persistent player profiles.
+- Server-validated progression and rewards.
+- Travel and station services.
+- Economy and technology systems.
+
+Integrate them into the unified architecture rather than rebuilding functional systems unnecessarily.
+
+## 6. Respect the master engine architecture
+
+Use the established Orbital Engine as the authoritative rendering, simulation and world-integration architecture.
+
+Do not introduce a parallel rendering engine or duplicate simulation.
+
+Audit the current repository and resolve any discrepancy between the documented Three.js combat implementation and the intended Orbital Engine architecture before proceeding.
+
+## 7. Implementation and verification
+
+First perform a complete source audit.
+
+Produce the target architecture, component map, navigation state model, data dependencies and migration plan.
+
+Then implement in small, testable stages.
+
+Validate:
+- Existing functionality and regression safety.
+- Real ship and environment rendering.
+- Portrait and landscape responsiveness.
+- Persistent player and world state.
+- Actual multiplayer integration.
+- Performance on physical mobile devices.
+- Deployment and production behavior.
+
+Do not claim a feature is implemented until its real integration and functionality have been demonstrated.
+
+## Final design principle
+
+ONE GAME. ONE HANGAR. ONE UNIVERSE. ONE ENTRY POINT.
+
+The player should feel that they are entering a living military universe, not opening a collection of disconnected game menus.

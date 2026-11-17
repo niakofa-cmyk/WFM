@@ -1,0 +1,512 @@
+# MASTER DEVELOPMENT DIRECTIVE
+# WAR FOR MARS: INFINITE WAR
+## THE CONNECTED MULTIPLAYER UNIVERSE, ORBITAL OPERATIONS NETWORK & ASTEROID BATTLE SYSTEM
+
+**Repository:** https://github.com/niakofa-cmyk/WFM
+
+**Primary product:** WAR FOR MARS: INFINITE WAR
+
+**Development foundation:** The established Orbital Combat Lab and the existing custom Three.js/Vite runtime.
+
+**Primary directive:** Transform War for Mars into one interconnected, expandable multiplayer universe capable of hosting multiple independent competitive, cooperative, campaign, arcade, and flight-simulation experiences within one shared universe.
+
+---
+
+# 1. UNDERSTAND THE COMPLETE VISION BEFORE WRITING CODE
+
+You are not being asked to add another game mode, another menu, another isolated arena, or another multiplayer lobby.
+
+You are being asked to architect and implement an overarching multiplayer universe.
+
+The universe must become the central game environment through which players discover, approach, enter, participate in, observe, and leave multiple independently operating multiplayer experiences.
+
+The defining product principle is:
+
+**THE UNIVERSE IS THE BATTLEFIELD. EVERY COMPETITIVE ENGAGEMENT IS AN OPERATION WITHIN THE LARGER WAR. EVERY OPERATION CAN HAVE CONSEQUENCES FOR THE UNIVERSE.**
+
+The player must experience one connected game, not a collection of disconnected game commands.
+
+Before implementation, inspect and understand:
+
+- The complete Infinite War blueprint.
+- The Master Development Directive.
+- The Structural Rebuild Roadmap.
+- The existing Orbital Combat Lab.
+- The shared orbital simulation package.
+- Rust Disc and its original flight simulation.
+- The remaining Arcade and Campaign modes.
+- Cooperative sectors and Operation Iron Eclipse.
+- Existing 5v5 Online Wing matchmaking.
+- Clerk authentication and account ownership.
+- Existing socket authentication and reconnect protocols.
+- World, Galaxy, travel, progression, inventory, and economy systems.
+- Railway deployment architecture and staging safeguards.
+- All existing automated tests and release evidence.
+
+Read the actual implementation. Do not infer capabilities from documentation alone.
+
+Establish the exact current staging commit and distinguish implemented, partially implemented, simulated, locally tested, staging-verified, and Production-verified functionality.
+
+# 2. BUILD THE ORBITAL OPERATIONS NETWORK
+
+Create a foundational subsystem named:
+
+**ORBITAL OPERATIONS NETWORK (OON)**
+
+This is the infrastructure that connects multiplayer activities to the larger universe.
+
+It must support:
+
+1. Asteroid-based competitive arenas.
+2. Permanent orbital multiplayer stations.
+3. Cooperative mission destinations.
+4. Flight-simulation competitions.
+5. Arcade and campaign operations.
+6. Temporary multiplayer events.
+7. Faction battles and fleet engagements.
+8. Future tournaments and large-scale multiplayer experiences.
+
+Every operation must have a defined identity, location, ruleset, lifecycle, player capacity, visibility policy, and server-authoritative session.
+
+Develop an explicit operation contract that can support different game engines and simulation runtimes.
+
+Evaluate and define the appropriate interfaces for:
+
+- OperationDefinition.
+- OperationInstance.
+- UniverseLocation.
+- UniverseEvent.
+- PlayerPresence.
+- MatchAssignment.
+- SpectatorSession.
+- JoinAuthorization.
+- OperationResult.
+
+Do not create duplicate player identity, account, inventory, progression, or reward systems.
+
+Reuse existing authoritative services and database contracts wherever possible.
+
+# 3. BUILD THE ASTEROID MULTIPLAYER EXPERIENCE
+
+This is a primary gameplay requirement.
+
+Create actual asteroid destinations within the 3D universe.
+
+These asteroids must be physical locations that players can navigate toward and approach.
+
+Each designated asteroid may host one or more multiplayer operations.
+
+The player must be able to:
+
+1. Discover the asteroid while exploring.
+2. See its location and operational status.
+3. Navigate toward it using real 3D flight.
+4. Observe actual battles happening around it.
+5. Approach the combat area.
+6. Inspect available competitions.
+7. Enter a spectator experience.
+8. Dock or enter a designated operation entrance.
+9. Join a match when authorized and eligible.
+10. Complete the competition.
+11. Return to the larger universe.
+
+Implement the asteroid as a real navigable universe destination, not a static background image or disconnected menu button.
+
+Use original WFM environments and the established procedural orbital assets where appropriate.
+
+# 4. IMPLEMENT LIVE MULTIPLAYER EVENT VISIBILITY
+
+One of the most important requirements is that players must be able to SEE actual multiplayer battles occurring elsewhere in the universe.
+
+For example:
+
+A player is flying through an asteroid field.
+
+An asteroid nearby is hosting an active USSF-versus-Accord competition.
+
+The player should see actual participating spacecraft moving, turning, accelerating, firing weapons, launching missiles, taking damage, and being destroyed.
+
+The visible event must reflect a genuine active multiplayer session.
+
+Implement three visibility levels:
+
+**LEVEL 1 — GALAXY DISCOVERY**
+
+Display active operations, destinations, faction involvement, and availability.
+
+**LEVEL 2 — LOCAL EVENT RENDERING**
+
+As players approach an active operation, subscribe them to an appropriate interest-managed event stream.
+
+Render observer-safe spacecraft proxies, movement, combat effects, and actual event status.
+
+Use interpolation and bounded update frequencies. Do not replicate unnecessary full combat state to every universe player.
+
+**LEVEL 3 — SPECTATOR EXPERIENCE**
+
+Provide an authorized read-only spectator session.
+
+Support appropriate camera perspectives, team observation, match status, and event progression.
+
+Prevent spectator connections from exposing hidden tactical information, unrevealed opponent state, private player information, or competitive advantages.
+
+The spectator system must never grant control over an active competitive participant.
+
+Most importantly, do not create prerecorded animations or simulated player activity and represent them as live users.
+
+Development fixtures must be explicitly identified as test fixtures.
+
+# 5. BUILD A REAL MULTI-INSTANCE MULTIPLAYER ARCHITECTURE
+
+The universe must support multiple independently operating multiplayer sessions.
+
+Do not attempt to put every player and every match inside one enormous simulation process.
+
+Implement a bounded, scalable instance architecture.
+
+Evaluate:
+
+- Session orchestration.
+- Matchmaking.
+- Room creation and lifecycle.
+- Region and server allocation.
+- Authenticated player admission.
+- Team assignment.
+- Live state replication.
+- Interest management.
+- Reconnection and session recovery.
+- Spectator subscriptions.
+- Match completion and cleanup.
+- Server health and capacity management.
+
+Inspect the existing Railway deployment topology before selecting an implementation.
+
+Do not introduce Redis, a new database, a new authentication provider, or additional infrastructure without demonstrating why the existing architecture cannot safely support the requirement.
+
+The architecture should allow:
+
+Asteroid A — competitive 5v5.
+
+Asteroid B — cooperative capital-ship operation.
+
+Orbital Station C — flight-simulation tournament.
+
+Asteroid D — another competitive match.
+
+Temporary Event E — faction invasion.
+
+All should be capable of operating independently while sharing the same overarching universe identity and operation directory.
+
+# 6. PRESERVE SPECIALIZED GAME ENGINES
+
+Do not destroy the original Rust Disc flight simulation.
+
+The objective is to integrate its experience into the new Infinite War architecture, not unnecessarily erase its identity or working mechanics.
+
+Establish a compatibility adapter between the universe operation system and the legacy flight simulation.
+
+The legacy experience must remain accessible as a specialized side experience or independent operation.
+
+Keep the newer Orbital Combat Lab as the evolving canonical orbital combat foundation.
+
+Where simulation migration is appropriate, use versioned rules and prove client/server parity.
+
+Where preserving an independent simulation is safer, preserve it.
+
+Do not force different game experiences into identical physics or controls simply to claim they share an engine.
+
+One universe does not require one monolithic simulation.
+
+# 7. FOLLOW THE REQUIRED MIGRATION SEQUENCE
+
+Execute the migration in this order.
+
+**STAGE A — RUST DISC**
+
+- Audit both the original local Rust Disc trainer and the authenticated cooperative Rust Disc sector.
+- Explicitly distinguish the two.
+- Identify all existing gameplay, flight, weapons, collision, mission, and progression behavior.
+- Connect the local flight experience to the new orbital foundation through a compatibility adapter.
+- Preserve the legacy runtime as a fallback.
+- Verify the actual player journey and mission completion.
+
+**STAGE B — REMAINING ARCADE AND CAMPAIGN**
+
+- Inventory every existing arcade and campaign experience.
+- Migrate one experience at a time.
+- Preserve story progression, mission objectives, ship behavior, and server-issued runs.
+- Version simulation contracts.
+- Maintain legacy replay compatibility.
+- Prove server/client replay parity.
+- Preserve existing claim and idempotency safeguards.
+
+**STAGE C — LIVE COOPERATIVE MULTIPLAYER**
+
+- Connect orbital simulation to authenticated cooperative operations.
+- Preserve Rust Disc → Mars Approach → Pale Beacons.
+- Preserve Iron Eclipse.
+- Preserve squadron AI, host commands, capital-ship subsystems, extraction, and mission objectives.
+- Ensure server-owned damage and completion.
+- Preserve existing zero-credit discovery settlement unless a separately approved reward policy is introduced.
+- Verify reconnection and interruption behavior.
+
+**STAGE D — COMPETITIVE WING**
+
+Migrate the existing 5v5 competitive system into the new orbital multiplayer architecture.
+
+Preserve:
+
+- Clerk authentication.
+- Ten distinct authenticated humans.
+- Balanced USSF and Accord teams.
+- Server-authoritative flight and damage.
+- Competitive queue eligibility.
+- Reconnect and account ownership.
+- Existing reward policy.
+- Transactional and idempotent reward settlement.
+- Private-room and AI-fill restrictions.
+- Feature flags and release safeguards.
+
+Do not enable competitive orbital rewards merely because the orbital simulation works.
+
+A successful migration requires actual ten-human staging verification.
+
+**STAGE E — UNIVERSE OPERATIONS**
+
+Connect the migrated experiences to the Orbital Operations Network.
+
+Implement asteroid destinations, operation discovery, live event visibility, spectator sessions, docking, matchmaking, instance transitions, and return-to-universe functionality.
+
+**STAGE F — EXPANSION**
+
+Introduce additional simultaneous operations, tournaments, larger fleet battles, faction events, synchronized anomalies, and new universe locations.
+
+Expand based on measured server capacity and mobile performance.
+
+# 8. BUILD THE SHARED OPERATION ADAPTER
+
+Develop a common interface allowing different game experiences to communicate with the universe.
+
+Each experience must be capable of:
+
+- Receiving an authenticated player identity.
+- Receiving the selected ship and eligible loadout.
+- Receiving an authorized operation assignment.
+- Starting the appropriate simulation runtime.
+- Reporting validated operation state.
+- Producing a server-owned completion result.
+- Returning the player to the universe.
+- Updating eligible existing progression systems.
+
+Support independent simulation implementations behind versioned adapters.
+
+The universe should not need to understand every internal mechanic of every game.
+
+It needs a consistent operation lifecycle and trusted results.
+
+# 9. PROTECT SERVER AUTHORITY AND EXISTING SYSTEMS
+
+This requirement is non-negotiable.
+
+Clients may render, predict, animate, and transmit validated control inputs.
+
+Clients must never decide:
+
+- Competitive damage.
+- Ship destruction.
+- Match outcomes.
+- Mission completion.
+- Player identity.
+- Team assignment.
+- Rewards.
+- Credits.
+- Persistent faction consequences.
+
+Preserve existing authentication and session verification.
+
+Reject forged, malformed, stale, unauthorized, and replayed inputs.
+
+Prevent duplicate account ownership across simultaneous competitive seats.
+
+Maintain existing reconnect and shutdown behavior.
+
+Ensure duplicate completion requests cannot create duplicate progression or rewards.
+
+Do not weaken security checks to make a prototype appear functional.
+
+# 10. BUILD THE ACTUAL PLAYER EXPERIENCE
+
+The finished player journey should become:
+
+UNIVERSE ENTRY
+→ HANGAR
+→ SHIP SELECTION
+→ FACTION
+→ GALAXY NAVIGATION
+→ DESTINATION DISCOVERY
+→ APPROACH
+→ LIVE EVENT OBSERVATION
+→ OPERATION ENTRY
+→ MATCHMAKING
+→ COMPETITIVE OR COOPERATIVE GAMEPLAY
+→ VALIDATED DEBRIEF
+→ RETURN TO UNIVERSE
+→ PERSISTENT PROGRESSION.
+
+The player should never feel that they have exited one disconnected application and entered another.
+
+Use the same account identity, established visual language, faction identities, and navigation structure.
+
+The game should feel like one evolving universe.
+
+# 11. REQUIRED FORENSIC AND ENGINEERING VERIFICATION
+
+Do not stop at producing architecture documents.
+
+Inspect, implement, build, test, and demonstrate the actual experience.
+
+For every development stage:
+
+1. Identify the actual source files and dependencies.
+2. Document existing behavior before changing it.
+3. Establish an implementation plan.
+4. Implement a bounded vertical slice.
+5. Run existing regression tests.
+6. Add new tests.
+7. Run workspace typecheck and builds.
+8. Verify browser behavior.
+9. Verify server authority.
+10. Verify database persistence where applicable.
+11. Verify reconnect and interruption behavior.
+12. Document actual evidence and remaining blockers.
+
+For the asteroid multiplayer prototype, demonstrate:
+
+- A real asteroid destination.
+- An active server-owned operation.
+- Multiple actual authenticated participants.
+- Real synchronized combat.
+- A nearby observer receiving live event updates.
+- Correct spectator permissions.
+- Successful operation entry.
+- Correct match completion.
+- Return to the universe.
+- No unauthorized progression or rewards.
+
+Test several independent operations simultaneously.
+
+Use synthetic participants only for clearly labeled automated tests. Never count them as proof of human multiplayer capacity.
+
+Measure network bandwidth, server tick stability, latency, reconnect behavior, memory usage, and mobile rendering performance.
+
+Do not invent performance numbers or claim untested capabilities.
+
+# 12. DEVELOPMENT AND RELEASE SAFEGUARDS
+
+Use the current staging architecture.
+
+First inspect the current staging branch, latest commit, outstanding pull requests, and existing Railway services.
+
+Keep Production untouched.
+
+Do not:
+
+- Merge directly into main.
+- Bypass required CI checks.
+- Skip staging verification.
+- Disable authentication.
+- Remove existing multiplayer safeguards.
+- Replace the database.
+- Introduce duplicate reward systems.
+- Delete working legacy game modes.
+- Claim a successful deployment is proof of successful gameplay.
+
+Implement through small, independently reviewable pull requests.
+
+Each pull request must have a defined rollback path.
+
+Update outdated architecture documentation when implementation changes.
+
+# 13. AI ENGINEERING EXPECTATIONS
+
+Operate as a principal-level game architect and engineering team.
+
+Think beyond the immediate code change.
+
+Challenge architectural assumptions. Identify missing systems. Discover integration opportunities. Evaluate alternative technical approaches. Investigate performance and scalability risks.
+
+Do not settle for the easiest superficial implementation.
+
+Do not produce another isolated prototype when the requirement is integration into the existing game.
+
+Do not mistake a menu, static animation, synthetic player, or locally simulated battle for a functioning multiplayer system.
+
+Use the repository's actual existing infrastructure as the foundation.
+
+When a feature cannot safely be completed in one stage, establish its complete architecture and implement the next independently testable vertical slice.
+
+Do not stop at saying something is difficult. Find a technically sound, measurable path to implement it.
+
+However, never bypass security, testing, release gates, or existing data protections in pursuit of speed.
+
+# 14. REQUIRED FIRST DELIVERABLE
+
+Before making broad code changes, produce:
+
+**A. Current Architecture Audit**
+
+Identify exactly what exists, what is integrated, and what remains separate.
+
+**B. Multiplayer Universe Architecture**
+
+Show how the universe, operation directory, asteroid locations, matchmaking, multiplayer instances, event streaming, and specialized game runtimes communicate.
+
+**C. Migration Matrix**
+
+Map every existing game mode to its destination, compatibility requirements, migration order, and acceptance criteria.
+
+**D. Implementation Backlog**
+
+Produce prioritized, independently reviewable development stages.
+
+**E. Risk and Safeguard Assessment**
+
+Identify every authentication, socket, persistence, progression, reward, performance, and deployment risk.
+
+**F. First Playable Implementation**
+
+After the audit, implement the smallest safe, demonstrable asteroid-operation vertical slice on a new branch based on the current staging source.
+
+The first slice should establish the operation contract, one navigable asteroid destination, and server-backed operation discovery.
+
+Do not claim live combat or multiplayer spectator functionality until actual participants and synchronized server state have been demonstrated.
+
+**G. Final Engineering Report**
+
+Report exact commit, changed files, tests, build results, browser evidence, staging status, limitations, and next development stage.
+
+---
+
+# FINAL PRODUCT REQUIREMENT
+
+We are building WAR FOR MARS: INFINITE WAR as an interconnected multiplayer universe.
+
+The asteroid is not merely a map.
+
+It is a location in the universe where an independent multiplayer game is taking place.
+
+The orbital station is not merely a menu.
+
+It is a physical destination and operational hub.
+
+The competitive match is not a disconnected activity.
+
+It is an actual event occurring inside the larger universe.
+
+The player should be able to explore the universe, discover that other players are competing, fly toward them, observe their battle, enter their operation, participate, and return to the same persistent universe.
+
+Multiple games should coexist within one connected multiplayer ecosystem.
+
+**ONE UNIVERSE. MULTIPLE GAME EXPERIENCES. SIMULTANEOUS MULTIPLAYER OPERATIONS. ONE CONNECTED WAR.**
+
+Build toward this complete vision incrementally, with actual working implementations and verifiable engineering evidence.

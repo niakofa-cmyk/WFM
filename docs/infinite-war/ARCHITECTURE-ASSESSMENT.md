@@ -51,8 +51,11 @@ operation adapter. The diagram above records current code boundaries only.
 
 ## Target architecture
 
-Keep the current React/Vite and Three.js presentation, but make gameplay
-contracts explicit and mode-versioned:
+Keep the current React/Vite application shell and Three.js renderer as the
+primary 3D presentation foundation. Build the connected Orbital gameplay,
+simulation, and server-authority contracts around it; retain native WebGL2 as a
+companion renderer where useful. Make gameplay contracts explicit and
+mode-versioned:
 
 1. **Presentation layer:** one player journey, hangar, operations, world
    navigation, HUD, mobile input, rendering, effects, and audio. UI predicts and

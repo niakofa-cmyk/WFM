@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { Agent, createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import path from "node:path";
@@ -7,19 +7,28 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { ACCESS_COOKIE, ACCESS_TTL_MS, createStagingAccess, stripAccessCookie } from "./access";
 import type { StagingGatewayConfig } from "./config";
 import { stagingAccessPage } from "./page";
+import { createReplicaLookup } from "./replica-lookup";
 
 const HOP_HEADERS = [
   "forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto",
   "proxy-authorization", "proxy-authenticate", "keep-alive", "te", "trailer",
 ];
 
-export function createStagingGateway(config: StagingGatewayConfig) {
+export function createStagingGateway(
+  config: StagingGatewayConfig,
+  dependencies: { socketAgent?: Agent } = {},
+) {
   const app = express();
   app.disable("x-powered-by");
   const server = createServer(app);
   const publicUrl = new URL(config.publicOrigin);
   const access = createStagingAccess(config.accessCode);
   const activeSockets = new Map<string, Set<Duplex>>();
+  const socketUrl = new URL(config.socketUpstream);
+  const socketAgent = dependencies.socketAgent ??
+    (socketUrl.protocol === "http:" && socketUrl.hostname.endsWith(".railway.internal")
+      ? new Agent({ keepAlive: false, lookup: createReplicaLookup() })
+      : undefined);
 
   function accessPage(res: Response, rejected = false, unlocked = false) {
     // no-referrer makes browser form POSTs send Origin: null. Keep the
@@ -102,9 +111,10 @@ export function createStagingGateway(config: StagingGatewayConfig) {
     next();
   });
 
-  function proxy(target: string) {
+  function proxy(target: string, agent?: Agent) {
     return createProxyMiddleware<IncomingMessage, ServerResponse>({
       target,
+      agent,
       changeOrigin: true,
       // IMPORTANT: never auto-register an unguarded upgrade listener. Every
       // upgrade must pass the explicit access/origin check below.
@@ -141,7 +151,7 @@ export function createStagingGateway(config: StagingGatewayConfig) {
     else upstream.removeHeader("cookie");
   }
   const apiProxy = proxy(config.apiUpstream);
-  const socketProxy = proxy(config.socketUpstream);
+  const socketProxy = proxy(config.socketUpstream, socketAgent);
   app.use((req, res, next) => {
     if (req.path === "/api" || req.path.startsWith("/api/")) apiProxy(req, res, next);
     else next();
@@ -179,6 +189,7 @@ export function createStagingGateway(config: StagingGatewayConfig) {
     server,
     close: async () => {
       for (const sockets of activeSockets.values()) for (const socket of sockets) socket.destroy();
+      socketAgent?.destroy();
       server.closeAllConnections();
       if (!server.listening) return;
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

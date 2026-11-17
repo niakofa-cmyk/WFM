@@ -1,6 +1,7 @@
 import { SHIPS } from "./ships";
 import {
   deployCountermeasure,
+  orbitalCombatPursuit,
   ORBITAL_COUNTERMEASURE_RULES_VERSION,
   ORBITAL_FLEET_RULES_VERSION,
   ORBITAL_RULES_VERSION,
@@ -124,21 +125,9 @@ export function stepOrbital(match: Match, input: StepInput, dt: number, services
         }
       }
       if (target && !holdFormation) {
-        const dx = target.x - craft.x; const dy = target.space!.y - space.y; const dz = target.z - craft.z;
-        // Inverse rotation transforms the desired direction into local flight axes.
-        const local = rotate([-space.q[0], -space.q[1], -space.q[2], space.q[3]], dx, dy, dz);
-        played.yaw = Math.max(-1, Math.min(1, detAtan2(-local.x, -local.z) * 1.7));
-        played.pitch = Math.max(-1, Math.min(1, detAtan2(local.y, detHypot(local.x, local.z)) * 1.7));
+        const pursuit = orbitalCombatPursuit(craft, target, SHIPS[craft.ship].role, isFleetRules);
+        Object.assign(played, pursuit.controls);
         const distance = distance3(craft, target);
-        const role = SHIPS[craft.ship].role.toLowerCase();
-        const preferredDistance = !isFleetRules ? 35
-          : role.includes("support") || role.includes("escort") ? 30
-            : role.includes("heavy") || role.includes("siege") ? 36
-              : role.includes("striker") ? 23 : 18;
-        played.throttle = distance > preferredDistance ? .4 : distance < preferredDistance * .55 ? -.3 : 0;
-        if (isFleetRules && !role.includes("heavy") && !role.includes("siege")) {
-          played.strafe = (craft.id % 2 === 0 ? 1 : -1) * .16;
-        }
         craft.lockTargetId = target.id;
         played.fire = match.time > 5 && targetSolution(craft, target, match.rocks).available && targetSolution(craft, target, match.rocks).angle < .18 && distance < 60;
         played.missile = match.orbitalTraining === true && match.time >= 2 + (craft.id % 3) && space.missileCd <= 0 && space.ammo > 0 &&

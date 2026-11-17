@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { OnlineSnapshot } from "./Arena";
 import { currentWingSocketUrl } from "./socket-endpoint";
 import { CinderRingArtwork } from "./CinderRingArtwork";
-import { privateRoomDockAccess } from "./private-room-dock";
+import { createOrbitalNativeSpectatorRenderer, type NativeSpectatorState } from "./orbital-native-spectator-renderer";
+import type { ShipId } from "./ships";
 
 type Props = {
   operations?: OperationDirectoryResponse;
@@ -13,19 +14,19 @@ type Props = {
   atAsteroid: boolean;
   queueAvailable: boolean;
   queueing: boolean;
-  roomCode: string;
-  onRoomCode: (roomCode: string) => void;
-  onCreatePrivateRoom: () => void;
-  onJoinPrivateRoom: (roomCode: string) => void;
   onlineStatus?: string;
   onJoinQueue: () => void;
+  onCancelQueue: () => void;
   onTravel: () => void;
 };
 
 const WING_RELAY_ID = "cinder-ring-wing-relay-5v5";
 const MATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type SpectatorContact = { x: number; z: number; team: 0 | 1; health: number; alive: boolean };
+type SpectatorContact = {
+  x: number; z: number; yaw: number; shipId: ShipId;
+  team: 0 | 1; health: number; alive: boolean;
+};
 type SpectatorState = {
   contacts: SpectatorContact[];
   relays: Array<{ x: number; z: number; owner: -1 | 0 | 1; progress: number }>;
@@ -42,6 +43,8 @@ function anonymousState(snapshot: OnlineSnapshot): SpectatorState | null {
     return [{
       x: ship.x,
       z: ship.z,
+      yaw: ship.yaw,
+      shipId: ship.ship,
       team: index < 1 + match.allies.length ? 0 : 1,
       health: ship.hullMax > 0 ? Math.max(0, Math.min(1, ship.hull / ship.hullMax)) : 0,
       alive: Boolean(ship.alive),
@@ -72,12 +75,9 @@ export function AsteroidArenaHub({
   atAsteroid,
   queueAvailable,
   queueing,
-  roomCode,
-  onRoomCode,
-  onCreatePrivateRoom,
-  onJoinPrivateRoom,
   onlineStatus,
   onJoinQueue,
+  onCancelQueue,
   onTravel,
 }: Props) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -200,7 +200,6 @@ export function AsteroidArenaHub({
   };
 
   const canQueue = atAsteroid && queueAvailable && isLoaded && Boolean(isSignedIn) && !queueing;
-  const privateRoomAccess = privateRoomDockAccess(atAsteroid, roomCode);
 
   return (
     <section data-testid="screen-asteroid-arena-hub" className="relative overflow-hidden border border-solar/30 bg-void px-4 py-6 text-bone sm:px-8 sm:py-10">
@@ -213,9 +212,9 @@ export function AsteroidArenaHub({
           <p className="font-hud text-[10px] tracking-[0.24em] text-solar">CINDER RING / PERSISTENT UNIVERSE / WING RELAY</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-hud text-4xl leading-none tracking-wide sm:text-6xl">ASTEROID ARENA</h1>
+              <h1 className="font-hud text-4xl leading-none tracking-wide sm:text-6xl">ARCADE SKIRMISH · 5V5</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-                Live competitive flights are server-run. Watch an active wing or enter the human-only queue from the ring.
+                The asteroid is the only competition entry in the Orbital universe. The current server-authoritative arena uses Wing Relay rules.
               </p>
             </div>
             <div className="border-l-2 border-solar pl-3">
@@ -314,7 +313,7 @@ export function AsteroidArenaHub({
           <aside className="space-y-4">
             <section className="border border-solar/40 bg-panel/80 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-solar">COMPETITIVE ENTRY</p>
-              <h2 className="mt-1 font-hud text-2xl">Wing Relay queue</h2>
+              <h2 className="mt-1 font-hud text-2xl">5v5 competition queue</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 Ten signed-in human pilots are required to launch. No AI-fill, open seats, or substitute pilots.
               </p>
@@ -356,64 +355,16 @@ export function AsteroidArenaHub({
                   <p className="mt-3 text-[10px] leading-relaxed text-muted">
                     {queueing ? "Searching for ten authenticated human pilots. This queue never fills seats with AI." : "Queue entry uses the existing server-authoritative Wing matchmaking and combat simulation."}
                   </p>
+                  {queueing ? (
+                    <button type="button" data-testid="button-cancel-asteroid-queue" onClick={onCancelQueue}
+                      className="mt-3 min-h-11 w-full border border-bone/30 px-4 font-hud text-xs tracking-widest">
+                      CANCEL QUEUE · STAY IN UNIVERSE
+                    </button>
+                  ) : null}
                 </>
               )}
             </section>
 
-            <section data-testid="panel-cinder-ring-private-dock" className="border border-spectral/35 bg-panel/75 p-4">
-              <p className="font-hud text-xs tracking-[0.2em] text-spectral">CINDER RING PRIVATE DOCK</p>
-              <h2 className="mt-1 font-hud text-2xl">Invite-only flight</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                Private 5v5 rooms use an invite code, may fill open seats with AI, and award no Wing credits. They never appear in the public match feed.
-              </p>
-              {!atAsteroid ? (
-                <div className="mt-4 border-l-2 border-spectral pl-3">
-                  <p className="font-hud text-xs tracking-widest text-spectral">DOCK ACCESS REQUIRES CINDER RING</p>
-                  <button
-                    type="button"
-                    data-testid="button-travel-to-private-dock"
-                    onClick={onTravel}
-                    className="mt-3 min-h-12 w-full border border-spectral/60 px-3 font-hud text-xs tracking-widest text-spectral"
-                  >
-                    TRAVEL TO CINDER RING
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    data-testid="button-create-private-room"
-                    onClick={onCreatePrivateRoom}
-                    className="mt-4 min-h-12 w-full border border-spectral/60 bg-spectral/10 px-4 font-hud text-xs tracking-widest text-bone"
-                  >
-                    CREATE PRIVATE 5V5 ROOM
-                  </button>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <label className="sr-only" htmlFor="cinder-ring-private-room-code">Private room code</label>
-                    <input
-                      id="cinder-ring-private-room-code"
-                      data-testid="input-private-room-code"
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      maxLength={24}
-                      onChange={(event) => onRoomCode(event.target.value.toUpperCase())}
-                      placeholder="6–24 CHAR ROOM CODE"
-                      value={roomCode}
-                      className="h-11 min-w-0 flex-1 border border-bone/30 bg-void px-3 font-hud tracking-widest text-bone placeholder:text-muted"
-                    />
-                    <button
-                      type="button"
-                      data-testid="button-join-private-room"
-                      disabled={!privateRoomAccess.canJoin}
-                      onClick={() => onJoinPrivateRoom(roomCode)}
-                      className="min-h-11 border border-spectral/45 px-4 font-hud tracking-widest text-spectral disabled:opacity-40"
-                    >
-                      JOIN ROOM
-                    </button>
-                  </div>
-                </>
-              )}
-            </section>
 
             <section className="border border-bone/15 bg-panel/55 p-4">
               <p className="font-hud text-xs tracking-[0.2em] text-muted">SPECTATOR SAFETY</p>
@@ -432,6 +383,7 @@ function TacticalSnapshot({ state }: { state: SpectatorState }) {
   const coordinate = (value: number) => 50 + (Math.max(-1, Math.min(1, value / 78)) * 42);
   return (
     <div className="mt-4 grid gap-4 border border-bone/10 bg-void/70 p-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+      <NativeBattleViewport state={state} />
       <svg role="img" aria-label="Anonymous live match map showing team contacts and relays" viewBox="0 0 100 100" className="mx-auto aspect-square w-full max-w-[25rem]">
         <circle cx="50" cy="50" r="46" fill="#090b10" stroke="#e0a15a" strokeOpacity=".55" />
         <circle cx="50" cy="50" r="31" fill="none" stroke="#e6e1d6" strokeOpacity=".12" />
@@ -483,6 +435,56 @@ function TacticalSnapshot({ state }: { state: SpectatorState }) {
           {state.over ? <p className="mt-3 border-t border-alert/30 pt-3 font-hud text-xs tracking-widest text-alert">SERVER MATCH COMPLETE</p> : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function NativeBattleViewport({ state }: { state: NativeSpectatorState }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const latestStateRef = useRef(state);
+  const [unavailable, setUnavailable] = useState(false);
+  latestStateRef.current = state;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let renderer: ReturnType<typeof createOrbitalNativeSpectatorRenderer>;
+    try {
+      renderer = createOrbitalNativeSpectatorRenderer(canvas);
+    } catch {
+      setUnavailable(true);
+      return;
+    }
+    let frame = 0;
+    const draw = () => {
+      renderer.render(latestStateRef.current);
+      frame = window.requestAnimationFrame(draw);
+    };
+    draw();
+    return () => {
+      window.cancelAnimationFrame(frame);
+      renderer.dispose();
+    };
+  }, []);
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-hud text-[10px] tracking-[0.18em] text-spectral">ORBITAL NATIVE / LIVE 3D CONTACTS</p>
+        <span className="text-[9px] tracking-widest text-muted">ANONYMOUS · READ ONLY</span>
+      </div>
+      {unavailable ? (
+        <p role="status" className="border border-bone/10 bg-void px-3 py-6 text-center text-xs text-muted">
+          Native 3D spectator rendering is unavailable in this browser. The live tactical map remains available below.
+        </p>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label="Live anonymous 3D view of the server-authoritative asteroid match"
+          className="block h-52 w-full border border-spectral/20 bg-[#05080d] sm:h-64"
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,434 @@
+# Yes. We should build both systems together.
+
+I recommend adding two major capabilities to WFM's Orbital combat architecture:
+
+1. Adaptive Enemy Pilot AI: enemy pilots actively maneuver, evade, pursue, flank and position themselves behind the player's spacecraft to establish firing solutions.
+2. Combat Rewards and Kill Progression: destroying enemy targets restores energy and contributes to kill streaks, milestones, upgrades and faction progression.
+
+These are important because we want enemy pilots to feel like actual military pilots rather than flying targets that simply approach and shoot.
+
+The objective is to create battles where the player has to outmaneuver an intelligent opponent, while also being rewarded for successfully destroying enemy ships.
+
+## 1. Repository findings: what we have and what is missing
+
+I inspected the newer combat integration branch, including the server-side flight runtime, Orbital flight adapter, reward settlement and progression policies.
+
+The latest relevant integration commit I verified is:
+
+`abee40eb6a602bfef04953f794b074dd3372e392`
+
+There are already several useful foundations.
+
+| Existing capability                   | Finding                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Server-owned flight simulation        | Present in sector runtime                                                                  |
+| Enemy projectiles                     | Existing projectile simulation                                                             |
+| Shared enemy objectives               | Present in cooperative operations                                                          |
+| Friendly AI assistance                | Previously added and automated-test verified, according to the supplied development report |
+| Kill-based campaign scoring           | Present in the older replay-based reward system                                            |
+| Persistent progression ledger         | Present                                                                                    |
+| Idempotent reward transactions        | Present for Online Wing match rewards                                                      |
+| Adaptive enemy pursuit and flanking   | Not verified in the shared-flight runtime                                                  |
+| Enemy missile-evasion decision-making | Not verified                                                                               |
+| Per-kill energy restoration           | Not implemented in the inspected reward paths                                              |
+| Persistent kill streak milestones     | Not established in the inspected shared-flight path                                        |
+
+The most important distinction is that the current `sector-runtime.ts` advances player flight and shared objectives. It does not yet establish the complete autonomous enemy-pilot combat behavior you are describing.
+
+Likewise, existing rewards are not proof that an authenticated player receives an energy refill every time they destroy an enemy in persistent free flight.
+
+Relevant source files:
+
+- [Sector runtime](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/socket/sector-runtime.ts?utm_source=chatgpt.com)
+- [Flight-sector adapter](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/flight-sector.ts?utm_source=chatgpt.com)
+- [Wing reward policy](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/wing-reward-policy.ts?utm_source=chatgpt.com)
+- [Campaign reward adjudication](https://github.com/niakofa-cmyk/WFM/blob/integration/infinite-war-orbital-combat/artifacts/api-server/src/game/rewards.ts?utm_source=chatgpt.com)
+
+My assessment: these should be new integrated combat systems, not isolated additions to the existing AI or reward code.
+
+## 2. Build an adaptive enemy pilot intelligence system
+
+Strong recommendation
+
+The enemy AI should understand that it is fighting another pilot.
+
+It should not simply fly toward the player's position, fire when within range and repeat.
+
+I recommend creating an Orbital Tactical Flight Intelligence System with six behavioral capabilities.
+
+1\. Pursuit and rear positioning
+
+Enemy pilots calculate the player's velocity and heading, predict where the ship will be and attempt to reach a firing position behind it.
+
+[StarShipDealers — Premium Star Citizen Marketplace](https://images.openai.com/static-rsc-4/x60GfLFic6XMI4ifWRWK9KomW5XCxvd86DsOFVXHFDxyvijmnMjhrAetWWmWWn0_L01JDgzt2m_EyOiBtz3uIJYTCXlW_j9qTJl4sNe5JEJt1xmrkLWg4G-37Tl-wHZEa4-sLVieuHG6TrIWadwoacJqQU8pUH1xfec0xopDniY?purpose=inline)
+
+2\. Tactical flanking
+
+Multiple enemies coordinate instead of following one another. One pursues while another attempts to intercept from the side.
+
+[Blitz Evasion | playscape](https://images.openai.com/static-rsc-4/bl1nf8u7-fpFKR-I0Ibgg4zoHxRClbA651zSyJ4DwYt3LvTRepcKNFhzrFYf-yuPjXbBS3MUQ-goeq4OZ4nIrq6lNN0-aIo5lRecm90XoC8o1CpwDcp63J_TKUSbIpp2FmQGb6JcvUYNHJq4q5H_XQ2R1zk9eGETXfXouGnHVgg?purpose=inline)
+
+3\. Missile and projectile evasion
+
+Enemy pilots detect incoming threats, estimate impact time and attempt lateral, vertical or diagonal evasive maneuvers.
+
+[This Week in Star Citizen - August 25, 2025 - Roberts Space Industries - RSI SERVER](https://images.openai.com/static-rsc-4/r-dlKJI_-dmM2QtPFUJUOaxb4dxRauK1Zzgg_bM9lxuCvl1L-JglJ0SIIjQiUKxuPg_obbA_aHIVKfBCqPxPoaLGHa3SLwMk-stU1CiJLukp6XABAsX9WS-j0Cs75rcxEzXLbrWw1-yvsCFruH7yn1Xmp11QHrGiDlzH5ZkrVmo?purpose=inline)
+
+4\. Defensive maneuvering
+
+Enemy pilots perform barrel rolls, vector dodges, climbs and dives when threatened.
+
+[Star Citizen Alpha 4.1.1 Update News - Evocati, Citizen Con 2025, Fleet Week 2955 (2025), Reset and Referrals Drama, CIG Financials & More - MMOPIXEL](https://images.openai.com/static-rsc-4/IihWdB5vRZ4GB_v-hvnwfpCALyHSJbfsQCB1xhOxH5tcz3p0h2B8Cs8XvFxeqD-9Nlrae7Q7XV9q4B3ivLkmK2e7RgTh80YoASjxyHeYhYmxPo_6Zn658L1wH60lgZCBijAuXBhp7BVo4ha3jrkOoMf2_Fw1YnU_uflNgSXrGrU?purpose=inline)
+
+5\. Intelligent weapons employment
+
+AI pilots evaluate range, target heading, firing angle, weapon cooldown and missile lock quality before firing.
+
+[Actualités | Star-SEAH-Tizen](https://images.openai.com/static-rsc-4/xdiEo9iUZO1UdA6ztnpURmWz8koGUcEx21BbSY6Id3oUYsZMhLnvJ8G_abbsukRSn0NS1IvFglZT2FZFFvHedUIimaW31NNrOA-O05zsppfFsEMCIYyi9_GjFH6dUsu-1Urytp9YUjG0uZKrApu1xE7ORvqrCsdLOrLh5pHi5YU?purpose=inline)
+
+6\. Squad coordination
+
+Enemy pilots communicate tactical intentions, divide targets, retreat when damaged and regroup with their fleet.
+
+### How the rear-positioning AI should work
+
+This is particularly important.
+
+The AI should not simply aim at the player's current position. It should attempt to establish a position from which it can attack effectively.
+
+For example:
+
+[Pursuit Tradition / Ritual in STBC | World Anvil](https://images.openai.com/static-rsc-4/rZv3F15NIMqAGQCGTte9-xU1n9q0WilM2YOEKcw4771nolgjdLnOtjpg-pprflNkbxzNk_AWhYd6Ldf-WdWIDCd5i154AlAYDFNIG0HtOHOrrrc-yre0X2nPPX4ebfvzbIq3iCk-6HzfJd_3BFhzgbUI9zLKcZjYd6h8kkq5QSo?purpose=inline)
+
+[worldanvil.com](https://www.worldanvil.com/w/stbc-ajmajor/a/pursuit-ritual?utm_source=chatgpt.com)
+
+Imagine the player is flying forward.
+
+The enemy AI should:
+
+1. Estimate the player's current forward vector.
+2. Predict the player's future position.
+3. Select a rear-quarter interception point.
+4. Calculate the velocity needed to reach that point.
+5. Adjust its heading and lateral thrust.
+6. Match the player's speed where appropriate.
+7. Acquire a firing solution.
+8. Fire guns or launch a missile.
+9. Reposition if the player performs an evasive maneuver.
+
+It should continually recalculate instead of following a fixed waypoint.
+
+A useful tactical calculation is:
+
+\\[ P\_{\text{intercept}} = P\_{\text{player}} + V\_{\text{player}}t + D\_{\text{rear}} \\]
+
+Where:
+
+- \\(P\_{\text{player}}\\) is the player's position.
+- \\(V\_{\text{player}}\\) is the player's velocity.
+- \\(t\\) is the estimated interception time.
+- \\(D\_{\text{rear}}\\) is the desired rear-quarter offset.
+
+We should use a dynamically selected offset rather than always placing the enemy directly behind the player's ship. Otherwise, the AI becomes predictable.
+
+### Enemy AI behavioral states
+
+I recommend a state machine:
+
+\#chatgpt-mermaid-\_r_is\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_is\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_is\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_is\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_is\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_is\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_is\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_is\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_is\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_is\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_is\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_is\_ p{margin:0;}#chatgpt-mermaid-\_r_is\_ defs [id$="-barbEnd"]{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ g.stateGroup text{fill:rgb(83, 154, 248);stroke:none;font-size:10px;}#chatgpt-mermaid-\_r_is\_ g.stateGroup text{fill:rgb(13, 13, 13);stroke:none;font-size:10px;}#chatgpt-mermaid-\_r_is\_ g.stateGroup .state-title{font-weight:bolder;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ g.stateGroup rect{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_is\_ g.stateGroup line{stroke:rgb(143, 143, 143);stroke-width:1;}#chatgpt-mermaid-\_r_is\_ .transition{stroke:rgb(143, 143, 143);stroke-width:1;fill:none;}#chatgpt-mermaid-\_r_is\_ .stateGroup .composit{fill:transparent;border-bottom:1px;}#chatgpt-mermaid-\_r_is\_ .stateGroup .alt-composit{fill:#e0e0e0;border-bottom:1px;}#chatgpt-mermaid-\_r_is\_ .state-note{stroke:rgb(107, 198, 127);fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_is\_ .state-note text{fill:rgb(13, 13, 13);stroke:none;font-size:10px;}#chatgpt-mermaid-\_r_is\_ .stateLabel .box{stroke:none;stroke-width:0;fill:rgb(222, 234, 251);opacity:0.5;}#chatgpt-mermaid-\_r_is\_ .edgeLabel .label rect{fill:rgb(222, 234, 251);opacity:0.5;}#chatgpt-mermaid-\_r_is\_ .edgeLabel{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_is\_ .edgeLabel p{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_is\_ .edgeLabel rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_is\_ .edgeLabel .label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .label div .edgeLabel{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .stateLabel text{fill:rgb(13, 13, 13);font-size:10px;font-weight:bold;}#chatgpt-mermaid-\_r_is\_ .node circle.state-start{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ .node .fork-join{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ .node circle.state-end{fill:rgb(83, 154, 248);stroke:transparent;stroke-width:1.5;}#chatgpt-mermaid-\_r_is\_ .end-state-inner{fill:transparent;stroke-width:1.5;}#chatgpt-mermaid-\_r_is\_ .node rect{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_is\_ .node polygon{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_is\_ [id$="-barbEnd"]{fill:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_is\_ .statediagram-cluster rect{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_is\_ .cluster-label,#chatgpt-mermaid-\_r_is\_ .nodeLabel{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .statediagram-cluster rect.outer{rx:5px;ry:5px;}#chatgpt-mermaid-\_r_is\_ .statediagram-state .divider{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_is\_ .statediagram-state .title-state{rx:5px;ry:5px;}#chatgpt-mermaid-\_r_is\_ .statediagram-cluster.statediagram-cluster .inner{fill:transparent;}#chatgpt-mermaid-\_r_is\_ .statediagram-cluster.statediagram-cluster-alt .inner{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_is\_ .statediagram-cluster .inner{rx:0;ry:0;}#chatgpt-mermaid-\_r_is\_ .statediagram-state rect.basic{rx:5px;ry:5px;}#chatgpt-mermaid-\_r_is\_ .statediagram-state rect.divider{stroke-dasharray:10,10;fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_is\_ .note-edge{stroke-dasharray:5;}#chatgpt-mermaid-\_r_is\_ .statediagram-note rect{fill:rgb(243, 243, 243);stroke:rgb(107, 198, 127);stroke-width:1px;rx:0;ry:0;}#chatgpt-mermaid-\_r_is\_ .statediagram-note rect{fill:rgb(243, 243, 243);stroke:rgb(107, 198, 127);stroke-width:1px;rx:0;ry:0;}#chatgpt-mermaid-\_r_is\_ .statediagram-note text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .statediagram-note .nodeLabel{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ .statediagram .edgeLabel{color:red;}#chatgpt-mermaid-\_r_is\_ [id$="-dependencyStart"],#chatgpt-mermaid-\_r_is\_ [id$="-dependencyEnd"]{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);stroke-width:1;}#chatgpt-mermaid-\_r_is\_ .statediagramTitleText{text-anchor:middle;font-size:18px;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].statediagram-cluster rect{fill:rgb(222, 234, 251);stroke:url(#chatgpt-mermaid-\_r_is\_-gradient);stroke-width:1;}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].statediagram-cluster rect.outer{rx:5px;ry:5px;filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_is\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_is\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_is\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_is\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_is\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_is\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_is\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}PatrolDetectInterceptPursueRearPositionAttackEvadeFlankRepositionRetreatRegroupPlayer detectedThreat confirmedClose distanceSeek firing angleFiring solutionTarget changes headingIncoming threatMissile warningWingman availableCoordinated firing solutionThreat avoidedReacquire targetHull criticalSafe distanceRe-engagement
+
+The AI must also understand when it is losing a fight. A badly damaged fighter should not behave like a fully equipped interceptor.
+
+## 3. Make enemy AI genuinely capable of evading the player's attacks
+
+We should give enemy pilots the same fundamental flight capabilities that we give human pilots.
+
+That means using the shared Orbital flight simulation, not creating an artificial movement animation.
+
+For example, if the player fires a missile:
+
+- AI detects the incoming missile.
+- AI evaluates its estimated time to impact.
+- AI calculates whether a lateral dodge, vertical climb, dive or barrel roll is appropriate.
+- AI checks its maneuver energy and cooldown.
+- AI executes the maneuver through the actual flight physics.
+- AI attempts to reacquire its offensive position.
+
+The AI should not dodge every attack perfectly.
+
+We need varying intelligence levels:
+
+| Enemy class | Behavior                                                       |
+| ----------- | -------------------------------------------------------------- |
+| Rookie      | Basic pursuit, occasional evasion                              |
+| Regular     | Attempts rear positioning and missile dodging                  |
+| Veteran     | Flanking, predictive interception and coordinated attacks      |
+| Elite       | Combines maneuvers, countermeasures and intelligent weapons    |
+| Ace         | Adapts to repeated player tactics and coordinates with wingmen |
+
+An Ace should be challenging because it makes better tactical decisions, not because it receives unfair speed or damage bonuses.
+
+## 4. Introduce energy restoration for every confirmed kill
+
+I recommend implementing this
+
+I particularly like your idea of restoring energy when a player destroys an enemy.
+
+It creates an important combat loop:
+
+Attack → maneuver → expend energy → destroy target → recover energy → continue fighting.
+
+It also encourages skilled pilots to stay engaged rather than constantly retreating to recharge.
+
+However, I would introduce a controlled reward system rather than automatically restoring every energy resource to 100%.
+
+### Proposed kill-energy rewards
+
+These are initial balancing recommendations, not existing game settings.
+
+| Combat achievement               | Proposed energy restoration |
+| -------------------------------- | --------------------------- |
+| Standard fighter destroyed       | 20%                         |
+| Veteran fighter destroyed        | 25%                         |
+| Elite fighter destroyed          | 35%                         |
+| Enemy interceptor destroyed      | 25%                         |
+| Heavy fighter destroyed          | 30%                         |
+| Capital ship subsystem destroyed | 10%                         |
+| Capital ship destroyed           | 50%                         |
+
+Energy restoration should be capped at the ship's maximum energy.
+
+I would also distinguish between the following:
+
+- Maneuver energy: used for vector boosts, evasive maneuvers and special flight abilities.
+- Weapon energy: used by energy-based weapons, if applicable.
+- Shield energy: used for defensive systems, if applicable.
+
+A confirmed kill should primarily restore maneuver energy. We can give certain ships specialized abilities that convert kills into additional shield or weapon energy.
+
+### Make assists count
+
+If two pilots damage the same enemy, the pilot who delivers the final shot should receive the kill attribution.
+
+But the other pilot should receive an assist reward.
+
+For example:
+
+- Final attacker: 20% maneuver energy.
+- Significant assisting pilot: 8% maneuver energy.
+- Other eligible participants: progression credit where appropriate.
+
+This prevents cooperative combat from becoming a competition over who gets the final shot.
+
+We should calculate contribution using server-recorded damage, not client claims.
+
+## 5. Build a persistent kill-streak and achievement system
+
+This should become another major part of combat progression.
+
+[3D Roguelike Space Shooter by dtungnguyen25](https://images.openai.com/static-rsc-4/-uxPCwDsQqk30KJcF45Bu-SlkSKpR9Rw_dUSk_l3uwZALv4LN--vLuSfhP5rPjuvvhZmqo-Lj089IgkVX-AJer6Ar-eLu79fAu2nzqJxqNPXtjrX2PCXT_uUBokW2zsYhUoUpCKSQpt-koh81BiudmOuw2VLmhgnq7TbtA7vSpU?purpose=inline)
+
+[dtungnguyen25.itch.io](https://dtungnguyen25.itch.io/roguelike-space-shooter?utm_source=chatgpt.com)
+
+I recommend two separate progression systems:
+
+A. Consecutive kill streaks
+
+| Streak | Proposed achievement | Additional benefit               |
+| ------ | -------------------- | -------------------------------- |
+| 3      | Triple Elimination   | Bonus maneuver energy            |
+| 5      | Combat Ace           | Temporary combat boost           |
+| 10     | Squadron Breaker     | Advanced combat supply           |
+| 15     | Fleet Hunter         | Special recognition and bonus XP |
+| 20     | War Dominator        | Elite combat achievement         |
+
+B. Lifetime confirmed kills
+
+| Total kills | Achievement        |
+| ----------- | ------------------ |
+| 5           | First Blood        |
+| 10          | Combat Pilot       |
+| 20          | Fighter Specialist |
+| 50          | Squadron Hunter    |
+| 100         | Elite Pilot        |
+| 250         | Fleet Destroyer    |
+| 500         | War Legend         |
+| 1,000       | Legendary Ace      |
+
+These should persist between sessions.
+
+A streak resets when the pilot is destroyed, with optional game modes defining different rules.
+
+### Rewards should be meaningful
+
+I would distribute rewards across:
+
+- Pilot experience.
+- Credits.
+- Ship customization.
+- Special maneuver visual effects.
+- Military insignia.
+- Faction reputation.
+- Unlockable flight capabilities.
+- Leaderboard recognition.
+
+We should not give enormous permanent damage multipliers for kill streaks. That would make already-successful players progressively impossible to defeat.
+
+A better approach is to reward achievement through progression, customization and limited tactical bonuses.
+
+## 6. How the systems should connect technically
+
+This is where we need to be particularly careful.
+
+The enemy AI, damage system, kill attribution, energy restoration and progression ledger should all operate through one authoritative combat event pipeline.
+
+\#chatgpt-mermaid-\_r_ji\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_ji\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_ji\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_ji\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_ji\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_ji\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_ji\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_ji\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_ji\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_ji\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_ji\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_ji\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_ji\_ p{margin:0;}#chatgpt-mermaid-\_r_ji\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .cluster-label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .cluster-label span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_ji\_ .label text,#chatgpt-mermaid-\_r_ji\_ span{fill:rgb(13, 13, 13);color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .node rect,#chatgpt-mermaid-\_r_ji\_ .node circle,#chatgpt-mermaid-\_r_ji\_ .node ellipse,#chatgpt-mermaid-\_r_ji\_ .node polygon,#chatgpt-mermaid-\_r_ji\_ .node path{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .rough-node .label text,#chatgpt-mermaid-\_r_ji\_ .node .label text,#chatgpt-mermaid-\_r_ji\_ .image-shape .label,#chatgpt-mermaid-\_r_ji\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_ji\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .rough-node .label,#chatgpt-mermaid-\_r_ji\_ .node .label,#chatgpt-mermaid-\_r_ji\_ .image-shape .label,#chatgpt-mermaid-\_r_ji\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_ji\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_ji\_ .root .anchor path{fill:rgb(143, 143, 143)!important;stroke-width:0;stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_ji\_ .arrowheadPath{fill:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_ji\_ .edgePath .path{stroke:rgb(143, 143, 143);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .flowchart-link{stroke:rgb(143, 143, 143);fill:none;}#chatgpt-mermaid-\_r_ji\_ .edgeLabel{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_ji\_ .edgeLabel p{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_ji\_ .edgeLabel rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_ji\_ .labelBkg{background-color:rgba(252, 252, 252, 0.5);}#chatgpt-mermaid-\_r_ji\_ .cluster rect{fill:rgb(243, 243, 243);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .cluster text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ .cluster span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(243, 243, 243);border:1px solid rgba(0, 0, 0, 0.1);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_ji\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_ji\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_ji\_ .icon-shape,#chatgpt-mermaid-\_r_ji\_ .image-shape{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_ji\_ .icon-shape p,#chatgpt-mermaid-\_r_ji\_ .image-shape p{background-color:rgb(252, 252, 252);padding:2px;}#chatgpt-mermaid-\_r_ji\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_ji\_ .image-shape .label rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_ji\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_ji\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_ji\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_ji\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_ji\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_ji\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_ji\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_ji\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_ji\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_ji\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_ji\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_ji\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_ji\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_ji\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .node rect,#chatgpt-mermaid-\_r_ji\_ .node circle,#chatgpt-mermaid-\_r_ji\_ .node ellipse,#chatgpt-mermaid-\_r_ji\_ .node polygon,#chatgpt-mermaid-\_r_ji\_ .node path{fill:rgb(229, 243, 255);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_ji\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_ji\_ .mermaid-decision .label-container{fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_ji\_ .edgePaths .flowchart-link{stroke:rgb(143, 143, 143);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_ji\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_ji\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}Orbital Enemy AITactical Flight DecisionsShared Orbital PhysicsEnemy Ship Movement andWeaponsServer Authoritative CombatDamage and DestructionValidationCombat Event: TargetDestroyedKill and Assist AttributionEnergy RestorationKill Streak EvaluationMilestone and AchievementEvaluationServer-Owned Player StatePersistent Progression LedgerShared Universe SnapshotAll Nearby Authenticated Pilots
+
+### Recommended implementation modules
+
+I would introduce these modules within the existing architecture:
+
+| Proposed module                | Responsibility                                     |
+| ------------------------------ | -------------------------------------------------- |
+| `orbital-enemy-brain.ts`       | AI decision-making                                 |
+| `orbital-pursuit.ts`           | Rear positioning and interception                  |
+| `orbital-evasion.ts`           | Missile and projectile evasion                     |
+| `orbital-squad-tactics.ts`     | Flanking and formations                            |
+| `combat-event-authority.ts`    | Server-authoritative damage and destruction events |
+| `kill-attribution.ts`          | Kill and assist determination                      |
+| `combat-energy-rewards.ts`     | Energy restoration                                 |
+| `kill-streak-progression.ts`   | Streaks and milestone evaluation                   |
+| `combat-achievement-ledger.ts` | Persistent achievements                            |
+
+These are proposed modules, not files I have verified as already existing.
+
+One essential architecture rule: all enemy AI decisions must result in actual Orbital flight inputs and physics state. The AI cannot simply teleport behind a player or independently draw a ship in a different location.
+
+Similarly, a kill reward must originate from a validated server-side destruction event.
+
+## 7. Prevent reward farming and multiplayer exploits
+
+This is especially important once we introduce the persistent universe.
+
+I recommend these safeguards:
+
+1. Every destruction event has a unique event ID.
+2. Each event can be settled only once.
+3. AI ships cannot receive human account rewards.
+4. Friendly-fire destruction does not qualify for ordinary kill rewards.
+5. Repeated destruction of a respawning target cannot bypass reward limits.
+6. Assists require meaningful server-recorded participation.
+7. Kill streaks use authoritative destruction and pilot-death events.
+8. Client-side reward claims are never trusted.
+9. Practice, historical prologue and competitive multiplayer have separate reward policies.
+10. Competitive player-versus-player rewards use separate anti-collusion and matchmaking protections.
+
+We can build on the existing idempotent PostgreSQL reward infrastructure rather than creating a separate currency system.
+
+The existing Online Wing reward policy also demonstrates why the different modes need separate eligibility rules.
+
+## 8. How I would test this before deploying it
+
+We should create an AI-versus-human combat certification suite inside the Orbital Combat Lab.
+
+## Combat intelligence laboratory
+
+[THE LAST EMBER | Devpost](https://images.openai.com/static-rsc-4/rYspgQ3pxxBF0YTuojA5Nr7xLendxmPBY-oIzWI72J3s_E757Ic14J4zYIgOrH2HvlQBx2r5fnZ-d9F7HcxteSIVqB06aNIhy6I909s2JXhVMHRW5c6vS_fOwxmAT7OiwQpKncDDnYMAZDa6YWuh6IKZJON22R1yQBqmXckZCyY?purpose=inline)
+
+[devpost.com](https://devpost.com/software/the-last-ember?utm_source=chatgpt.com)
+
+Test A — One-on-one dogfight
+
+- Enemy attempts rear positioning.
+- Player executes lateral and vertical dodges.
+- Enemy adjusts its firing solution.
+- Both ships can damage and destroy one another.
+
+Test B — Multiple enemy attackers
+
+- Three enemy fighters engage one player.
+- One pursues.
+- One flanks.
+- One attacks from a different elevation.
+- Enemies coordinate without occupying identical flight paths.
+
+Test C — Advanced missile combat
+
+- AI launches guided missiles.
+- Player performs directional boosts and countermeasures.
+- Enemy pilots also evade incoming missiles.
+- Missile tracking and damage remain authoritative.
+
+Test D — Kill rewards
+
+- Destroy one standard fighter.
+- Confirm energy restoration.
+- Destroy five additional targets.
+- Verify streak progression.
+- Reconnect and verify persistent lifetime kills.
+- Replay the same destruction event and verify no duplicate reward.
+
+Test E — Multiplayer fleet battle
+
+- Two authenticated human pilots engage the same enemy fleet.
+- Friendly AI wingmen join the battle.
+- Enemy AI coordinates against both pilots.
+- Kill attribution and assists are consistent.
+- Both pilots see the same destruction events and energy outcomes.
+
+### What constitutes a pass?
+
+We should require actual measured results, not merely successful test initialization.
+
+- Enemy ships physically reach rear-quarter firing positions.
+- AI evasive maneuvers change actual velocity and orientation.
+- Enemy ships do not teleport.
+- Missile evasion is neither guaranteed nor random.
+- Destruction generates exactly one reward event.
+- Energy restoration respects ship limits.
+- Kill streaks survive reconnection.
+- Multiplayer clients agree on kill and assist attribution.
+- Server restart does not duplicate rewards.
+
+## 9. My recommended final direction
+
+I would combine these features into a larger system called:
+
+# ORBITAL COMBAT INTELLIGENCE & PROGRESSION
+
+WFM — INFINITE WAR
+
+Three interconnected pillars
+
+Adaptive Enemy Intelligence
+
+Real pursuit, rear positioning, flanking, evasive maneuvers and tactical squad coordination.
+
+Combat Energy Economy
+
+Energy restoration for kills and assists, ship-specific bonuses and balanced tactical resource management.
+
+Persistent Combat Progression
+
+Kill streaks, lifetime achievements, experience, faction reputation and unlockable pilot rewards.
+
+My preferred implementation order is:
+
+1. Establish authoritative enemy AI flight and pursuit.
+2. Add rear-positioning and predictive firing.
+3. Add enemy evasive maneuvers using the same Orbital physics as human pilots.
+4. Establish authoritative kill and assist events.
+5. Add energy restoration.
+6. Add kill streaks and lifetime milestones.
+7. Integrate everything with shared multiplayer transport and durable progression.
+8. Run the full multi-fleet combat certification.
+
+One final design point: I want enemy pilots to learn to fight the way human pilots fight. If a player repeatedly dodges right, the AI should begin attempting different interception angles. If a player frequently boosts upward, experienced enemies should anticipate that behavior.
+
+That is the difference between ordinary NPC opponents and an intelligent military adversary.
+
+I recommend making this a foundational requirement of the Infinite War universe, not an optional training feature.
+
+The next concrete step is to implement the server-authoritative AI combat and reward foundation on an isolated WFM integration branch, then certify it in the Orbital Combat Lab before enabling it in the persistent universe.
+
+🚀Track WFM AI combat and reward milestonesTap to set up
