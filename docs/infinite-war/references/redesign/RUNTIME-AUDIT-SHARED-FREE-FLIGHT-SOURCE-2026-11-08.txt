@@ -1,0 +1,179 @@
+. Runtime audit: the starting point
+I found an important distinction in the repository:
+- main is still at 3ecff671.
+- The API server already has a WebSocket infrastructure running at 30 simulation ticks per second.
+- Existing multiplayer ships are simulated on the server and broadcast through snapshots.
+- However, the socket server is currently built around temporary match rooms, not persistent shared free-flight sessions.
+- The existing authenticated HTTP middleware does not automatically authenticate the separate WebSocket upgrade.
+- The existing six-location world model is not an infinite spatial simulation.
+This gives us a useful foundation: we can extend the existing authoritative multiplayer infrastructure rather than invent a second networking system.
+
+I would not expose the current match-room player snapshots as public universe presence. They have different security, identity, persistence and lifecycle requirements.
+
+Runtime implementation started and pushed
+ Awaiting verification
+
+
+I have started the actual server-side runtime work in WFM. This is the first implementation slice of the shared 3D free-flight requirement, not another documentation-only update.
+1. What I implemented
+New Orbital free-flight runtime
+30 Hz
+Authoritative server simulation
+
+
+10 Hz
+Live actor snapshots
+
+
+2,500
+Nearby visibility radius (simulation units)
+
+
+Initial session capacity
+- 32 active spatial sessions.
+- 24 authenticated pilots per session.
+- 4 server-controlled patrol ships per session.
+- 32 nearby actors maximum per snapshot.
+
+A. New server runtime
+Created:
+[free-flight-runtime.ts](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/artifacts/api-server/src/socket/free-flight-runtime.ts?utm_source=chatgpt.com)This implements:
+- Server-owned 3D pilot movement.
+- Actual Orbital spatial-flight integration.
+- Server-generated pilot spawn positions.
+- USSF and Accord patrol actors.
+- Three-dimensional waypoint navigation.
+- Server-owned hull, shields and energy state.
+- Nearby actor filtering.
+- Reconnection and input-sequence recovery.
+The patrol ships are no longer merely visual projections. Their movement is advanced by the server.
+B. Both factions now have patrol actors
+
+
+
+
+
+
+
+
+
+
+USSF patrol group
+
+Two server-controlled ships per session.
+
+
+
+
+
+
+
+
+
+
+
+Accord patrol group
+
+Two server-controlled ships per session.
+
+
+Both factions use the shared Orbital flight integrator.
+
+These are initial patrol formations, not yet the complete persistent fleet-intelligence system.
+C. Authentication and spatial privacy
+Integrated the new runtime into the existing authenticated socket server.
+
+The server now:
+- Verifies the player's existing Clerk session.
+- Retrieves faction, selected ship and current location from the database.
+- Determines spatial-session membership itself.
+- Rejects client-selected spatial sessions.
+- Prevents clients from submitting authoritative coordinates.
+- Sends nearby positions only to authenticated participants in the same session.
+- Keeps account IDs and player names out of actor snapshots.
+Public presence remains anonymous.
+D. Reconnection and validation
+I also added:
+- Monotonic input sequencing.
+- Input rate limiting.
+- Invalid-packet rejection.
+- Reconnection using the existing server-owned actor.
+- Sequence continuation after reconnect.
+- A 15-second disconnect grace period.
+- Bounded session and actor capacity.
+One particularly important correction: a delayed socket-close event cannot detach a pilot's replacement connection.
+
+2. Socket integration
+Modified the existing socket server rather than introducing a competing networking service.
+Updated socket serverThe new connection mode is:
+
+/ws?freeflight=1
+
+It uses the existing authentication infrastructure.
+
+The feature is deliberately disabled by default. Enabling it requires:
+
+ORBITAL_FREE_FLIGHT_ENABLED=true
+
+and a configured database connection.
+
+No production deployment or database migration was performed.
+3. Documentation saved and connected
+I also restored the foundational requirement into the advanced integration branch and connected its references.
+- Live 3D Free-Flight Presence and Patrols
+- Persistent Enemy Fleet Patrols
+- Unified Universe Architecture
+- Master Development Directive
+4. Tests added
+Created:
+Free-flight runtime testsFive test scenarios cover:
+1. Authenticated pilots sharing nearby 3D snapshots.
+2. Isolation between different spatial sessions.
+3. Server-authoritative pilot and patrol movement.
+4. Rejection of client-submitted combat outcomes and spatial data.
+5. Reconnection and preservation of the pilot's input sequence.
+Not yet verified
+I could not execute the test suite in this environment. GitHub currently reports no workflow runs or commit status checks for this branch. The tests are added, but typecheck, full API tests and production builds must still pass before merging.
+
+5. Pull request created
+WFM Pull Request #17
+Draft
+
+Server-authoritative shared Orbital free flight
+
+Branch: feature/shared-orbital-freeflight-runtime
+
+Target: integration/master-engine-consolidation
+
+Head: d6d6ee8b7250
+Review implementation and pull request
+I deliberately targeted the advanced integration branch because it contains the newer Orbital engine, authentication and multiplayer foundations. The default main branch is still at 3ecff671 from October 22. I have not merged the integration branch or these changes into main.
+6. What comes next
+The next implementation stage is critical.
+Stage 2 — Render authoritative ships inside the actual universe
+
+
+
+
+
+
+
+
+limitedrungames.com
+
+
+Connect the new snapshots to the Orbital universe renderer.
+1. Render authenticated nearby pilots as actual 3D spacecraft.
+2. Render USSF and Accord patrol fleets.
+3. Interpolate server snapshots for smooth movement.
+4. Reconcile the local player's predicted movement against server state.
+5. Implement streaming and spatial-interest transitions.
+6. Introduce authoritative targeting, weapons, damage and destruction.
+7. Preserve actor and patrol state through reconnects and server recovery.
+
+One important distinction: the new runtime currently moves ships and publishes their authoritative positions. It does not yet render those ships in the client scene or implement their full server-authoritative combat. Those are separate implementation gates.
+
+My recommendation: complete the actual 3D actor rendering next, then integrate server-authoritative combat. We should not expand the universe with additional decorative fleets until players can encounter, approach, interact and fight those fleets through the same Orbital simulation.
+
+Would you like me to monitor PR #17 daily and report when verification and review checks become available?
+🛰️Monitor WFM free-flight PRTap to set up

@@ -1,7 +1,8 @@
 # WAR FOR MARS: INFINITE WAR — Orbital Operations Network foundation
 
 **Current owner direction:** one connected multiplayer universe, with multiple
-independent experiences and versioned simulation adapters. The universe is the
+distinct operation configurations during migration toward the canonical Orbital
+runtime, with versioned simulation adapters. The universe is the
 battlefield; operations are real locations and sessions, not disconnected menu
 commands.
 
@@ -26,6 +27,14 @@ Railway staging or Production:
 
 No new identity provider, player table, reward ledger, database, cache, or
 multiplayer service is introduced by this slice.
+
+The user has clarified that this existing slice's no-reward local trainer and
+zero-credit sector-discovery outcome must not become a blanket policy for the
+future multiplayer universe. Authenticated open-world faction encounters are
+intended to be server-authoritative and reward-capable. Existing rewards remain
+separate and unchanged until a versioned PvE/exploration result policy is
+implemented and tested. See
+[`DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md`](DYNAMIC-FACTION-ENCOUNTERS-AND-EXPLORATION-AUTHORITY.md).
 
 ## B. Multiplayer universe architecture
 
@@ -101,7 +110,9 @@ or events because there is no operation coordinator publishing those yet.
 3. **Orbital operation adapters:** wrap Combat Lab and orbital campaign/Arcade
    missions in the same operation lifecycle; pin runtime and rules versions.
 4. **Campaign and co-op:** migrate mission-by-mission while preserving claims,
-   reconnection, objectives, and the no-reward Rust Disc discovery policy.
+   reconnection, objectives, and the current no-credit Rust Disc discovery
+   behavior for that operation until its own settlement policy changes. Do not
+   generalize that legacy operation rule to authenticated universe exploration.
 5. **Competitive Wing:** coordinate client/API/socket runtime contract and only
    retain competitive rewards after existing ten-human staging gates pass.
 6. **Instances and live observers:** implement bounded orchestration, safe

@@ -2,6 +2,7 @@ import { detCos, detExp, detSin } from "./detmath";
 import { integrateSpatialFlight, type FlightControls, type FlightTuning, type Rock, type SpatialCraft } from "./flight";
 import { isOrbitalRuntimeId, ORBITAL_RUNTIME_ID, type OrbitalRuntimeId } from "./runtime";
 import { applyHullDamage, sphereSweepTime, steerProjectileToward, targetSolution3d } from "./weapons";
+import { pilotAxesToSpatialAxes } from "./pilot-controls";
 
 export type SectorVector3 = { x: number; y: number; z: number };
 export type SectorRotation = SectorVector3 & { w: number };
@@ -117,10 +118,8 @@ function orbitalMotion(state: SectorFlightState, input: SectorFlightInput, dt: n
   space.energy = state.energy;
   const controls: FlightControls = {
     throttle: clamp(input.throttle, 0, 1),
-    yaw: -clamp(input.yaw, -1, 1),
+    ...pilotAxesToSpatialAxes(input),
     pitch: clamp(input.pitch, -1, 1),
-    roll: -clamp(input.roll, -1, 1),
-    strafe: -clamp(input.strafe ?? 0, -1, 1),
     vertical: clamp(input.vertical ?? 0, -1, 1),
     boost: input.boost, brake: input.brake, drift: input.drift,
   };

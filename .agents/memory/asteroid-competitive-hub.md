@@ -1,10 +1,31 @@
 ---
-name: Cinder Ring competitive hub
-description: Cinder Ring is the physical competitive destination for live Wing Relay operations, while each mode retains its authoritative runtime.
+name: Cinder Ring in the shared universe
+description: Cinder Ring is a world location, not a separate playable runtime or station approach minigame.
 ---
 
-**Rule:** The asteroid is a physical operations hub and gateway to competitive experiences, not a decorative stop and not an instruction to collapse every mode into one engine. The Cinder Ring station presents a separate private-room dock and ten-human Wing Relay queue; private rooms remain invite-only, no-reward, and outside public discovery. The existing ten-human Wing Relay remains the 5v5 competitive runtime; Three.js handles universe navigation and presentation. Orbital Combat Lab remains development/test until an incremental migration proves compatibility. Rust Disc and Arcade Skirmish remain distinct experiences connected by versioned operation contracts.
+**Rule:** Cinder Ring remains a physical station in the canonical Orbital universe.
+The owner authorizes one alternate gameplay: Arcade Skirmish 5v5 competition,
+accessed at the multiplayer asteroid from within that universe. Do not expose
+its standalone local docking simulator, private-room launch, solo flight circuit,
+or additional training/co-op runtimes.
+Keep the existing docking stations and physical access points around Mars and
+throughout the universe, including the night-side station. Restricting alternate
+gameplay does not mean removing these destinations or their station services.
+Three.js is the primary renderer beneath Orbital, not a temporary engine to remove.
+Retain historical backend contracts and stored progression for compatibility;
+removing alternate UI entry points does not authorize deleting player data.
 
-**Why:** the user clarified that active 5v5 competition, spectator discovery, arcade experiences, and open-universe travel should connect through a real asteroid destination, while existing combat engines and their safeguards remain intact.
+**Why:** the owner rejected the separate Cinder Ring flight shown in their
+screenshot, then explicitly retained asteroid multiplayer competition as the
+only alternate gameplay.
+The owner subsequently confirmed that other docking stations and in-world
+entry points must remain.
 
-**How to apply:** publish only active server-created competitive matches, require server-confirmed Cinder Ring location for queue entry, and keep spectators authenticated, read-only, anonymous, and outside player capacity. Route private-room create/join through the separate station dock in the universe UI; its location gate is a presentation rule, not server authorization. Keep private and AI-fill rooms out of the public directory. The local flightable approach now exists, but do not confuse it with shared-world travel, live match rendering during flight, tournament federation, a 3D spectator camera, or combat-engine migration. See `docs/infinite-war/ASTEROID-COMPETITIVE-HUB.md` and its attached-image references.
+**How to apply:** keep station services inside the existing live flight session;
+closing services resumes that same flight. Queueing, cancellation, and returning
+from competition must preserve the shared-universe destination and server
+authority. Do not conflate solo Arcade rules with the existing multiplayer
+Wing Relay rules or silently change its ten-human/reward requirements.
+Integrate other objectives as activities within that universe, not as links
+into another simulator. Treat older
+competitive-hub documents as historical where they contradict this direction.

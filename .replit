@@ -51,6 +51,10 @@ packages = ["glib", "nspr", "nss", "atk", "at-spi2-core", "dbus", "xorg.libX11",
 [userenv.development]
 VITE_API_BASE_URL = ""
 WFM_E2E_EMAIL = "deandredavis.biz@gmail.com"
+VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED = "true"
+WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED = "true"
+ORBITAL_FREE_FLIGHT_FRIENDLY_AI = "true"
+WFM_GLOBAL_CAMPAIGN_ENABLED = "true"
 
 [userenv.production]
 # Production API and socket services are published with the frontend on Replit.

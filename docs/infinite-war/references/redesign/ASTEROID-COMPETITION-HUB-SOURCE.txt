@@ -1,0 +1,82 @@
+Yes — your understanding is much closer to the intended direction. The asteroid should be the physical destination for the competitive space-combat experiences we have been developing, including the 5v5 multiplayer competition, rather than simply being another decorative location in a Three.js universe.
+
+There is one important distinction, though: the asteroid is the arena and gateway to the competitions; it is not necessarily the engine that runs every competition.
+
+## The intended asteroid experience
+
+[Astro Arena - Star Citizen Wiki](https://images.openai.com/static-rsc-4/8teSbUL74mX11XVFqD-Plcgbk_ZHcoWzdzT0EGElr7D2P5teYd5iIHjs7YDH8IDQm2JufmvnS8N-P3zKrzGd9UNO3TFYDEdtW7Lleix3SDuw1ZUEX2bGJP7rLueH-xGI19yr6JNz1raEsWD3bfSvMlZ7n0BQfhYMcDO-wC342Ic?purpose=inline)
+
+[Alpha 4.8 - Promote Your Organization! - Star Citizen Spectrum](https://images.openai.com/static-rsc-4/edIj3B2Y8vvkL61MW8Ubbhx-psecJ9SXAML6a8XmLmC-WylYfV9FesehVyxO0qyn3aVTnJe4-6lBkz2Rz7efY0f6wm4NwWgGC9z0KHZEUzjDa0tr_DRx0-QUh51u4lTqV8H7p7C9jv99t9wxqBtVKPGiWilRXP4hQduvj47_-3Y?purpose=inline)
+
+[Jump Point — Апрель 2026 на русском](https://images.openai.com/static-rsc-4/3vhQYS-g9rJ_lxxpxtgujIt9UEgW19PvDCgH-bTk3qRWZ3oJAsz1qcI1TPgzzgZEh7htmP9J22wpmHYaPQMdQhVjqdkmZsTnGLQY7UzaArK1EgcdUt3sxxTvq9QT5PNP0p18_7iYeYeWpR6DPY_AMXuY7Vv91z56x6_kkKGMAVg?purpose=inline)
+
+11
+
+Imagine approaching an asteroid in the WFM universe.
+
+The asteroid is an active competitive destination containing:
+
+- Arcade Skirmishes: The original arcade combat experiences and their established engine builds.
+- 5v5 Competitive Combat: USSF versus Accord multiplayer battles.
+- Live Competitions: Actual active matches visible to approaching players.
+- Spectator Access: Players can observe a competition before deciding to enter.
+- Match Entry: Eligible players can join available matches or queue for the next competition.
+- Competitive Events: Tournaments, faction battles, rankings, and other organized competitions.
+
+A player might fly toward the asteroid, see several active battles, select one, watch it, and then enter another available competition.
+
+That is the experience we should be building.
+
+## Where the Three.js universe fits
+
+We should distinguish three different things:
+
+[15 Most Replayable Games in 2026 | Eneba Hub](https://images.openai.com/static-rsc-4/VlgRgSJN0MBKw_u7oNz1UeZshSnCzkTg98hVzcR5uo2_mPb3Zj3da_5ibNp2ZjzOPwC4-4F431tLASRUBtx8glFGJjfV2iLnLwC6t6MZmrRH03wSy1R0BlyS-3QPlOpRGxda9h1-TmupEZ5c0g3TAFjLqswMpv0lUkmGBr_b1TI?purpose=inline)
+
+1\. The persistent universe
+
+Navigation, exploration, planets, asteroids, player locations, and discovering active destinations.
+
+[Star Conflict on Steam](https://images.openai.com/static-rsc-4/fz2jaxy3oa3SoQJBkUErGsC6jFc3_jTtI3_PKzVJoP1DF3G6Ct6Of40RK8xYX1aZ3xXAapKEPhCf_ZnwP-pdzeqkDkjIc7nX9xILdCPz83fPmzCTveLeKrvofogp8cLsQpW7W4lV-DKtUKS2bYDaVxSa6xZT3eP9mEeVwi4DG1M?purpose=inline)
+
+2\. The asteroid competitive hub
+
+Arcade Skirmishes, 5v5 competitions, live match visibility, spectating, queues, and entry.
+
+[XenoThreat Returns - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/z0Dw5-PNZJCzCv7Zhp1gMGYL2qu_cT4jAerdCSglvhsk7A1zDPeCDS0b4nW37T9_iEEfcS9oTkIZ-Oew11GbS6gKG5rS59b5wWDc1885fE7ErEdL6HhKaCmirGQ4L4bP52txZ_6m5LwsxGjraG2JF9Rq0MQ0J-gjxz1hncMt67g?purpose=inline)
+
+3\. The actual combat engines
+
+The established orbital combat simulation and specialized game engines that execute the battles.
+
+The Three.js universe is the presentation and navigation layer. It should not replace the original combat engines or become the sole implementation of multiplayer combat.
+
+## What I believe the development plan should mean
+
+| Component                  | Intended responsibility                              |
+| -------------------------- | ---------------------------------------------------- |
+| Orbital Combat Lab         | Develop, test, and validate combat simulation        |
+| Original flight simulation | Remain an independent playable experience            |
+| Arcade Skirmishes          | Preserve and integrate the established arcade modes  |
+| Asteroid destination       | Host and expose competitive experiences              |
+| 5v5 Wing                   | Deliver the competitive multiplayer battles          |
+| Universe layer             | Connect destinations, players, and active operations |
+
+One qualification: I can confirm that this is the architectural direction we should implement, but I cannot claim that the existing asteroid implementation already provides these capabilities. The recent Orbital Combat Lab integration established an offline simulation foundation and server-side test harness, not a complete live 5v5 asteroid competition system.
+
+## One important point I want to settle
+
+I would not make the asteroid exclusively a 5v5 arena. It should be a competitive operations hub that can host multiple kinds of combat experiences simultaneously.
+
+For example:
+
+- Asteroid Arena A: 5v5 USSF versus Accord.
+- Asteroid Arena B: Arcade Skirmish.
+- Asteroid Arena C: Competitive free-for-all.
+- Asteroid Arena D: Cooperative combat operation.
+
+Players can see these competitions happening in the same universe without requiring every battle to run inside one giant shared simulation.
+
+My recommendation: Preserve the original combat engines, use the asteroid as their shared physical competitive destination, and use the Three.js universe to let players discover, approach, observe, and enter those competitions.
+
+That gives War for Mars the connected multiplayer universe you have been describing without sacrificing the gameplay and engine development already invested in.

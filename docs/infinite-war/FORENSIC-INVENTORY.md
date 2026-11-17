@@ -1,5 +1,10 @@
 # Infinite War forensic inventory
 
+> Historical inventory snapshot. Use the current
+> [Orbital Lab Phase 0 extraction audit](ORBITAL-LAB-PHASE-0-FORENSIC-EXTRACTION-AUDIT.md)
+> for the latest source-level mode/runtime map. This file's branch and release
+> context below are not the current checkout or deployment identity.
+
 **Scope:** code currently checked out on
 `integration/infinite-war-orbital-combat`. This is a source/test audit, not a
 live Railway, Production, or physical-device audit. Classification describes
@@ -24,9 +29,14 @@ the current code, not the intended final game.
 | Unified campaign/co-op/competitive mission framework | **Partially implemented** | Campaign sorties, world quests, sector missions, Iron Eclipse, and Wing rooms have separate contracts and progression paths. | Their existing stores and tests remain authoritative for current modes. | Define shared mission metadata/state/result adapters; migrate incrementally, not by duplicating persistence. |
 | Persistent faction war consequences | **Documented / not implemented as a cross-mode feature** | World reputation/events exist, but no verified validated match outcome updates persistent territory or shared faction control. | No accepted cross-player persistent-war settlement contract. | Add only after authoritative match outcomes, scope, idempotency, and conflict rules are explicit. |
 | Synchronized gameplay anomalies | **Not implemented** | No shared authoritative gravity-well, wormhole, or hazard simulation found in current sector contracts. | No synchronized anomaly tests. | Bounded deterministic environmental modifier in a dedicated sector version before broader rollout. |
-| Needle Engine | **Research candidate only** | No Needle runtime dependency or production scene integration found in the current package/import scan. | No WFM benchmark or migration evidence. | Keep custom Three.js/Vite as production runtime; evaluate Needle only as an authoring candidate with a measured proof. |
+| Needle Engine | **Research candidate only** | No Needle runtime dependency or production scene integration found in the current package/import scan. | No WFM benchmark or migration evidence. | Historical recommendation only. The current owner direction is Orbital Engine-only; see the renderer rebuild directive. |
 
 ## Repository and release context
+
+> Historical inventory: this document's engine-selection recommendation below
+> predates the owner's Orbital-only rendering correction. The current target and
+> migration gates are in
+> [ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md](ORBITAL-ENGINE-ONLY-RENDERER-REBUILD.md).
 
 At audit time, the working tree was clean on
 `integration/infinite-war-orbital-combat`, at `bebb860`. The local `staging`

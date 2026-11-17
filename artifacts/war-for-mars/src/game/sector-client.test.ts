@@ -18,6 +18,10 @@ test("feature is off in production unless explicitly enabled, on in development"
 test("client keeps compatibility protocol by default and pins opt-in snapshots to Orbital rules", () => {
   assert.equal(sectorClientProtocolVersion({}), 1);
   assert.equal(sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "TRUE" }), 1);
+  assert.equal(sectorClientProtocolVersion({ DEV: true }), SECTOR_ORBITAL_PROTOCOL_VERSION);
+  assert.equal(sectorClientProtocolVersion({
+    DEV: true, VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "false",
+  }), 1);
   assert.equal(
     sectorClientProtocolVersion({ VITE_WFM_SECTOR_ORBITAL_PROTOCOL_V2_ENABLED: "true" }),
     SECTOR_ORBITAL_PROTOCOL_VERSION,
@@ -73,6 +77,78 @@ test("snapshot parser accepts typed snapshot and rejects others", () => {
     ...orbitalSnapshot,
     simulation: { ...ORBITAL_SECTOR_SIMULATION_CONTRACT, extra: true },
   }, SECTOR_ORBITAL_PROTOCOL_VERSION), null);
+  const factionContact = {
+    actorFaction: "accord", stage: "investigating", action: "scan", reason: "passive_contact",
+    territory: "contested", transponder: "broadcast", distanceMeters: 1500, sensorRangeMeters: 2100,
+    speedMetersPerSecond: 0, lineOfSight: true, weaponsHot: false, targeting: false, enteredAtTick: 3,
+  };
+  const evidence = [
+    { id: "pale-beacon-record", title: "PALE BEACON RECEIVER HISTORY", position: { x: 620, y: 210, z: -740 }, state: "available" },
+    { id: "earth-first-response", title: "EARTH RELAY PACKET", position: { x: 1260, y: 390, z: -1510 }, state: "available" },
+  ];
+  const paleBeaconsSnapshot = {
+    ...orbitalSnapshot, missionId: "pale-beacons", phase: "active", factionContact, evidence,
+  };
+  assert.ok(parseSectorSnapshot(paleBeaconsSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot,
+    evidence: [{ ...evidence[0]!, id: "first-witness-trace" }, evidence[1]],
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the server only exposes the two Pale Beacons recovery sites");
+  assert.equal(parseSectorSnapshot({
+    ...orbitalSnapshot, missionId: "rust-disc", evidence,
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "evidence contacts cannot be injected into another mission");
+  assert.equal(parseSectorSnapshot({ ...snap, missionId: "pale-beacons", evidence }, 1), null,
+    "compatibility snapshots cannot inject Orbital evidence sites");
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot, factionContact: { ...factionContact, actorFaction: "ussf" },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the opposing contact cannot claim the player's faction");
+  assert.equal(parseSectorSnapshot({
+    ...paleBeaconsSnapshot, factionContact: { ...factionContact, enteredAtTick: 4 },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "contact state cannot claim a future server tick");
+  const universePatrolSnapshot = {
+    ...orbitalSnapshot,
+    missionId: "universe-patrol",
+    phase: "lobby",
+    patrolApproach: {
+      distanceMeters: 619.52,
+      engagementRangeMeters: 180,
+      combatAuthorized: false,
+    },
+    hostileFleet: {
+      patrolId: "strategic-patrol-v1:mars-orbit:accord:0",
+      callsign: "ASHEN SPEAR",
+      locationId: "mars-orbit",
+      faction: "accord",
+      ships: [{
+        actorId: "patrol-ship:strategic-patrol-v1:mars-orbit:accord:0:ship:0",
+        shipId: "mandjet",
+        callsign: "ASHEN-1",
+        position: { x: 20, y: 140, z: -500 },
+        hull: 110,
+        maxHull: 110,
+        destroyed: false,
+      }],
+    },
+  };
+  assert.ok(parseSectorSnapshot(universePatrolSnapshot, SECTOR_ORBITAL_PROTOCOL_VERSION));
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: { ...universePatrolSnapshot.patrolApproach, distanceMeters: 181, combatAuthorized: true },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the client cannot contradict the server's 180m range calculation");
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: { ...universePatrolSnapshot.patrolApproach, distanceMeters: 179, combatAuthorized: false },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the server range decision must match its reported distance");
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    patrolApproach: undefined,
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "patrol combat requires a server approach snapshot");
+  assert.equal(parseSectorSnapshot({
+    ...universePatrolSnapshot,
+    hostileFleet: { ...universePatrolSnapshot.hostileFleet, faction: "ussf" },
+  }, SECTOR_ORBITAL_PROTOCOL_VERSION), null, "the contact must oppose the selected hull's faction");
+  assert.equal(parseSectorSnapshot({ ...snap, factionContact }, 1), null,
+    "compatibility snapshots cannot inject Orbital faction decisions");
   assert.ok(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: true, tacticalCommands: true } }));
   assert.equal(parseSectorSnapshot({ ...snap, capabilities: { vectorDrift: "yes" } }), null);
   const command = {

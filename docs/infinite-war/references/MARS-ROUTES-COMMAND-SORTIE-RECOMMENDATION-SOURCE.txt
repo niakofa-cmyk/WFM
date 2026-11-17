@@ -1,0 +1,641 @@
+Yes. I believe the Mars routes, command structure, sortie missions, and campaign storyline need a coordinated redesign—not merely a wording update. They should all express one coherent war unfolding inside the same persistent, explorable universe.
+
+The key distinction is that we should not turn the game into a collection of disconnected missions that happen to use the Orbital Combat Engine. The storyline should give players a reason to explore, discover, travel, fight, escort, defend, build alliances, and influence events across Mars and eventually the wider universe.
+
+I would preserve useful existing missions and route identities, but reassess their purpose, sequence, geography, command authority, objectives, and gameplay consequences against the new vision. I'll inspect the current repository documentation before prescribing exactly what to rebuild.
+
+## What the updated repository tells us
+
+
+
+Repository inspected
+
+`niakofa-cmyk/WFM` · staging · `3663e144938ba931cccaa624004814ab0fd65ff1`
+
+
+
+The important finding is that the repository currently contains several partially overlapping versions of the game's story and mission structure. There are good foundations, but they do not yet describe one unified campaign running through one Orbital-exclusive universe.
+
+### 1. The storyline and mission chain are not fully aligned
+
+The current campaign in `artifacts/war-for-mars/src/game/campaign.ts` has four sorties:
+
+1. Contact — break the defending wing at Rust Disc and recover a route key.
+2. Beacon — secure two of three Pale Beacons.
+3. Warden — destroy the Warden on the night side.
+4. Cage — intercept or escort the transport carrying Eon Dusk through Dust Lane.
+
+That sequence has a compelling mystery: the signal predates the USSF–Accord conflict, the Warden was ordered to erase evidence, and the cage is connected to a signal beneath Mars.
+
+But the separate co-op sector mission system in `artifacts/war-for-mars/src/game/sector-missions.ts` defines a different progression:
+
+- Rust Disc → Mars Approach → Pale Beacons.
+- Iron Eclipse is independent, with no prerequisite.
+
+These are not yet two views of one coherent campaign. The campaign's Warden and Cage story beats are not represented in that co-op sector chain, while Iron Eclipse is not properly positioned within the narrative sequence.
+
+### 2. The current route system is too mission-instance oriented
+
+The sector definitions reuse `RUST_DISC_SECTOR` as their starting geometry. They assign different relay, extraction, and drone positions, but use a shared Mars position and radius.
+
+That is useful for building and testing bounded co-op encounters. It is not yet a representation of the continuous Mars environment we envision.
+
+For example, Mars Approach is explicitly described as an orbital survey where surface landing is not part of the flight. That is a valid current implementation boundary, but the future route design must support a much richer journey: orbital arrival, planetary circumnavigation, high and low orbit, atmospheric entry when implemented, surface destinations, stations, and onward travel.
+
+### 3. Commands are tactical, not yet a full military command system
+
+The current co-op command vocabulary is:
+
+- Attack
+- Defend
+- Escort
+- Regroup
+
+Iron Eclipse adds orders for its three-ship AI wing and target selection among point defense, shield array, and reactor.
+
+These are useful mechanics, but they are not yet the command structure for a military space-war game. They need to grow into a system that connects:
+
+- Strategic command and campaign objectives.
+- Fleet and squadron tasking.
+- Wingman and AI behavior.
+- Escort, interception, reconnaissance, rescue, suppression, defense, and extraction.
+- Tactical target assignment and subsystem priorities.
+- Dynamic orders that respond to what is happening in the shared world.
+
+The distinction matters: an order should not just change a label on the HUD. Where implemented, it should cause the appropriate server-authoritative ships, objectives, and mission state to respond.
+
+### 4. The architecture documents themselves need correction
+
+The current `docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md`, `STRUCTURAL-REBUILD-ROADMAP.md`, and `ARCHITECTURE-ASSESSMENT.md` still describe Three.js as the production runtime or presentation foundation.
+
+That conflicts with your clarified direction. Orbital Combat Engine must be the exclusive game engine and runtime, including native rendering and simulation. React can remain the interface layer; existing backend services can remain responsible for identity, authoritative multiplayer, persistence, and progression. Three.js is reference material only, not a runtime fallback.
+
+The storyline and mission redesign must be written against that corrected architecture, not the older renderer assumptions.
+
+## The redesign I recommend
+
+I would establish one canonical system with four connected layers:
+
+| Layer                  | What it represents                                              | What the player experiences                                             |
+| ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Story campaign         | The unfolding USSF–Accord conflict and the mystery beneath Mars | Narrative chapters, revelations, consequential decisions                |
+| Universe navigation    | The actual connected geography of the universe                  | Free flight, routes, destinations, discoveries, travel                  |
+| Operations and sorties | Military missions that occur within that geography              | Patrols, escorts, strikes, rescues, fleet battles, exploration          |
+| Command and control    | The orders and authority used to coordinate the operation       | Command briefings, squadron orders, wingman commands, target priorities |
+
+These layers should be connected, but not confused. A route is not a mission. A mission is not a separate map. A command is not merely a mission description.
+
+### How I would redesign the Mars story
+
+I would preserve the existing names and their narrative value, while changing how they connect to the world.
+
+[Abandoned Space Station Challenge | CG Boost](https://images.openai.com/static-rsc-4/8D6EpjWMYFZIeubtM9ryzkf7FBgQGvM3efoMcnI1VbdVs_zIBm9FD6xmzHiEr5jj1eGYihyKkWi0wpMbP1kYN-b0SRLjaUlSwXv8qeeH677O9MKdxgE3a7BB-bYmByms9UVQa2nTbVk0fTHLm_8ObfjaMZw0c1Bizgq1wh8A51Q?purpose=inline)
+
+Chapter I — The Silent Frontier
+
+Rust Disc becomes a genuine frontier region. Players discover damaged relays, missing convoys, abandoned military assets, and the first anomalous signal. Contact is the opening operation, not simply a timed arena fight.
+
+[NASA's MAVEN Orbiter Loses Contact Behind Mars, Recovery Efforts Underway](https://images.openai.com/static-rsc-4/_abDKIRu1dU9Tb7t8lpuWYZXlEbSWwbIbVD5WStnDSnf_uMojAWktuQjBsGYaVCxcW4r8hb17N6Igvzm_Nkdw-NP6q7DBYsYjRXdWDMA4P89anv0Ix5nveZ_Z1-DrwHbZqCLOSP535tKctlQfHGya2WxDOLR54VS1vRQcWKA1PM?purpose=inline)
+
+Chapter II — The Mars Arrival
+
+Mars Approach becomes a navigable orbital corridor. Players encounter patrols, defense networks, debris, traffic, reconnaissance opportunities, and multiple destinations. The map should lead naturally into the planet's wider geography.
+
+[The All Powerful Force of Vril Energy in Nature | by Vrilya Jarac | Medium](https://images.openai.com/static-rsc-4/Xqbca8hulYIQHYpJQ9Dp9M8-nd8TA1UqaNh-TrYrxk8MicbPZBWrPe1FjI0TF1spywO419tEpUP5P-FETzmECCQ2rQsoPEiYYm4YeZwsgrDqxoZnIeIMdwkrZ-JEFBoLms1TwDei4PaFhpz0c0Rl5RNKXk3hv8c21vBH0WUos4E?purpose=inline)
+
+Chapter III — The Pale Beacon Conspiracy
+
+Pale Beacons becomes an investigation network. Players triangulate signals, repair arrays, encounter false transmissions, defend research teams, and discover that the signal predates the current war.
+
+[Steam Community :: STAR TALE: Odyssey One](https://images.openai.com/static-rsc-4/b2jyFtnKpYeUTMSmtPh7UR8k5_jO5ErYOrVQVG1ZD26AjerlYQQd5kYUHZBeraU74MrJvbh9Px-XeAZyYWCGfLarqYDCMF6yWy0wokCSuqYRHIXNcSxoBcokgx4C-SKPKztEozYsEo0XBdcjyt9E9JcknT_UZbYYxw6A8T8cRFc?purpose=inline)
+
+Chapter IV — The Night-Side Blockade
+
+Warden becomes a major command operation. The player travels across the day/night boundary, investigates the blackout, identifies the blockade's real purpose, and decides how to deal with the forces controlling the station.
+
+[Star Citizen Alpha 4.6 Incoming: RSI Hermes, PTU Economy Tweaks, and the New 2026 Patch Rhythm | Elyxir](https://images.openai.com/static-rsc-4/cqn7DyaSDc9J9z712Ms_qMznqGHmnoCpKFCxBkhTYrjTYtDUufoYVqLXv9FD56q6qEySNithx6ksXk6KGa8ZJ13U27ST1xvzujIgyU5DpqJz09LmBEzcZ6xCrARMcaENPJ1VbzusUVFDDyauFly2dvr19gCb7tXFREKebtS-k9c?purpose=inline)
+
+Chapter V — The Eon Dusk Extraction
+
+Cage becomes a multi-stage pursuit and rescue operation. Intercept, escort, protect, disable, board or recover where supported. The recovered intelligence reveals that the conflict has a deeper origin.
+
+[何となく作ったヤマト二次創作年表(2)｜creatrail](https://images.openai.com/static-rsc-4/yrQQcLbbkpx4a_JfFzphtMcJqpkPXKwAurF1jNtyPUVksDKB58kqHNgUSsQbOac7c7DUf9hg6tcAO_lL5h4qzu28TSnaaE8xd-9TExYqpqe5jF6lzy7DqkOUIJW72DNK26a4xqC6nnAAR_NQ1QYtKOh6y_41L0qIv4OjeuIBGV8?purpose=inline)
+
+Chapter VI — Iron Eclipse
+
+Iron Eclipse becomes a major fleet operation integrated into the campaign. It should have a strategic reason to occur at that point in the war, with capital-ship subsystems, escort wings, fleet coordination, reinforcements, and extraction.
+
+[Aurion Theta: Where Reality Unravels](https://images.openai.com/static-rsc-4/ynQ-GfLlbBlfDkeuUuJaFeIACo_KpoMLR1nPatWChHwj8EkMmKtK2xsLjzvFFLs7qDC-cjW_y_6qHe5EpFFFGjHpXUNXpRvopKGlQJoLNMM-q_kiDFa5SRtrfXSNw1mG-w1Njuvhg5PqdhUy2U9s7nGRA-cLUUQ6NR1QnsVyXLQ?purpose=inline)
+
+Chapter VII — Beyond the Signal
+
+The mystery beneath Mars becomes the bridge into the larger universe: new systems, dimensions, civilizations, anomalies, and conflicts. Mars remains a meaningful home theater, not the boundary of the game.
+
+This is a proposed narrative structure, not a claim that these chapters or environments already exist. The original story's central mystery should be preserved and expanded, not overwritten.
+
+### What the map should become
+
+The map needs to be a living military and exploration interface, not a list of mission cards.
+
+[The Dawn of Autonomous Space Exploration: Agentic AI and a Grok-4, a powerful, large language model, Powered Vision for Mars Mission Planning | by Frank Morales Aguilera | AI Simplified in Plain English | Medium](https://images.openai.com/static-rsc-4/y7iIt-Hc1XVkipp2ArMHphUg9OIySLCyRdhBWjJrOF1SysrwRvAaagxyXshESC0niEIOBLCoNm_Ezwne3HUBV1Re83UX45qwMONdGRFaU22Lx0GZ6uYJREu7oRCI4FcVBIxtcKYXpg0jOTa5ViO0EZ8AABHXYfk-2pv_TKAbUdQ?purpose=inline)
+
+[4X Space Strategy Game: Explore and Conquer | Aleryos](https://images.openai.com/static-rsc-4/RHTZTGJen10v30Y8SEn1GvjpWyYVNxlDG59q4sJYeDr8kUhMiqNpv4kAFS56H5k40aIl8FqHcrTTI-6LEkrPE0YP9PIjso0MIKkSb65QbM1pjDt9QeojkilZkpIFjjWri7PQlaciw_tAO0D7Ds0cpGWYWPCDJtz4Ns2KEWRdeE4?purpose=inline)
+
+[Actualités Aleryos : mises à jour et événements | Aleryos](https://images.openai.com/static-rsc-4/6z6flkIbubZVr0V4mkIRm4dkJYoVp28SULDIJR7W4tyKmFmHhQ2uPQoompcqLl1f_ZARkGPKLHEdknRdDqa8S8R7J49UJeElc8JS4dTe87cmcr0be6_QY8--L8l7OXENfTsFO4DkihxHthpi4CEbye1ou5nFMXdSZlpvpBAEN18?purpose=inline)
+
+[The Astronaut - UI Design - Studio Vais](https://images.openai.com/static-rsc-4/2fAu3Fq50UtOgAFxB5An5TAg2Kxl0fw5A-400fpjXyClVx_tp9WMrH1aj2hL7mtXZLlEpj2Dwn16nOmAQ3bYBFh0k8riTutH3Bg_IBG89vCjv-6ff2iiU-Zohq8O_aUfdDW-1BCW57D_bIKF-X2XrKopUKsLit4Y07psQCHVRxM?purpose=inline)
+
+[Interplanetary Stealth Drifting. The Science of The Expanse, Episode 11 | The Expanse Blog](https://images.openai.com/static-rsc-4/pjppIXCLMAGIvj1_XDC0eOvUbhrbCjoVgLWVMnSv0zWCUlOZVMPsBTJT6tcf6OU_u5Hp2q6irTKWdrXjOmJ7rJbDsKNujZnmN2kxtz-xWbBCZciB3W6MXSgtRMSnl192bLU7g22oopOv-robXp4jKXpzb9Y7hUh3JYasD4P0M40?purpose=inline)
+
+[Category:Squadron 42 images - Star Citizen Wiki](https://images.openai.com/static-rsc-4/q8HTz7SZwAJu95p2PJAqS8KKpMIGIePT0b2AcmSXeXrxZtI3l0KD_xVQKdMr4QdjZFw3YLG_w-c8cQdPvuf92YsAPxfbMKtm9Cc5Tb3b2RmoIQm_JMxsq-KeFROf1FTY_s40VZY37voEPs9uZaEFv5N2LdB1vDC1Gk5DK4ihb_k?purpose=inline)
+
+[Star Fox Switch 2 Wiki - Guides, Modes, Characters, Release Info](https://images.openai.com/static-rsc-4/3RE9LCD0EEJFzWZkDDWY4-LMj6ujhTkH0XB396YMvfoZBY77fQLnelpqCHH86uL23r6zQNSjtL5fWFRl17xHl16WHlnIzUt3IrJjk6umVjOSkwphmEMu_DzMb1TSA02dBv4znfsFnawmoTvxU80HRsyYNI9zvC6dAamUx3a8_xc?purpose=inline)
+
+[Halo Wars 2 :: Behance](https://images.openai.com/static-rsc-4/Dk93-YrkFddQ95T9CAiWxC8PkHCgXpv2cGV0iQeFrwEv4FOXWy4hSi98Y2_2-puWzGpmUBK3llj_OxloWqL0GuRjdHvTfF8le7ltRQTOAO9SgnUFnr7yfA0E6w71nXp8x84CCOlum02MBpj7GtwB6_52hepTGZYyGmsikUUKmAE?purpose=inline)
+
+[深度对话尼基塔：我的新作不是“第二款塔科夫”，是未来世界 - 资讯 - 游戏日报](https://images.openai.com/static-rsc-4/mi0IRouXKMizAm1mFHG9XR56AE9Zb4rU_XKPEObeZX1WYjt3DH5kCja63WrYaONE2no9hhD8qimu-Jr2iiB0LAumNAS-RGWyCYKwFibR55nx_nrAdbBGJhI1xD8Sk8qWs-6u2iA13a83fbL6XTUyldbdi7HKfsSS63rIf7fTz84?purpose=inline)
+
+[The Martian - UI Screen Graphics :: Behance](https://images.openai.com/static-rsc-4/MjxZKhjT0CqDpki63iKewIAJbfnMWC0Na3FT1F4zIG7hsTBxBlL9Z0PhzEKDooL6lKj4M4HtmSiq7YywK7kHLE9GDX3MeO3bT3veLDS5W9_lYwMQk5tOFGs5pbmIJbgjR07v4oGai0JW_s0ZJRm4nt5DK0RkhnFK40HC6oC2Jho?purpose=inline)
+
+[MENACE (2026) - release date, videos, screenshots, reviews on RAWG](https://images.openai.com/static-rsc-4/xkEm--buUCd92LgClVGSu241E0hYxcLDrqcF3bC9DCtoAaVpa7pl77L6VAffQlx2xhMH0XsZnF6HzpPWA4qYA5gS-ljfbMqnCwyd_4kX40pm73RGZt0doB8z4PZrioYF23dVzxv-8otFeFqK3uTamxHNwJwQsjj2fQveZBJriog?purpose=inline)
+
+[Battlestar Galactica Deadlock: The Broken Alliance           -            A Wargamers Needful Things](https://images.openai.com/static-rsc-4/C6D3kzD5ssec9-8NZvTHjCZU0GJd11AOMGZGeCEa9ke7Uy-_IhrHXQP9TgCe1X7mshwBKd_TGWsMoCka_aVszGszYRZeeXaEn2dQvbDXZMEbE7v1xCroAwswSqZHWNa6QwGh8kSs41djpbbZit6SoHrtHQ2bDqt1nd2CzLCHDQY?purpose=inline)
+
+[FUI :: ROBYN HADDOW](https://images.openai.com/static-rsc-4/V0wnvbctiStAlp8lF-MbhCgud-e0CLFO1Jes-XR0zbGDU4kRkPv55NmOMSLbHx35ZYcMz9rFvPrxSUXl0kNDEgX3IyfUeEiGJpKggiXWFCbWKiHosos0woaTC44AlevOQz3R-0oLCUITAGHRDjtJ9-fKCNnJ1b6cYmI1kMk6j_s?purpose=inline)
+
+[Indie Freaks NEBULOUS: Fleet Command](https://images.openai.com/static-rsc-4/6_wTTvV0ZhK5GmhYiOt6rHfu5bbBi26kwYfR9Ox4-aBxGEZUZ3zZUdxPTr47iiK42eWgeUWobv7_-chOPvCrG9kpK5ZnOfu53u47OHAiJs0S4SkbCgGbn3OgoX72YtUszSnZFCPXtwLyhfHDJ08hCrDlvBzH9WfFnMZsfnFl5qU?purpose=inline)
+
+[Lessons from The Expanse: In Space, No One Complains About the Documentation | by Evan Warfel | kineviz-blog | Medium](https://images.openai.com/static-rsc-4/aNY3wYSr6ezTjxHd3KXLmEpy6szxQcX8pdWDoLdkkF5WIH4dr7Ma_atSWpBpBFbybhagvOzxtKVkBLgWK2rQCzKFbbMOVihXYVjZzklJEvlfqUqabwxAVYn-fzaHMrhYQDOcv-sElJeqZ5jo_XZ8FERGek6q7kagccHMfCOyi6g?purpose=inline)
+
+[Space station in planet Mars orbit. Space exploration. UI interface HUD. Mars - High resolution beautiful art presents planet of the solar system. This image elements furnished by NASA. Outer space exploration with Mars, the red planet. stock photo](https://images.openai.com/static-rsc-4/3bcxFlmP8jY3JEOrYFs-A2dlCwwdcoddGztfRYSGKbhCVQ83XReFOEdEWDWIuCwFS3zSoyuNfjNdoY1l02sLtBM7cF3JIyiJchbhdD_r82iWYGTIoBelc4HwFWnj5MvVeQZTOvs28JtiT2KVimjRJenQ7DHHQ8D_kf4VJjOazur2Bn1270OJmmsq98BYlNvD?purpose=inline)
+
+It should have three useful views:
+
+1. Navigation map: where the player is, where they can travel, distances, destinations, orbital corridors, planetary regions, and discovered locations.
+2. Operational map: active conflicts, distress signals, patrols, escort requests, enemy activity, fleet movements, and available operations.
+3. Strategic command map: faction objectives, supply networks, contested regions, campaign progress, and server-confirmed consequences.
+
+The same destination should appear consistently across all relevant views. A strategic map marker must not imply a playable destination if that location has not been built.
+
+### What sortie missions should become
+
+Instead of only offering a small set of fixed combat goals, build a reusable operation framework. Each operation should have:
+
+- A narrative reason and issuing authority.
+- A geographic location in the shared universe.
+- A primary objective and optional objectives.
+- A sequence of phases and conditional branches.
+- Player, human squadron, and AI roles.
+- Enemy composition and reinforcement rules.
+- Time, distance, threat, and extraction conditions.
+- Dynamic events and possible complications.
+- A debrief that reports what actually happened.
+- Server-validated consequences, discoveries, and rewards.
+
+That framework should support escort, interception, convoy defense, reconnaissance, search and rescue, suppression, capital-ship assault, patrol, salvage, anomaly investigation, station defense, and multi-stage fleet operations.
+
+An escort mission, for example, should not simply spawn a ship and tell the player to stay nearby. The convoy should travel through a real route, face plausible threats, have damage and survival states, receive changing orders, and reach a meaningful destination. The player should be able to make tactical choices that change the outcome.
+
+## Master prompt for the development team
+
+I would give the developers this as the governing assignment. It directs them to audit the existing narrative and gameplay first, then redesign the entire command, map, route, and mission experience as one connected system.
+
+# WAR FOR MARS: INFINITE WAR
+
+## Master Storyline, Universe Navigation, Military Command & Mission Rebuild Directive
+
+### Mission
+
+Reimagine and align the complete WAR FOR MARS: INFINITE WAR storyline, campaign, military command structure, Mars navigation map, universe map, travel routes, sortie missions, escort operations, cooperative missions, fleet operations, and dynamic world events.
+
+The objective is to transform the existing collection of campaign sorties, co-op sectors, command screens, world activities, and navigation systems into one coherent, continuously expandable, multiplayer science-fiction war universe.
+
+**The universe is the battlefield. The storyline gives the war meaning. The map gives the universe geography. Routes give players freedom to travel. Operations give them purpose. Commands give them the ability to coordinate and influence events.**
+
+All of these systems must operate within the same game world and the same Orbital Combat Engine runtime.
+
+### 1. Non-negotiable engine architecture
+
+Orbital Combat Engine is the exclusive main game engine and runtime.
+
+- Orbital must own native rendering, 3D world representation, planetary environments, flight, physics, combat, camera, effects, spatial simulation, world streaming, and multiplayer simulation integration.
+- React may provide the application interface, hangar, menus, command panels, HUD, and supporting navigation UI.
+- Existing backend services may continue to provide identity, authenticated sessions, authoritative multiplayer, persistence, progression, and rewards.
+- Three.js is research/reference material only. Do not retain it as a renderer, secondary runtime, fallback engine, or separate universe application.
+- Inventory useful existing Three.js capabilities and reimplement them as Orbital-native capabilities before retiring reference implementations.
+- Do not create a parallel mission, player, identity, progression, inventory, or reward system.
+
+Do not design the new gameplay around a renderer or runtime that contradicts this architecture.
+
+### 2. Establish one canonical storyline
+
+Audit every existing narrative source, attached owner-provided document, campaign, sortie, mission briefing, dispatch, recovered intelligence record, faction description, operation, and universe event.
+
+Identify:
+
+- The canonical conflict and its historical background.
+- The USSF and the Accord of Dharma and Ma'at.
+- The role of Eon Dusk.
+- The origins and purpose of the mysterious signal.
+- The relationship between the Rust Disc, Pale Beacons, Warden, Cage, and the signal beneath Mars.
+- The purpose and chronological position of Iron Eclipse.
+- The transition from the Mars conflict into the larger universe.
+
+Preserve established story material and recognizable mission identities. Do not casually discard, contradict, or overwrite the owner's original storyline.
+
+Produce one authoritative story bible containing:
+
+- Universe history and chronology.
+- Faction motivations, leadership, doctrines, and relationships.
+- Major characters and their motivations.
+- Important locations and their history.
+- Campaign chapters and narrative revelations.
+- Major conflicts and their causes.
+- Branching decisions and their consequences.
+- The mystery connecting Mars to the extended universe.
+- Narrative continuity rules and terminology.
+
+The narrative must be coherent, expandable, and capable of supporting ongoing multiplayer world events.
+
+### 3. Rebuild the campaign as a connected narrative
+
+Reevaluate the existing Contact, Beacon, Warden, Cage, Rust Disc, Mars Approach, Pale Beacons, and Iron Eclipse content.
+
+Determine how the campaign and cooperative operations should connect.
+
+The existing story should become a coherent sequence of chapters, operations, investigations, and discoveries.
+
+Do not simply rename the existing missions.
+
+For every existing mission, determine:
+
+- Its actual place in the chronology.
+- Why the mission occurs.
+- Who issues the orders.
+- What the player is expected to discover or accomplish.
+- How it advances the larger story.
+- What becomes available afterward.
+- What changes in the universe if it succeeds or fails.
+- Whether it is a campaign-critical operation, repeatable operation, optional discovery, dynamic event, or training activity.
+
+Create a narrative progression model that supports both structured story advancement and unrestricted universe exploration.
+
+The main story should guide players without preventing them from exploring elsewhere.
+
+### 4. Rebuild Mars as a continuous playable theater
+
+Mars must become the first major living planetary theater in the extended universe.
+
+Design its geography and navigation around:
+
+- Planetary orbit and high-orbit corridors.
+- Low-orbit navigation.
+- Phobos and Deimos where supported.
+- Orbital stations and shipyards.
+- Debris fields and salvage corridors.
+- Day-side and night-side regions.
+- Planetary circumnavigation.
+- Atmospheric entry and surface travel when implemented.
+- Surface bases, military installations, research sites, and settlements.
+- Subterranean destinations and the mystery beneath Mars.
+- Dynamic faction-controlled and contested regions.
+
+A player should be able to travel continuously from the daylight side into darkness and back toward daylight, without artificial mission transitions or unexplained position resets once that capability is implemented.
+
+Establish correct coordinate frames, planetary rotation, location transforms, world streaming, LOD, floating origin, collision boundaries, and server-authoritative region transitions.
+
+Do not present separate fixed mission arenas as a continuous planetary world.
+
+### 5. Redesign the route system
+
+Routes must become geographic and operational data, not merely mission names.
+
+Create a canonical route definition with:
+
+- Unique route ID and version.
+- Origin and destination.
+- Parent celestial body, system, and region.
+- Geographic corridor or navigable volume.
+- Waypoints and points of interest.
+- Navigation constraints and hazards.
+- Faction presence and threat information.
+- Available services and destinations.
+- Dynamic event opportunities.
+- Discovery opportunities.
+- Branches and alternate travel paths.
+- Operation availability and prerequisites.
+- Streaming and server-authority boundaries.
+
+Routes must guide players without confining them to predefined mission tracks.
+
+Reevaluate the existing route identities:
+
+- Rust Disc: frontier debris, relay recovery, convoy black boxes, salvage, distress calls, and patrol encounters.
+- Mars Approach: orbital arrival, traffic, debris, reconnaissance, defense grids, and onward planetary navigation.
+- Pale Beacons: signal triangulation, repair arrays, research expeditions, sensor shadows, and anomaly investigation.
+- Night-side Station: daylight-to-darkness travel, station recovery, rescue, and communications restoration.
+- Dust Lane: debris navigation, stealth, interception, escort, and salvage.
+- Below the Signal: a connected mystery involving orbital, surface, and subterranean discoveries when those environments exist.
+- Phobos Yard: a functional 3D military and commercial hub with docking, refit, logistics, markets, supply, and squadron services.
+- Outer Fringe Anchorage and Deep Nebula Observatory: later expansion destinations.
+- Iron Eclipse: a major fleet operation with strategic context and persistent campaign relevance.
+
+Preserve names where useful, but redesign their actual geography, gameplay, and relationships.
+
+### 6. Rebuild the universe map
+
+Create a layered map system with three coordinated views.
+
+**Navigation view**
+
+- Current location and heading.
+- Destinations and travel corridors.
+- Distances and navigation estimates.
+- Planetary and orbital geography.
+- Discovered and undiscovered locations.
+- Docking, travel, and service destinations.
+
+**Operational view**
+
+- Active operations and available sorties.
+- Distress calls and rescue requests.
+- Patrols, escorts, convoys, and hostile activity.
+- Enemy installations and strategic objectives.
+- Dynamic events and environmental hazards.
+- Squadron presence and relevant mission boundaries.
+
+**Strategic command view**
+
+- USSF and Accord positions.
+- Confirmed faction influence and contested regions.
+- Fleet deployments and supply networks.
+- Strategic objectives and campaign developments.
+- Confirmed world consequences and active warfronts.
+
+Every map marker must represent real, correctly classified world data.
+
+Distinguish discovered, available, active, completed, contested, inaccessible, and unimplemented destinations.
+
+Do not label cached snapshots as live world state.
+
+### 7. Establish a complete military command hierarchy
+
+Redesign the command experience around a coherent military structure.
+
+Create clearly differentiated authority levels:
+
+1. Strategic command: theater objectives, campaign directives, fleet deployments, and strategic priorities.
+2. Fleet command: capital ships, carrier groups, escort formations, and fleet objectives.
+3. Squadron command: multiple wings, assigned sectors, and coordinated operations.
+4. Wing command: pilot assignments, formation behavior, and tactical objectives.
+5. Tactical control: targets, subsystem priorities, engagement, defense, escort, regroup, and extraction.
+
+Define which commands belong to the player, the operation host, AI commanders, and server-authoritative systems.
+
+The command interface should communicate:
+
+- Issuing authority.
+- Current order.
+- Assigned unit or target.
+- Order status.
+- Priority.
+- Objective completion.
+- Threat changes.
+- Available alternatives.
+- Consequences of abandoning or changing an order.
+
+Do not grant a player authority they do not actually possess in the operation.
+
+### 8. Expand tactical orders and AI behavior
+
+Preserve the current Attack, Defend, Escort, and Regroup commands, but evolve them into a richer tactical vocabulary.
+
+Evaluate:
+
+- Engage target.
+- Prioritize target.
+- Disable subsystem.
+- Defend position.
+- Escort convoy or vessel.
+- Intercept hostile.
+- Screen friendly formation.
+- Reconnoiter location.
+- Search and rescue.
+- Suppress hostile defenses.
+- Protect capital ship.
+- Attack formation.
+- Hold formation.
+- Break formation.
+- Regroup.
+- Withdraw.
+- Cover extraction.
+- Recover or rescue damaged wingmates.
+
+Where supported, commands must produce actual server-authoritative AI movement, target selection, combat behavior, and objective changes.
+
+Orders should support target references, unit assignments, priority, duration, cancellation, replacement, and validation.
+
+Human pilots retain control of their own ships. Commands coordinate them; they do not silently take over their controls.
+
+### 9. Rebuild sortie and operation design
+
+Create a reusable operation framework capable of supporting:
+
+- Patrol and reconnaissance.
+- Escort and convoy defense.
+- Interception and pursuit.
+- Search and rescue.
+- Relay and station recovery.
+- Sabotage and suppression.
+- Capital-ship assault.
+- Fleet defense.
+- Anomaly investigation.
+- Exploration and salvage.
+- Multi-stage campaign operations.
+- Dynamic cooperative events.
+- Competitive warfronts.
+
+Every operation must define:
+
+1. Narrative context and issuing authority.
+2. Geographic location and route.
+3. Primary objective.
+4. Optional objectives.
+5. Operation phases.
+6. Human and AI roles.
+7. Friendly and hostile forces.
+8. Threat and reinforcement rules.
+9. Environmental conditions.
+10. Success, failure, interruption, and extraction conditions.
+11. Debrief and validated outcomes.
+12. Progression and world consequences.
+
+Support branching objectives and dynamic mission conditions.
+
+For example, an escort operation should involve an actual moving convoy, route, destination, threats, vessel survival, and changing tactical circumstances. It should not be a static target-protection timer.
+
+### 10. Integrate Iron Eclipse into the larger war
+
+Reevaluate Iron Eclipse as a major fleet operation rather than an isolated capital-ship encounter.
+
+Develop a strategic context for:
+
+- Why the capital ship is present.
+- Which faction controls or defends it.
+- What the operation is intended to accomplish.
+- How friendly fleets and AI wings participate.
+- Which capital subsystems matter.
+- How point defense, shield arrays, engines, communications, and reactors influence combat.
+- How reinforcements and changing battlefield conditions work.
+- What happens after extraction.
+- How its outcome affects later operations.
+
+Expand subsystem capabilities only when the Orbital simulation, AI, rendering, and server-authority systems support them.
+
+### 11. Make the universe persistent and responsive
+
+The universe should respond to validated player and multiplayer activity.
+
+Examples:
+
+- A successful convoy escort improves supply availability.
+- A destroyed defense installation changes a route's threat profile.
+- A recovered relay opens new navigation information.
+- A rescued research team provides intelligence.
+- A failed operation creates a new threat or recovery opportunity.
+- A major fleet engagement changes the strategic situation.
+- A discovery unlocks new exploration or narrative content.
+
+These are design goals, not permission to award progress based on client claims.
+
+Only authenticated, server-validated, idempotent results may change account progression, inventory, rewards, faction standing, or persistent world state.
+
+Define rules for contested outcomes, simultaneous operations, faction attribution, replay protection, and recovery.
+
+### 12. Unify all existing game modes
+
+Audit and integrate:
+
+- Campaign and Strike.
+- Cooperative sector flight.
+- Iron Eclipse.
+- Online Wing 5v5.
+- Combat Lab and training.
+- Rust Disc and exploration.
+- Persistent Galaxy and world services.
+- Hangar, Armory, Market, and progression.
+
+These must become different activities inside the same player journey and universe.
+
+Do not claim that separate simulation runtimes or matchmaking systems have become unified simply because they share a menu.
+
+Preserve working account, authentication, socket, reward, and persistence contracts until their replacements pass parity and staging verification.
+
+Training remains offline and no-reward. Competitive reward eligibility remains protected.
+
+### 13. Design the player journey
+
+The player should experience:
+
+1. Introduction to the conflict.
+2. Faction selection.
+3. Hangar and ship preparation.
+4. Initial command briefing.
+5. Departure into the connected universe.
+6. Exploration and first contact.
+7. Operations and tactical coordination.
+8. Debrief and validated progression.
+9. Return to stations, refit, trade, and squadron preparation.
+10. New destinations, campaign developments, and universe events.
+
+Players should be able to leave the main story to explore and return without breaking narrative continuity.
+
+Mobile and desktop interfaces must communicate the same world, commands, and objectives.
+
+### 14. Required development deliverables
+
+Before implementation, produce:
+
+- Canonical story bible.
+- Narrative chronology and chapter map.
+- Existing-story continuity audit.
+- Unified campaign and sortie catalog.
+- Route and geographic data model.
+- Mars planetary navigation specification.
+- Universe map interaction specification.
+- Military command hierarchy.
+- Tactical command and AI behavior specification.
+- Operation framework and objective lifecycle.
+- Dynamic event framework.
+- Persistent consequence model.
+- UI and player journey architecture.
+- Orbital-native technical integration plan.
+- Migration and rollback plan.
+- Feature acceptance and verification matrix.
+
+Identify every existing source file, data definition, route, command, and mission that must be retained, consolidated, migrated, redesigned, or retired.
+
+### 15. Implementation sequence
+
+Proceed in controlled phases:
+
+**Phase A — Forensic audit:** establish the actual current state of all narrative, routes, commands, maps, missions, and engine systems.
+
+**Phase B — Canonical story and world design:** resolve contradictions and produce the story bible, chapter structure, geography, and operation hierarchy.
+
+**Phase C — Unified data architecture:** establish shared route, location, mission, objective, command, event, and world-state contracts.
+
+**Phase D — Mars theater:** build the first coherent Orbital-native navigable planetary theater.
+
+**Phase E — Campaign and operations:** migrate the existing story into the shared operation framework.
+
+**Phase F — Military command and AI:** implement validated commands, squadron coordination, escort behavior, and fleet operations.
+
+**Phase G — Multiplayer and persistence:** integrate authenticated pilots, server authority, reconnect, validated outcomes, and persistent consequences.
+
+**Phase H — Extended universe:** expand to additional systems, celestial bodies, anomalies, dimensions, and larger fleet operations.
+
+Each phase requires a working vertical slice, acceptance criteria, automated tests, and a documented rollback path.
+
+### 16. Acceptance requirements
+
+The redesign is not complete when documentation or screens have been created.
+
+Demonstrate:
+
+- One consistent canonical storyline.
+- One coherent campaign and mission progression model.
+- One shared route and location model.
+- A navigable Mars theater using Orbital-native systems.
+- Continuous travel between verified planetary regions.
+- Consistent navigation and operational maps.
+- Commands that produce the intended validated behavior.
+- AI wing coordination and meaningful escort behavior.
+- Operations that can branch and respond to changing conditions.
+- Authenticated pilots sharing authoritative world and mission state.
+- Persistent outcomes that settle exactly once.
+- A clear distinction between implemented, simulated, planned, and unavailable features.
+
+The first major proof should be a complete Mars operation journey: receive orders, launch, navigate through the actual world, encounter a dynamic event, coordinate with a wing, complete an objective, extract, receive a validated debrief, and see the resulting world and progression state.
+
+### Final instruction
+
+Do not treat this assignment as a cosmetic redesign of the existing command screen.
+
+Reimagine the complete narrative and gameplay relationship.
+
+We are building a living, extended, multiplayer military science-fiction universe in which the player can travel freely, discover the unknown, participate in a larger war, command and coordinate forces, undertake meaningful operations, and influence a persistent universe.
+
+**One universe. One canonical storyline. One Orbital Combat Engine. One connected command and mission architecture. An expandable universe without artificial limits on the player's sense of exploration.**
+
+Work staging-first. Do not merge, deploy to Production, alter Production data, or retire existing production systems without explicit owner authorization.
+
+## My final recommendation
+
+I would make the story bible and unified operation architecture the next design milestone, before expanding the number of missions or ships.
+
+There is one important documentation gap: the current blueprint references original owner-provided master-plan files under `attached_assets`, but those referenced source files were not present in the staging tree I inspected. The repository-maintained blueprint and implementation documents were available. The developers should recover and compare the original source material before declaring the story bible complete.
+
+The first implementation target should be a single connected Mars experience—not seven disconnected chapter screens. Prove the journey from Rust Disc through Mars Approach, Pale Beacons, the night-side mystery, and the Eon Dusk storyline, with Iron Eclipse positioned where the canonical narrative justifies it.
+
+I can next turn this directive into a repository-specific implementation plan, with exact files to change, the mission data model, route schema, command protocol, and acceptance tests, ready for a staging PR.

@@ -8,6 +8,208 @@
 import * as zod from 'zod';
 
 
+export const GetEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const fitEquipmentBodyShipIdMax = 32;
+
+export const fitEquipmentBodyHardpointIdMax = 32;
+
+export const fitEquipmentBodyExpectedRevisionMin = 0;
+
+
+
+export const FitEquipmentBody = zod.object({
+  "shipId": zod.string().max(fitEquipmentBodyShipIdMax),
+  "hardpointId": zod.string().max(fitEquipmentBodyHardpointIdMax),
+  "itemId": zod.string().uuid().nullable(),
+  "expectedRevision": zod.number().int().min(fitEquipmentBodyExpectedRevisionMin)
+})
+
+export const FitEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const recoverEquipmentBodyActorIdMax = 160;
+
+
+
+export const RecoverEquipmentBody = zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string().min(1).max(recoverEquipmentBodyActorIdMax)
+})
+
+export const RecoverEquipmentResponse = zod.object({
+  "revision": zod.number().int(),
+  "catalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'special', 'defensive', 'utility']),
+  "effect": zod.string(),
+  "description": zod.string(),
+  "size": zod.number().int(),
+  "mass": zod.number(),
+  "power": zod.number(),
+  "damage": zod.number(),
+  "ammunition": zod.number().int(),
+  "magazine": zod.number().int(),
+  "roundsPerMinute": zod.number(),
+  "range": zod.number(),
+  "projectileVelocity": zod.number(),
+  "tracking": zod.number(),
+  "lockSeconds": zod.number(),
+  "reloadSeconds": zod.number(),
+  "heat": zod.number(),
+  "durability": zod.number(),
+  "energy": zod.number()
+})),
+  "hulls": zod.array(zod.object({
+  "shipId": zod.string(),
+  "massLimit": zod.number(),
+  "powerLimit": zod.number(),
+  "hardpoints": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "size": zod.number().int()
+}))
+})),
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "equipmentId": zod.string(),
+  "condition": zod.number(),
+  "shipId": zod.string().nullable(),
+  "hardpointId": zod.string().nullable()
+})),
+  "salvage": zod.array(zod.object({
+  "eventId": zod.string().uuid(),
+  "actorId": zod.string(),
+  "equipmentId": zod.string()
+}))
+})
+
+
+export const getGlobalCampaignResponseCompletedOperationsMin = 0;
+
+
+export const getGlobalCampaignResponseProgressPercentMin = 0;
+export const getGlobalCampaignResponseProgressPercentMax = 100;
+
+
+
+export const GetGlobalCampaignResponse = zod.object({
+  "enabled": zod.boolean(),
+  "campaignId": zod.string(),
+  "completedOperations": zod.number().int().min(getGlobalCampaignResponseCompletedOperationsMin),
+  "targetOperations": zod.number().int().min(1),
+  "progressPercent": zod.number().min(getGlobalCampaignResponseProgressPercentMin).max(getGlobalCampaignResponseProgressPercentMax),
+  "phase": zod.enum(['INITIAL_CONTACT', 'BEACON_RECON', 'WARDEN_INTERCEPT', 'CAGE_CLIMAX', 'SYSTEM_VICTORY']),
+  "concluded": zod.boolean(),
+  "finaleEligible": zod.boolean(),
+  "finaleClaimed": zod.boolean()
+})
+
+
+export const ClaimGlobalCampaignFinaleResponse = zod.object({
+  "campaignId": zod.string(),
+  "credits": zod.number().int(),
+  "campaignXp": zod.number().int(),
+  "badge": zod.string(),
+  "shieldMk2": zod.boolean(),
+  "replayed": zod.boolean()
+})
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -889,6 +1091,20 @@ export const executeWorldServiceResponseWorldLocationsItemYMax = 100;
 export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMin = 0;
 export const executeWorldServiceResponseWorldLocationsItemUnlockAfterMax = 4;
 
+export const executeWorldServiceResponseWorldNarrativeItemIdMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemChapterMax = 120;
+
+export const executeWorldServiceResponseWorldNarrativeItemTitleMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSourceMax = 160;
+
+export const executeWorldServiceResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax = 800;
+
 export const executeWorldServiceResponseWorldQuestsItemRequiredClearMin = 0;
 export const executeWorldServiceResponseWorldQuestsItemRequiredClearMax = 4;
 
@@ -982,6 +1198,20 @@ export const ExecuteWorldServiceResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(executeWorldServiceResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1034,6 +1264,20 @@ export const getWorldResponseLocationsItemYMax = 100;
 
 export const getWorldResponseLocationsItemUnlockAfterMin = 0;
 export const getWorldResponseLocationsItemUnlockAfterMax = 4;
+
+export const getWorldResponseNarrativeItemIdMax = 80;
+
+export const getWorldResponseNarrativeItemChapterMax = 120;
+
+export const getWorldResponseNarrativeItemTitleMax = 160;
+
+export const getWorldResponseNarrativeItemSourceMax = 160;
+
+export const getWorldResponseNarrativeItemSynopsisMax = 1200;
+
+export const getWorldResponseNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const getWorldResponseNarrativeItemTranscriptItemTextMax = 800;
 
 export const getWorldResponseQuestsItemRequiredClearMin = 0;
 export const getWorldResponseQuestsItemRequiredClearMax = 4;
@@ -1122,6 +1366,20 @@ export const GetWorldResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldResponseNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(getWorldResponseNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(getWorldResponseNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(getWorldResponseNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(getWorldResponseNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(getWorldResponseNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1132,6 +1390,102 @@ export const GetWorldResponse = zod.object({
   "rewardCredits": zod.number().int().min(getWorldResponseQuestsItemRewardCreditsMin),
   "reputationReward": zod.number().int().min(getWorldResponseQuestsItemReputationRewardMin)
 }))
+})
+
+
+/**
+ * Returns persistent AI patrol formations in the authenticated pilot's current and directly connected world locations. Bounded anonymous ship poses and velocities are projected from the server-owned strategic route clock for presentation only. Human presence remains destination-count-only; this endpoint does not return human identities or positions, create active matches, accept combat outcomes, or grant rewards. Clients cannot choose a region or write patrol state.
+ * @summary Get server-owned patrols and traffic near the authenticated pilot
+ */
+export const getWorldPatrolsResponseCurrentLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemIdMax = 180;
+
+export const getWorldPatrolsResponsePatrolsItemCallsignMax = 40;
+
+export const getWorldPatrolsResponsePatrolsItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteItemMax = 100;
+
+export const getWorldPatrolsResponsePatrolsItemRouteMin = 2;
+export const getWorldPatrolsResponsePatrolsItemRouteMax = 3;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemIdMax = 160;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemNameMax = 80;
+
+export const getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax = 16;
+
+export const getWorldPatrolsResponsePatrolsItemShipsMin = 2;
+export const getWorldPatrolsResponsePatrolsItemShipsMax = 4;
+
+export const getWorldPatrolsResponsePatrolsMax = 128;
+
+export const getWorldPatrolsResponseTrafficItemContactIdMax = 220;
+
+export const getWorldPatrolsResponseTrafficItemLocationIdMax = 100;
+
+export const getWorldPatrolsResponseTrafficItemPositionXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemPositionZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemPositionZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityXMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityXMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityYMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityYMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemVelocityZMin = -100000;
+export const getWorldPatrolsResponseTrafficItemVelocityZMax = 100000;
+
+export const getWorldPatrolsResponseTrafficItemYawMin = -6.284;
+export const getWorldPatrolsResponseTrafficItemYawMax = 6.284;
+
+export const getWorldPatrolsResponseTrafficMax = 512;
+
+
+
+export const GetWorldPatrolsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "currentLocationId": zod.string().min(1).max(getWorldPatrolsResponseCurrentLocationIdMax),
+  "simulationLayer": zod.enum(['strategic']),
+  "patrols": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemIdMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemCallsignMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "objective": zod.enum(['recon', 'route-security', 'escort', 'supply-screen']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemLocationIdMax),
+  "route": zod.array(zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemRouteItemMax)).min(getWorldPatrolsResponsePatrolsItemRouteMin).max(getWorldPatrolsResponsePatrolsItemRouteMax),
+  "ships": zod.array(zod.object({
+  "id": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemIdMax),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "name": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemNameMax),
+  "callsign": zod.string().min(1).max(getWorldPatrolsResponsePatrolsItemShipsItemCallsignMax)
+})).min(getWorldPatrolsResponsePatrolsItemShipsMin).max(getWorldPatrolsResponsePatrolsItemShipsMax),
+  "lastMovedAt": zod.coerce.date()
+})).max(getWorldPatrolsResponsePatrolsMax),
+  "traffic": zod.array(zod.object({
+  "contactId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemContactIdMax),
+  "faction": zod.enum(['ussf', 'accord']),
+  "hullId": zod.enum(['mandjet', 'shakuna', 'sundara', 'tripura', 'duskbreaker', 'sentinel', 'splitter', 'glide']),
+  "locationId": zod.string().min(1).max(getWorldPatrolsResponseTrafficItemLocationIdMax),
+  "position": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemPositionXMin).max(getWorldPatrolsResponseTrafficItemPositionXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemPositionYMin).max(getWorldPatrolsResponseTrafficItemPositionYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemPositionZMin).max(getWorldPatrolsResponseTrafficItemPositionZMax)
+}),
+  "velocity": zod.object({
+  "x": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityXMin).max(getWorldPatrolsResponseTrafficItemVelocityXMax),
+  "y": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityYMin).max(getWorldPatrolsResponseTrafficItemVelocityYMax),
+  "z": zod.number().min(getWorldPatrolsResponseTrafficItemVelocityZMin).max(getWorldPatrolsResponseTrafficItemVelocityZMax)
+}),
+  "yaw": zod.number().min(getWorldPatrolsResponseTrafficItemYawMin).max(getWorldPatrolsResponseTrafficItemYawMax)
+})).max(getWorldPatrolsResponseTrafficMax)
 })
 
 
@@ -1257,6 +1611,63 @@ export const GetWorldOperationsResponse = zod.object({
   "activePilots": zod.number().int().min(getWorldOperationsResponsePresenceItemActivePilotsMin).max(getWorldOperationsResponsePresenceItemActivePilotsMax)
 })).optional(),
   "presenceStatus": zod.enum(['available', 'unavailable']).optional()
+})
+
+
+/**
+ * Returns only the signed-in pilot's latest server-recorded scout result projections. This endpoint is read-only and never grants currency or accepts client-reported combat results.
+ * @summary Recover the authenticated pilot's confirmed scout encounter results
+ */
+export const getWorldExplorationResultsResponseResultsItemSectorIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRuntimeMax = 64;
+
+export const getWorldExplorationResultsResponseResultsItemPolicyIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemFinalTickMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemAssistsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemCreditsAwardedMin = 0;
+
+export const getWorldExplorationResultsResponseResultsItemPatrolIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax = 128;
+
+export const getWorldExplorationResultsResponseResultsItemFingerprintRegExp = new RegExp('^[0-9a-f]{64}$');
+export const getWorldExplorationResultsResponseResultsMax = 10;
+
+
+
+export const GetWorldExplorationResultsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "encounterId": zod.string().uuid(),
+  "missionId": zod.enum(['pale-beacons', 'universe-patrol']),
+  "sectorId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemSectorIdMax),
+  "runtime": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemRuntimeMax),
+  "policyId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPolicyIdMax),
+  "outcome": zod.enum(['completed', 'aborted']),
+  "finalTick": zod.number().int().min(getWorldExplorationResultsResponseResultsItemFinalTickMin),
+  "objectiveCompleted": zod.boolean(),
+  "kills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemKillsMin),
+  "assists": zod.number().int().min(getWorldExplorationResultsResponseResultsItemAssistsMin),
+  "destroyedActorIds": zod.array(zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsItemMax)).max(getWorldExplorationResultsResponseResultsItemDestroyedActorIdsMax),
+  "rewardableNpcKills": zod.number().int().min(getWorldExplorationResultsResponseResultsItemRewardableNpcKillsMin),
+  "creditsAwarded": zod.number().int().min(getWorldExplorationResultsResponseResultsItemCreditsAwardedMin),
+  "patrolId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolIdMax).optional(),
+  "patrolLocationId": zod.string().min(1).max(getWorldExplorationResultsResponseResultsItemPatrolLocationIdMax).optional(),
+  "opposingFaction": zod.enum(['ussf', 'accord']).optional(),
+  "fingerprint": zod.string().regex(getWorldExplorationResultsResponseResultsItemFingerprintRegExp),
+  "recordedAt": zod.coerce.date()
+})).max(getWorldExplorationResultsResponseResultsMax)
 })
 
 
@@ -1403,6 +1814,20 @@ export const travelWorldResponseWorldLocationsItemYMax = 100;
 export const travelWorldResponseWorldLocationsItemUnlockAfterMin = 0;
 export const travelWorldResponseWorldLocationsItemUnlockAfterMax = 4;
 
+export const travelWorldResponseWorldNarrativeItemIdMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemChapterMax = 120;
+
+export const travelWorldResponseWorldNarrativeItemTitleMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSourceMax = 160;
+
+export const travelWorldResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const travelWorldResponseWorldNarrativeItemTranscriptItemTextMax = 800;
+
 export const travelWorldResponseWorldQuestsItemRequiredClearMin = 0;
 export const travelWorldResponseWorldQuestsItemRequiredClearMax = 4;
 
@@ -1495,6 +1920,20 @@ export const TravelWorldResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(travelWorldResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1554,6 +1993,20 @@ export const exploreLocationResponseWorldLocationsItemYMax = 100;
 
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMin = 0;
 export const exploreLocationResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const exploreLocationResponseWorldNarrativeItemIdMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemChapterMax = 120;
+
+export const exploreLocationResponseWorldNarrativeItemTitleMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSourceMax = 160;
+
+export const exploreLocationResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const exploreLocationResponseWorldQuestsItemRequiredClearMin = 0;
 export const exploreLocationResponseWorldQuestsItemRequiredClearMax = 4;
@@ -1645,6 +2098,20 @@ export const ExploreLocationResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(exploreLocationResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),
@@ -1704,6 +2171,20 @@ export const actOnWorldQuestResponseWorldLocationsItemYMax = 100;
 
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMin = 0;
 export const actOnWorldQuestResponseWorldLocationsItemUnlockAfterMax = 4;
+
+export const actOnWorldQuestResponseWorldNarrativeItemIdMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemChapterMax = 120;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTitleMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSourceMax = 160;
+
+export const actOnWorldQuestResponseWorldNarrativeItemSynopsisMax = 1200;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax = 80;
+
+export const actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax = 800;
 
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMin = 0;
 export const actOnWorldQuestResponseWorldQuestsItemRequiredClearMax = 4;
@@ -1797,6 +2278,20 @@ export const ActOnWorldQuestResponse = zod.object({
   "services": zod.array(zod.string())
 })),
   "discoveries": zod.array(zod.string()),
+  "narrative": zod.array(zod.object({
+  "id": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemIdMax),
+  "chapter": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemChapterMax),
+  "missionId": zod.enum(['contact', 'beacon', 'warden', 'cage', 'rust-disc']),
+  "title": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTitleMax),
+  "source": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSourceMax),
+  "knowledgeLayer": zod.enum(['public', 'restricted', 'classified', 'unresolved']),
+  "synopsis": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemSynopsisMax),
+  "transcript": zod.array(zod.object({
+  "speaker": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemSpeakerMax),
+  "text": zod.string().min(1).max(actOnWorldQuestResponseWorldNarrativeItemTranscriptItemTextMax)
+})),
+  "discoveredAt": zod.coerce.date()
+})).describe('Story evidence and dialogue recovered by this authenticated player through server-verified campaign outcomes.'),
   "quests": zod.array(zod.object({
   "id": zod.string(),
   "title": zod.string(),

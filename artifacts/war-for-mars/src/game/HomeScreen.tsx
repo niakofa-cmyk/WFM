@@ -2,7 +2,7 @@ import { menuTip, type MenuAction, type MenuStateId } from "./menu";
 import { ROSTER, SHIPS, type Faction, type Scheme, type ShipId } from "./ships";
 import { TECHS, type TechId } from "./campaign";
 import { ReadOnlyProfileCheck } from "./ReadOnlyProfileCheck";
-import type { Save } from "./save";
+import type { PilotControlLayout, Save } from "./save";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { CommandBackdrop, CommandPanel, FactionMark, PanelLabel, Wordmark } from "./CommandArt";
@@ -10,6 +10,8 @@ import { ShipIllustration } from "./ShipIllustration";
 import { HangarShip } from "./HangarShip";
 import { campaignBriefing } from "./command-briefing";
 import { expeditionFeatureEnabled } from "./sector-client";
+import { OpeningHistory } from "./OpeningHistory";
+import { EquipmentBay } from "./EquipmentBay";
 
 const EXPEDITION_ENABLED = expeditionFeatureEnabled({
   DEV: import.meta.env.DEV,
@@ -23,6 +25,10 @@ type HomeProps = {
   ship: ShipId;
   scheme: Scheme;
   gyro: boolean;
+  pilotControlLayout: PilotControlLayout;
+  onPilotControlLayout: (layout: PilotControlLayout) => void;
+  audioMuted: boolean;
+  onAudioMute: () => void;
   refit: number;
   credits: number;
   tech: TechId | null;
@@ -37,7 +43,9 @@ type HomeProps = {
   refitLabel: string;
   refitDisabled: boolean;
   onAction: (action: MenuAction) => void;
-  onGalaxy: () => void;
+  onEnterUniverse: () => void;
+  universeEntryError: string;
+  onLocalUniverse?: () => void;
   onJoinCompetitiveQueue: () => void;
   onJoinCasualAiQueue: () => void;
   onCancelMatchmaking: () => void;
@@ -61,14 +69,34 @@ type HomeProps = {
 
 export function HomeScreen(props: HomeProps) {
   const { state, onAction } = props;
-  const commandState = state === "MAIN_MENU";
+  const commandState = state === "MAIN_MENU" || state === "ARMORY" || state === "SETTINGS";
+  const [settingsStartTab, setSettingsStartTab] = useState<"controls" | "audio" | "account">("controls");
+  const [armoryStartTab, setArmoryStartTab] = useState<"fleet" | "loadout">("fleet");
+  const openArmory = (tab: "fleet" | "loadout" = "fleet") => {
+    setArmoryStartTab(tab);
+    if (state === "SETTINGS") {
+      onAction("BACK");
+      onAction("ARMORY");
+    } else {
+      onAction("ARMORY");
+    }
+  };
+  const openSettings = (tab: "controls" | "audio" | "account" = "controls") => {
+    setSettingsStartTab(tab);
+    if (state === "ARMORY") {
+      onAction("BACK");
+      onAction("SETTINGS");
+    } else {
+      onAction("SETTINGS");
+    }
+  };
   return (
     <section
       data-testid="home-screen"
       className="relative min-h-dvh overflow-x-hidden bg-void text-bone"
     >
       <CommandBackdrop dense={state === "SETTINGS" || state === "ARMORY"} faction={commandState ? props.faction : undefined} />
-      <div className="wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10">
+      <div className={`wfm-safe relative flex min-h-dvh flex-col justify-between pt-5 sm:px-10 ${commandState ? "wfm-command-shell" : ""}`}>
         {commandState ? (
           <CommandTopBar {...props} />
         ) : (
@@ -80,11 +108,19 @@ export function HomeScreen(props: HomeProps) {
         )}
         {state === "BOOT" ? <Boot /> : null}
         {state === "TITLE" ? <Title onAction={onAction} /> : null}
-        {state === "MAIN_MENU" ? <MainMenu {...props} /> : null}
-        {state === "ARMORY" ? <Armory {...props} /> : null}
-        {state === "SETTINGS" ? <Settings {...props} /> : null}
+        {state === "MAIN_MENU" ? <MainMenu {...props} onOpenArmory={openArmory} onOpenSettings={openSettings} /> : null}
+        {state === "ARMORY" ? <Armory {...props} initialTab={armoryStartTab} /> : null}
+        {state === "SETTINGS" ? <Settings {...props} initialTab={settingsStartTab} /> : null}
         {state === "LOADING" ? <Loading tip={menuTip(props.tipIndex)} ship={SHIPS[props.ship].name} /> : null}
+        {commandState ? <CommandBottomNavigation state={state} onAction={onAction} onOpenArmory={openArmory} onOpenSettings={openSettings} /> : null}
       </div>
+      {commandState ? (
+        <div className="wfm-landscape-lock" role="status" aria-live="polite" data-testid="landscape-required">
+          <span className="wfm-landscape-lock__device" aria-hidden="true" />
+          <b>LANDSCAPE REQUIRED</b>
+          <span>ROTATE YOUR DEVICE TO OPEN THE COMMAND DECK</span>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -104,6 +140,8 @@ function Title({ onAction }: { onAction: (action: MenuAction) => void }) {
   return (
     <button
       type="button"
+      data-testid="button-title-enter-war"
+      aria-label="Enter the War for Mars command deck"
       className="group flex flex-1 flex-col items-start justify-center text-left"
       onClick={() => onAction("START")}
     >
@@ -146,29 +184,57 @@ function CommandTopBar({ faction, credits, cleared, signedIn, ship }: HomeProps)
 
 const FACTION_NAME: Record<Faction, string> = { ussf: "USSF", accord: "THE ACCORD" };
 
-function MainMenu(props: HomeProps) {
-  const { onAction, onGalaxy, ship, faction, cleared } = props;
+function MainMenu(props: HomeProps & {
+  onOpenArmory: (tab: "fleet" | "loadout") => void;
+  onOpenSettings: (tab: "controls" | "audio" | "account") => void;
+}) {
+  const { onAction, onEnterUniverse, ship, faction, cleared } = props;
+  const openArmory = props.onOpenArmory;
+  const openSettings = props.onOpenSettings;
   const def = SHIPS[ship];
   const brief = campaignBriefing(cleared);
   return (
-    <main className="wfm-hangar-content flex-1 py-4 sm:py-6">
-      <section className="wfm-hangar-hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
+    <>
+    <main className="wfm-hangar-content wfm-unified-hangar flex-1 py-4 sm:py-6">
+      <section className="wfm-warline wfm-rise-2" aria-label="Choose your faction">
+        <button type="button" data-testid="button-select-faction-ussf" aria-pressed={faction === "ussf"} disabled={props.loadoutSaving}
+          onClick={() => props.onFaction("ussf")} className={faction === "ussf" ? "wfm-warline__faction is-active" : "wfm-warline__faction"}>
+          <FactionMark faction="ussf" className="h-8 w-8" /><span><b>USSF</b><small>UNITED SPACE STRATEGIC FORCES</small></span>
+        </button>
+        <span className="wfm-warline__versus">VS</span>
+        <button type="button" data-testid="button-select-faction-accord" aria-pressed={faction === "accord"} disabled={props.loadoutSaving}
+          onClick={() => props.onFaction("accord")} className={faction === "accord" ? "wfm-warline__faction is-active" : "wfm-warline__faction"}>
+          <FactionMark faction="accord" className="h-8 w-8" /><span><b>ACCORD</b><small>DHARMA AND MA’AT</small></span>
+        </button>
+        <p>THE INFINITE WAR CONTINUES</p>
+      </section>
+      <div className="col-span-full"><OpeningHistory /></div>
+      <section className="wfm-hangar-hero wfm-unified-hangar__hero wfm-rise-2" aria-labelledby="hangar-title" data-testid="panel-command-briefing">
         <div className="wfm-hangar-scene">
           <div className="wfm-hangar-art" aria-hidden="true" />
           <div className="absolute left-4 top-4 z-10">
-            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS YARD / BAY 04</PanelLabel>
-            <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">HANGAR DECK · READY STATUS</p>
+            <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>{FACTION_NAME[faction]} · PHOBOS MILITARY YARD</PanelLabel>
+            <p className="mt-1 font-hud text-xs tracking-[0.24em] text-bone/60">COMMAND DECK · FLIGHT STATUS READY</p>
           </div>
           <div className="absolute right-4 top-4 z-10 hidden text-right font-hud text-[10px] tracking-[0.2em] text-muted sm:block">
             <p>ORBITAL DOCKING CLAMP</p><p className="mt-1 text-solar">● SECURE</p>
           </div>
           <HangarShip ship={ship} faction={faction} />
-          <div className="absolute bottom-4 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
+          <section className="wfm-universe-gateway wfm-universe-gateway--overlay wfm-rise-3" aria-label="Enter the Infinite Universe">
+            <div className="wfm-universe-gateway__orbit" aria-hidden="true" />
+            <p className="font-hud text-[10px] tracking-[0.28em] text-solar">ENTRY PATROL · LIVE COMBAT · THEN EXPLORE</p>
+          <button type="button" onClick={onEnterUniverse} data-testid="button-enter-universe" aria-label="Enter the Orbital universe runtime" className="wfm-universe-gateway__button">
+              <span><small>ENTER THE</small><b>UNIVERSE</b></span><span aria-hidden="true" className="wfm-universe-gateway__arrow">»</span>
+            </button>
+            <p className="font-hud text-[9px] tracking-[0.22em] text-muted">ONE ENTRY · THE GAME RUNS INSIDE ORBITAL</p>
+            {props.universeEntryError ? <p role="alert" data-testid="status-universe-entry-error" className="mt-1 max-w-md text-xs text-alert">{props.universeEntryError}</p> : null}
+          </section>
+          <div className="absolute bottom-3 right-4 z-10 font-hud text-[10px] tracking-[0.18em] text-bone/60">NOSE VECTOR · +Z</div>
         </div>
-        <div className="wfm-hangar-identity">
+        <div className="wfm-hangar-identity wfm-unified-hangar__identity">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>SAVED HULL · {FACTION_NAME[faction]}</PanelLabel>
+              <PanelLabel tone={faction === "accord" ? "solar" : "spectral"}>COMMANDER’S ACTIVE AIRFRAME · {FACTION_NAME[faction]}</PanelLabel>
               <h1 id="hangar-title" data-testid="text-selected-ship" className="mt-1 font-hud text-4xl leading-none tracking-[0.06em] sm:text-5xl">{def.name.toUpperCase()}</h1>
               <p className={`mt-2 font-hud text-xs tracking-[0.2em] ${faction === "accord" ? "text-solar" : "text-spectral"}`}>{def.role.toUpperCase()} · ULT {def.ultShort}</p>
             </div>
@@ -187,15 +253,42 @@ function MainMenu(props: HomeProps) {
               <div key={k} className="bg-panel px-3 py-2"><dt className="text-[10px] tracking-[0.22em] text-muted">{k}</dt><dd className="text-xl leading-none">{v}</dd></div>
             ))}
           </dl>
-          <button type="button" onClick={() => onAction("ARMORY")} data-testid="button-change-ship-faction" className="wfm-cmd wfm-cmd-secondary mt-4 min-h-11 w-full justify-center px-3 font-hud tracking-widest">
+          <button type="button" onClick={() => onAction("ARMORY")} data-testid="button-change-ship-faction" aria-label="Open armory to change saved hull" className="wfm-cmd wfm-cmd-secondary mt-4 min-h-11 w-full justify-center px-3 font-hud tracking-widest">
             ARMORY · CHANGE SAVED HULL
           </button>
           <p className="mt-2 text-[11px] tracking-wide text-muted">Hangar display reflects your saved account loadout. Configure and save in Armory.</p>
         </div>
       </section>
 
+      <nav className="wfm-hangar-command-rail wfm-rise-3" aria-label="Hangar command systems">
+        <button type="button" onClick={() => openSettings("account")} data-testid="button-hangar-profile" aria-label="Open pilot profile checks" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">ID</span><span><b>PROFILE</b><small>Pilot account</small></span>
+        </button>
+        <button type="button" onClick={() => props.onOpenArmory("fleet")} data-testid="button-hangar-fleet" aria-label="Open fleet management" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">FL</span><span><b>FLEET</b><small>Manage airframes</small></span>
+        </button>
+        <button type="button" onClick={() => props.onOpenArmory("loadout")} data-testid="button-hangar-loadout" aria-label="Open loadout systems and refit" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">LD</span><span><b>LOADOUT</b><small>Systems and refit</small></span>
+        </button>
+        <a href="#hangar-operations" data-testid="link-command-operations" aria-label="Jump to campaign operations" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">MS</span><span><b>MISSIONS</b><small>Campaign operations</small></span>
+        </a>
+        <a href="#hangar-wing" data-testid="link-command-multiplayer" aria-label="Jump to multiplayer operations" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">MP</span><span><b>MULTIPLAYER</b><small>Wing command</small></span>
+        </a>
+        <button type="button" onClick={() => openSettings("controls")} data-testid="button-command-settings" aria-label="Open command settings" className="wfm-cmd wfm-cmd-quiet">
+          <span aria-hidden="true" className="wfm-command-glyph">SYS</span><span><b>SETTINGS</b><small>Controls · audio</small></span>
+        </button>
+      </nav>
+
+      <section className="wfm-hangar-preview-strip" aria-label="What awaits in the universe">
+        <article><span aria-hidden="true">01</span><b>INFINITE WAR</b><small>Operations and faction battles</small></article>
+        <article><span aria-hidden="true">02</span><b>EXPLORE</b><small>Stations, routes, and discoveries</small></article>
+        <article><span aria-hidden="true">03</span><b>BUILD & COMMAND</b><small>Expand and refit your fleet</small></article>
+      </section>
+
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,0.72fr)]">
-        <section aria-label="Operations" className="wfm-rise flex flex-col gap-3">
+        <section id="hangar-operations" aria-label="Operations" className="wfm-rise flex flex-col gap-3 scroll-mt-4">
           <div className="flex items-end justify-between border-b border-bone/15 pb-2">
             <div><PanelLabel>PRIMARY OPERATION · PHOBOS THEATER</PanelLabel><p className="mt-1 font-hud text-2xl tracking-wider">STORY CAMPAIGN</p></div>
             <span className="font-hud text-xs tracking-widest text-muted">{brief.completed}/{brief.total} CLEARED</span>
@@ -209,61 +302,75 @@ function MainMenu(props: HomeProps) {
                 {Array.from({ length: brief.total }, (_, i) => <span key={i} className={`h-1 flex-1 ${i < brief.completed ? "bg-solar" : "bg-bone/15"}`} />)}
               </div>
             </div>
-            <button type="button" onClick={() => onAction("DEPLOY")} data-testid="button-campaign-deploy" className="wfm-cmd wfm-cmd-primary wfm-chamfer min-h-14 justify-center px-5 font-hud text-lg tracking-[0.15em]">
-              DEPLOY NEXT SORTIE
-            </button>
+            <p className="font-hud text-xs tracking-widest text-muted">USE ENTER THE UNIVERSE ABOVE TO JOIN THE LIVE WARFRONT</p>
           </div>
-          {EXPEDITION_ENABLED ? (
-            <Link href="/expedition" data-testid="link-home-expedition" className="wfm-cmd wfm-cmd-secondary min-h-14 flex-col items-start justify-center gap-1 border-l-2 border-spectral px-4">
-              <span className="font-hud tracking-widest text-spectral">SECTOR OPERATIONS · CO-OP</span>
-              <span className="text-xs text-muted">1–8 pilots · server-run missions across the Mars route</span>
-            </Link>
-          ) : null}
-          <details data-testid="details-flight-systems" className="group border border-bone/15 bg-panel/60">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-hud text-sm tracking-[0.16em] text-bone marker:content-none">
-              <span className="min-w-0">
-                <span className="block">COMBAT TRAINING</span>
-                <span className="mt-1 block font-sans text-[11px] tracking-normal text-muted">Orbital Lab · local arcade compatibility</span>
-              </span>
-              <span className="ml-auto shrink-0 text-[10px] text-muted group-open:hidden">SHOW</span>
-              <span className="ml-auto hidden shrink-0 text-[10px] text-muted group-open:inline">HIDE</span>
-            </summary>
-            <div className="grid gap-2 border-t border-bone/10 p-2 sm:grid-cols-2">
-              <a href="/combat-lab.html" data-testid="link-home-combat-lab" className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 border-l-2 border-solar px-4">
-                <span className="font-hud tracking-widest text-solar">ORBITAL COMBAT LAB · OFFLINE</span>
-                <span className="text-xs text-muted">Canonical local combat training · no rewards</span>
-              </a>
-              <button type="button" onClick={() => onAction("ARCADE")} className="wfm-cmd wfm-cmd-quiet min-h-[4.5rem] flex-col items-start justify-center gap-1 px-4 sm:col-span-2">
-                <span className="font-hud text-lg tracking-widest">ARCADE SKIRMISH</span>
-                <span className="text-xs text-muted">Open-disc practice or strike sortie</span>
-              </button>
-            </div>
-          </details>
         </section>
 
         <div className="flex flex-col gap-4">
-          <CommandPanel className="wfm-rise-3 p-4" data-testid="panel-universe-navigation">
-            <PanelLabel>UNIVERSE · STRATEGIC ACCESS</PanelLabel>
-            <button type="button" data-testid="button-open-galaxy" onClick={onGalaxy} className="wfm-cmd wfm-cmd-secondary mt-3 min-h-14 w-full flex-col items-start justify-center gap-0 px-3">
-              <span className="font-hud text-lg tracking-widest text-solar">PERSISTENT GALAXY</span>
-              <span className="text-xs text-muted">World event · locations · side operations</span>
-            </button>
-          </CommandPanel>
-          <OnlineWing {...props} />
-          <nav aria-label="Hangar services" className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+          <aside className="border border-bone/15 bg-panel/60 p-4">
+            <p className="font-hud text-xs tracking-widest text-spectral">ONE SHARED MULTIPLAYER UNIVERSE</p>
+            <p className="mt-2 text-sm text-muted">Pilots, patrols and allied assistance belong in live flight. Use the single Enter the Universe gateway; no separate multiplayer match or docking game is launched here.</p>
+          </aside>
+            <nav aria-label="Hangar services" className="grid grid-cols-2 gap-2">
+            <button type="button" data-testid="button-services-armory" onClick={() => onAction("ARMORY")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
               <span className="font-hud text-sm tracking-widest">ARMORY & UPGRADES</span><span className="truncate text-[11px] text-muted">{def.name} · saved loadout</span>
             </button>
-            <button type="button" onClick={() => onAction("SETTINGS")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
-              <span className="font-hud text-sm tracking-widest">SETTINGS</span><span className="text-[11px] text-muted">Controls · display</span>
+            <button type="button" data-testid="button-services-settings" onClick={() => openSettings("controls")} className="wfm-cmd wfm-cmd-quiet min-h-12 flex-col items-start justify-center gap-0 px-3">
+              <span className="font-hud text-sm tracking-widest">SETTINGS</span><span className="text-[11px] text-muted">Controls · audio</span>
             </button>
-            <Link href="/leaderboard" data-testid="link-public-wing-leaderboard" className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3">
-              <span className="font-hud text-sm tracking-widest text-solar">WING LEADERBOARD</span><span className="text-[11px] text-muted">Opt-in callsigns · verified Wing credits</span>
-            </Link>
+            <button type="button" data-testid="button-services-leaderboard-settings" onClick={() => openSettings("account")} className="wfm-cmd wfm-cmd-quiet col-span-2 min-h-12 flex-col items-start justify-center gap-0 px-3 text-left">
+              <span className="font-hud text-sm tracking-widest text-solar">PUBLIC WING LEADERBOARD</span><span className="text-[11px] text-muted">Opt in and manage your callsign</span>
+            </button>
           </nav>
         </div>
       </div>
+
     </main>
+    </>
+  );
+}
+
+function CommandBottomNavigation({
+  state,
+  onAction,
+  onOpenArmory,
+  onOpenSettings,
+}: Pick<HomeProps, "state" | "onAction"> & {
+  onOpenArmory: (tab: "fleet" | "loadout") => void;
+  onOpenSettings: (tab: "controls" | "audio" | "account") => void;
+}) {
+  const returnToCommand = () => {
+    if (state !== "MAIN_MENU") onAction("BACK");
+  };
+  const jumpTo = (id: "hangar-operations" | "hangar-wing") => {
+    const jump = () => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (state === "MAIN_MENU") jump();
+    else {
+      onAction("BACK");
+      window.setTimeout(jump, 80);
+    }
+  };
+  return (
+    <nav className="wfm-command-bottom" aria-label="Command destinations">
+      <button type="button" data-testid="nav-command-home" aria-label="Return to command home" aria-current={state === "MAIN_MENU" ? "page" : undefined} onClick={returnToCommand}>
+        <span aria-hidden="true">HM</span><b>HOME</b>
+      </button>
+      <button type="button" data-testid="nav-command-profile" aria-label="Open pilot profile" onClick={() => onOpenSettings("account")}>
+        <span aria-hidden="true">ID</span><b>PROFILE</b>
+      </button>
+      <button type="button" data-testid="nav-command-fleet" aria-label="Open fleet management" onClick={() => onOpenArmory("fleet")}>
+        <span aria-hidden="true">FL</span><b>FLEET</b>
+      </button>
+      <button type="button" data-testid="nav-command-operations" aria-label="Go to operations" onClick={() => jumpTo("hangar-operations")}>
+        <span aria-hidden="true">OP</span><b>OPERATIONS</b>
+      </button>
+      <button type="button" data-testid="nav-command-multiplayer" aria-label="Go to multiplayer" onClick={() => jumpTo("hangar-wing")}>
+        <span aria-hidden="true">MP</span><b>WING</b>
+      </button>
+      <button type="button" data-testid="nav-command-settings" aria-label="Open settings" onClick={() => onOpenSettings("controls")}>
+        <span aria-hidden="true">SYS</span><b>SETTINGS</b>
+      </button>
+    </nav>
   );
 }
 
@@ -282,6 +389,7 @@ function OnlineWing({
 }: HomeProps) {
   const queueing = competitiveQueueing || casualAiQueueing;
   return (
+    <div id="hangar-wing" className="scroll-mt-4">
     <CommandPanel accent className="wfm-rise-3 order-3 p-4" data-testid="panel-online-wing">
       <PanelLabel>5V5 ONLINE WING</PanelLabel>
       {queueing || onlineStatus ? (
@@ -373,13 +481,16 @@ function OnlineWing({
         </button>
       ) : null}
     </CommandPanel>
+    </div>
   );
 }
 
-function Armory(props: HomeProps) {
+function Armory(props: HomeProps & { initialTab: "fleet" | "loadout" }) {
   // Draft is deliberately separate from the periodically refreshed account.
   // Only an acknowledged save changes the command screen's equipped hull.
   const [draft, setDraft] = useState({ faction: props.faction, ship: props.ship });
+  const [tab, setTab] = useState(props.initialTab);
+  useEffect(() => setTab(props.initialTab), [props.initialTab]);
   const dirty = draft.faction !== props.faction || draft.ship !== props.ship;
   const pickFaction = (faction: Faction) => setDraft(previous => ({
     faction,
@@ -390,15 +501,77 @@ function Armory(props: HomeProps) {
     if (!dirty || await saveHull()) props.onAction("BACK");
   };
   return (
-    <div className="flex flex-col gap-3 py-4">
-      <h2 className="font-hud text-4xl leading-none">ARMORY</h2>
-      <fieldset disabled={props.loadoutSaving} className="contents">
-      <div className="grid max-w-xl grid-cols-2 gap-2">
-        <Pick on={draft.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => pickFaction("accord")} mark="accord" />
-        <Pick on={draft.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => pickFaction("ussf")} mark="ussf" />
+    <main className="wfm-settings flex flex-1 flex-col gap-4 py-4" data-testid="panel-command-armory">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-bone/15 pb-3">
+        <div>
+          <PanelLabel>PHOBOS FLEET COMMAND</PanelLabel>
+          <h2 className="mt-1 font-hud text-4xl leading-none">FLEET &amp; LOADOUT</h2>
+        </div>
+        <span className="font-hud text-[10px] tracking-[0.2em] text-muted">HULL CHANGES SAVE TO YOUR PILOT PROFILE</span>
+      </header>
+      <div className="wfm-settings-tabs" role="tablist" aria-label="Fleet management groups">
+        <button type="button" role="tab" id="tab-armory-fleet" aria-controls="panel-armory-fleet" aria-selected={tab === "fleet"}
+          data-testid="tab-armory-fleet" onClick={() => setTab("fleet")}>FLEET</button>
+        <button type="button" role="tab" id="tab-armory-loadout" aria-controls="panel-armory-loadout" aria-selected={tab === "loadout"}
+          data-testid="tab-armory-loadout" onClick={() => setTab("loadout")}>LOADOUT &amp; SYSTEMS</button>
       </div>
-      <HullBay {...props} {...draft} isSaved={!dirty} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
-      </fieldset>
+      {tab === "fleet" ? (
+        <section id="panel-armory-fleet" role="tabpanel" aria-labelledby="tab-armory-fleet" className="flex flex-col gap-3" data-testid="panel-armory-fleet">
+          <fieldset disabled={props.loadoutSaving} className="contents">
+            <div className="grid max-w-xl grid-cols-2 gap-2">
+              <Pick on={draft.faction === "accord"} label="The Accord" detail="Solar, stealth, the rings" click={() => pickFaction("accord")} mark="accord" />
+              <Pick on={draft.faction === "ussf"} label="USSF" detail="Sensors, wards, the glide" click={() => pickFaction("ussf")} mark="ussf" />
+            </div>
+            <HullBay {...props} {...draft} isSaved={!dirty} onShip={ship => setDraft(previous => ({ ...previous, ship }))} />
+          </fieldset>
+        </section>
+      ) : null}
+      {tab === "loadout" ? (
+        <section id="panel-armory-loadout" role="tabpanel" aria-labelledby="tab-armory-loadout" className="flex flex-col gap-3" data-testid="panel-armory-loadout">
+          <EquipmentBay shipId={draft.ship} signedIn={props.signedIn} />
+          <div>
+            <PanelLabel>ACTIVE AIRFRAME · {FACTION_NAME[draft.faction]}</PanelLabel>
+            <h3 className="mt-1 font-hud text-2xl">{SHIPS[draft.ship].name.toUpperCase()}</h3>
+            <p className="mt-1 text-sm text-muted">Select an available combat system or refit. Locked systems remain progression-gated.</p>
+          </div>
+          <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
+            {TECHS.map((tech) => {
+              const locked = props.cleared < tech.need;
+              return (
+                <button
+                  key={tech.id}
+                  type="button"
+                  data-testid={`button-tech-${tech.id}`}
+                  aria-label={`${tech.name}${locked ? ", locked" : props.tech === tech.id ? ", selected" : ""}`}
+                  disabled={locked}
+                  onClick={() => props.onTech(tech.id)}
+                  className={
+                    props.tech === tech.id
+                      ? "min-h-14 bg-solar px-2 py-1 text-left text-void"
+                      : "wfm-glass min-h-14 min-w-0 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
+                  }
+                >
+                  <span className="block font-hud text-xs tracking-widest">{tech.name.toUpperCase()}</span>
+                  <span className={props.tech === tech.id ? "text-xs text-void/80" : "text-xs text-muted"}>{locked ? "Locked" : tech.detail}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex max-w-xl items-center justify-between gap-3">
+            <p className="font-hud text-xl text-solar">{props.credits} CR</p>
+            <button
+              type="button"
+              data-testid="button-refit"
+              aria-label={props.refitLabel}
+              disabled={props.refitDisabled}
+              className="wfm-chamfer min-h-11 bg-solar px-4 font-hud tracking-widest text-void disabled:bg-transparent disabled:outline disabled:outline-1 disabled:outline-bone/20 disabled:text-muted"
+              onClick={props.onRefit}
+            >
+              {props.refitLabel}
+            </button>
+          </div>
+        </section>
+      ) : null}
       <div className="max-w-3xl">
         <button
           type="button"
@@ -413,50 +586,20 @@ function Armory(props: HomeProps) {
           {props.loadoutError || (dirty ? "Unsaved selection. Save Hull or Back saves it to your pilot profile." : "Selected hull is saved to your pilot profile.")}
         </p>
       </div>
-      <div className="grid max-w-xl grid-cols-1 gap-2 min-[400px]:grid-cols-3">
-        {TECHS.map((tech) => {
-          const locked = props.cleared < tech.need;
-          return (
-            <button
-              key={tech.id}
-              type="button"
-              disabled={locked}
-              onClick={() => props.onTech(tech.id)}
-              className={
-                props.tech === tech.id
-                  ? "min-h-14 bg-solar px-2 py-1 text-left text-void"
-                  : "wfm-glass min-h-14 min-w-0 border border-bone/25 bg-void/60 px-2 text-left text-bone disabled:opacity-40"
-              }
-            >
-              <span className="block font-hud text-xs tracking-widest">{tech.name.toUpperCase()}</span>
-              <span className={props.tech === tech.id ? "text-xs text-void/80" : "text-xs text-muted"}>{locked ? "Locked" : tech.detail}</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex max-w-xl items-center justify-between gap-3">
-        <p className="font-hud text-xl text-solar">{props.credits} CR</p>
-        <button
-          type="button"
-          disabled={props.refitDisabled}
-          className="wfm-chamfer min-h-11 bg-solar px-4 font-hud tracking-widest text-void disabled:bg-transparent disabled:outline disabled:outline-1 disabled:outline-bone/20 disabled:text-muted"
-          onClick={props.onRefit}
-        >
-          {props.refitLabel}
-        </button>
-      </div>
-      <button type="button" disabled={props.loadoutSaving} onClick={() => void back()}
+      <button type="button" data-testid="button-armory-back" aria-label="Return to command hangar" disabled={props.loadoutSaving} onClick={() => void back()}
         className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone disabled:opacity-60">
         {props.loadoutSaving ? "SAVING…" : "BACK"}
       </button>
-    </div>
+    </main>
   );
 }
 
-function Settings(props: HomeProps) {
+function Settings(props: HomeProps & { initialTab: "controls" | "audio" | "account" }) {
   const [enabled, setEnabled] = useState(props.publicLeaderboardOptIn);
   const [callsign, setCallsign] = useState(props.publicLeaderboardCallsign);
+  const [tab, setTab] = useState(props.initialTab);
 
+  useEffect(() => setTab(props.initialTab), [props.initialTab]);
   useEffect(() => {
     setEnabled(props.publicLeaderboardOptIn);
     setCallsign(props.publicLeaderboardCallsign);
@@ -464,16 +607,88 @@ function Settings(props: HomeProps) {
 
   const validCallsign = /^[A-Za-z0-9][A-Za-z0-9 _-]{2,15}$/.test(callsign.trim());
 
+  const tabs = [
+    { id: "controls" as const, label: "FLIGHT CONTROLS" },
+    { id: "audio" as const, label: "AUDIO" },
+    { id: "account" as const, label: "PILOT ACCOUNT" },
+  ];
+
   return (
-    <div className="flex flex-1 flex-col justify-center gap-3">
-      <h2 className="font-hud text-4xl leading-none">SETTINGS</h2>
-      <div className="flex max-w-sm flex-col gap-2">
-        <Pick on={props.scheme === "arc"} label="ARC" detail="Left stick turns the nose." click={() => props.onScheme("arc")} />
-        <Pick on={props.scheme === "strafe"} label="STRAFE" detail="Left stick slides. Right stick turns." click={() => props.onScheme("strafe")} />
-        <Pick on={props.gyro} label={props.gyro ? "GYRO ON" : "GYRO"} detail="Tilt rolls the nose after permission." click={props.onGyro} />
+    <main className="wfm-settings flex flex-1 flex-col gap-5 py-5" data-testid="panel-command-settings">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-bone/15 pb-3">
+        <div>
+          <PanelLabel>PHOBOS COMMAND SYSTEMS</PanelLabel>
+          <h2 className="mt-1 font-hud text-4xl leading-none">SETTINGS</h2>
+        </div>
+        <span className="font-hud text-[10px] tracking-[0.2em] text-muted">ACCOUNT DATA REMAINS SERVER-AUTHORITATIVE</span>
+      </header>
+      <div className="wfm-settings-tabs" role="tablist" aria-label="Settings groups">
+        {tabs.map(({ id, label }) => (
+          <button key={id} id={`tab-settings-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={`settings-panel-${id}`}
+            data-testid={`tab-settings-${id}`} onClick={() => setTab(id)}>{label}</button>
+        ))}
       </div>
-      <p className="max-w-sm text-sm text-muted">Shake and sound stay on the fight glass. Hold is the P key.</p>
-      <section className="wfm-glass max-w-sm border border-solar/40 p-3" data-testid="public-leaderboard-settings">
+      {tab === "controls" ? (
+        <section id="settings-panel-controls" role="tabpanel" aria-labelledby="tab-settings-controls" className="wfm-settings-panel" data-testid="settings-panel-controls">
+          <div className="wfm-settings-copy">
+            <PanelLabel>FLIGHT MODEL INPUT</PanelLabel>
+            <h3 className="mt-2 font-hud text-2xl tracking-wider">CONTROL SCHEME</h3>
+            <p className="mt-1 text-sm leading-relaxed text-muted">Saved to your pilot profile and used by connected sorties.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Pick testId="button-scheme-arc" on={props.scheme === "arc"} label="ARC" detail="Left stick turns the nose." click={() => props.onScheme("arc")} />
+            <Pick testId="button-scheme-strafe" on={props.scheme === "strafe"} label="STRAFE" detail="Left stick slides. Right stick turns." click={() => props.onScheme("strafe")} />
+          </div>
+          <div className="wfm-settings-copy">
+            <PanelLabel>ORBITAL FLIGHT INPUT</PanelLabel>
+            <h3 className="mt-2 font-hud text-2xl tracking-wider">STICK PLACEMENT</h3>
+            <p className="mt-1 text-sm leading-relaxed text-muted">Choose the control layout for Orbital free flight. This preference is saved on this device.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Orbital flight stick placement">
+            <Pick
+              testId="button-control-layout-fixed"
+              on={props.pilotControlLayout === "fixed"}
+              label="FIXED STICKS"
+              detail="Keep both thumb controls visible in their usual positions."
+              click={() => props.onPilotControlLayout("fixed")}
+            />
+            <Pick
+              testId="button-control-layout-touch-anywhere"
+              on={props.pilotControlLayout === "touch-anywhere"}
+              label="TOUCH ANYWHERE"
+              detail="Use either screen half; each stick guide appears while touching."
+              click={() => props.onPilotControlLayout("touch-anywhere")}
+            />
+          </div>
+          <div className="wfm-settings-row">
+            <div><h3 className="font-hud text-lg tracking-wider">GYRO AIM</h3><p className="mt-1 text-sm text-muted">Device permission is requested when enabled. This setting stays on this device.</p></div>
+            <button type="button" data-testid="button-toggle-gyro" aria-label={props.gyro ? "Disable gyro aim" : "Enable gyro aim"}
+              aria-pressed={props.gyro} onClick={props.onGyro} className="wfm-toggle">
+              <span>{props.gyro ? "ENABLED" : "DISABLED"}</span>
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {tab === "audio" ? (
+        <section id="settings-panel-audio" role="tabpanel" aria-labelledby="tab-settings-audio" className="wfm-settings-panel" data-testid="settings-panel-audio">
+          <div>
+            <PanelLabel>DEVICE OUTPUT</PanelLabel>
+            <h3 className="mt-2 font-hud text-2xl tracking-wider">AUDIO</h3>
+            <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">Mute toggles the game’s existing sound effects and engine output. Preference is stored locally on this device.</p>
+          </div>
+          <div className="wfm-settings-row">
+            <div><h3 className="font-hud text-lg tracking-wider">GAME SOUND</h3><p className="mt-1 text-sm text-muted">{props.audioMuted ? "Muted on this device." : "Sound effects enabled."}</p></div>
+            <button type="button" data-testid="button-toggle-audio-mute" aria-label={props.audioMuted ? "Unmute game audio" : "Mute game audio"}
+              aria-pressed={!props.audioMuted} onClick={props.onAudioMute} className="wfm-toggle">
+              <span>{props.audioMuted ? "MUTED" : "ON"}</span>
+            </button>
+          </div>
+          <p className="border-l-2 border-solar/60 pl-3 text-xs leading-relaxed text-muted">No unsupported display, HUD, or audio-level controls are exposed here.</p>
+        </section>
+      ) : null}
+      {tab === "account" ? (
+        <section id="settings-panel-account" role="tabpanel" aria-labelledby="tab-settings-account" className="wfm-settings-panel" data-testid="settings-panel-account">
+        <div className="wfm-glass max-w-2xl border border-solar/40 p-4" data-testid="public-leaderboard-settings">
         <PanelLabel>PUBLIC WING LEADERBOARD</PanelLabel>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           Only your callsign and total server-verified Wing credits are public. Your account, balance, match history, and online status stay private.
@@ -484,6 +699,7 @@ function Settings(props: HomeProps) {
             checked={enabled}
             onChange={(event) => setEnabled(event.target.checked)}
             data-testid="checkbox-leaderboard-opt-in"
+            aria-label="Opt in to the public Wing leaderboard"
           />
           Show me on the public board
         </label>
@@ -499,6 +715,7 @@ function Settings(props: HomeProps) {
           value={callsign}
           onChange={(event) => setCallsign(event.target.value)}
           placeholder="3–16 letters, numbers, spaces, _ or -"
+          aria-label="Public leaderboard callsign"
           className="mt-1 h-11 w-full border border-bone/25 bg-void px-3 text-bone placeholder:text-muted disabled:opacity-50"
         />
         <p className="mt-1 text-xs text-muted">Choose a callsign, not your real name, email, or other personal information.</p>
@@ -514,10 +731,13 @@ function Settings(props: HomeProps) {
         >
           {props.publicLeaderboardSaving ? "SAVING…" : enabled ? "OPT IN AND SAVE" : "OPT OUT AND SAVE"}
         </button>
-      </section>
-      <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
+        </div>
+        <ReadOnlyProfileCheck save={props.profile} signedIn={props.signedIn} />
+        <p className="max-w-2xl text-xs leading-relaxed text-muted">Pilot profile checks are read-only. Faction, hull, control scheme, and verified progression retain their existing server-owned save paths.</p>
+        </section>
+      ) : null}
       <Back onAction={props.onAction} />
-    </div>
+    </main>
   );
 }
 
@@ -538,6 +758,8 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
     <button
       type="button"
       className="min-h-11 w-full max-w-xs border border-bone/30 bg-void/70 font-hud tracking-widest text-bone"
+      data-testid="button-settings-back"
+      aria-label="Return to command hangar"
       onClick={() => onAction("BACK")}
     >
       BACK
@@ -545,10 +767,12 @@ function Back({ onAction }: { onAction: (action: MenuAction) => void }) {
   );
 }
 
-function Pick({ on, label, detail, click, mark }: { on: boolean; label: string; detail: string; click: () => void; mark?: Faction }) {
+function Pick({ on, label, detail, click, mark, testId }: { on: boolean; label: string; detail: string; click: () => void; mark?: Faction; testId?: string }) {
   return (
     <button
       type="button"
+      data-testid={testId ?? `button-pick-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+      aria-label={`${label}: ${detail}`}
       aria-pressed={on}
       onClick={click}
       className={`flex min-h-14 min-w-0 items-center gap-2 px-3 py-1 text-left ${on ? "bg-solar text-void" : "wfm-glass border border-bone/25 text-bone"}`}

@@ -1,4 +1,5 @@
 import { detAtan2, detCos, detExp, detHypot, detSin } from "./detmath";
+import { anomalyGravityAcceleration, type AnomalyGravityWellV1 } from "./anomaly-gravity";
 
 export const LEGACY_ORBITAL_RULES_VERSION = 1 as const;
 export const ORBITAL_WEAPON_RULES_VERSION = 2 as const;
@@ -27,7 +28,7 @@ export type TacticalManeuverIntentV1 =
   | {
       version: 1;
       kind: "barrel-roll-control";
-      /** Signed live roll input from the offline Orbital right-stick circle. */
+      /** Signed live roll input from the Orbital right-stick circle. */
       input: number;
     };
 export type OrbitalFlight = {
@@ -45,7 +46,11 @@ export type FlightControls = FlightInput & {
 };
 export type Rock = { x: number; z: number; r: number; y?: number };
 export type FlightTuning = { turnRate: number; handling: number; accel: number; maxSpeed: number };
-export type FlightWorld = { boundaryRadius?: number | null };
+export type FlightWorld = {
+  boundaryRadius?: number | null;
+  /** Optional world-owned forces; callers must supply only validated fields. */
+  gravityWells?: readonly AnomalyGravityWellV1[];
+};
 export type SpatialCraft = {
   id: number; x: number; z: number; yaw: number; pitch: number; speed: number; steer: number;
   hull: number; hullMax: number; alive: boolean; root: number; jam: number; boost: number;
@@ -161,6 +166,12 @@ export function integrateSpatialFlight(
   const acceleration = thrustMuted ? 0 : def.accel * speedMul * engineCondition * (boosting ? 2 : 1);
   const length = Math.max(1, detHypot(detHypot(thrust.x, thrust.y), thrust.z));
   s.vx += thrust.x / length * acceleration * dt; s.vy += thrust.y / length * acceleration * dt; s.vz += thrust.z / length * acceleration * dt;
+  for (const well of world.gravityWells ?? []) {
+    const gravity = anomalyGravityAcceleration({ x: craft.x, y: s.y, z: craft.z }, well);
+    s.vx += gravity.x * dt;
+    s.vy += gravity.y * dt;
+    s.vz += gravity.z * dt;
+  }
   const damping = input.brake ? 7 : input.drift ? 0.04 : s.assist ? 1.65 : 0;
   const drag = detExp(-damping * dt);
   s.vx *= drag; s.vy *= drag; s.vz *= drag;

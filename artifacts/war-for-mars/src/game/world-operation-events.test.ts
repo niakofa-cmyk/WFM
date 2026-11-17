@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { operationEventsUrl, parseOperationDirectorySnapshot } from "./world-operation-events";
+import { isOperationDirectoryFresh, operationEventsUrl, parseOperationDirectorySnapshot, selectCinderLiveOperations } from "./world-operation-events";
 
 const snapshot = {
   generatedAt: "2026-11-05T12:00:00.000Z",
@@ -54,6 +54,45 @@ const snapshot = {
 
 test("public universe operation event snapshots parse the documented read-only directory payload", () => {
   assert.deepEqual(parseOperationDirectorySnapshot(JSON.stringify(snapshot)), snapshot);
+});
+
+test("Cinder live activity includes only active public server-backed instances at Cinder Ring", () => {
+  const directory = parseOperationDirectorySnapshot(JSON.stringify(snapshot));
+  assert.ok(directory);
+  assert.deepEqual(selectCinderLiveOperations(directory), [{
+    id: "match-1",
+    title: "Frontier Signal",
+    experience: "competitive",
+    runtimeId: "surface-v1",
+    currentPlayers: 10,
+    capacity: 10,
+  }]);
+  assert.deepEqual(selectCinderLiveOperations(undefined), []);
+});
+
+test("live operation snapshots expire rather than showing stale battles as current", () => {
+  const directory = parseOperationDirectorySnapshot(JSON.stringify(snapshot));
+  assert.ok(directory);
+  const now = Date.parse(directory.generatedAt) + 119_000;
+  assert.equal(isOperationDirectoryFresh(directory, now), true);
+  assert.equal(isOperationDirectoryFresh(directory, now + 2_000), false);
+  assert.equal(isOperationDirectoryFresh(directory, Date.parse(directory.generatedAt) - 20_000), false);
+});
+
+test("Cinder live activity hides inactive, private, and other-location instances", () => {
+  const directory = parseOperationDirectorySnapshot(JSON.stringify({
+    ...snapshot,
+    operations: [{ ...snapshot.operations[0], visibility: "unlisted" }],
+    events: [{ ...snapshot.events[0], locationId: "mars-orbit" }],
+  }));
+  assert.ok(directory);
+  assert.deepEqual(selectCinderLiveOperations(directory), []);
+  const inactive = parseOperationDirectorySnapshot(JSON.stringify({
+    ...snapshot,
+    instances: [{ ...snapshot.instances[0], phase: "closed" }],
+  }));
+  assert.ok(inactive);
+  assert.deepEqual(selectCinderLiveOperations(inactive), []);
 });
 
 test("new clients tolerate an older server snapshot that predates destination presence", () => {

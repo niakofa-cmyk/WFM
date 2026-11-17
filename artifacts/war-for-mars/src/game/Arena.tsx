@@ -1,11 +1,28 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import * as THREE from "three";
+import { SUBSYSTEM_LABELS, SUBSYSTEM_OFFSETS, SHIP_SUBSYSTEMS, rotate as rotateSubsystemOffset } from "@workspace/orbital-sim";
+import { blocksFlightHotkeys, boostDirectionAt, loadRightThumbProfile, saveRightThumbProfile } from "./right-thumb-controls";
+import { requestRightVectorBoost } from "./input";
+import { reconcileFreeFlightKinematics } from "./free-flight-prediction";
+import { isCombatRecoveryState } from "./combat-recovery-state";
+import { createSharedFlightImpactEffects, createSharedFlightImpactQueue } from "./shared-flight-impact-effects";
+import {
+  ownSharedFlightReference, reconcileSharedFlightPosition, sharedFlightDistance, sharedPointInLocalFrame,
+  type SharedFlightReference,
+} from "./free-flight-reference-frame";
+import { FlightPresencePanel, type FlightPresenceEntry } from "./FlightPresencePanel";
+import { flightPresence } from "./free-flight-presence";
+import { combatStatusAfterError, combatStatusAfterRequest, freeFlightCombatNotice, freeFlightConnectionStatusAfter, freeFlightLinkPresentation, freeFlightPilotVitals, freeFlightPrimaryFireEnabled, freeFlightRecoveryRequired, freeFlightWeaponsEnabled, sameFreeFlightPilotVitals, type FreeFlightPilotVitals } from "./free-flight-combat-state";
+import * as THREE from "./three-flight-runtime";
+import type { WorldPatrolDirectory } from "@workspace/api-client-react";
 import { engineGain, isMuted, setMuted, sfxBoom, sfxCloak, sfxDive, sfxEmp, sfxFlare, sfxGuard, sfxHit, sfxJam, sfxMark, sfxPaint, sfxRam, sfxShot, unlockAudio } from "./audio";
 import "./controls-probe";
 import { clearInput, createBus, pulseVectorManeuver, readInput, readThrottle, setCircularRollControl, type Bus } from "./input";
 import { gyroAim } from "./gyro";
 import { acknowledgeInterruptedNotice } from "./interrupted-ack";
 import { currentWingSocketUrl } from "./socket-endpoint";
+import { openingEncounterNotice } from "./free-flight-opening";
+import { readFreeFlightRecoveryHint, freeFlightRecoveryHintText, type FreeFlightRecoveryHint } from "./free-flight-recovery-hint";
+import { readFlightSettlement, acceptFlightSettlement, settlementTallyAfter } from "./free-flight-settlement-tally";
 import {
   CLIENT_RECONNECT_WINDOW_MS,
   SOCKET_HANDSHAKE_TIMEOUT_MS,
@@ -21,21 +38,78 @@ import { battlefieldProfile } from "./battlefield";
 import { createMarsLimb, createTheaterTextures } from "./theater-surfaces";
 import { prepareOrbital } from "./orbital-sim";
 import { orbitalAbilityAvailability } from "./orbital-abilities";
-import { orbitalCameraPose } from "./orbital-camera";
+import { orbitalCameraFov, orbitalCameraPose } from "./orbital-camera";
+import { attachFlightViewport } from "./flight-viewport";
+import { targetMarkerPlacement } from "./free-flight-target-marker";
 import { targetSolution } from "./orbital-weapons";
 import { addOrbitalEnvironment, buildOrbitalShip, createOrbitalDamageController, orbitalRock } from "./orbital-visuals";
+import {
+  buildAnomalyLensingVisual,
+  buildUniverseSectorNeighborhood,
+  disposeUniverseSectorNeighborhood,
+  setOriginSystemFrame,
+} from "./universe-sector-visuals";
+import {
+  sectorAddressKey,
+  universeLocalFrameTranslation,
+  universeSectorContents,
+  UNIVERSE_SECTOR_EDGE,
+} from "./universe-sectors";
+import {
+  formatUniverseRange,
+  UNIVERSE_RETURN_CUE_MIN_DISTANCE_METERS,
+  universeReturnCue,
+  type UniverseNavigationAnchor,
+} from "./universe-navigation";
+import { createOrbitalStarfieldBuffers } from "./orbital-starfield";
 import { countermeasureFeedbackLabel } from "./countermeasure-feedback";
 import { PilotActionButton } from "./PilotActionButton";
 import { PilotFlightStick } from "./PilotFlightStick";
+import type { PilotControlLayout } from "./save";
 import { isTargetHullCritical, targetFactionAccent, targetHullColor } from "./pilot-hud";
 import {
   createOrbitalRuntime,
   getGameModeDefinition,
   isOrbitalRuntimeId,
   ORBITAL_RUNTIME_ID,
+  type AnomalyGravityWellV1,
   type CombatRuntimeId,
+  type FreeFlightEnvironmentV1,
+  type FreeFlightTacticalSnapshotV1,
   type GameModeId,
 } from "@workspace/orbital-sim";
+import {
+  UNIVERSE_MODE_ID,
+  cinderStationTransform,
+  createUniverseSession,
+  evaluateUniverseDock,
+  ORBITAL_SUN_POSITION,
+  UNIVERSE_RENDER_Y_OFFSET,
+  placeAtUniverseStart,
+  universeFrozen,
+  type UniverseStartLocation,
+  type UniverseDockEvaluation,
+  type UniverseSession,
+} from "./orbital-universe-session";
+import {
+  advanceLocalUniverseFlight,
+  evaluateLocalAnomalyScan,
+  evaluateLocalRelayInteraction,
+  transitionLocalUniverse,
+  type LocalAnomalyScan,
+  type LocalRelayInteraction,
+  type LocalUniverseCommand,
+} from "./orbital-universe-runtime";
+import { UniverseStationOverlay } from "./UniverseStationOverlay";
+import { UniversePatrolEncounterPrompt, type UniversePatrolEncounterNotice } from "./UniversePatrolEncounterPrompt";
+import { projectUniversePatrolTraffic } from "./universe-patrol-flight";
+import type { FreeFlightClient, ReceivedFreeFlightSnapshot } from "./free-flight-client";
+import { displayedPatrolContact, sameSharedPatrolContact, sharedFlightPatrolContact } from "./shared-flight-patrol-contact";
+import {
+  encounterCompositionView,
+  readFreeFlightTacticalSnapshot,
+  sameTacticalSnapshotContent,
+} from "./encounter-composition";
 
 const WEAPON_EFFECT_COLORS: Record<"beam" | "pulse" | "heavy" | "precision" | "ion" | "swarm", { accord: number; ussf: number }> = {
   beam: { accord: 0xffb461, ussf: 0x7de6ff },
@@ -77,6 +151,24 @@ export type OnlineSnapshot = {
 
 type RemotePose = { x: number; z: number; yaw: number; pitch: number; steer: number };
 type RemoteFrame = { receivedAt: number; poses: Record<number, RemotePose> };
+type SharedFlightWeaponEffect = {
+  eventId: string;
+  sourceFaction: Faction;
+  visualEffect: keyof typeof WEAPON_EFFECT_COLORS;
+  from: { x: number; y: number; z: number };
+  velocity: { x: number; y: number; z: number };
+  lifetimeSeconds: number;
+  receivedAt: number;
+  impact?: { to: { x: number; y: number; z: number }; receivedAt: number };
+};
+
+function isFlightVector(value: unknown): value is { x: number; y: number; z: number } {
+  if (!value || typeof value !== "object") return false;
+  const vector = value as Record<string, unknown>;
+  return ["x", "y", "z"].every((key) =>
+    typeof vector[key] === "number" && Number.isFinite(vector[key]),
+  );
+}
 
 export type OnlineRoom = {
   socket: WebSocket;
@@ -105,6 +197,7 @@ type ArenaProps = {
   tech: TechId | null;
   serverSeed?: number;
   gyro: boolean;
+  pilotControlLayout?: PilotControlLayout;
   drilled: boolean;
   onDrill: () => void;
   onDone: (
@@ -123,6 +216,21 @@ type ArenaProps = {
   /** The operation contract is checked against the selected simulation at launch. */
   modeId: GameModeId;
   orbitalCampaign?: boolean;
+  /**
+   * Local Orbital flight may display read-only patrol traffic. Patrol combat
+   * starts only through the authenticated shared-flight socket in this scene.
+   */
+  localUniverse?: {
+    onExit: () => void;
+    servicesHref: string;
+    startLocation?: UniverseStartLocation;
+    servicesOpen?: boolean;
+    onOpenOperations?: () => void;
+    patrolDirectory?: WorldPatrolDirectory | null;
+    getSessionToken?: () => Promise<string | null>;
+    freeFlightEnabled?: boolean;
+    openingEncounter?: boolean;
+  };
 };
 
 const stagingTraceEnabled = import.meta.env.VITE_WFM_STAGING_DIAGNOSTICS === "true";
@@ -136,6 +244,73 @@ function pilotCraft(match: Match, slotId: number): Craft {
   if (slotId === 0) return match.player;
   if (slotId < 5) return match.allies[slotId - 1] ?? match.player;
   return match.enemies[slotId - 5] ?? match.player;
+}
+
+function createPatrolDesignationSprite(
+  callsign: string,
+  patrolFaction: "ussf" | "accord",
+  kind: "pilot" | "patrol" = "patrol",
+  role?: string,
+) {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = role ? 84 : 64;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const accent = patrolFaction === "ussf" ? "#77ddff" : "#f0a95d";
+  const designation = `${patrolFaction.toUpperCase()} · ${kind === "pilot" ? "HUMAN PILOT" : "AI PATROL"}`;
+  const label = callsign.trim().toUpperCase().slice(0, 26) || "ROAMING FLEET";
+  context.font = '700 19px "Barlow Condensed", sans-serif';
+  context.lineWidth = 4;
+  context.strokeStyle = "rgba(3, 6, 11, 0.9)";
+  context.fillStyle = accent;
+  context.strokeText(designation, 10, 24);
+  context.fillText(designation, 10, 24);
+  context.font = '600 15px "Barlow Condensed", sans-serif';
+  context.strokeText(label, 10, 46);
+  context.fillStyle = "#e6e1d6";
+  context.fillText(label, 10, 46);
+  context.fillStyle = accent;
+  context.fillRect(10, 56, 155, 2);
+  if (role) {
+    context.font = '700 13px "Barlow Condensed", sans-serif';
+    context.fillStyle = "#f4d5a3";
+    context.strokeText(role.toUpperCase().replaceAll("-", " "), 10, 77);
+    context.fillText(role.toUpperCase().replaceAll("-", " "), 10, 77);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    opacity: 0.95,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.name = role ? `wfm-${role}-designation` : "wfm-hostile-patrol-designation";
+  sprite.scale.set(role ? 56 : 48, role ? 15 : 12, 1);
+  sprite.renderOrder = 12;
+  return sprite;
+}
+
+function disposePatrolDesignationSprite(designation?: THREE.Sprite) {
+  if (!designation) return;
+  designation.removeFromParent();
+  designation.material.map?.dispose();
+  designation.material.dispose();
+}
+
+function disposePatrolShipGroup(group: THREE.Group, designation?: THREE.Sprite) {
+  disposePatrolDesignationSprite(designation);
+  group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.geometry.dispose();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) material.dispose();
+  });
+  group.removeFromParent();
 }
 
 function copyMatch(source: Match): Match {
@@ -498,6 +673,7 @@ export function Arena({
   tech,
   serverSeed,
   gyro,
+  pilotControlLayout = "fixed",
   drilled,
   onDrill,
   onDone,
@@ -510,6 +686,7 @@ export function Arena({
   runtime,
   modeId,
   orbitalCampaign = false,
+  localUniverse,
 }: ArenaProps) {
   const modeDefinition = getGameModeDefinition(modeId);
   const orbitalRuntime = isOrbitalRuntimeId(runtime)
@@ -525,10 +702,432 @@ export function Arena({
   }
   if (orbital && online) throw new Error("The canonical orbital runtime is not yet negotiated for this live room.");
   if (orbitalCampaign && !orbital) throw new Error("Campaign orbital rules require spatial flight.");
+  if (localUniverse && (online || !orbital || orbitalCampaign || localEndurance || modeId !== UNIVERSE_MODE_ID)) {
+    throw new Error("The local Orbital universe requires the offline orbital-universe-local profile.");
+  }
+  if (!localUniverse && modeId === UNIVERSE_MODE_ID) throw new Error("orbital-universe-local requires the localUniverse profile.");
+  const universeTemplateRef = useRef<Match | null>(null);
+  const universeRef = useRef<UniverseSession | null>(null);
+  const deploymentAnchorRef = useRef<UniverseNavigationAnchor | null>(null);
+  const returnNavigationRef = useRef<HTMLDivElement | null>(null);
+  const returnArrowRef = useRef<HTMLSpanElement | null>(null);
+  const returnDistanceRef = useRef<HTMLSpanElement | null>(null);
+  const returnSectorRef = useRef<HTMLSpanElement | null>(null);
+  const returnVerticalRef = useRef<HTMLSpanElement | null>(null);
+  const [universe, setUniverse] = useState<UniverseSession | null>(() => {
+    if (!localUniverse) return null;
+    universeRef.current = universeRef.current ?? createUniverseSession();
+    return universeRef.current;
+  });
+  const [dockState, setDockState] = useState<UniverseDockEvaluation | null>(null);
+  const [anomalyScan, setAnomalyScan] = useState<LocalAnomalyScan | null>(null);
+  const anomalyScanKeyRef = useRef("");
+  const [relayInteraction, setRelayInteraction] = useState<LocalRelayInteraction | null>(null);
+  const relayInteractionKeyRef = useRef("");
+  const [patrolContact, setPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
+  const [sharedPatrolContact, setSharedPatrolContact] = useState<UniversePatrolEncounterNotice | null>(null);
+  const sharedPatrolContactRef = useRef<UniversePatrolEncounterNotice | null>(null);
+  const [sharedTacticalSnapshot, setSharedTacticalSnapshot] = useState<FreeFlightTacticalSnapshotV1 | null>(null);
+  const sharedTacticalSnapshotRef = useRef<FreeFlightTacticalSnapshotV1 | null>(null);
+  const tacticalRoleByActorRef = useRef(new Map<string, string>());
+  const lastEncounterFleetIdRef = useRef<string | null>(null);
+  const [freeFlightStatus, setFreeFlightStatus] = useState("disabled");
+  const [freeFlightCombatStatus, setFreeFlightCombatStatus] = useState("idle");
+  const [freeFlightPilot, setFreeFlightPilot] = useState<FreeFlightPilotVitals | null>(null);
+  const [freeFlightNotice, setFreeFlightNotice] = useState("");
+  const [retainedFlightHint, setRetainedFlightHint] = useState<FreeFlightRecoveryHint | null>(null);
+  const settledFlightEncounters = useRef(new Set<string>());
+  const [nearbyFriendlyPilots, setNearbyFriendlyPilots] = useState(0);
+  const [nearbyContacts, setNearbyContacts] = useState<FlightPresenceEntry[]>([]);
+  const [sharedFlightSessionId, setSharedFlightSessionId] = useState<string | null>(null);
+  const [sharedFlightReference, setSharedFlightReference] = useState<SharedFlightReference | null>(null);
+  const lastSharedReferenceAt = useRef(-Infinity);
+  const [presenceFresh, setPresenceFresh] = useState(false);
+  const [assistCallPending, setAssistCallPending] = useState(false);
+  const [respondingToAssistCallId, setRespondingToAssistCallId] = useState<string | null>(null);
+  const [assistCallCooldownUntil, setAssistCallCooldownUntil] = useState(0);
+  const [incomingAssistCall, setIncomingAssistCall] = useState<{
+    callId: string;
+    callerCallsign: string;
+    patrolCallsign: string;
+    opposingFaction: "ussf" | "accord";
+    expiresAt: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!assistCallCooldownUntil) return;
+    const timer = window.setTimeout(() => setAssistCallCooldownUntil(0),
+      Math.max(0, assistCallCooldownUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [assistCallCooldownUntil]);
+  useEffect(() => {
+    if (!incomingAssistCall) return;
+    const timer = window.setTimeout(() => setIncomingAssistCall(null),
+      Math.max(0, incomingAssistCall.expiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [incomingAssistCall?.callId, incomingAssistCall?.expiresAt]);
+  const [vectorBoostStatus, setVectorBoostStatus] = useState("");
+  useEffect(() => {
+    if (!vectorBoostStatus) return;
+    const timer = setTimeout(() => setVectorBoostStatus(""), 1200);
+    return () => clearTimeout(timer);
+  }, [vectorBoostStatus]);
+  const [freeFlightTally, setFreeFlightTally] = useState({ kills: 0, assists: 0, credits: 0 });
+  const [visibleEnemyPatrols, setVisibleEnemyPatrols] = useState(0);
+  const [glReady, setGlReady] = useState(false);
+  const glReadyRef = useRef(false);
+  const universeExitRef = useRef(localUniverse?.onExit);
+  universeExitRef.current = localUniverse?.onExit;
+  const localUniverseRef = useRef(localUniverse);
+  localUniverseRef.current = localUniverse;
+  const freeFlightTokenRef = useRef(localUniverse?.getSessionToken);
+  freeFlightTokenRef.current = localUniverse?.getSessionToken;
+  const freeFlightClientRef = useRef<FreeFlightClient | null>(null);
+  const freeFlightEnvironmentRef = useRef<FreeFlightEnvironmentV1 | null>(null);
+  const freeFlightFramesRef = useRef<{
+    previous: ReceivedFreeFlightSnapshot | null;
+    current: ReceivedFreeFlightSnapshot | null;
+  }>({ previous: null, current: null });
+  const freeFlightCombatActiveRef = useRef(false);
+  const freeFlightWeaponEffectsRef = useRef<SharedFlightWeaponEffect[]>([]);
+  const freeFlightImpactQueueRef = useRef(createSharedFlightImpactQueue());
+  const localUniverseActive = Boolean(localUniverse);
+  const freeFlightEnabled = localUniverseActive &&
+    localUniverse?.freeFlightEnabled === true &&
+    Boolean(localUniverse.getSessionToken);
+  useEffect(() => {
+    if (!freeFlightEnabled) {
+      setPresenceFresh(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      const frame = freeFlightFramesRef.current.current;
+      setPresenceFresh(Boolean(frame && performance.now() - frame.receivedAt <= 1_500));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [freeFlightEnabled]);
+  const localFreeFlightGravity = (pilot: Craft): readonly AnomalyGravityWellV1[] | undefined => {
+    if (!freeFlightEnabled) return undefined;
+    const environment = freeFlightEnvironmentRef.current;
+    if (!environment?.enabled || !pilot.space) return [];
+    const address = universeRef.current?.sectorAddress;
+    if (!address) return [];
+    return environment.gravityWells.flatMap((well) => {
+      const center = sharedPointInLocalFrame(well.center, address);
+      if (!center) return [];
+      // A distant server field is irrelevant to this bounded local physics frame.
+      if ([center.x, center.y, center.z].some((value) => Math.abs(value) > 4_096)) return [];
+      return [{ ...well, center }];
+    });
+  };
+  useEffect(() => {
+    if (!freeFlightEnabled) return;
+    let disposed = false;
+    let client: FreeFlightClient | null = null;
+    setFreeFlightStatus("connecting");
+    void import("./free-flight-client").then(({ FreeFlightClient: Client }) => {
+      if (disposed) return;
+      client = new Client({
+        openingEncounter: localUniverseRef.current?.openingEncounter === true,
+        getSessionToken: () => freeFlightTokenRef.current?.() ?? Promise.resolve(null),
+        onEnvironment: (environment) => {
+          freeFlightEnvironmentRef.current = environment;
+        },
+        onSnapshot: (frame) => {
+          setPresenceFresh(true);
+          setSharedFlightSessionId(frame.snapshot.sessionInstanceId);
+          if (frame.receivedAt - lastSharedReferenceAt.current >= 500) {
+            setSharedFlightReference(ownSharedFlightReference(frame.snapshot));
+            lastSharedReferenceAt.current = frame.receivedAt;
+          }
+          const contacts = flightPresence(frame.snapshot);
+          setNearbyContacts(current => JSON.stringify(current) === JSON.stringify(contacts) ? current : contacts);
+          const previous = freeFlightFramesRef.current.current;
+          if (previous && previous.snapshot.sessionInstanceId !== frame.snapshot.sessionInstanceId) {
+            freeFlightImpactQueueRef.current.clear();
+            freeFlightWeaponEffectsRef.current = [];
+          }
+          freeFlightFramesRef.current = { previous, current: frame };
+          const vitals = freeFlightPilotVitals(frame.snapshot);
+          setFreeFlightPilot((current) =>
+            sameFreeFlightPilotVitals(current, vitals) ? current : vitals);
+          const ownActor = frame.snapshot.actors.find((actor) => actor.own);
+          const friendlyCount = ownActor ? frame.snapshot.actors.filter((actor) =>
+            actor.kind === "pilot" && !actor.own && actor.alive &&
+            actor.faction === ownActor.faction).length : 0;
+          setNearbyFriendlyPilots((current) => current === friendlyCount ? current : friendlyCount);
+          const nextPatrolContact = sharedFlightPatrolContact(
+            frame.snapshot, sharedPatrolContactRef.current?.actorId,
+          );
+          const previousPatrolContact = sharedPatrolContactRef.current;
+          sharedPatrolContactRef.current = nextPatrolContact;
+          setSharedPatrolContact(sameSharedPatrolContact(previousPatrolContact, nextPatrolContact)
+            ? previousPatrolContact : nextPatrolContact);
+          if (nextPatrolContact?.actorId) {
+            const fleet = sharedTacticalSnapshotRef.current?.fleets.find((candidate) =>
+              candidate.units.some((unit) => unit.actorId === nextPatrolContact.actorId),
+            );
+            if (fleet) lastEncounterFleetIdRef.current = fleet.fleetId;
+          }
+          const enemyPatrolCount = frame.snapshot.actors.filter(
+            (actor) => actor.kind === "patrol" && actor.faction !== faction && actor.alive,
+          ).length;
+          setVisibleEnemyPatrols((previousCount) =>
+            previousCount === enemyPatrolCount ? previousCount : enemyPatrolCount,
+          );
+        },
+        onState: (state, reason) => {
+          if (state === "joined") setRetainedFlightHint(null);
+          setFreeFlightStatus(current => freeFlightConnectionStatusAfter(current, state, reason));
+          if (state !== "joined") {
+            setPresenceFresh(false);
+            setSharedFlightReference(null);
+            lastSharedReferenceAt.current = -Infinity;
+            setNearbyContacts([]);
+            freeFlightCombatActiveRef.current = false;
+            setFreeFlightPilot(null);
+            setFreeFlightCombatStatus("idle");
+            setNearbyFriendlyPilots(0);
+            setAssistCallPending(false);
+            setRespondingToAssistCallId(null);
+            setAssistCallCooldownUntil(0);
+            setIncomingAssistCall(null);
+            sharedTacticalSnapshotRef.current = null;
+            tacticalRoleByActorRef.current.clear();
+            setSharedTacticalSnapshot(null);
+            sharedPatrolContactRef.current = null;
+            lastEncounterFleetIdRef.current = null;
+            setFreeFlightNotice(reason?.startsWith("freeflight_recovery")
+              ? freeFlightCombatNotice(reason)
+              : "");
+            freeFlightEnvironmentRef.current = null;
+          }
+          if (state !== "joined") {
+            setVisibleEnemyPatrols(0);
+            setSharedPatrolContact(null);
+          }
+        },
+        onCombatPacket: (packet) => {
+          if (packet.type === "freeflight_tactical_snapshot") {
+            const report = readFreeFlightTacticalSnapshot(packet.snapshot);
+            const currentSession = freeFlightFramesRef.current.current?.snapshot.sessionInstanceId;
+            if (!report || report.sessionInstanceId !== currentSession ||
+                report.tick < (sharedTacticalSnapshotRef.current?.tick ?? -1)) return;
+            sharedTacticalSnapshotRef.current = report;
+            tacticalRoleByActorRef.current.clear();
+            for (const fleet of report.fleets) {
+              for (const unit of fleet.units) tacticalRoleByActorRef.current.set(unit.actorId, unit.role);
+            }
+            const currentContact = sharedPatrolContactRef.current;
+            if (currentContact?.actorId) {
+              const fleet = report.fleets.find((candidate) =>
+                candidate.units.some((unit) => unit.actorId === currentContact.actorId),
+              );
+              if (fleet) lastEncounterFleetIdRef.current = fleet.fleetId;
+            }
+            setSharedTacticalSnapshot((previous) =>
+              sameTacticalSnapshotContent(previous, report) ? previous : report);
+            return;
+          }
+          if (isCombatRecoveryState(packet)) {
+            const pilot = matchRef.current?.player;
+            if (pilot?.space) pilot.space.energy = packet.energy;
+            if (packet.reason === "kill") setFreeFlightNotice(packet.milestone
+              ? `STREAK ${packet.milestone} · +${Math.round(packet.restored)} ENERGY · SHIELD RESUPPLY`
+              : `KILL CONFIRMED · +${Math.round(packet.restored)} ENERGY · STREAK ${packet.streak}`);
+            return;
+          }
+          if (packet.type === "freeflight_recovery_hint") {
+            setRetainedFlightHint(readFreeFlightRecoveryHint(packet.recovery));
+          } else if (packet.type === "freeflight_assist_request" &&
+              typeof packet.callId === "string" && /^[0-9a-f-]{36}$/i.test(packet.callId) &&
+              typeof packet.callerCallsign === "string" && packet.callerCallsign.length <= 80 &&
+              typeof packet.patrolCallsign === "string" && packet.patrolCallsign.length <= 80 &&
+              (packet.opposingFaction === "ussf" || packet.opposingFaction === "accord") &&
+              typeof packet.expiresAt === "number" && Number.isFinite(packet.expiresAt) &&
+              packet.expiresAt > Date.now() && packet.expiresAt <= Date.now() + 30_000) {
+            setIncomingAssistCall({
+              callId: packet.callId,
+              callerCallsign: packet.callerCallsign,
+              patrolCallsign: packet.patrolCallsign,
+              opposingFaction: packet.opposingFaction,
+              expiresAt: packet.expiresAt,
+            });
+          } else if (packet.type === "freeflight_assist_call_result" &&
+              Number.isSafeInteger(packet.delivered) && (packet.delivered as number) >= 0 &&
+              (packet.delivered as number) <= 24 &&
+              Number.isSafeInteger(packet.cooldownMs) && (packet.cooldownMs as number) >= 0 &&
+              (packet.cooldownMs as number) <= 30_000) {
+            setAssistCallPending(false);
+            setAssistCallCooldownUntil(packet.cooldownMs
+              ? Date.now() + (packet.cooldownMs as number) : 0);
+            setFreeFlightNotice((packet.delivered as number) > 0
+              ? `WING SIGNAL SENT · ${packet.delivered} nearby pilot${packet.delivered === 1 ? "" : "s"} alerted.`
+              : packet.reason === "no_friendly_pilots_in_range"
+                ? "NO FRIENDLY PILOTS IN SIGNAL RANGE."
+                : packet.reason === "cooldown"
+                  ? "WING SIGNAL RECHARGING."
+                  : "NO ACTIVE FLEET BATTLE TO SIGNAL.");
+          } else if (packet.type === "freeflight_assist_call_update" &&
+              packet.status === "accepted" && typeof packet.pilotCallsign === "string") {
+            setFreeFlightNotice(`WING SUPPORT RESPONDING · ${packet.pilotCallsign.slice(0, 32)} joining.`);
+          } else if (packet.type === "freeflight_ai_support_joined" &&
+              packet.source === "nearby_patrol" &&
+              (packet.faction === "ussf" || packet.faction === "accord") &&
+              typeof packet.callsign === "string" && packet.callsign.length <= 80) {
+            setFreeFlightNotice(`FRIENDLY PATROL RESPONDING · ${packet.callsign.slice(0, 32)} joining the battle.`);
+          } else if (packet.type === "freeflight_vector_boost_state") {
+            setVectorBoostStatus(packet.accepted === true ? "VECTOR BURST · RECOVERING" : "BURST · ENERGY / RECOVERY");
+            return;
+          }
+          if (packet.type === "freeflight_opening") {
+            setFreeFlightNotice(openingEncounterNotice(packet.status));
+          } else if (packet.type === "freeflight_recovered") {
+            client?.stop();
+            localUniverseRef.current?.onExit();
+          } else if (packet.type === "freeflight_weapon_fired" &&
+              typeof packet.eventId === "string" &&
+              (packet.sourceFaction === "ussf" || packet.sourceFaction === "accord") &&
+              typeof packet.visualEffect === "string" &&
+              Object.hasOwn(WEAPON_EFFECT_COLORS, packet.visualEffect) &&
+              isFlightVector(packet.from) && isFlightVector(packet.velocity) &&
+              typeof packet.lifetimeSeconds === "number" &&
+              Number.isFinite(packet.lifetimeSeconds)) {
+            freeFlightWeaponEffectsRef.current.push({
+              eventId: packet.eventId,
+              sourceFaction: packet.sourceFaction,
+              visualEffect: packet.visualEffect as keyof typeof WEAPON_EFFECT_COLORS,
+              from: packet.from,
+              velocity: packet.velocity,
+              lifetimeSeconds: Math.max(0, Math.min(5, packet.lifetimeSeconds)),
+              receivedAt: performance.now(),
+            });
+            if (freeFlightWeaponEffectsRef.current.length > 160) {
+              freeFlightWeaponEffectsRef.current.splice(
+                0,
+                freeFlightWeaponEffectsRef.current.length - 160,
+              );
+            }
+          } else if (packet.type === "freeflight_countermeasure_state" &&
+              typeof packet.activated === "boolean" && Number.isSafeInteger(packet.decoyed) &&
+              Number.isSafeInteger(packet.disrupted)) {
+            setFreeFlightNotice(packet.activated
+              ? `COUNTERMEASURE · ${packet.decoyed} decoyed · ${packet.disrupted} disrupted`
+              : "COUNTERMEASURE · No incoming seeker or defense recharging");
+          } else if ((packet.type === "freeflight_weapon_event" || packet.type === "freeflight_world_impact") &&
+              typeof packet.eventId === "string" && isFlightVector(packet.to)) {
+            const effect = freeFlightWeaponEffectsRef.current.find(
+              (candidate) => candidate.eventId === packet.eventId,
+            );
+            if (effect) effect.impact = { to: packet.to, receivedAt: performance.now() };
+            freeFlightImpactQueueRef.current.push(packet, performance.now());
+          } else if (packet.type === "freeflight_engagement_started") {
+            setIncomingAssistCall(null);
+            setRespondingToAssistCallId(null);
+            freeFlightCombatActiveRef.current = true;
+            setFreeFlightCombatStatus("active");
+            setFreeFlightNotice(packet.assistance === true
+              ? "WING SUPPORT · Joined the live fleet battle."
+              : "HOSTILE INTERCEPT · Live fleet battle engaged.");
+          } else if (packet.type === "freeflight_pvp_engagement_started" &&
+              typeof packet.engagementId === "string" &&
+              (packet.opposingFaction === "ussf" || packet.opposingFaction === "accord")) {
+            freeFlightCombatActiveRef.current = true;
+            setFreeFlightCombatStatus("active");
+            setFreeFlightNotice(`HOSTILE PILOT · ${packet.opposingFaction.toUpperCase()} PLAYER ENGAGED`);
+          } else if (packet.type === "freeflight_pvp_result" &&
+              ["kill", "destroyed", "assist", "battle_resolved"].includes(String(packet.outcome)) &&
+              [packet.kills, packet.assists, packet.creditsAwarded].every(
+                (value) => Number.isSafeInteger(value) && (value as number) >= 0,
+              )) {
+            setFreeFlightTally({
+              kills: packet.kills as number,
+              assists: packet.assists as number,
+              credits: packet.creditsAwarded as number,
+            });
+            setFreeFlightNotice(packet.outcome === "kill"
+              ? "HOSTILE PILOT DESTROYED · KILL CONFIRMED"
+              : packet.outcome === "destroyed"
+                ? "SHIP DESTROYED BY HOSTILE PILOT"
+                : packet.outcome === "assist"
+                  ? "HOSTILE PILOT DESTROYED · ASSIST CONFIRMED"
+                  : "HOSTILE PILOT BATTLE ENDED");
+          } else if (packet.type === "freeflight_ally_joined" &&
+              Number.isSafeInteger(packet.participantCount) &&
+              (packet.participantCount as number) >= 2 &&
+              (packet.participantCount as number) <= 8) {
+            setFreeFlightNotice(`ALLIED SUPPORT · ${packet.participantCount} pilots linked to this battle.`);
+          } else if (packet.type === "freeflight_engagement_state" &&
+              typeof packet.phase === "string") {
+            freeFlightCombatActiveRef.current = packet.phase === "active" && packet.pilotAlive !== false;
+            setFreeFlightCombatStatus(packet.pilotAlive === false ? "disabled" : packet.phase);
+            if (packet.phase === "complete") setFreeFlightNotice(current =>
+              /^(KILL CONFIRMED|STREAK )/.test(current) ? current : "");
+            if ([packet.kills, packet.assists, packet.creditsAwarded].every(
+              (value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
+            )) {
+              setFreeFlightTally({
+                kills: packet.kills as number, assists: packet.assists as number,
+                credits: packet.creditsAwarded as number,
+              });
+            }
+          } else if (packet.type === "freeflight_combat_result" &&
+              packet.status === "settled" &&
+              Number.isSafeInteger(packet.kills) &&
+              Number.isSafeInteger(packet.assists) &&
+              Number.isSafeInteger(packet.creditsAwarded)) {
+            const receipt = readFlightSettlement(packet);
+            if (!receipt || !acceptFlightSettlement(settledFlightEncounters.current, receipt)) return;
+            const remainingCombat = packet.phase === "active";
+            freeFlightCombatActiveRef.current = remainingCombat;
+            setFreeFlightCombatStatus(remainingCombat ? "active" : "complete");
+            if (!remainingCombat) setFreeFlightNotice(current =>
+              /^(KILL CONFIRMED|STREAK )/.test(current) ? current : "");
+            setFreeFlightTally(previous => settlementTallyAfter(previous, receipt));
+          } else if (packet.type === "freeflight_error" && typeof packet.reason === "string") {
+            setRespondingToAssistCallId(null);
+            if (packet.reason.startsWith("freeflight_assist_")) {
+              setAssistCallPending(false);
+              if (packet.reason === "freeflight_assist_call_expired") setIncomingAssistCall(null);
+            }
+            if (packet.reason === "freeflight_engagement_required" ||
+                packet.reason === "freeflight_pilot_destroyed") {
+              freeFlightCombatActiveRef.current = false;
+            }
+            if (packet.reason === "freeflight_rate_limited") return;
+            setFreeFlightNotice(freeFlightCombatNotice(packet.reason));
+            setFreeFlightCombatStatus((current) => combatStatusAfterError(
+              current, freeFlightCombatActiveRef.current, packet.reason as string,
+            ));
+          }
+        },
+      });
+      freeFlightClientRef.current = client;
+      client.start();
+    }).catch((error: unknown) => {
+      if (!disposed) {
+        setFreeFlightStatus(error instanceof Error ? "client_module_failed" : "client_module_unavailable");
+      }
+    });
+    return () => {
+      disposed = true;
+      client?.stop();
+      if (freeFlightClientRef.current === client) freeFlightClientRef.current = null;
+      freeFlightFramesRef.current = { previous: null, current: null };
+      freeFlightEnvironmentRef.current = null;
+    };
+  }, [faction, freeFlightEnabled]);
+  useEffect(() => {
+    if (!localUniverseActive || universe?.phase !== "exploration") setPatrolContact(null);
+  }, [localUniverseActive, universe?.phase]);
   const telemetryRef = useRef<HTMLParagraphElement>(null);
   const missileRef = useRef<HTMLButtonElement>(null);
   const countermeasureRef = useRef<HTMLButtonElement>(null);
   const countermeasureFeedbackRef = useRef<HTMLParagraphElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (stageRef.current) return attachFlightViewport(stageRef.current);
+    return undefined;
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const radarRef = useRef<HTMLCanvasElement>(null);
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -541,6 +1140,10 @@ export function Arena({
   const cageRef = useRef<HTMLParagraphElement>(null);
   const ultRef = useRef<HTMLButtonElement>(null);
   const lockRef = useRef<HTMLButtonElement>(null);
+  const equipmentStatusRef = useRef<HTMLSpanElement>(null);
+  const nearestTargetRef = useRef<HTMLButtonElement>(null);
+  const targetMarkerRef = useRef<HTMLDivElement>(null);
+  const targetMarkerLabelRef = useRef<HTMLSpanElement>(null);
   const speedRef = useRef<HTMLSpanElement>(null);
   const throttleMeterRef = useRef<HTMLDivElement>(null);
   const throttleFillRef = useRef<HTMLDivElement>(null);
@@ -570,6 +1173,11 @@ export function Arena({
   const contactRef = useRef<HTMLCanvasElement>(null);
   const presetRefs = useRef<Array<HTMLButtonElement | null>>([null, null, null, null]);
   const busRef = useRef<Bus | null>(null);
+  const [rightThumbProfile, setRightThumbProfile] = useState(loadRightThumbProfile);
+  useEffect(() => {
+    saveRightThumbProfile(rightThumbProfile);
+    if (busRef.current) clearInput(busRef.current);
+  }, [rightThumbProfile]);
   const matchRef = useRef<Match | null>(null);
   const onlineRef = useRef(online);
   onlineRef.current = online;
@@ -606,6 +1214,7 @@ export function Arena({
   if (!busRef.current) busRef.current = createBus(scheme);
   busRef.current.orbital = orbital;
   busRef.current.leftStickFlight = orbital && !online;
+  busRef.current.rightThumbProfile = orbital && !online ? rightThumbProfile : undefined;
   busRef.current.countermeasureEnabled = orbital && !orbitalCampaign;
   if (!matchRef.current) {
     const seed = serverSeed ?? ((Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1);
@@ -622,7 +1231,39 @@ export function Arena({
       prepareOrbital(matchRef.current, orbitalRuntime!.rulesVersion);
     }
     checksumRef.current = stagingTraceEnabled && !online ? [matchChecksum(matchRef.current)] : [];
+    if (localUniverse) {
+      universeTemplateRef.current = copyMatch(matchRef.current);
+      placeAtUniverseStart(matchRef.current.player, localUniverse.startLocation);
+      const session = universeRef.current;
+      const pilot = matchRef.current.player;
+      if (!deploymentAnchorRef.current && session && pilot.space) {
+        deploymentAnchorRef.current = {
+          sectorAddress: { ...session.sectorAddress },
+          position: { x: pilot.x, y: pilot.space.y, z: pilot.z },
+        };
+      }
+    }
   }
+  const dispatchUniverse = (event: LocalUniverseCommand) => {
+    const session = universeRef.current;
+    const match = matchRef.current;
+    const template = universeTemplateRef.current;
+    const bus = busRef.current;
+    if (!session || !match || !template) return;
+    const next = transitionLocalUniverse(match, template, session, event);
+    if (next === session) return;
+    if (bus) clearInput(bus);
+    rollCameraStabilizationRef.current = 0;
+    setMapOpen(false);
+    setCountermeasureVisible(false);
+    countermeasureVisibleRef.current = false;
+    setAnomalyScan(null);
+    anomalyScanKeyRef.current = "";
+    setRelayInteraction(null);
+    relayInteractionKeyRef.current = "";
+    universeRef.current = next;
+    setUniverse(next);
+  };
   const [end, setEnd] = useState<StrikeResult | null>(null);
   const [glError, setGlError] = useState<string | null>(null);
   const [muted, setMutedUi] = useState(false);
@@ -630,6 +1271,7 @@ export function Arena({
   const [shakeUi, setShakeUi] = useState(true);
   const [mapOpen, setMapOpen] = useState(false);
   const [maneuversOpen, setManeuversOpen] = useState(false);
+  const fallbackEvasiveSideRef = useRef(false);
   const [countermeasureVisible, setCountermeasureVisible] = useState(false);
   const countermeasureVisibleRef = useRef(false);
   const countermeasureUntilRef = useRef(0);
@@ -638,9 +1280,28 @@ export function Arena({
   const cameraModeRef = useRef<"chase" | "cockpit">("chase");
   cameraModeRef.current = cameraMode;
   const pausedRef = useRef(false);
+  const localServicesPauseRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!localUniverse) return;
+    if (localUniverse.servicesOpen && localServicesPauseRef.current === null) {
+      localServicesPauseRef.current = pausedRef.current;
+      if (busRef.current) clearInput(busRef.current);
+      pausedRef.current = true;
+      setPaused(true);
+    } else if (!localUniverse.servicesOpen && localServicesPauseRef.current !== null) {
+      pausedRef.current = localServicesPauseRef.current;
+      setPaused(localServicesPauseRef.current);
+      localServicesPauseRef.current = null;
+    }
+  }, [localUniverse?.servicesOpen]);
+  const dispatchUniverseRef = useRef(dispatchUniverse);
+  dispatchUniverseRef.current = dispatchUniverse;
   const shakeRef = useRef(true);
   const floatRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const unifiedOrbitalControls = orbital && !online;
+  const touchAnywhereControls = unifiedOrbitalControls && pilotControlLayout === "touch-anywhere";
+  /** Exploration hides encounter-only actions; shared-flight primary fire remains available. */
+  const exploringHud = Boolean(localUniverse) && universe?.phase !== "training";
   const [coach, setCoach] = useState(drilled ? "" : DRILL[0]);
   const coachStep = useRef(drilled ? 4 : 0);
   const ship = SHIPS[online ? pilotCraft(matchRef.current!, online.slotId).ship : shipId];
@@ -923,16 +1584,79 @@ export function Arena({
     const scene = new THREE.Scene();
     scene.fog = orbital ? null : new THREE.FogExp2(look.clear, look.fog);
     const orbitalAssets = orbital ? addOrbitalEnvironment(scene) : null;
+    if (localUniverse && orbitalAssets) {
+      const stationPose = cinderStationTransform();
+      orbitalAssets.station.position.set(stationPose.position.x, stationPose.position.y, stationPose.position.z);
+      orbitalAssets.station.rotation.set(0, stationPose.rotationY, 0);
+      const gate = new THREE.Mesh(
+        new THREE.TorusGeometry(7.2, 0.08, 8, 72),
+        new THREE.MeshBasicMaterial({ color: 0xe0a15a, transparent: true, opacity: 0.55, depthWrite: false }),
+      );
+      gate.name = "cinder-dock-gate";
+      orbitalAssets.station.add(gate);
+    }
+    let sectorNeighborhood: THREE.Group | null = null;
+    let activeSectorKey = "";
+    let serverAnomalyVisual: THREE.Group | null = null;
+    let activeServerAnomalyId = "";
+    const syncServerAnomalyVisual = (well?: AnomalyGravityWellV1) => {
+      const nextId = well?.id ?? "";
+      if (nextId === activeServerAnomalyId) return;
+      if (serverAnomalyVisual) {
+        scene.remove(serverAnomalyVisual);
+        disposeUniverseSectorNeighborhood(serverAnomalyVisual);
+        serverAnomalyVisual = null;
+      }
+      activeServerAnomalyId = nextId;
+      if (well) {
+        serverAnomalyVisual = buildAnomalyLensingVisual(well);
+        scene.add(serverAnomalyVisual);
+      }
+    };
+    let starGeometry: THREE.BufferGeometry | null = null;
+    let starMaterial: THREE.ShaderMaterial | null = null;
+    let activeStarSeed = match.seed >>> 0;
+    const updateStarfieldSeed = (seed: number) => {
+      activeStarSeed = seed;
+      if (!starGeometry || !starMaterial) return;
+      const buffers = createOrbitalStarfieldBuffers(seed);
+      const position = starGeometry.getAttribute("position") as THREE.BufferAttribute;
+      const phase = starGeometry.getAttribute("aPhase") as THREE.BufferAttribute;
+      (position.array as Float32Array).set(buffers.positions);
+      (phase.array as Float32Array).set(buffers.phases);
+      position.needsUpdate = true;
+      phase.needsUpdate = true;
+    };
+    const updateUniverseSector = (address: UniverseSession["sectorAddress"]) => {
+      const key = sectorAddressKey(address);
+      if (key === activeSectorKey) return;
+      if (sectorNeighborhood) {
+        scene.remove(sectorNeighborhood);
+        disposeUniverseSectorNeighborhood(sectorNeighborhood);
+      }
+      sectorNeighborhood = buildUniverseSectorNeighborhood(address, {
+        includeAnomalies: !freeFlightEnabled,
+      });
+      sectorNeighborhood.position.y = UNIVERSE_RENDER_Y_OFFSET;
+      scene.add(sectorNeighborhood);
+      if (orbitalAssets) setOriginSystemFrame(orbitalAssets.systemFrame, address, UNIVERSE_SECTOR_EDGE);
+      updateStarfieldSeed(universeSectorContents(address).seed);
+      activeSectorKey = key;
+    };
+    if (localUniverse) updateUniverseSector(universeRef.current?.sectorAddress ?? { x: "0", y: "0", z: "0" });
     const makeShip = orbital ? buildOrbitalShip : buildShip;
     if (orbital) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.15;
     }
     const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 520);
+    const lensWorldPosition = new THREE.Vector3();
+    const lensEdgePosition = new THREE.Vector3();
+    const targetScreenPosition = new THREE.Vector3();
     scene.add(new THREE.HemisphereLight(look.hemi, 0x1a100c, 0.9));
     scene.add(new THREE.AmbientLight(0x8a8174, 0.28));
     const sun = new THREE.DirectionalLight(look.sun, 1.7);
-    sun.position.set(-50, 40, -20);
+    sun.position.set(ORBITAL_SUN_POSITION.x, ORBITAL_SUN_POSITION.y, ORBITAL_SUN_POSITION.z);
     scene.add(sun);
     const theaterTextures = createTheaterTextures();
 
@@ -957,18 +1681,62 @@ export function Arena({
     );
     boundary.visible = !orbital;
     scene.add(boundary);
-    const starPositions = new Float32Array(700 * 3);
-    for (let i = 0; i < 700; i++) {
-      const r = 160 + Math.random() * 180;
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.acos(2 * Math.random() - 1);
-      starPositions[i * 3] = r * Math.sin(ph) * Math.cos(th);
-      starPositions[i * 3 + 1] = r * Math.cos(ph) * 0.55;
-      starPositions[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
-    }
-    const stars = new THREE.BufferGeometry();
-    stars.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xe6e1d6, size: 0.55 })));
+    starGeometry = new THREE.BufferGeometry();
+    const initialStars = createOrbitalStarfieldBuffers(activeStarSeed);
+    starGeometry.setAttribute("position", new THREE.BufferAttribute(initialStars.positions, 3));
+    starGeometry.setAttribute("aPhase", new THREE.BufferAttribute(initialStars.phases, 1));
+    starMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uLensCenter: { value: new THREE.Vector2(0, 0) },
+        uLensRadius: { value: 0.12 },
+        uLensStrength: { value: 0 },
+      },
+      vertexShader: `
+        attribute float aPhase;
+        uniform float uTime;
+        uniform vec2 uLensCenter;
+        uniform float uLensRadius;
+        uniform float uLensStrength;
+        varying float vAlpha;
+        varying float vLens;
+        void main() {
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          vec4 clipPosition = projectionMatrix * viewPosition;
+          vLens = 0.0;
+          if (clipPosition.w > 0.0 && uLensStrength > 0.0) {
+            vec2 projected = clipPosition.xy / clipPosition.w;
+            vec2 radial = projected - uLensCenter;
+            float distanceToLens = max(length(radial), 0.001);
+            float radius = max(uLensRadius, 0.015);
+            float influence = exp(-(distanceToLens * distanceToLens) / (radius * radius));
+            radial /= distanceToLens;
+            clipPosition.xy += radial *
+              (uLensStrength * influence / (distanceToLens + 0.12)) * clipPosition.w;
+            vLens = influence;
+          }
+          gl_Position = clipPosition;
+          float twinkle = 0.5 + 0.5 * sin(uTime * 1.15 + aPhase);
+          vAlpha = 0.28 + 0.72 * twinkle + 0.08 * vLens;
+          gl_PointSize = 0.8 + 1.25 * twinkle;
+        }
+      `,
+      fragmentShader: `
+        varying float vAlpha;
+        varying float vLens;
+        void main() {
+          float radius = length(gl_PointCoord - vec2(0.5));
+          float glow = 1.0 - smoothstep(0.12, 0.5, radius);
+          vec3 color = mix(vec3(0.72, 0.84, 0.98), vec3(0.62, 0.88, 1.0), vLens);
+          gl_FragColor = vec4(color, glow * vAlpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    scene.add(new THREE.Points(starGeometry, starMaterial));
     const mars = new THREE.Mesh(
       new THREE.SphereGeometry(28, 32, 24),
       new THREE.MeshStandardMaterial({
@@ -989,6 +1757,7 @@ export function Arena({
     marsLimb.position.copy(mars.position);
     scene.add(marsLimb);
 
+    const rockMeshes: THREE.Object3D[] = [];
     for (const rock of match.rocks) {
       const mesh = orbital ? orbitalRock(rock.r, rock.x) : new THREE.Mesh(
         new THREE.DodecahedronGeometry(rock.r, 0),
@@ -997,6 +1766,7 @@ export function Arena({
       mesh.position.set(rock.x, orbital ? .9 : rock.r * 0.35, rock.z);
       mesh.rotation.set(rock.x, rock.z, 0);
       scene.add(mesh);
+      rockMeshes.push(mesh);
     }
 
     const relayMats: THREE.MeshStandardMaterial[] = [];
@@ -1037,6 +1807,253 @@ export function Arena({
       scene.add(group);
       return group;
     });
+    const patrolGroups = new Map<string, { group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite }>();
+    const sharedFlightGroups = new Map<string, {
+      group: THREE.Group; shipId: ShipId; designation?: THREE.Sprite;
+      designationRole?: string;
+      damage: ReturnType<typeof createOrbitalDamageController>;
+    }>();
+    const sharedImpactEffects = createSharedFlightImpactEffects(scene);
+    let lastSharedBoomAt = -Infinity;
+    let sharedVisualSessionId: string | null = null;
+    const sharedFlightEffects = new Map<string, {
+      line: THREE.Line;
+      material: THREE.LineBasicMaterial;
+    }>();
+    const removeSharedFlightGroups = () => {
+      for (const entry of sharedFlightGroups.values()) {
+        entry.damage.dispose();
+        disposePatrolShipGroup(entry.group, entry.designation);
+      }
+      sharedFlightGroups.clear();
+    };
+    const removeSharedFlightEffects = () => {
+      for (const { line, material } of sharedFlightEffects.values()) {
+        scene.remove(line);
+        line.geometry.dispose();
+        material.dispose();
+      }
+      sharedFlightEffects.clear();
+      freeFlightWeaponEffectsRef.current = [];
+      freeFlightImpactQueueRef.current.clear();
+      sharedImpactEffects.clear();
+    };
+    const renderSharedFlightEffects = (
+      now: number,
+      address: UniverseSession["sectorAddress"],
+    ) => {
+      for (const impact of freeFlightImpactQueueRef.current.drain(now)) {
+        const local = sharedPointInLocalFrame(impact.point, address);
+        if (!local) continue;
+        sharedImpactEffects.emit(impact, { ...local, y: UNIVERSE_RENDER_Y_OFFSET + local.y }, now);
+        if (impact.kind === "destruction" && now - lastSharedBoomAt > 150) {
+          sfxBoom();
+          lastSharedBoomAt = now;
+        }
+      }
+      sharedImpactEffects.update(now, camera, point => {
+        const local = sharedPointInLocalFrame(point, address);
+        return local ? { ...local, y: UNIVERSE_RENDER_Y_OFFSET + local.y } : null;
+      });
+      const liveIds = new Set<string>();
+      const effects = freeFlightWeaponEffectsRef.current;
+      for (let index = effects.length - 1; index >= 0; index -= 1) {
+        const effect = effects[index]!;
+        const age = Math.max(0, (now - effect.receivedAt) / 1_000);
+        const impactAge = effect.impact
+          ? Math.max(0, (now - effect.impact.receivedAt) / 1_000)
+          : null;
+        if (effect.impact ? impactAge! > 0.28 : age > effect.lifetimeSeconds) {
+          effects.splice(index, 1);
+          const entry = sharedFlightEffects.get(effect.eventId);
+          if (entry) {
+            scene.remove(entry.line);
+            entry.line.geometry.dispose();
+            entry.material.dispose();
+            sharedFlightEffects.delete(effect.eventId);
+          }
+          continue;
+        }
+        liveIds.add(effect.eventId);
+        let entry = sharedFlightEffects.get(effect.eventId);
+        if (!entry) {
+          const material = new THREE.LineBasicMaterial({
+            color: WEAPON_EFFECT_COLORS[effect.visualEffect][effect.sourceFaction],
+            transparent: true,
+            opacity: 1,
+            depthWrite: false,
+          });
+          const geometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(),
+            new THREE.Vector3(),
+          ]);
+          const line = new THREE.Line(geometry, material);
+          line.frustumCulled = false;
+          line.renderOrder = 6;
+          scene.add(line);
+          entry = { line, material };
+          sharedFlightEffects.set(effect.eventId, entry);
+        }
+        const velocity = effect.velocity;
+        const speed = Math.hypot(velocity.x, velocity.y, velocity.z) || 1;
+        const progress = Math.min(age, effect.lifetimeSeconds);
+        const tip = effect.impact?.to ?? {
+          x: effect.from.x + velocity.x * progress,
+          y: effect.from.y + velocity.y * progress,
+          z: effect.from.z + velocity.z * progress,
+        };
+        const traveled = Math.hypot(
+          tip.x - effect.from.x,
+          tip.y - effect.from.y,
+          tip.z - effect.from.z,
+        );
+        const tail = effect.impact
+          ? {
+              x: tip.x - velocity.x / speed * Math.min(5, traveled || 5),
+              y: tip.y - velocity.y / speed * Math.min(5, traveled || 5),
+              z: tip.z - velocity.z / speed * Math.min(5, traveled || 5),
+            }
+          : traveled > 5
+            ? {
+                x: tip.x - velocity.x / speed * 5,
+                y: tip.y - velocity.y / speed * 5,
+                z: tip.z - velocity.z / speed * 5,
+              }
+            : effect.from;
+        const start = sharedPointInLocalFrame(tail, address);
+        const end = sharedPointInLocalFrame(tip, address);
+        entry.line.visible = Boolean(start && end);
+        if (!start || !end) continue;
+        const position = entry.line.geometry.getAttribute("position") as THREE.BufferAttribute;
+        position.setXYZ(0, start.x, UNIVERSE_RENDER_Y_OFFSET + start.y, start.z);
+        position.setXYZ(1, end.x, UNIVERSE_RENDER_Y_OFFSET + end.y, end.z);
+        position.needsUpdate = true;
+        entry.line.geometry.computeBoundingSphere();
+        entry.material.opacity = effect.impact
+          ? Math.max(0, 1 - impactAge! / 0.28)
+          : 0.95;
+      }
+      for (const [eventId, entry] of sharedFlightEffects) {
+        if (liveIds.has(eventId)) continue;
+        scene.remove(entry.line);
+        entry.line.geometry.dispose();
+        entry.material.dispose();
+        sharedFlightEffects.delete(eventId);
+      }
+    };
+    const renderSharedFlight = (now: number) => {
+      const frames = freeFlightFramesRef.current;
+      const current = frames.current;
+      if (!current || now - current.receivedAt > 1_500) {
+        removeSharedFlightGroups();
+        removeSharedFlightEffects();
+        return false;
+      }
+      const snapshot = current.snapshot;
+      if (sharedVisualSessionId !== snapshot.sessionInstanceId) {
+        sharedImpactEffects.clear();
+        sharedVisualSessionId = snapshot.sessionInstanceId;
+      }
+      const own = snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId);
+      if (!own) {
+        removeSharedFlightGroups();
+        removeSharedFlightEffects();
+        return false;
+      }
+      const previous = frames.previous;
+      const sameSession = previous?.snapshot.sessionInstanceId === snapshot.sessionInstanceId;
+      const previousOwn = sameSession && previous
+        ? previous.snapshot.actors.find((actor) => actor.actorId === snapshot.ownActorId)
+        : undefined;
+      const duration = sameSession && previous
+        ? current.receivedAt - previous.receivedAt
+        : 0;
+      const renderTime = now - 100;
+      const alpha = previousOwn && duration > 0 && duration <= 300
+        ? Math.max(0, Math.min(1, (renderTime - previous!.receivedAt) / duration))
+        : 1;
+      const lerp = (from: number, to: number) => from + (to - from) * alpha;
+      const address = universeRef.current?.sectorAddress;
+      if (!address) {
+        removeSharedFlightGroups();
+        removeSharedFlightEffects();
+        return false;
+      }
+      const visibleIds = new Set<string>();
+      for (const actor of snapshot.actors) {
+        if (actor.own || actor.actorId === snapshot.ownActorId ||
+            !Object.hasOwn(SHIPS, actor.shipId)) continue;
+        visibleIds.add(actor.actorId);
+        const tacticalRole = actor.kind === "patrol"
+          ? tacticalRoleByActorRef.current.get(actor.actorId)
+          : undefined;
+        let entry = sharedFlightGroups.get(actor.actorId);
+        if (!entry || entry.shipId !== actor.shipId) {
+          if (entry) {
+            entry.damage.dispose();
+            disposePatrolShipGroup(entry.group, entry.designation);
+          }
+          const group = buildOrbitalShip(actor.shipId as ShipId);
+          group.scale.setScalar(actor.kind === "patrol" ? 2.4 : 2.1);
+          scene.add(group);
+          const designation = createPatrolDesignationSprite(actor.callsign, actor.faction, actor.kind, tacticalRole) ?? undefined;
+          if (designation) scene.add(designation);
+          entry = { group, shipId: actor.shipId as ShipId, designation, designationRole: tacticalRole,
+            damage: createOrbitalDamageController(group) };
+          sharedFlightGroups.set(actor.actorId, entry);
+        } else if (entry.designationRole !== tacticalRole) {
+          disposePatrolDesignationSprite(entry.designation);
+          entry.designation = createPatrolDesignationSprite(
+            actor.callsign, actor.faction, actor.kind, tacticalRole,
+          ) ?? undefined;
+          entry.designationRole = tacticalRole;
+          if (entry.designation) scene.add(entry.designation);
+        }
+        const previousActor = sameSession
+          ? previous?.snapshot.actors.find((candidate) => candidate.actorId === actor.actorId)
+          : undefined;
+        const position = {
+          x: previousActor ? lerp(previousActor.position.x, actor.position.x) : actor.position.x,
+          y: previousActor ? lerp(previousActor.position.y, actor.position.y) : actor.position.y,
+          z: previousActor ? lerp(previousActor.position.z, actor.position.z) : actor.position.z,
+        };
+        const localPosition = sharedPointInLocalFrame(position, address);
+        if (!localPosition) {
+          entry.group.visible = false;
+          if (entry.designation) entry.designation.visible = false;
+          continue;
+        }
+        const scenePosition = { ...localPosition, y: UNIVERSE_RENDER_Y_OFFSET + localPosition.y };
+        entry.group.visible = actor.alive;
+        entry.damage.update(actor.hull, actor.hullMax);
+        entry.group.position.set(scenePosition.x, scenePosition.y, scenePosition.z);
+        if (entry.designation) {
+          entry.designation.visible = actor.alive;
+          entry.designation.position.set(scenePosition.x, scenePosition.y + 22, scenePosition.z);
+        }
+        entry.group.quaternion.set(
+          actor.orientation.x,
+          actor.orientation.y,
+          actor.orientation.z,
+          actor.orientation.w,
+        );
+      }
+      for (const [actorId, entry] of sharedFlightGroups) {
+        if (visibleIds.has(actorId)) continue;
+        entry.damage.dispose();
+        disposePatrolShipGroup(entry.group, entry.designation);
+        sharedFlightGroups.delete(actorId);
+      }
+      renderSharedFlightEffects(now, address);
+      return true;
+    };
+    const universePatrolOrigin = localUniverse ? {
+      x: match.player.x,
+      y: match.player.space?.y ?? 0,
+      z: match.player.z,
+    } : null;
+    let lastPatrolProjectionAt = 0;
+    let lastPatrolNoticeAt = 0;
     const enemyGroups = match.enemies.map((enemy) => {
       const group = makeShip(enemy.ship);
       if (enemy.ace) {
@@ -1218,7 +2235,7 @@ export function Arena({
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(1, h);
-      camera.fov = w < h ? 74 : 58;
+      camera.fov = orbital ? orbitalCameraFov(camera.aspect) : w < h ? 74 : 58;
       camera.updateProjectionMatrix();
     };
     resize();
@@ -1226,6 +2243,8 @@ export function Arena({
     observer.observe(canvas);
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement &&
+          blocksFlightHotkeys(event.target.tagName, event.target.isContentEditable)) return;
       if (event.code === "KeyP") {
         event.preventDefault();
         const next = !pausedRef.current;
@@ -1247,6 +2266,7 @@ export function Arena({
       bus.keys.delete(event.code);
     };
     const clearHeld = () => clearInput(bus);
+    const onOrientationReset = () => { if (localUniverse) clearHeld(); };
     const onVisibilityChange = () => {
       const visible = document.visibilityState === "visible";
       performanceVisibilityRef.current?.({ timestampMs: performance.now(), visible });
@@ -1271,6 +2291,7 @@ export function Arena({
     window.addEventListener("blur", clearHeld);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("orientationchange", resize);
+    window.addEventListener("orientationchange", onOrientationReset);
     window.visualViewport?.addEventListener("resize", resize);
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointerup", onPointerUp);
@@ -1285,7 +2306,12 @@ export function Arena({
           ? Math.hypot(craft.space.vx, craft.space.vy, craft.space.vz)
           : craft.speed;
       },
-      getFiring: () => bus.fireCanvas || bus.fireButton || bus.keys.has("Space"),
+      getPosition: () => {
+        const craft = pilotCraft(match, slotIdRef.current);
+        return { x: craft.x, y: craft.space?.y ?? 0, z: craft.z };
+      },
+      getFiring: () => bus.fireCanvas || bus.fireButton || bus.firePulse ||
+        (bus.override ?? bus.keys).has("Space"),
       setKeys: (codes: string[]) => {
         bus.override = new Set(codes);
       },
@@ -1299,6 +2325,8 @@ export function Arena({
     const onContextLost = (event: Event) => {
       event.preventDefault();
       alive = false;
+      glReadyRef.current = false;
+      setGlReady(false);
       cancelAnimationFrame(raf);
       engineGain(0);
       const message = "Graphics connection lost. Exit this flight and relaunch; no result has been submitted.";
@@ -1339,6 +2367,12 @@ export function Arena({
       setShakeUi(false);
     }
     const FIXED = 1 / 60;
+    let lastDockKey = "";
+    let nextNavigationUpdateAt = 0;
+    let reconciledFlightSession = "";
+    let reconciledFlightTick = -1;
+    glReadyRef.current = true;
+    setGlReady(true);
 
     const frame = (now: number) => {
       if (!alive) return;
@@ -1359,8 +2393,260 @@ export function Arena({
         bus.gyroYaw = 0;
         bus.gyroPitch = 0;
       }
-      const sample = isOnline || held || (orbital && acc < FIXED) ? IDLE : readInput(bus);
-      if (isOnline) {
+      const universePhase = localUniverse ? universeRef.current?.phase ?? "exploration" : null;
+      const sample = isOnline || held || (orbital && acc < FIXED) || universePhase !== null && universePhase !== "training" ? IDLE : readInput(bus);
+      const exploringUniverse = universePhase !== null && universePhase !== "training";
+      for (const rockMesh of rockMeshes) rockMesh.visible = !exploringUniverse;
+      if (exploringUniverse) {
+        // Predict local presentation with the same controls sent to shared
+        // flight. Damage, life state and settlement remain server-owned.
+        if (universeFrozen(universePhase)) acc = 0;
+        let steps = 0;
+        const pilot = match.player;
+        const sharedFrame = freeFlightFramesRef.current.current;
+        if (freeFlightEnabled && sharedFrame && now - sharedFrame.receivedAt <= 1_500 &&
+            (sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession ||
+              sharedFrame.snapshot.tick !== reconciledFlightTick)) {
+          const position = reconcileSharedFlightPosition(pilot, sharedFrame.snapshot,
+            universeRef.current!.sectorAddress, sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession);
+          if (position) {
+            if (!reconciledFlightSession) {
+              deploymentAnchorRef.current = { sectorAddress: position.address,
+                position: { x: pilot.x, y: pilot.space!.y, z: pilot.z } };
+            }
+            if (position.translation) {
+              camera.position.x += position.translation.x;
+              camera.position.y += position.translation.y;
+              camera.position.z += position.translation.z;
+            }
+            if (sectorAddressKey(position.address) !== sectorAddressKey(universeRef.current!.sectorAddress)) {
+              const nextSession = { ...universeRef.current!, sectorAddress: position.address };
+              universeRef.current = nextSession;
+              setUniverse(nextSession);
+              updateUniverseSector(position.address);
+            }
+          }
+          if (reconcileFreeFlightKinematics(pilot, sharedFrame.snapshot,
+            sharedFrame.snapshot.sessionInstanceId !== reconciledFlightSession)) {
+            reconciledFlightSession = sharedFrame.snapshot.sessionInstanceId;
+            reconciledFlightTick = sharedFrame.snapshot.tick;
+          }
+        }
+        const serverVitals = freeFlightEnabled
+          ? freeFlightPilotVitals(freeFlightFramesRef.current.current?.snapshot)
+          : null;
+        if (serverVitals) {
+          // Health/life comes from the server, not the freshly created local
+          // presentation craft after a reload. Never revive or repair locally.
+          Object.assign(pilot, serverVitals);
+          if (!serverVitals.alive) clearInput(bus);
+        }
+        const weaponsEnabled = freeFlightWeaponsEnabled(
+          freeFlightCombatActiveRef.current, serverVitals);
+        const primaryFireEnabled = freeFlightPrimaryFireEnabled(serverVitals);
+        while (acc >= FIXED && steps < 5 && pilot.space) {
+          const controls = readInput(bus);
+          // Shared flight keeps local-only drift disabled. Circular roll is
+          // retained only when this socket explicitly advertises its protocol.
+          if (freeFlightEnabled) {
+            controls.drift = false;
+            if (!freeFlightClientRef.current?.canControlBarrelRoll ||
+                controls.maneuver?.version !== 1 ||
+                controls.maneuver.kind !== "barrel-roll-control") {
+              delete controls.maneuver;
+            }
+          }
+          freeFlightClientRef.current?.sendControls({
+            ...controls,
+            lock: freeFlightEnabled && controls.lock,
+            fire: primaryFireEnabled && controls.fire,
+            missile: weaponsEnabled && controls.missile,
+          });
+          const nextSector = advanceLocalUniverseFlight(
+            match,
+            universeRef.current!,
+            controls,
+            FIXED,
+            localFreeFlightGravity(pilot),
+            freeFlightEnabled,
+            freeFlightEnabled ? freeFlightClientRef.current?.subsystemState?.own : undefined,
+          );
+          if (nextSector) {
+            const previousSector = universeRef.current!.sectorAddress;
+            const frameTranslation = universeLocalFrameTranslation(previousSector, nextSector);
+            if (frameTranslation) {
+              // Shift the camera with the changing local origin so its position
+              // relative to the pilot stays constant across sector boundaries.
+              camera.position.x += frameTranslation.x;
+              camera.position.y += frameTranslation.y;
+              camera.position.z += frameTranslation.z;
+            }
+            const nextSession = { ...universeRef.current!, sectorAddress: nextSector };
+            universeRef.current = nextSession;
+            setUniverse(nextSession);
+            updateUniverseSector(nextSector);
+          }
+          acc -= FIXED;
+          steps += 1;
+        }
+        if (now >= nextNavigationUpdateAt) {
+          nextNavigationUpdateAt = now + 250;
+          const cueRoot = returnNavigationRef.current;
+          const anchor = deploymentAnchorRef.current;
+          const session = universeRef.current;
+          const pilot = match.player;
+          const cue = anchor && session && pilot.space
+            ? universeReturnCue(
+              session.sectorAddress,
+              { x: pilot.x, y: pilot.space.y, z: pilot.z },
+              anchor,
+              pilot.space.q,
+            )
+            : null;
+          if (cueRoot && cue && cue.distanceMeters >= UNIVERSE_RETURN_CUE_MIN_DISTANCE_METERS) {
+            cueRoot.style.display = "flex";
+            if (returnArrowRef.current) {
+              returnArrowRef.current.style.transform = `rotate(${cue.bearingDegrees}deg)`;
+            }
+            if (returnDistanceRef.current) {
+              returnDistanceRef.current.textContent = formatUniverseRange(cue.distanceMeters);
+            }
+            if (returnSectorRef.current && session) {
+              returnSectorRef.current.textContent =
+                `${session.sectorAddress.x},${session.sectorAddress.y},${session.sectorAddress.z}`;
+            }
+            if (returnVerticalRef.current) {
+              returnVerticalRef.current.textContent = cue.elevationDegrees > 25
+                ? "UP"
+                : cue.elevationDegrees < -25
+                  ? "DOWN"
+                  : "";
+            }
+            cueRoot.setAttribute(
+              "aria-label",
+              `Flight origin ${formatUniverseRange(cue.distanceMeters)} away, sector ${session?.sectorAddress.x}, ${session?.sectorAddress.y}, ${session?.sectorAddress.z}.`,
+            );
+          } else if (cueRoot) {
+            cueRoot.style.display = "none";
+          }
+        }
+        const latestSharedFrame = freeFlightFramesRef.current.current;
+        const sharedTrafficFresh = Boolean(
+          latestSharedFrame && now - latestSharedFrame.receivedAt <= 1_500,
+        );
+        if (!freeFlightEnabled && universePhase === "exploration" && universePatrolOrigin &&
+            now - lastPatrolProjectionAt >= 120 && !sharedTrafficFresh) {
+          lastPatrolProjectionAt = now;
+          const liveUniverse = localUniverseRef.current;
+          const projection = projectUniversePatrolTraffic(
+            liveUniverse?.patrolDirectory,
+            faction,
+            universePatrolOrigin,
+            { x: pilot.x, y: pilot.space?.y ?? 0, z: pilot.z },
+            Date.now(),
+          );
+          const visibleIds = new Set<string>();
+          for (const contact of projection.contacts) {
+            visibleIds.add(contact.contactId);
+            let entry = patrolGroups.get(contact.contactId);
+            if (entry && entry.shipId !== contact.shipId) {
+              disposePatrolShipGroup(entry.group, entry.designation);
+              patrolGroups.delete(contact.contactId);
+              entry = undefined;
+            }
+            if (!entry) {
+              const group = buildOrbitalShip(contact.shipId);
+              group.scale.setScalar(2.4);
+              scene.add(group);
+              const designation = contact.faction !== faction
+                ? createPatrolDesignationSprite(contact.callsign, contact.faction) ?? undefined
+                : undefined;
+              if (designation) scene.add(designation);
+              entry = { group, shipId: contact.shipId, designation };
+              patrolGroups.set(contact.contactId, entry);
+            }
+            entry.group.visible = true;
+            entry.group.position.set(
+              contact.position.x,
+              UNIVERSE_RENDER_Y_OFFSET + contact.position.y,
+              contact.position.z,
+            );
+            entry.group.rotation.set(0, contact.yaw, 0);
+            if (entry.designation) {
+              entry.designation.visible = true;
+              entry.designation.position.set(
+                contact.position.x,
+                UNIVERSE_RENDER_Y_OFFSET + contact.position.y + 22,
+                contact.position.z,
+              );
+            }
+          }
+          for (const [contactId, entry] of patrolGroups) {
+            if (!visibleIds.has(contactId)) {
+              entry.group.visible = false;
+              if (entry.designation) entry.designation.visible = false;
+            }
+          }
+          if (now - lastPatrolNoticeAt >= 400) {
+            lastPatrolNoticeAt = now;
+            const next = projection.nearestOpposing
+              ? {
+                  callsign: projection.nearestOpposing.callsign,
+                  faction: projection.nearestOpposing.faction,
+                  shipCount: projection.nearestOpposing.shipCount,
+                  distanceMeters: Math.round(projection.nearestOpposing.distanceMeters),
+                }
+              : null;
+            setPatrolContact((previous) => {
+              if (
+                previous?.callsign === next?.callsign
+                && previous?.faction === next?.faction
+                && previous?.shipCount === next?.shipCount
+                && previous?.distanceMeters === next?.distanceMeters
+              ) return previous;
+              return next;
+            });
+          }
+        } else if (freeFlightEnabled || universePhase !== "exploration" || sharedTrafficFresh) {
+          for (const entry of patrolGroups.values()) {
+            entry.group.visible = false;
+            if (entry.designation) entry.designation.visible = false;
+          }
+          if (universePhase !== "exploration") {
+            for (const entry of sharedFlightGroups.values()) {
+              entry.group.visible = false;
+              if (entry.designation) entry.designation.visible = false;
+            }
+          }
+          if (patrolContact) setPatrolContact(null);
+        }
+        if (universePhase === "exploration") {
+          renderSharedFlight(now);
+          const dock = evaluateUniverseDock(pilot, universeRef.current!.sectorAddress);
+          const key = `${dock.targetId}:${dock.reason}:${Math.round(dock.distance)}:${dock.closure.toFixed(1)}:${Math.round(dock.headingDeg)}`;
+          if (key !== lastDockKey) {
+            lastDockKey = key;
+            setDockState(dock);
+          }
+          const scan = freeFlightEnabled
+            ? null
+            : evaluateLocalAnomalyScan(match, universeRef.current!);
+          const scanKey = scan ? `${scan.id}:${Math.floor(scan.distance)}:${scan.scanned}:${scan.ready}` : "none";
+          if (scanKey !== anomalyScanKeyRef.current) {
+            anomalyScanKeyRef.current = scanKey;
+            setAnomalyScan(scan);
+          }
+          const relay = evaluateLocalRelayInteraction(match, universeRef.current!);
+          const relayKey = relay
+            ? `${relay.id}:${Math.floor(relay.distance)}:${relay.scanned}:${relay.recovered}:${relay.ready}`
+            : "none";
+          if (relayKey !== relayInteractionKeyRef.current) {
+            relayInteractionKeyRef.current = relayKey;
+            setRelayInteraction(relay);
+          }
+        }
+        match.fx.length = 0;
+      } else if (isOnline) {
         acc = 0;
         const authoritative = snapshotRef.current;
         if (authoritative) {
@@ -1512,7 +2798,11 @@ export function Arena({
         }
       }
       match.fx.length = 0;
-      if (match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
+      if (universePhase === "training" && match.over) {
+        dispatchUniverseRef.current({
+          type: "training-outcome",
+        });
+      } else if (!localUniverse && match.over && (!onlineRef.current || serverEndedRef.current) && !reported) {
         reported = true;
         setEnd({
           outcome: outcomeForTeam(match, slotIdRef.current >= 5 ? 1 : 0) ?? "draw",
@@ -1578,6 +2868,10 @@ export function Arena({
       if (orbital) {
         const poses: Array<[THREE.Group, Craft]> = [[playerGroup, player], ...match.allies.map((c, i) => [allyGroups[i], c] as [THREE.Group, Craft]), ...match.enemies.map((c, i) => [enemyGroups[i], c] as [THREE.Group, Craft])];
         for (const [group, craft] of poses) {
+          if (exploringUniverse && group !== playerGroup) {
+            group.visible = false;
+            continue;
+          }
           if (!craft.space) continue;
           group.position.set(craft.x, .9 + craft.space.y, craft.z);
           group.quaternion.fromArray(craft.space.q);
@@ -1622,11 +2916,83 @@ export function Arena({
       }
       const hostiles = player.team === "foe" ? [match.player, ...match.allies] : match.enemies;
       const locked = hostiles.find((enemy) => enemy.id === player.lockTargetId && enemy.alive);
-      bracket.visible = Boolean(locked);
+      const sharedTargetState = freeFlightEnabled ? freeFlightClientRef.current?.targetState : null;
+      const sharedLocked = sharedTargetState?.targetActorId
+        ? freeFlightFramesRef.current.current?.snapshot.actors.find(actor =>
+          actor.actorId === sharedTargetState.targetActorId && actor.alive && !actor.own &&
+          actor.faction !== player.faction)
+        : undefined;
+      const sharedLockedGroup = sharedLocked ? sharedFlightGroups.get(sharedLocked.actorId)?.group : undefined;
+      const sharedLockedPosition = sharedLockedGroup?.visible ? sharedLockedGroup.position : undefined;
+      const sharedLockedRange = sharedLockedPosition ? sharedFlightDistance(
+        { x: player.x, y: player.space?.y ?? 0, z: player.z },
+        { x: sharedLockedPosition.x, y: sharedLockedPosition.y - UNIVERSE_RENDER_Y_OFFSET, z: sharedLockedPosition.z },
+      ) : null;
+      bracket.visible = Boolean(locked) && !exploringUniverse;
       if (locked) {
         bracket.position.set(locked.x, orbital ? .9 + (locked.space?.y ?? 0) : .2, locked.z);
         if (orbital) bracket.quaternion.copy(camera.quaternion);
         bracket.scale.setScalar(Math.max(1, locked.radius / 1.5));
+      }
+      if (freeFlightEnabled) {
+        bracket.visible = Boolean(sharedLockedPosition);
+        if (sharedLockedPosition) {
+          bracket.position.copy(sharedLockedPosition);
+          bracket.quaternion.copy(camera.quaternion);
+          bracket.scale.setScalar(1.5);
+        }
+      }
+      const targetMarker = targetMarkerRef.current;
+      if (targetMarker) {
+        if (freeFlightEnabled && sharedLocked && sharedLockedPosition && sharedTargetState && sharedLockedRange !== null) {
+          targetScreenPosition.set(
+            sharedLockedPosition.x,
+            sharedLockedPosition.y,
+            sharedLockedPosition.z,
+          );
+          const component = freeFlightClientRef.current?.subsystemState;
+          const selected = component?.targetActorId === sharedLocked.actorId ? component.selected : null;
+          if (selected && component) {
+            const point = SUBSYSTEM_OFFSETS[selected];
+            const q = sharedLocked.orientation;
+            const offset = rotateSubsystemOffset([q.x, q.y, q.z, q.w],
+              point.x * component.targetRadius, point.y * component.targetRadius, point.z * component.targetRadius);
+            targetScreenPosition.x += offset.x;
+            targetScreenPosition.y += offset.y;
+            targetScreenPosition.z += offset.z;
+            bracket.position.copy(targetScreenPosition);
+            bracket.scale.setScalar(.65);
+          }
+          targetScreenPosition.project(camera);
+          const bounds = renderer.domElement.getBoundingClientRect();
+          const placement = targetMarkerPlacement(
+            targetScreenPosition, bounds.width, bounds.height,
+          );
+          targetMarker.hidden = !placement.visible;
+          if (placement.visible) {
+            targetMarker.style.left = `${bounds.left + placement.left}px`;
+            targetMarker.style.top = `${bounds.top + placement.top}px`;
+            targetMarker.dataset.edge = String(placement.edge);
+            targetMarker.dataset.missileReady = String(sharedTargetState.missileReady);
+            targetMarker.style.setProperty("--target-marker-angle", `${placement.angleDegrees}deg`);
+            targetMarker.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
+            const range = Math.round(sharedLockedRange);
+            const lockPercent = Math.floor(sharedTargetState.lockProgress * 100);
+            const componentLabel = selected && component?.target
+              ? ` · ${SUBSYSTEM_LABELS[selected]} ${Math.ceil(component.target.health[selected] / component.target.maximum * 100)}%` : "";
+            const markerLabel = `${sharedLocked.callsign}${componentLabel} · ${range} M · ${sharedTargetState.missileReady ? "MISSILE READY" : `LOCK ${lockPercent}%`}`;
+            if (targetMarkerLabelRef.current &&
+                targetMarkerLabelRef.current.textContent !== markerLabel) {
+              targetMarkerLabelRef.current.textContent = markerLabel;
+            }
+            targetMarker.setAttribute(
+              "aria-label",
+              `Selected enemy ${sharedLocked.callsign}, ${range} meters, missile lock ${lockPercent} percent${sharedTargetState.missileReady ? ", missile ready" : ""}`,
+            );
+          }
+        } else {
+          targetMarker.hidden = true;
+        }
       }
 
       flareT = Math.max(0, flareT - delta);
@@ -1716,6 +3082,55 @@ export function Arena({
       }
       camera.lookAt(_look);
       if (mag > 0.001) camera.rotateZ(shakeNoise(now * 0.001, 4) * mag * 0.05);
+      const liveGravityWells = localFreeFlightGravity(player);
+      const liveAnomaly = liveGravityWells?.[0];
+      syncServerAnomalyVisual(liveAnomaly);
+      if (serverAnomalyVisual && liveAnomaly) {
+        serverAnomalyVisual.position.set(
+          liveAnomaly.center.x,
+          UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+          liveAnomaly.center.z,
+        );
+        serverAnomalyVisual.rotation.y = now * 0.00008;
+      }
+      if (starMaterial) {
+        starMaterial.uniforms.uTime.value = now * 0.001;
+        if (liveAnomaly && player.space) {
+          const distance = Math.hypot(
+            liveAnomaly.center.x - player.x,
+            liveAnomaly.center.y - player.space.y,
+            liveAnomaly.center.z - player.z,
+          );
+          const visibility = THREE.MathUtils.clamp(1 - distance / 520, 0, 1);
+          camera.updateMatrixWorld();
+          lensWorldPosition.set(
+            liveAnomaly.center.x,
+            UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+            liveAnomaly.center.z,
+          ).project(camera);
+          if (visibility > 0 && lensWorldPosition.z > -1 && lensWorldPosition.z < 1) {
+            lensEdgePosition.set(
+              liveAnomaly.center.x + liveAnomaly.influenceRadius,
+              UNIVERSE_RENDER_Y_OFFSET + liveAnomaly.center.y,
+              liveAnomaly.center.z,
+            ).project(camera);
+            (starMaterial.uniforms.uLensCenter.value as THREE.Vector2).set(
+              lensWorldPosition.x,
+              lensWorldPosition.y,
+            );
+            starMaterial.uniforms.uLensRadius.value = THREE.MathUtils.clamp(
+              Math.abs(lensEdgePosition.x - lensWorldPosition.x),
+              0.035,
+              0.35,
+            );
+            starMaterial.uniforms.uLensStrength.value = 0.015 * visibility;
+          } else {
+            starMaterial.uniforms.uLensStrength.value = 0;
+          }
+        } else {
+          starMaterial.uniforms.uLensStrength.value = 0;
+        }
+      }
       tickSparks(sparkPool, delta);
       for (let i = 0; i < SPARK_N; i++) {
         sparkPos[i * 3] = sparkPool[i].x;
@@ -1745,7 +3160,7 @@ export function Arena({
       engineGain(pausedRef.current || !player.alive ? 0 : Math.min(1, Math.abs(player.speed) / Math.max(1, top)));
 
       if (shieldRef.current) {
-        shieldRef.current.style.width = `${Math.max(0, (player.shield / player.shieldMax) * 100)}%`;
+        shieldRef.current.style.width = `${Math.max(0, (player.shield / Math.max(1, player.shieldMax)) * 100)}%`;
       }
       if (hullRef.current) {
         hullRef.current.style.width = `${Math.max(0, (player.hull / player.hullMax) * 100)}%`;
@@ -1810,7 +3225,10 @@ export function Arena({
       }
       if (!painting) paintClock = 0;
       paintOn = painting;
-      if (contactRef.current) drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
+      if (contactRef.current) {
+        if (exploringUniverse) contactRef.current.getContext("2d")?.clearRect(0, 0, contactRef.current.width, contactRef.current.height);
+        else drawContacts(contactRef.current, match, pilotCraft(match, slotIdRef.current), slotIdRef.current);
+      }
       if (orbital && player.space) {
         const s = player.space;
         const speed = Math.hypot(s.vx, s.vy, s.vz);
@@ -1856,7 +3274,7 @@ export function Arena({
         const shield = locked ? Math.ceil(locked.shield / locked.shieldMax * 100) : 0;
         const hull = locked ? Math.ceil(locked.hull / locked.hullMax * 100) : 0;
         if (targetStatusRef.current) {
-          targetStatusRef.current.hidden = !locked;
+          targetStatusRef.current.hidden = !locked || exploringUniverse;
           if (locked && solution) {
             const factionAccent = targetFactionAccent(locked.faction);
             const critical = isTargetHullCritical(hull);
@@ -1925,8 +3343,12 @@ export function Arena({
             bullet.missile && bullet.faction !== player.faction && bullet.homeId === player.id,
           ).length;
           if (incomingCount > 0) countermeasureUntilRef.current = Math.max(countermeasureUntilRef.current, match.time + 2);
-          const incomingMissile = incomingCount > 0 || match.time < countermeasureUntilRef.current;
-          const countermeasureCd = s.countermeasureCd ?? 0;
+          const incomingMissile = freeFlightEnabled
+            ? freeFlightClientRef.current?.canDeployCountermeasure === true
+            : incomingCount > 0 || match.time < countermeasureUntilRef.current;
+          const countermeasureCd = freeFlightEnabled
+            ? (freeFlightClientRef.current?.countermeasureCooldownMs ?? 0) / 1000
+            : s.countermeasureCd ?? 0;
           countermeasureRef.current.disabled = !player.alive || !incomingMissile || countermeasureCd > 0;
           countermeasureRef.current.hidden = !incomingMissile;
           if (countermeasureVisibleRef.current !== incomingMissile) {
@@ -1993,6 +3415,89 @@ export function Arena({
         if (locked) lockRef.current.style.setProperty("--lock-accent", targetFactionAccent(locked.faction));
         else lockRef.current.style.removeProperty("--lock-accent");
         lockRef.current.setAttribute("aria-label", locked ? `Change target lock, current target ${SHIPS[locked.ship].name}` : "Acquire target lock");
+        if (freeFlightEnabled) {
+          lockRef.current.disabled = !freeFlightClientRef.current?.canSelectTarget;
+          const shipName = sharedLocked && Object.hasOwn(SHIPS, sharedLocked.shipId)
+            ? SHIPS[sharedLocked.shipId as ShipId].name : sharedLocked?.shipId.toUpperCase();
+          const sharedTargetLabel = sharedLocked ? `${sharedLocked.callsign} · ${shipName}` : "";
+          lockRef.current.dataset.target = sharedTargetLabel;
+          lockRef.current.dataset.locked = sharedLocked ? "true" : "false";
+          lockRef.current.setAttribute("aria-label", sharedLocked
+            ? `Next enemy by distance, selected ${sharedTargetLabel}`
+            : "Select closest enemy target");
+        } else {
+          // This node may be reused after leaving shared flight.
+          lockRef.current.disabled = false;
+        }
+      }
+      if (nearestTargetRef.current) {
+        nearestTargetRef.current.disabled = !freeFlightClientRef.current?.canSelectNearestTarget;
+      }
+      if (freeFlightEnabled) {
+        // This HUD is a view of authoritative state, never a locally acquired
+        // lock on the separate training craft.
+        const percent = Math.floor((sharedTargetState?.lockProgress ?? 0) * 100);
+        if (targetStatusRef.current) targetStatusRef.current.hidden = !sharedLocked;
+        if (sharedLocked) {
+          if (targetStatusRef.current) {
+            targetStatusRef.current.dataset.faction = sharedLocked.faction;
+            targetStatusRef.current.dataset.critical = isTargetHullCritical(
+              Math.ceil(sharedLocked.hull / Math.max(1, sharedLocked.hullMax) * 100),
+            ) ? "true" : "false";
+            targetStatusRef.current.style.setProperty("--target-accent", targetFactionAccent(sharedLocked.faction));
+          }
+          const shield = Math.ceil(sharedLocked.shield / Math.max(1, sharedLocked.shieldMax) * 100);
+          const hull = Math.ceil(sharedLocked.hull / Math.max(1, sharedLocked.hullMax) * 100);
+          if (targetFactionRef.current) targetFactionRef.current.textContent = sharedLocked.faction.toUpperCase();
+          const shipName = Object.hasOwn(SHIPS, sharedLocked.shipId)
+            ? SHIPS[sharedLocked.shipId as ShipId].name : sharedLocked.shipId.toUpperCase();
+          if (targetNameRef.current) targetNameRef.current.textContent = `${sharedLocked.callsign} · ${shipName}`;
+          if (targetDistanceRef.current) targetDistanceRef.current.textContent =
+            sharedLockedRange === null ? "—" : `${Math.round(sharedLockedRange)} M`;
+          if (targetShieldRef.current) targetShieldRef.current.style.width = `${shield}%`;
+          if (targetShieldValueRef.current) targetShieldValueRef.current.textContent = `${shield}%`;
+          if (targetHullRef.current) targetHullRef.current.style.width = `${hull}%`;
+          if (targetHullValueRef.current) targetHullValueRef.current.textContent = `${hull}%`;
+          if (targetLockRef.current) targetLockRef.current.style.width = `${percent}%`;
+          if (targetLockValueRef.current) targetLockValueRef.current.textContent = `${percent}% LOCK`;
+        }
+        if (missileRef.current) {
+          const equipment = freeFlightClientRef.current?.equipmentState;
+          const rocketReady = equipment?.unguided === true && Boolean(equipment.secondary &&
+            equipment.secondary.rounds > 0 && equipment.secondary.reload === 0 && !equipment.secondary.overheated &&
+            sharedTargetState && sharedTargetState.missileCooldown <= 0);
+          const systems = freeFlightClientRef.current?.subsystemState?.own;
+          const ready = (sharedTargetState?.missileReady || rocketReady) &&
+            (!systems || systems.health.missiles > 0 && systems.health.sensors > 0);
+          missileRef.current.disabled = !ready;
+          missileRef.current.setAttribute("aria-label", rocketReady ? "Fire unguided rocket along the ship's forward axis" : sharedTargetState?.missileReady
+            ? `Fire locked missile at ${sharedLocked?.callsign ?? "selected enemy"}`
+            : !sharedLocked ? "Missile requires an enemy target"
+              : sharedTargetState?.ammo === 0 ? "Missile ammunition empty"
+                : (sharedTargetState?.missileCooldown ?? 0) > 0 ? "Missile cooling down"
+                  : `Missile acquiring lock, ${percent} percent; keep enemy in the missile aiming cone`);
+          const badge = missileRef.current.querySelector(".pilot-action-badge");
+          if (badge) badge.textContent = ready ? String(sharedTargetState?.ammo ?? 0)
+            : equipment?.secondary?.reload ? `R${Math.ceil(equipment.secondary.reload)}`
+              : equipment?.secondary?.overheated ? "HOT"
+            : (sharedTargetState?.missileCooldown ?? 0) > 0 ? `${Math.ceil(sharedTargetState!.missileCooldown)}s`
+              : sharedTargetState?.ammo === 0 ? "0" : `L${percent}`;
+        }
+      }
+      if (equipmentStatusRef.current) {
+        const weapons = freeFlightEnabled ? freeFlightClientRef.current?.equipmentState : null;
+        const status = (label: string, resource: NonNullable<typeof weapons>["primary"], cost = 0) => !resource ? "" :
+          `${label} ${resource.reload > 0 ? `RELOAD ${Math.ceil(resource.reload)}s`
+            : resource.overheated ? `COOLING ${Math.ceil(resource.heat)}%`
+              : (weapons?.energy ?? 100) < cost ? "LOW POWER"
+              : `${resource.rounds}/${resource.reserve} · ${Math.ceil(resource.heat)}% HEAT`}`;
+        const systems = freeFlightClientRef.current?.subsystemState?.own;
+        const disabled = systems ? SHIP_SUBSYSTEMS.filter(id => systems.health[id] === 0)
+          .map(id => `${SUBSYSTEM_LABELS[id]} OFFLINE`) : [];
+        const text = [...(weapons ? [status("GUN", weapons.primary, weapons.primaryEnergy),
+          status("ORD", weapons.secondary, weapons.secondaryEnergy)] : []), ...disabled].filter(Boolean).join(" / ");
+        equipmentStatusRef.current.hidden = !text;
+        equipmentStatusRef.current.textContent = text;
       }
       presetRefs.current.forEach((button, index) => {
         if (!button) return;
@@ -2047,6 +3552,7 @@ export function Arena({
       alive = false;
       cancelAnimationFrame(raf);
       engineGain(0);
+      removeSharedFlightEffects();
       canvas.removeEventListener("webglcontextlost", onContextLost);
       delete window.__controlsTest;
       observer.disconnect();
@@ -2055,12 +3561,19 @@ export function Arena({
       window.removeEventListener("blur", clearHeld);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("orientationchange", resize);
+      window.removeEventListener("orientationchange", onOrientationReset);
       window.visualViewport?.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
       const geos = new Set<THREE.BufferGeometry>();
       const mats = new Set<THREE.Material>();
+      for (const entry of patrolGroups.values()) {
+        disposePatrolShipGroup(entry.group, entry.designation);
+      }
+      patrolGroups.clear();
+      removeSharedFlightGroups();
+      sharedImpactEffects.dispose();
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) geos.add(mesh.geometry);
@@ -2072,27 +3585,131 @@ export function Arena({
       mats.add(debrisMaterial);
       geos.forEach((geo) => geo.dispose());
       mats.forEach((mat) => mat.dispose());
+      if (sectorNeighborhood) disposeUniverseSectorNeighborhood(sectorNeighborhood);
       theaterTextures.dispose();
       orbitalAssets?.textures.forEach((texture) => texture.dispose());
       damageControllers.forEach((controller) => controller.dispose());
       renderer.dispose();
+      glReadyRef.current = false;
     };
   }, [ship.ultShort]);
 
   const bus = busRef.current;
+  const sharedFreeFlightJoined = freeFlightStatus === "joined";
+  const recoveryRequired = freeFlightRecoveryRequired(freeFlightStatus, freeFlightPilot);
+  const freeFlightLink = freeFlightLinkPresentation(freeFlightStatus, freeFlightEnabled, recoveryRequired);
+  const freeFlightCombatLabel = freeFlightPilot?.alive === false
+    ? "SHIP DISABLED · RETURN TO HANGAR"
+    : freeFlightCombatStatus === "active"
+    ? "ENGAGED"
+    : freeFlightCombatStatus === "requesting"
+      ? "REQUESTING"
+      : freeFlightCombatStatus === "complete"
+        ? "RESULT"
+        : "";
+  const sharedFreeFlightEngagementActive =
+    sharedFreeFlightJoined && freeFlightWeaponsEnabled(
+      freeFlightCombatStatus === "active", freeFlightPilot);
+  const sharedFreeFlightPrimaryFireReady =
+    sharedFreeFlightJoined && freeFlightPrimaryFireEnabled(freeFlightPilot);
+  const visiblePatrolContact = displayedPatrolContact(
+    freeFlightEnabled, sharedPatrolContact, patrolContact,
+  );
+  const encounterComposition = encounterCompositionView(
+    sharedTacticalSnapshot, visiblePatrolContact, lastEncounterFleetIdRef.current,
+  );
   return (
     <div
+      ref={stageRef}
       data-testid="arena-stage"
       data-mode-id={modeId}
       data-runtime-id={runtime}
       data-local-endurance={localEndurance ? "true" : "false"}
+      data-shared-pilot-alive={sharedFreeFlightJoined ? freeFlightPilot?.alive : undefined}
       className={`${orbital ? "lab-flight " : ""}relative h-dvh w-full touch-none overflow-hidden bg-void text-bone select-none`}
     >
+      {localUniverse && recoveryRequired ? (
+        <section data-testid="disabled-pilot-recovery" aria-label="Disabled ship recovery"
+          className="absolute inset-x-4 top-20 z-30 mx-auto max-w-md border border-solar/50 bg-void/95 p-3 text-center">
+          <h2 className="font-hud text-sm tracking-widest text-solar">
+            {retainedFlightHint?.alive ? "DEPLOYED SHIP RETAINED" : "SHIP DISABLED"}
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            {retainedFlightHint && !sharedFreeFlightJoined
+              ? freeFlightRecoveryHintText(retainedFlightHint)
+              : sharedFreeFlightJoined
+              ? "Recovery returns you to command after all battle results settle. Reconnecting does not repair your hull."
+              : "Your disabled ship must recover at its previous flight location. Return to command, use account operations to travel back, then re-enter flight and request recovery. Travel and reconnecting do not repair your hull."}
+          </p>
+          <button type="button" data-testid="button-recover-to-hangar"
+            className="pilot-menu-primary mt-2 w-full"
+            disabled={!sharedFreeFlightJoined || freeFlightPilot?.alive !== false}
+            onClick={() => {
+              if (freeFlightClientRef.current?.recoverDisabledPilot()) {
+                setFreeFlightNotice("RECOVERY REQUESTED · Waiting for server authorization.");
+              }
+            }}>RECOVER TO HANGAR</button>
+          <p role="status" className="mt-2 text-xs text-solar">{freeFlightNotice}</p>
+          <button type="button" data-testid="button-recovery-return-to-command" className="pilot-menu-setting mt-2 w-full"
+            onClick={() => localUniverseRef.current?.onExit()}>{sharedFreeFlightJoined ? "RETURN WITHOUT RECOVERY" : "RETURN TO COMMAND · PLAN RECOVERY"}</button>
+        </section>
+      ) : null}
+      {localUniverse ? (
+        <div
+          ref={returnNavigationRef}
+          data-testid="universe-return-navigation"
+          role="status"
+          aria-live="off"
+          style={{ display: "none" }}
+          className="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+3.75rem)] z-20 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap font-hud text-[9px] tracking-[0.12em] text-bone/75"
+        >
+          <span className="text-solar/80">ORIGIN</span>
+          <span ref={returnArrowRef} aria-hidden="true" className="inline-block origin-center text-sm text-solar">↑</span>
+          <span ref={returnDistanceRef} className="text-bone" />
+          <span ref={returnVerticalRef} className="text-solar/80" />
+          <span className="text-bone/35">· SEC</span>
+          <span ref={returnSectorRef} className="text-bone/55" />
+        </div>
+      ) : null}
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={contactRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       {online ? (
         <p className={`absolute left-1/2 top-3 z-30 -translate-x-1/2 border bg-void/85 px-3 py-2 font-hud text-xs tracking-widest ${networkStatus ? "border-alert/50 text-alert" : "border-solar/50 text-solar"}`}>
           {networkStatus || `LIVE WING · ${battlefieldProfile(online.snapshot.match.disc).callsign} FIELD · ${connectedPilots}/10 PILOTS · TEAM ${online.team + 1} · ${online.roomId}`}
+        </p>
+      ) : null}
+      {localUniverse ? (
+        <div className="absolute right-3 top-14 z-30">
+          <FlightPresencePanel
+            entries={nearbyContacts}
+            connected={sharedFreeFlightJoined && !recoveryRequired && presenceFresh}
+            region={localUniverse.startLocation ?? "Location not confirmed"}
+            status={sharedFreeFlightJoined && !presenceFresh
+              ? "Waiting for a fresh server snapshot. Nearby presence is not confirmed."
+              : freeFlightLink.detail}
+            sessionInstanceId={sharedFlightSessionId}
+            reference={sharedFlightReference}
+          />
+        </div>
+      ) : null}
+      {localUniverse ? (
+        <p
+          data-testid="free-flight-network-status"
+          data-state={freeFlightLink.state}
+          role="status"
+          title={freeFlightLink.detail}
+          aria-label={`${freeFlightLink.label}. ${freeFlightLink.detail}`}
+          className="absolute right-3 top-3 z-30 max-w-[48vw] text-right font-hud text-[10px] tracking-widest text-solar text-shadow"
+        >
+          {freeFlightLink.label}
+          {freeFlightLink.state !== "shared" ? (
+            <span className="block max-w-xs text-[9px] tracking-normal">{freeFlightLink.detail}</span>
+          ) : null}
+          {sharedFreeFlightJoined && visibleEnemyPatrols > 0 ? ` · ${visibleEnemyPatrols} HOSTILE SHIPS` : ""}
+          {sharedFreeFlightJoined && freeFlightCombatLabel ? ` · ${freeFlightCombatLabel}` : ""}
+          {sharedFreeFlightJoined && (freeFlightTally.kills > 0 || freeFlightTally.assists > 0 || freeFlightTally.credits > 0)
+            ? ` · K${freeFlightTally.kills} A${freeFlightTally.assists} +${freeFlightTally.credits} CR`
+            : ""}
         </p>
       ) : null}
       {Array.from({ length: 6 }, (_, index) => (
@@ -2105,6 +3722,19 @@ export function Arena({
         />
       ))}
       <div
+        ref={targetMarkerRef}
+        data-testid="shared-target-marker"
+        hidden
+        role="img"
+        aria-label="Selected enemy target"
+        className="free-flight-target-marker"
+      >
+        <span className="free-flight-target-reticle" aria-hidden="true">
+          <span className="free-flight-target-reticle-core" />
+        </span>
+        <span ref={targetMarkerLabelRef} className="free-flight-target-label" />
+      </div>
+      <div
         ref={hurtRef}
         className="pointer-events-none absolute inset-0 opacity-0"
         style={{ boxShadow: "inset 0 0 90px 12px rgba(196,92,72,0.95)" }}
@@ -2116,6 +3746,87 @@ export function Arena({
       <p ref={downRef} className="pointer-events-none absolute top-[58%] left-1/2 -translate-x-1/2 font-hud text-2xl tracking-widest text-alert" />
       {glError ? (
         <p className="absolute inset-x-0 top-1/3 px-6 text-center text-sm text-alert">{glError}</p>
+      ) : null}
+      {localUniverse ? (
+        <UniversePatrolEncounterPrompt
+          contact={visiblePatrolContact}
+          composition={encounterComposition}
+          enabled={sharedFreeFlightJoined && freeFlightPilot?.alive === true}
+          notice={freeFlightNotice}
+          onEngage={sharedFreeFlightJoined && freeFlightPilot?.alive === true ? () => {
+            const actorId = sharedPatrolContact?.actorId;
+            if (actorId && freeFlightClientRef.current?.engagePatrol(actorId)) {
+              setFreeFlightNotice("");
+              setFreeFlightCombatStatus(combatStatusAfterRequest(freeFlightCombatActiveRef.current));
+            }
+          } : undefined}
+        />
+      ) : null}
+      {localUniverse && incomingAssistCall && sharedFreeFlightJoined ? (
+        <section
+          data-testid="incoming-wing-assist-call"
+          role="region"
+          aria-label="Incoming wing assistance request"
+          aria-live="polite"
+          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] z-40 w-[min(23rem,92vw)] -translate-x-1/2 border border-solar/60 bg-void/95 px-3 py-2 shadow-[0_0_24px_rgba(224,161,90,.18)]"
+        >
+          <p className="font-hud text-[10px] tracking-[0.16em] text-solar">
+            WING CALL · {incomingAssistCall.callerCallsign}
+          </p>
+          <p className="mt-1 text-xs text-bone">
+            {incomingAssistCall.patrolCallsign} · {incomingAssistCall.opposingFaction.toUpperCase()} contact
+          </p>
+          <p className="mt-1 text-[10px] text-muted">Answer within sensor range to join the same live battle.</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              data-testid="button-accept-wing-assist"
+              className="pilot-menu-primary flex-1"
+              disabled={respondingToAssistCallId === incomingAssistCall.callId}
+              onClick={() => {
+                if (freeFlightClientRef.current?.respondToWingSupport(incomingAssistCall.callId, true)) {
+                  setRespondingToAssistCallId(incomingAssistCall.callId);
+                  setFreeFlightNotice("WING RESPONSE SENT · Closing to the live battle.");
+                }
+              }}
+            >RESPOND</button>
+            <button
+              type="button"
+              data-testid="button-dismiss-wing-assist"
+              className="pilot-menu-setting flex-1"
+              onClick={() => {
+                freeFlightClientRef.current?.respondToWingSupport(incomingAssistCall.callId, false);
+                setIncomingAssistCall(null);
+              }}
+            >DISMISS</button>
+          </div>
+        </section>
+      ) : null}
+      {localUniverse && universe ? (
+        <UniverseStationOverlay
+          session={universe}
+          dock={dockState}
+          sharedFlightJoined={sharedFreeFlightJoined}
+          anomalyScan={anomalyScan}
+          relayInteraction={relayInteraction}
+          onScanAnomaly={() => dispatchUniverse({ type: "scan-anomaly" })}
+          onScanRelay={() => dispatchUniverse({ type: "scan-rust-relay" })}
+          onRecoverRelay={() => dispatchUniverse({ type: "recover-rust-relay" })}
+          rendererReady={glReady && !glError}
+          graphicsError={glError}
+          servicesHref={localUniverse.servicesHref}
+          onOpenOperations={localUniverse.onOpenOperations}
+          onDock={() => {
+            const pilot = matchRef.current?.player;
+            if (!pilot || glError || !glReadyRef.current) return;
+            dispatchUniverse({ type: "dock", rendererReady: glReadyRef.current });
+          }}
+          onUndock={() => dispatchUniverse({ type: "undock" })}
+          onLaunchTraining={() => dispatchUniverse({ type: "launch-training" })}
+          onAbortTraining={() => dispatchUniverse({ type: "abort-training" })}
+          onReturn={() => dispatchUniverse({ type: "return-from-debrief" })}
+          onExit={() => universeExitRef.current?.()}
+        />
       ) : null}
       <div className="pointer-events-none absolute inset-0">
         <div className="pilot-top-bar absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-3 pt-3">
@@ -2165,7 +3876,7 @@ export function Arena({
           </div>
 
           <div className="lab-status-center min-w-0 text-center">
-            <span ref={clockRef} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
+            <span ref={clockRef} hidden={exploringHud} className="font-hud text-2xl leading-none text-bone" role="timer" aria-live="off" aria-label={pace === "strike" ? "6 minutes remaining" : "2 minutes remaining"}>
               {pace === "strike" ? "6:00" : "2:00"}
             </span>
             {!orbital ? <p className="font-hud text-[9px] tracking-widest text-muted"><span ref={wingRef}>WING</span></p> : null}
@@ -2214,7 +3925,7 @@ export function Arena({
                 onActivate={() => setCameraMode((mode) => mode === "chase" ? "cockpit" : "chase")}
               />
             ) : null}
-            <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />
+            {exploringHud ? null : <PilotActionButton icon="map" label="Open tactical map" testId="button-tactical-map" active={mapOpen} onActivate={() => setMapOpen(true)} />}
             <PilotActionButton icon="pause" label={paused ? "Resume sortie" : "Open flight menu"} testId="button-pause" active={paused} onActivate={() => {
               const next = !pausedRef.current;
               pausedRef.current = next;
@@ -2250,9 +3961,8 @@ export function Arena({
         >
           {orbital && !unifiedOrbitalControls && maneuversOpen ? (
             <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-start gap-1.5" data-testid="pilot-maneuver-actions">
-              <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
               <PilotActionButton icon="boost" label="Hold boost" testId="button-boost" onPress={() => bus?.keys.add("ShiftLeft")} onRelease={() => bus?.keys.delete("ShiftLeft")} onActivate={() => { if (bus) bus.keys.add("ShiftLeft"); requestAnimationFrame(() => bus?.keys.delete("ShiftLeft")); }} />
-              <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+              {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
               <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
               <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
               {orbitalCampaign ? null : <PilotActionButton ref={countermeasureRef} icon="flare" label="Launch countermeasure flare" testId="button-countermeasure" disabled={!countermeasureVisible} hidden={!countermeasureVisible} onPress={() => {
@@ -2275,6 +3985,8 @@ export function Arena({
               <PilotFlightStick
                 label={unifiedOrbitalControls ? "Left thumb flight" : orbital ? "Flight" : "Move"}
                 testId={`stick-${orbital ? "flight" : "move"}`}
+                floatingSide={touchAnywhereControls ? "left" : undefined}
+                disabled={paused}
                 size={unifiedOrbitalControls ? "rust-disc" : "arena"}
                 className={unifiedOrbitalControls ? "pilot-rust-disc-stick" : ""}
                 description={unifiedOrbitalControls ? "Drag up for forward thrust, down for reverse, and left or right to turn and bank. Double-tap an outer edge for a short vector-thrust pulse." : undefined}
@@ -2314,7 +4026,11 @@ export function Arena({
                       </div>
                       <span className="pilot-throttle-caption">THR</span>
                     </div>
-                    <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                    {exploringHud && !sharedFreeFlightPrimaryFireReady ? null : <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />}
+                    {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <div className="pointer-events-auto flex gap-1">
+                      <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} />
+                      <PilotActionButton icon="aim" badge="SYS" label="Cycle enemy subsystem aim point; aim and fire to damage it" testId="button-target-subsystem" onActivate={() => freeFlightClientRef.current?.cycleSubsystem()} />
+                    </div> : null}
                   </>
                 ) : null}
                 {!unifiedOrbitalControls ? (
@@ -2352,12 +4068,25 @@ export function Arena({
           className="pilot-control-right absolute flex flex-col items-end gap-2"
           style={{ right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
         >
+            <span ref={equipmentStatusRef} hidden data-testid="status-modular-weapons"
+              className="pointer-events-none absolute bottom-full right-0 mb-1 whitespace-nowrap bg-void/70 px-2 py-1 font-hud text-[9px] tracking-wide text-solar" />
           {unifiedOrbitalControls ? (
             <>
               {orbital && maneuversOpen ? (
-                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap justify-end gap-1.5" data-testid="pilot-maneuver-actions">
-                  <PilotActionButton icon="brake" label="Hold brake" testId="button-brake" onPress={() => bus?.keys.add("KeyB")} onRelease={() => bus?.keys.delete("KeyB")} onActivate={() => { if (bus) bus.keys.add("KeyB"); requestAnimationFrame(() => bus?.keys.delete("KeyB")); }} />
-                  <PilotActionButton icon="drift" label="Hold vector drift" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />
+                <div className="pilot-maneuver-actions pointer-events-auto flex max-w-[min(62vw,22rem)] flex-wrap items-center justify-end gap-1.5" data-testid="pilot-maneuver-actions">
+                  <div className="pilot-thumb-profile" role="group" aria-label={`Right thumb profile, current ${rightThumbProfile.mode}`} data-testid="group-maneuver-right-thumb-profile">
+                    {(["hybrid", "vector", "aim"] as const).map((mode) => (
+                      <button key={mode} type="button" className="pilot-thumb-profile-option"
+                        data-testid={`maneuver-right-thumb-profile-${mode}`}
+                        aria-pressed={rightThumbProfile.mode === mode}
+                        aria-label={mode === "hybrid" ? "Right thumb Hybrid: aim and move" : mode === "vector" ? "Right thumb Vector: move only" : "Right thumb Aim only"}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={() => setRightThumbProfile({ ...rightThumbProfile, mode })}>
+                        {mode === "hybrid" ? "HYB" : mode === "vector" ? "VEC" : "AIM"}
+                      </button>
+                    ))}
+                  </div>
+                  {freeFlightEnabled || online ? null : <PilotActionButton icon="drift" label="Hold vector drift (local training only)" testId="button-drift" onPress={() => bus?.keys.add("KeyT")} onRelease={() => bus?.keys.delete("KeyT")} onActivate={() => { if (bus) bus.keys.add("KeyT"); requestAnimationFrame(() => bus?.keys.delete("KeyT")); }} />}
                   <PilotActionButton icon="assist" label="Toggle inertial assist" testId="button-inertial-assist" onActivate={() => { if (bus) bus.inertialPulse = true; }} />
                   <PilotActionButton icon="aim" label="Toggle aim assist" testId="button-aim-assist" onActivate={() => { if (bus) bus.aimAssistPulse = true; }} />
                 </div>
@@ -2385,10 +4114,49 @@ export function Arena({
                     active={maneuversOpen}
                     onActivate={() => setManeuversOpen((value) => !value)}
                   />
+                  {orbital && rightThumbProfile.mode !== "aim" ? <PilotActionButton
+                    icon="maneuver"
+                    label="Request an energy-limited evasive vector burst"
+                    testId="button-vector-evade"
+                    badge="EVADE"
+                    disabled={paused}
+                    onActivate={() => {
+                      const flightBus = busRef.current;
+                      if (!flightBus) return;
+                      let direction = boostDirectionAt(flightBus.rightX, flightBus.rightY);
+                      if (!direction) {
+                        fallbackEvasiveSideRef.current = !fallbackEvasiveSideRef.current;
+                        direction = fallbackEvasiveSideRef.current ? "left" : "right";
+                      }
+                      const accepted = freeFlightEnabled
+                        ? freeFlightClientRef.current?.requestVectorBoost(direction) ?? false
+                        : (() => {
+                          const pilot = matchRef.current?.player;
+                          flightBus.flightEnergy = pilot?.space?.energy ?? 0;
+                          return requestRightVectorBoost(flightBus, direction, Date.now(),
+                            !pilot || !pilot.alive || pilot.root > 0 || pilot.jam > 0);
+                        })();
+                      setVectorBoostStatus(accepted
+                        ? `${direction.toUpperCase()} VECTOR · REQUESTED`
+                        : "VECTOR EVADE UNAVAILABLE · ENERGY / RECOVERY");
+                    }}
+                  /> : null}
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="pilot-combat-actions pilot-rust-disc-combat-row pointer-events-auto flex items-center gap-2">
-                    {orbitalCampaign ? null : (
+                    {freeFlightEnabled && localUniverse && sharedFreeFlightEngagementActive ? (
+                      <PilotActionButton
+                        icon="assist"
+                        label="Call nearby friendly pilots to join this live fleet battle"
+                        testId="button-request-wing-support"
+                        badge={assistCallPending ? "SENT" : nearbyFriendlyPilots > 0 ? String(nearbyFriendlyPilots) : "CALL"}
+                        disabled={assistCallPending || assistCallCooldownUntil > Date.now()}
+                        onActivate={() => {
+                          if (freeFlightClientRef.current?.requestWingSupport()) setAssistCallPending(true);
+                        }}
+                      />
+                    ) : null}
+                    {orbitalCampaign || exploringHud && !freeFlightEnabled ? null : (
                       <PilotActionButton
                         ref={countermeasureRef}
                         icon="flare"
@@ -2413,7 +4181,7 @@ export function Arena({
                         }}
                       />
                     )}
-                    <PilotActionButton
+                    {exploringHud && !sharedFreeFlightPrimaryFireReady ? null : <PilotActionButton
                       ref={missileRef}
                       icon="missile"
                       label="Launch guided missile"
@@ -2425,7 +4193,7 @@ export function Arena({
                         unlockAudio();
                         if (bus) bus.missilePulse = true;
                       }}
-                    />
+                    />}
                     <div className="pilot-boost-fire-stack flex flex-col items-center gap-1">
                       <PilotActionButton
                         ref={boostRef}
@@ -2442,27 +4210,43 @@ export function Arena({
                           requestAnimationFrame(() => bus.keys.delete("ShiftLeft"));
                         }}
                       />
-                      <PilotActionButton
+                      {exploringHud && !sharedFreeFlightPrimaryFireReady ? <span className="sr-only">Primary guns become available when shared flight is connected and the pilot is alive</span> : <PilotActionButton
                         icon="fire"
-                        label="Hold primary guns"
+                        label="Hold primary guns; fire is ready throughout shared flight"
                         testId="button-fire"
                         accent
                         fireAction
-                        onPress={() => { unlockAudio(); if (bus) bus.fireButton = true; }}
+                        onPress={() => { unlockAudio(); if (bus) { bus.fireButton = true; bus.firePulse = true; } }}
                         onRelease={() => { if (bus) bus.fireButton = false; }}
                         onActivate={() => {
                           unlockAudio();
-                          if (bus) bus.fireButton = true;
-                          requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
+                          if (bus) bus.firePulse = true;
                         }}
                         className="pilot-action-fire"
-                      />
+                      />}
                     </div>
                   </div>
                 </div>
                 <div className="relative">
-                  <PilotFlightStick label="Right thumb aim" testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
-                    onCircularRollInput={bus?.orbital && bus.leftStickFlight ? (input) => {
+                  <PilotFlightStick label={rightThumbProfile.mode === "vector" ? "Right thumb vector" : "Right thumb aim"} testId="stick-aim" size="rust-disc" className="pilot-rust-disc-stick"
+                    floatingSide={touchAnywhereControls ? "right" : undefined}
+                    interactionKey={rightThumbProfile.mode}
+                    disabled={paused}
+                    boostStatus={vectorBoostStatus}
+                    description={unifiedOrbitalControls && rightThumbProfile.mode === "hybrid"
+                      ? "Drag to aim and translate sideways, vertically or diagonally. Double-tap an edge or make two quick matching flicks for a directional burst."
+                      : rightThumbProfile.mode === "vector"
+                        ? "Drag to translate the hull sideways, vertically or diagonally without turning. Steer with the left thumb. Double-tap an edge or make two quick matching flicks for a directional burst."
+                        : "Drag to aim. Aim-only profile preserves the original flight mapping."}
+                    onVectorBoost={unifiedOrbitalControls && rightThumbProfile.mode !== "aim" && bus ? (direction) => {
+                      if (freeFlightEnabled) return freeFlightClientRef.current?.requestVectorBoost(direction) ?? false;
+                      const pilot = matchRef.current?.player;
+                      bus.flightEnergy = pilot?.space?.energy ?? 0;
+                      return requestRightVectorBoost(bus, direction, Date.now(),
+                        !pilot || !pilot.alive || pilot.root > 0 || pilot.jam > 0);
+                    } : undefined}
+                    onCircularRollInput={bus?.orbital && bus.leftStickFlight &&
+                      (!freeFlightEnabled || freeFlightClientRef.current?.canControlBarrelRoll) ? (input) => {
                       setCircularRollControl(bus, input);
                       if (Math.abs(input) > 0.01) rollCameraStabilizationRef.current = 1;
                     } : undefined}
@@ -2477,9 +4261,13 @@ export function Arena({
           ) : (
             <>
               <div className="pilot-combat-actions pointer-events-auto flex items-center gap-2">
-                <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} />
+                {!exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton ref={lockRef} icon="aim" label="Acquire target lock" testId="button-target-lock" onActivate={() => { if (bus) bus.lockPulse = true; }} /> : null}
+                {freeFlightEnabled && (!exploringHud || sharedFreeFlightPrimaryFireReady) ? <div className="pointer-events-auto flex gap-1">
+                  <PilotActionButton ref={nearestTargetRef} icon="aim" badge="NEAR" label="Select closest enemy target" testId="button-target-nearest" onActivate={() => freeFlightClientRef.current?.selectNearestTarget()} />
+                  <PilotActionButton icon="aim" badge="SYS" label="Cycle enemy subsystem aim point; aim and fire to damage it" testId="button-target-subsystem" onActivate={() => freeFlightClientRef.current?.cycleSubsystem()} />
+                </div> : null}
                 {orbital ? (
-                  <PilotActionButton
+                  !exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton
                     ref={missileRef}
                     icon="missile"
                     label="Launch guided missile"
@@ -2491,7 +4279,7 @@ export function Arena({
                       unlockAudio();
                       if (bus) bus.missilePulse = true;
                     }}
-                  />
+                  /> : null
                 ) : (
                   <>
                     <PilotActionButton
@@ -2511,9 +4299,9 @@ export function Arena({
                     />
                   </>
                 )}
-                <PilotActionButton
+                {!exploringHud || sharedFreeFlightPrimaryFireReady ? <PilotActionButton
                   icon="fire"
-                  label="Hold primary guns"
+                  label="Hold primary guns; fire is ready throughout shared flight"
                   testId="button-fire"
                   accent
                   fireAction
@@ -2525,7 +4313,7 @@ export function Arena({
                     requestAnimationFrame(() => { if (bus) bus.fireButton = false; });
                   }}
                   className="pilot-action-fire"
-                />
+                /> : null}
               </div>
               <div className="pointer-events-auto">
                 <PilotFlightStick label="Aim" testId="stick-aim" size="arena" onAxis={(x, y) => {
@@ -2563,12 +4351,60 @@ export function Arena({
           <div className="pilot-pause-panel">
             <p className="font-hud text-3xl tracking-widest text-bone">FLIGHT MENU</p>
             <p className="mt-2 max-w-lg font-hud text-xs leading-relaxed tracking-wider text-muted">
-              {online ? "This is a live room: the match continues while this menu is open." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
+              {online || freeFlightEnabled ? "Live shared flight continues while this menu is open. Opening this menu does not protect or repair your ship." : "Local sortie paused. Flight controls and secondary settings are here, away from the pilot's sightline."}
             </p>
+            <div data-testid="campaign-status-slot" className="mt-3 border-y border-bone/10 py-2 text-center" />
             <button type="button" data-testid="button-resume-sortie" className="pilot-menu-primary mt-4" onClick={() => {
               pausedRef.current = false;
               setPaused(false);
             }}>RESUME FLIGHT</button>
+            {localUniverse ? (
+              <button
+                type="button"
+                data-testid="button-leave-universe"
+                className="pilot-menu-setting mt-2 w-full"
+                onClick={() => localUniverseRef.current?.onExit()}
+              >
+                EXIT UNIVERSE
+              </button>
+            ) : null}
+            {unifiedOrbitalControls ? (
+              <section className="mt-4 border-t border-bone/15 pt-3" aria-label="Right thumb flight profile">
+                <p className="font-hud text-[10px] tracking-[0.22em] text-solar">RIGHT THUMB FLIGHT</p>
+                <div className="mt-2 grid grid-cols-3 gap-2" role="group" aria-label="Right thumb profile">
+                  {(["hybrid", "aim", "vector"] as const).map((mode) => (
+                    <button key={mode} type="button" className="pilot-menu-setting min-h-11"
+                      data-testid={`right-thumb-profile-${mode}`} aria-pressed={rightThumbProfile.mode === mode}
+                      onClick={() => setRightThumbProfile({ ...rightThumbProfile, mode })}>
+                      {mode === "hybrid" ? "HYBRID · AIM + MOVE" : mode === "aim" ? "AIM ONLY · CLASSIC" : "VECTOR · MOVE ONLY"}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 font-mono text-[9px] leading-relaxed text-muted" data-testid="text-right-thumb-profile-help">
+                  {rightThumbProfile.mode === "hybrid"
+                    ? "Right thumb aims and strafes together. Eight-way bursts enabled."
+                    : rightThumbProfile.mode === "aim"
+                      ? "Right thumb only turns the nose. No strafing, no bursts."
+                      : "Right thumb strafes the hull without turning it. Left thumb and gyro still steer. Eight-way bursts enabled."}
+                </p>
+                <label className="mt-2 block font-mono text-[10px] text-muted">
+                  AIM RESPONSE {rightThumbProfile.attitudeGain.toFixed(2)}
+                  <input aria-label="Right thumb aim response" className="block w-full" type="range" min=".2" max="1.25" step=".05"
+                    value={rightThumbProfile.attitudeGain} disabled={rightThumbProfile.mode === "vector"}
+                    onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, attitudeGain: Number(event.target.value) })} />
+                </label>
+                <label className="mt-2 block font-mono text-[10px] text-muted">
+                  VECTOR THRUST {rightThumbProfile.translationGain.toFixed(2)}
+                  <input aria-label="Right thumb vector thrust" className="block w-full" type="range" min="0" max="1" step=".05"
+                    value={rightThumbProfile.translationGain} disabled={rightThumbProfile.mode === "aim"}
+                    onChange={(event) => setRightThumbProfile({ ...rightThumbProfile, translationGain: Number(event.target.value) })} />
+                </label>
+                <p className="mt-2 font-mono text-[9px] leading-relaxed text-muted">Eight-way bursts use energy and recovery time. Shared flight requires server support. Circle rolls remain local-training only.</p>
+                <p className="mt-1 font-mono text-[9px] leading-relaxed text-muted" data-testid="text-maneuver-availability">
+                  Brake is a recovery action: hold to bleed speed and regain control. {freeFlightEnabled || online ? "Vector drift is local-training only and is unavailable in shared flight." : "Vector drift is available here in local training."}
+                </p>
+              </section>
+            ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" data-testid="button-shake-toggle" aria-pressed={shakeUi} className="pilot-menu-setting" onClick={() => {
                 const next = !shakeRef.current;

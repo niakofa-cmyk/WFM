@@ -1,0 +1,52 @@
+---
+name: Shared-flight targeting and wing calls
+description: Visible lock markers track server-selected targets; help calls invite nearby same-faction pilots into the same live battle.
+---
+
+Render the selected hostile's server snapshot at its projected location, with an on-screen reticle and an edge bearing when it leaves the viewport. Keep lock progress and missile readiness separate: the server's weapon solver still owns range, aim, line-of-sight, ammo, and cooldown.
+
+**Why:** A target status box alone does not show which visible ship is selected or where to point for direct fire.
+
+**How to apply:** Drive the marker from the authenticated selected actor and current shared-flight snapshot. Never let a client-supplied position or target ID authorize damage.
+
+Wing support calls are invitations to nearby authenticated same-faction pilots in the same spatial session, not a separate co-op mode and not automatic NPC backup. Accepting must revalidate the active encounter, location, faction, range, invite, and capacity, then join the same server encounter without another reservation.
+
+**Why:** The owner wants a pilot to call for nearby human help during a live open-universe battle while keeping all participants and consequences in one continuous universe runtime.
+
+**How to apply:** Keep call creation, recipient selection, expiry, rate limits, battle membership, and settlement server-owned. A call or acceptance by itself never grants damage, kills, assists, or rewards.
+
+An ally fighting one fleet may receive a valid call to help against another
+nearby fleet. Exclude existing members of the requested encounter, not every
+pilot with any active combat.
+
+**Why:** the owner's continuous universe permits simultaneous fleet encounters;
+an exclusive single-battle invitation rule prevents the requested cooperation.
+
+**How to apply:** preserve location, faction, invitation, range and capacity
+revalidation at acceptance. Join the existing reservation; never launch a
+separate battle or award attendance alone.
+
+Prioritize nearby hostile threats when extending target selection, but preserve the pilot's chosen target while flying rather than continually replacing it with whichever enemy becomes closer.
+
+**Why:** The owner wants closest-enemy selection and useful cycling during multi-fleet combat, without losing deliberate aim or missile charge unexpectedly.
+
+**How to apply:** Keep explicit nearest selection distinct from maintaining an existing lock; proximity does not override server combat eligibility.
+
+Opposing authenticated human pilots in the same Orbital spatial session are
+hostile by faction, visibly labeled with their faction and `HUMAN PILOT`, and
+eligible for the existing nearest-target, lock, primary-fire and missile
+controls. Selecting a pilot does not itself enable damage; hostile fire opens
+a server-revalidated pairwise engagement, and only server-simulated projectile
+hits can damage the opposing ship. Same-faction pilots cannot damage one
+another.
+
+**Why:** The owner requires USSF and Accord users to recognize, target, and
+fight each other in the same live universe rather than seeing opponents as
+unknown contacts or being restricted to patrol targets.
+
+**How to apply:** Derive faction, identity and position from the authenticated
+server seat and same-session snapshots. Attribute kills/assists from validated
+damage; do not grant campaign or currency rewards without a distinct
+idempotent PvP settlement contract. Treat the current pairwise duel as
+runtime-only until checkpoint/restart recovery is explicitly implemented and
+verified.

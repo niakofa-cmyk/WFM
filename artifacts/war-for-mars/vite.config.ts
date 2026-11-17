@@ -66,7 +66,19 @@ function bundleAuditPlugin(buildMode: string): Plugin {
           .sort((a, b) => b.renderedBytes - a.renderedBytes),
       }));
 
-      const engineChunk = chunks.find((chunk) => chunk.name === 'three-engine');
+      const engineChunks = chunks.filter((chunk) =>
+        Object.keys(chunk.modules).some((id) => /(?:^|\/)node_modules\/three\//.test(id)),
+      );
+      const engineChunk =
+        engineChunks.find((chunk) => chunk.name === 'three-engine') ?? engineChunks[0];
+      const engineBytes = engineChunks.reduce(
+        (total, chunk) => total + Buffer.byteLength(chunk.code),
+        0,
+      );
+      const engineGzipBytes = engineChunks.reduce(
+        (total, chunk) => total + gzipSync(chunk.code).byteLength,
+        0,
+      );
       const initialStaticChunks = chunks.filter((chunk) =>
         staticClosure.has(chunk.fileName),
       );
@@ -76,12 +88,15 @@ function bundleAuditPlugin(buildMode: string): Plugin {
         app: '@workspace/war-for-mars',
         engine: 'Three.js / WebGL',
         engineChunk: engineChunk?.fileName ?? null,
-        engineLoadedInInitialStaticGraph: engineChunk
-          ? staticClosure.has(engineChunk.fileName)
-          : null,
-        engineReachableFromEntry: engineChunk
-          ? allReachable.has(engineChunk.fileName)
-          : null,
+        engineChunks: engineChunks.map((chunk) => chunk.fileName),
+        engineBytes,
+        engineGzipBytes,
+        engineLoadedInInitialStaticGraph: engineChunks.some((chunk) =>
+          staticClosure.has(chunk.fileName),
+        ),
+        engineReachableFromEntry: engineChunks.some((chunk) =>
+          allReachable.has(chunk.fileName),
+        ),
         initialStaticJavascriptBytes: initialStaticChunks.reduce(
           (total, chunk) => total + Buffer.byteLength(chunk.code),
           0,
@@ -112,29 +127,31 @@ function bundleAuditPlugin(buildMode: string): Plugin {
       console.info(
         `[WFM bundle audit] Three.js chunk: ${engineChunk ? `${Buffer.byteLength(engineChunk.code)} B raw / ${gzipSync(engineChunk.code).byteLength} B gzip; initial load: ${report.engineLoadedInInitialStaticGraph}` : 'not found'}`,
       );
+      if (engineChunks.length > 1) {
+        console.info(
+          `[WFM bundle audit] Three.js split across ${engineChunks.length} lazy chunks: ${engineBytes} B raw / ${engineGzipBytes} B gzip total`,
+        );
+      }
       console.info(`[WFM bundle audit] Detailed report: ${reportPath}`);
       if (report.initialStaticJavascriptGzipBytes > MAX_INITIAL_STATIC_GZIP_BYTES) {
         this.error(
           `Initial static JavaScript is ${report.initialStaticJavascriptGzipBytes} B gzip; budget is ${MAX_INITIAL_STATIC_GZIP_BYTES} B.`,
         );
       }
-      if (
-        engineChunk &&
-        Buffer.byteLength(engineChunk.code) > MAX_ENGINE_CHUNK_BYTES
-      ) {
+      if (engineBytes > MAX_ENGINE_CHUNK_BYTES) {
         this.error(
-          `Three.js chunk is ${Buffer.byteLength(engineChunk.code)} B raw; budget is ${MAX_ENGINE_CHUNK_BYTES} B.`,
+          `Three.js chunks total ${engineBytes} B raw; budget is ${MAX_ENGINE_CHUNK_BYTES} B.`,
         );
       }
-      if (
-        engineChunk &&
-        gzipSync(engineChunk.code).byteLength > MAX_ENGINE_CHUNK_GZIP_BYTES
-      ) {
+      if (engineGzipBytes > MAX_ENGINE_CHUNK_GZIP_BYTES) {
         this.error(
-          `Three.js chunk is ${gzipSync(engineChunk.code).byteLength} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
+          `Three.js chunks total ${engineGzipBytes} B gzip; budget is ${MAX_ENGINE_CHUNK_GZIP_BYTES} B.`,
         );
       }
-      if (engineChunk && staticClosure.has(engineChunk.fileName)) {
+      if (engineChunks.length === 0 && buildMode !== 'combat-lab') {
+        this.error('Three.js chunks are missing from the expected Orbital flight routes.');
+      }
+      if (report.engineLoadedInInitialStaticGraph) {
         this.error('Three.js entered the initial static-load graph; keep combat renderer imports deferred.');
       }
     },
@@ -173,6 +190,10 @@ export default defineConfig(({ mode }) => ({
       input: path.resolve(import.meta.dirname, mode === 'combat-lab' ? 'combat-lab.html' : 'index.html'),
       output: {
         manualChunks(id) {
+          // All 3D routes use the same renderer adapter. Keeping Three.js in
+          // one vendor chunk avoids counting its core and renderer modules as
+          // separate oversized engines; the bundle audit still requires it to
+          // remain outside each entry's initial static graph.
           if (id.includes('/node_modules/three/')) return 'three-engine';
         },
       },

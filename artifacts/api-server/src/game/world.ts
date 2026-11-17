@@ -22,6 +22,7 @@ import { clampStanding, gateReason, requirements, routeFare, returnLane } from "
 import { adjustedFare, cargoCapacity, cargoUsed, installedUpgrades } from "./economy-rules";
 import { recentRejections } from "./economy-audit";
 import { worldEventRules } from "./world-event-rules";
+import { narrativeArchiveForDiscoveries } from "./campaign-narrative";
 
 type LocationDefinition = WorldState["locations"][number];
 type QuestDefinition = Omit<WorldState["quests"][number], "status">;
@@ -110,6 +111,10 @@ const LOCATIONS: Omit<LocationDefinition, "unlocked" | "explored">[] = [
   },
 ];
 
+/** Public chart coordinates reused by the server's bounded patrol scene projection. */
+export const WORLD_LOCATION_COORDINATES: Readonly<Record<string, { x: number; y: number }>> =
+  Object.freeze(Object.fromEntries(LOCATIONS.map(({ id, x, y }) => [id, { x, y }])));
+
 const ROUTES: Record<string, RouteDefinition[]> = {
   "phobos-yard": [{ destinationId: "rust-disc", costCredits: 8 }, { destinationId: "outer-fringe", costCredits: 20 }],
   "outer-fringe": [{ destinationId: "phobos-yard", costCredits: 20 }, { destinationId: "deep-nebula", costCredits: 35 }],
@@ -136,6 +141,19 @@ const ROUTES: Record<string, RouteDefinition[]> = {
   ],
   "mars-signal": [{ destinationId: "dust-lane", costCredits: 26 }],
 };
+
+/**
+ * Strategic patrol routes mirror the server-owned travel graph. Keeping this
+ * derived from ROUTES prevents patrol AI from routing through unreachable
+ * locations or maintaining a second navigation map.
+ */
+export const WORLD_PATROL_SECTOR_NETWORK: Readonly<Record<string, readonly string[]>> =
+  Object.fromEntries(
+    Object.entries(ROUTES).map(([locationId, routes]) => [
+      locationId,
+      routes.map((route) => route.destinationId),
+    ]),
+  );
 
 const QUESTS: QuestDefinition[] = [
   {
@@ -283,6 +301,7 @@ export async function worldSnapshotInTransaction(tx: DbTransaction, userId: stri
     routes,
     locations,
     discoveries: [...discoveredIds],
+    narrative: narrativeArchiveForDiscoveries(discoveries),
     quests,
   };
 }

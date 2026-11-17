@@ -60,7 +60,7 @@ test("a clockwise arc starts live roll before a full circle and tracks the thumb
   }
   assert.equal(update.rolling, true, "a deliberate 60-degree arc should engage before a complete loop");
   assert.equal(update.direction, "clockwise");
-  assert.ok(update.rollInput > 0, "the current thumb movement drives the hull immediately");
+  assert.ok(update.rollInput < 0, "clockwise screen motion must drive a visible right roll immediately");
 
   for (let i = 5; i <= 24; i++) {
     const angle = Math.PI * 2 * i / 24;
@@ -75,7 +75,7 @@ test("a counterclockwise circle produces live left-roll input", () => {
   const update = drawCircle(-1);
   assert.equal(update.rolling, true);
   assert.equal(update.direction, "counterclockwise");
-  assert.ok(update.rollInput < 0);
+  assert.ok(update.rollInput > 0, "counterclockwise screen motion must drive a visible left roll");
 });
 
 test("a slow loop around the visible stick center stays live in either direction", () => {
@@ -209,7 +209,7 @@ test("direction reversals before roll engagement, discontinuous jumps, and expir
   liveUpdate = updateCircularGesture(liveTracker, Math.cos(Math.PI / 3) * 24, Math.sin(Math.PI / 3) * 24, 400);
   assert.equal(liveUpdate.rejected, false);
   assert.equal(liveUpdate.direction, "counterclockwise");
-  assert.ok(liveUpdate.rollInput < 0, "the pilot can reverse roll direction during the gesture");
+  assert.ok(liveUpdate.rollInput > 0, "the pilot can reverse into a visible left roll during the gesture");
 
   let jumpTracker = createCircularGestureTracker(0, 0, 0, 11, 34);
   jumpTracker = updateCircularGesture(jumpTracker, 24, 0, 0).tracker;

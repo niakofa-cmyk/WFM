@@ -1,0 +1,623 @@
+### WFM — Living Open Orbital Universe: Architecture and Battle Verification
+
+Yes. That is the correct understanding of the universe we are building. I would make this a foundational requirement of WAR FOR MARS: INFINITE WAR, not an optional multiplayer feature.
+
+All authenticated human pilots, USSF and Accord fleet patrols, AI-controlled ships, enemy fleets, and active fleet encounters must participate in one persistent, continuously operating orbital universe.
+
+However, there is an important distinction:
+
+One living universe does not mean every player must be rendered in one enormous game session. It means everyone participates in the same authoritative universe, even when the infrastructure distributes different regions and encounters across multiple servers.
+
+### 1\. What the living universe should mean
+
+![Download Battle Spaceship Sci Fi War HD Wallpaper | 1920x1280 | Wallpaper Abyss](https://images.openai.com/static-rsc-4/HerrWua3LlFgZtBqW5fSVUNb7a6qO4TQXviO0ayZKq7mjOKeVeMf2nGs7YM0usVqCZqgUcuCSY8qNB84mCqZ9jz9_XGXVQ423_mELrQp-ulywOGpamuibH2j4U0xqjer-Dmef1dpAegQClBYwjQMlJfvtbGUiau3_2t7CMvhB5kOfIDm1x5zKOdObi2EXS4J?purpose=fullsize)
+
+![Server Meshing and Persistent Streaming Q&A - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/q9Ntj1YXd-n9K07AKksYt-7_IzeIstQAqSU_G-qJGDYDUVtHJiNHvEcco9bKsMKtJsalneU_JHS_8_FKKYEGkP5G7GuU0pDLMk2hlx5kcCnXaiKhZEP-jUm6pPf_huGQQRs2HO4FcXOPDxspSH__GS__dicTrrFFc8Gu2IiglOP__UujNYRECHFR9KiYzdSp?purpose=fullsize)
+
+![Building the Future with EVE Evolved | EVE Online Dev Tracker | devtrackers.gg](https://images.openai.com/static-rsc-4/5hWjlvDpToLlNoHXZE7o1nkEcNyGMLJC7P9QJoS6FXE9A1w3kZQElIvB69RV-dfCJrWFSp1kpWIyRf9JgmC9J-_WebGTF-ZOQf-S_X06endzgEVOHTF2cm-uKqVNV6UyBJZjpg7V3gAAhhkPlBMRhCvRDjDIM6WxmfPf9K49js6QJPeEOw6IxBjVDaHSchl3?purpose=fullsize)
+
+Imagine this:
+
+* You enter the universe as a USSF pilot.
+
+* Other human pilots enter independently, from different devices and locations.
+
+* USSF and Accord patrol fleets continuously travel through the universe.
+
+* Fleet encounters can begin without a human player initiating them.
+
+* Other players can discover an active battle and join it.
+
+* Friendly AI pilots can detect your engagement, respond, travel to your position, and reinforce you.
+
+* Enemy fleets coordinate, maneuver, attack, retreat, and potentially call reinforcements.
+
+* Battles have persistent consequences: destroyed ships, casualties, surviving fleets, territorial changes, and new encounters.
+
+The universe must continue operating when you leave. It must not reset simply because a player disconnects or a server process restarts.
+
+This is the difference between a multiplayer arena and a genuinely living orbital universe.
+
+### 2\. What I found in the updated WFM repository
+
+There is meaningful new engineering work. In particular, I found a draft implementation that moves us closer to the shared Orbital universe.
+
+Two branches deserve attention.
+
+PR #17 — Shared Orbital free flight
+
+Draft
+
+### Real runtime progress
+
+Commit: `d6d6ee8b725089e8a68ec990b17e0593e76783bc`
+
+[Inspect PR #17](https://github.com/niakofa-cmyk/WFM/pull/17?utm_source=chatgpt.com)
+
+This introduces authenticated pilots, shared spatial sessions, server-authoritative 3D movement, and moving USSF/Accord patrol actors.
+
+PR #14 — Connected universe redesign
+
+Draft
+
+### Universe entry and navigation
+
+Commit: `ba87940acac97dcc067a4ed08c9a196ff7c90642`
+
+[Inspect PR #14](https://github.com/niakofa-cmyk/WFM/pull/14?utm_source=chatgpt.com)
+
+This advances the command-center, universe entry, destination discovery, navigation, and account-connected interface.
+
+One important distinction: neither draft PR is merged into `main`. The latest `main` commit remains `3ecff671fdadaa041599d3c3b475b83bc810ec36`.
+
+### What PR #17 actually implements
+
+I inspected the runtime and its tests, rather than relying only on the PR description.
+
+Verified in source
+
+* Authenticated pilots enter through a dedicated free-flight WebSocket connection.
+
+* The server determines faction, selected ship, and current location from account data.
+
+* Multiple pilots admitted to the same spatial session can receive one another's nearby 3D actor snapshots.
+
+* The Orbital flight kernel advances movement at 30 Hz.
+
+* Nearby actor snapshots are broadcast at 10 Hz.
+
+* USSF and Accord patrol ships move using server-owned waypoints.
+
+* Input validation, sequence checking, reconnect handling, and identity privacy are included.
+
+The implementation is a meaningful step toward the living universe.
+
+However, the runtime is currently opt-in and process-local. It is not yet a persistent, continuously shared galaxy.
+
+[Inspect the new free-flight runtime](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/artifacts/api-server/src/socket/free-flight-runtime.ts?utm_source=chatgpt.com)
+
+### 3\. The critical gaps in battle assistance
+
+This is where I found the most important distinction between the new implementation and your intended gameplay.
+
+| Required capability                                   | Current evidence                         |
+| ----------------------------------------------------- | ---------------------------------------- |
+| Two human pilots in shared free flight                | Implemented in draft source              |
+| Late-arriving pilot joining the same location session | Admission/reconnection foundations exist |
+| Late-arriving pilot joining an active battle          | Not implemented or verified              |
+| Friendly AI wingmen assisting the player              | Not implemented                          |
+| AI independently attacking enemies                    | Not implemented                          |
+| Two enemy fleets fighting simultaneously              | Not implemented                          |
+| AI destroying enemy ships                             | Not implemented                          |
+| Human and AI combined battle resolution               | Not implemented                          |
+| Persistent battle results                             | Not implemented in free-flight runtime   |
+| Seamless spatial handoff between regions              | Not implemented                          |
+
+The most important discovery is in the actual server code.
+
+The new runtime explicitly rejects firing, missile launches, and target assignments:
+
+`freeflight_combat_not_enabled`
+
+This is intentional. The developer has correctly avoided pretending that client-side combat is server-authoritative.
+
+The patrols also currently follow waypoints. They do not autonomously detect, pursue, target, or attack enemy ships.
+
+The runtime seeds two patrol actors per faction, not two fully functioning combat fleets.
+
+Therefore, I cannot certify that your requested battle works yet.
+
+The previous paired staging battle established that two human pilots could damage shared enemies and receive kills and assists in the existing cooperative battle system. That is valuable evidence, but it does not prove that the new Orbital free-flight runtime can reproduce that battle.
+
+[Inspect free-flight tests](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/artifacts/api-server/src/socket/free-flight-runtime.test.ts?utm_source=chatgpt.com)
+
+### 4\. How I would build the actual multi-fleet battle
+
+This should become a central gameplay system inside Orbital, rather than another separate multiplayer mode.
+
+![XenoThreat Returns - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/3phGzFVnPCCC5UoAaZsXtkUxzigAPvI0qdNYs0lLlpwlSNEpSXNROfuexSOfPqcu9-c_SaG6cRGNhfKJM9zr2xoJrjsCn9P44JVpO9szZmrF2GT35tujT9znhYyKotI8lG6yNssMGwTuriMGHiP9Q5A3bJ4sJbyrHGo4_IYX4y63BRDGqOmyarZUDnudIQXn?purpose=fullsize)
+
+![THE LAST EMBER | Devpost](https://images.openai.com/static-rsc-4/kRlVO1QIAcvSGoJQ-40imJTk3-Xe0IMg2UYxzhQQDV_NDQA0RT_2JMdwcwJT04q32A3nNXPbBGrdBvjFnZ7P_m6Opnw-pGRExQNgC1lWtBYmBDp0MjLXIHXeeHr6yKTzi3SxuS1ykL5PoAEKQcDPxOh9-Wsfzx7nr_1HPdgSZ4BuP5KO6agAF_3pGD0XQIu0?purpose=fullsize)
+
+![New Game from Hamburg: Deep Silver FISHLABS release CHORUS today | Gamecity Hamburg](https://images.openai.com/static-rsc-4/ymi7InTTYdBi-R7wc3l3eJzJmMQS_tfWMrI8-Gpy3XynS2B6yREF2hKckDG21Ycyz0GvQA5Qw8AhSKaWXFTZMU5KrrPgmAGLB-j6uMlxxvGPVGQU5_x95xW35AlLEn3R8xL-_hCNtqUHH2XYgsrwyvvjRgO53Unbt-zksyQeK7PnYSDjIdV66iXQtkqqhcAc?purpose=fullsize)
+
+![Server Meshing and Persistent Streaming Q&A - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/q9Ntj1YXd-n9K07AKksYt-7_IzeIstQAqSU_G-qJGDYDUVtHJiNHvEcco9bKsMKtJsalneU_JHS_8_FKKYEGkP5G7GuU0pDLMk2hlx5kcCnXaiKhZEP-jUm6pPf_huGQQRs2HO4FcXOPDxspSH__GS__dicTrrFFc8Gu2IiglOP__UujNYRECHFR9KiYzdSp?purpose=fullsize)
+
+![You should absolutely play the Homeworld Remastered Collection before jumping into Homeworld 3 | PC Gamer](https://images.openai.com/static-rsc-4/6dn0hE7rhh25qyOmV-8-BKvBMHWorqyfpV2W8x10HEs-5h8yWaRs9rahRJnDwCbb1JKDIX6ZqAh5J6HU66l7zc7cVxg14PvVHcPYj8BpUEXxePe7WhV4JujLPkyBv6yMM4cR9ZLQwRxQywEFxYuuBO6Rw8TUlD9HH7k5rYHcsTOPJO6HnMF6WqbSEX8YOCfP?purpose=fullsize)
+
+![Aegis Sabre - The right choice. – Community Hub](https://images.openai.com/static-rsc-4/9RMWJYIlV49kL1X1pAJPo7Q-UG-QVX4huf8ZN5NVohnbMUW-3JF3CtFPkH90eDZjzTC9FtsNInpU7Tb9__Tg6mXMtivpKTfXl6MwUOyJXzh8eAusVIdEHmK8w5IdvaGhyO-9PM1ucCMyl7wT59SEg7GicttbniQ-9oPc-rFPYeRlYbE9PBUOq4BIFL6hcCks?purpose=fullsize)
+
+![Dust Fleet - The MIX](https://images.openai.com/static-rsc-4/X4-j1W2iZMY21UYeW6GMhBUkJ_347vcl5Mz-HILY6LPKFwGoxUWlw-omkoReRwX_O6-8JTDYX9cHDx1mjtK-Xv_rjPknE7qC0m8QWuxMbw0-9lfwiUWjslzdK5WQY_-Cz4aJlC669FPNWCuUjQ1w7ykRPPXviSG7t3HAmQJB62jNvTBSpYSIaeIa05oJ5oBy?purpose=fullsize)
+
+![Sins of a Solar Empire II to Release on Steam this Summer](https://images.openai.com/static-rsc-4/2ZWn-2iXBbPViP_dIODIj8EaDQWza3oe6p0O-lOrTsWIKyMumL3yMLREjPvdzGP_2IyRVy84qnjUYx26smKQRHWf3nT2tYYKBpRLsrXMc9Mzk5jykTW34GwPKIQKKhdRWTAFs-Oj8jTQp1qScBdvrThKwLIIh_n3ABUu-hwuO6t9m-OqyzDEIHU_tSfOOT4l?purpose=fullsize)
+
+![Download Battle Spaceship Sci Fi War HD Wallpaper | 1920x1280 | Wallpaper Abyss](https://images.openai.com/static-rsc-4/HerrWua3LlFgZtBqW5fSVUNb7a6qO4TQXviO0ayZKq7mjOKeVeMf2nGs7YM0usVqCZqgUcuCSY8qNB84mCqZ9jz9_XGXVQ423_mELrQp-ulywOGpamuibH2j4U0xqjer-Dmef1dpAegQClBYwjQMlJfvtbGUiau3_2t7CMvhB5kOfIDm1x5zKOdObi2EXS4J?purpose=fullsize)
+
+I would introduce three cooperating systems.
+
+### A. Fleet Encounter Director
+
+This system controls the battle itself.
+
+It must support multiple independent encounters operating simultaneously in the universe.
+
+For example:
+
+LIVE ENCOUNTER — IRON ECLIPSE
+
+Hostile engagement
+
+Enemy Fleet Alpha
+
+### 5
+
+Hostile ships — example composition
+
+Enemy Fleet Beta
+
+### 5
+
+Hostile ships — example composition
+
+Friendly reinforcement group
+
+Human
+
+You — USSF pilot
+
+Human
+
+Multiplayer pilot — joins during battle
+
+AI
+
+Friendly wingman
+
+Illustrative encounter composition, not a live game snapshot.
+
+The director must:
+
+* Spawn and maintain multiple enemy fleets.
+
+* Assign individual ship roles and formations.
+
+* Track fleet objectives and target priorities.
+
+* Detect friendly and hostile contacts.
+
+* Coordinate reinforcements.
+
+* Manage retreat, destruction, and victory.
+
+* Persist encounter outcomes.
+
+It should be possible for you to engage Fleet Alpha while Fleet Beta is still fighting elsewhere in the same operational region.
+
+### B. Friendly AI reinforcement system
+
+This is essential.
+
+I recommend a 20% AI composition target for a five-ship friendly combat group.
+
+Recommended design
+
+| Friendly position | Pilot             |
+| ----------------- | ----------------- |
+| 1                 | You — human       |
+| 2                 | Human multiplayer |
+| 3                 | Human multiplayer |
+| 4                 | Human multiplayer |
+| 5                 | AI wingman        |
+
+One AI pilot fills the fifth position in a five-ship formation. When more humans arrive, the formation can transition to human-controlled positions or expand according to the encounter's capacity.
+
+The AI must not just fly alongside you.
+
+It needs a real combat brain:
+
+* Detect hostile fleets and incoming fire.
+
+* Identify which enemy ships threaten its assigned human pilot.
+
+* Select appropriate targets.
+
+* Pursue enemies using the same 3D Orbital flight simulation.
+
+* Acquire weapon locks and fire.
+
+* Deploy countermeasures.
+
+* Protect damaged friendly pilots.
+
+* Coordinate with other AI ships.
+
+* Destroy enemies and report battle outcomes.
+
+* Return to formation or pursue remaining hostiles.
+
+I would give each AI pilot a tactical role:
+
+* Interceptor: engages enemy fighters.
+
+* Defender: protects the player and allied ships.
+
+* Striker: attacks vulnerable or high-value targets.
+
+* Heavy assault: concentrates fire on capital ships.
+
+* Support: provides defensive and tactical assistance.
+
+The AI must be capable of independently winning an engagement, not just contributing decorative movement.
+
+### C. Human multiplayer reinforcement
+
+A human pilot should be able to discover your battle and join it without having to restart the operation.
+
+The flow should be:
+
+* Battle already underway
+
+    You and your friendly AI are fighting two enemy fleets.
+
+* Another pilot discovers the encounter
+
+    Their navigation system detects the active friendly engagement.
+
+* Server authorizes joining
+
+    The system checks faction, encounter capacity, account, and current battle state.
+
+* Reinforcement enters the battlefield
+
+    The pilot receives a valid 3D approach position and joins the existing encounter.
+
+* Shared combat continues
+
+    Both human pilots and the AI wingmen fight the same enemies using the same authoritative simulation.
+
+* Battle is resolved
+
+    The server records damage, kills, assists, surviving ships, and encounter consequences.
+
+A late-arriving pilot must not receive a separate copy of the enemy fleet. They must join the same authoritative encounter state.
+
+### 5\. Improve flight dynamics and combat aerodynamics
+
+I would preserve the existing Orbital flight kernel. It is a much better foundation than replacing it with a 2D physics model.
+
+I inspected:
+
+[Orbital 3D flight simulation](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/lib/orbital-sim/src/flight.ts?utm_source=chatgpt.com)
+
+The existing implementation already includes:
+
+* XYZ position and velocity.
+
+* Quaternion-based 3D orientation.
+
+* Thrust and acceleration.
+
+* Boost and energy management.
+
+* Momentum and braking.
+
+* Drift and flight-assistance modes.
+
+* Ship-specific acceleration, speed, and handling.
+
+* 3D collision handling.
+
+That is a legitimate 3D flight foundation.
+
+However, it is currently an arcade-oriented flight integrator, not a complete six-degree-of-freedom rigid-body simulation.
+
+One important physics distinction: spacecraft in vacuum do not experience ordinary aerodynamic drag or lift. We should model thrust, inertia, rotational dynamics, and momentum in space. Atmospheric aerodynamics should become active when flying through the Martian atmosphere.
+
+### My proposed flight evolution
+
+Orbital combat movement
+
+![Viajar a Marte en 33 días: el atajo orbital que revolucionaría las misiones espaciales — RexMolón - La Ciencia en Acción](https://images.openai.com/static-rsc-4/5e3huPQ4bEgmOT4-KuIDnIHqx2QxIR1xYTW6gJA7Cmt94I9jB8DiYK6h31sRQpcrNWChYoB8bxt3BUOCVm0ELk416rpVkwAgdcC9doAoTI9KfSWcaVY--Ai05qNmUYWWzK3jHFHSV8UpSnBJ0eo2lPH1DByvPzuMUp8f5d4_ck78FYOHSPCwHz-Jq-uCV0uk?purpose=fullsize)
+
+* Six-degree-of-freedom movement.
+
+* Independent rotational and translational control.
+
+* Rotational inertia and torque.
+
+* Lateral and vertical thrusters.
+
+* Momentum-preserving drift.
+
+* Assisted stabilization.
+
+* Counter-thrust braking.
+
+* Boost and evasive maneuvering.
+
+* Ship-specific mass and handling characteristics.
+
+    Martian atmospheric flight
+
+    ![Alpha 4.6: Lifeline for Levski - Roberts Space Industries | Follow the development of Star Citizen and Squadron 42](https://images.openai.com/static-rsc-4/8exXm5hVk3PedwUeuPD3mEI_kgA5SDO2mACC1B1Mw0A_uCJZvxMtOlN5d50mri40DYP9cCzv3a2qrsaiwERI--BXGwKRTpEAypZQKlzgcxtNNUSBJzXJRIE78vGvjwyXDtpeoMmLDu4NgtDI7CwnFSfovkzGuBLO5ryggMqpSeJkXrAhOGVav2bkDjTmJ0RH?purpose=fullsize)
+
+* Atmospheric density.
+
+* Aerodynamic drag and lift where appropriate.
+
+* Atmospheric heating.
+
+* Turbulence and environmental effects.
+
+* Transition between orbital and atmospheric flight.
+
+* Atmospheric maneuvering limits.
+
+### Make combat feel seamless
+
+The player should be able to:
+
+* Turn 360 degrees without artificial directional restrictions.
+
+* Execute barrel rolls while maintaining momentum.
+
+* Accelerate past enemy formations.
+
+* Perform high-speed evasive turns.
+
+* Reverse thrust and reposition.
+
+* Climb or descend during engagements.
+
+* Fire while maneuvering.
+
+* Transition from pursuit to defensive flight without switching game modes.
+
+The key is to keep one authoritative flight simulation. The client predicts and renders movement; the server validates and resolves it.
+
+Do not allow visual animations, camera effects, or client-side interpolation to change the actual combat outcome.
+
+### 6\. The architecture I recommend
+
+![Actualités Aleryos : mises à jour et événements | Aleryos](https://images.openai.com/static-rsc-4/Mv5bdGQt6dqRTW-NZVq3CvGvCxVSHyUNjowNUXP9FhH872Pu2wMB9vr9RBxSZypt6B40MM9sEYEKtE_YFSNd49esPkaCfeILg44hARryDvu34v63p-sCh90hyekfII_pGT4Pr-oinuiWebfQpZaNESASQ7AH8ZAMfbibetox-hAzcUKgJI6bWYy8_VWrzwP8?purpose=fullsize)
+
+The architecture should look like this:
+
+ONE LIVING WFM UNIVERSE
+
+Shared persistent world identity, clock, locations, factions and events
+
+Human pilots
+
+Authenticated multiplayer
+
+Fleet patrols
+
+Persistent faction AI
+
+Friendly AI
+
+Wingmen and reinforcements
+
+Enemy fleets
+
+Autonomous combat groups
+
+Orbital simulation and combat authority
+
+Flight · AI · Weapons · Targeting · Damage · Encounters
+
+Spatial universe infrastructure
+
+Region ownership · Streaming · Interest management · Redis/broker coordination · Durable world state
+
+Orbital 3D presentation
+
+Ships · Fleets · Projectiles · Environments · HUD · Interpolation
+
+A major architectural requirement is that the current process-local session maps must eventually be replaced with distributed session ownership and durable world state.
+
+I would use:
+
+* PostgreSQL for persistent universe, fleet, encounter, and progression records.
+
+* Redis or an existing shared broker for real-time coordination, messaging, and spatial ownership leases.
+
+* Orbital simulation workers for authoritative regional simulation.
+
+* Server snapshots and event records for recovery.
+
+* Spatial interest management so clients only receive nearby combat actors.
+
+Redis should not be the sole permanent record of the universe.
+
+This gives us one shared world without requiring every player and every ship in the galaxy to run through one overloaded server process.
+
+### 7\. How we must prove the battle works
+
+I would make this a mandatory acceptance test before calling the Orbital battle system complete.
+
+Proposed release acceptance test
+
+| Test                    | Required result                                         |
+| ----------------------- | ------------------------------------------------------- |
+| Player enters battle    | Authenticated pilot appears in correct encounter        |
+| Two enemy fleets engage | Both fleets have independently simulated ships          |
+| Friendly AI responds    | AI wing detects and reinforces player                   |
+| AI attacks              | Weapons and damage are server-authoritative             |
+| Human joins late        | Second pilot joins existing encounter                   |
+| Human and AI cooperate  | Both can attack the same enemy ships                    |
+| First fleet defeated    | Actual server-confirmed destruction                     |
+| Second fleet defeated   | Actual server-confirmed destruction                     |
+| AI gets final shot      | No fabricated human kill attribution                    |
+| Human earns assists     | Verified from authoritative damage/contribution records |
+| Player reconnects       | Encounter and surviving state remain consistent         |
+| Server restarts         | Durable battle state is recovered                       |
+
+I would also require a separate stress test with multiple encounters occurring simultaneously.
+
+The tests must not set enemy health to zero directly, fabricate pilots, or simulate a successful result by bypassing the weapons system.
+
+### The most important implementation order
+
+* Connect the existing Orbital weapons, targeting, shields, armor, projectiles, and countermeasures to the new server-authoritative free-flight runtime.
+
+* Build the fleet encounter director and two-fleet encounter.
+
+* Implement friendly AI wingmen using the actual Orbital flight and combat systems.
+
+* Add late-arriving human reinforcement and encounter admission.
+
+* Implement battle contribution and reward settlement.
+
+* Add durable spatial sessions and cross-instance coordination.
+
+* Connect the client Orbital scene to server snapshots.
+
+* Certify multiple simultaneous fleet battles and physical-device performance.
+
+This sequence preserves the existing working combat systems rather than replacing them with another disconnected engine.
+
+### 8\. Important verification findings and blockers
+
+I want to distinguish what is actually in the repository from what we still need to build.
+
+Current engineering assessment
+
+Shared Orbital flight simulation
+
+Implemented in draft
+
+Authenticated pilot presence
+
+Implemented in draft
+
+Moving faction patrols
+
+Implemented in draft
+
+Orbital server combat
+
+Not connected
+
+Friendly combat AI
+
+Not implemented
+
+Late-join battle reinforcement
+
+Not verified
+
+Persistent shared galaxy
+
+Incomplete
+
+Multiple simultaneous fleet battles
+
+Not verified
+
+Source inspection only. These are not gameplay certification results.
+
+There are three blockers I would address before expanding the universe:
+
+1\. Session separation. The new runtime creates sessions from saved player locations. Two players at different location keys do not automatically share the same simulation. We need seamless spatial-region transitions.
+
+2\. Combat authority. The existing Orbital weapons library is present, but the new free-flight runtime does not yet invoke its weapon and damage functions.
+
+3\. Persistence and scaling. The new runtime stores active actors in process memory. A server restart clears them. We need durable state and coordinated regional simulation.
+
+There is also no verified CI pass or deployment for PR #17 yet. Its feature flag remains disabled by default.
+
+### 9\. About the Replit links
+
+I attempted to inspect the supplied preview address, but it was not accessible through my external check, and the connected Replit app search did not find a matching app.
+
+Here is what those messages generally mean:
+
+* Connecting: The browser is attempting to establish a connection to the running preview server.
+
+* Link unavailable: The preview host is not currently serving the requested page, or the URL cannot be reached.
+
+* Important: Neither message alone proves that the game's source code is broken.
+
+A temporary development preview and a published game URL are different things. For reliable sharing, use the published deployment URL once its deployment is confirmed.
+
+I cannot honestly claim to have entered the game and completed the two-fleet battle through those links.
+
+### 10\. Existing documents to preserve
+
+I found the following engineering references already incorporated into the WFM development branch:
+
+* [Master Development Directive](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/docs/infinite-war/MASTER-DEVELOPMENT-DIRECTIVE.md?utm_source=chatgpt.com)
+
+* [Live 3D Free-Flight Presence and Patrols](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/docs/infinite-war/LIVE-3D-FREE-FLIGHT-PRESENCE-AND-PATROLS.md?utm_source=chatgpt.com)
+
+* [Persistent Enemy Fleet Patrols](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/docs/infinite-war/PERSISTENT-ENEMY-FLEET-PATROLS.md?utm_source=chatgpt.com)
+
+* [Unified Universe Architecture](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/docs/infinite-war/engine/UNIFIED-UNIVERSE-ARCHITECTURE.md?utm_source=chatgpt.com)
+
+* [Open Universe Flight Foundation](https://github.com/niakofa-cmyk/WFM/blob/feature/shared-orbital-freeflight-runtime/docs/open-universe-flight-foundation.md?utm_source=chatgpt.com)
+
+These establish the correct architectural direction.
+
+I could not identify a separate aerodynamics document attachment in the retrievable files, so I have not claimed to save that original document verbatim or implement its contents.
+
+### My final recommendation
+
+Approve the direction
+
+I would make the following the governing gameplay requirement:
+
+Every pilot enters the same living war. Every fleet has a purpose. Every encounter can attract reinforcements. Every battle is resolved by the same authoritative Orbital combat simulation.
+
+I particularly want us to avoid a common mistake: building an impressive universe where ships fly around beautifully but do not actually participate in meaningful combat.
+
+The universe must be alive behaviorally, not just visually.
+
+Your intended experience should ultimately look like this:
+
+* You are flying through the Mars orbital region.
+
+* Two hostile Accord fleets are conducting an operation.
+
+* You enter their engagement.
+
+* Your friendly AI wing immediately responds.
+
+* Another authenticated USSF pilot discovers your battle and joins.
+
+* Your AI wing and the human pilot coordinate their attacks.
+
+* You defeat both hostile fleets.
+
+* The server records the destruction, assists, casualties, and surviving ships.
+
+* Other pilots entering the region encounter the consequences of that battle.
+
+* The universe continues operating.
+
+That is the experience I would build toward.
+
+Next action: Please attach the specific aerodynamics document again if it is the separate document you want preserved. I can then incorporate it verbatim into the WFM reference set and use it alongside these existing engineering directives.
+
+9

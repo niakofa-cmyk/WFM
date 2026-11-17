@@ -1,5 +1,5 @@
 import { ORBITAL_WEAPON_RULES_VERSION } from "./flight";
-import { ORBITAL_WEAPON_RUNTIME_ID } from "./runtime";
+import { ORBITAL_RUNTIME_ID, ORBITAL_WEAPON_RUNTIME_ID, type OrbitalRuntimeId } from "./runtime";
 
 /** Existing server-authoritative sector wire contract kept available for rollback. */
 export const SECTOR_COMPAT_PROTOCOL_VERSION = 1 as const;
@@ -17,6 +17,13 @@ export const ORBITAL_SECTOR_SIMULATION_CONTRACT = Object.freeze({
 });
 
 export type SectorSimulationContract = typeof ORBITAL_SECTOR_SIMULATION_CONTRACT;
+
+/** Resolve the authoritative flight rules from the room's negotiated wire version. */
+export function orbitalRuntimeForSectorProtocol(version: SectorProtocolVersion): OrbitalRuntimeId {
+  return version === SECTOR_ORBITAL_PROTOCOL_VERSION
+    ? ORBITAL_SECTOR_SIMULATION_CONTRACT.runtimeId
+    : ORBITAL_RUNTIME_ID;
+}
 
 export function isOrbitalSectorSimulationContract(value: unknown): value is SectorSimulationContract {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

@@ -9,15 +9,30 @@ import {
   ExploreLocationParams,
   ExploreLocationResponse,
   GetWorldResponse,
+  GetGlobalCampaignResponse,
+  ClaimGlobalCampaignFinaleResponse,
   TravelWorldBody,
   TravelWorldResponse,
 } from "@workspace/api-zod";
 import { requirePlayerAuth, playerIdFromRequest } from "../middlewares/playerAuth";
 import { WorldError, actOnWorldQuest, exploreWorldLocation, getWorldSnapshot, travelToWorldLocation } from "../game/world";
 import { executeWorldService } from "../game/world-services";
+import { getGlobalCampaign, claimGlobalCampaignFinale, CampaignError } from "../game/global-campaign";
 
 const router: IRouter = Router();
 router.use(requirePlayerAuth);
+router.get("/world/campaign", async (req,res,next) => {
+  try { res.json(GetGlobalCampaignResponse.parse(await getGlobalCampaign(playerIdFromRequest(req)))); }
+  catch (error) { next(error); }
+});
+router.post("/world/campaign/finale", async (req,res,next) => {
+  if (req.body && Object.keys(req.body).length) { res.status(400).json({error:"unexpected_finale_input"}); return; }
+  try { res.json(ClaimGlobalCampaignFinaleResponse.parse(await claimGlobalCampaignFinale(playerIdFromRequest(req)))); }
+  catch (error) {
+    if (error instanceof CampaignError) { res.status(error.status).json({error:error.message}); return; }
+    next(error);
+  }
+});
 
 router.post("/world/services", async (req, res, next) => {
   const body = ExecuteWorldServiceBody.strict().safeParse(req.body);

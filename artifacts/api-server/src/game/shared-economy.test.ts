@@ -148,6 +148,9 @@ test("event restrictions reject both directions, reset with the event and never 
   const cycle = world.event.cycleDate.toISOString().slice(0, 10);
   const [oldEvent] = await db.select().from(universeEventsTable).where(eq(universeEventsTable.cycleDate, cycle));
   try {
+    // Market stock is shared state and may have been depleted by earlier
+    // gameplay or tests. Give this case a deterministic listing to buy from.
+    await db.update(marketGoodsTable).set({ stock: 100, demandScore: 0 }).where(eq(marketGoodsTable.goodId, "dust"));
     await db.update(universeEventsTable).set({ eventId: "relay-boom", marketModifiersBps: {}, supplyApplied: true }).where(eq(universeEventsTable.cycleDate, cycle));
     const order = { idempotencyKey: randomUUID(), goodId: "dust" as const, side: "buy" as const, quantity: 1 };
     const bought = await tradeMarket(user, order);

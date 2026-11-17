@@ -197,7 +197,10 @@ export function updateCircularGesture(
     ? 0
     : Math.max(1 / 120, (at - previous.lastSampleAt) / 1000);
   const rollInput = tracker.rolling && acceptedDelta !== 0
-    ? Math.max(-1, Math.min(1, acceptedDelta / sampleSeconds / POINTER_ROLL_REFERENCE_RATE))
+    // Pointer angles use screen coordinates (+Y downward), while the ship's
+    // local +Z rotation appears counterclockwise from the chase view. Invert
+    // screen-space angular velocity so clockwise finger motion rolls right.
+    ? Math.max(-1, Math.min(1, -acceptedDelta / sampleSeconds / POINTER_ROLL_REFERENCE_RATE))
     : 0;
   return result(tracker, rollInput);
 }

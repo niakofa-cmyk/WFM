@@ -1,40 +1,42 @@
 ---
-name: Connected universe and mode-specific runtimes
-description: The universe connects destinations while established combat engines remain explicit and independently authoritative.
+name: Canonical Orbital engine and migration adapters
+description: One main Orbital engine is the target; existing runtimes remain explicit compatibility paths until verified migration.
 ---
 
 Earlier owner reconstruction references are
 `attached_assets/Pasted-War-for-Mars-Infinite-War-Updated-Repository-Forensic-E_1793842864923.txt`
 and `attached_assets/Pasted--WAR-FOR-MARS-INFINITE-WAR-MASTER-AI-GAME-DEVELOPMENT-P_1793842908766.txt`.
-The current owner direction is preserved in
+Earlier owner direction is preserved in
 `attached_assets/Pasted--War-for-Mars-Infinite-War-The-Infinite-Open-Universe-I_1793989681065.txt`,
 `attached_assets/Pasted--War-for-Mars-Infinite-War-Orbital-Combat-Lab-Infinite-_1793990090269.txt`,
 `attached_assets/Pasted--WAR-FOR-MARS-THE-INFINITE-WAR-structural-rebuild-strat_1793990237240.txt`,
 and `attached_assets/Pasted--War-for-Mars-Infinite-War-Multiplayer-Universe-Archite_1793990650366.txt`.
 The earlier repository audit is historical at
 `docs/infinite-war/UPDATED-REPOSITORY-FORENSIC-EVALUATION.md`; follow the newer
-maintained roadmap and asteroid-hub contract for current architecture.
+maintained roadmap and asteroid-hub contract for current implementation.
+The newest controlling source and its one-main-engine precedence are recorded
+in [master development directive](master-development-directive.md).
 
-**Rule:** WFM is one connected universe, but it hosts multiple explicit
-operation runtimes. The Three.js/Vite universe owns navigation, destination
-presentation, and local approach scenes; it is not the multiplayer combat
-engine. Orbital Combat Lab is a simulation foundation and validation environment
-that may be integrated per mode after proof. Preserve Rust Disc, Arcade Skirmish,
-and Wing as independent playable/authoritative experiences until each proposed
-migration passes gameplay, network, reward, and rollback checks. Retain existing
-identity, matchmaking, economy, progression, and reward services.
+**Rule:** Orbital Combat Lab owns the finished game's single universe, gameplay
+state, flight/combat simulation, and authority. Keep and use both Three.js and
+native Orbital WebGL2 rendering. Three.js is the primary renderer for the main
+open universe; native WebGL2 is a supported companion path. Both render the same
+Orbital-owned state and must not become separate game worlds or simulation
+owners. Preserve identity, matchmaking, economy, progression, reward services,
+and working operation paths.
 
-**Why:** the owner clarified that Cinder Ring is the physical competition hub,
-the universe is its navigation/presentation layer, and established combat
-engines still execute their battles. Earlier prompts proposed a universal Orbital
-runtime; the current architecture clarification takes precedence.
+**Why:** on 2026-11-08 the owner explicitly revised the earlier one-renderer
+recommendation and asked to continue building the main Orbital universe with
+Three.js while retaining native WebGL2 and other useful rendering support.
 
-**How to apply:** use explicit operation definitions/adapters to connect
-destination, discovery, and launch to the correct existing runtime. The Cinder
-Ring approach is local/no-reward and cannot authorize a queue or create an
-operation. Migrate a combat runtime only one mode at a time, version changed
-network/replay contracts, and change client/API/socket authority together.
-Retain Wing's server-owned competitive and reward gates.
+**How to apply:** use
+`docs/infinite-war/RENDERING-STRATEGY-AND-UNIVERSE-OWNER.md` as the current
+renderer decision. Integrate Rust Disc and Mars routes as activities in the
+shared universe; preserve their flight controls and mission behavior without
+forking Orbital physics. Keep renderers behind clear presentation boundaries,
+measure parity and device performance, and retain server-owned competitive and
+reward gates. Older Orbital-only-renderer documents are historical on renderer
+removal, not on shared simulation, authority, or validation requirements.
 
 **Current slice:** Cinder Ring's directory now includes the 5v5 Wing Relay
 arena, the local `flight-sector-v1` training circuit, and the Rust Disc
@@ -54,6 +56,16 @@ private invitations and pilot identities must remain private.
 the server, and publish only match status and anonymized spectator state. Never
 infer a live match from a catalog entry or change Wing reward rules through
 this directory.
+
+**Owner-reported verification:** The user confirmed that the local Cinder
+approach worked correctly at 22 m; the device and runtime were not specified.
+
+**Why:** this confirms the corrected local approach behavior, but does not
+establish Android, staging, persistent-location or multiplayer verification.
+
+**How to apply:** retain the 22 m local docking approach as a user-confirmed
+behavior while keeping platform and authority claims limited to separately
+verified evidence.
 
 **Why:** application code and catalog definitions do not create live operations;
 the server must register each session and publish only its actual lifecycle.

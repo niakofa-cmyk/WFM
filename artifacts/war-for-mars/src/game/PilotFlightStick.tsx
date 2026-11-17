@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { stickAxesFromDelta } from "./input";
+import { boostDirectionAt, completedBoostDirection, registerBoostGesture, type BoostGestureState } from "./right-thumb-controls";
+import type { VectorBoostDirection } from "@workspace/orbital-sim";
 import {
   circularGestureRadiusBounds,
   createCircularGestureTracker,
@@ -30,9 +32,12 @@ type ActiveTouch = {
   circularMode: boolean;
   circularTracker: CircularGestureTracker | null;
   circularCandidateStarted: boolean;
+  boostDirection: VectorBoostDirection | null;
+  boostRadius: number;
 };
 
 type StickFeedback =
+  | { kind: "boost"; direction: VectorBoostDirection; requested: boolean }
   | { kind: "vector"; pulse: ManeuverPulse }
   | { kind: "roll-progress"; progress: number; direction: RollDirection | null; rejected: boolean }
   | { kind: "roll-live"; progress: number; direction: RollDirection }
@@ -43,9 +48,15 @@ type Props = {
   testId: string;
   onAxis: (x: number, y: number) => void;
   onPulse?: (pulse: ManeuverPulse) => void;
+  onVectorBoost?: (direction: VectorBoostDirection) => boolean;
+  boostStatus?: string;
   onCircularRollInput?: (input: number) => void;
   size?: "arena" | "rust-disc";
   disabled?: boolean;
+  /** Expand an Orbital thumb control over one screen half; its ring follows the active touch. */
+  floatingSide?: "left" | "right";
+  /** Changing a profile invalidates any pending gesture and captured axes. */
+  interactionKey?: string;
   className?: string;
   description?: string;
 };
@@ -55,16 +66,21 @@ function pointerTimestampMs(event: PointerEvent) {
   return event.timeStamp > 1e12 ? event.timeStamp : performance.timeOrigin + event.timeStamp;
 }
 
-export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRollInput, size = "rust-disc", disabled = false, className = "", description }: Props) {
+export function PilotFlightStick({ label, testId, onAxis, onPulse, onVectorBoost, boostStatus, onCircularRollInput, size = "rust-disc", disabled = false, floatingSide, interactionKey, className = "", description }: Props) {
   const root = useRef<HTMLDivElement>(null);
+  const visual = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const feedbackAnnouncement = useRef<HTMLSpanElement>(null);
   const active = useRef<ActiveTouch | null>(null);
   const gesture = useRef<DoubleTapState>(EMPTY_DOUBLE_TAP_STATE);
+  const boostGesture = useRef<BoostGestureState>({ direction: null, at: 0, cooldownUntil: 0 });
+  const boostCallback = useRef(onVectorBoost);
+  boostCallback.current = onVectorBoost;
   const axisCallback = useRef(onAxis);
   const pulseCallback = useRef(onPulse);
   const circularCallback = useRef(onCircularRollInput);
   const disabledRef = useRef(disabled);
+  const floating = floatingSide !== undefined;
   const [feedback, setFeedback] = useState<StickFeedback | null>(null);
   const rollGestureState = feedback?.kind === "roll-live"
     ? `live-${feedback.direction}`
@@ -103,7 +119,12 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
   };
 
   const resetVisual = () => {
+    const pointerId = active.current?.pointerId;
+    boostGesture.current.direction = null;
     active.current = null;
+    if (pointerId !== undefined && root.current?.hasPointerCapture(pointerId)) {
+      root.current.releasePointerCapture(pointerId);
+    }
     gesture.current = EMPTY_DOUBLE_TAP_STATE;
     circularCallback.current?.(0);
     sendAxis(0, 0);
@@ -111,6 +132,11 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
     if (root.current) {
       delete root.current.dataset.pulse;
       root.current.dataset.recenter = "true";
+      root.current.dataset.active = "false";
+    }
+    if (visual.current && floating) {
+      visual.current.style.left = "";
+      visual.current.style.top = "";
     }
     if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "";
   };
@@ -134,12 +160,10 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
     };
   }, []);
   useEffect(() => {
-    if (disabled) {
-      resetVisual();
-      clearFeedbackTimer();
-      setFeedback(null);
-    }
-  }, [disabled]);
+    resetVisual();
+    clearFeedbackTimer();
+    setFeedback(null);
+  }, [disabled, interactionKey]);
 
   const updateAxis = (clientX: number, clientY: number) => {
     const el = root.current;
@@ -147,22 +171,35 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
     const touch = active.current;
     if (!el || !dot || !touch) return;
     const rect = el.getBoundingClientRect();
-    const max = Math.max(1, rect.width * 0.36);
+    const max = Math.max(1, floating ? 36 : rect.width * 0.36);
     const axes = stickAxesFromDelta(clientX - touch.originX, clientY - touch.originY, max);
     delete el.dataset.recenter;
     dot.style.transform = `translate(calc(-50% + ${axes.x * max}px), calc(-50% + ${axes.y * max}px))`;
     sendAxis(axes.x, axes.y);
   };
 
-  const finish = (pointerId: number, cancelled: boolean) => {
+  const finish = (pointerId: number, cancelled: boolean, at: number, clientX: number, clientY: number) => {
     const touch = active.current;
     if (!touch || touch.pointerId !== pointerId) return;
     active.current = null;
     circularCallback.current?.(0);
     sendAxis(0, 0);
     if (knob.current) knob.current.style.transform = "translate(-50%, -50%)";
-    if (root.current) root.current.dataset.recenter = "true";
+    if (root.current) {
+      root.current.dataset.recenter = "true";
+      root.current.dataset.active = "false";
+    }
+    if (cancelled) {
+      boostGesture.current.direction = null;
+      gesture.current = { ...gesture.current, pending: null };
+      clearFeedbackTimer();
+      setFeedback(null);
+      if (root.current) delete root.current.dataset.pulse;
+      if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "";
+      return;
+    }
     if (touch.circularMode) {
+      boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
       if (!cancelled) {
         if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent = "Barrel roll control released";
@@ -171,16 +208,35 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       return;
     }
     if (touch.circularCandidateStarted) {
+      boostGesture.current.direction = null;
       gesture.current = { ...gesture.current, pending: null };
       clearFeedbackTimer();
       setFeedback(null);
       return;
     }
-    if (cancelled || !isQuickStickTap(Date.now() - touch.startedAt, touch.maxMovementPx, touch.sector)) {
+    if (boostCallback.current) {
+      const endX = clientX - touch.startX;
+      const endY = clientY - touch.startY;
+      const direction = completedBoostDirection({
+        durationMs: at - touch.startedAt,
+        movementPx: Math.max(touch.maxMovementPx, Math.hypot(endX, endY)),
+        endX, endY, radiusPx: touch.boostRadius, edgeDirection: touch.boostDirection,
+      });
+      const result = registerBoostGesture(boostGesture.current, direction, at);
+      boostGesture.current = result.state;
+      if (result.boost) {
+        const requested = boostCallback.current(result.boost);
+        if (feedbackAnnouncement.current) feedbackAnnouncement.current.textContent =
+          requested ? `${result.boost} directional boost requested` : "Directional boost unavailable or recovering";
+        showTemporaryFeedback({ kind: "boost", direction: result.boost, requested }, 650);
+      }
+      return;
+    }
+    if (cancelled || !isQuickStickTap(at - touch.startedAt, touch.maxMovementPx, touch.sector)) {
       gesture.current = { ...gesture.current, pending: null };
       return;
     }
-    const result = registerStickTap(gesture.current, touch.sector, Date.now());
+    const result = registerStickTap(gesture.current, touch.sector, at);
     gesture.current = result.state;
     if (!result.pulse) return;
     pulseCallback.current?.(result.pulse);
@@ -219,7 +275,7 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       touch.circularMode = true;
       if (update.rollInput !== 0) circularCallback.current?.(update.rollInput);
       clearFeedbackTimer();
-      setFeedback({ kind: "roll-live", progress: update.progress, direction: update.direction });
+      setFeedback({ kind: "roll-live", progress: 0, direction: update.direction });
       return;
     }
     if (!update.direction || update.progress < 0.04) return;
@@ -240,14 +296,39 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
       data-roll-gesture={rollGestureState}
       data-axis-x="0.000"
       data-axis-y="0.000"
-      className={`pilot-flight-stick relative touch-none rounded-full border border-bone/30 bg-void/25 ${size === "arena" ? "size-28" : "h-24 w-24 sm:h-32 sm:w-32"} ${className}`}
+      data-active="false"
+      data-floating-side={floatingSide}
+      className={`pilot-flight-stick relative touch-none ${floating
+        ? "pilot-flight-stick-zone"
+        : `rounded-full border border-bone/30 bg-void/25 ${size === "arena" ? "size-28" : "h-24 w-24 sm:h-32 sm:w-32"} ${className}`}`}
+      style={floating ? {
+        position: "fixed",
+        top: "var(--flight-viewport-top, 0px)",
+        bottom: "auto",
+        left: floatingSide === "left"
+          ? "var(--flight-viewport-left, 0px)"
+          : "calc(var(--flight-viewport-left, 0px) + var(--flight-viewport-width, 100vw) * .5)",
+        width: "calc(var(--flight-viewport-width, 100vw) * .5)",
+        height: "var(--flight-viewport-height, 100dvh)",
+        zIndex: 1,
+      } : undefined}
       onPointerDown={(event) => {
         event.stopPropagation();
         if (disabledRef.current || active.current) return;
+        if ((event.target as HTMLElement).closest("button,input,select,textarea,[role=dialog]")) return;
         delete event.currentTarget.dataset.recenter;
         const rect = event.currentTarget.getBoundingClientRect();
+        if (floating && visual.current) {
+          const ringSize = 84;
+          const localX = Math.max(ringSize / 2, Math.min(rect.width - ringSize / 2, event.clientX - rect.left));
+          const localY = Math.max(ringSize / 2, Math.min(rect.height - ringSize / 2, event.clientY - rect.top));
+          visual.current.style.left = `${localX}px`;
+          visual.current.style.top = `${localY}px`;
+          event.currentTarget.dataset.active = "true";
+        }
         event.currentTarget.setPointerCapture(event.pointerId);
-        const radiusBounds = circularGestureRadiusBounds(rect.width, rect.height);
+        const gestureSize = floating ? 84 : rect.width;
+        const radiusBounds = circularGestureRadiusBounds(gestureSize, floating ? gestureSize : rect.height);
         const startedAt = pointerTimestampMs(event.nativeEvent);
         active.current = {
           pointerId: event.pointerId,
@@ -261,24 +342,27 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
           circularMode: false,
           circularTracker: circularCallback.current
             ? createCircularGestureTracker(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
+              floating ? event.clientX : rect.left + rect.width / 2,
+              floating ? event.clientY : rect.top + rect.height / 2,
               startedAt,
               radiusBounds.minRadiusPx,
               radiusBounds.maxRadiusPx,
             )
             : null,
           circularCandidateStarted: false,
+          boostRadius: floating ? 42 : Math.min(rect.width, rect.height) * .3,
+          boostDirection: boostDirectionAt(
+            (event.clientX - rect.left - rect.width / 2) / (rect.width / 2),
+            (event.clientY - rect.top - rect.height / 2) / (rect.height / 2),
+          ),
         };
         sendAxis(0, 0);
       }}
       onPointerMove={(event) => {
         const touch = active.current;
         if (!touch || touch.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        touch.maxMovementPx = Math.max(
-          touch.maxMovementPx,
-          Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY),
-        );
+        const displacement = Math.hypot(event.clientX - touch.startX, event.clientY - touch.startY);
+        touch.maxMovementPx = Math.max(touch.maxMovementPx, displacement);
         if (touch.maxMovementPx > STICK_TAP_MAX_MOVEMENT_PX) {
           gesture.current = { ...gesture.current, pending: null };
         }
@@ -293,53 +377,49 @@ export function PilotFlightStick({ label, testId, onAxis, onPulse, onCircularRol
           }
           if (touch.circularTracker) updateCircular(touch, event.clientX, event.clientY, pointerTimestampMs(nativeEvent));
         }
-        updateAxis(event.clientX, event.clientY);
+        // Once the circular gesture is armed, keep the input dedicated to the
+        // hull roll. Letting the same loop also steer pitch/yaw obscures the
+        // roll and can make a left roll look like a camera turn.
+        if (touch.circularMode) sendAxis(0, 0);
+        else updateAxis(event.clientX, event.clientY);
       }}
-      onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false); }}
-      onPointerCancel={(event) => finish(event.pointerId, true)}
-      onLostPointerCapture={(event) => finish(event.pointerId, true)}
+      onPointerUp={(event) => { event.stopPropagation(); finish(event.pointerId, false, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY); }}
+      onPointerCancel={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
+      onLostPointerCapture={(event) => finish(event.pointerId, true, pointerTimestampMs(event.nativeEvent), event.clientX, event.clientY)}
     >
       <span ref={feedbackAnnouncement} className="sr-only" role="status" aria-live="polite" aria-atomic="true" />
-      <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
-      <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
-      <div ref={knob} className="pilot-flight-stick-knob absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-bone/70 bg-bone/15 sm:size-12" />
-      {feedback?.kind === "roll-progress" || feedback?.kind === "roll-live" ? (
-        <>
-          <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="1.5" />
-            <circle
-              cx="50"
-              cy="50"
-              r="44"
-              fill="none"
-              stroke={feedback.kind === "roll-live" ? "#6ee7b7" : feedback.rejected ? "#ff705b" : "#e6a755"}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              pathLength="100"
-              strokeDasharray="100 100"
-              strokeDashoffset={100 - feedback.progress * 100}
-              transform="rotate(-90 50 50)"
-            />
-          </svg>
-          <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/80 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
+      <div ref={visual} className={`pilot-flight-stick-visual ${floating ? "" : "pilot-flight-stick-visual-static"}`}>
+        <div className="absolute left-1/2 top-1/2 h-px w-full -translate-x-1/2 bg-bone/12" />
+        <div className="absolute left-1/2 top-1/2 h-full w-px -translate-y-1/2 bg-bone/12" />
+        <div ref={knob} className="pilot-flight-stick-knob absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-bone/70 bg-bone/15 sm:size-12" />
+        {feedback?.kind === "roll-progress" || feedback?.kind === "roll-live" ? (
+          <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-void/85 px-1.5 py-1 font-mono text-[7px] tracking-wider text-solar" role="status" data-testid="roll-gesture-status">
             {feedback.kind === "roll-progress" && feedback.rejected
               ? "ROLL RETRY"
               : feedback.kind === "roll-live"
                 ? `${feedback.direction === "clockwise" ? "ROLL RIGHT" : "ROLL LEFT"} · LIVE`
-                : `${feedback.direction === "clockwise" ? "ROLL CW" : feedback.direction === "counterclockwise" ? "ROLL CCW" : "DRAW ROLL"} ${Math.round(feedback.progress * 100)}%`}
+                : `${feedback.direction === "clockwise" ? "ROLL RIGHT · DRAW" : feedback.direction === "counterclockwise" ? "ROLL LEFT · DRAW" : "DRAW ROLL"}`}
           </span>
-        </>
-      ) : null}
-      {feedback?.kind === "roll-release" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
-          ROLL RELEASED
-        </span>
-      ) : null}
-      {feedback?.kind === "vector" ? (
-        <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status">
-          {feedback.pulse.axis === "vertical" ? (feedback.pulse.direction > 0 ? "UP THRUST" : "DOWN THRUST") : (feedback.pulse.direction < 0 ? "LEFT VECTOR" : "RIGHT VECTOR")}
-        </span>
-      ) : null}
+        ) : null}
+        {feedback?.kind === "roll-release" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap text-emerald-300" aria-hidden="true" data-testid="roll-gesture-status">
+            ROLL RELEASED
+          </span>
+        ) : null}
+        {boostStatus ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 bottom-0 z-20 -translate-x-1/2 whitespace-nowrap" role="status" data-testid="vector-boost-server-status">{boostStatus}</span>
+        ) : null}
+        {feedback?.kind === "boost" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status" data-testid="vector-boost-gesture-status">
+            {feedback.requested ? `${feedback.direction.toUpperCase()} BURST` : "BURST UNAVAILABLE"}
+          </span>
+        ) : null}
+        {feedback?.kind === "vector" ? (
+          <span className="pilot-stick-feedback pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-full whitespace-nowrap" role="status">
+            {feedback.pulse.axis === "vertical" ? (feedback.pulse.direction > 0 ? "UP THRUST" : "DOWN THRUST") : (feedback.pulse.direction < 0 ? "LEFT VECTOR" : "RIGHT VECTOR")}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

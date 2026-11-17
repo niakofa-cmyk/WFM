@@ -17,7 +17,13 @@ For the multiplayer alpha, room state is intentionally process-local and active 
 
 **Why:** the user later explicitly approved server-authoritative matchmaking with ten humans required to start, while keeping private rooms and AI-filled offline play distinct.
 
-**How to apply:** keep private invite rooms isolated and no-reward. Only the authenticated, opt-in ten-human queue may create competitive matches; use exact opt-in feature flags and leave reward enablement separately gated. Casual AI-fill must stay a distinct server-assigned match mode with its own opt-in flag and no rewards/rank. Do not add a global single-room free-for-all, GPS matchmaking, or shared real-time galaxy simulation without a separate decision.
+**How to apply:** keep private invite rooms isolated and no-reward. Only the authenticated, opt-in ten-human queue may create competitive matches; use exact opt-in feature flags and leave reward enablement separately gated. Casual AI-fill must stay a distinct server-assigned match mode with its own opt-in flag and no rewards/rank. Do not add a global single-room free-for-all or GPS matchmaking.
+
+The owner separately approved one logical living shared Orbital universe, with human pilots, faction patrols and reinforcements participating in the same authoritative world through spatially partitioned sessions.
+
+**Why:** the owner explicitly wants pilots to discover and assist existing battles rather than launch separate copies of the universe. This supersedes the earlier restriction on adding shared real-time universe simulation, not the distinct Wing room policies.
+
+**How to apply:** stream authorized nearby actors, preserve authoritative region ownership and durable consequences, and distinguish the desired continuous universe from what has actually passed live verification. One universe does not require rendering every distant pilot or simulating one giant room.
 
 For multiplayer reliability evidence, compare client views at the same authoritative server tick; delayed clients naturally receive different snapshots at a given wall-clock instant. Seeded local impairment proxies can validate latency, jitter, frame loss, and reconnect logic, but they are not evidence of WAN/carrier reliability or a full human match.
 
