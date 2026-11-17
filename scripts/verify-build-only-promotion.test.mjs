@@ -12,6 +12,10 @@ import {
   verifyDocsAuditChange,
   DOCS_AUDIT_BASE_SHA,
   DOCS_AUDIT_BRANCH,
+  verifyProductionSigninHotfix,
+  PRODUCTION_SIGNIN_BASE_SHA,
+  PRODUCTION_SIGNIN_BRANCH,
+  PRODUCTION_SIGNIN_BLOBS,
 } from "./verify-build-only-promotion.mjs";
 
 const baseManifest = {
@@ -220,6 +224,89 @@ test("the visual-audit exception rejects manifest or release-workflow changes", 
   assert.throws(
     () => verifyDocsAudit({ headWorkflow: `${gatedWorkflow}\n# changed` }),
     /must not alter the release workflow/,
+  );
+});
+
+const productionSigninPaths = [
+  ...Object.keys(PRODUCTION_SIGNIN_BLOBS),
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
+function verifyProductionSignin(overrides = {}) {
+  return verifyProductionSigninHotfix({
+    baseSha: PRODUCTION_SIGNIN_BASE_SHA,
+    headRef: PRODUCTION_SIGNIN_BRANCH,
+    changedPaths: productionSigninPaths,
+    baseManifest: pinnedManifest,
+    headManifest: pinnedManifest,
+    baseWorkflow: gatedWorkflow,
+    headWorkflow: gatedWorkflow,
+    headBlobs: { ...PRODUCTION_SIGNIN_BLOBS },
+    ...overrides,
+  });
+}
+
+test("accepts only the exact owner-prepared production sign-in patch", () => {
+  const result = verifyProductionSignin();
+  assert.equal(result.kind, "production-signin-return-hotfix");
+  assert.equal(result.stagingCertificationClaimed, false);
+  assert.equal(result.productionDeploymentAuthorized, false);
+});
+
+test("the production sign-in exception is limited to its approved base and branch", () => {
+  assert.throws(
+    () => verifyProductionSignin({ baseSha: "a".repeat(40) }),
+    /approved main base/,
+  );
+  assert.throws(
+    () => verifyProductionSignin({ headRef: "another-signin-branch" }),
+    /approved branch/,
+  );
+});
+
+test("the production sign-in exception rejects extra runtime, lockfile, or documentation changes", () => {
+  for (const extraPath of [
+    "artifacts/war-for-mars/src/game/WarApp.tsx",
+    "pnpm-lock.yaml",
+    "docs/another-file.md",
+  ]) {
+    assert.throws(
+      () =>
+        verifyProductionSignin({
+          changedPaths: [...productionSigninPaths, extraPath],
+        }),
+      /only its reviewed files and gate regression tests/,
+    );
+  }
+});
+
+test("the production sign-in exception pins every reviewed source blob", () => {
+  for (const path of Object.keys(PRODUCTION_SIGNIN_BLOBS)) {
+    assert.throws(
+      () =>
+        verifyProductionSignin({
+          headBlobs: {
+            ...PRODUCTION_SIGNIN_BLOBS,
+            [path]: "a".repeat(40),
+          },
+        }),
+      /differs from its reviewed content/,
+    );
+  }
+});
+
+test("the production sign-in exception rejects workspace manifest or release-workflow changes", () => {
+  assert.throws(
+    () =>
+      verifyProductionSignin({
+        headManifest: { ...pinnedManifest, scripts: {} },
+      }),
+    /must not change the workspace package manifest/,
+  );
+  assert.throws(
+    () => verifyProductionSignin({ headWorkflow: `${gatedWorkflow}\n# changed` }),
+    /must not change the release workflow/,
   );
 });
 
