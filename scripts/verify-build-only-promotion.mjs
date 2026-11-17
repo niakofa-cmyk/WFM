@@ -30,7 +30,7 @@ export const PRODUCTION_SIGNIN_BLOBS = Object.freeze({
   "artifacts/war-for-mars/src/App.tsx": "056aa5508b04de9b33a953a917a193e898caf4cd",
   "artifacts/war-for-mars/src/auth/clerk-config.test.ts": "fac5d5f3d4612e0899dd02800064efcfe1f3e015",
   "artifacts/war-for-mars/src/auth/clerk-config.ts": "a40a220ec565a7eaf344ecc2ee21ca8bee4bc48e",
-  "docs/production-signin-hotfix-review.md": "f9f314b35cf53df23b6ea649a2bc78f1bceea4c9",
+  "docs/production-signin-hotfix-review.md": "2c45a80d415ab85c314b6721c43087a9840cb673",
 });
 const PRODUCTION_SIGNIN_POLICY_FILES = [
   "scripts/verify-build-only-promotion.mjs",

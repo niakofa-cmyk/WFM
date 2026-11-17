@@ -21,11 +21,16 @@ The previously approved fresh-production schema initialization must not be rerun
   mounted return destinations, unsafe paths, and both component bindings.
 - Include auth tests in the existing frontend test command so routine CI runs
   them as well.
+- Add a one-time release-check path pinned to the current main base, this branch,
+  and the exact reviewed application and review-document blobs.
 
-Only the three frontend auth files, the frontend test command and this review
-document differ from the production base. The existing `GameApiSession` bearer-token transport, SDK
-versions, lockfile, API, socket, gameplay and deployment configuration are
-unchanged. No private staging gateway is added to production.
+Application changes are limited to the three frontend auth files and the
+frontend test command. The PR also changes the two release-gate files; they
+preserve the full workspace checks and frozen install and do not certify fresh
+staging email verification or authorize a merge or deployment. The workflow,
+root package manifest, SDK versions, lockfile, `GameApiSession` bearer-token
+transport, API, socket, gameplay and deployment configuration are unchanged.
+No private staging gateway is added to production.
 
 ## Verification
 
