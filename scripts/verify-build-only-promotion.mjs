@@ -11,6 +11,34 @@ const BOOTSTRAP_FILES = [
   "scripts/verify-build-only-promotion.test.mjs",
 ];
 
+// Owner-approved, one-time production recovery patch. Pin the actual Git blobs,
+// not just filenames: this must not become a general runtime-change bypass.
+// Once main advances past this base, this exception can no longer be used.
+export const AUTH_RECOVERY_BASE_SHA = "3ecff671fdadaa041599d3c3b475b83bc810ec36";
+export const AUTH_RECOVERY_BLOBS = Object.freeze({
+  "artifacts/war-for-mars/src/App.tsx": "f6e4906e2c4a097438bafad5ad7dfc151e92c147",
+  "artifacts/war-for-mars/src/components/auth-initialization.tsx": "cfb900759aaef293f687a021ba8bbb7e3b4ce219",
+  "artifacts/war-for-mars/src/game/auth-initialization.test.ts": "c0cbd16d85ac96d96efb41ab5735bb45d3c2ffc5",
+});
+const AUTH_RECOVERY_POLICY_FILES = [
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
+// A separate owner-approved exception for the reviewed production profile
+// repair. It expires when main changes and does not certify live staging.
+export const AUTH_PROFILE_BASE_SHA = "1c161837a4ae790e7df9b5369de81b5f7cb57975";
+export const AUTH_PROFILE_BRANCH = "fix/production-profile-bearer-session";
+export const AUTH_PROFILE_BLOBS = Object.freeze({
+  "artifacts/war-for-mars/src/App.tsx": "6f996e0f1acb366b800f8e572b61fe60f6e7d8e4",
+  "artifacts/war-for-mars/src/game/GameApiSession.tsx": "37482918cc37f536df9651bbbdf51f19bfeb94f0",
+  "artifacts/war-for-mars/src/game/api-auth-session.ts": "2ce20d3664261391311ab39e2d184b6a667207e8",
+  "artifacts/war-for-mars/src/game/api-auth-session.test.ts": "d6cb0132f0cb40e55cd8c92ff1fb6a61ccf5e2ec",
+  "artifacts/war-for-mars/src/game/pilot-session-storage.ts": "80147faf5366e5e926c76628eee82d1b2db674d2",
+  "artifacts/war-for-mars/src/game/pilot-session-storage.test.ts": "6b8d135dc74108bcbff129ad755ed26a9fa87a82",
+  "artifacts/war-for-mars/src/game/WarApp.tsx": "57b24315751ad9d5880c3ae849fe066eeb2a5094",
+});
+
 function fail(message) {
   throw new Error(message);
 }
@@ -141,6 +169,89 @@ function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
+export function verifyAuthRecoveryHotfix({
+  baseSha,
+  headRef,
+  changedPaths,
+  baseManifest,
+  headManifest,
+  baseWorkflow,
+  headWorkflow,
+  headBlobs,
+}) {
+  if (baseSha !== AUTH_RECOVERY_BASE_SHA) {
+    fail("The auth recovery exception is restricted to its approved production base.");
+  }
+  if (headRef !== "fix/auth-loading-recovery") {
+    fail("The auth recovery exception is restricted to its approved hotfix branch.");
+  }
+  const requiredPaths = [
+    ...Object.keys(AUTH_RECOVERY_BLOBS),
+    ...AUTH_RECOVERY_POLICY_FILES,
+  ];
+  const actual = [...new Set(changedPaths)].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(requiredPaths.sort())) {
+    fail("The auth recovery hotfix must contain exactly the approved recovery and policy files.");
+  }
+  for (const [path, expected] of Object.entries(AUTH_RECOVERY_BLOBS)) {
+    if (headBlobs?.[path] !== expected) {
+      fail(`The auth recovery hotfix content differs from the approved patch: ${path}.`);
+    }
+  }
+  if (JSON.stringify(baseManifest) !== JSON.stringify(headManifest)) {
+    fail("The auth recovery hotfix must not change the package manifest.");
+  }
+  if (baseWorkflow !== headWorkflow) {
+    fail("The auth recovery hotfix must not change the release workflow.");
+  }
+  verifyWorkflowRoutes(headWorkflow);
+  return {
+    kind: "auth-initialization-hotfix",
+    changedPaths: actual,
+    stagingCertificationClaimed: false,
+  };
+}
+
+export function verifyAuthProfileHotfix({
+  baseSha,
+  headRef,
+  changedPaths,
+  baseManifest,
+  headManifest,
+  baseWorkflow,
+  headWorkflow,
+  headBlobs,
+}) {
+  if (baseSha !== AUTH_PROFILE_BASE_SHA) {
+    fail("The profile auth exception is restricted to its approved production base.");
+  }
+  if (headRef !== AUTH_PROFILE_BRANCH) {
+    fail("The profile auth exception is restricted to its approved hotfix branch.");
+  }
+  const requiredPaths = [...Object.keys(AUTH_PROFILE_BLOBS), ...AUTH_RECOVERY_POLICY_FILES].sort();
+  const actual = [...new Set(changedPaths)].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(requiredPaths)) {
+    fail("The profile auth hotfix must contain exactly the approved source, tests and policy files.");
+  }
+  for (const [path, expected] of Object.entries(AUTH_PROFILE_BLOBS)) {
+    if (headBlobs?.[path] !== expected) {
+      fail(`The profile auth hotfix content differs from the approved patch: ${path}.`);
+    }
+  }
+  if (JSON.stringify(baseManifest) !== JSON.stringify(headManifest)) {
+    fail("The profile auth hotfix must not change the package manifest.");
+  }
+  if (baseWorkflow !== headWorkflow) {
+    fail("The profile auth hotfix must not change the release workflow.");
+  }
+  verifyWorkflowRoutes(headWorkflow);
+  return {
+    kind: "profile-auth-hotfix",
+    changedPaths: actual,
+    stagingCertificationClaimed: false,
+  };
+}
+
 function requireSha(value, label) {
   if (typeof value !== "string" || !/^[0-9a-f]{40}$/i.test(value)) {
     fail(`${label} must be a full 40-character commit SHA.`);
@@ -184,13 +295,52 @@ function main() {
     `${headSha}:.github/workflows/quality.yml`,
   ]);
 
-  const result = verifyBuildOnlyChange({
+  const inputs = {
     changedPaths,
     baseManifest,
     headManifest,
     baseWorkflow,
     headWorkflow,
-  });
+  };
+  if (process.env.GITHUB_HEAD_REF === AUTH_PROFILE_BRANCH) {
+    verifyAuthProfileHotfix({
+      ...inputs,
+      baseSha,
+      headRef: process.env.GITHUB_HEAD_REF,
+      headBlobs: Object.fromEntries(
+        Object.keys(AUTH_PROFILE_BLOBS).map((path) => [
+          path,
+          git(["rev-parse", `${headSha}:${path}`]),
+        ]),
+      ),
+    });
+    console.log(
+      "Verified the exact owner-approved production profile auth hotfix; full workspace validation and frozen install remain required. Live staging acceptance and production verification are NOT certified by this exception.",
+    );
+    return;
+  }
+  const authRecoveryRequested = changedPaths.some((path) =>
+    Object.hasOwn(AUTH_RECOVERY_BLOBS, path),
+  );
+  if (authRecoveryRequested) {
+    verifyAuthRecoveryHotfix({
+      ...inputs,
+      baseSha,
+      headRef: process.env.GITHUB_HEAD_REF,
+      headBlobs: Object.fromEntries(
+        Object.keys(AUTH_RECOVERY_BLOBS).map((path) => [
+          path,
+          git(["rev-parse", `${headSha}:${path}`]),
+        ]),
+      ),
+    });
+    console.log(
+      "Verified the exact owner-approved auth-loading recovery hotfix; full workspace validation and frozen install remain required. No live staging certification is claimed.",
+    );
+    return;
+  }
+
+  const result = verifyBuildOnlyChange(inputs);
 
   console.log(
     `Verified build-only pnpm pin ${result.packageManager}; no live staging certification is claimed.`,

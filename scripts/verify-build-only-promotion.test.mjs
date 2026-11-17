@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { verifyBuildOnlyChange } from "./verify-build-only-promotion.mjs";
+import {
+  verifyBuildOnlyChange,
+  verifyAuthRecoveryHotfix,
+  AUTH_RECOVERY_BASE_SHA,
+  AUTH_RECOVERY_BLOBS,
+  verifyAuthProfileHotfix,
+  AUTH_PROFILE_BASE_SHA,
+  AUTH_PROFILE_BRANCH,
+  AUTH_PROFILE_BLOBS,
+} from "./verify-build-only-promotion.mjs";
 
 const baseManifest = {
   name: "workspace",
@@ -146,4 +155,183 @@ test("after bootstrap, only the root pnpm pin is allowed", () => {
       }),
     /runtime or unrelated changes/,
   );
+});
+
+const recoveryPaths = [
+  ...Object.keys(AUTH_RECOVERY_BLOBS),
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
+function verifyRecovery(overrides = {}) {
+  return verifyAuthRecoveryHotfix({
+    baseSha: AUTH_RECOVERY_BASE_SHA,
+    headRef: "fix/auth-loading-recovery",
+    changedPaths: recoveryPaths,
+    baseManifest: pinnedManifest,
+    headManifest: pinnedManifest,
+    baseWorkflow: gatedWorkflow,
+    headWorkflow: gatedWorkflow,
+    headBlobs: { ...AUTH_RECOVERY_BLOBS },
+    ...overrides,
+  });
+}
+
+test("accepts only the exact approved recovery patch without claiming staging certification", () => {
+  const result = verifyRecovery();
+  assert.equal(result.kind, "auth-initialization-hotfix");
+  assert.equal(result.stagingCertificationClaimed, false);
+});
+
+test("the recovery exception expires after the production base changes", () => {
+  assert.throws(() => verifyRecovery({ baseSha: "a".repeat(40) }), /approved production base/);
+});
+
+test("the recovery exception cannot be used by staging or another branch", () => {
+  for (const headRef of [undefined, "", "staging", "unrelated-change"]) {
+    assert.throws(() => verifyRecovery({ headRef }), /approved hotfix branch/);
+  }
+});
+
+test("rejects modified or missing approved source blobs, including auth and test changes", () => {
+  for (const path of Object.keys(AUTH_RECOVERY_BLOBS)) {
+    const changed = { ...AUTH_RECOVERY_BLOBS, [path]: "a".repeat(40) };
+    assert.throws(() => verifyRecovery({ headBlobs: changed }), /differs from the approved patch/);
+    delete changed[path];
+    assert.throws(() => verifyRecovery({ headBlobs: changed }), /differs from the approved patch/);
+  }
+});
+
+test("rejects unrelated runtime, backend, lockfile, manifest, evidence and workflow changes", () => {
+  for (const path of [
+    "artifacts/war-for-mars/src/game/WarApp.tsx",
+    "artifacts/api-server/src/middlewares/playerAuth.ts",
+    "pnpm-lock.yaml",
+    "package.json",
+    "STAGING-TEST-RESULTS.json",
+    ".github/workflows/quality.yml",
+  ]) {
+    assert.throws(
+      () => verifyRecovery({ changedPaths: [...recoveryPaths, path] }),
+      /exactly the approved recovery and policy files/,
+    );
+  }
+});
+
+test("requires every approved recovery and policy file", () => {
+  for (const path of recoveryPaths) {
+    assert.throws(
+      () => verifyRecovery({ changedPaths: recoveryPaths.filter((item) => item !== path) }),
+      /exactly the approved recovery and policy files/,
+    );
+  }
+});
+
+test("rejects workflow and package drift even if the caller omits their changed paths", () => {
+  assert.throws(
+    () => verifyRecovery({ headWorkflow: `${gatedWorkflow}\n# changed` }),
+    /must not change the release workflow/,
+  );
+  assert.throws(
+    () => verifyRecovery({ headManifest: { ...pinnedManifest, scripts: {} } }),
+    /must not change the package manifest/,
+  );
+});
+
+test("the exception retains the existing live-staging route and workspace dependency", () => {
+  for (const fragment of [
+    "needs: verify",
+    "node scripts/verify-staging-promotion.mjs",
+    "node --test scripts/verify-build-only-promotion.test.mjs",
+    "pnpm install --frozen-lockfile",
+  ]) {
+    const workflow = gatedWorkflow.replace(fragment, "disabled");
+    assert.throws(() => verifyRecovery({ baseWorkflow: workflow, headWorkflow: workflow }));
+  }
+});
+
+const profilePaths = [
+  ...Object.keys(AUTH_PROFILE_BLOBS),
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
+function verifyProfile(overrides = {}) {
+  return verifyAuthProfileHotfix({
+    baseSha: AUTH_PROFILE_BASE_SHA,
+    headRef: AUTH_PROFILE_BRANCH,
+    changedPaths: profilePaths,
+    baseManifest: pinnedManifest,
+    headManifest: pinnedManifest,
+    baseWorkflow: gatedWorkflow,
+    headWorkflow: gatedWorkflow,
+    headBlobs: { ...AUTH_PROFILE_BLOBS },
+    ...overrides,
+  });
+}
+
+test("accepts the exact profile repair without certifying live staging or production", () => {
+  const result = verifyProfile();
+  assert.equal(result.kind, "profile-auth-hotfix");
+  assert.equal(result.stagingCertificationClaimed, false);
+});
+
+test("profile exception expires when production advances and rejects other source branches", () => {
+  assert.throws(() => verifyProfile({ baseSha: "a".repeat(40) }), /approved production base/);
+  for (const headRef of [undefined, "", "staging", "fix/auth-loading-recovery", "another-hotfix"]) {
+    assert.throws(() => verifyProfile({ headRef }), /approved hotfix branch/);
+  }
+});
+
+test("profile exception rejects altered or missing runtime and regression-test blobs", () => {
+  for (const path of Object.keys(AUTH_PROFILE_BLOBS)) {
+    const headBlobs = { ...AUTH_PROFILE_BLOBS, [path]: "a".repeat(40) };
+    assert.throws(() => verifyProfile({ headBlobs }), /differs from the approved patch/);
+    delete headBlobs[path];
+    assert.throws(() => verifyProfile({ headBlobs }), /differs from the approved patch/);
+  }
+});
+
+test("profile exception rejects missing required files and unrelated changes", () => {
+  for (const path of profilePaths) {
+    assert.throws(
+      () => verifyProfile({ changedPaths: profilePaths.filter((entry) => entry !== path) }),
+      /exactly the approved source, tests and policy files/,
+    );
+  }
+  for (const path of [
+    "artifacts/api-server/src/middlewares/playerAuth.ts",
+    "pnpm-lock.yaml",
+    "package.json",
+    "STAGING-TEST-RESULTS.json",
+    ".github/workflows/quality.yml",
+  ]) {
+    assert.throws(
+      () => verifyProfile({ changedPaths: [...profilePaths, path] }),
+      /exactly the approved source, tests and policy files/,
+    );
+  }
+});
+
+test("profile exception rejects unreported workflow and package changes", () => {
+  assert.throws(
+    () => verifyProfile({ headWorkflow: `${gatedWorkflow}\n# changed` }),
+    /must not change the release workflow/,
+  );
+  assert.throws(
+    () => verifyProfile({ headManifest: { ...pinnedManifest, scripts: {} } }),
+    /must not change the package manifest/,
+  );
+});
+
+test("profile exception preserves workspace, live staging, test and frozen-install gates", () => {
+  for (const fragment of [
+    "needs: verify",
+    "node scripts/verify-staging-promotion.mjs",
+    "node --test scripts/verify-build-only-promotion.test.mjs",
+    "pnpm install --frozen-lockfile",
+  ]) {
+    const workflow = gatedWorkflow.replace(fragment, "disabled");
+    assert.throws(() => verifyProfile({ baseWorkflow: workflow, headWorkflow: workflow }));
+  }
 });
