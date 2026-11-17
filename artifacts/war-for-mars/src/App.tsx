@@ -1,5 +1,6 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { GlobalCampaignStatus } from "./game/GlobalCampaignStatus";
+import { AuthInitialization } from "./components/auth-initialization";
 import { configuredClerkPublishableKey, gameAuthReturnUrl } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
@@ -78,17 +79,31 @@ const appearance = {
 
 function SignInPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} forceRedirectUrl={gameEntryUrl} />
-    </main>
+    <AuthInitialization returnHref={`${basePath}/about`}>
+      <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+          forceRedirectUrl={gameEntryUrl}
+        />
+      </main>
+    </AuthInitialization>
   );
 }
 
 function SignUpPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} forceRedirectUrl={gameEntryUrl} />
-    </main>
+    <AuthInitialization returnHref={`${basePath}/about`}>
+      <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+          forceRedirectUrl={gameEntryUrl}
+        />
+      </main>
+    </AuthInitialization>
   );
 }
 

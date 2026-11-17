@@ -1,6 +1,51 @@
 import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
+test("mobile sign-in retries the Clerk connection after its SDK stalls", async ({ page }) => {
+  const blockedRequests: string[] = [];
+  const gameWrites: string[] = [];
+  let blockClerkSdk = true;
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.origin === "http://127.0.0.1:4173" && url.pathname.startsWith("/api/") && request.method() !== "GET") {
+      gameWrites.push(`${request.method()} ${url.pathname}`);
+    }
+  });
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const isClerkSdk =
+      url.hostname.toLowerCase().includes("clerk") &&
+      (url.pathname.includes("clerk-js") || url.pathname.includes("clerk.browser"));
+    if (blockClerkSdk && isClerkSdk) {
+      blockedRequests.push(url.href);
+      await route.abort("failed");
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Connecting to sign-in…" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to Niakofa Kids" }))
+    .toHaveAttribute("href", "/about");
+  await expect(page.getByRole("button", { name: "Retry connection" }))
+    .toBeVisible({ timeout: 13_000 });
+  expect(blockedRequests.length, "the test must block the actual hosted Clerk SDK").toBeGreaterThan(0);
+
+  const firstAttemptRequests = blockedRequests.length;
+  const reloaded = page.waitForEvent("domcontentloaded");
+  await page.getByRole("button", { name: "Retry connection" }).click();
+  await reloaded;
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByRole("heading", { name: "Connecting to sign-in…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry connection" })).toHaveCount(0);
+  await expect.poll(() => blockedRequests.length).toBeGreaterThan(firstAttemptRequests);
+  await expect(page.getByRole("button", { name: "Retry connection" }))
+    .toBeVisible({ timeout: 13_000 });
+  expect(gameWrites, "authentication recovery must not start gameplay or mutate account data").toEqual([]);
+});
+
 test("local Cinder approach docks at 22m, runs training, and returns to the same Arena", async ({ page }) => {
   test.setTimeout(120_000);
   const pageErrors: string[] = [];
