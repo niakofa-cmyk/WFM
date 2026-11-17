@@ -21,6 +21,22 @@ const DOCS_AUDIT_FILES = [
   "scripts/verify-build-only-promotion.test.mjs",
 ];
 
+// One-time, content-pinned path for the owner-prepared production sign-in fix.
+// This does not certify fresh staging email verification or authorize release.
+export const PRODUCTION_SIGNIN_BASE_SHA = "2ddd9387758eb00bb9696c74a73ef14897f57375";
+export const PRODUCTION_SIGNIN_BRANCH = "fix/wfm-production-signin-return";
+export const PRODUCTION_SIGNIN_BLOBS = Object.freeze({
+  "artifacts/war-for-mars/package.json": "db4164ffa94f8bac38e607af11d39bf0ac405899",
+  "artifacts/war-for-mars/src/App.tsx": "056aa5508b04de9b33a953a917a193e898caf4cd",
+  "artifacts/war-for-mars/src/auth/clerk-config.test.ts": "fac5d5f3d4612e0899dd02800064efcfe1f3e015",
+  "artifacts/war-for-mars/src/auth/clerk-config.ts": "a40a220ec565a7eaf344ecc2ee21ca8bee4bc48e",
+  "docs/production-signin-hotfix-review.md": "2c45a80d415ab85c314b6721c43087a9840cb673",
+});
+const PRODUCTION_SIGNIN_POLICY_FILES = [
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
 // Owner-approved, one-time production recovery patch. Pin the actual Git blobs,
 // not just filenames: this must not become a general runtime-change bypass.
 // Once main advances past this base, this exception can no longer be used.
@@ -211,6 +227,52 @@ export function verifyDocsAuditChange({
   };
 }
 
+export function verifyProductionSigninHotfix({
+  baseSha,
+  headRef,
+  changedPaths,
+  baseManifest,
+  headManifest,
+  baseWorkflow,
+  headWorkflow,
+  headBlobs,
+}) {
+  if (baseSha !== PRODUCTION_SIGNIN_BASE_SHA) {
+    fail("The production sign-in exception is restricted to its approved main base.");
+  }
+  if (headRef !== PRODUCTION_SIGNIN_BRANCH) {
+    fail("The production sign-in exception is restricted to its approved branch.");
+  }
+
+  const actual = [...new Set(changedPaths)].sort();
+  const required = [
+    ...Object.keys(PRODUCTION_SIGNIN_BLOBS),
+    ...PRODUCTION_SIGNIN_POLICY_FILES,
+  ].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(required)) {
+    fail("The production sign-in exception permits only its reviewed files and gate regression tests.");
+  }
+  for (const [path, expected] of Object.entries(PRODUCTION_SIGNIN_BLOBS)) {
+    if (headBlobs?.[path] !== expected) {
+      fail(`The production sign-in patch differs from its reviewed content: ${path}.`);
+    }
+  }
+  if (JSON.stringify(baseManifest) !== JSON.stringify(headManifest)) {
+    fail("The production sign-in patch must not change the workspace package manifest.");
+  }
+  if (baseWorkflow !== headWorkflow) {
+    fail("The production sign-in patch must not change the release workflow.");
+  }
+
+  verifyWorkflowRoutes(baseWorkflow);
+  return {
+    kind: "production-signin-return-hotfix",
+    changedPaths: actual,
+    stagingCertificationClaimed: false,
+    productionDeploymentAuthorized: false,
+  };
+}
+
 function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
@@ -356,6 +418,23 @@ function main() {
     });
     console.log(
       "Verified the exact visual-audit documentation exception; full workspace validation and frozen install remain required. No runtime changes or live staging certification are permitted.",
+    );
+    return;
+  }
+  if (process.env.GITHUB_HEAD_REF === PRODUCTION_SIGNIN_BRANCH) {
+    verifyProductionSigninHotfix({
+      ...inputs,
+      baseSha,
+      headRef: process.env.GITHUB_HEAD_REF,
+      headBlobs: Object.fromEntries(
+        Object.keys(PRODUCTION_SIGNIN_BLOBS).map((path) => [
+          path,
+          git(["rev-parse", `${headSha}:${path}`]),
+        ]),
+      ),
+    });
+    console.log(
+      "Verified the exact owner-prepared production sign-in hotfix; full workspace validation and frozen install remain required. No fresh staging certification or production deployment authorization is claimed.",
     );
     return;
   }
