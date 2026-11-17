@@ -9,6 +9,9 @@ import {
   AUTH_PROFILE_BASE_SHA,
   AUTH_PROFILE_BRANCH,
   AUTH_PROFILE_BLOBS,
+  verifyDocsAuditChange,
+  DOCS_AUDIT_BASE_SHA,
+  DOCS_AUDIT_BRANCH,
 } from "./verify-build-only-promotion.mjs";
 
 const baseManifest = {
@@ -154,6 +157,69 @@ test("after bootstrap, only the root pnpm pin is allowed", () => {
         baseWorkflow: gatedWorkflow,
       }),
     /runtime or unrelated changes/,
+  );
+});
+
+const docsAuditPaths = [
+  "docs/audits/WFM-visual-audit-actionable-checklist.md",
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
+function verifyDocsAudit(overrides = {}) {
+  return verifyDocsAuditChange({
+    baseSha: DOCS_AUDIT_BASE_SHA,
+    headRef: DOCS_AUDIT_BRANCH,
+    changedPaths: docsAuditPaths,
+    baseManifest: pinnedManifest,
+    headManifest: pinnedManifest,
+    baseWorkflow: gatedWorkflow,
+    headWorkflow: gatedWorkflow,
+    ...overrides,
+  });
+}
+
+test("accepts only the exact visual-audit documentation exception", () => {
+  const result = verifyDocsAudit();
+  assert.equal(result.kind, "docs-only-audit-checklist");
+  assert.equal(result.stagingCertificationClaimed, false);
+});
+
+test("the visual-audit exception is limited to its approved base and branch", () => {
+  assert.throws(
+    () => verifyDocsAudit({ baseSha: "a".repeat(40) }),
+    /approved main base/,
+  );
+  assert.throws(
+    () => verifyDocsAudit({ headRef: "another-docs-branch" }),
+    /approved branch/,
+  );
+});
+
+test("the visual-audit exception rejects runtime, lockfile, and extra documentation changes", () => {
+  for (const extraPath of [
+    "artifacts/war-for-mars/src/App.tsx",
+    "pnpm-lock.yaml",
+    "docs/another-file.md",
+  ]) {
+    assert.throws(
+      () => verifyDocsAudit({ changedPaths: [...docsAuditPaths, extraPath] }),
+      /only its checklist and scoped gate regression tests/,
+    );
+  }
+});
+
+test("the visual-audit exception rejects manifest or release-workflow changes", () => {
+  assert.throws(
+    () =>
+      verifyDocsAudit({
+        headManifest: { ...pinnedManifest, scripts: {} },
+      }),
+    /must not alter the package manifest/,
+  );
+  assert.throws(
+    () => verifyDocsAudit({ headWorkflow: `${gatedWorkflow}\n# changed` }),
+    /must not alter the release workflow/,
   );
 });
 
