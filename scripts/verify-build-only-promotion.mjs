@@ -11,6 +11,16 @@ const BOOTSTRAP_FILES = [
   "scripts/verify-build-only-promotion.test.mjs",
 ];
 
+// One-time exception for the reviewed PR 8 visual-audit checklist. It is
+// restricted to this exact main base, branch, checklist, and policy tests.
+export const DOCS_AUDIT_BASE_SHA = "05e17d8040856336904178e115425d6e56e2d9f4";
+export const DOCS_AUDIT_BRANCH = "docs/wfm-visual-audit-actionable-checklist";
+const DOCS_AUDIT_FILES = [
+  "docs/audits/WFM-visual-audit-actionable-checklist.md",
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
 // Owner-approved, one-time production recovery patch. Pin the actual Git blobs,
 // not just filenames: this must not become a general runtime-change bypass.
 // Once main advances past this base, this exception can no longer be used.
@@ -165,6 +175,42 @@ export function verifyBuildOnlyChange({
   };
 }
 
+export function verifyDocsAuditChange({
+  baseSha,
+  headRef,
+  changedPaths,
+  baseManifest,
+  headManifest,
+  baseWorkflow,
+  headWorkflow,
+}) {
+  if (baseSha !== DOCS_AUDIT_BASE_SHA) {
+    fail("The visual-audit checklist exception is restricted to its approved main base.");
+  }
+  if (headRef !== DOCS_AUDIT_BRANCH) {
+    fail("The visual-audit checklist exception is restricted to its approved branch.");
+  }
+
+  const actual = [...new Set(changedPaths)].sort();
+  const required = [...DOCS_AUDIT_FILES].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(required)) {
+    fail("The visual-audit exception permits only its checklist and scoped gate regression tests.");
+  }
+  if (JSON.stringify(baseManifest) !== JSON.stringify(headManifest)) {
+    fail("The visual-audit checklist change must not alter the package manifest.");
+  }
+  if (baseWorkflow !== headWorkflow) {
+    fail("The visual-audit checklist change must not alter the release workflow.");
+  }
+
+  verifyWorkflowRoutes(baseWorkflow);
+  return {
+    kind: "docs-only-audit-checklist",
+    changedPaths: actual,
+    stagingCertificationClaimed: false,
+  };
+}
+
 function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
@@ -302,6 +348,17 @@ function main() {
     baseWorkflow,
     headWorkflow,
   };
+  if (process.env.GITHUB_HEAD_REF === DOCS_AUDIT_BRANCH) {
+    verifyDocsAuditChange({
+      ...inputs,
+      baseSha,
+      headRef: process.env.GITHUB_HEAD_REF,
+    });
+    console.log(
+      "Verified the exact visual-audit documentation exception; full workspace validation and frozen install remain required. No runtime changes or live staging certification are permitted.",
+    );
+    return;
+  }
   if (process.env.GITHUB_HEAD_REF === AUTH_PROFILE_BRANCH) {
     verifyAuthProfileHotfix({
       ...inputs,
