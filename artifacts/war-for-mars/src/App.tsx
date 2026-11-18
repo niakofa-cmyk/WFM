@@ -1,10 +1,10 @@
-import { ClerkProvider, Show, SignIn, SignUp, UserButton } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { setBaseUrl } from "@workspace/api-client-react";
 import { GameApiSession } from "./game/GameApiSession";
 import { configuredClerkPublishableKey, gameAuthReturnUrl } from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense } from "react";
-import { Link, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { AuthInitialization } from "./components/auth-initialization";
 
 const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: module.WarApp })));
@@ -19,7 +19,9 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
 setBaseUrl(apiBaseUrl);
 
 function stripBase(path: string) {
-  return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
+  return basePath && (path === basePath || path.startsWith(`${basePath}/`))
+    ? path.slice(basePath.length) || "/"
+    : path;
 }
 
 const appearance = {
@@ -73,7 +75,18 @@ const appearance = {
 
 function SignInPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
+    <main
+      data-testid="orbital-signin-page"
+      className="relative flex min-h-dvh items-center justify-center bg-void px-4 py-8"
+    >
+      <div className="pointer-events-none absolute inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] text-center">
+        <p className="font-hud text-xs tracking-[0.28em] text-solar">
+          WAR FOR MARS · ORBITAL UNIVERSE
+        </p>
+        <p className="mt-1 font-hud text-[10px] tracking-[0.2em] text-muted">
+          SECURE PILOT ACCESS · SHARED CAMPAIGN
+        </p>
+      </div>
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} forceRedirectUrl={gameEntryUrl} />
     </main>
   );
@@ -150,6 +163,20 @@ function SignedInGame() {
   );
 }
 
+function AccountGameEntry() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Never mount account or progression hooks until Clerk verifies the session.
+  if (isLoaded && isSignedIn) return <SignedInGame key={userId} />;
+  return <Redirect to="/sign-in" />;
+}
+
+function SignInEntry() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // Keep the actual sign-in form visible while an unverified session is checked.
+  if (isLoaded && isSignedIn) return <SignedInGame key={userId} />;
+  return <SignInPage />;
+}
+
 function Routes() {
   const [, setLocation] = useLocation();
   return (
@@ -168,13 +195,8 @@ function Routes() {
     >
       <AuthInitialization>
         <Switch>
-          <Route path="/" component={() => (
-            <>
-              <Show when="signed-in"><SignedInGame /></Show>
-              <Show when="signed-out"><PublicLanding /></Show>
-            </>
-          )} />
-          <Route path="/sign-in/*?" component={SignInPage} />
+          <Route path="/" component={AccountGameEntry} />
+          <Route path="/sign-in/*?" component={SignInEntry} />
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route component={PublicLanding} />
         </Switch>

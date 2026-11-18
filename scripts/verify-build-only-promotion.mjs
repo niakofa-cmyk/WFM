@@ -51,6 +51,24 @@ const AUTH_RECOVERY_POLICY_FILES = [
   "scripts/verify-build-only-promotion.test.mjs",
 ];
 
+// One-time, exact-source exception for carrying the canonical Orbital sign-in
+// entry onto production main. It cannot be reused after main advances.
+export const ORBITAL_SIGNIN_BASE_SHA = "8cf70c35d553a7740221882787e32742bf06744f";
+export const ORBITAL_SIGNIN_BRANCH = "feat/orbital-signin-main-port";
+export const ORBITAL_SIGNIN_BLOBS = Object.freeze({
+  "artifacts/war-for-mars/e2e/mounted-route.spec.ts": "3aaab35584f0b00abf0e820c97b4b9a9388ad99a",
+  "artifacts/war-for-mars/package.json": "349f140620df2b29fb2750bd09baaed7707f0e89",
+  "artifacts/war-for-mars/playwright.config.ts": "2887cd22426091abf9c58a9db5b369fef7136b81",
+  "artifacts/war-for-mars/src/App.tsx": "b5f239e49f6d9f729f314b03568294c280aebdba",
+  "artifacts/war-for-mars/src/components/auth-initialization.tsx": "f7a31fb44f981b3a9d77b93666bd90185a4f52e6",
+  "artifacts/war-for-mars/src/game/auth-initialization.test.ts": "f26759741dcf540731349bfac15e5b9c70c176e0",
+  "pnpm-lock.yaml": "023def727985e4ff67d1945b123ae02d305df75b",
+});
+const ORBITAL_SIGNIN_POLICY_FILES = [
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+
 // A separate owner-approved exception for the reviewed production profile
 // repair. It expires when main changes and does not certify live staging.
 export const AUTH_PROFILE_BASE_SHA = "1c161837a4ae790e7df9b5369de81b5f7cb57975";
@@ -360,6 +378,66 @@ export function verifyAuthProfileHotfix({
   };
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonicalJson(value[key])]),
+  );
+}
+
+export function verifyOrbitalSignInPort({
+  baseSha,
+  headRef,
+  changedPaths,
+  baseManifest,
+  headManifest,
+  baseWorkflow,
+  headWorkflow,
+  headBlobs,
+}) {
+  if (baseSha !== ORBITAL_SIGNIN_BASE_SHA) {
+    fail("The Orbital sign-in exception is restricted to the exact reviewed production main base.");
+  }
+  if (headRef !== ORBITAL_SIGNIN_BRANCH) {
+    fail("The Orbital sign-in exception is restricted to its dedicated branch.");
+  }
+
+  const actual = [...new Set(changedPaths)].sort();
+  const required = [
+    ...Object.keys(ORBITAL_SIGNIN_BLOBS),
+    ...ORBITAL_SIGNIN_POLICY_FILES,
+  ].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(required)) {
+    fail("The Orbital sign-in exception permits only the reviewed route, UI, tests, and scoped gate files.");
+  }
+  for (const [path, expected] of Object.entries(ORBITAL_SIGNIN_BLOBS)) {
+    if (headBlobs?.[path] !== expected) {
+      fail(`The Orbital sign-in port differs from its reviewed content: ${path}.`);
+    }
+  }
+
+  if (
+    JSON.stringify(canonicalJson(baseManifest)) !==
+    JSON.stringify(canonicalJson(headManifest))
+  ) {
+    fail("The Orbital sign-in port must not change the workspace package manifest.");
+  }
+  if (baseWorkflow !== headWorkflow) {
+    fail("The Orbital sign-in port must not change the release workflow.");
+  }
+
+  verifyWorkflowRoutes(headWorkflow);
+  return {
+    kind: "orbital-canonical-sign-in-port",
+    changedPaths: actual,
+    stagingCertificationClaimed: false,
+    productionDeploymentAuthorized: false,
+  };
+}
+
 function requireSha(value, label) {
   if (typeof value !== "string" || !/^[0-9a-f]{40}$/i.test(value)) {
     fail(`${label} must be a full 40-character commit SHA.`);
@@ -452,6 +530,23 @@ function main() {
     });
     console.log(
       "Verified the exact owner-approved production profile auth hotfix; full workspace validation and frozen install remain required. Live staging acceptance and production verification are NOT certified by this exception.",
+    );
+    return;
+  }
+  if (process.env.GITHUB_HEAD_REF === ORBITAL_SIGNIN_BRANCH) {
+    verifyOrbitalSignInPort({
+      ...inputs,
+      baseSha,
+      headRef: process.env.GITHUB_HEAD_REF,
+      headBlobs: Object.fromEntries(
+        Object.keys(ORBITAL_SIGNIN_BLOBS).map((path) => [
+          path,
+          git(["rev-parse", `${headSha}:${path}`]),
+        ]),
+      ),
+    });
+    console.log(
+      "Verified the exact canonical Orbital sign-in port against production main. This does not certify staging or authorize production deployment.",
     );
     return;
   }
