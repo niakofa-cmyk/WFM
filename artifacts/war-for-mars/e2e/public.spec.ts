@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type {} from "../src/game/controls-probe";
 
-test("mobile sign-in retries the Clerk connection after its SDK stalls", async ({ page }) => {
+test("mobile entry keeps the Orbital sign-in screen visible while Clerk initializes", async ({ page }) => {
   const blockedRequests: string[] = [];
   const gameWrites: string[] = [];
   let blockClerkSdk = true;
@@ -25,23 +25,29 @@ test("mobile sign-in retries the Clerk connection after its SDK stalls", async (
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Connecting to sign-in…" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to Niakofa Kids" }))
-    .toHaveAttribute("href", "/about");
-  await expect(page.getByRole("button", { name: "Retry connection" }))
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByTestId("orbital-signin-page")).toBeVisible();
+  await expect(page.getByText("WAR FOR MARS · ORBITAL UNIVERSE")).toBeVisible();
+  await expect(page.getByText("Checking your secure pilot session…")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connecting to sign-in…" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sign-in is taking longer than expected" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retry", exact: true }))
     .toBeVisible({ timeout: 13_000 });
   expect(blockedRequests.length, "the test must block the actual hosted Clerk SDK").toBeGreaterThan(0);
+  await expect(page.getByTestId("orbital-signin-page")).toBeVisible();
+  await expect(page.locator("canvas")).toHaveCount(0);
 
   const firstAttemptRequests = blockedRequests.length;
   const reloaded = page.waitForEvent("domcontentloaded");
-  await page.getByRole("button", { name: "Retry connection" }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
   await reloaded;
   await expect(page).toHaveURL(/\/sign-in$/);
-  await expect(page.getByRole("heading", { name: "Connecting to sign-in…" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Retry connection" })).toHaveCount(0);
+  await expect(page.getByTestId("orbital-signin-page")).toBeVisible();
+  await expect(page.getByText("WAR FOR MARS · ORBITAL UNIVERSE")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
   await expect.poll(() => blockedRequests.length).toBeGreaterThan(firstAttemptRequests);
-  await expect(page.getByRole("button", { name: "Retry connection" }))
+  await expect(page.getByRole("button", { name: "Retry", exact: true }))
     .toBeVisible({ timeout: 13_000 });
   expect(gameWrites, "authentication recovery must not start gameplay or mutate account data").toEqual([]);
 });

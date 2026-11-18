@@ -5,6 +5,18 @@ export function configuredClerkPublishableKey(value: string | undefined): string
   return key;
 }
 
+/**
+ * Development Clerk sessions use the Development Frontend API directly.
+ * Never route them through a proxy configured for another hosted environment.
+ */
+export function clerkProxyUrlForEnvironment(
+  isDevelopment: boolean,
+  configuredUrl: string | undefined,
+): string | undefined {
+  if (isDevelopment) return undefined;
+  return configuredUrl?.trim() || undefined;
+}
+
 /** Keep completed authentication inside this game's mounted entry route. */
 export function gameAuthReturnUrl(basePath: string): string {
   const base = basePath.trim().replace(/\/+$/, "");

@@ -28,3 +28,15 @@ acceptance and successful game entry are separate facts.
 the configured external Clerk instance, and verify the actual browser return plus
 an authenticated profile response before claiming the flow works. A static bundle
 fallback key is not proof of the runtime's selected Clerk hostname.
+
+The WFM base route should show the real Orbital Clerk sign-in screen immediately.
+Keep session initialization and retry feedback inline on that screen, and do not
+mount flight/gameplay until Clerk confirms a loaded, signed-in pilot session.
+
+**Why:** the user explicitly requires secure pilot verification before gameplay
+and rejects guest or unauthenticated entry, while also asking that connection
+delays not replace the sign-in experience with a full-screen loading/error page.
+
+**How to apply:** preserve the mounted Clerk form during initialization, show
+delays/retry as a compact status, and keep the authenticated game route behind
+the existing signed-in and API-session gates.

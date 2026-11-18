@@ -34,5 +34,5 @@ run("playwright", [
   "test",
   "e2e/public.spec.ts",
   "--grep",
-  "mobile sign-in retries the Clerk connection after its SDK stalls",
+  "mobile entry keeps the Orbital sign-in screen visible while Clerk initializes",
 ]);

@@ -9,10 +9,15 @@ const chromiumExecutable =
   (existsSync("/repl/tools/bin/chromium") ? "/repl/tools/bin/chromium" : undefined);
 
 const authEnabled = process.env.WFM_E2E_AUTH === "1";
+const mountedRouteOnly = process.env.WFM_E2E_MOUNTED_PATH === "1";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: authEnabled ? "authenticated.spec.ts" : "public.spec.ts",
+  testMatch: authEnabled
+    ? "authenticated.spec.ts"
+    : mountedRouteOnly
+      ? "mounted-route.spec.ts"
+      : "public.spec.ts",
   globalSetup: authEnabled ? "./e2e/global-setup.ts" : undefined,
   fullyParallel: false,
   workers: 1,
@@ -42,7 +47,7 @@ export default defineConfig({
     env: {
       ...process.env,
       PORT: "4173",
-      BASE_PATH: "/",
+      BASE_PATH: process.env.BASE_PATH || "/",
       VITE_API_BASE_URL: "http://127.0.0.1:8080",
     },
   },
