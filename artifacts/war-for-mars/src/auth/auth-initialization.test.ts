@@ -8,47 +8,45 @@ import {
   AuthLoadingView,
 } from "../components/auth-initialization";
 
-test("sign-in loading view is accessible and returns to Niakofa Kids", () => {
+test("sign-in initialization is a compact status, not a replacement page", () => {
   const html = renderToStaticMarkup(
     createElement(AuthLoadingView, {
       timedOut: false,
-      returnHref: "/kids/wfm/about",
       onRetry() {},
     }),
   );
-  assert.match(html, /Connecting to sign-in/);
+  assert.match(html, /Checking your secure pilot session/);
   assert.match(html, /role="status"/);
   assert.match(html, /aria-live="polite"/);
-  assert.match(html, /href="\/kids\/wfm\/about"/);
-  assert.match(html, /Back to Niakofa Kids/);
+  assert.doesNotMatch(html, /min-h-dvh|<main|Connecting to sign-in|Back to Niakofa Kids/);
   assert.doesNotMatch(html, /button-retry-auth/);
 });
 
-test("stalled sign-in offers a full-page retry but makes no session claim", () => {
+test("stalled sign-in offers inline retry and keeps the game locked", () => {
   assert.equal(AUTH_INITIALIZATION_TIMEOUT_MS, 10_000);
   const html = renderToStaticMarkup(
     createElement(AuthLoadingView, {
       timedOut: true,
-      returnHref: "/kids/wfm/about",
       onRetry() {},
     }),
   );
-  assert.match(html, /Sign-in is taking longer than expected/);
+  assert.match(html, /Still connecting securely/);
   assert.match(html, /button-retry-auth/);
-  assert.match(html, /Retry connection/);
-  assert.match(html, /The game has not started/);
-  assert.doesNotMatch(html, /canvas|signed in successfully/i);
+  assert.match(html, />Retry</);
+  assert.match(html, /session is not verified; the game remains locked/);
+  assert.doesNotMatch(html, /min-h-dvh|<main|Sign-in is taking longer than expected/);
 });
 
-test("only hosted sign-in and sign-up routes are gated; account entry stays protected", () => {
+test("entry opens Clerk sign-in and game remains gated until Clerk verifies the session", () => {
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const gate = readFileSync(new URL("../components/auth-initialization.tsx", import.meta.url), "utf8");
 
-  assert.match(app, /function AccountGameEntry\(\)[\s\S]*?if \(isLoaded && isSignedIn\) return <SignedInGame key=\{userId\} \/>;[\s\S]*?return <PublicLanding \/>;/);
+  assert.match(app, /function AccountGameEntry\(\)[\s\S]*?if \(isLoaded && isSignedIn\) return <SignedInGame key=\{userId\} \/>;[\s\S]*?return <Redirect to="\/sign-in" \/>;/);
+  assert.match(app, /function SignInEntry\(\)[\s\S]*?if \(isLoaded && isSignedIn\) return <SignedInGame key=\{userId\} \/>;[\s\S]*?return <SignInPage \/>;/);
   assert.match(app, /<GameApiSession>[\s\S]*?<WarApp initialOrbitalOpen \/>[\s\S]*?<\/GameApiSession>/);
-  assert.match(app, /function SignInPage\(\)[\s\S]*?<AuthInitialization returnHref=\{`\$\{basePath\}\/about`\}>[\s\S]*?<SignIn\b/);
-  assert.match(app, /function SignUpPage\(\)[\s\S]*?<AuthInitialization returnHref=\{`\$\{basePath\}\/about`\}>[\s\S]*?<SignUp\b/);
-  assert.doesNotMatch(app, /<AuthInitialization[^>]*>\s*<Switch>/);
+  assert.match(app, /data-testid="orbital-signin-page"[\s\S]*?<SignIn\b/);
+  assert.match(app, /<Route path="\/sign-in\/\*\?" component=\{SignInEntry\} \/>/);
+  assert.match(gate, /return \(\s*<>\s*\{children\}/);
   assert.match(gate, /window\.clearTimeout\(timer\)/);
   assert.match(gate, /window\.location\.reload\(\)/);
   assert.doesNotMatch(gate, /localStorage|sessionStorage|signOut|removeItem|fetch\(/);

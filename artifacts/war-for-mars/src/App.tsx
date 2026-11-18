@@ -86,8 +86,19 @@ const appearance = {
 
 function SignInPage() {
   return (
-    <AuthInitialization returnHref={`${basePath}/about`}>
-      <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
+    <AuthInitialization>
+      <main
+        data-testid="orbital-signin-page"
+        className="relative flex min-h-dvh items-center justify-center bg-void px-4 py-8"
+      >
+        <div className="pointer-events-none absolute inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] text-center">
+          <p className="font-hud text-xs tracking-[0.28em] text-solar">
+            WAR FOR MARS · ORBITAL UNIVERSE
+          </p>
+          <p className="mt-1 font-hud text-[10px] tracking-[0.2em] text-muted">
+            SECURE PILOT ACCESS · SHARED CAMPAIGN
+          </p>
+        </div>
         <SignIn
           routing="path"
           path={`${basePath}/sign-in`}
@@ -101,7 +112,7 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <AuthInitialization returnHref={`${basePath}/about`}>
+    <AuthInitialization>
       <main className="flex min-h-dvh items-center justify-center bg-void px-4 py-8">
         <SignUp
           routing="path"
@@ -209,7 +220,15 @@ function AccountGameEntry() {
   const { isLoaded, isSignedIn, userId } = useAuth();
   // Never mount account/progression hooks until the session is confirmed.
   if (isLoaded && isSignedIn) return <SignedInGame key={userId} />;
-  return <PublicLanding />;
+  return <Redirect to="/sign-in" />;
+}
+
+function SignInEntry() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  // A verified Clerk session can enter the game; every other state stays on
+  // the real sign-in screen while the session check continues in the background.
+  if (isLoaded && isSignedIn) return <SignedInGame key={userId} />;
+  return <SignInPage />;
 }
 
 function Routes() {
@@ -235,7 +254,7 @@ function Routes() {
         <Route path="/"><AccountGameEntry /></Route>
         <Route path="/command"><Redirect to="/" /></Route>
         <Route path="/universe"><Redirect to="/" /></Route>
-        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-in/*?" component={SignInEntry} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/expedition">
           <Redirect to="/" />
