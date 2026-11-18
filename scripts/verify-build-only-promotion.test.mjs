@@ -16,6 +16,10 @@ import {
   PRODUCTION_SIGNIN_BASE_SHA,
   PRODUCTION_SIGNIN_BRANCH,
   PRODUCTION_SIGNIN_BLOBS,
+  verifyOrbitalSignInPort,
+  ORBITAL_SIGNIN_BASE_SHA,
+  ORBITAL_SIGNIN_BRANCH,
+  ORBITAL_SIGNIN_BLOBS,
 } from "./verify-build-only-promotion.mjs";
 
 const baseManifest = {
@@ -487,4 +491,69 @@ test("profile exception preserves workspace, live staging, test and frozen-insta
     const workflow = gatedWorkflow.replace(fragment, "disabled");
     assert.throws(() => verifyProfile({ baseWorkflow: workflow, headWorkflow: workflow }));
   }
+});
+
+const orbitalSigninPaths = [
+  ...Object.keys(ORBITAL_SIGNIN_BLOBS),
+  "scripts/verify-build-only-promotion.mjs",
+  "scripts/verify-build-only-promotion.test.mjs",
+];
+function verifyOrbitalSignin(overrides = {}) {
+  return verifyOrbitalSignInPort({
+    baseSha: ORBITAL_SIGNIN_BASE_SHA,
+    headRef: ORBITAL_SIGNIN_BRANCH,
+    changedPaths: orbitalSigninPaths,
+    baseManifest: pinnedManifest,
+    headManifest: pinnedManifest,
+    baseWorkflow: gatedWorkflow,
+    headWorkflow: gatedWorkflow,
+    headBlobs: { ...ORBITAL_SIGNIN_BLOBS },
+    ...overrides,
+  });
+}
+
+test("accepts only the exact mounted Orbital sign-in port without deployment claims", () => {
+  const result = verifyOrbitalSignin();
+  assert.equal(result.kind, "orbital-canonical-sign-in-port");
+  assert.equal(result.stagingCertificationClaimed, false);
+  assert.equal(result.productionDeploymentAuthorized, false);
+});
+
+test("Orbital sign-in exception is locked to exact main base and dedicated branch", () => {
+  assert.throws(
+    () => verifyOrbitalSignin({ baseSha: "a".repeat(40) }),
+    /exact reviewed production main base/,
+  );
+  assert.throws(
+    () => verifyOrbitalSignin({ headRef: "staging" }),
+    /dedicated branch/,
+  );
+});
+
+test("Orbital sign-in exception rejects omitted, extra, or altered source paths", () => {
+  assert.throws(
+    () => verifyOrbitalSignin({ changedPaths: orbitalSigninPaths.slice(1) }),
+    /only the reviewed route, UI, tests, and scoped gate files/,
+  );
+  assert.throws(
+    () => verifyOrbitalSignin({ changedPaths: [...orbitalSigninPaths, "artifacts/api-server/src/index.ts"] }),
+    /only the reviewed route, UI, tests, and scoped gate files/,
+  );
+  for (const path of Object.keys(ORBITAL_SIGNIN_BLOBS)) {
+    assert.throws(
+      () => verifyOrbitalSignin({ headBlobs: { ...ORBITAL_SIGNIN_BLOBS, [path]: "a".repeat(40) } }),
+      /differs from its reviewed content/,
+    );
+  }
+});
+
+test("Orbital sign-in exception rejects workspace manifest and workflow drift", () => {
+  assert.throws(
+    () => verifyOrbitalSignin({ headManifest: { ...pinnedManifest, scripts: { ...pinnedManifest.scripts, build: "skip" } } }),
+    /must not change the workspace package manifest/,
+  );
+  assert.throws(
+    () => verifyOrbitalSignin({ headWorkflow: `${gatedWorkflow}\n# changed` }),
+    /must not change the release workflow/,
+  );
 });
