@@ -1,7 +1,11 @@
 import { ClerkProvider, SignIn, SignUp, UserButton, useAuth } from "@clerk/react";
 import { GlobalCampaignStatus } from "./game/GlobalCampaignStatus";
 import { AuthInitialization } from "./components/auth-initialization";
-import { configuredClerkPublishableKey, gameAuthReturnUrl } from "./auth/clerk-config";
+import {
+  clerkProxyUrlForEnvironment,
+  configuredClerkPublishableKey,
+  gameAuthReturnUrl,
+} from "./auth/clerk-config";
 import { shadcn } from "@clerk/themes";
 import { lazy, Suspense, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,7 +21,10 @@ const WarApp = lazy(() => import("./game/WarApp").then((module) => ({ default: m
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const gameEntryUrl = gameAuthReturnUrl(basePath);
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const clerkProxyUrl = clerkProxyUrlForEnvironment(
+  import.meta.env.DEV,
+  import.meta.env.VITE_CLERK_PROXY_URL,
+);
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || null;
 
 setBaseUrl(apiBaseUrl);

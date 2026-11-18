@@ -1,81 +1,178 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { customFetch, setAuthTokenGetter } from "../../../../lib/api-client-react/src/custom-fetch";
+import {
+  customFetch,
+  setAuthTokenGetter,
+  setBaseUrl,
+} from "../../../../lib/api-client-react/src/custom-fetch";
 import { installGameApiSession } from "./api-auth-session";
 
-test("first API request carries a fresh token and later requests refresh it", async () => {
+test("profile requests include a fresh Clerk bearer token", async () => {
   const originalFetch = globalThis.fetch;
-  const observed: Array<string | null> = [];
+  const authorization: Array<string | null> = [];
   let issued = 0;
   globalThis.fetch = async (_input, options) => {
-    observed.push(new Headers(options?.headers).get("authorization"));
+    authorization.push(new Headers(options?.headers).get("authorization"));
     return new Response("{}", { headers: { "content-type": "application/json" } });
   };
-  const release = installGameApiSession(() => `fixture-${++issued}`, setAuthTokenGetter);
+  const release = installGameApiSession(() => `token-${++issued}`, setAuthTokenGetter);
   try {
     await customFetch("/api/game/profile");
-    await customFetch("/api/world");
-    assert.deepEqual(observed, ["Bearer fixture-1", "Bearer fixture-2"]);
-  } finally { release(); globalThis.fetch = originalFetch; }
+    await customFetch("/api/game/profile");
+    assert.deepEqual(authorization, ["Bearer token-1", "Bearer token-2"]);
+  } finally {
+    release();
+    globalThis.fetch = originalFetch;
+  }
 });
 
-test("missing and failed tokens never send unauthenticated API requests", async () => {
+test("missing or failed Clerk tokens never send an unauthenticated request", async () => {
   const originalFetch = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = async () => { calls++; return new Response("{}"); };
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
   try {
-    for (const getter of [() => null, async () => { throw new Error("Session refresh failed"); }]) {
-      const release = installGameApiSession(getter, setAuthTokenGetter);
-      try { await assert.rejects(customFetch("/api/game/profile")); }
-      finally { release(); }
+    for (const getToken of [
+      () => null,
+      async () => { throw new Error("Clerk token refresh failed"); },
+    ]) {
+      const release = installGameApiSession(getToken, setAuthTokenGetter);
+      try {
+        await assert.rejects(customFetch("/api/game/profile"));
+      } finally {
+        release();
+      }
     }
-    assert.equal(calls, 0);
-  } finally { globalThis.fetch = originalFetch; }
+    assert.equal(requests, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
-test("sign-out cancels token resolution already in flight", async () => {
+test("sign-out invalidates a token that resolves after cleanup", async () => {
   const originalFetch = globalThis.fetch;
-  let calls = 0;
+  let requests = 0;
   let resolveToken!: (token: string) => void;
-  globalThis.fetch = async () => { calls++; return new Response("{}"); };
+  globalThis.fetch = async () => {
+    requests++;
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
   const release = installGameApiSession(
     () => new Promise<string>((resolve) => { resolveToken = resolve; }),
     setAuthTokenGetter,
   );
   try {
-    const rejection = assert.rejects(customFetch("/api/game/profile"), /session changed/);
+    const rejected = assert.rejects(customFetch("/api/game/profile"), /session changed/);
     release();
-    resolveToken("fixture-token");
-    await rejection;
-    assert.equal(calls, 0);
-  } finally { release(); globalThis.fetch = originalFetch; }
+    resolveToken("late-token");
+    await rejected;
+    assert.equal(requests, 0);
+  } finally {
+    release();
+    globalThis.fetch = originalFetch;
+  }
 });
 
-test("old account cleanup cannot remove the new session provider", async () => {
+test("cleanup from a prior account cannot clear the current account token getter", async () => {
   const originalFetch = globalThis.fetch;
-  let bearer: string | null = null;
+  let authorization: string | null = null;
   globalThis.fetch = async (_input, options) => {
-    bearer = new Headers(options?.headers).get("authorization");
+    authorization = new Headers(options?.headers).get("authorization");
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  const releaseOld = installGameApiSession(() => "old-account", setAuthTokenGetter);
+  const releaseNew = installGameApiSession(() => "new-account", setAuthTokenGetter);
+  try {
+    releaseOld();
+    await customFetch("/api/game/profile");
+    assert.equal(authorization, "Bearer new-account");
+  } finally {
+    releaseOld();
+    releaseNew();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("requests started after sign-out reject instead of falling back to cookies", async () => {
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
     return new Response("{}");
   };
-  const oldRelease = installGameApiSession(() => "old-fixture", setAuthTokenGetter);
-  const newRelease = installGameApiSession(() => "new-fixture", setAuthTokenGetter);
+  const release = installGameApiSession(() => "signed-in-token", setAuthTokenGetter);
   try {
-    oldRelease();
-    await customFetch("/api/game/profile");
-    assert.equal(bearer, "Bearer new-fixture");
-  } finally { oldRelease(); newRelease(); globalThis.fetch = originalFetch; }
+    release();
+    await assert.rejects(customFetch("/api/game/profile"), /session changed/);
+    assert.equal(requests, 0);
+  } finally {
+    release();
+    globalThis.fetch = originalFetch;
+  }
 });
 
-test("redirects remain inside WFM and all signed-in consumers wait for auth", () => {
+test("account replacement invalidates the prior account's unresolved token", async () => {
+  const originalFetch = globalThis.fetch;
+  let resolveOld!: (token: string) => void;
+  const headers: Array<string | null> = [];
+  globalThis.fetch = async (_input, options) => {
+    headers.push(new Headers(options?.headers).get("authorization"));
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  const releaseOld = installGameApiSession(
+    () => new Promise<string>((resolve) => { resolveOld = resolve; }),
+    setAuthTokenGetter,
+  );
+  let releaseNew = () => {};
+  try {
+    const rejected = assert.rejects(customFetch("/api/game/profile"), /session changed/);
+    releaseNew = installGameApiSession(() => "new-pilot-token", setAuthTokenGetter);
+    resolveOld("old-pilot-token");
+    await rejected;
+    await customFetch("/api/game/profile");
+    assert.deepEqual(headers, ["Bearer new-pilot-token"]);
+  } finally {
+    releaseOld();
+    releaseNew();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("configured API origins receive authenticated profile requests", async () => {
+  const originalFetch = globalThis.fetch;
+  let destination = "";
+  let authorization: string | null = null;
+  globalThis.fetch = async (input, options) => {
+    destination = String(input);
+    authorization = new Headers(options?.headers).get("authorization");
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  };
+  const release = installGameApiSession(() => "pilot-token", setAuthTokenGetter);
+  setBaseUrl("https://api.example.test/");
+  try {
+    await customFetch("/api/game/profile");
+    assert.equal(destination, "https://api.example.test/api/game/profile");
+    assert.equal(authorization, "Bearer pilot-token");
+  } finally {
+    release();
+    setBaseUrl(null);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("redirects remain mounted and authenticated consumers wait for the full pilot session", () => {
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const gate = readFileSync(new URL("./GameApiSession.tsx", import.meta.url), "utf8");
   assert.match(app, /signInForceRedirectUrl=\{`\$\{basePath\}\/`\}/);
   assert.match(app, /signUpForceRedirectUrl=\{`\$\{basePath\}\/`\}/);
   assert.match(app, /<GameApiSession>[\s\S]*?<WarApp\b[\s\S]*?<\/GameApiSession>/);
   assert.doesNotMatch(app, /ApiAuthBridge/);
-  assert.match(gate, /readySession !== sessionId/);
-  assert.ok(gate.indexOf("installGameApiSession(") < gate.indexOf("setReadySession(sessionId)"));
+  assert.match(gate, /userId, sessionId/);
+  assert.match(gate, /readySession !== identity/);
+  assert.ok(gate.indexOf("installGameApiSession(") < gate.indexOf("setReadySession(identity)"));
+  assert.match(gate, /key=\{identity\}/);
   assert.match(gate, /return release/);
 });

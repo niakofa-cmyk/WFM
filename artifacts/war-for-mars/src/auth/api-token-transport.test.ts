@@ -46,7 +46,9 @@ test("WFM gates signed-in consumers on the Clerk token provider", async () => {
   assert.match(appSource, /<ClerkProvider[\s\S]*?<AccountGameEntry\s*\/>[\s\S]*?<\/ClerkProvider>/);
   assert.match(appSource, /<GameApiSession>[\s\S]*?<WarApp\b[\s\S]*?<\/GameApiSession>/);
   assert.match(gateSource, /installGameApiSession\(\(\) => getToken\(\), setAuthTokenGetter\)/);
-  assert.match(gateSource, /readySession !== sessionId/);
+  assert.match(gateSource, /userId, sessionId/);
+  assert.match(gateSource, /readySession !== identity/);
+  assert.match(gateSource, /key=\{identity\}/);
   assert.doesNotMatch(gateSource, /if \(!apiBaseUrl\)/);
 });
 
